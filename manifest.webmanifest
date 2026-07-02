@@ -1,0 +1,16 @@
+{
+  "name": "ANAGROCI FBMS — Field Buying 2027",
+  "short_name": "FBMS",
+  "description": "Field Buying Management System — recensement villages ANAGROCI / PJS Global",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B2B21",
+  "theme_color": "#0B2B21",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
