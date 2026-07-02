@@ -14,7 +14,7 @@
    CACHE_VERSION puis republier ce fichier.
    ========================================================================== */
 
-var CACHE_VERSION = "v0.7.0";
+var CACHE_VERSION = "v0.15.0";
 var SHELL_CACHE = "fbms-shell-" + CACHE_VERSION;
 var RUNTIME_CACHE = "fbms-runtime-" + CACHE_VERSION;
 
@@ -30,6 +30,7 @@ var PRECACHE = [
   "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
   "https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
 ];
 
@@ -63,8 +64,15 @@ self.addEventListener("fetch", function(event){
 
   var url = new URL(req.url);
 
-  // Backend Apps Script : toujours le réseau, jamais de cache.
+  // Backends vivants (Apps Script, Supabase) : toujours le réseau, jamais de
+  // cache — des données ou jetons mis en cache seraient dangereux.
   if (url.hostname.indexOf("script.google.com") >= 0 || url.hostname.indexOf("script.googleusercontent.com") >= 0) return;
+  if (url.hostname.indexOf(".supabase.co") >= 0 && url.pathname.indexOf("/storage/v1/object/public/") < 0) return;
+  // Photos Supabase Storage (publiques) : cache d'abord, rafraîchi en arrière-plan.
+  if (url.hostname.indexOf(".supabase.co") >= 0){
+    event.respondWith(staleWhileRevalidate(req));
+    return;
+  }
 
   // Navigation : réseau d'abord (mises à jour), cache en secours (hors ligne).
   if (req.mode === "navigate"){
