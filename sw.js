@@ -14,7 +14,7 @@
    CACHE_VERSION puis republier ce fichier.
    ========================================================================== */
 
-var CACHE_VERSION = "v0.15.0";
+var CACHE_VERSION = "v0.15.1";
 var SHELL_CACHE = "fbms-shell-" + CACHE_VERSION;
 var RUNTIME_CACHE = "fbms-runtime-" + CACHE_VERSION;
 
@@ -75,14 +75,19 @@ self.addEventListener("fetch", function(event){
   }
 
   // Navigation : réseau d'abord (mises à jour), cache en secours (hors ligne).
+  // v0.15.1 : cache par URL (multi-pages : index.html, logistique.html, …) —
+  // l'ancienne version écrasait ./index.html avec la page visitée.
   if (req.mode === "navigate"){
     event.respondWith(
       fetch(req).then(function(resp){
         var copy = resp.clone();
-        caches.open(SHELL_CACHE).then(function(c){ c.put("./index.html", copy); }).catch(function(){});
+        caches.open(SHELL_CACHE).then(function(c){ c.put(req, copy); }).catch(function(){});
         return resp;
       }).catch(function(){
-        return caches.match("./index.html").then(function(r){ return r || caches.match("./"); });
+        return caches.match(req).then(function(r){
+          if (r) return r;
+          return caches.match("./index.html").then(function(r2){ return r2 || caches.match("./"); });
+        });
       })
     );
     return;

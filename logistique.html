@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANAGROCI · Logistique Field Buying 2027 — FBMS</title>
+<meta name="theme-color" content="#0B2B21">
+<!-- ============================================================================
+     FBMS LOGISTIQUE — P1 (v1.0.0)
+     Application soeur du recensement (index.html). Même projet Supabase, même
+     session d'authentification. Moteur de prix transposé À L'IDENTIQUE du
+     classeur "ANAGROCI FieldBuying Logistique.xlsx" validé par M. KOUASSI :
+     · litres autorisés = distance AR × conso/100 × (1 + coeff détour)
+     · coût carburant   = litres × prix gasoil ACTUEL
+     · hors carburant   = (coût fixe + distance AR × maintenance) × (1 + marge
+                          transporteur), arrondi au millier supérieur
+     · prix budgété     = hors carburant + carburant (arrondi millier sup.)
+     · prix réindexé    = hors carburant + carburant × (1 + marge OLAM 9%) —
+                          opposable UNIQUEMENT en cas de hausse réelle du gasoil
+     · décision         = marché ≤ budget : Accepter · ≤ +5% : Négocier · sinon
+                          Rejeter / renégocier
+     Correction assumée vs Excel : coût/T/km divise par la distance ALLER
+     (l'Excel divisait par la colonne Hub, toujours vide — bug signalé).
+     P1 = en ligne uniquement (outil de bureau/négociation, pas de mode terrain).
+     ========================================================================== -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  html,body{height:100%;margin:0;background:#F7F5EF;}
+  .ff-display{font-family:'Archivo',sans-serif;}
+  .ff-body{font-family:'IBM Plex Sans',sans-serif;}
+  .ff-mono{font-family:'IBM Plex Mono',monospace;}
+  input,select{background:#fff;border:1px solid #E4E0D5;}
+  input:focus,select:focus{outline:2px solid #1F5B3F33;}
+  .card{background:#fff;border:1px solid #E4E0D5;border-radius:12px;}
+  th{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#4B5A52;font-weight:600;}
+  td{font-size:13px;}
+  .badge-nv{background:#D9A4411A;color:#B07817;border:1px solid #D9A44155;}
+  .badge-ok{background:#1F9D6E1A;color:#1F9D6E;border:1px solid #1F9D6E55;}
+</style>
+</head>
+<body class="ff-body" style="color:#132A22">
+<div id="app" class="max-w-[1200px] mx-auto px-4 py-6"></div>
+<script>
+"use strict";
+/* ------------------------------ CONFIG ------------------------------------ */
+const LOG_CONFIG = {
+  version: "1.0.0-p1",
+  supabase: {
+    url: "https://jmbdgpdthzpszfnddwzi.supabase.co",
+    anonKey: "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d",
+  },
+  rolesEcriture: ["Branch Manager","Procurement Officer"],
+};
+const SB = window.supabase.createClient(LOG_CONFIG.supabase.url, LOG_CONFIG.supabase.anonKey);
+const S = { session:null, role:null, nom:"", canWrite:false,
+            params:{}, paramRows:[], gabarits:[], hubs:[], reperes:[], decisions:[],
+            potentielRecense:{}, grille:{} }; // grille[cluster] = {gabarit, etat, marche}
+
+/* ------------------------------ OUTILS ------------------------------------ */
+const $ = (id)=>document.getElementById(id);
+const esc = (s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const fmt = (n)=> (n==null||isNaN(n)) ? "—" : Number(n).toLocaleString("fr-FR");
+const fmt1 = (n)=> (n==null||isNaN(n)) ? "—" : Number(n).toLocaleString("fr-FR",{maximumFractionDigits:1});
+const ceil1000 = (x)=> Math.ceil(x/1000)*1000; // ROUNDUP(x,-3)
+function badgeStatut(s){ return s==="confirmé" ? '<span class="badge-ok text-[10px] px-2 py-0.5 rounded-full">confirmé</span>'
+                                               : '<span class="badge-nv text-[10px] px-2 py-0.5 rounded-full">non vérifié</span>'; }
+function toast(msg, ok=true){
+  const t=document.createElement("div");
+  t.className="fixed bottom-4 right-4 px-4 py-2.5 rounded-lg text-sm ff-body z-50";
+  t.style.cssText="background:"+(ok?"#1F5B3F":"#C0392B")+";color:#fff;box-shadow:0 4px 14px #0003";
+  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 3200);
+}
+
+/* --------------------------- MOTEUR DE PRIX -------------------------------- */
+/* Transposition exacte du classeur. Renvoie null si données insuffisantes. */
+function calcLigne(hub, gabaritCode, etat){
+  const g = S.gabarits.find(x=>x.code===gabaritCode);
+  const dist = Number(hub.distance_km)||0;
+  if (!g || !dist || !etat) return null;
+  const dAR = dist*2;
+  const conso = etat==="Bonne" ? g.conso_bonne : etat==="Moyenne" ? g.conso_moyenne : g.conso_difficile;
+  const litres = Math.ceil(dAR * conso/100 * (1+Number(S.params.coeff_detour)));
+  const carb = litres * Number(S.params.gasoil_actuel);
+  const horsCarb = ceil1000((Number(g.cout_fixe) + dAR*Number(g.maintenance_km)) * (1+Number(S.params.marge_transporteur)));
+  const total = ceil1000(horsCarb + carb);
+  const reindexe = ceil1000(horsCarb + carb*(1+Number(S.params.marge_reindexation)));
+  return { dAR, conso, litres, carb, horsCarb, total, reindexe,
+           coutT: total/g.capacite_t, coutTkm: (total/g.capacite_t)/dist, coutKg: total/(g.capacite_t*1000) };
+}
+function decisionPour(total, marche){
+  if (marche==null || marche==="" || isNaN(marche)) return { txt:"Référence ANAGROCI", cls:"#4B5A52" };
+  const m = Number(marche);
+  if (m <= total) return { txt:"Accepter marché", cls:"#1F9D6E" };
+  if (m <= total*1.05) return { txt:"Négocier", cls:"#D9A441" };
+  return { txt:"Rejeter / renégocier", cls:"#C0392B" };
+}
+
+/* ------------------------------ DONNÉES ------------------------------------ */
+async function chargerTout(){
+  const [p,g,h,r,d] = await Promise.all([
+    SB.from("log_parametres").select("*").order("cle"),
+    SB.from("log_gabarits").select("*").order("capacite_t"),
+    SB.from("log_hubs").select("*").order("zone").order("cluster"),
+    SB.from("log_reperes").select("*").order("f_kg", {ascending:false}),
+    SB.from("log_grille_decisions").select("*").order("ts", {ascending:false}).limit(20),
+  ]);
+  for (const x of [p,g,h,r,d]) if (x.error) throw new Error(x.error.message);
+  S.paramRows = p.data; S.params = {}; p.data.forEach(x=>S.params[x.cle]=x.valeur);
+  S.gabarits = g.data; S.hubs = h.data; S.reperes = r.data; S.decisions = d.data;
+  // Potentiel recensé : agrégation des fiches villages du recensement par cluster.
+  S.potentielRecense = {};
+  try{
+    const { data: vil } = await SB.from("villages").select("data").eq("deleted", false);
+    (vil||[]).forEach(v=>{
+      const c = ((v.data.s1&&v.data.s1.cluster)||"").trim().toLowerCase();
+      const mt = Number(v.data.s3&&v.data.s3.potentielMT)||0;
+      if (c) S.potentielRecense[c] = (S.potentielRecense[c]||0) + mt;
+    });
+  }catch(e){ /* lecture recensement non bloquante */ }
+  S.hubs.forEach(h2=>{ if (!S.grille[h2.cluster]) S.grille[h2.cluster] = { gabarit:"38T", etat:h2.etat_route||"", marche:"" }; });
+}
+
+/* --------------------------- ENREGISTREMENTS ------------------------------- */
+async function saveParam(cle){
+  const v = parseFloat($("p_"+cle).value);
+  if (isNaN(v)) return toast("Valeur invalide", false);
+  const { error } = await SB.from("log_parametres").update({ valeur:v }).eq("cle", cle);
+  if (error) return toast(error.message, false);
+  S.params[cle]=v; toast("Paramètre enregistré"); render();
+}
+async function saveGabarit(code){
+  const row = {};
+  for (const f of ["capacite_t","conso_bonne","conso_moyenne","conso_difficile","cout_fixe","maintenance_km"]){
+    const v = parseFloat($("g_"+code+"_"+f).value);
+    if (isNaN(v)) return toast("Valeur invalide ("+f+")", false);
+    row[f]=v;
+  }
+  row.statut = $("g_"+code+"_statut").value;
+  const { error } = await SB.from("log_gabarits").update(row).eq("code", code);
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Gabarit "+code+" enregistré"); render();
+}
+async function saveHub(cluster){
+  const id = cluster.replace(/[^a-z0-9]/gi,"_");
+  const dv = $("h_"+id+"_dist").value;
+  const row = {
+    hub_nom: $("h_"+id+"_nom").value || null,
+    statut_hub: $("h_"+id+"_statut").value,
+    distance_km: dv==="" ? null : parseFloat(dv),
+    etat_route: $("h_"+id+"_etat").value || null,
+    potentiel_mt: parseFloat($("h_"+id+"_pot").value)||0,
+  };
+  if (row.distance_km!=null && (isNaN(row.distance_km) || row.distance_km<=0)) return toast("Distance invalide", false);
+  const { error } = await SB.from("log_hubs").update(row).eq("cluster", cluster);
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Hub "+cluster+" enregistré"); render();
+}
+async function saveDecision(cluster){
+  const gsel = S.grille[cluster];
+  const hub = S.hubs.find(h=>h.cluster===cluster);
+  const calc = calcLigne(hub, gsel.gabarit, gsel.etat);
+  if (!calc) return toast("Ligne incomplète : distance et état de route requis", false);
+  const marche = gsel.marche==="" ? null : Number(gsel.marche);
+  const dec = decisionPour(calc.total, marche);
+  const { error } = await SB.from("log_grille_decisions").insert({
+    cluster: cluster, gabarit: gsel.gabarit, etat_route: gsel.etat, distance_ar: calc.dAR,
+    prix_budgete: calc.total, prix_reindexe: calc.reindexe, prix_marche: marche,
+    decision: dec.txt, created_by: S.session.user.email,
+  });
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Décision enregistrée — "+dec.txt); render();
+}
+function onGrille(cluster, champ, val){ S.grille[cluster][champ]=val; render(); }
+
+/* ------------------------------- VUES -------------------------------------- */
+function vueLogin(msg){
+  $("app").innerHTML =
+    '<div class="max-w-md mx-auto mt-16 card p-6">'
+    + '<div class="flex items-center gap-2 mb-1"><div class="w-9 h-9 rounded-md flex items-center justify-center" style="background:#D9A441"><i data-lucide="truck" class="w-5 h-5" style="color:#0B2B21"></i></div>'
+    + '<h1 class="ff-display text-lg font-bold" style="color:#0B2B21">FBMS · Logistique 2027</h1></div>'
+    + '<p class="text-xs mb-4" style="color:#4B5A52">Même compte que le recensement FBMS (email + mot de passe).</p>'
+    + (msg?'<p class="text-xs mb-3" style="color:#C0392B">'+esc(msg)+'</p>':'')
+    + '<form onsubmit="event.preventDefault();login();" class="space-y-3">'
+    + '<input id="le" type="email" placeholder="Email" autocomplete="username" class="w-full px-3 py-2 rounded-lg text-sm"/>'
+    + '<input id="lp" type="password" placeholder="Mot de passe" autocomplete="current-password" class="w-full px-3 py-2 rounded-lg text-sm"/>'
+    + '<button class="w-full py-2.5 rounded-lg text-sm font-semibold" style="background:#1F5B3F;color:#fff">Se connecter</button></form></div>';
+  if (window.lucide) lucide.createIcons();
+}
+async function login(){
+  const { data, error } = await SB.auth.signInWithPassword({ email:$("le").value.trim().toLowerCase(), password:$("lp").value });
+  if (error) return vueLogin(error.message==="Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message);
+  await demarrer(data.session);
+}
+async function logout(){ await SB.auth.signOut(); location.reload(); }
+
+function entete(){
+  const hausse = Number(S.params.gasoil_actuel) > Number(S.params.gasoil_reference);
+  return '<div class="flex items-center justify-between mb-5">'
+    + '<div class="flex items-center gap-2.5"><div class="w-9 h-9 rounded-md flex items-center justify-center" style="background:#D9A441"><i data-lucide="truck" class="w-5 h-5" style="color:#0B2B21"></i></div>'
+    + '<div><h1 class="ff-display text-lg font-bold leading-tight" style="color:#0B2B21">Logistique Field Buying 2027</h1>'
+    + '<p class="ff-mono text-[11px]" style="color:#4B5A52">Hub → Usine Zambakro · v'+LOG_CONFIG.version+' · <a href="./index.html" class="underline">Recensement</a></p></div></div>'
+    + '<div class="flex items-center gap-3"><span class="text-xs" style="color:#4B5A52">'+esc(S.nom)+' · '+esc(S.role||"?")+'</span>'
+    + '<button onclick="logout()" class="text-xs px-3 py-1.5 rounded-lg" style="border:1px solid #E4E0D5;background:#fff">Déconnexion</button></div></div>'
+    + (hausse ? '<div class="card p-3 mb-5 flex items-center gap-2" style="border-color:#D9A441;background:#D9A4411A"><i data-lucide="trending-up" class="w-4 h-4" style="color:#B07817"></i><p class="text-xs" style="color:#7A5A10"><b>Hausse gasoil détectée ('+fmt(S.params.gasoil_reference)+' → '+fmt(S.params.gasoil_actuel)+' F/L).</b> La colonne « Prix réindexé » (+'+Math.round(S.params.marge_reindexation*100)+'% sur le carburant) devient la référence de renégociation.</p></div>' : '')
+    + (S.canWrite ? '' : '<div class="card p-3 mb-5" style="border-color:#E4E0D5"><p class="text-xs" style="color:#4B5A52">Lecture seule : votre rôle ('+esc(S.role||"?")+') ne permet pas la modification.</p></div>');
+}
+function vueReperes(){
+  const cards = S.reperes.map(r=>{
+    const ftk = r.f_kg*1000/r.distance_km;
+    return '<div class="card p-4"><p class="text-xs mb-1" style="color:#4B5A52">'+esc(r.nom)+'</p>'
+      + '<p class="ff-display text-xl font-bold" style="color:#0B2B21">'+fmt1(ftk)+' <span class="text-xs font-normal">F/T/km</span></p>'
+      + '<p class="ff-mono text-[11px]" style="color:#4B5A52">'+fmt1(r.f_kg)+' F/kg · '+r.distance_km+' km</p></div>';
+  }).join("");
+  return '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">'+cards+'</div>';
+}
+function vueParams(){
+  const rows = S.paramRows.map(p=>{
+    const pct = ["marge_reindexation","coeff_detour","taux_remplissage_min","tolerance_carburant","marge_transporteur"].includes(p.cle);
+    return '<tr style="border-top:1px solid #F0EDE4"><td class="px-3 py-2">'+esc(p.libelle)+(pct?' <span class="ff-mono text-[10px]" style="color:#4B5A52">(fraction : 0.09 = 9%)</span>':'')+'</td>'
+      + '<td class="px-3 py-2"><input id="p_'+p.cle+'" type="number" step="any" value="'+p.valeur+'" class="w-28 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="px-3 py-2">'+badgeStatut(p.statut)+'</td>'
+      + '<td class="px-3 py-2 text-xs" style="color:#4B5A52">'+esc(p.commentaire||"")+'</td>'
+      + '<td class="px-3 py-2">'+(S.canWrite?'<button onclick="saveParam(\''+p.cle+'\')" class="text-xs px-2.5 py-1 rounded-md" style="background:#1F5B3F;color:#fff">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  return sectionCard("settings-2","Paramètres",
+    '<table class="w-full"><thead><tr><th class="px-3 py-2 text-left">Paramètre</th><th class="px-3 py-2 text-left">Valeur</th><th class="px-3 py-2 text-left">Statut</th><th class="px-3 py-2 text-left">Note</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>');
+}
+function vueGabarits(){
+  const rows = S.gabarits.map(g=>{
+    const inp=(f,w)=>'<input id="g_'+g.code+'_'+f+'" type="number" step="any" value="'+g[f]+'" class="'+(w||'w-20')+' px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/>';
+    return '<tr style="border-top:1px solid #F0EDE4"><td class="px-3 py-2 ff-display font-bold">'+g.code+'</td>'
+      + '<td class="px-3 py-2">'+inp("capacite_t","w-16")+'</td><td class="px-3 py-2">'+inp("conso_bonne","w-16")+'</td>'
+      + '<td class="px-3 py-2">'+inp("conso_moyenne","w-16")+'</td><td class="px-3 py-2">'+inp("conso_difficile","w-16")+'</td>'
+      + '<td class="px-3 py-2">'+inp("cout_fixe","w-24")+'</td><td class="px-3 py-2">'+inp("maintenance_km","w-20")+'</td>'
+      + '<td class="px-3 py-2"><select id="g_'+g.code+'_statut" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'>'
+      + '<option value="non vérifié" '+(g.statut!=="confirmé"?"selected":"")+'>non vérifié</option><option value="confirmé" '+(g.statut==="confirmé"?"selected":"")+'>confirmé</option></select></td>'
+      + '<td class="px-3 py-2">'+(S.canWrite?'<button onclick="saveGabarit(\''+g.code+'\')" class="text-xs px-2.5 py-1 rounded-md" style="background:#1F5B3F;color:#fff">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  const alerte = S.gabarits.some(g=>g.statut!=="confirmé")
+    ? '<p class="text-xs px-3 pb-3" style="color:#B07817">⚠ Gabarits non validés terrain : ne pas opposer ces prix à un transporteur avant confirmation (conso réelle, coût fixe, maintenance).</p>' : '';
+  return sectionCard("container","Gabarits camion",
+    '<table class="w-full"><thead><tr><th class="px-3 py-2 text-left">Gabarit</th><th class="px-3 py-2 text-left">Capacité T</th><th class="px-3 py-2 text-left">Conso Bonne</th><th class="px-3 py-2 text-left">Conso Moy.</th><th class="px-3 py-2 text-left">Conso Diff.</th><th class="px-3 py-2 text-left">Coût fixe (F)</th><th class="px-3 py-2 text-left">Maint. (F/km)</th><th class="px-3 py-2 text-left">Statut</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+alerte);
+}
+function vueHubs(){
+  const rows = S.hubs.map(h=>{
+    const id = h.cluster.replace(/[^a-z0-9]/gi,"_");
+    const rec = S.potentielRecense[h.cluster.trim().toLowerCase()];
+    return '<tr style="border-top:1px solid #F0EDE4"><td class="px-3 py-2 ff-display font-semibold">'+esc(h.cluster)+'</td>'
+      + '<td class="px-3 py-2 text-xs" style="color:#4B5A52">'+esc(h.zone)+'</td>'
+      + '<td class="px-3 py-2"><input id="h_'+id+'_nom" value="'+esc(h.hub_nom||"")+'" placeholder="—" class="w-40 px-2 py-1 rounded-md text-sm" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="px-3 py-2"><select id="h_'+id+'_statut" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option '+(h.statut_hub==="Retenu"?"selected":"")+'>Retenu</option><option '+(h.statut_hub!=="Retenu"?"selected":"")+'>En attente</option></select></td>'
+      + '<td class="px-3 py-2"><input id="h_'+id+'_dist" type="number" step="any" value="'+(h.distance_km==null?"":h.distance_km)+'" placeholder="?" class="w-20 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="px-3 py-2"><select id="h_'+id+'_etat" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option value="">?</option>'
+      + ["Bonne","Moyenne","Difficile"].map(e=>'<option '+(h.etat_route===e?"selected":"")+'>'+e+'</option>').join("")+'</select></td>'
+      + '<td class="px-3 py-2"><input id="h_'+id+'_pot" type="number" step="any" value="'+(h.potentiel_mt||0)+'" class="w-20 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="px-3 py-2 ff-mono text-xs" style="color:'+(rec!=null?'#1F5B3F':'#4B5A52')+'">'+(rec!=null?fmt(rec):"—")+'</td>'
+      + '<td class="px-3 py-2">'+(S.canWrite?'<button onclick="saveHub(\''+esc(h.cluster)+'\')" class="text-xs px-2.5 py-1 rounded-md" style="background:#1F5B3F;color:#fff">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  const manquants = S.hubs.filter(h=>!h.distance_km||!h.etat_route).length;
+  const alerte = manquants ? '<p class="text-xs px-3 pb-3" style="color:#B07817">⚠ '+manquants+' cluster(s) sans distance ou état de route : la grille ne peut pas produire de budget pour eux.</p>' : '';
+  return sectionCard("map-pin","Clusters & Hubs",
+    '<table class="w-full"><thead><tr><th class="px-3 py-2 text-left">Cluster</th><th class="px-3 py-2 text-left">Zone</th><th class="px-3 py-2 text-left">Hub retenu</th><th class="px-3 py-2 text-left">Statut</th><th class="px-3 py-2 text-left">Dist. → usine (km)</th><th class="px-3 py-2 text-left">État route</th><th class="px-3 py-2 text-left">Potentiel MT (plan)</th><th class="px-3 py-2 text-left">Potentiel recensé</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+alerte
+    + '<p class="text-xs px-3 pb-3" style="color:#4B5A52">« Potentiel recensé » = somme des fiches villages FBMS rattachées au cluster (source unique de vérité à terme).</p>');
+}
+function vueGrille(){
+  const rows = S.hubs.map(h=>{
+    const gsel = S.grille[h.cluster];
+    const calc = calcLigne(h, gsel.gabarit, gsel.etat);
+    const dec = calc ? decisionPour(calc.total, gsel.marche) : null;
+    const selG = '<select onchange="onGrille(\''+esc(h.cluster)+'\',\'gabarit\',this.value)" class="px-1.5 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'>'
+      + S.gabarits.map(g=>'<option '+(gsel.gabarit===g.code?"selected":"")+'>'+g.code+'</option>').join("")+'</select>';
+    const selE = '<select onchange="onGrille(\''+esc(h.cluster)+'\',\'etat\',this.value)" class="px-1.5 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option value="">?</option>'
+      + ["Bonne","Moyenne","Difficile"].map(e=>'<option '+(gsel.etat===e?"selected":"")+'>'+e+'</option>').join("")+'</select>';
+    if (!calc){
+      return '<tr style="border-top:1px solid #F0EDE4"><td class="px-2 py-2 ff-display font-semibold">'+esc(h.cluster)+'</td>'
+        + '<td class="px-2 py-2">'+selG+'</td><td class="px-2 py-2">'+selE+'</td>'
+        + '<td colspan="9" class="px-2 py-2 text-xs" style="color:#B07817">Compléter distance et état de route (onglet Clusters & Hubs)</td></tr>';
+    }
+    return '<tr style="border-top:1px solid #F0EDE4"><td class="px-2 py-2 ff-display font-semibold">'+esc(h.cluster)+'</td>'
+      + '<td class="px-2 py-2">'+selG+'</td><td class="px-2 py-2">'+selE+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-xs">'+fmt(calc.dAR)+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-xs">'+fmt(calc.litres)+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-xs">'+fmt(calc.carb)+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-xs">'+fmt(calc.horsCarb)+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-sm font-semibold" style="color:#0B2B21">'+fmt(calc.total)+'</td>'
+      + '<td class="px-2 py-2 ff-mono text-xs" style="color:#B07817">'+fmt(calc.reindexe)+'</td>'
+      + '<td class="px-2 py-2"><input type="number" value="'+esc(gsel.marche)+'" onchange="onGrille(\''+esc(h.cluster)+'\',\'marche\',this.value)" placeholder="—" class="w-24 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="px-2 py-2"><span class="text-xs font-semibold" style="color:'+dec.cls+'">'+dec.txt+'</span><br><span class="ff-mono text-[10px]" style="color:#4B5A52">'+fmt1(calc.coutTkm)+' F/T/km · '+fmt1(calc.coutKg)+' F/kg</span></td>'
+      + '<td class="px-2 py-2">'+(S.canWrite?'<button onclick="saveDecision(\''+esc(h.cluster)+'\')" class="text-xs px-2 py-1 rounded-md" style="background:#0B2B21;color:#fff">Consigner</button>':'')+'</td></tr>';
+  }).join("");
+  return sectionCard("calculator","Grille de location Hub → Usine",
+    '<div class="overflow-x-auto"><table class="w-full min-w-[1050px]"><thead><tr>'
+    + '<th class="px-2 py-2 text-left">Cluster</th><th class="px-2 py-2 text-left">Camion</th><th class="px-2 py-2 text-left">Route</th>'
+    + '<th class="px-2 py-2 text-left">Dist. AR</th><th class="px-2 py-2 text-left">Litres aut.</th><th class="px-2 py-2 text-left">Carburant F</th>'
+    + '<th class="px-2 py-2 text-left">Hors carb. F</th><th class="px-2 py-2 text-left">Budget F</th><th class="px-2 py-2 text-left">Réindexé F</th>'
+    + '<th class="px-2 py-2 text-left">Marché F</th><th class="px-2 py-2 text-left">Décision</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + '<p class="text-xs px-3 pb-3" style="color:#4B5A52">Budget = cost-plus hors carburant + carburant au gasoil actuel. Réindexé = opposable uniquement après hausse réelle du gasoil (marge '+Math.round(S.params.marge_reindexation*100)+'% sur le carburant seul). Négocier si marché ≤ budget +5%.</p>');
+}
+function vueHistorique(){
+  if (!S.decisions.length) return "";
+  const rows = S.decisions.map(d=>'<tr style="border-top:1px solid #F0EDE4">'
+    + '<td class="px-3 py-1.5 ff-mono text-[11px]" style="color:#4B5A52">'+new Date(d.ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})+'</td>'
+    + '<td class="px-3 py-1.5 text-xs font-semibold">'+esc(d.cluster)+'</td><td class="px-3 py-1.5 text-xs">'+esc(d.gabarit)+' · '+esc(d.etat_route||"?")+'</td>'
+    + '<td class="px-3 py-1.5 ff-mono text-xs">'+fmt(d.prix_budgete)+'</td><td class="px-3 py-1.5 ff-mono text-xs">'+fmt(d.prix_marche)+'</td>'
+    + '<td class="px-3 py-1.5 text-xs">'+esc(d.decision||"")+'</td><td class="px-3 py-1.5 text-[11px]" style="color:#4B5A52">'+esc(d.created_by||"")+'</td></tr>').join("");
+  return sectionCard("history","Historique des décisions (20 dernières)",
+    '<table class="w-full"><thead><tr><th class="px-3 py-2 text-left">Date</th><th class="px-3 py-2 text-left">Cluster</th><th class="px-3 py-2 text-left">Config</th><th class="px-3 py-2 text-left">Budget F</th><th class="px-3 py-2 text-left">Marché F</th><th class="px-3 py-2 text-left">Décision</th><th class="px-3 py-2 text-left">Par</th></tr></thead><tbody>'+rows+'</tbody></table>');
+}
+function sectionCard(icone, titre, corps){
+  return '<div class="card mb-6"><div class="flex items-center gap-2 px-4 pt-4 pb-2"><i data-lucide="'+icone+'" class="w-4 h-4" style="color:#1F5B3F"></i><h2 class="ff-display text-sm font-bold" style="color:#0B2B21">'+titre+'</h2></div><div class="overflow-x-auto">'+corps+'</div></div>';
+}
+function render(){
+  $("app").innerHTML = entete() + vueReperes() + vueGrille() + vueHubs() + vueGabarits() + vueParams() + vueHistorique();
+  if (window.lucide) lucide.createIcons();
+}
+
+/* ----------------------------- DÉMARRAGE ----------------------------------- */
+async function demarrer(session){
+  S.session = session;
+  const { data: profil } = await SB.from("profils").select("nom, role, actif").eq("user_id", session.user.id).single();
+  if (!profil || !profil.actif){ await SB.auth.signOut(); return vueLogin("Compte inactif ou profil manquant."); }
+  S.nom = profil.nom; S.role = profil.role;
+  S.canWrite = LOG_CONFIG.rolesEcriture.includes(profil.role);
+  try{ await chargerTout(); render(); }
+  catch(e){ $("app").innerHTML = '<div class="card p-6 mt-10 max-w-md mx-auto"><p class="text-sm" style="color:#C0392B">Erreur de chargement : '+esc(e.message)+'</p></div>'; }
+}
+(async function init(){
+  const { data } = await SB.auth.getSession();
+  if (data.session) await demarrer(data.session); else vueLogin();
+})();
+</script>
+</body>
+</html>
