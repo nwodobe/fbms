@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- saved from url=(0132)file:///C:/Users/LENOVO%20T460s/OneDrive%20-%20PARAMETRE/Bureau/ANAGROCI%20RCN/OneDrive/Documents/COWORK/FBMS_Sauvegarde_Master.html -->
+<html lang="fr"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBMS · Sauvegarde Master</title>
+<!-- ============================================================================
+     OUTIL DE SAUVEGARDE AUTONOME — ANAGROCI FBMS
+     Fichier indépendant de l'application. Ouvrez-le d'un double-clic dans un
+     navigateur, connectez-vous (email + mot de passe FBMS), puis téléchargez
+     TOUTES vos données (villages, RT, producteurs) en JSON complet + Excel.
+     À conserver hors ligne régulièrement. Aucune donnée ne transite ailleurs :
+     la connexion se fait directement de votre navigateur vers Supabase.
+     ========================================================================== -->
+<script src="./FBMS · Sauvegarde Master_files/supabase.min.js.télécharger"></script>
+<script src="./FBMS · Sauvegarde Master_files/xlsx.full.min.js.télécharger"></script>
+<style>
+  :root{ color-scheme: light; }
+  body{ font-family:Arial,Helvetica,sans-serif; background:#F7F5EF; color:#132A22; margin:0; padding:0; }
+  .wrap{ max-width:560px; margin:6vh auto; padding:0 16px; }
+  .card{ background:#fff; border:1px solid #E4E0D5; border-radius:14px; padding:22px; box-shadow:0 6px 18px #0b2b210a; }
+  h1{ font-size:20px; margin:0 0 4px; color:#0B2B21; }
+  p.sub{ font-size:13px; color:#4B5A52; margin:0 0 18px; }
+  label{ display:block; font-size:12px; font-weight:600; color:#4B5A52; margin:12px 0 4px; }
+  input{ width:100%; box-sizing:border-box; padding:11px; border:1px solid #E4E0D5; border-radius:9px; font-size:14px; background:#fff; }
+  input:focus{ outline:2px solid #1F5B3F33; }
+  button{ border:0; border-radius:9px; padding:12px 16px; font-size:14px; font-weight:700; cursor:pointer; background:#1F5B3F; color:#fff; width:100%; margin-top:16px; }
+  button.ghost{ background:#fff; color:#1F5B3F; border:1px solid #E4E0D5; }
+  .msg{ font-size:13px; margin-top:14px; min-height:18px; }
+  .row{ display:flex; gap:10px; }
+  .row button{ margin-top:0; }
+  .hidden{ display:none; }
+  .kpi{ display:flex; gap:14px; margin:14px 0; flex-wrap:wrap; }
+  .kpi div{ background:#F4F8F2; border:1px solid #E4E0D5; border-radius:10px; padding:10px 14px; }
+  .kpi b{ display:block; font-size:20px; color:#0B2B21; }
+  .kpi span{ font-size:11px; color:#4B5A52; }
+  code{ background:#F3F1EA; padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+  <h1>FBMS · Sauvegarde Master</h1>
+  <p class="sub">Téléchargez une copie complète de vos données Field Buying 2027. Connexion avec votre compte FBMS habituel.</p>
+
+  <div id="loginZone" class="hidden">
+    <label>Email</label>
+    <input id="email" type="email" autocomplete="username" placeholder="prenom.nom@gmail.com">
+    <label>Mot de passe</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="••••••">
+    <button id="btnLogin">Se connecter</button>
+  </div>
+
+  <div id="exportZone" class="">
+    <p class="sub" id="who">KOUASSI Innocent · Branch Manager</p>
+    <div class="kpi" id="counts"><div><b>9</b><span>Villages</span></div><div><b>0</b><span>RT</span></div><div><b>0</b><span>Producteurs</span></div></div>
+    <div class="row">
+      <button id="btnExport">Télécharger la sauvegarde (JSON + Excel)</button>
+      <button id="btnLogout" class="ghost" style="width:auto">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="msg" id="msg" style="color: rgb(75, 90, 82);"></div>
+</div></div>
+
+<script>
+"use strict";
+/* Projet Supabase FIELD BUYING ANAGROCI. Clé "publishable" (publique par
+   conception : la sécurité vient des politiques RLS côté base). */
+const SB = window.supabase.createClient(
+  "https://jmbdgpdthzpszfnddwzi.supabase.co",
+  "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d"
+);
+const $ = id => document.getElementById(id);
+function msg(t, ok){ const m=$("msg"); m.textContent=t||""; m.style.color = ok===false ? "#C0392B" : (ok===true ? "#1F5B3F" : "#4B5A52"); }
+
+async function afficherExport(session){
+  const { data: profil } = await SB.from("profils").select("nom, role, actif").eq("user_id", session.user.id).single();
+  if (!profil || !profil.actif){ await SB.auth.signOut(); msg("Compte inactif ou profil manquant. Contactez l'administrateur.", false); return; }
+  $("loginZone").classList.add("hidden");
+  $("exportZone").classList.remove("hidden");
+  $("who").textContent = (profil.nom || session.user.email) + " · " + profil.role;
+  msg("");
+  // Aperçu des compteurs
+  try{
+    const [v,r,p] = await Promise.all([
+      SB.from("villages").select("id", {count:"exact", head:true}).eq("deleted", false),
+      SB.from("rt").select("id", {count:"exact", head:true}).eq("deleted", false),
+      SB.from("producteurs").select("id", {count:"exact", head:true}).eq("deleted", false),
+    ]);
+    $("counts").innerHTML =
+      '<div><b>'+(v.count||0)+'</b><span>Villages</span></div>'
+     +'<div><b>'+(r.count||0)+'</b><span>RT</span></div>'
+     +'<div><b>'+(p.count||0)+'</b><span>Producteurs</span></div>';
+  }catch(e){ /* aperçu non bloquant */ }
+}
+
+$("btnLogin").onclick = async ()=>{
+  const email = $("email").value.trim().toLowerCase(), password = $("password").value;
+  if (!email || !password){ msg("Renseignez l'email et le mot de passe.", false); return; }
+  msg("Connexion…");
+  const { data, error } = await SB.auth.signInWithPassword({ email, password });
+  if (error){ msg(error.message === "Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message, false); return; }
+  await afficherExport(data.session);
+};
+
+$("btnLogout").onclick = async ()=>{ await SB.auth.signOut(); location.reload(); };
+
+function download(content, mime, filename){
+  const blob = new Blob([content], {type:mime});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function masterRow(row){ const o={}; for (const k of Object.keys(row)) o[k] = (k==="data") ? JSON.stringify(row[k]) : row[k]; return o; }
+
+$("btnExport").onclick = async ()=>{
+  try{
+    msg("Extraction en cours…");
+    const [v,r,p] = await Promise.all([
+      SB.from("villages").select("*").eq("deleted", false),
+      SB.from("rt").select("*").eq("deleted", false),
+      SB.from("producteurs").select("*").eq("deleted", false),
+    ]);
+    for (const x of [v,r,p]) if (x.error) throw new Error(x.error.message);
+    const now = new Date();
+    const stamp = now.toISOString().slice(0,19).replace(/[:T]/g,"-");
+    // 1) JSON complet (le vrai filet de sécurité, ré-importable).
+    const backup = { app:"ANAGROCI FBMS", tool:"Sauvegarde Master autonome", exportedAt:now.toISOString(),
+      counts:{ villages:v.data.length, rt:r.data.length, producteurs:p.data.length },
+      villages:v.data, rt:r.data, producteurs:p.data };
+    download(JSON.stringify(backup, null, 1), "application/json", "FBMS_MASTER_"+stamp+".json");
+    // 2) Excel lisible.
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.data.length ? v.data.map(masterRow) : [{info:"aucun village"}]), "Villages");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.data.length ? r.data.map(masterRow) : [{info:"aucun RT"}]), "RT");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p.data.length ? p.data.map(masterRow) : [{info:"aucun producteur"}]), "Producteurs");
+    XLSX.writeFile(wb, "FBMS_MASTER_"+stamp+".xlsx");
+    msg("✔ Sauvegarde téléchargée : "+v.data.length+" villages · "+r.data.length+" RT · "+p.data.length+" producteurs. Vérifiez votre dossier Téléchargements.", true);
+  }catch(e){ msg("✖ "+e.message, false); }
+};
+
+// Reprise de session si déjà connecté
+(async ()=>{ const { data } = await SB.auth.getSession(); if (data.session) await afficherExport(data.session); })();
+</script>
+
+
+</body></html>
