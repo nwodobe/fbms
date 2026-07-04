@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANAGROCI · Logistique Field Buying 2027 — FBMS</title>
+<meta name="theme-color" content="#053B23">
+<!-- ============================================================================
+     FBMS LOGISTIQUE — v1.1.0 (P1 + simulateur + refonte ERP)
+     ----------------------------------------------------------------------------
+     Application soeur du recensement (index.html) : même projet Supabase, même
+     session. Architecture en couches, dans l'ordre du fichier :
+       1. CONFIG            constantes, client Supabase
+       2. ÉTAT              S = données chargées + sélections d'écran
+       3. MOTEUR            moteur(entrée) : transposition EXACTE du classeur
+                            Excel validé — grille ET simulateur l'appellent,
+                            aucune formule dupliquée
+       4. ACCÈS DONNÉES     chargerTout + enregistrements Supabase (RLS serveur)
+       5. VUES              une fonction par écran, routeur par VIEWS
+       6. DÉMARRAGE         session partagée, profil, rendu
+     Moteur (classeur "ANAGROCI FieldBuying Logistique.xlsx") :
+       litres = dist AR × conso(état)/100 × (1+détour) · carburant = litres ×
+       gasoil actuel · hors-carb = (fixe + AR×maint) × (1+marge transp.), millier
+       sup. · budget = hors-carb + carburant · réindexé = hors-carb + carburant ×
+       (1+9%) UNIQUEMENT opposable après hausse réelle du gasoil · décision :
+       ≤ budget Accepter · ≤ +5% Négocier · sinon Rejeter.
+     ========================================================================== -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--forest:#053B23;--pine:#0B2B21;--emerald:#1F5B3F;--lime:#8DC556;--cream:#F7F5EF;
+        --line:#E4E0D5;--ink:#132A22;--muted:#4B5A52;--cashew:#D9A441;--red:#C0392B;--green:#1F9D6E;}
+  html,body{height:100%;margin:0;background:var(--cream);}
+  .ff-display{font-family:'Archivo',sans-serif;}
+  .ff-body{font-family:'IBM Plex Sans',sans-serif;}
+  .ff-mono{font-family:'IBM Plex Mono',monospace;}
+  input,select{background:#fff;border:1px solid var(--line);}
+  input:focus,select:focus{outline:2px solid #1F5B3F33;}
+  input:disabled,select:disabled{background:#F3F1EA;color:#8A948E;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;}
+  th{font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#D8EAD3;font-weight:600;background:var(--forest);padding:9px 10px;text-align:left;white-space:nowrap;}
+  td{font-size:13px;padding:8px 10px;border-top:1px solid #F0EDE4;vertical-align:middle;}
+  tbody tr:hover td{background:#F4F8F2;}
+  .pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .badge-nv{background:#D9A4411A;color:#B07817;border:1px solid #D9A44155;}
+  .badge-ok{background:#1F9D6E1A;color:#1F9D6E;border:1px solid #1F9D6E55;}
+  .navbtn{width:100%;text-align:left;border:0;background:transparent;color:#D8EAD3;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;margin:1px 0;display:flex;align-items:center;gap:9px;}
+  .navbtn.active,.navbtn:hover{background:#ffffff1a;color:#fff;}
+  .btn{border:0;border-radius:9px;padding:7px 13px;font-weight:600;cursor:pointer;font-size:12px;background:var(--emerald);color:#fff;}
+  .btn.dark{background:var(--pine);}
+  .btn.ghost{background:#fff;color:var(--emerald);border:1px solid var(--line);}
+  @media(max-width:900px){
+    .layout{flex-direction:column;height:auto!important;}
+    .side{width:100%!important;height:auto;}
+    .navwrap{display:flex;overflow-x:auto;padding:6px!important;}
+    .navbtn{white-space:nowrap;width:auto;}
+    .content{height:auto!important;}
+  }
+</style>
+</head>
+<body class="ff-body" style="color:#132A22">
+<div id="app"></div>
+<script>
+"use strict";
+/* ============================ 1. CONFIG ==================================== */
+const LOG_CONFIG = {
+  version: "1.1.0",
+  supabase: {
+    url: "https://jmbdgpdthzpszfnddwzi.supabase.co",
+    anonKey: "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d",
+  },
+  rolesEcriture: ["Branch Manager","Procurement Officer"],
+};
+const SB = window.supabase.createClient(LOG_CONFIG.supabase.url, LOG_CONFIG.supabase.anonKey);
+const VIEWS = [
+  ["grille","Grille location","calculator"],
+  ["simulateur","Simulateur","beaker"],
+  ["hubs","Clusters & Hubs","map-pin"],
+  ["gabarits","Gabarits camion","truck"],
+  ["parametres","Paramètres","settings-2"],
+  ["historique","Historique","history"],
+];
+
+/* ============================ 2. ÉTAT ====================================== */
+const S = { session:null, role:null, nom:"", canWrite:false, vue:"grille",
+            params:{}, paramRows:[], gabarits:[], hubs:[], reperes:[], decisions:[],
+            potentielRecense:{}, grille:{},
+            sim:{ distance:107, gabarit:"38T", etat:"Moyenne", tonnage:38, gasoil:null, marche:"" } };
+
+/* ============================ OUTILS ======================================= */
+const $ = (id)=>document.getElementById(id);
+const esc = (s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const attr = (s)=>esc(s); // valeurs d'attributs et de handlers
+const fmt = (n)=> (n==null||isNaN(n)) ? "—" : Number(n).toLocaleString("fr-FR");
+const fmt1 = (n)=> (n==null||isNaN(n)) ? "—" : Number(n).toLocaleString("fr-FR",{maximumFractionDigits:1});
+const ceil1000 = (x)=> Math.ceil(x/1000)*1000; // ROUNDUP(x,-3)
+function badgeStatut(s){ return s==="confirmé" ? '<span class="pill badge-ok">confirmé</span>' : '<span class="pill badge-nv">non vérifié</span>'; }
+function pillDecision(d){ return '<span class="pill" style="background:'+d.cls+'1A;color:'+d.cls+';border:1px solid '+d.cls+'55">'+d.txt+'</span>'; }
+function toast(msg, ok=true){
+  const t=document.createElement("div");
+  t.className="fixed bottom-4 right-4 px-4 py-2.5 rounded-lg text-sm ff-body z-50";
+  t.style.cssText="background:"+(ok?"#1F5B3F":"#C0392B")+";color:#fff;box-shadow:0 4px 14px #0003";
+  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 3200);
+}
+
+/* ============================ 3. MOTEUR ====================================
+   Une seule implémentation des formules du classeur. Entrée explicite :
+   { distanceKm (aller simple), gabaritCode, etat, gasoil?, tonnage? }.
+   Renvoie null si les données sont insuffisantes. */
+function moteur(e){
+  const g = S.gabarits.find(x=>x.code===e.gabaritCode);
+  const dist = Number(e.distanceKm)||0;
+  if (!g || !dist || !e.etat) return null;
+  const gasoil = Number(e.gasoil!=null ? e.gasoil : S.params.gasoil_actuel);
+  const dAR = dist*2;
+  const conso = e.etat==="Bonne" ? g.conso_bonne : e.etat==="Moyenne" ? g.conso_moyenne : g.conso_difficile;
+  const litres = Math.ceil(dAR * conso/100 * (1+Number(S.params.coeff_detour)));
+  const carb = litres * gasoil;
+  const horsCarb = ceil1000((Number(g.cout_fixe) + dAR*Number(g.maintenance_km)) * (1+Number(S.params.marge_transporteur)));
+  const total = ceil1000(horsCarb + carb);
+  const reindexe = ceil1000(horsCarb + carb*(1+Number(S.params.marge_reindexation)));
+  const tonnage = Number(e.tonnage)||g.capacite_t;
+  return { dAR, conso, litres, carb, horsCarb, total, reindexe,
+           capacite: g.capacite_t, tonnage,
+           remplissage: tonnage/g.capacite_t,
+           coutT: total/tonnage, coutTkm: (total/tonnage)/dist, coutKg: total/(tonnage*1000) };
+}
+function decisionPour(total, marche){
+  if (marche==null || marche==="" || isNaN(marche)) return { txt:"Référence ANAGROCI", cls:"#4B5A52" };
+  const m = Number(marche);
+  if (m <= total) return { txt:"Accepter marché", cls:"#1F9D6E" };
+  if (m <= total*1.05) return { txt:"Négocier", cls:"#D9A441" };
+  return { txt:"Rejeter / renégocier", cls:"#C0392B" };
+}
+
+/* ======================== 4. ACCÈS DONNÉES ================================= */
+async function chargerTout(){
+  const [p,g,h,r,d] = await Promise.all([
+    SB.from("log_parametres").select("*").order("cle"),
+    SB.from("log_gabarits").select("*").order("capacite_t"),
+    SB.from("log_hubs").select("*").order("zone").order("cluster"),
+    SB.from("log_reperes").select("*").order("f_kg", {ascending:false}),
+    SB.from("log_grille_decisions").select("*").order("ts", {ascending:false}).limit(30),
+  ]);
+  for (const x of [p,g,h,r,d]) if (x.error) throw new Error(x.error.message);
+  S.paramRows = p.data; S.params = {}; p.data.forEach(x=>S.params[x.cle]=x.valeur);
+  S.gabarits = g.data; S.hubs = h.data; S.reperes = r.data; S.decisions = d.data;
+  S.potentielRecense = {};
+  try{
+    const { data: vil } = await SB.from("villages").select("data").eq("deleted", false);
+    (vil||[]).forEach(v=>{
+      const c = ((v.data.s1&&v.data.s1.cluster)||"").trim().toLowerCase();
+      const mt = Number(v.data.s3&&v.data.s3.potentielMT)||0;
+      if (c) S.potentielRecense[c] = (S.potentielRecense[c]||0) + mt;
+    });
+  }catch(e){ /* lecture recensement non bloquante */ }
+  S.hubs.forEach(h2=>{ if (!S.grille[h2.cluster]) S.grille[h2.cluster] = { gabarit:"38T", etat:h2.etat_route||"", marche:"" }; });
+}
+async function saveParam(cle){
+  const v = parseFloat($("p_"+cle).value);
+  if (isNaN(v)) return toast("Valeur invalide", false);
+  const { error } = await SB.from("log_parametres").update({ valeur:v }).eq("cle", cle);
+  if (error) return toast(error.message, false);
+  S.params[cle]=v; S.paramRows.find(x=>x.cle===cle).valeur=v; toast("Paramètre enregistré"); render();
+}
+async function saveGabarit(code){
+  const row = {};
+  for (const f of ["capacite_t","conso_bonne","conso_moyenne","conso_difficile","cout_fixe","maintenance_km"]){
+    const v = parseFloat($("g_"+code+"_"+f).value);
+    if (isNaN(v)) return toast("Valeur invalide ("+f+")", false);
+    row[f]=v;
+  }
+  row.statut = $("g_"+code+"_statut").value;
+  const { error } = await SB.from("log_gabarits").update(row).eq("code", code);
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Gabarit "+code+" enregistré"); render();
+}
+async function saveHub(cluster){
+  const id = cluster.replace(/[^a-z0-9]/gi,"_");
+  const dv = $("h_"+id+"_dist").value;
+  const row = {
+    hub_nom: $("h_"+id+"_nom").value || null,
+    statut_hub: $("h_"+id+"_statut").value,
+    distance_km: dv==="" ? null : parseFloat(dv),
+    etat_route: $("h_"+id+"_etat").value || null,
+    potentiel_mt: parseFloat($("h_"+id+"_pot").value)||0,
+  };
+  if (row.distance_km!=null && (isNaN(row.distance_km) || row.distance_km<=0)) return toast("Distance invalide", false);
+  const { error } = await SB.from("log_hubs").update(row).eq("cluster", cluster);
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Hub "+cluster+" enregistré"); render();
+}
+async function saveDecision(cluster){
+  const gsel = S.grille[cluster];
+  const hub = S.hubs.find(h=>h.cluster===cluster);
+  const calc = moteur({ distanceKm: hub.distance_km, gabaritCode: gsel.gabarit, etat: gsel.etat });
+  if (!calc) return toast("Ligne incomplète : distance et état de route requis", false);
+  const marche = gsel.marche==="" ? null : Number(gsel.marche);
+  const dec = decisionPour(calc.total, marche);
+  const { error } = await SB.from("log_grille_decisions").insert({
+    cluster: cluster, gabarit: gsel.gabarit, etat_route: gsel.etat, distance_ar: calc.dAR,
+    prix_budgete: calc.total, prix_reindexe: calc.reindexe, prix_marche: marche,
+    decision: dec.txt, created_by: S.session.user.email,
+  });
+  if (error) return toast(error.message, false);
+  await chargerTout(); toast("Décision consignée — "+dec.txt); render();
+}
+function onGrille(cluster, champ, val){ S.grille[cluster][champ]=val; render(); }
+function onSim(champ, val){ S.sim[champ] = val; render(); }
+
+/* ============================ 5. VUES ====================================== */
+function vueLogin(msg){
+  $("app").innerHTML =
+    '<div class="max-w-md mx-auto mt-16 card p-6">'
+    + '<div class="flex items-center gap-2 mb-1"><div class="w-9 h-9 rounded-md flex items-center justify-center" style="background:#D9A441"><i data-lucide="truck" class="w-5 h-5" style="color:#0B2B21"></i></div>'
+    + '<h1 class="ff-display text-lg font-bold" style="color:#0B2B21">FBMS · Logistique 2027</h1></div>'
+    + '<p class="text-xs mb-4" style="color:var(--muted)">Même compte que le recensement FBMS (email + mot de passe).</p>'
+    + (msg?'<p class="text-xs mb-3" style="color:var(--red)">'+esc(msg)+'</p>':'')
+    + '<form onsubmit="event.preventDefault();login();" class="space-y-3">'
+    + '<input id="le" type="email" placeholder="Email" autocomplete="username" class="w-full px-3 py-2 rounded-lg text-sm"/>'
+    + '<input id="lp" type="password" placeholder="Mot de passe" autocomplete="current-password" class="w-full px-3 py-2 rounded-lg text-sm"/>'
+    + '<button class="w-full py-2.5 rounded-lg text-sm font-semibold" style="background:var(--emerald);color:#fff">Se connecter</button></form></div>';
+  if (window.lucide) lucide.createIcons();
+}
+async function login(){
+  const { data, error } = await SB.auth.signInWithPassword({ email:$("le").value.trim().toLowerCase(), password:$("lp").value });
+  if (error) return vueLogin(error.message==="Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message);
+  await demarrer(data.session);
+}
+async function logout(){ await SB.auth.signOut(); location.reload(); }
+
+/* ---- coquille : barre latérale + topbar + zone de contenu ---- */
+function coquille(contenu){
+  const nav = VIEWS.map(v=>'<button class="navbtn'+(S.vue===v[0]?' active':'')+'" onclick="S.vue=\''+v[0]+'\';render()"><i data-lucide="'+v[2]+'" class="w-4 h-4"></i>'+v[1]+'</button>').join("");
+  const hausse = Number(S.params.gasoil_actuel) > Number(S.params.gasoil_reference);
+  return '<div class="layout flex" style="height:100vh">'
+    + '<aside class="side flex flex-col" style="width:240px;background:var(--forest);flex-shrink:0">'
+    +   '<div class="p-4" style="border-bottom:1px solid #ffffff1c">'
+    +     '<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-md flex items-center justify-center" style="background:var(--cashew)"><i data-lucide="truck" class="w-4 h-4" style="color:#0B2B21"></i></div>'
+    +     '<div><h1 class="ff-display text-sm font-bold text-white leading-tight">FBMS Logistique</h1><p class="ff-mono text-[10px]" style="color:#D8EAD3">Field Buying 2027 · v'+LOG_CONFIG.version+'</p></div></div></div>'
+    +   '<div class="navwrap p-2 flex-1">'+nav+'</div>'
+    +   '<div class="p-3" style="border-top:1px solid #ffffff1c">'
+    +     '<a href="./index.html" class="navbtn"><i data-lucide="arrow-left" class="w-4 h-4"></i>Recensement</a>'
+    +     '<p class="text-[10px] px-3 pt-1" style="color:#D8EAD3">Usine Zambakro · Bouaké → Yamoussoukro</p></div>'
+    + '</aside>'
+    + '<main class="content flex-1 overflow-auto" style="height:100vh">'
+    +   '<div class="flex items-center justify-between px-5 py-3 sticky top-0 z-10" style="background:#fff;border-bottom:1px solid var(--line)">'
+    +     '<div class="flex items-center gap-2"><h2 class="ff-display text-base font-bold" style="color:var(--pine)">'+(VIEWS.find(v=>v[0]===S.vue)||["",""])[1]+'</h2>'
+    +     '<span class="ff-mono text-[11px] px-2 py-0.5 rounded-full" style="background:'+(hausse?'#D9A4411A':'#1F9D6E1A')+';color:'+(hausse?'#B07817':'#1F9D6E')+'">gasoil '+fmt(S.params.gasoil_actuel)+' F/L'+(hausse?' ▲':'')+'</span></div>'
+    +     '<div class="flex items-center gap-3"><span class="text-xs" style="color:var(--muted)">'+esc(S.nom)+' · '+esc(S.role||"?")+'</span>'
+    +     '<button onclick="logout()" class="btn ghost">Déconnexion</button></div></div>'
+    +   '<div class="p-5">'
+    +   (hausse ? '<div class="card p-3 mb-4 flex items-center gap-2" style="border-color:var(--cashew);background:#D9A4411A"><i data-lucide="trending-up" class="w-4 h-4" style="color:#B07817"></i><p class="text-xs" style="color:#7A5A10"><b>Hausse gasoil ('+fmt(S.params.gasoil_reference)+' → '+fmt(S.params.gasoil_actuel)+' F/L).</b> Le « Prix réindexé » (+'+Math.round(S.params.marge_reindexation*100)+'% sur le carburant seul) devient la référence de renégociation.</p></div>' : '')
+    +   (S.canWrite ? '' : '<div class="card p-3 mb-4"><p class="text-xs" style="color:var(--muted)">Lecture seule : votre rôle ('+esc(S.role||"?")+') ne permet pas la modification.</p></div>')
+    +   contenu
+    + '</div></main></div>';
+}
+function cartesReperes(){
+  const cards = S.reperes.map(r=>{
+    const ftk = r.f_kg*1000/r.distance_km;
+    return '<div class="card p-4"><p class="text-xs mb-1" style="color:var(--muted)">'+esc(r.nom)+'</p>'
+      + '<p class="ff-display text-xl font-bold" style="color:var(--pine)">'+fmt1(ftk)+' <span class="text-xs font-normal">F/T/km</span></p>'
+      + '<p class="ff-mono text-[11px]" style="color:var(--muted)">'+fmt1(r.f_kg)+' F/kg · '+r.distance_km+' km</p></div>';
+  }).join("");
+  return '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">'+cards+'</div>';
+}
+function vueGrille(){
+  const rows = S.hubs.map(h=>{
+    const gsel = S.grille[h.cluster];
+    const calc = moteur({ distanceKm: h.distance_km, gabaritCode: gsel.gabarit, etat: gsel.etat });
+    const dec = calc ? decisionPour(calc.total, gsel.marche) : null;
+    const selG = '<select onchange="onGrille(\''+attr(h.cluster)+'\',\'gabarit\',this.value)" class="px-1.5 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'>'
+      + S.gabarits.map(g=>'<option '+(gsel.gabarit===g.code?"selected":"")+'>'+g.code+'</option>').join("")+'</select>';
+    const selE = '<select onchange="onGrille(\''+attr(h.cluster)+'\',\'etat\',this.value)" class="px-1.5 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option value="">?</option>'
+      + ["Bonne","Moyenne","Difficile"].map(e=>'<option '+(gsel.etat===e?"selected":"")+'>'+e+'</option>').join("")+'</select>';
+    if (!calc){
+      return '<tr><td class="ff-display font-semibold">'+esc(h.cluster)+'</td><td>'+selG+'</td><td>'+selE+'</td>'
+        + '<td colspan="9" class="text-xs" style="color:#B07817">Compléter distance et état de route (écran Clusters & Hubs)</td></tr>';
+    }
+    return '<tr><td class="ff-display font-semibold">'+esc(h.cluster)+'</td><td>'+selG+'</td><td>'+selE+'</td>'
+      + '<td class="ff-mono text-xs">'+fmt(calc.dAR)+'</td><td class="ff-mono text-xs">'+fmt(calc.litres)+'</td>'
+      + '<td class="ff-mono text-xs">'+fmt(calc.carb)+'</td><td class="ff-mono text-xs">'+fmt(calc.horsCarb)+'</td>'
+      + '<td class="ff-mono text-sm font-semibold" style="color:var(--pine)">'+fmt(calc.total)+'</td>'
+      + '<td class="ff-mono text-xs" style="color:#B07817">'+fmt(calc.reindexe)+'</td>'
+      + '<td><input type="number" value="'+attr(gsel.marche)+'" onchange="onGrille(\''+attr(h.cluster)+'\',\'marche\',this.value)" placeholder="—" class="w-24 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td>'+pillDecision(dec)+'<br><span class="ff-mono text-[10px]" style="color:var(--muted)">'+fmt1(calc.coutTkm)+' F/T/km · '+fmt1(calc.coutKg)+' F/kg</span></td>'
+      + '<td>'+(S.canWrite?'<button onclick="saveDecision(\''+attr(h.cluster)+'\')" class="btn dark">Consigner</button>':'')+'</td></tr>';
+  }).join("");
+  return cartesReperes()
+    + '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[1050px]"><thead><tr>'
+    + '<th>Cluster</th><th>Camion</th><th>Route</th><th>Dist. AR</th><th>Litres aut.</th><th>Carburant F</th><th>Hors carb. F</th><th>Budget F</th><th>Réindexé F</th><th>Marché F</th><th>Décision</th><th></th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + '<p class="text-xs px-4 py-3" style="color:var(--muted)">Budget = cost-plus hors carburant + carburant au gasoil actuel. Réindexé = opposable uniquement après hausse réelle du gasoil (+'+Math.round(S.params.marge_reindexation*100)+'% sur le carburant seul). Négocier si marché ≤ budget +5%. Consigner historise la négociation.</p></div>';
+}
+function vueSimulateur(){
+  const sim = S.sim;
+  const calc = moteur({ distanceKm: sim.distance, gabaritCode: sim.gabarit, etat: sim.etat, gasoil: sim.gasoil, tonnage: sim.tonnage });
+  const dec = calc ? decisionPour(calc.total, sim.marche) : null;
+  const sousRempli = calc && calc.remplissage < Number(S.params.taux_remplissage_min);
+  const inp = (id,label,val,step)=>'<label class="block"><span class="text-xs font-medium block mb-1" style="color:var(--muted)">'+label+'</span>'
+    + '<input type="number" step="'+(step||"any")+'" value="'+attr(val==null?"":val)+'" onchange="onSim(\''+id+'\',this.value)" class="w-full px-3 py-2 rounded-lg text-sm ff-mono"/></label>';
+  let resultat = '<p class="text-sm" style="color:#B07817">Renseignez distance, gabarit et état de route.</p>';
+  if (calc){
+    resultat =
+      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">'
+      + kpi("Budget théorique", fmt(calc.total)+" F", fmt(calc.horsCarb)+" hors carb. + "+fmt(calc.carb)+" carb.")
+      + kpi("Litres autorisés", fmt(calc.litres)+" L", "conso "+calc.conso+" L/100 · détour +"+Math.round(S.params.coeff_detour*100)+"%")
+      + kpi("Coût / tonne", fmt(Math.round(calc.coutT))+" F/T", fmt1(calc.coutTkm)+" F/T/km · "+fmt1(calc.coutKg)+" F/kg")
+      + kpi("Prix réindexé", fmt(calc.reindexe)+" F", "si hausse gasoil (+"+Math.round(S.params.marge_reindexation*100)+"% carburant)")
+      + '</div>'
+      + '<div class="flex items-center gap-3 flex-wrap">'
+      + '<div>'+pillDecision(dec)+'</div>'
+      + (sim.marche!=="" ? '<span class="ff-mono text-xs" style="color:var(--muted)">écart marché vs budget : '+fmt(Number(sim.marche)-calc.total)+' F</span>' : '')
+      + '<span class="ff-mono text-xs" style="color:'+(sousRempli?'var(--red)':'var(--muted)')+'">remplissage '+Math.round(calc.remplissage*100)+'%'+(sousRempli?' — sous le seuil '+Math.round(S.params.taux_remplissage_min*100)+'%':'')+'</span>'
+      + '</div>';
+  }
+  return '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">'
+    + '<div class="card p-4"><h3 class="ff-display text-sm font-bold mb-3" style="color:var(--pine)">Hypothèses</h3><div class="space-y-3">'
+    + inp("distance","Distance aller simple (km)",sim.distance)
+    + '<label class="block"><span class="text-xs font-medium block mb-1" style="color:var(--muted)">Gabarit camion</span><select onchange="onSim(\'gabarit\',this.value)" class="w-full px-3 py-2 rounded-lg text-sm">'
+    + S.gabarits.map(g=>'<option '+(sim.gabarit===g.code?"selected":"")+'>'+g.code+'</option>').join("")+'</select></label>'
+    + '<label class="block"><span class="text-xs font-medium block mb-1" style="color:var(--muted)">État de route</span><select onchange="onSim(\'etat\',this.value)" class="w-full px-3 py-2 rounded-lg text-sm">'
+    + ["Bonne","Moyenne","Difficile"].map(e=>'<option '+(sim.etat===e?"selected":"")+'>'+e+'</option>').join("")+'</select></label>'
+    + inp("tonnage","Tonnage chargé (T)",sim.tonnage)
+    + inp("gasoil","Prix gasoil (F/L) — vide = actuel "+fmt(S.params.gasoil_actuel),sim.gasoil)
+    + inp("marche","Prix proposé par le transporteur (F)",sim.marche)
+    + '</div></div>'
+    + '<div class="lg:col-span-2"><div class="card p-4 mb-4"><h3 class="ff-display text-sm font-bold mb-3" style="color:var(--pine)">Résultat (moteur identique à la grille)</h3>'+resultat+'</div>'
+    + cartesReperes()
+    + '<p class="text-xs" style="color:var(--muted)">Le simulateur n\'écrit rien en base : c\'est un outil de préparation. Pour tracer une négociation réelle, utilisez « Consigner » dans la Grille.</p></div></div>';
+}
+function kpi(label, valeur, sous){
+  return '<div class="card p-3"><p class="text-[11px] font-semibold" style="color:var(--muted)">'+label+'</p>'
+    + '<p class="ff-display text-lg font-bold mt-1" style="color:var(--pine)">'+valeur+'</p>'
+    + '<p class="ff-mono text-[10px] mt-0.5" style="color:var(--muted)">'+sous+'</p></div>';
+}
+function vueHubs(){
+  const rows = S.hubs.map(h=>{
+    const id = h.cluster.replace(/[^a-z0-9]/gi,"_");
+    const rec = S.potentielRecense[h.cluster.trim().toLowerCase()];
+    return '<tr><td class="ff-display font-semibold">'+esc(h.cluster)+'</td>'
+      + '<td class="text-xs" style="color:var(--muted)">'+esc(h.zone)+'</td>'
+      + '<td><input id="h_'+id+'_nom" value="'+attr(h.hub_nom||"")+'" placeholder="—" class="w-40 px-2 py-1 rounded-md text-sm" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td><select id="h_'+id+'_statut" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option '+(h.statut_hub==="Retenu"?"selected":"")+'>Retenu</option><option '+(h.statut_hub!=="Retenu"?"selected":"")+'>En attente</option></select></td>'
+      + '<td><input id="h_'+id+'_dist" type="number" step="any" value="'+(h.distance_km==null?"":h.distance_km)+'" placeholder="?" class="w-20 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td><select id="h_'+id+'_etat" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'><option value="">?</option>'
+      + ["Bonne","Moyenne","Difficile"].map(e=>'<option '+(h.etat_route===e?"selected":"")+'>'+e+'</option>').join("")+'</select></td>'
+      + '<td><input id="h_'+id+'_pot" type="number" step="any" value="'+(h.potentiel_mt||0)+'" class="w-20 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td class="ff-mono text-xs" style="color:'+(rec!=null?'var(--emerald)':'var(--muted)')+'">'+(rec!=null?fmt(rec):"—")+'</td>'
+      + '<td>'+(S.canWrite?'<button onclick="saveHub(\''+attr(h.cluster)+'\')" class="btn">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  const manquants = S.hubs.filter(h=>!h.distance_km||!h.etat_route).length;
+  return (manquants ? '<div class="card p-3 mb-4" style="border-color:var(--cashew)"><p class="text-xs" style="color:#B07817">⚠ '+manquants+' cluster(s) sans distance ou état de route : leur ligne de grille est inactive.</p></div>' : '')
+    + '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[900px]"><thead><tr>'
+    + '<th>Cluster</th><th>Zone</th><th>Hub retenu</th><th>Statut</th><th>Dist. → usine (km)</th><th>État route</th><th>Potentiel MT (plan)</th><th>Potentiel recensé</th><th></th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + '<p class="text-xs px-4 py-3" style="color:var(--muted)">« Potentiel recensé » = somme des fiches villages FBMS rattachées au cluster.</p></div>';
+}
+function vueGabarits(){
+  const rows = S.gabarits.map(g=>{
+    const inp=(f,w)=>'<input id="g_'+g.code+'_'+f+'" type="number" step="any" value="'+g[f]+'" class="'+(w||'w-20')+' px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/>';
+    return '<tr><td class="ff-display font-bold">'+g.code+'</td>'
+      + '<td>'+inp("capacite_t","w-16")+'</td><td>'+inp("conso_bonne","w-16")+'</td><td>'+inp("conso_moyenne","w-16")+'</td><td>'+inp("conso_difficile","w-16")+'</td>'
+      + '<td>'+inp("cout_fixe","w-24")+'</td><td>'+inp("maintenance_km","w-20")+'</td>'
+      + '<td><select id="g_'+g.code+'_statut" class="px-2 py-1 rounded-md text-xs" '+(S.canWrite?'':'disabled')+'>'
+      + '<option value="non vérifié" '+(g.statut!=="confirmé"?"selected":"")+'>non vérifié</option><option value="confirmé" '+(g.statut==="confirmé"?"selected":"")+'>confirmé</option></select></td>'
+      + '<td>'+(S.canWrite?'<button onclick="saveGabarit(\''+g.code+'\')" class="btn">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  return (S.gabarits.some(g=>g.statut!=="confirmé")
+      ? '<div class="card p-3 mb-4" style="border-color:var(--cashew)"><p class="text-xs" style="color:#B07817">⚠ Gabarits non validés terrain : ne pas opposer ces prix à un transporteur avant confirmation (conso réelle, coût fixe, maintenance).</p></div>' : '')
+    + '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[800px]"><thead><tr>'
+    + '<th>Gabarit</th><th>Capacité T</th><th>Conso Bonne</th><th>Conso Moy.</th><th>Conso Diff.</th><th>Coût fixe (F)</th><th>Maint. (F/km)</th><th>Statut</th><th></th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function vueParametres(){
+  const rows = S.paramRows.map(p=>{
+    const pct = ["marge_reindexation","coeff_detour","taux_remplissage_min","tolerance_carburant","marge_transporteur"].includes(p.cle);
+    return '<tr><td>'+esc(p.libelle)+(pct?' <span class="ff-mono text-[10px]" style="color:var(--muted)">(fraction : 0.09 = 9%)</span>':'')+'</td>'
+      + '<td><input id="p_'+p.cle+'" type="number" step="any" value="'+p.valeur+'" class="w-28 px-2 py-1 rounded-md text-sm ff-mono" '+(S.canWrite?'':'disabled')+'/></td>'
+      + '<td>'+badgeStatut(p.statut)+'</td>'
+      + '<td class="text-xs" style="color:var(--muted)">'+esc(p.commentaire||"")+'</td>'
+      + '<td>'+(S.canWrite?'<button onclick="saveParam(\''+p.cle+'\')" class="btn">Enregistrer</button>':'')+'</td></tr>';
+  }).join("");
+  return '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[800px]"><thead><tr>'
+    + '<th>Paramètre</th><th>Valeur</th><th>Statut</th><th>Note</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function vueHistorique(){
+  if (!S.decisions.length) return '<div class="card p-6"><p class="text-sm" style="color:var(--muted)">Aucune décision consignée pour l\'instant. Utilisez « Consigner » dans la Grille lors d\'une négociation.</p></div>';
+  const rows = S.decisions.map(d=>'<tr>'
+    + '<td class="ff-mono text-[11px]" style="color:var(--muted)">'+new Date(d.ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})+'</td>'
+    + '<td class="text-xs font-semibold">'+esc(d.cluster)+'</td><td class="text-xs">'+esc(d.gabarit)+' · '+esc(d.etat_route||"?")+'</td>'
+    + '<td class="ff-mono text-xs">'+fmt(d.prix_budgete)+'</td><td class="ff-mono text-xs">'+fmt(d.prix_marche)+'</td>'
+    + '<td class="text-xs">'+esc(d.decision||"")+'</td><td class="text-[11px]" style="color:var(--muted)">'+esc(d.created_by||"")+'</td></tr>').join("");
+  return '<div class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[800px]"><thead><tr>'
+    + '<th>Date</th><th>Cluster</th><th>Config</th><th>Budget F</th><th>Marché F</th><th>Décision</th><th>Par</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function render(){
+  const vues = { grille:vueGrille, simulateur:vueSimulateur, hubs:vueHubs, gabarits:vueGabarits, parametres:vueParametres, historique:vueHistorique };
+  $("app").innerHTML = coquille((vues[S.vue]||vueGrille)());
+  if (window.lucide) lucide.createIcons();
+}
+
+/* ========================= 6. DÉMARRAGE ==================================== */
+async function demarrer(session){
+  S.session = session;
+  const { data: profil } = await SB.from("profils").select("nom, role, actif").eq("user_id", session.user.id).single();
+  if (!profil || !profil.actif){ await SB.auth.signOut(); return vueLogin("Compte inactif ou profil manquant."); }
+  S.nom = profil.nom; S.role = profil.role;
+  S.canWrite = LOG_CONFIG.rolesEcriture.includes(profil.role);
+  try{ await chargerTout(); render(); }
+  catch(e){ $("app").innerHTML = '<div class="card p-6 mt-10 max-w-md mx-auto"><p class="text-sm" style="color:var(--red)">Erreur de chargement : '+esc(e.message)+'</p></div>'; }
+}
+(async function init(){
+  const { data } = await SB.auth.getSession();
+  if (data.session) await demarrer(data.session); else vueLogin();
+})();
+</script>
+</body>
+</html>
