@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FBMS · Hubs / Clusters</title>
+<meta name="theme-color" content="#053B23" />
+<!-- ============================================================================
+     FBMS — Rubrique HUBS / CLUSTERS geolocalises (Phase B)
+     FBMS est le referentiel terrain et geographique. Chaque cluster devient un
+     hub logistique geolocalise, avec distance vers l'usine de Yamoussoukro.
+     · Pre-creation auto depuis les clusters des fiches villages.
+     · Enrichissement GPS terrain (saisie, "ma position", clic carte).
+     · Haversine hub->usine et village->hub (estimation vol d'oiseau).
+     · Distance routiere validee = prioritaire pour les calculs ALIS.
+     · Workflow : A geolocaliser -> GPS renseigne -> Distance estimee ->
+       Distance routiere a valider -> Valide Supervisor -> Valide Head of Field
+       -> Approuve Branch Manager.
+     Additif : lit villages (referentiel), ecrit hubs_clusters. Ne touche a rien.
+     ========================================================================== -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--forest:#053B23;--pine:#0B2B21;--emerald:#1F5B3F;--lime:#8DC556;--mist:#F1F9EF;--pale:#E0F3DE;
+        --orange:#EE9E00;--danger:#C0392B;--ink:#132A22;--muted:#4B5A52;--line:#E4E0D5;--cream:#F7F5EF;--soft:0 10px 30px rgba(11,43,33,.08);}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--cream)}
+  a{color:inherit;text-decoration:none}
+  .top{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--forest);color:#fff;position:sticky;top:0;z-index:40}
+  .top .b{display:flex;align-items:center;gap:10px}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--lime);color:var(--forest);display:grid;place-items:center;font-weight:900}
+  .top b{font-size:15px}.top small{display:block;font-size:10px;color:#A9CBB6;text-transform:uppercase;letter-spacing:.1em}
+  .top .u{display:flex;align-items:center;gap:10px;font-size:12px}
+  .btn{border:0;border-radius:9px;padding:9px 13px;font-weight:800;cursor:pointer;font-size:13px;background:var(--emerald);color:#fff}
+  .btn.ghost{background:#fff;color:var(--emerald);border:1px solid var(--line)}
+  .btn.dark{background:var(--pine)}
+  .btn.sm{padding:6px 10px;font-size:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .bar input,.bar select{border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;background:#fff}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--soft)}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);font-size:15px;color:var(--forest);display:flex;justify-content:space-between;align-items:center}
+  .card .body{padding:14px 16px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#D8EAD3;background:var(--forest);padding:8px 9px;text-align:left;white-space:nowrap}
+  td{font-size:12.5px;padding:8px 9px;border-top:1px solid #F0EDE4;vertical-align:middle}
+  tbody tr{cursor:pointer} tbody tr:hover td{background:#F4F8F2}
+  tbody tr.on td{background:var(--mist)}
+  .pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:800;white-space:nowrap}
+  .p-geo{background:#fdeceb;color:#a5372c}        /* a geolocaliser */
+  .p-gps{background:#eef7ff;color:#1d6fa5}        /* gps renseigne / estimee */
+  .p-val{background:#fff5e6;color:#9a6b12}        /* a valider */
+  .p-ok{background:var(--pale);color:var(--forest)} /* valide/approuve */
+  label{display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:11px 0 5px}
+  input,select,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:13px;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:2px solid #1F5B3F33}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #map{height:230px;border-radius:12px;border:1px solid var(--line);margin-top:8px}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+  .kv .b{border:1px solid var(--line);border-radius:10px;padding:9px;background:linear-gradient(180deg,#fff,var(--mist))}
+  .kv small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}
+  .kv b{font-size:16px;color:var(--forest)}
+  .alert{border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.45;margin-top:10px;display:none}
+  .alert.show{display:block}
+  .alert.warn{background:#fff8e8;border:1px solid #EAD9A6;color:#8a6a12}
+  .alert.err{background:#fff1f1;border:1px solid #E7B7B0;color:#8f2d22}
+  .alert.ok{background:var(--mist);border:1px solid #BFE3B6;color:#1c4b30}
+  .wf{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .wf button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;font-size:11.5px;font-weight:700;cursor:pointer}
+  .wf button.done{background:var(--forest);color:#fff;border-color:var(--forest)}
+  .modal{position:fixed;inset:0;background:rgba(5,59,35,.45);display:none;align-items:center;justify-content:center;z-index:80;padding:18px}
+  .modal.open{display:flex}
+  .dialog{background:#fff;border-radius:16px;max-width:400px;width:100%;overflow:hidden}
+  .dialog .h{padding:18px;background:linear-gradient(135deg,var(--forest),#0a5531);color:#fff}
+  .dialog .bd{padding:18px;display:flex;flex-direction:column;gap:11px}
+  .muted{color:var(--muted);font-size:12px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}#detail{order:-1}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="b"><div class="logo">A</div><div><b>Hubs / Clusters</b><small>FBMS · Référentiel géographique</small></div></div>
+  <div class="u">
+    <span id="who" class="muted">—</span>
+    <a class="btn ghost sm" href="https://nwodobe.github.io/fbms/">Portail</a>
+    <button class="btn ghost sm" id="logoutBtn" onclick="logout()" style="display:none">Sortir</button>
+    <button class="btn sm" id="loginBtn" onclick="openLogin()">Se connecter</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="bar">
+    <input id="search" placeholder="Rechercher un hub…" oninput="renderList()" style="min-width:200px" />
+    <select id="fStatut" onchange="renderList()">
+      <option value="">Tous statuts</option>
+      <option>À géolocaliser</option><option>GPS renseigné</option><option>Distance estimée</option>
+      <option>Distance routière à valider</option><option>Validé Supervisor</option>
+      <option>Validé Head of Field</option><option>Approuvé Branch Manager</option>
+    </select>
+    <select id="fRegion" onchange="renderList()"><option value="">Toutes régions</option></select>
+    <button class="btn ghost sm" onclick="syncFromClusters()" id="syncBtn" title="Créer les hubs manquants depuis les clusters des villages">Synchroniser depuis FBMS</button>
+    <span class="muted" id="usineTag">Usine : —</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Hubs / Clusters <span class="muted" id="countTag" style="font-weight:400;font-size:12px"></span></h2>
+      <div class="body" style="overflow:auto;max-height:70vh">
+        <table><thead><tr>
+          <th>Hub</th><th>Région</th><th>Villages</th><th>Potentiel MT</th><th>Dist. usine</th><th>Statut</th>
+        </tr></thead><tbody id="list"></tbody></table>
+      </div>
+    </div>
+
+    <div class="card" id="detail">
+      <h2 id="detailTitle">Détail du hub</h2>
+      <div class="body" id="detailBody">
+        <p class="muted">Sélectionnez un hub dans la liste pour le géolocaliser et gérer sa validation.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="loginModal">
+  <div class="dialog">
+    <div class="h"><b style="font-size:19px">Accès FBMS</b><div style="opacity:.85;font-size:13px;margin-top:5px">Compte ANAGROCI (email + mot de passe)</div></div>
+    <div class="bd">
+      <div><label>Email</label><input id="lEmail" type="email" autocomplete="username" /></div>
+      <div><label>Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" /></div>
+      <div class="alert" id="lErr"></div>
+      <div style="display:flex;gap:9px"><button class="btn" onclick="login()">Entrer</button><button class="btn ghost" onclick="closeLogin()">Annuler</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const SB = window.supabase.createClient(
+  "https://jmbdgpdthzpszfnddwzi.supabase.co",
+  "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d"
+);
+const $ = id => document.getElementById(id);
+const S = { session:null, role:null, hubs:[], villages:[], usine:null, objectif:8, sel:null, map:null, marker:null };
+
+/* ---- utils ---- */
+const num = x => { const n = parseFloat(String(x).replace(",",".")); return isNaN(n)?null:n; };
+const mt = x => (x==null||isNaN(x)) ? "—" : Math.round(x).toLocaleString("fr-FR");
+const km = x => (x==null||isNaN(x)) ? "—" : (Math.round(x*10)/10).toLocaleString("fr-FR")+" km";
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371, r=d=>d*Math.PI/180;
+  const dLat=r(lat2-lat1), dLng=r(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+const STAT = ["À géolocaliser","GPS renseigné","Distance estimée","Distance routière à valider","Validé Supervisor","Validé Head of Field","Approuvé Branch Manager"];
+function pillClass(s){ if(s==="À géolocaliser")return"p-geo"; if(s==="GPS renseigné"||s==="Distance estimée")return"p-gps"; if(s==="Distance routière à valider")return"p-val"; return"p-ok"; }
+
+/* ---- agrégats village par hub ---- */
+function villagesDuHub(nom){ return S.villages.filter(v=>((v.s1&&v.s1.cluster)||"").trim()===nom); }
+function agg(nom){
+  const vs=villagesDuHub(nom); let pot=0,eng=0,prod=0;
+  vs.forEach(v=>{ pot+=num(v.s3&&v.s3.potentielMT)||0; eng+=num(v.s3&&v.s3.potentielSecuriseMT)||0; prod+=num(v.s3&&v.s3.nbProducteurs)||0; });
+  return { nbVillages:vs.length, potentielMT:pot, engageMT:eng, producteurs:prod, villages:vs };
+}
+
+/* ---- chargement ---- */
+async function chargerTout(){
+  const { data:params } = await SB.from("parametres_calcul").select("cle, valeur");
+  const P={}; (params||[]).forEach(p=>P[p.cle]=Number(p.valeur));
+  if(P.usine_lat!=null && P.usine_lng!=null) S.usine={lat:P.usine_lat,lng:P.usine_lng};
+  S.objectif=P.objectif_cout_kg||8;
+  $("usineTag").textContent = S.usine ? ("Usine Yamoussoukro : "+S.usine.lat.toFixed(5)+", "+S.usine.lng.toFixed(5)) : "Usine : non paramétrée";
+
+  const { data:vil } = await SB.from("villages").select("data").eq("deleted",false);
+  S.villages = (vil||[]).map(r=>r.data).filter(Boolean);
+
+  await chargerHubs();
+  // Synchronisation auto silencieuse : créer les hubs manquants
+  await syncFromClusters(true);
+}
+async function chargerHubs(){
+  const { data:hubs } = await SB.from("hubs_clusters").select("*").eq("deleted",false).order("nom");
+  S.hubs = hubs||[];
+  const regs=[...new Set(S.hubs.map(h=>h.region).filter(Boolean))].sort();
+  $("fRegion").innerHTML='<option value="">Toutes régions</option>'+regs.map(r=>'<option>'+r+'</option>').join("");
+  renderList();
+}
+
+/* ---- synchronisation depuis les clusters villages ---- */
+async function syncFromClusters(silent){
+  const existants=new Set(S.hubs.map(h=>h.nom));
+  const clusters={};
+  S.villages.forEach(v=>{ const c=((v.s1&&v.s1.cluster)||"").trim(); if(c && !existants.has(c) && !clusters[c]) clusters[c]={nom:c, region:(v.s1.region||""), departement:(v.s1.departement||""), localite:(v.s1.sousPrefecture||v.s1.departement||"")}; });
+  const nouveaux=Object.values(clusters);
+  if(!nouveaux.length){ if(!silent) flash("Aucun nouveau cluster à créer. Les hubs sont à jour.","ok"); return; }
+  const rows=nouveaux.map(n=>({ nom:n.nom, region:n.region, departement:n.departement, localite:n.localite, statut:"À géolocaliser", source:"Créé depuis FBMS", cree_par:(S.session&&S.session.user.email)||null }));
+  const { error } = await SB.from("hubs_clusters").insert(rows);
+  if(error){ if(!silent) flash("Création impossible : "+error.message,"err"); return; }
+  await chargerHubs();
+  if(!silent) flash(nouveaux.length+" hub(s) créé(s) depuis les clusters FBMS.","ok");
+}
+function flash(msg,type){ /* barre : réutilise detail si vide */ const d=$("detailBody"); if(!S.sel){ d.innerHTML='<div class="alert '+type+' show">'+msg+'</div><p class="muted" style="margin-top:10px">Sélectionnez un hub pour le géolocaliser.</p>'; } }
+
+/* ---- liste ---- */
+function renderList(){
+  const q=($("search").value||"").toLowerCase(), fs=$("fStatut").value, fr=$("fRegion").value;
+  let rows=S.hubs.filter(h=>(!q||h.nom.toLowerCase().includes(q))&&(!fs||h.statut===fs)&&(!fr||h.region===fr));
+  $("countTag").textContent=rows.length+" / "+S.hubs.length;
+  $("list").innerHTML = rows.map(h=>{
+    const a=agg(h.nom);
+    const dist = h.distance_usine_routiere!=null ? km(h.distance_usine_routiere)+" ✓" : (h.distance_usine_gps!=null ? km(h.distance_usine_gps)+" ~" : "—");
+    return '<tr class="'+(S.sel===h.nom?'on':'')+'" onclick="select(\''+h.nom.replace(/'/g,"\\'")+'\')">'
+      +'<td><b>'+h.nom+'</b><div class="muted">'+(h.localite||"")+'</div></td>'
+      +'<td>'+(h.region||"—")+'</td><td>'+a.nbVillages+'</td><td>'+mt(a.potentielMT)+'</td>'
+      +'<td>'+dist+'</td><td><span class="pill '+pillClass(h.statut)+'">'+h.statut+'</span></td></tr>';
+  }).join("") || '<tr><td colspan="6" class="muted">Aucun hub.</td></tr>';
+}
+
+/* ---- détail / édition ---- */
+function select(nom){
+  S.sel=nom; const h=S.hubs.find(x=>x.nom===nom); if(!h) return;
+  renderList();
+  const a=agg(nom);
+  const canValSup = S.role==="Supervisor"||S.role==="Head of Field"||S.role==="Branch Manager"||S.role==="Administrateur";
+  const canValHoF = S.role==="Head of Field"||S.role==="Branch Manager"||S.role==="Administrateur";
+  const canApprBM = S.role==="Branch Manager"||S.role==="Administrateur";
+  $("detailTitle").textContent = h.nom;
+  $("detailBody").innerHTML =
+    '<div class="kv">'
+     +'<div class="b"><small>Villages rattachés</small><b>'+a.nbVillages+'</b></div>'
+     +'<div class="b"><small>Producteurs</small><b>'+mt(a.producteurs)+'</b></div>'
+     +'<div class="b"><small>Potentiel total</small><b>'+mt(a.potentielMT)+' MT</b></div>'
+     +'<div class="b"><small>Engagé ANAGROCI</small><b>'+mt(a.engageMT)+' MT</b></div>'
+    +'</div>'
+    +'<label>Coordonnées GPS du hub (ville centre)</label>'
+    +'<div class="row"><input id="hLat" placeholder="Latitude" value="'+(h.gps_lat??"")+'" /><input id="hLng" placeholder="Longitude" value="'+(h.gps_lng??"")+'" /></div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost sm" onclick="maPosition()">📍 Utiliser ma position</button><button class="btn ghost sm" onclick="recalc()">Recalculer distance GPS</button></div>'
+    +'<div id="map"></div>'
+    +'<div class="alert warn" id="hMsg"></div>'
+    +'<label>Distance GPS estimée hub → usine (vol d\'oiseau)</label>'
+    +'<input id="hDistGps" disabled value="'+(h.distance_usine_gps!=null?km(h.distance_usine_gps):"—")+'" />'
+    +'<label>Distance routière VALIDÉE hub → usine (km) — prioritaire pour ALIS</label>'
+    +'<input id="hDistRoute" type="number" min="0" placeholder="km réels validés" value="'+(h.distance_usine_routiere??"")+'" />'
+    +'<label>Notes / justification</label><textarea id="hNotes" rows="2">'+(h.notes||"")+'</textarea>'
+    +'<label>Workflow de validation</label>'
+    +'<div class="wf">'
+      + STAT.map(s=>'<button class="'+(STAT.indexOf(s)<=STAT.indexOf(h.statut)?"done":"")+'" '
+          +( (s==="Validé Supervisor"&&!canValSup)||(s==="Validé Head of Field"&&!canValHoF)||(s==="Approuvé Branch Manager"&&!canApprBM) ? 'disabled ':'')
+          +'onclick="setStatut(\''+s+'\')">'+s+'</button>').join("")
+    +'</div>'
+    +'<div style="display:flex;gap:9px;margin-top:14px"><button class="btn" onclick="saveHub()">Enregistrer</button>'
+      +'<button class="btn ghost" onclick="voirVillages()">Villages du hub ('+a.nbVillages+')</button></div>'
+    +'<div class="alert" id="saveMsg"></div>'
+    +'<div id="vList"></div>';
+  mountMap(h);
+  autoMsg(h);
+}
+function autoMsg(h){
+  const m=$("hMsg"); m.className="alert warn";
+  if(h.gps_lat==null||h.gps_lng==null){ m.classList.add("show"); m.textContent="Hub non géolocalisé : renseignez les coordonnées GPS (ALIS bloquera le transfert tant que le hub n'a pas de position)."; return; }
+  if(h.distance_usine_routiere==null){ m.classList.add("show"); m.textContent="Distance GPS estimée (vol d'oiseau) affichée. La distance routière validée n'existe pas encore : pour ALIS, le calcul restera estimatif tant qu'un profil autorisé ne l'aura pas saisie."; return; }
+  m.className="alert ok show"; m.textContent="Distance routière validée présente : ALIS l'utilisera en priorité.";
+}
+function mountMap(h){
+  if(S.map){ S.map.remove(); S.map=null; S.marker=null; }
+  const hasGps = h.gps_lat!=null && h.gps_lng!=null;
+  const center = hasGps ? [h.gps_lat,h.gps_lng] : (S.usine?[S.usine.lat,S.usine.lng]:[6.82,-5.28]);
+  S.map = L.map("map",{scrollWheelZoom:true}).setView(center, hasGps?11:7);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:18}).addTo(S.map);
+  if(S.usine){ L.marker([S.usine.lat,S.usine.lng]).addTo(S.map).bindPopup("Usine ANAGROCI · Yamoussoukro"); }
+  if(hasGps) setMarker(h.gps_lat,h.gps_lng,false);
+  S.map.on("click", e=>{ setMarker(e.latlng.lat,e.latlng.lng,true); });
+  setTimeout(()=>S.map&&S.map.invalidateSize(),120);
+}
+function setMarker(lat,lng,fromClick){
+  if(S.marker) S.map.removeLayer(S.marker);
+  S.marker=L.circleMarker([lat,lng],{radius:9,color:"#fff",weight:2,fillColor:"#EE9E00",fillOpacity:.95}).addTo(S.map);
+  if(fromClick){ $("hLat").value=lat.toFixed(6); $("hLng").value=lng.toFixed(6); recalc(); }
+}
+function maPosition(){
+  if(!navigator.geolocation){ return; }
+  navigator.geolocation.getCurrentPosition(p=>{ $("hLat").value=p.coords.latitude.toFixed(6); $("hLng").value=p.coords.longitude.toFixed(6); if(S.map){S.map.setView([p.coords.latitude,p.coords.longitude],13); setMarker(p.coords.latitude,p.coords.longitude,false);} recalc(); },
+    ()=>{ const m=$("hMsg"); m.className="alert err show"; m.textContent="Position GPS indisponible (autorisez la localisation ou saisissez manuellement)."; });
+}
+function recalc(){
+  const lat=num($("hLat").value), lng=num($("hLng").value);
+  if(lat==null||lng==null||!S.usine){ return; }
+  const d=haversine(lat,lng,S.usine.lat,S.usine.lng);
+  $("hDistGps").value = km(d)+" (estimation vol d'oiseau)";
+}
+function voirVillages(){
+  const a=agg(S.sel);
+  const lat=num($("hLat").value), lng=num($("hLng").value);
+  const rows=a.villages.map(v=>{
+    const vlat=num(v.s1.gpsLat), vlng=num(v.s1.gpsLng);
+    let dv="—";
+    if(vlat!=null&&vlng!=null&&lat!=null&&lng!=null) dv=km(haversine(vlat,vlng,lat,lng))+" ~";
+    const dr = v.s1.distanceHubRoutiere!=null ? km(v.s1.distanceHubRoutiere)+" ✓" : (v.s1.distanceHub? km(num(v.s1.distanceHub))+" (saisie)":"—");
+    return '<tr><td>'+(v.s1.village||"")+'</td><td>'+dv+'</td><td>'+dr+'</td><td>'+mt(num(v.s3&&v.s3.potentielMT))+'</td></tr>';
+  }).join("");
+  $("vList").innerHTML='<div style="margin-top:12px;overflow:auto"><table><thead><tr><th>Village</th><th>Dist. GPS→hub</th><th>Dist. saisie</th><th>Pot. MT</th></tr></thead><tbody>'+(rows||'<tr><td colspan=4 class="muted">Aucun village.</td></tr>')+'</tbody></table></div>';
+}
+function statutAuto(lat,lng,route){
+  if(lat==null||lng==null) return "À géolocaliser";
+  if(route!=null) return "Distance routière à valider"; // routiere saisie => en attente de validation hierarchique
+  return "Distance estimée";                            // GPS + Haversine, routiere absente
+}
+function setStatut(s){ const h=S.hubs.find(x=>x.nom===S.sel); if(!h) return; h._statutForce=s; saveHub(); }
+async function saveHub(){
+  const h=S.hubs.find(x=>x.nom===S.sel); if(!h) return;
+  const lat=num($("hLat").value), lng=num($("hLng").value), route=num($("hDistRoute").value);
+  const distGps = (lat!=null&&lng!=null&&S.usine)? haversine(lat,lng,S.usine.lat,S.usine.lng) : null;
+  let statut = h._statutForce || statutAuto(lat,lng,route);
+  // Ne pas rétrograder une validation déjà acquise si les données restent cohérentes
+  if(!h._statutForce && STAT.indexOf(h.statut)>STAT.indexOf("Distance routière à valider") && lat!=null && lng!=null) statut=h.statut;
+  const patch={ gps_lat:lat, gps_lng:lng, distance_usine_gps:distGps, distance_usine_routiere:route, notes:$("hNotes").value||null, statut:statut, updated_at:new Date().toISOString() };
+  const { error } = await SB.from("hubs_clusters").update(patch).eq("id_hub",h.id_hub);
+  const m=$("saveMsg");
+  if(error){ m.className="alert err show"; m.textContent="Enregistrement refusé : "+error.message; return; }
+  Object.assign(h,patch); delete h._statutForce;
+  m.className="alert ok show"; m.textContent="Hub enregistré. Statut : "+statut;
+  renderList(); autoMsg(h);
+}
+
+/* ---- auth ---- */
+function openLogin(){ $("loginModal").classList.add("open"); setTimeout(()=>$("lEmail").focus(),40); }
+function closeLogin(){ $("loginModal").classList.remove("open"); }
+async function login(){
+  const email=($("lEmail").value||"").trim().toLowerCase(), password=$("lPass").value||"";
+  const err=$("lErr"); err.className="alert";
+  if(!email||!password){ err.className="alert err show"; err.textContent="Renseignez email et mot de passe."; return; }
+  const { data, error } = await SB.auth.signInWithPassword({ email, password });
+  if(error){ err.className="alert err show"; err.textContent=error.message==="Invalid login credentials"?"Email ou mot de passe incorrect.":error.message; return; }
+  await appliquer(data.session); closeLogin();
+}
+async function logout(){ try{await SB.auth.signOut();}catch(e){} location.reload(); }
+async function appliquer(session){
+  S.session=session;
+  const { data:p } = await SB.from("profils").select("nom, role, actif").eq("user_id",session.user.id).single();
+  if(!p||!p.actif){ await SB.auth.signOut(); return; }
+  S.role=p.role;
+  $("who").textContent=(p.nom||session.user.email)+" · "+p.role;
+  $("loginBtn").style.display="none"; $("logoutBtn").style.display="inline-flex";
+  await chargerTout();
+}
+(async function init(){
+  try{ const { data } = await SB.auth.getSession(); if(data.session) await appliquer(data.session); }catch(e){}
+})();
+</script>
+</body>
+</html>
