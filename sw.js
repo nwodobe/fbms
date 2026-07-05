@@ -14,7 +14,7 @@
    CACHE_VERSION puis republier ce fichier.
    ========================================================================== */
 
-var CACHE_VERSION = "v0.16.3";
+var CACHE_VERSION = "v0.16.4";
 var SHELL_CACHE = "fbms-shell-" + CACHE_VERSION;
 var RUNTIME_CACHE = "fbms-runtime-" + CACHE_VERSION;
 
