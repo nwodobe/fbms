@@ -104,6 +104,7 @@
     <button class="btn ghost sm" onclick="syncFromClusters()" id="syncBtn" title="Créer les hubs manquants depuis les clusters des villages">Synchroniser depuis FBMS</button>
     <span class="muted" id="usineTag">Usine : —</span>
   </div>
+  <div id="doublons"></div>
 
   <div class="grid">
     <div class="card">
@@ -158,8 +159,11 @@ function haversine(lat1,lng1,lat2,lng2){
 const STAT = ["À géolocaliser","GPS renseigné","Distance estimée","Distance routière à valider","Validé Supervisor","Validé Head of Field","Approuvé Branch Manager"];
 function pillClass(s){ if(s==="À géolocaliser")return"p-geo"; if(s==="GPS renseigné"||s==="Distance estimée")return"p-gps"; if(s==="Distance routière à valider")return"p-val"; return"p-ok"; }
 
-/* ---- agrégats village par hub ---- */
-function villagesDuHub(nom){ return S.villages.filter(v=>((v.s1&&v.s1.cluster)||"").trim()===nom); }
+/* ---- normalisation cluster -> hub_key (clé technique stable) ---- */
+function hubKey(s){return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function hubDisplay(s){return (s||"").replace(/[’‘´]/g,"'").replace(/\s+/g," ").trim().toUpperCase();}
+/* ---- agrégats village par hub (regroupement par hub_key, pas par texte brut) ---- */
+function villagesDuHub(nom){ const k=hubKey(nom); return S.villages.filter(v=>hubKey(((v.s1&&v.s1.cluster)||"").trim())===k); }
 function agg(nom){
   const vs=villagesDuHub(nom); let pot=0,eng=0,prod=0;
   vs.forEach(v=>{ pot+=num(v.s3&&v.s3.potentielMT)||0; eng+=num(v.s3&&v.s3.potentielSecuriseMT)||0; prod+=num(v.s3&&v.s3.nbProducteurs)||0; });
@@ -180,10 +184,22 @@ async function chargerTout(){
   await chargerHubs();
   // Synchronisation auto silencieuse : créer les hubs manquants
   await syncFromClusters(true);
+  detectDoublons();
+}
+/* Détection des variantes d'écriture unifiées par hub_key (exigence 9) */
+function detectDoublons(){
+  const map={};
+  S.villages.forEach(v=>{ const raw=((v.s1&&v.s1.cluster)||"").trim(); if(!raw) return; const k=hubKey(raw); (map[k]=map[k]||{labels:new Set(),n:0}); map[k].labels.add(raw); map[k].n++; });
+  const dbl=Object.entries(map).filter(e=>e[1].labels.size>1);
+  const d=$("doublons"); if(!d) return;
+  if(!dbl.length){ d.innerHTML=""; return; }
+  d.innerHTML='<div class="alert warn show" style="margin-bottom:12px">Variantes d\'écriture détectées et regroupées par hub : '
+    + dbl.map(e=>'<b>'+((S.hubByKey[e[0]]&&S.hubByKey[e[0]].nom)||e[0])+'</b> ← '+[...e[1].labels].join(" / ")+' ('+e[1].n+' villages)').join(' ; ')+'. Corrigez l\'orthographe du cluster dans les fiches villages pour un référentiel propre.</div>';
 }
 async function chargerHubs(){
   const { data:hubs } = await SB.from("hubs_clusters").select("*").eq("deleted",false).order("nom");
   S.hubs = hubs||[];
+  S.hubByKey={}; S.hubs.forEach(h=>S.hubByKey[h.hub_key||hubKey(h.nom)]=h);
   const regs=[...new Set(S.hubs.map(h=>h.region).filter(Boolean))].sort();
   $("fRegion").innerHTML='<option value="">Toutes régions</option>'+regs.map(r=>'<option>'+r+'</option>').join("");
   renderList();
@@ -191,12 +207,12 @@ async function chargerHubs(){
 
 /* ---- synchronisation depuis les clusters villages ---- */
 async function syncFromClusters(silent){
-  const existants=new Set(S.hubs.map(h=>h.nom));
+  const existants=new Set(S.hubs.map(h=>h.hub_key||hubKey(h.nom)));
   const clusters={};
-  S.villages.forEach(v=>{ const c=((v.s1&&v.s1.cluster)||"").trim(); if(c && !existants.has(c) && !clusters[c]) clusters[c]={nom:c, region:(v.s1.region||""), departement:(v.s1.departement||""), localite:(v.s1.sousPrefecture||v.s1.departement||"")}; });
+  S.villages.forEach(v=>{ const c=((v.s1&&v.s1.cluster)||"").trim(); if(!c) return; const k=hubKey(c); if(!existants.has(k) && !clusters[k]) clusters[k]={key:k, nom:hubDisplay(c), region:(v.s1.region||""), departement:(v.s1.departement||""), localite:(v.s1.sousPrefecture||v.s1.departement||"")}; });
   const nouveaux=Object.values(clusters);
   if(!nouveaux.length){ if(!silent) flash("Aucun nouveau cluster à créer. Les hubs sont à jour.","ok"); return; }
-  const rows=nouveaux.map(n=>({ nom:n.nom, region:n.region, departement:n.departement, localite:n.localite, statut:"À géolocaliser", source:"Créé depuis FBMS", cree_par:(S.session&&S.session.user.email)||null }));
+  const rows=nouveaux.map(n=>({ nom:n.nom, hub_key:n.key, region:n.region, departement:n.departement, localite:n.localite, statut:"À géolocaliser", source:"Créé depuis FBMS", cree_par:(S.session&&S.session.user.email)||null }));
   const { error } = await SB.from("hubs_clusters").insert(rows);
   if(error){ if(!silent) flash("Création impossible : "+error.message,"err"); return; }
   await chargerHubs();

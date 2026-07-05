@@ -148,7 +148,7 @@ const SB = window.supabase.createClient(
 );
 const $ = id => document.getElementById(id);
 const CI=[7.6,-5.3];
-const S={ session:null, villages:[], hubs:{}, usine:null, map:null,
+const S={ session:null, villages:[], hubs:{}, hubByKey:{}, usine:null, map:null,
   layers:{villages:null,clusters:null,axes:null,usine:null},
   show:{labels:true,axes:true,usine:true} };
 
@@ -157,7 +157,9 @@ const mt = x => (x==null||isNaN(x))?"—":Math.round(x).toLocaleString("fr-FR");
 const km = x => (x==null||isNaN(x))?"—":(Math.round(x*10)/10).toLocaleString("fr-FR")+" km";
 function haversine(a,b,c,d){const R=6371,r=x=>x*Math.PI/180;const dLat=r(c-a),dLng=r(d-b);const h=Math.sin(dLat/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));}
 function vlatlng(v){const la=num(v.s1&&v.s1.gpsLat),ln=num(v.s1&&v.s1.gpsLng);return (la!=null&&ln!=null)?{lat:la,lng:ln}:null;}
-function vclus(v){return ((v.s1&&v.s1.cluster)||"").trim();}
+function hubKey(s){return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function vraw(v){return ((v.s1&&v.s1.cluster)||"").trim();}
+function vclus(v){const raw=vraw(v);if(!raw)return "";const k=hubKey(raw);return (S.hubByKey[k]&&S.hubByKey[k].nom)||raw.replace(/[’‘´]/g,"'").toUpperCase();}
 function villagesDuHub(nom){return S.villages.filter(v=>vclus(v)===nom);}
 
 /* position cluster : GPS hub valide, sinon centroide provisoire des villages geoloc */
@@ -177,7 +179,8 @@ async function chargerTout(){
   const {data:vil}=await SB.from("villages").select("data, statut").eq("deleted",false);
   S.villages=(vil||[]).map(r=>Object.assign({},r.data,{_statut:r.statut})).filter(v=>v.s1);
   const {data:hubs}=await SB.from("hubs_clusters").select("*").eq("deleted",false);
-  S.hubs={};(hubs||[]).forEach(h=>S.hubs[h.nom]=h);
+  S.hubs={}; S.hubByKey={};
+  (hubs||[]).forEach(h=>{ S.hubs[h.nom]=h; S.hubByKey[h.hub_key||hubKey(h.nom)]=h; });
   remplirFiltres();
   initMap();
   render();
