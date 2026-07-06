@@ -1,271 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ANAGROCI Operations Suite</title>
-  <meta name="description" content="Portail central des applications métier ANAGROCI : FBMS, Logistique, Achats, Stocks, Qualité, Paiements, Reporting et Administration." />
-  <meta name="theme-color" content="#053B23" />
-  <!-- ============================================================================
-       ANAGROCI OPERATIONS SUITE — Portail (v1.0, connexion Supabase réelle)
-       Une seule plateforme · plusieurs applications · une donnée partagée.
-       Connexion : Supabase Auth (email + mot de passe) + table profils (rôle).
-       Les tuiles s'ouvrent selon le rôle. FBMS est le référentiel maître.
-       Liens applicatifs ABSOLUS vers les emplacements finaux — le portail
-       fonctionne à l'identique en test (/suite/) et à la racine.
-       ========================================================================== -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <style>
-    :root{
-      --forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--mist:#F1F9EF;--pale:#E0F3DE;
-      --orange:#EE9E00;--danger:#C0392B;--ink:#323131;--muted:#7A7878;--line:#E8E7E7;--surface:#F4F4F3;--white:#FFFFFF;
-      --shadow:0 20px 60px rgba(5,59,35,.14);--soft:0 10px 30px rgba(50,49,49,.08);--radius:22px;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at 18% 0%,#e9f7e5 0,#fff 34%,#f6faf5 100%)}
-    a{text-decoration:none;color:inherit} button,input,select{font:inherit}
-    .shell{min-height:100vh;display:flex;flex-direction:column}
-    .topbar{height:78px;display:flex;align-items:center;justify-content:space-between;padding:0 36px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(14px);position:sticky;top:0;z-index:30}
-    .brand{display:flex;align-items:center;gap:14px;min-width:270px}
-    .brand .logo{width:44px;height:44px;border-radius:12px;background:var(--forest);color:#fff;display:grid;place-items:center;font-weight:900;font-size:18px;letter-spacing:.02em}
-    .brand-copy{border-left:1px solid var(--line);padding-left:14px;line-height:1.1}
-    .brand-copy strong{display:block;font-size:15px;color:var(--forest)}
-    .brand-copy span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-top:5px}
-    .nav{display:flex;align-items:center;gap:22px;font-weight:700;font-size:14px;color:#3c4654}
-    .nav button{border:0;background:transparent;color:inherit;font-weight:700;cursor:pointer;padding:10px 4px}
-    .nav button:hover{color:var(--emerald)}
-    .user-zone{display:flex;align-items:center;gap:10px}
-    .login-btn,.primary-btn{border:0;border-radius:999px;background:var(--forest);color:#fff;padding:11px 18px;font-weight:800;cursor:pointer;box-shadow:0 12px 24px rgba(5,59,35,.18)}
-    .ghost-btn{border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--forest);padding:10px 16px;font-weight:800;cursor:pointer}
-    .user-pill{display:none;align-items:center;gap:10px;border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:#fff;box-shadow:var(--soft)}
-    .avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--forest);color:#fff;font-weight:900}
-    .user-meta{line-height:1.1} .user-meta strong{display:block;font-size:12px} .user-meta span{display:block;font-size:10px;color:var(--muted);margin-top:3px}
-    .hero{padding:44px 36px 28px;max-width:1280px;margin:0 auto;width:100%;display:grid;grid-template-columns:1.15fr .85fr;gap:26px;align-items:stretch}
-    .hero-card{background:linear-gradient(135deg,var(--forest),#0a5531);border-radius:30px;padding:34px;box-shadow:var(--shadow);color:#fff;position:relative;overflow:hidden;min-height:310px}
-    .hero-card:before{content:"";position:absolute;width:410px;height:410px;border-radius:50%;right:-160px;top:-190px;background:rgba(141,197,86,.18)}
-    .hero-card:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:20px;bottom:-120px;background:rgba(238,158,0,.12)}
-    .eyebrow{position:relative;z-index:2;font-size:12px;text-transform:uppercase;letter-spacing:.18em;font-weight:800;color:var(--lime)}
-    h1{position:relative;z-index:2;font-size:44px;line-height:1.02;margin:14px 0 18px;letter-spacing:-.03em}
-    .hero-card p{position:relative;z-index:2;max-width:690px;font-size:16px;line-height:1.7;color:rgba(255,255,255,.88);margin:0}
-    .hero-actions{position:relative;z-index:2;display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
-    .hero-actions .primary-btn{background:#fff;color:var(--forest);box-shadow:none} .hero-actions .ghost-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.28);color:#fff}
-    .control{background:#fff;border:1px solid var(--line);border-radius:30px;padding:24px;box-shadow:var(--soft);display:flex;flex-direction:column;gap:18px}
-    .control-top{display:flex;justify-content:space-between;gap:14px;align-items:start}
-    .status-badge{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 11px;background:var(--mist);color:var(--forest);font-size:12px;font-weight:900}
-    .dot{width:8px;height:8px;border-radius:50%;background:var(--emerald)}
-    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .stat{border:1px solid var(--line);border-radius:18px;padding:16px;background:linear-gradient(180deg,#fff,var(--mist))}
-    .stat small{display:block;color:var(--muted);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
-    .stat strong{display:block;color:var(--forest);font-size:26px;margin-top:8px}
-    .notice{border-left:4px solid var(--emerald);background:var(--mist);border-radius:14px;padding:14px;font-size:13px;line-height:1.45;color:#1c3b2a}
-    .main{max-width:1280px;margin:0 auto;width:100%;padding:0 36px 44px}
-    .section-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:12px 0 18px}
-    .section-head h2{margin:0;color:var(--forest);font-size:25px;letter-spacing:-.02em}
-    .section-head p{margin:6px 0 0;color:var(--muted);font-size:14px}
-    .apps-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-    .app-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--soft);min-height:210px;display:flex;flex-direction:column;transition:.18s transform,.18s box-shadow,.18s border-color;overflow:hidden}
-    .app-card.active{cursor:pointer} .app-card.active:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:#cfe7c8}
-    .app-card.disabled{opacity:.72}
-    .icon{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;font-size:28px;font-weight:900;background:var(--mist);color:var(--emerald);margin-bottom:16px}
-    .icon.log{background:#fff4df;color:var(--orange)} .icon.rep{background:#edf8ff;color:#0875a6} .icon.admin{background:#f4eef6;color:#7b3d72}
-    .app-card h3{margin:0 0 7px;color:#18211c;font-size:17px} .app-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.48;flex:1}
-    .app-footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px}
-    .tag{font-size:11px;font-weight:900;border-radius:999px;padding:7px 10px;background:var(--pale);color:var(--forest)}
-    .tag.soon{background:#f4f4f3;color:#7a7878} .tag.locked{background:#fff3f2;color:var(--danger)}
-    .open{color:var(--emerald);font-weight:900;font-size:13px}
-    .dashboard{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
-    .panel{background:#fff;border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--soft)}
-    .panel h3{margin:0 0 15px;color:var(--forest)}
-    .timeline{display:flex;flex-direction:column;gap:12px} .event{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:var(--mist)}
-    .event b{display:block;font-size:13px;color:var(--ink)} .event span{font-size:12px;color:var(--muted)}
-    .footer{padding:22px 36px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;text-align:center;background:#fff}
-    .modal{position:fixed;inset:0;background:rgba(5,59,35,.42);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
-    .modal.open{display:flex}
-    .dialog{background:#fff;border-radius:28px;box-shadow:0 28px 90px rgba(5,59,35,.26);width:100%;max-width:430px;overflow:hidden}
-    .dialog-head{padding:24px;background:linear-gradient(135deg,var(--forest),#0a5531);color:#fff}
-    .dialog-head .logo{width:52px;height:52px;border-radius:12px;background:#fff;color:var(--forest);display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:14px}
-    .dialog-head h2{margin:0;font-size:24px} .dialog-head p{margin:8px 0 0;color:rgba(255,255,255,.82);font-size:13px;line-height:1.45}
-    .dialog-body{padding:24px;display:flex;flex-direction:column;gap:14px}
-    label{display:block;font-size:12px;font-weight:900;color:var(--forest);margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}
-    input,select{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;outline:none;background:#fff;color:var(--ink)} input:focus,select:focus{border-color:var(--emerald);box-shadow:0 0 0 3px rgba(0,143,55,.12)}
-    .error{display:none;color:var(--danger);font-size:12px;font-weight:800;background:#fff1f1;padding:10px;border-radius:12px}
-    .dialog-actions{display:flex;gap:10px;margin-top:6px} .dialog-actions button{flex:1}
-    .access-info{font-size:12px;color:var(--muted);line-height:1.45;background:var(--mist);border-radius:14px;padding:12px}
-    @media(max-width:980px){.hero{grid-template-columns:1fr}.apps-grid{grid-template-columns:repeat(2,1fr)}.dashboard{grid-template-columns:1fr}.nav{display:none}}
-    @media(max-width:640px){.topbar{padding:0 16px;height:auto;min-height:72px}.brand-copy{display:none}.hero,.main{padding-left:16px;padding-right:16px}h1{font-size:32px}.apps-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.user-meta{display:none}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ANAGROCI Operations Suite</title>
+<meta name="theme-color" content="#053B23">
+<meta name="description" content="Portail central ANAGROCI : FBMS, Hubs, Cartographie et ALIS Logistique.">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--forest:#053B23;--pine:#0B2B21;--green:#1F5B3F;--lime:#8DC556;--orange:#EE9E00;--mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--line:#E4E0D5;--ink:#132A22;--muted:#4B5A52;--danger:#C0392B}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at 16% 0,#e7f7e1 0,#fff 36%,#f7faf5 100%);color:var(--ink)}a{text-decoration:none;color:inherit}.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 28px}.brand{display:flex;align-items:center;gap:12px}.logo{width:42px;height:42px;border-radius:12px;background:var(--forest);color:#fff;display:grid;place-items:center;font-weight:900}.brand b{display:block;color:var(--forest)}.brand span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-top:3px}.user{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{border:0;border-radius:999px;background:var(--forest);color:white;padding:10px 15px;font-weight:900;cursor:pointer}.btn.ghost{background:white;color:var(--forest);border:1px solid var(--line)}.wrap{max-width:1240px;margin:auto;padding:24px}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-bottom:22px}.hero-card{background:linear-gradient(135deg,var(--forest),#0a5531);color:white;border-radius:28px;padding:30px;box-shadow:0 18px 50px rgba(5,59,35,.16)}.hero-card small{color:var(--lime);font-weight:900;text-transform:uppercase;letter-spacing:.16em}.hero-card h1{font-size:42px;line-height:1.04;margin:12px 0 14px}.hero-card p{color:#d9ead7;line-height:1.7;margin:0}.control{background:white;border:1px solid var(--line);border-radius:28px;padding:22px;box-shadow:0 10px 30px rgba(11,43,33,.08)}.status{display:inline-flex;gap:8px;align-items:center;background:var(--mist);border-radius:999px;padding:8px 11px;color:var(--forest);font-weight:900;font-size:12px}.dot{width:9px;height:9px;border-radius:50%;background:#008F37}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.stat{background:linear-gradient(180deg,#fff,var(--mist));border:1px solid var(--line);border-radius:16px;padding:14px}.stat small{display:block;color:var(--muted);font-weight:900;font-size:10px;text-transform:uppercase}.stat b{display:block;color:var(--forest);font-size:25px;margin-top:7px}.section{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:10px 0 16px}.section h2{margin:0;color:var(--forest);font-size:26px}.section p{margin:5px 0 0;color:var(--muted);font-size:14px}.apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:white;border:1px solid var(--line);border-radius:24px;padding:20px;min-height:205px;box-shadow:0 10px 30px rgba(50,49,49,.08);display:flex;flex-direction:column;transition:.16s}.card:hover{transform:translateY(-3px);box-shadow:0 18px 45px rgba(5,59,35,.14);border-color:#cfe7c8}.icon{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--mist);font-size:28px;margin-bottom:15px}.icon.log{background:#fff4df}.icon.map{background:#edf8ff}.card h3{margin:0 0 7px;font-size:18px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;flex:1}.foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px}.tag{border-radius:999px;padding:7px 10px;background:var(--pale);color:var(--forest);font-size:11px;font-weight:900}.tag.soon{background:#f4f4f3;color:#777}.open{color:#008F37;font-weight:900;font-size:13px}.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}.panel{background:white;border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(50,49,49,.08)}.panel h3{margin:0 0 10px;color:var(--forest)}.panel p{margin:0;color:var(--muted);line-height:1.65;font-size:14px}.modal{position:fixed;inset:0;background:rgba(5,59,35,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modal.open{display:flex}.dialog{background:white;border-radius:24px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 28px 80px rgba(5,59,35,.24)}.dialog .h{background:linear-gradient(135deg,var(--forest),#0a5531);color:white;padding:22px}.dialog .b{padding:20px}.dialog label{display:block;color:var(--forest);font-size:11px;font-weight:900;text-transform:uppercase;margin:10px 0 6px}.dialog input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px}.err{display:none;background:#fff1f1;color:var(--danger);padding:10px;border-radius:12px;font-size:12px;font-weight:800;margin-top:10px}.footer{text-align:center;border-top:1px solid var(--line);padding:18px;color:var(--muted);font-size:12px;background:white;margin-top:20px}@media(max-width:930px){.hero,.panels{grid-template-columns:1fr}.apps{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.top{padding:12px 14px}.wrap{padding:14px}.hero-card h1{font-size:30px}.apps{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.brand span{display:none}}
+</style>
 </head>
 <body>
-<div class="shell">
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">A</div>
-      <div class="brand-copy"><strong>ANAGROCI Operations Suite</strong><span>Field Buying Platform</span></div>
-    </div>
-    <nav class="nav">
-      <button onclick="scrollToApps()">Applications</button><button onclick="showDashboard()">Dashboard</button><button onclick="openAccessModal('reporting')">Rapports</button><button onclick="openAccessModal('admin')">Administration</button>
-    </nav>
-    <div class="user-zone">
-      <div class="user-pill" id="userPill"><div class="avatar" id="avatar">K</div><div class="user-meta"><strong id="userName">Utilisateur</strong><span id="userRole">Rôle</span></div></div>
-      <button class="login-btn" id="loginButton" onclick="openLogin()">Se connecter</button>
-      <button class="ghost-btn" id="logoutButton" onclick="logout()" style="display:none">Sortir</button>
-    </div>
-  </header>
-
-  <section class="hero">
-    <div class="hero-card">
-      <div class="eyebrow">Plateforme mère</div>
-      <h1>Une seule porte d’entrée pour toutes les opérations ANAGROCI.</h1>
-      <p>Accédez au FBMS, à la Logistique et aux futurs modules depuis un portail unique, avec une identité commune, une gouvernance des accès et une donnée terrain partagée.</p>
-      <div class="hero-actions"><button class="primary-btn" onclick="scrollToApps()">Ouvrir les applications</button><button class="ghost-btn" onclick="openLogin()">Accès utilisateur</button></div>
-    </div>
-    <aside class="control">
-      <div class="control-top"><div><span class="status-badge"><span class="dot"></span><span id="sessionStatus">Accès requis</span></span><h2 style="margin:14px 0 6px;color:var(--forest)">Control Center</h2><p style="margin:0;color:var(--muted);font-size:14px;line-height:1.5">Les applications sensibles sont verrouillées jusqu’à authentification.</p></div></div>
-      <div class="stats"><div class="stat"><small>Villages</small><strong id="statVillages">0</strong></div><div class="stat"><small>RT</small><strong id="statRT">0</strong></div><div class="stat"><small>Producteurs</small><strong id="statProd">0</strong></div><div class="stat"><small>Apps actives</small><strong>2</strong></div></div>
-      <div class="notice">Connexion sécurisée par Supabase Auth. Chaque application vérifie votre rôle avant ouverture. FBMS reste le référentiel maître des données terrain.</div>
-    </aside>
-  </section>
-
-  <main class="main" id="apps">
-    <div class="section-head"><div><h2>Applications</h2><p>Les modules actifs s’ouvrent après contrôle d’accès. Les modules futurs restent visibles pour préparer l’extension de la suite.</p></div></div>
-    <div class="apps-grid" id="appsGrid"></div>
-    <div class="dashboard" id="globalDashboard">
-      <div class="panel"><h3>Activité plateforme</h3><div class="timeline"><div class="event"><div class="dot"></div><div><b>FBMS connecté au portail</b><span>Référentiel terrain : villages, RT, producteurs.</span></div></div><div class="event"><div class="dot"></div><div><b>Logistique prête à intégrer</b><span>Missions, collectes, transferts et bons carburant.</span></div></div><div class="event"><div class="dot" style="background:var(--orange)"></div><div><b>Accès utilisateur activé</b><span>Chaque application vérifie les droits avant ouverture.</span></div></div></div></div>
-      <div class="panel"><h3>Gouvernance des données</h3><p style="margin:0;color:var(--muted);line-height:1.65;font-size:14px">FBMS reste le référentiel maître pour les zones, clusters, villages, RT et producteurs. ALIS Logistique exploite ces données sans les recréer. Cette logique évite les doublons et prépare la migration progressive vers une base centrale.</p></div>
-    </div>
-  </main>
-  <footer class="footer">PJS · Known for Quality · ANAGROCI Operations Suite</footer>
-</div>
-
-<div class="modal" id="loginModal" onclick="closeOnBackdrop(event)">
-  <div class="dialog">
-    <div class="dialog-head"><div class="logo">A</div><h2>Accès plateforme</h2><p>Identifiez-vous avec votre compte ANAGROCI (email + mot de passe).</p></div>
-    <div class="dialog-body">
-      <div><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="prenom.nom@gmail.com" /></div>
-      <div><label>Mot de passe</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••" /></div>
-      <div class="error" id="loginError">Email ou mot de passe incorrect.</div>
-      <div class="access-info">Le même compte que l’application FBMS. En cas d’oubli, contactez l’administrateur.</div>
-      <div class="dialog-actions"><button class="primary-btn" id="loginSubmit" onclick="login()">Entrer</button><button class="ghost-btn" onclick="closeLogin()">Annuler</button></div>
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="accessModal" onclick="closeOnBackdrop(event)"><div class="dialog"><div class="dialog-head"><div class="logo">A</div><h2 id="accessTitle">Accès requis</h2><p id="accessMsg">Veuillez vous connecter pour accéder à cette application.</p></div><div class="dialog-body"><div class="dialog-actions"><button class="primary-btn" onclick="openLogin()">Se connecter</button><button class="ghost-btn" onclick="closeAccess()">Fermer</button></div></div></div></div>
-
+<header class="top"><div class="brand"><div class="logo">A</div><div><b>ANAGROCI Operations Suite</b><span>Field Buying Platform</span></div></div><div class="user"><span id="who" style="font-size:12px;color:var(--muted)">Non connecté</span><button class="btn" id="loginBtn" onclick="openLogin()">Se connecter</button><button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Sortir</button></div></header>
+<main class="wrap">
+<section class="hero"><div class="hero-card"><small>Plateforme mère</small><h1>Une seule porte d’entrée pour toutes les opérations ANAGROCI.</h1><p>FBMS reste la source terrain. Les Hubs, la Cartographie et ALIS exploitent les mêmes données pour piloter la campagne Field Buying 2027 jusqu’au coût rendu usine.</p><p style="margin-top:18px"><a class="btn ghost" href="#apps">Ouvrir les applications</a></p></div><aside class="control"><span class="status"><span class="dot"></span><span id="sessionStatus">Accès visible</span></span><h2 style="color:var(--forest);margin:14px 0 5px">Control Center</h2><p style="color:var(--muted);line-height:1.5;font-size:14px">Les cartes sont visibles ici. Chaque module vérifie ensuite la session Supabase selon ses propres règles.</p><div class="stats"><div class="stat"><small>Villages</small><b id="statVillages">0</b></div><div class="stat"><small>Hubs actifs</small><b id="statHubs">0</b></div><div class="stat"><small>Apps actives</small><b>5</b></div><div class="stat"><small>Objectif coût</small><b>8 F/kg</b></div></div></aside></section>
+<section id="apps"><div class="section"><div><h2>Applications actives</h2><p>Accès direct aux modules intégrés dans l’application en ligne.</p></div></div><div class="apps" id="appsGrid"></div></section>
+<div class="panels"><div class="panel"><h3>Gouvernance des données</h3><p>FBMS fournit les villages, clusters, GPS, distances et volumes. ALIS calcule les coûts de collecte, transfert, coût global/kg et décision par rapport à l’objectif de 8 FCFA/kg.</p></div><div class="panel"><h3>Flux opérationnel 2027</h3><p>1. Recenser les villages/producteurs dans FBMS. 2. Géolocaliser les hubs. 3. Orienter les équipes avec la carte. 4. Calculer le coût rendu usine dans ALIS Depuis FBMS.</p></div></div>
+</main><footer class="footer">PJS · Known for Quality · ANAGROCI Operations Suite</footer>
+<div class="modal" id="loginModal" onclick="if(event.target.classList.contains('modal'))closeLogin()"><div class="dialog"><div class="h"><h2 style="margin:0">Accès plateforme</h2><p style="margin:8px 0 0;color:#d9ead7">Compte ANAGROCI Supabase</p></div><div class="b"><label>Email</label><input id="email" type="email" autocomplete="username"><label>Mot de passe</label><input id="pass" type="password" autocomplete="current-password"><div class="err" id="err">Erreur</div><p><button class="btn" onclick="login()">Entrer</button> <button class="btn ghost" onclick="closeLogin()">Annuler</button></p></div></div></div>
 <script>
-"use strict";
-/* ---- Configuration Supabase (clé publique : sécurité par les RLS) ---- */
-const SUPA = {
-  url: "https://jmbdgpdthzpszfnddwzi.supabase.co",
-  anonKey: "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d",
-};
-const SB = window.supabase.createClient(SUPA.url, SUPA.anonKey);
-
-/* ---- Applications (liens ABSOLUS vers les emplacements finaux) ---- */
-const BASE = "https://nwodobe.github.io/fbms";
+const BASE='https://nwodobe.github.io/fbms';
 const APPS=[
-  {id:'fbms',name:'FBMS',desc:'Référentiel terrain : villages, RT, producteurs, GPS et validations.',icon:'🌿',status:'Actif',href:BASE+'/fbms/index.html',roles:['bm','chef','agent','admin']},
-  {id:'logistique',name:'ALIS Logistique',desc:'Simulations, collectes, transferts usine, carburant et transporteurs.',icon:'🚛',status:'Actif',href:BASE+'/logistique/index.html',roles:['bm','chef','admin']},
-  {id:'achats',name:'Achats',desc:'Avances RT, achats producteurs, prix et soldes.',icon:'🧾',status:'Bientôt',roles:['bm','chef','admin']},
-  {id:'stocks',name:'Stocks',desc:'Entrepôts clusters, entrées, sorties, inventaires et écarts.',icon:'📦',status:'Bientôt',roles:['bm','chef','admin']},
-  {id:'qualite',name:'Qualité',desc:'Humidité, KOR, déchets, lots et contrôles qualité.',icon:'✅',status:'Bientôt',roles:['bm','admin']},
-  {id:'paiements',name:'Paiements',desc:'Paiements producteurs, RT, transporteurs et rapprochements.',icon:'💳',status:'Bientôt',roles:['bm','admin']},
-  {id:'reporting',name:'Reporting Direction',desc:'KPIs consolidés, alertes et rapports transversaux.',icon:'📊',status:'Bientôt',roles:['bm','direction','admin']},
-  {id:'admin',name:'Administration',desc:'Utilisateurs, rôles, permissions, paramètres et audit.',icon:'⚙️',status:'Bientôt',roles:['admin','bm']}
+{id:'fbms',name:'FBMS Référentiel',desc:'Villages, RT, producteurs, GPS, validations terrain et données de base.',icon:'🌿',href:BASE+'/fbms/index.html',cls:''},
+{id:'hubs',name:'Hubs / Clusters',desc:'Géolocalisation des hubs, distance hub → usine, validation BM et agrégats par hub.',icon:'📍',href:BASE+'/fbms/fbms_hubs.html',cls:'map'},
+{id:'carte',name:'Cartographie terrain',desc:'Villages nommés, axes village → cluster, axes cluster → usine et orientation terrain.',icon:'🗺️',href:BASE+'/fbms/fbms_carte.html',cls:'map'},
+{id:'alisfbms',name:'ALIS Depuis FBMS',desc:'Coût collecte + transfert rendu usine, coût/kg global, objectif 8 FCFA/kg et camion recommandé.',icon:'🚚',href:BASE+'/logistique/alis_fbms.html',cls:'log'},
+{id:'alis',name:'ALIS Logistique classique',desc:'Simulateur tarifaire, grille transport, paramètres et historique logistique.',icon:'🚛',href:BASE+'/logistique/index.html',cls:'log'},
+{id:'report',name:'Reporting Direction',desc:'KPIs consolidés, alertes et rapports transversaux.',icon:'📊',href:'#',cls:'',soon:true}
 ];
-
-/* ---- Mappage rôle Supabase (table profils) → niveau d'accès portail ---- */
-function profileFromRole(role){
-  switch(role){
-    case 'Branch Manager': case 'Assistant Branch Manager':
-    case 'Head of Field': case 'Procurement Officer': return 'bm';
-    case 'Supervisor': return 'chef';
-    case 'Agent Recenseur': return 'agent';
-    case 'Consultation uniquement': return 'direction';
-    default: return 'agent'; // moindre privilège par défaut
-  }
-}
-
-let session=null; // { profile, name, role, email }
-
-function renderSession(){
-  const logged=!!session;
-  document.getElementById('loginButton').style.display=logged?'none':'inline-flex';
-  document.getElementById('logoutButton').style.display=logged?'inline-flex':'none';
-  document.getElementById('userPill').style.display=logged?'flex':'none';
-  document.getElementById('sessionStatus').textContent=logged?'Connecté':'Accès requis';
-  if(logged){
-    document.getElementById('userName').textContent=session.name;
-    document.getElementById('userRole').textContent=session.role;
-    const parts=(session.name||'A').split(/[\s.@_-]+/).filter(Boolean);
-    document.getElementById('avatar').textContent=(parts.slice(-1)[0]||'A')[0].toUpperCase();
-  }
-}
-function renderApps(){
-  const grid=document.getElementById('appsGrid');
-  grid.innerHTML=APPS.map(app=>{
-    const available=app.status==='Actif';
-    const can=session&&app.roles.includes(session.profile);
-    const cls=available?'active':'disabled';
-    const tag=available?(can?'Actif':'Verrouillé'):'Bientôt';
-    const tagClass=available?(can?'':'locked'):'soon';
-    const iconCls=app.id==='logistique'?'log':app.id==='reporting'?'rep':app.id==='admin'?'admin':'';
-    return `<div class="app-card ${cls}" onclick="openApp('${app.id}')"><div class="icon ${iconCls}">${app.icon}</div><h3>${app.name}</h3><p>${app.desc}</p><div class="app-footer"><span class="tag ${tagClass}">${tag}</span><span class="open">${available?(can?'Ouvrir':'Accès requis'):'Prévu'} →</span></div></div>`;
-  }).join('');
-}
-function openApp(id){
-  const app=APPS.find(a=>a.id===id);if(!app)return;
-  if(app.status!=='Actif'){openAccessModal(id,'Ce module est prévu dans la feuille de route.');return;}
-  if(!session){openAccessModal(id,'Veuillez vous connecter avant d’ouvrir '+app.name+'.');return;}
-  if(!app.roles.includes(session.profile)){openAccessModal(id,'Votre profil ('+session.role+') ne donne pas accès à '+app.name+'.');return;}
-  window.location.href=app.href;
-}
-function openLogin(){closeAccess();document.getElementById('loginModal').classList.add('open');setTimeout(()=>document.getElementById('loginEmail').focus(),50);}
-function closeLogin(){document.getElementById('loginModal').classList.remove('open');document.getElementById('loginError').style.display='none';}
-
-async function login(){
-  const email=(document.getElementById('loginEmail').value||'').trim().toLowerCase();
-  const password=document.getElementById('loginPassword').value||'';
-  const err=document.getElementById('loginError');
-  const btn=document.getElementById('loginSubmit');
-  err.style.display='none';
-  if(!email||!password){err.textContent='Renseignez l’email et le mot de passe.';err.style.display='block';return;}
-  btn.disabled=true;btn.textContent='Connexion…';
-  try{
-    const {data,error}=await SB.auth.signInWithPassword({email,password});
-    if(error) throw new Error(error.message==='Invalid login credentials'?'Email ou mot de passe incorrect.':error.message);
-    await appliquerProfil(data.session);
-    document.getElementById('loginPassword').value='';
-    closeLogin();
-  }catch(e){
-    err.textContent=e.message;err.style.display='block';
-  }finally{
-    btn.disabled=false;btn.textContent='Entrer';
-  }
-}
-async function appliquerProfil(sbSession){
-  const {data:profil}=await SB.from('profils').select('nom, role, actif').eq('user_id',sbSession.user.id).single();
-  if(!profil||!profil.actif){ await SB.auth.signOut(); throw new Error('Compte inactif ou profil manquant. Contactez l’administrateur.'); }
-  session={ profile:profileFromRole(profil.role), name:profil.nom||sbSession.user.email, role:profil.role, email:sbSession.user.email };
-  renderSession();renderApps();
-}
-async function logout(){ try{await SB.auth.signOut();}catch(e){} session=null; renderSession(); renderApps(); }
-
-function openAccessModal(id,msg){const app=APPS.find(a=>a.id===id);document.getElementById('accessTitle').textContent=app?app.name:'Accès requis';document.getElementById('accessMsg').textContent=msg||'Accès requis.';document.getElementById('accessModal').classList.add('open');}
-function closeAccess(){document.getElementById('accessModal').classList.remove('open');}
-function closeOnBackdrop(e){if(e.target.classList.contains('modal')) e.target.classList.remove('open');}
-function scrollToApps(){document.getElementById('apps').scrollIntoView({behavior:'smooth'});}
-function showDashboard(){document.getElementById('globalDashboard').scrollIntoView({behavior:'smooth'});}
-
-/* ---- Chiffres clés : lecture locale IndexedDB FBMS (référentiel maître) ---- */
-function countStore(store){return new Promise(res=>{try{const req=indexedDB.open('fbms_local_db');req.onsuccess=()=>{const db=req.result;if(!db.objectStoreNames.contains(store))return res(0);const tx=db.transaction(store,'readonly');const r=tx.objectStore(store).count();r.onsuccess=()=>res(r.result||0);r.onerror=()=>res(0);};req.onerror=()=>res(0);}catch(e){res(0);}});}
-async function loadStats(){document.getElementById('statVillages').textContent=await countStore('villages');document.getElementById('statRT').textContent=await countStore('rt');document.getElementById('statProd').textContent=await countStore('producteurs');}
-
-/* ---- Démarrage : reprise de session Supabase si active ---- */
-(async function init(){
-  renderSession();renderApps();loadStats();
-  try{ const {data}=await SB.auth.getSession(); if(data.session) await appliquerProfil(data.session); }catch(e){ /* pas de session */ }
-})();
+const SB=window.supabase.createClient('https://jmbdgpdthzpszfnddwzi.supabase.co','sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d');
+function renderApps(){document.getElementById('appsGrid').innerHTML=APPS.map(a=>`<a class="card" href="${a.href}" ${a.soon?'onclick="return false"':''}><div class="icon ${a.cls||''}">${a.icon}</div><h3>${a.name}</h3><p>${a.desc}</p><div class="foot"><span class="tag ${a.soon?'soon':''}">${a.soon?'Bientôt':'Actif'}</span><span class="open">${a.soon?'Prévu':'Ouvrir'} →</span></div></a>`).join('')}
+function openLogin(){document.getElementById('loginModal').classList.add('open');setTimeout(()=>document.getElementById('email').focus(),40)}function closeLogin(){document.getElementById('loginModal').classList.remove('open');document.getElementById('err').style.display='none'}
+async function login(){const email=(document.getElementById('email').value||'').trim().toLowerCase(),password=document.getElementById('pass').value||'',err=document.getElementById('err');err.style.display='none';if(!email||!password){err.textContent='Renseignez email et mot de passe.';err.style.display='block';return}try{const {data,error}=await SB.auth.signInWithPassword({email,password});if(error)throw error;await applySession(data.session);closeLogin()}catch(e){err.textContent=e.message==='Invalid login credentials'?'Email ou mot de passe incorrect.':e.message;err.style.display='block'}}
+async function applySession(s){if(!s)return;let role='',nom=s.user.email;try{const {data:p}=await SB.from('profils').select('nom,role,actif').eq('user_id',s.user.id).single();if(p&&p.actif){nom=p.nom||nom;role=p.role||''}}catch(e){}document.getElementById('who').textContent=nom+(role?' · '+role:'');document.getElementById('sessionStatus').textContent='Connecté';document.getElementById('loginBtn').style.display='none';document.getElementById('logoutBtn').style.display='inline-flex'}
+async function logout(){try{await SB.auth.signOut()}catch(e){}document.getElementById('who').textContent='Non connecté';document.getElementById('sessionStatus').textContent='Accès visible';document.getElementById('loginBtn').style.display='inline-flex';document.getElementById('logoutBtn').style.display='none'}
+async function loadStats(){try{let r=await SB.from('villages').select('id',{count:'exact',head:true}).eq('deleted',false);document.getElementById('statVillages').textContent=r.count||0}catch(e){}try{let r=await SB.from('hubs_clusters').select('id_hub',{count:'exact',head:true}).eq('deleted',false);document.getElementById('statHubs').textContent=r.count||0}catch(e){}}
+(async()=>{renderApps();loadStats();try{const {data}=await SB.auth.getSession();if(data.session)await applySession(data.session)}catch(e){}})();
 </script>
-</body>
-</html>
+</body></html>
