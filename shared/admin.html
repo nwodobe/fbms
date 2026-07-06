@@ -1,0 +1,153 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Administration · ANAGROCI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="./auth-gate.js" data-module="admin"></script>
+<style>
+  :root{--forest:#053B23;--emerald:#1F5B3F;--green:#00712C;--lime:#8DC556;--orange:#EE9E00;
+    --mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--ink:#132A22;--muted:#5b6b62;--line:#e6e2d6;--danger:#C0392B;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--cream);color:var(--ink)}
+  .top{background:var(--forest);color:#eafff2;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .top b{font-size:18px}
+  .top small{color:#a9e5bf}
+  .btn{border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:800;padding:10px 14px;cursor:pointer;text-decoration:none;font-size:13px}
+  .btn.ghost{background:#fff;color:var(--forest);border:1px solid var(--line)}
+  .btn.sm{padding:7px 10px;font-size:12px}
+  .btn.danger{background:var(--danger)}
+  .wrap{max-width:1050px;margin:auto;padding:20px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 34px rgba(5,59,35,.07);margin-bottom:18px}
+  .card h2{margin:0;padding:15px 18px;border-bottom:1px solid var(--line);color:var(--forest);font-size:16px}
+  .body{padding:16px 18px}
+  label{display:block;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+  input,select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:11px;font-size:14px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--forest);color:#d8ead3;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:9px;text-align:left}
+  td{padding:9px;border-top:1px solid #f0ede4;font-size:13px;vertical-align:middle}
+  td select{padding:7px}
+  .badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800}
+  .on{background:var(--pale);color:var(--forest)} .off{background:#fdeceb;color:var(--danger)}
+  .alert{border-radius:10px;padding:11px 13px;margin-top:12px;font-size:13px;display:none}
+  .alert.show{display:block}
+  .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
+  .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
+  .warn{background:#fff8e8;border:1px solid #ead9a6;color:#8a6a12}
+  .muted{color:var(--muted);font-size:12.5px;line-height:1.55}
+  @media(max-width:720px){.row{grid-template-columns:1fr}}
+</style></head><body>
+
+<div class="top">
+  <div><b>Administration ANAGROCI</b><br><small>Gestion des accès — réservé au Branch Manager</small></div>
+  <a class="btn ghost" href="../index.html">← Portail</a>
+</div>
+
+<main class="wrap">
+
+  <section class="card">
+    <h2>Créer un accès</h2>
+    <div class="body">
+      <p class="muted">Le compte est créé côté Supabase (authentification) et le profil (rôle, activation) est enregistré. L'utilisateur pourra se connecter immédiatement avec l'email et le mot de passe définis ci-dessous.</p>
+      <div class="row">
+        <div><label>Nom complet</label><input id="nNom" placeholder="Ex. Awa Koné"></div>
+        <div><label>Email</label><input id="nEmail" type="email" placeholder="awa@anagroci.ci"></div>
+      </div>
+      <div class="row">
+        <div><label>Mot de passe provisoire</label><input id="nPass" type="text" placeholder="min. 8 caractères"></div>
+        <div><label>Rôle</label><select id="nRole"></select></div>
+      </div>
+      <p><button class="btn" id="btnCreate" onclick="createUser()">Créer l'accès</button></p>
+      <div id="cMsg" class="alert"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Comptes et rôles</h2>
+    <div class="body">
+      <div id="uMsg" class="alert"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px"><button class="btn ghost sm" onclick="loadProfils()">Actualiser</button></p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
+const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
+const ROLES=["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"];
+const $=i=>document.getElementById(i);
+let SB, ME=null;
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
+function hide(el){el.className="alert";}
+
+// La page n'affiche ses données qu'une fois l'accès BM validé par auth-gate.
+document.addEventListener("anagroci:authenticated",function(e){
+  ME=e.detail.profile;
+  SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  $("nRole").innerHTML=ROLES.map(r=>'<option>'+esc(r)+'</option>').join("");
+  $("nRole").value="Agent Recenseur";
+  loadProfils();
+});
+
+async function loadProfils(){
+  const box=$("rows");
+  const r=await SB.from("profils").select("*").order("nom");
+  if(r.error){box.innerHTML='<tr><td colspan="5" class="muted">Erreur: '+esc(r.error.message)+'</td></tr>';return;}
+  const rows=r.data||[];
+  if(!rows.length){box.innerHTML='<tr><td colspan="5" class="muted">Aucun compte.</td></tr>';return;}
+  box.innerHTML=rows.map(p=>{
+    const uid=p.user_id, self=ME&&p.user_id===ME.user_id;
+    const roleSel='<select onchange="setRole(\''+uid+'\',this.value)">'+ROLES.map(r=>'<option'+(r===p.role?' selected':'')+'>'+esc(r)+'</option>').join("")+'</select>';
+    const stat=p.actif?'<span class="badge on">Actif</span>':'<span class="badge off">Désactivé</span>';
+    const toggle=self?'<span class="muted">— vous —</span>':
+      '<button class="btn sm '+(p.actif?'danger':'')+'" onclick="setActif(\''+uid+'\','+(!p.actif)+')">'+(p.actif?'Désactiver':'Activer')+'</button>';
+    return '<tr><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+'</td><td>'+stat+'</td><td>'+toggle+'</td></tr>';
+  }).join("");
+}
+
+async function setRole(uid,role){
+  hide($("uMsg"));
+  const r=await SB.from("profils").update({role}).eq("user_id",uid);
+  if(r.error)return msg($("uMsg"),r.error.message,"err");
+  msg($("uMsg"),"Rôle mis à jour.","ok");loadProfils();
+}
+async function setActif(uid,actif){
+  hide($("uMsg"));
+  const r=await SB.from("profils").update({actif}).eq("user_id",uid);
+  if(r.error)return msg($("uMsg"),r.error.message,"err");
+  msg($("uMsg"),actif?"Compte activé.":"Compte désactivé.","ok");loadProfils();
+}
+
+async function createUser(){
+  const btn=$("btnCreate"),m=$("cMsg");
+  const nom=$("nNom").value.trim(), email=$("nEmail").value.trim().toLowerCase(),
+        pass=$("nPass").value, role=$("nRole").value;
+  if(!nom||!email||pass.length<8)return msg(m,"Nom, email et mot de passe (8+ caractères) requis.","err");
+  btn.disabled=true;btn.textContent="Création…";
+  try{
+    const{data:{session}}=await SB.auth.getSession();
+    const resp=await fetch(SUPABASE_URL+"/functions/v1/admin-create-user",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session&&session.access_token),"apikey":SUPABASE_ANON},
+      body:JSON.stringify({nom,email,password:pass,role})
+    });
+    const out=await resp.json().catch(()=>({}));
+    if(!resp.ok){throw new Error(out.error||("Échec ("+resp.status+"). La fonction admin-create-user est-elle déployée ?"));}
+    msg(m,"Accès créé pour "+esc(nom)+".","ok");
+    $("nNom").value="";$("nEmail").value="";$("nPass").value="";
+    loadProfils();
+  }catch(e){
+    msg(m,e.message,"err");
+  }finally{btn.disabled=false;btn.textContent="Créer l'accès";}
+}
+</script>
+</body></html>
