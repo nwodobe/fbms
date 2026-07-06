@@ -80,7 +80,20 @@
     'letter-spacing:.5px;text-transform:uppercase;color:#bff0cf;margin-top:14px}' +
     '#anagroci-authgate button.ag-primary{width:100%;margin-top:18px;border:0;border-radius:10px;' +
     'background:linear-gradient(135deg,#1f8e3e,#00712C);color:#fff;font-weight:800;font-size:15px;padding:13px;cursor:pointer}' +
-    '#anagroci-authgate button.ag-primary:disabled{opacity:.6;cursor:default}';
+    '#anagroci-authgate button.ag-primary:disabled{opacity:.6;cursor:default}' +
+    /* Chip utilisateur (dans la barre d'app via #anagroci-userslot, ou flottant). */
+    '#anagroci-userslot{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}' +
+    '#anagroci-userslot .ag-name{font:700 12px \'Segoe UI\',Arial,sans-serif;white-space:nowrap;' +
+    'max-width:190px;overflow:hidden;text-overflow:ellipsis}' +
+    '#anagroci-userslot .ag-role{color:#8DC556}' +
+    '#anagroci-userslot .ag-cog,#anagroci-userslot .ag-out{display:inline-grid;place-items:center;' +
+    'width:28px;height:28px;border-radius:50%;cursor:pointer;text-decoration:none;border:0;font-size:14px;flex:0 0 auto}' +
+    '#anagroci-userslot .ag-cog{background:#8DC556;color:#053B23;font-weight:800}' +
+    '#anagroci-userslot .ag-out{background:rgba(255,255,255,.18);color:#fff}' +
+    '#anagroci-userslot.ag-floating{position:fixed;top:12px;right:12px;z-index:2147483000;' +
+    'background:rgba(5,59,35,.92);color:#eafff2;border:1px solid rgba(255,255,255,.16);' +
+    'border-radius:999px;padding:6px 8px 6px 13px;box-shadow:0 8px 22px rgba(0,0,0,.25);backdrop-filter:blur(6px)}' +
+    '@media(max-width:560px){#anagroci-userslot .ag-name{max-width:96px}}';
   (document.head || document.documentElement).appendChild(css);
 
   function mount() {
@@ -157,41 +170,50 @@
     });
   }
 
+  function inSub() {
+    return /\/(fbms|logistique|suite|shared)\//.test(location.pathname);
+  }
   function portailHref() {
     // Chemin relatif robuste vers la racine (le portail est /index.html).
-    return /\/(fbms|logistique|suite|shared)\//.test(location.pathname) ? "../index.html" : "index.html";
+    return inSub() ? "../index.html" : "index.html";
+  }
+  function adminHref() {
+    return inSub() ? "../shared/admin.html" : "shared/admin.html";
   }
 
-  /* -- Chip utilisateur + déconnexion (une fois autorisé) -------------------- */
-  function injectChip(prof) {
-    var chip = document.createElement("div");
-    chip.id = "anagroci-userchip";
-    chip.setAttribute("style", [
-      "position:fixed", "top:12px", "right:12px", "z-index:2147483000",
-      "display:flex", "align-items:center", "gap:8px",
-      "background:rgba(5,59,35,.92)", "color:#eafff2", "border:1px solid rgba(255,255,255,.16)",
-      "border-radius:999px", "padding:6px 8px 6px 12px", "font:600 12px 'Segoe UI',Arial,sans-serif",
-      "box-shadow:0 8px 22px rgba(0,0,0,.25)", "backdrop-filter:blur(6px)"
-    ].join(";"));
-    var initials = (prof.nom || "?").split(/\s+/).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
-    chip.innerHTML =
-      '<span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-      esc(prof.nom || prof.role) + ' · <span style="color:#8DC556">' + esc(prof.role) + '</span></span>' +
+  /* -- Chip utilisateur : rendu dans le slot d'en-tête, sinon flottant ------- */
+  function chipHTML(prof) {
+    return '' +
+      '<span class="ag-name">' + esc(prof.nom || prof.role) +
+      ' · <span class="ag-role">' + esc(prof.role) + '</span></span>' +
       (estBM(prof.role)
-        ? '<a href="' + portailHref().replace("index.html", "shared/admin.html") + '" title="Administration" ' +
-          'style="text-decoration:none;width:26px;height:26px;border-radius:50%;background:#8DC556;color:#053B23;' +
-          'display:grid;place-items:center;font-weight:800">⚙</a>'
+        ? '<a class="ag-cog" href="' + adminHref() + '" title="Administration">⚙</a>'
         : '') +
-      '<button id="ag-logout" title="Déconnexion" style="width:26px;height:26px;border:0;border-radius:50%;' +
-      'background:rgba(255,255,255,.14);color:#fff;cursor:pointer;font-size:13px">⏻</button>';
-    document.body.appendChild(chip);
-    document.getElementById("ag-logout").addEventListener("click", function () {
+      '<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>';
+  }
+  function wireLogout() {
+    var b = document.getElementById("ag-logout");
+    b && b.addEventListener("click", function () {
       SB.auth.signOut().then(function () { location.reload(); });
     });
   }
+  function injectChip(prof) {
+    // 1) Emplacement réservé dans la barre de l'application (pas de recouvrement).
+    var slot = document.getElementById("anagroci-userslot");
+    if (slot) {
+      slot.innerHTML = chipHTML(prof);
+      return wireLogout();
+    }
+    // 2) Repli : pastille flottante (pages sans slot).
+    var chip = document.createElement("div");
+    chip.id = "anagroci-userslot";
+    chip.className = "ag-floating";
+    chip.innerHTML = chipHTML(prof);
+    document.body.appendChild(chip);
+    wireLogout();
+  }
 
   function reveal(prof) {
-    var chip;
     try { injectChip(prof); } catch (e) {}
     // Expose au reste de la page.
     window.ANAGROCI_AUTH = {
