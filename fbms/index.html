@@ -51,7 +51,7 @@
      classes générées par le CDN Tailwind, injectées après ce bloc. */
   @media (max-width: 767px){
     #sidebar{ display:none; }                    /* remplacée par le menu hamburger */
-    #content{ padding-bottom:92px; }             /* réserve pour la barre d'actions mobile */
+    #content{ padding-bottom:150px; }            /* réserve pour la barre d'actions mobile */
     #content .grid-cols-2{ grid-template-columns:repeat(1,minmax(0,1fr)); }
     #content .grid-cols-3, #content .grid-cols-4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     #content .grid-cols-6{ grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -64,6 +64,10 @@
     #mobileUserChip{ display:flex !important; }
     #mobileActionBar{ display:grid !important; }
     #app{ height:100dvh !important; }            /* hauteur réelle avec barre navigateur mobile */
+    /* La barre d'actions descend sous l'encoche et passe SOUS les tiroirs/modales,
+       pour ne jamais masquer les boutons Enregistrer/Valider d'une fiche. */
+    #mobileActionBar{ bottom:calc(env(safe-area-inset-bottom,0px) + 8px) !important; z-index:40 !important; }
+    #drawer-root .fixed, #modal-root .fixed{ z-index:2000 !important; }
   }
   @media (min-width: 768px){
     #mobileMenuBtn, #mobileUserChip, #mobileActionBar{ display:none !important; }
