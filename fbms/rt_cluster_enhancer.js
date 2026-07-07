@@ -32,6 +32,25 @@
     });
     var n=doc.getElementById('fbms-cluster-filter-note'); if(n)n.textContent=selected?visible+' ligne(s) affichée(s) sur '+total:'Tous les clusters affichés';
   }
+  function sortClusterRows(doc,dir){
+    [].slice.call(doc.querySelectorAll('table')).forEach(function(table){
+      var rows=[].slice.call(table.querySelectorAll('tr[data-fbms-cluster]'));
+      if(rows.length<2)return;
+      rows.sort(function(a,b){
+        var ca=norm(a.getAttribute('data-fbms-cluster'));
+        var cb=norm(b.getAttribute('data-fbms-cluster'));
+        var c=ca.localeCompare(cb,'fr');
+        if(c===0)c=norm(a.textContent).localeCompare(norm(b.textContent),'fr');
+        return dir==='desc'?-c:c;
+      });
+      var parent=rows[0].parentNode;
+      rows.forEach(function(r){parent.appendChild(r);});
+    });
+    localStorage.setItem('fbms_cluster_sort',dir||'asc');
+    applyClusterFilter(doc);
+    var n=doc.getElementById('fbms-cluster-filter-note');
+    if(n)n.textContent=(n.textContent||'')+' · tri cluster '+(dir==='desc'?'Z→A':'A→Z');
+  }
   function ensureFilter(doc){
     var host=doc.querySelector('#content')||doc.body; if(!host)return;
     var firstTable=doc.querySelector('table'); if(!firstTable)return;
@@ -39,20 +58,23 @@
     var box=doc.createElement('div');
     box.id='fbms-cluster-filter-box';
     box.setAttribute('style','margin:10px 0 12px;padding:12px;border:1px solid #E4DFD1;border-radius:14px;background:#fff;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 4px 14px rgba(5,59,35,.06)');
-    box.innerHTML='<label for="'+FILTER_ID+'" style="font-weight:800;color:#053B23;font-size:13px">Filtrer par cluster</label><select id="'+FILTER_ID+'" style="border:1px solid #D9D3C3;border-radius:10px;padding:8px 10px;min-width:220px"><option value="">Tous les clusters</option>'+clusters.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')+'</select><span id="fbms-cluster-filter-note" style="font-size:12px;color:#6B6458">Tous les clusters affichés</span>';
+    box.innerHTML='<label for="'+FILTER_ID+'" style="font-weight:800;color:#053B23;font-size:13px">Cluster</label><select id="'+FILTER_ID+'" style="border:1px solid #D9D3C3;border-radius:10px;padding:8px 10px;min-width:220px"><option value="">Tous les clusters</option>'+clusters.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')+'</select><button type="button" id="fbms-cluster-sort-asc" style="border:0;border-radius:10px;background:#053B23;color:#fff;font-weight:800;padding:8px 10px;cursor:pointer">Trier A→Z</button><button type="button" id="fbms-cluster-sort-desc" style="border:0;border-radius:10px;background:#8DC556;color:#053B23;font-weight:800;padding:8px 10px;cursor:pointer">Trier Z→A</button><button type="button" id="fbms-cluster-clear" style="border:1px solid #D9D3C3;border-radius:10px;background:#fff;color:#053B23;font-weight:800;padding:8px 10px;cursor:pointer">Réinitialiser</button><span id="fbms-cluster-filter-note" style="font-size:12px;color:#6B6458">Tous les clusters affichés</span>';
     var tableWrap=firstTable.closest('.rounded-xl,.overflow-hidden,section,div')||firstTable;
     tableWrap.parentNode.insertBefore(box,tableWrap);
     var saved=localStorage.getItem('fbms_cluster_filter')||'';
     var sel=doc.getElementById(FILTER_ID); if(saved)sel.value=saved;
     sel.addEventListener('change',function(){localStorage.setItem('fbms_cluster_filter',this.value||'');applyClusterFilter(doc);});
+    doc.getElementById('fbms-cluster-sort-asc').addEventListener('click',function(){sortClusterRows(doc,'asc');});
+    doc.getElementById('fbms-cluster-sort-desc').addEventListener('click',function(){sortClusterRows(doc,'desc');});
+    doc.getElementById('fbms-cluster-clear').addEventListener('click',function(){sel.value='';localStorage.removeItem('fbms_cluster_filter');applyClusterFilter(doc);});
   }
   function enhanceVillageTable(doc,table){
     var rows=[].slice.call(table.querySelectorAll('tr')); if(rows.length<2)return false;
     var bodyRows=rows.slice(1), hits=0, idx=-1;
     bodyRows.forEach(function(tr){var cells=[].slice.call(tr.children);var vi=findVillageIndex(cells);if(vi>=0){hits++;if(idx<0)idx=vi;}});
     if(hits<2)return false;
-    var head=rows[0], heads=[].slice.call(head.children); if(head.textContent.indexOf('Cluster')<0){head.insertBefore(makeCell(doc,'th','Cluster'), heads[idx+1]||null);}
-    bodyRows.forEach(function(tr){var cells=[].slice.call(tr.children);var vi=findVillageIndex(cells);var v=vi>=0?byVillage[norm(cells[vi].textContent)]:null;var cluster=v?v.cluster:'';tr.setAttribute('data-fbms-cluster',cluster);if(head.textContent.indexOf('Cluster')>=0 && !tr.getAttribute('data-fbms-cluster-added')){tr.insertBefore(makeCell(doc,'td',cluster),cells[(vi>=0?vi:idx)+1]||null);tr.setAttribute('data-fbms-cluster-added','1');}});
+    var head=rows[0], heads=[].slice.call(head.children); if(head.textContent.indexOf('Cluster')<0){var th=makeCell(doc,'th','Cluster');th.title='Cluster ajouté automatiquement';head.insertBefore(th, heads[idx+1]||null);}
+    bodyRows.forEach(function(tr){var cells=[].slice.call(tr.children);var vi=findVillageIndex(cells);var v=vi>=0?byVillage[norm(cells[vi].textContent)]:null;var cluster=v?v.cluster:'';tr.setAttribute('data-fbms-cluster',cluster);if(!tr.getAttribute('data-fbms-cluster-added')){tr.insertBefore(makeCell(doc,'td',cluster),cells[(vi>=0?vi:idx)+1]||null);tr.setAttribute('data-fbms-cluster-added','1');}});
     done.add(table);return true;
   }
   function enhanceRtTable(doc,table){
@@ -67,9 +89,8 @@
   function scan(){
     var iframe=document.querySelector('iframe'); if(!iframe||!iframe.contentDocument)return;
     var doc=iframe.contentDocument;
-    var touched=false;
-    [].slice.call(doc.querySelectorAll('table')).forEach(function(t){if(done.has(t))return;if(enhanceRtTable(doc,t)||enhanceVillageTable(doc,t))touched=true;});
-    if(doc.querySelector('tr[data-fbms-cluster]')){ensureFilter(doc);applyClusterFilter(doc);}
+    [].slice.call(doc.querySelectorAll('table')).forEach(function(t){if(done.has(t))return;if(!enhanceRtTable(doc,t))enhanceVillageTable(doc,t);});
+    if(doc.querySelector('tr[data-fbms-cluster]')){ensureFilter(doc);var savedSort=localStorage.getItem('fbms_cluster_sort');if(savedSort&&!doc.body.getAttribute('data-fbms-cluster-sorted')){sortClusterRows(doc,savedSort);doc.body.setAttribute('data-fbms-cluster-sorted','1');}applyClusterFilter(doc);}
   }
   ensureSupabase(function(){loadData().then(function(){setInterval(scan,1200);scan();});});
 })();
