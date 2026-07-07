@@ -111,9 +111,9 @@
           <div><label>N° reçu</label><input id="f_recu" placeholder="Requis pour refinancement"></div>
         </div>
         <div class="row3">
-          <div><label>Humidité %</label><input id="f_hum" type="number" min="0" step="0.1" inputmode="decimal"></div>
-          <div><label>Impuretés %</label><input id="f_imp" type="number" min="0" step="0.1" inputmode="decimal"></div>
-          <div><label>Rejet</label><select id="f_rejet"><option value="0">Non</option><option value="1">Oui (partiel/total)</option></select></div>
+          <div><label>Humidité %</label><input id="f_hum" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
+          <div><label>KOR</label><input id="f_kor" type="number" min="0" step="0.1" inputmode="decimal" placeholder="ex. 48" oninput="calc()"></div>
+          <div><label>Rejet</label><select id="f_rejet" onchange="calc()"><option value="0">Non</option><option value="1">Oui (partiel/total)</option></select></div>
         </div>
         <label>Observation</label>
         <textarea id="f_obs" rows="2" placeholder="Facultatif"></textarea>
@@ -147,7 +147,8 @@ const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
 const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
 const COMMISSION=10, BONUS=5;               // FCFA/kg (modèle Field Buying)
 const PRIX_CAMPAGNE=400;                     // prix producteur de référence (F/kg)
-const SEUIL_HUM=10, SEUIL_IMP=2;             // seuils qualité (%) au-delà desquels: à contrôler
+const SEUIL_HUM=10;                          // humidité (%) au-delà: à contrôler
+const SEUIL_KOR=45;                          // KOR minimal acceptable (à ajuster selon barème campagne)
 const Q_KEY="anagroci_achats", REF_KEY="anagroci_ref_achats";
 const $=i=>document.getElementById(i);
 let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{}}, ONLINE=navigator.onLine;
@@ -180,8 +181,9 @@ async function loadRef(){
 }
 function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 function clustersList(){
-  const set={};REF.villages.forEach(v=>{const c=vcluster(v);if(c)set[c]=1;});
-  return Object.keys(set).sort((a,b)=>a.localeCompare(b,"fr"));
+  // Dédoublonnage insensible à la casse / accents / espaces (ex. "Diabo" vs "DIABO ").
+  const map={};REF.villages.forEach(v=>{const c=(vcluster(v)||"").trim();if(c){const k=keyc(c);if(!map[k])map[k]=c;}});
+  return Object.keys(map).map(k=>map[k]).sort((a,b)=>a.localeCompare(b,"fr"));
 }
 function rtClusterName(r){
   if(r.data&&r.data.cluster) return r.data.cluster;
@@ -225,9 +227,9 @@ async function onVillage(){
 
 /* ---- Règles métier ---- */
 function qualiteStatut(){
-  const hum=n($("f_hum").value), imp=n($("f_imp").value), rejet=$("f_rejet").value==="1";
+  const hum=n($("f_hum").value), kor=n($("f_kor").value), rejet=$("f_rejet").value==="1";
   if(rejet) return "Rejeté";
-  if((hum!=null&&hum>SEUIL_HUM)||(imp!=null&&imp>SEUIL_IMP)) return "À contrôler";
+  if((hum!=null&&hum>SEUIL_HUM)||(kor!=null&&kor<SEUIL_KOR)) return "À contrôler";
   return "OK";
 }
 function prixHorsBareme(){const p=n($("f_prix").value);return p!=null&&p!==PRIX_CAMPAGNE;}
@@ -302,7 +304,7 @@ function save(){
     prix_kg:prix, montant:net*prix,
     mode_paiement:$("f_mode").value, numero_recu:recu||null,
     nb_sacs:sacs, humidite:n($("f_hum").value),
-    impuretes:n($("f_imp").value), rejet:$("f_rejet").value==="1",
+    kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
     observation:$("f_obs").value.trim()||null,
     recu_photo:PHOTO||null, recu_photo_url:null,
     commission_rt:net*COMMISSION, bonus_diff:net*BONUS,
@@ -315,7 +317,7 @@ function save(){
   };
   const all=load(Q_KEY,[]);all.unshift(rec);store(Q_KEY,all.slice(0,300));
   // reset partiel (on garde village/RT/date/prix pour saisies en série)
-  ["f_brut","f_prod","f_recu","f_sacs","f_hum","f_imp","f_obs"].forEach(i=>$(i).value="");
+  ["f_brut","f_prod","f_recu","f_sacs","f_hum","f_kor","f_obs"].forEach(i=>$(i).value="");
   $("f_tare").value="0";$("f_prix").value=PRIX_CAMPAGNE;$("f_rejet").value="0";
   PHOTO=null;$("f_photo").value="";calc();
   let extra = !rec.producteur_ref ? " Producteur non référencé — à régulariser." : "";
