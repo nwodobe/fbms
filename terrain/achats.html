@@ -191,9 +191,13 @@ function rtClusterName(r){
   return v?vcluster(v):"";
 }
 function fillVillageRT(){
-  const c=$("f_cluster").value;
+  const c=$("f_cluster").value, vn=$("f_village").value.trim();
   const vs=c?REF.villages.filter(v=>keyc(vcluster(v))===keyc(c)):REF.villages;
-  const rts=c?REF.rt.filter(r=>keyc(rtClusterName(r))===keyc(c)):REF.rt;
+  const rts=REF.rt.filter(function(r){
+    if(vn) return keyc(r.village_nom||"")===keyc(vn);   // village précis => seulement ses RT
+    if(c)  return keyc(rtClusterName(r))===keyc(c);      // sinon => RT du cluster
+    return true;
+  });
   $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(vname(v))+'">').join("");
   $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(rtLabel(r))+'">').join("");
 }
@@ -212,7 +216,8 @@ function onCluster(){
 async function onVillage(){
   const name=$("f_village").value.trim();
   const v=REF.villages.find(x=>vname(x)===name);
-  if(v){ $("f_cluster").value=vcluster(v); fillVillageRT(); }  // recale le cluster + filtre les RT
+  if(v) $("f_cluster").value=vcluster(v);   // recale le cluster
+  fillVillageRT();                          // RT restreints au village (ou au cluster si village non résolu)
   // producteurs du village (cache puis réseau)
   let list=[];
   if(v){
