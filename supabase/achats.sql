@@ -36,12 +36,12 @@ create table if not exists public.achats (
   bonus_diff     numeric,                       -- 5 FCFA/kg provisionne
   refinancable   boolean default false,         -- false si pas de recu (ou rejet)
   recu_photo_url text,
-  qualite_statut     text default 'A controler', -- Standard | A controler
-  statut_validation  text default 'A valider',   -- A valider | A controler | A regulariser | Validation BM requise | Valide | Rejete
+  qualite_statut     text default 'À contrôler', -- Standard | À contrôler
+  statut_validation  text default 'À valider',   -- À valider | À contrôler | À régulariser | Validation BM requise | Validé | Rejeté
   validated_by       text,
   validated_at       timestamptz,
-  stock_statut       text default 'Entree RT',
-  cash_statut        text default 'Non reconcilie',
+  stock_statut       text default 'Entrée RT',
+  cash_statut        text default 'Non réconcilié',
   created_by     uuid default auth.uid(),
   created_by_nom text,
   created_at     timestamptz default now()
@@ -54,12 +54,12 @@ alter table public.achats add column if not exists rt_id text;
 alter table public.achats add column if not exists producteur_id text;
 alter table public.achats add column if not exists producteur_ref boolean default true;
 alter table public.achats add column if not exists recu_photo_url text;
-alter table public.achats add column if not exists qualite_statut text default 'A controler';
-alter table public.achats add column if not exists statut_validation text default 'A valider';
+alter table public.achats add column if not exists qualite_statut text default 'À contrôler';
+alter table public.achats add column if not exists statut_validation text default 'À valider';
 alter table public.achats add column if not exists validated_by text;
 alter table public.achats add column if not exists validated_at timestamptz;
-alter table public.achats add column if not exists stock_statut text default 'Entree RT';
-alter table public.achats add column if not exists cash_statut text default 'Non reconcilie';
+alter table public.achats add column if not exists stock_statut text default 'Entrée RT';
+alter table public.achats add column if not exists cash_statut text default 'Non réconcilié';
 
 create index if not exists achats_date_idx    on public.achats (date);
 create index if not exists achats_village_idx on public.achats (village_id);
