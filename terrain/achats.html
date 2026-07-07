@@ -87,7 +87,7 @@
       <div class="body">
         <div class="row">
           <div><label>Date</label><input id="f_date" type="date"></div>
-          <div><label>Cluster</label><input id="f_cluster" readonly placeholder="—"></div>
+          <div><label>Cluster</label><select id="f_cluster" onchange="onCluster()"><option value="">Tous les clusters</option></select></div>
         </div>
         <label>Village</label>
         <input id="f_village" list="dl_villages" oninput="onVillage()" placeholder="Choisir ou saisir">
@@ -178,15 +178,39 @@ async function loadRef(){
   }catch(e){/* hors ligne : on garde le cache */}
   renderRef();
 }
+function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function clustersList(){
+  const set={};REF.villages.forEach(v=>{const c=vcluster(v);if(c)set[c]=1;});
+  return Object.keys(set).sort((a,b)=>a.localeCompare(b,"fr"));
+}
+function rtClusterName(r){
+  if(r.data&&r.data.cluster) return r.data.cluster;
+  const v=REF.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));
+  return v?vcluster(v):"";
+}
+function fillVillageRT(){
+  const c=$("f_cluster").value;
+  const vs=c?REF.villages.filter(v=>keyc(vcluster(v))===keyc(c)):REF.villages;
+  const rts=c?REF.rt.filter(r=>keyc(rtClusterName(r))===keyc(c)):REF.rt;
+  $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(vname(v))+'">').join("");
+  $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(rtLabel(r))+'">').join("");
+}
 function renderRef(){
-  $("dl_villages").innerHTML=REF.villages.map(v=>'<option value="'+esc(vname(v))+'">').join("");
-  $("dl_rt").innerHTML=REF.rt.map(r=>'<option value="'+esc(rtLabel(r))+'">').join("");
+  const cl=clustersList(), cur=$("f_cluster").value;
+  $("f_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
+  if(cur) $("f_cluster").value=cur;
+  fillVillageRT();
   $("refWarn").className="alert warn"+((REF.villages.length||REF.rt.length)?"":" show");
+}
+// Choix d'un cluster : on filtre villages/RT et on repart proprement.
+function onCluster(){
+  $("f_village").value="";$("f_rt").value="";$("f_prod").value="";$("dl_prod").innerHTML="";
+  fillVillageRT();
 }
 async function onVillage(){
   const name=$("f_village").value.trim();
   const v=REF.villages.find(x=>vname(x)===name);
-  $("f_cluster").value=v?vcluster(v):"";
+  if(v){ $("f_cluster").value=vcluster(v); fillVillageRT(); }  // recale le cluster + filtre les RT
   // producteurs du village (cache puis réseau)
   let list=[];
   if(v){
