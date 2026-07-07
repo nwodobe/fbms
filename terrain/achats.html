@@ -190,6 +190,14 @@ function rtClusterName(r){
   const v=REF.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));
   return v?vcluster(v):"";
 }
+// Renvoie l'option cluster réellement présente dans la liste qui correspond
+// (en ignorant casse/accents/espaces) à une orthographe donnée. Évite que la
+// case se vide quand un village écrit le cluster autrement (ex. "DIABO " vs "Diabo").
+function canonCluster(raw){
+  var k=keyc(raw), opts=$("f_cluster").options;
+  for(var i=0;i<opts.length;i++){ if(opts[i].value&&keyc(opts[i].value)===k) return opts[i].value; }
+  return "";
+}
 function fillVillageRT(){
   const c=$("f_cluster").value, vn=$("f_village").value.trim();
   const vs=c?REF.villages.filter(v=>keyc(vcluster(v))===keyc(c)):REF.villages;
@@ -216,7 +224,7 @@ function onCluster(){
 async function onVillage(){
   const name=$("f_village").value.trim();
   const v=REF.villages.find(x=>vname(x)===name);
-  if(v) $("f_cluster").value=vcluster(v);   // recale le cluster
+  if(v) $("f_cluster").value=canonCluster(vcluster(v));   // recale sur l'option canonique du cluster
   fillVillageRT();                          // RT restreints au village (ou au cluster si village non résolu)
   // producteurs du village (cache puis réseau)
   let list=[];
