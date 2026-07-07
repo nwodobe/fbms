@@ -37,6 +37,9 @@
   label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px}
   input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;font-family:inherit;background:#fff}
   input[readonly]{background:var(--mist);font-weight:700;color:var(--forest)}
+  .up{text-transform:uppercase}
+  .up::placeholder{text-transform:none}
+  select#f_cluster{text-transform:uppercase}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .derived{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -90,11 +93,11 @@
           <div><label>Cluster</label><select id="f_cluster" onchange="onCluster()"><option value="">Tous les clusters</option></select></div>
         </div>
         <label>Village</label>
-        <input id="f_village" list="dl_villages" oninput="onVillage()" placeholder="Choisir ou saisir">
+        <input id="f_village" class="up" list="dl_villages" oninput="onVillage()" placeholder="Choisir ou saisir">
         <datalist id="dl_villages"></datalist>
         <div class="row">
-          <div><label>RT (équipe)</label><input id="f_rt" list="dl_rt" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
-          <div><label>Producteur</label><input id="f_prod" list="dl_prod" placeholder="Nom ou code"><datalist id="dl_prod"></datalist></div>
+          <div><label>RT (équipe)</label><input id="f_rt" class="up" list="dl_rt" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
+          <div><label>Producteur</label><input id="f_prod" class="up" list="dl_prod" placeholder="Nom ou code"><datalist id="dl_prod"></datalist></div>
         </div>
         <div class="row3">
           <div><label>Poids brut (kg)</label><input id="f_brut" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
@@ -108,7 +111,7 @@
         </div>
         <div class="row">
           <div><label>Mode de paiement</label><select id="f_mode"><option>Espèces</option><option>Mobile Money</option><option>Virement</option><option>Autre</option></select></div>
-          <div><label>N° reçu</label><input id="f_recu" placeholder="Requis pour refinancement"></div>
+          <div><label>N° reçu</label><input id="f_recu" class="up" placeholder="Requis pour refinancement"></div>
         </div>
         <div class="row3">
           <div><label>Humidité %</label><input id="f_hum" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
@@ -116,7 +119,7 @@
           <div><label>Rejet</label><select id="f_rejet" onchange="calc()"><option value="0">Non</option><option value="1">Oui (partiel/total)</option></select></div>
         </div>
         <label>Observation</label>
-        <textarea id="f_obs" rows="2" placeholder="Facultatif"></textarea>
+        <textarea id="f_obs" class="up" rows="2" placeholder="Facultatif"></textarea>
         <label>Photo du reçu (facultatif)</label>
         <input id="f_photo" type="file" accept="image/*" capture="environment" onchange="onPhoto(this)">
 
@@ -156,6 +159,7 @@ let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{}}, ONLINE=navigator.onLi
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
 function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
+function up(s){return String(s==null?"":s).toUpperCase();}          // MAJUSCULES obligatoires (réf. + transaction)
 function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
 function load(k,def){try{const s=localStorage.getItem(k);return s?JSON.parse(s):def;}catch(e){return def;}}
@@ -206,12 +210,12 @@ function fillVillageRT(){
     if(c)  return keyc(rtClusterName(r))===keyc(c);      // sinon => RT du cluster
     return true;
   });
-  $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(vname(v))+'">').join("");
-  $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(rtLabel(r))+'">').join("");
+  $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(up(vname(v)))+'">').join("");
+  $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(up(rtLabel(r)))+'">').join("");
 }
 function renderRef(){
   const cl=clustersList(), cur=$("f_cluster").value;
-  $("f_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
+  $("f_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(up(c))+'">'+esc(up(c))+'</option>').join("");
   if(cur) $("f_cluster").value=cur;
   fillVillageRT();
   $("refWarn").className="alert warn"+((REF.villages.length||REF.rt.length)?"":" show");
@@ -223,7 +227,7 @@ function onCluster(){
 }
 async function onVillage(){
   const name=$("f_village").value.trim();
-  const v=REF.villages.find(x=>vname(x)===name);
+  const v=REF.villages.find(x=>keyc(vname(x))===keyc(name));   // reconnaissance insensible à la casse
   if(v) $("f_cluster").value=canonCluster(vcluster(v));   // recale sur l'option canonique du cluster
   fillVillageRT();                          // RT restreints au village (ou au cluster si village non résolu)
   // producteurs du village (cache puis réseau)
@@ -235,7 +239,7 @@ async function onVillage(){
         if(!r.error){list=r.data||[];REF.prodByVillage[v.id]=list;store(REF_KEY,REF);}}catch(e){}
     }
   }
-  $("dl_prod").innerHTML=list.map(p=>'<option value="'+esc(prodLabel(p))+'">').join("");
+  $("dl_prod").innerHTML=list.map(p=>'<option value="'+esc(up(prodLabel(p)))+'">').join("");
 }
 
 /* ---- Règles métier ---- */
@@ -292,11 +296,11 @@ function save(){
   if(prix==null||prix<=0) return msg("Prix / kg invalide.","err");
   if(!(sacs>0)) return msg("Nombre de sacs requis (au moins 1) pour un achat avec poids.","err");
 
-  const v=REF.villages.find(x=>vname(x)===village);
-  const rtRow=REF.rt.find(r=>rtLabel(r)===rtName);
+  const v=REF.villages.find(x=>keyc(vname(x))===keyc(village));
+  const rtRow=REF.rt.find(r=>keyc(rtLabel(r))===keyc(rtName));
   const prodName=$("f_prod").value.trim();
   const prodList=(v&&REF.prodByVillage[v.id])||[];
-  const prodRow=prodName?prodList.find(p=>prodLabel(p)===prodName):null;
+  const prodRow=prodName?prodList.find(p=>keyc(prodLabel(p))===keyc(prodName)):null;
   const recu=$("f_recu").value.trim();
   const qual=qualiteStatut();
   const refi=estRefinancable();
@@ -307,18 +311,18 @@ function save(){
 
   const rec={
     local_id:uid(), date:$("f_date").value||today(),
-    cluster:$("f_cluster").value.trim()||null,
-    village_id:v?v.id:null, village_nom:village,
-    rt_id:rtRow?String(rtRow.id):null, rt_nom:rtName,
+    cluster:up($("f_cluster").value.trim())||null,
+    village_id:v?v.id:null, village_nom:up(village),
+    rt_id:rtRow?String(rtRow.id):null, rt_nom:up(rtName),
     producteur_id:prodRow?String(prodRow.code||prodRow.id):null,
-    producteur_nom:prodName||null,
+    producteur_nom:up(prodName)||null,
     producteur_ref: prodName? !!prodRow : true,
     poids_brut:n($("f_brut").value), tare:n($("f_tare").value)||0, poids_net:net,
     prix_kg:prix, montant:net*prix,
-    mode_paiement:$("f_mode").value, numero_recu:recu||null,
+    mode_paiement:$("f_mode").value, numero_recu:up(recu)||null,
     nb_sacs:sacs, humidite:n($("f_hum").value),
     kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
-    observation:$("f_obs").value.trim()||null,
+    observation:up($("f_obs").value.trim())||null,
     recu_photo:PHOTO||null, recu_photo_url:null,
     commission_rt:net*COMMISSION, bonus_diff:net*BONUS,
     refinancable:refi,
