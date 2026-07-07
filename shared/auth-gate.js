@@ -161,6 +161,15 @@
     setTimeout(injectAchatsCard, 0);
   }
 
+  // Cache profil : tolérance hors-ligne pour la saisie terrain (module Achats).
+  function cacheProfile(uid, prof) { try { localStorage.setItem("anagroci_profile_" + uid, JSON.stringify(prof)); } catch (e) {} }
+  function readCachedProfile(uid) { try { var s = localStorage.getItem("anagroci_profile_" + uid); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function decide(prof) {
+    var allowed = ACCESS[MODULE] || [];
+    if (allowed.indexOf(niveau(prof.role)) < 0) { return showDenied(prof); }
+    reveal(prof);
+  }
+
   var SB;
   function run() {
     SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -168,12 +177,17 @@
       var session = res.data && res.data.session;
       if (!session) { return showLogin(); }
       SB.from("profils").select("nom, role, actif").eq("user_id", session.user.id).single().then(function (r) {
+        // Réponse serveur (donc en ligne) : la source de vérité fait foi.
         if (r.error || !r.data) { return SB.auth.signOut().then(function () { showLogin("Profil introuvable. Contactez le Branch Manager."); }); }
         if (!r.data.actif) { return SB.auth.signOut().then(function () { showLogin("Compte désactivé. Contactez le Branch Manager."); }); }
-        var lvl = niveau(r.data.role);
-        var allowed = ACCESS[MODULE] || [];
-        if (allowed.indexOf(lvl) < 0) { return showDenied(r.data); }
-        reveal(r.data);
+        cacheProfile(session.user.id, r.data);
+        decide(r.data);
+      }, function () {
+        // Échec réseau (hors ligne) : replier sur le profil en cache si présent.
+        // La RLS Supabase reste la serrure : toute écriture est revérifiée côté serveur.
+        var cached = readCachedProfile(session.user.id);
+        if (cached) { return decide(cached); }
+        showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne).");
       });
     });
   }
