@@ -9,7 +9,7 @@
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function up(s){return String(s||'').trim().toUpperCase();}
   function rtName(r){return (r.nom||(r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))||r.village_nom||'').trim();}
-  function rtText(r){var name=rtName(r);return up((r.id_rt? r.id_rt+' - ':'')+name);}
+  function rtText(r){var name=rtName(r);return up((r.id_rt? r.id_rt+' - ':'')+name+(r._source==='census'?' (RECENSEMENT)':''));}
   function prodName(p){return (p.nom||(p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||'').trim();}
   function prodText(p){var name=prodName(p);return up((p.code? p.code+' - ':'')+name);}
   function prodValue(p){return up((p.code? p.code+' - ':'')+(prodName(p)||p.code||''));}
@@ -32,9 +32,17 @@
   }
   function getVillageByName(){var name=($('f_village')&&$('f_village').value)||'';var k=keyc(name);return villages.find(function(v){var vn=(v.village||(v.data&&v.data.s1&&v.data.s1.village)||'');return keyc(vn)===k;});}
   async function loadVillages(){if(!sb)return;var r=await sb.from('villages').select('id,village,cluster,data').eq('deleted',false);if(!r.error) villages=r.data||[];}
+  function censusCandidates(v){
+    var out=[], c=((v&&v.data&&v.data.s7&&Array.isArray(v.data.s7.candidats))?v.data.s7.candidats:[]);
+    c.forEach(function(x,idx){var name=(x&&x.nom||'').trim(); if(!name)return; out.push({id:'census-'+v.id+'-'+idx,id_rt:'REC-'+String(idx+1).padStart(2,'0'),nom:name,telephone:x.telephone||'',village_id:v.id,village_nom:(v.village||(v.data&&v.data.s1&&v.data.s1.village)||''),cluster:(v.cluster||(v.data&&v.data.s1&&v.data.s1.cluster)||''),_source:'census'});});
+    var leader=v&&v.data&&v.data.s2&&v.data.s2.leader; if(leader&&leader.nom){var exists=out.some(function(r){return keyc(r.nom)===keyc(leader.nom);}); if(!exists)out.push({id:'census-'+v.id+'-leader',id_rt:'REC-LD',nom:leader.nom,telephone:leader.telephone||'',village_id:v.id,village_nom:(v.village||(v.data&&v.data.s1&&v.data.s1.village)||''),cluster:(v.cluster||(v.data&&v.data.s1&&v.data.s1.cluster)||''),_source:'census'});}
+    return out;
+  }
   async function loadRefsForVillage(v){
     if(!sb||!v)return;
     if(!rtCache[v.id]){var rr=await sb.from('rt').select('id,id_rt,nom,data,village_id,village_nom,cluster,statut').eq('deleted',false).eq('village_id',v.id).order('id_rt'); if(!rr.error)rtCache[v.id]=rr.data||[];}
+    var fromTable=rtCache[v.id]||[], fromCensus=censusCandidates(v), seen={};
+    rtCache[v.id]=fromTable.concat(fromCensus).filter(function(r){var k=keyc(rtName(r)); if(!k||seen[k])return false; seen[k]=1; return true;});
     if(!prodCache[v.id]){var pr=await sb.from('producteurs').select('id,code,nom,telephone,data,village_id,village_nom,rt_id,statut').eq('deleted',false).eq('village_id',v.id).order('code'); if(!pr.error)prodCache[v.id]=pr.data||[];}
   }
   function setFreeProducerValue(val){
@@ -47,7 +55,7 @@
     ensureDom(); var rt=$('f_rt'), prod=$('f_prod'), rtH=$('rtDropdownHelp'), prodH=$('prodDropdownHelp');
     if(!v){if(rt)rt.innerHTML='<option value="">Choisir un village d’abord</option>'; if(prod)prod.innerHTML='<option value="">Choisir un village d’abord</option><option value="__FREE__">Producteur non enrôlé / saisie libre</option>'; return;}
     var rts=rtCache[v.id]||[]; if(rt){rt.innerHTML='<option value="">Choisir un RT du village</option>'+rts.map(function(r){var val=up(rtName(r));return '<option value="'+esc(val)+'">'+esc(rtText(r))+'</option>';}).join('');}
-    if(rtH)rtH.textContent=rts.length?('RT filtrés sur le village sélectionné : '+rts.length):'Aucun RT enregistré pour ce village.';
+    if(rtH)rtH.textContent=rts.length?('RT du village : '+rts.length+' (Base RT + recensement si besoin).'):'Aucun RT trouvé pour ce village.';
     var prods=prodCache[v.id]||[]; if(prod){prod.innerHTML='<option value="">Choisir un producteur</option>'+prods.map(function(p){var val=prodValue(p);return '<option value="'+esc(val)+'">'+esc(prodText(p))+'</option>';}).join('')+'<option value="__FREE__">Producteur non enrôlé / saisie libre</option>';prod.addEventListener('change',onProdSelect,{once:true});prod.addEventListener('change',onProdSelect);}
     if(prodH)prodH.textContent=prods.length?('Producteurs enrôlés du village : '+prods.length):'Aucun producteur enrôlé pour ce village : utilisez saisie libre.';
     onProdSelect();
@@ -55,7 +63,6 @@
   function onProdSelect(){var prod=$('f_prod'), free=$('f_prod_free'); if(!prod||!free)return; var isFree=prod.value==='__FREE__'||(prod.selectedOptions[0]&&prod.selectedOptions[0].getAttribute('data-free')==='1'); free.style.display=isFree?'block':'none'; if(!isFree)free.value='';}
   async function refreshDropdowns(){try{ensureDom(); if(!villages.length)await loadVillages(); var v=getVillageByName(); await loadRefsForVillage(v); renderRefs(v);}catch(e){console.warn('achats dropdown patch',e);}}
   function patchSync(){
-    var old=window.syncAll;
     window.syncAll=async function(){
       var all=[]; try{all=JSON.parse(localStorage.getItem('anagroci_achats')||'[]');}catch(e){all=[];}
       var pend=all.filter(function(r){return r._status!=='synced';}); if(!navigator.onLine||!sb||!pend.length){if(typeof window.render==='function')window.render();return;}
