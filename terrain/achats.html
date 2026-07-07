@@ -1,390 +1,597 @@
-<!doctype html><html lang="fr"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#053B23">
-<title>Achats Terrain · ANAGROCI</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script defer src="../shared/auth-gate.js" data-module="achats"></script>
+<!doctype html>
+<html lang='fr'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<meta name='theme-color' content='#053B23'>
+<title>Achats Terrain - ANAGROCI</title>
+<script src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'></script>
+<script defer src='../shared/auth-gate.js' data-module='achats'></script>
 <style>
-  :root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;
-    --mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;
-    --line:#E8E7E7;--danger:#C0392B;--white:#fff;}
+  :root{
+    --forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;
+    --mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#6f7171;
+    --line:#E8E7E7;--danger:#C0392B;--danger-tint:#fff1f1;--white:#fff;
+  }
   *{box-sizing:border-box}
   body{margin:0;background:var(--mist);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
-  .top{background:var(--forest);color:#eafff2;display:flex;align-items:center;justify-content:space-between;
-    gap:10px;flex-wrap:wrap;padding:12px 16px}
+  .top{background:var(--forest);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px}
   .top .b{display:flex;align-items:center;gap:10px}
   .chip{background:#fff;border-radius:8px;padding:4px 7px;display:inline-flex;align-items:center}
   .chip img{height:26px;display:block}
   .top b{font-size:16px}.top small{color:#CFE3D3;font-size:11px}
   .top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .btn{border:0;border-radius:9px;background:var(--emerald);color:#fff;font-weight:700;padding:10px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn{border:0;border-radius:8px;background:var(--emerald);color:#fff;font-weight:700;padding:10px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;justify-content:center;min-height:38px}
   .btn.ghost{background:#fff;color:var(--forest)}
-  .btn.sm{padding:7px 10px;font-size:12px}
+  .btn.warn{background:var(--orange);color:#2b2100}
+  .btn.sm{padding:7px 10px;font-size:12px;min-height:30px}
   .btn:disabled{opacity:.55;cursor:default}
   .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px;border:1px solid rgba(255,255,255,.25)}
   .net .d{width:8px;height:8px;border-radius:50%}
   .on .d{background:var(--lime)} .off .d{background:var(--orange)}
-  .wrap{max-width:1100px;margin:auto;padding:16px}
+  .wrap{max-width:1120px;margin:auto;padding:16px}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-  .k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
+  .k{background:#fff;border:1px solid var(--line);border-radius:8px;padding:13px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
   .k small{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
   .k b{font-size:22px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
   .k.kpend b{color:var(--orange)}
   .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
-  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .body{padding:14px 16px}
   label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px}
-  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;font-family:inherit;background:#fff}
+  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:14px;font-family:inherit;background:#fff;min-height:40px}
+  textarea{resize:vertical}
   input[readonly]{background:var(--mist);font-weight:700;color:var(--forest)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .derived{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-  .pill{border-radius:10px;padding:8px 11px;font-size:12px;font-weight:700;background:var(--pale);color:var(--pine);border:1px solid #B6DC8E}
-  .pill.warn{background:var(--orange-tint);color:#9A6600;border-color:var(--orange)}
-  .alert{border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;display:none}
+  .pill{border-radius:8px;padding:8px 11px;font-size:12px;font-weight:700;background:var(--pale);color:var(--pine);border:1px solid #B6DC8E}
+  .pill.warn{background:var(--orange-tint);color:#8a6100;border-color:var(--orange)}
+  .pill.err{background:var(--danger-tint);color:#8f2d22;border-color:#e7b7b0}
+  .alert{border-radius:8px;padding:10px 12px;margin-top:12px;font-size:13px;display:none;line-height:1.45}
   .alert.show{display:block}
   .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
-  .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
-  .warn{background:var(--orange-tint);border:1px solid var(--orange);color:#8a6a12}
-  .list{max-height:60vh;overflow:auto}
-  .it{border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:9px}
+  .err{background:var(--danger-tint);border:1px solid #e7b7b0;color:#8f2d22}
+  .warnbox,.warn{background:var(--orange-tint);border:1px solid var(--orange);color:#7d5a00}
+  .diagnostic{margin-bottom:16px}
+  .diag-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+  .diag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  .diag{border:1px solid var(--line);border-radius:8px;padding:11px;background:#fff}
+  .diag small{display:block;text-transform:uppercase;font-size:10.5px;font-weight:800;color:var(--muted);letter-spacing:.03em}
+  .diag b{display:block;margin-top:4px;color:var(--forest);font-size:19px;font-family:'IBM Plex Mono',monospace}
+  .prio{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .prio span{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11.5px;background:var(--mist);font-weight:700;color:var(--forest)}
+  .list{max-height:60vh;overflow:auto;padding-right:2px}
+  .it{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:9px;background:#fff}
   .it .h{display:flex;justify-content:space-between;gap:8px;align-items:center}
   .it b{font-size:13px}
-  .it .meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .it .meta{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
   .st{font-size:10px;font-weight:800;text-transform:uppercase;border-radius:999px;padding:3px 8px;white-space:nowrap}
   .st.sync{background:var(--pale);color:var(--pine)}
   .st.pend{background:var(--orange-tint);color:#9A6600}
   .st.blk{background:#fdeceb;color:var(--danger)}
   .muted{color:var(--muted);font-size:12.5px;line-height:1.5}
-  @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.row3{grid-template-columns:1fr}}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}.diag-grid{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:1fr 1fr}.row3{grid-template-columns:1fr}}
+  @media(max-width:560px){.wrap{padding:12px}.row{grid-template-columns:1fr}.diag-grid{grid-template-columns:1fr}.k b{font-size:18px}.top .r{width:100%}.btn{width:100%}.top .r .btn.sm,.top .r .net{width:auto}.list{max-height:none}.card h2{align-items:flex-start;flex-direction:column}}
 </style>
-<link rel="stylesheet" href="../shared/pjs-theme.css">
-</head><body>
+<link rel='stylesheet' href='../shared/pjs-theme.css'>
+</head>
+<body>
 
-<div class="top">
-  <div class="b"><span class="chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span>
-    <span><b>Achats Terrain</b><br><small>Saisie journalière RCN · Producteur → RT</small></span></div>
-  <div class="r">
-    <span id="net" class="net off"><span class="d"></span><span id="netTxt">Hors ligne</span></span>
-    <button class="btn sm" id="syncBtn" onclick="syncAll()">Synchroniser <span id="pendBadge"></span></button>
-    <a class="btn ghost sm" href="../index.html">Portail</a>
-    <span id="anagroci-userslot"></span>
+<div class='top'>
+  <div class='b'>
+    <span class='chip'><img src='../assets/logo-pjs-mark.png' alt='PJS'></span>
+    <span><b>Achats Terrain</b><br><small>Saisie journalière RCN - Producteur -> RT</small></span>
+  </div>
+  <div class='r'>
+    <span id='net' class='net off'><span class='d'></span><span id='netTxt'>Hors ligne</span></span>
+    <button class='btn sm' id='syncBtn' onclick='syncAll()'>Réessayer synchronisation <span id='pendBadge'></span></button>
+    <a class='btn ghost sm' href='../index.html'>Portail</a>
+    <span id='anagroci-userslot'></span>
   </div>
 </div>
 
-<main class="wrap">
-  <div class="kpis">
-    <div class="k"><small>Volume du jour</small><b id="kVol">0</b></div>
-    <div class="k"><small>Montant payé (jour)</small><b id="kMt">0</b></div>
-    <div class="k"><small>Commission RT (jour)</small><b id="kCom">0</b></div>
-    <div class="k kpend"><small>En attente de synchro</small><b id="kPend">0</b></div>
+<main class='wrap'>
+  <div class='kpis'>
+    <div class='k'><small>Volume du jour</small><b id='kVol'>0</b></div>
+    <div class='k'><small>Montant payé</small><b id='kMt'>0</b></div>
+    <div class='k'><small>Commission RT</small><b id='kCom'>0</b></div>
+    <div class='k kpend'><small>En attente</small><b id='kPend'>0</b></div>
   </div>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Nouvel achat</h2>
-      <div class="body">
-        <div class="row">
-          <div><label>Date</label><input id="f_date" type="date"></div>
-          <div><label>Cluster</label><select id="f_cluster" onchange="onCluster()"><option value="">Tous les clusters</option></select></div>
-        </div>
-        <label>Village</label>
-        <input id="f_village" list="dl_villages" oninput="onVillage()" placeholder="Choisir ou saisir">
-        <datalist id="dl_villages"></datalist>
-        <div class="row">
-          <div><label>RT (équipe)</label><input id="f_rt" list="dl_rt" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
-          <div><label>Producteur</label><input id="f_prod" list="dl_prod" placeholder="Nom ou code"><datalist id="dl_prod"></datalist></div>
-        </div>
-        <div class="row3">
-          <div><label>Poids brut (kg)</label><input id="f_brut" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
-          <div><label>Tare (kg)</label><input id="f_tare" type="number" min="0" step="0.1" inputmode="decimal" value="0" oninput="calc()"></div>
-          <div><label>Poids net (kg)</label><input id="f_net" readonly></div>
-        </div>
-        <div class="row3">
-          <div><label>Prix / kg (barème 400)</label><input id="f_prix" type="number" min="0" step="1" inputmode="numeric" value="400" oninput="calc()"></div>
-          <div><label>Montant payé</label><input id="f_montant" readonly></div>
-          <div><label>Nb sacs</label><input id="f_sacs" type="number" min="0" step="1" inputmode="numeric"></div>
-        </div>
-        <div class="row">
-          <div><label>Mode de paiement</label><select id="f_mode"><option>Espèces</option><option>Mobile Money</option><option>Virement</option><option>Autre</option></select></div>
-          <div><label>N° reçu</label><input id="f_recu" placeholder="Requis pour refinancement"></div>
-        </div>
-        <div class="row3">
-          <div><label>Humidité %</label><input id="f_hum" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
-          <div><label>KOR</label><input id="f_kor" type="number" min="0" step="0.1" inputmode="decimal" placeholder="ex. 48" oninput="calc()"></div>
-          <div><label>Rejet</label><select id="f_rejet" onchange="calc()"><option value="0">Non</option><option value="1">Oui (partiel/total)</option></select></div>
-        </div>
-        <label>Observation</label>
-        <textarea id="f_obs" rows="2" placeholder="Facultatif"></textarea>
-        <label>Photo du reçu (facultatif)</label>
-        <input id="f_photo" type="file" accept="image/*" capture="environment" onchange="onPhoto(this)">
+  <section class='card diagnostic'>
+    <h2><span>Pilote DIABO</span><button class='btn warn sm' type='button' onclick='focusDiabo()'>Filtrer DIABO</button></h2>
+    <div class='body'>
+      <div class='diag-head'>
+        <p class='muted' style='margin:0'>Diagnostic calculé depuis le référentiel chargé et la file locale. Les données Supabase du jour sont lues si la connexion est disponible.</p>
+      </div>
+      <div class='diag-grid'>
+        <div class='diag'><small>Villages DIABO</small><b id='dVillages'>0</b></div>
+        <div class='diag'><small>Sans RT</small><b id='dSansRt'>0</b></div>
+        <div class='diag'><small>Sans producteurs</small><b id='dSansProd'>0</b></div>
+        <div class='diag'><small>Potentiel sécurisé</small><b id='dPot'>0 MT</b></div>
+        <div class='diag'><small>Achats jour DIABO</small><b id='dJour'>0</b></div>
+        <div class='diag'><small>Sans reçu</small><b id='dSansRecu'>0</b></div>
+        <div class='diag'><small>Non synchronisés</small><b id='dNonSync'>0</b></div>
+        <div class='diag'><small>Hub usine routier</small><b id='dHub'>À compléter</b></div>
+      </div>
+      <div class='prio'>
+        <span>P1 YOMIEN KOUADIOKRO</span><span>P1 Agbakro</span><span>P2 Adiekro</span><span>P3 Kouassi-Golikro</span>
+      </div>
+    </div>
+  </section>
 
-        <div class="derived">
-          <span class="pill" id="d_com">Commission RT : 0 FCFA</span>
-          <span class="pill" id="d_bonus">Bonus différé : 0 FCFA</span>
-          <span class="pill warn" id="d_refi">Sans reçu → non refinançable</span>
-          <span class="pill" id="d_qual">Qualité : à contrôler</span>
-          <span class="pill" id="d_prix" style="display:none">Prix hors barème → validation BM</span>
+  <div class='grid'>
+    <section class='card'>
+      <h2>Nouvel achat</h2>
+      <div class='body'>
+        <div class='row'>
+          <div><label>Date</label><input id='f_date' type='date'></div>
+          <div><label>Cluster</label><select id='f_cluster' onchange='onCluster()'><option value=''>Tous les clusters</option></select></div>
         </div>
-        <p><button class="btn" id="saveBtn" onclick="save()">Enregistrer l'achat</button></p>
-        <div id="msg" class="alert"></div>
+
+        <label>Village</label>
+        <input id='f_village' list='dl_villages' oninput='onVillage()' placeholder='Choisir un village'>
+        <datalist id='dl_villages'></datalist>
+
+        <div id='rtAlert' class='alert warnbox'></div>
+        <div id='prodAlert' class='alert warnbox'></div>
+
+        <div class='row'>
+          <div><label>RT (équipe)</label><input id='f_rt' list='dl_rt' oninput='calc()' placeholder='Choisir ou saisir'><datalist id='dl_rt'></datalist></div>
+          <div><label>Producteur</label><input id='f_prod' list='dl_prod' oninput='calc()' placeholder='Nom producteur'><datalist id='dl_prod'></datalist></div>
+        </div>
+
+        <div class='row3'>
+          <div><label>Poids brut (kg)</label><input id='f_brut' type='number' min='0' step='0.1' inputmode='decimal' oninput='calc()'></div>
+          <div><label>Tare (kg)</label><input id='f_tare' type='number' min='0' step='0.1' inputmode='decimal' value='0' oninput='calc()'></div>
+          <div><label>Poids net (kg)</label><input id='f_net' readonly></div>
+        </div>
+
+        <div class='row3'>
+          <div><label>Prix / kg</label><input id='f_prix' type='number' min='0' step='1' inputmode='numeric' value='400' oninput='calc()'></div>
+          <div><label>Montant payé</label><input id='f_montant' readonly></div>
+          <div><label>Nb sacs</label><input id='f_sacs' type='number' min='0' step='1' inputmode='numeric'></div>
+        </div>
+
+        <div class='row'>
+          <div><label>Mode de paiement</label><select id='f_mode'><option>Espèces</option><option>Mobile Money</option><option>Virement</option><option>Autre</option></select></div>
+          <div><label>N° reçu</label><input id='f_recu' oninput='calc()' placeholder='Requis pour refinancement'></div>
+        </div>
+
+        <div class='row3'>
+          <div><label>Humidité %</label><input id='f_hum' type='number' min='0' step='0.1' inputmode='decimal' oninput='calc()'></div>
+          <div><label>Impuretés %</label><input id='f_imp' type='number' min='0' step='0.1' inputmode='decimal' oninput='calc()'></div>
+          <div><label>Rejet</label><select id='f_rejet' onchange='calc()'><option value='0'>Non</option><option value='1'>Oui</option></select></div>
+        </div>
+
+        <label>Observation</label>
+        <textarea id='f_obs' rows='2' placeholder='Facultatif'></textarea>
+        <label>Photo du reçu (facultatif)</label>
+        <input id='f_photo' type='file' accept='image/*' capture='environment' onchange='onPhoto(this)'>
+
+        <div class='derived'>
+          <span class='pill' id='d_com'>Commission RT : 0 FCFA</span>
+          <span class='pill' id='d_bonus'>Bonus différé : 0 FCFA</span>
+          <span class='pill warn' id='d_refi'>Sans reçu : non refinançable</span>
+          <span class='pill' id='d_qual'>Qualité : Standard</span>
+          <span class='pill warn' id='d_statut'>Statut : À valider</span>
+        </div>
+
+        <div class='actions'>
+          <button class='btn' id='saveBtn' onclick='save()'>Enregistrer l'achat</button>
+        </div>
+        <div id='msg' class='alert'></div>
       </div>
     </section>
 
-    <section class="card">
+    <section class='card'>
       <h2>Derniers achats</h2>
-      <div class="body">
-        <div id="refWarn" class="alert warn">Référentiel non chargé. Connectez-vous une fois en ligne pour charger villages / RT / producteurs.</div>
-        <div id="list" class="list"><p class="muted">Aucun achat saisi sur cet appareil.</p></div>
+      <div class='body'>
+        <div id='refWarn' class='alert warnbox'>Référentiel non chargé. Connectez-vous une fois en ligne pour charger villages, RT et producteurs.</div>
+        <div id='syncMsg' class='alert err'></div>
+        <div id='list' class='list'><p class='muted'>Aucun achat saisi sur cet appareil.</p></div>
       </div>
     </section>
   </div>
 </main>
 
 <script>
-const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
-const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
-const COMMISSION=10, BONUS=5;               // FCFA/kg (modèle Field Buying)
-const PRIX_CAMPAGNE=400;                     // prix producteur de référence (F/kg)
-const SEUIL_HUM=10;                          // humidité (%) au-delà: à contrôler
-const SEUIL_KOR=45;                          // KOR minimal acceptable (à ajuster selon barème campagne)
-const Q_KEY="anagroci_achats", REF_KEY="anagroci_ref_achats";
-const $=i=>document.getElementById(i);
-let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{}}, ONLINE=navigator.onLine;
+const SUPABASE_URL='https://jmbdgpdthzpszfnddwzi.supabase.co';
+const SUPABASE_ANON='sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d';
+const COMMISSION=10, BONUS=5, PRIX_CAMPAGNE=400, SEUIL_HUM=10, SEUIL_IMP=5;
+const Q_KEY='anagroci_achats', REF_KEY='anagroci_ref_achats_v2';
+const SYNC_COLS=['local_id','date','cluster','village_id','village_nom','rt_id','rt_nom','producteur_id','producteur_nom','producteur_ref','poids_brut','tare','poids_net','prix_kg','montant','mode_paiement','numero_recu','nb_sacs','humidite','impuretes','kor','rejet','observation','recu_photo','recu_photo_url','commission_rt','bonus_diff','refinancable','qualite_statut','statut_validation','stock_statut','cash_statut','created_by_nom','created_at'];
+const DIABO_PRIORITY={'YOMIEN KOUADIOKRO':1,'AGBAKRO':2,'ADIEKRO':3,'KOUASSI-GOLIKRO':4};
+const $=id=>document.getElementById(id);
+let SB=null, ME=null, ONLINE=navigator.onLine, PHOTO=null;
+let REF={villages:[],rt:[],prodByVillage:{},remoteAchats:[],hubDiabo:null};
 
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
-function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
-function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
+function esc(s){return String(s==null?'':s).replace(/[&<>']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;'}[c]));}
+function n(x){let v=parseFloat(String(x==null?'':x).replace(',','.'));return Number.isFinite(v)?v:null;}
+function clean(s){return String(s==null?'':s).trim().replace(/\s+/g,' ');}
+function keyc(s){return clean(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
+function fmt(x){return x==null?'0':Math.round(Number(x)||0).toLocaleString('fr-FR');}
+function fmtKg(x){return (Math.round((Number(x)||0)*10)/10).toLocaleString('fr-FR');}
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function uid(){try{return crypto.randomUUID();}catch(e){return 'loc-'+Date.now()+'-'+Math.round(Math.random()*1e9);}}
 function load(k,def){try{const s=localStorage.getItem(k);return s?JSON.parse(s):def;}catch(e){return def;}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-function msg(t,k){const m=$("msg");m.className="alert show "+(k||"ok");m.textContent=t;}
+function show(id,text,kind){const e=$(id);e.className='alert show '+(kind||'ok');e.textContent=text;}
+function hide(id){const e=$(id);e.className='alert';e.textContent='';}
+function msg(t,k){show('msg',t,k||'ok');}
 
-/* ---- Référentiel ---- */
-function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
-function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
-function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))||r.nom||(r.village_nom?("RT "+r.village_nom):"")||"";}
-function prodLabel(p){return (p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||p.nom||p.code||"";}
+function vname(v){return clean((v.data&&v.data.s1&&v.data.s1.village)||v.village||'');}
+function vcluster(v){return clean((v.data&&v.data.s1&&v.data.s1.cluster)||'');}
+function vPotSec(v){return n(v.data&&v.data.s3&&v.data.s3.potentielSecuriseMT)||0;}
+function vPotTotal(v){return n(v.data&&v.data.s3&&v.data.s3.potentielMT)||0;}
+function rtLabel(r){return clean((r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))||r.nom||(r.village_nom?('RT '+r.village_nom):'')||'');}
+function prodLabel(p){return clean((p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||p.nom||p.code||'');}
+function findVillageByName(name){const k=keyc(name);return REF.villages.find(v=>keyc(vname(v))===k)||null;}
+function isDiaboCluster(c){return keyc(c)==='DIABO';}
+function diaboVillages(){return REF.villages.filter(v=>isDiaboCluster(vcluster(v))).sort((a,b)=>(DIABO_PRIORITY[keyc(vname(a))]||9)-(DIABO_PRIORITY[keyc(vname(b))]||9)||vname(a).localeCompare(vname(b),'fr'));}
+function rtForVillage(v){if(!v)return[];return REF.rt.filter(r=>String(r.village_id||'')===String(v.id)||keyc(r.village_nom||'')===keyc(vname(v)));}
+function prodForVillage(v){return v?(REF.prodByVillage[v.id]||[]):[];}
 
 async function loadRef(){
-  if(!ONLINE) return;
+  REF=load(REF_KEY,REF);
+  renderRef();
+  if(!ONLINE||!SB){renderDiag();return;}
   try{
-    let r=await SB.from("villages").select("id,data").eq("deleted",false);
+    let r=await SB.from('villages').select('id,data,village,statut,deleted').eq('deleted',false);
     if(!r.error) REF.villages=(r.data||[]).filter(x=>x.data&&x.data.s1);
-    r=await SB.from("rt").select("id,data,village_nom,statut").eq("deleted",false);
+    r=await SB.from('rt').select('id,data,nom,telephone,village_id,village_nom,statut,deleted').eq('deleted',false);
     if(!r.error) REF.rt=r.data||[];
     store(REF_KEY,REF);
-  }catch(e){/* hors ligne : on garde le cache */}
+  }catch(e){}
   renderRef();
+  await loadHubDiabo();
+  await loadRemoteAchats();
 }
-function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+
+async function loadHubDiabo(){
+  if(!ONLINE||!SB)return;
+  try{
+    const r=await SB.from('hubs_clusters').select('nom,hub_key,distance_usine_routiere,distance_usine_gps,deleted').eq('deleted',false);
+    if(!r.error){REF.hubDiabo=(r.data||[]).find(h=>keyc(h.nom||h.hub_key)==='DIABO')||null;store(REF_KEY,REF);}
+  }catch(e){}
+}
+
+async function loadRemoteAchats(){
+  if(!ONLINE||!SB)return;
+  try{
+    const r=await SB.from('achats').select('local_id,date,cluster,numero_recu,poids_net,montant').eq('date',today());
+    if(!r.error){REF.remoteAchats=r.data||[];store(REF_KEY,REF);}
+  }catch(e){}
+  renderDiag();
+}
+
+async function loadProducteursForVillage(v){
+  if(!v||REF.prodByVillage[v.id]){renderProd(v);return;}
+  if(!ONLINE||!SB){renderProd(v);return;}
+  try{
+    const r=await SB.from('producteurs').select('id,code,nom,data,village_id,village_nom,rt_id,statut,deleted').eq('village_id',v.id).eq('deleted',false);
+    if(!r.error){REF.prodByVillage[v.id]=r.data||[];store(REF_KEY,REF);}
+  }catch(e){}
+  renderProd(v);
+}
+
 function clustersList(){
-  // Dédoublonnage insensible à la casse / accents / espaces (ex. "Diabo" vs "DIABO ").
-  const map={};REF.villages.forEach(v=>{const c=(vcluster(v)||"").trim();if(c){const k=keyc(c);if(!map[k])map[k]=c;}});
-  return Object.keys(map).map(k=>map[k]).sort((a,b)=>a.localeCompare(b,"fr"));
+  const map={};
+  REF.villages.forEach(v=>{const c=vcluster(v);if(c&&!map[keyc(c)])map[keyc(c)]=c;});
+  return Object.keys(map).map(k=>map[k]).sort((a,b)=>a.localeCompare(b,'fr'));
 }
-function rtClusterName(r){
-  if(r.data&&r.data.cluster) return r.data.cluster;
-  const v=REF.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));
-  return v?vcluster(v):"";
-}
-function fillVillageRT(){
-  const c=$("f_cluster").value, vn=$("f_village").value.trim();
-  const vs=c?REF.villages.filter(v=>keyc(vcluster(v))===keyc(c)):REF.villages;
-  const rts=REF.rt.filter(function(r){
-    if(vn) return keyc(r.village_nom||"")===keyc(vn);   // village précis => seulement ses RT
-    if(c)  return keyc(rtClusterName(r))===keyc(c);      // sinon => RT du cluster
-    return true;
-  });
-  $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(vname(v))+'">').join("");
-  $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(rtLabel(r))+'">').join("");
-}
+
 function renderRef(){
-  const cl=clustersList(), cur=$("f_cluster").value;
-  $("f_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
-  if(cur) $("f_cluster").value=cur;
+  const cur=$('f_cluster').value;
+  const clusters=clustersList();
+  $('f_cluster').innerHTML='<option value="">Tous les clusters</option>'+clusters.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+  if(cur){const found=clusters.find(c=>keyc(c)===keyc(cur));$('f_cluster').value=found||'';}
   fillVillageRT();
-  $("refWarn").className="alert warn"+((REF.villages.length||REF.rt.length)?"":" show");
+  $('refWarn').className='alert warnbox'+((REF.villages.length||REF.rt.length)?'':' show');
+  renderDiag();
 }
-// Choix d'un cluster : on filtre villages/RT et on repart proprement.
+
+function fillVillageRT(){
+  const cluster=$('f_cluster').value;
+  const villageName=$('f_village').value;
+  const selectedVillage=findVillageByName(villageName);
+  const villages=cluster?REF.villages.filter(v=>keyc(vcluster(v))===keyc(cluster)):REF.villages;
+  const rts=selectedVillage?rtForVillage(selectedVillage):REF.rt.filter(r=>{
+    if(!cluster)return true;
+    const v=REF.villages.find(x=>String(x.id)===String(r.village_id)||keyc(vname(x))===keyc(r.village_nom||''));
+    return v&&keyc(vcluster(v))===keyc(cluster);
+  });
+  $('dl_villages').innerHTML=villages.map(v=>'<option value="'+esc(vname(v))+'">').join('');
+  $('dl_rt').innerHTML=rts.map(r=>'<option value="'+esc(rtLabel(r))+'">').join('');
+  refreshAlerts(selectedVillage);
+}
+
+function renderProd(v){
+  const list=prodForVillage(v);
+  $('dl_prod').innerHTML=list.map(p=>'<option value="'+esc(prodLabel(p))+'">').join('');
+  refreshAlerts(v);
+}
+
 function onCluster(){
-  $("f_village").value="";$("f_rt").value="";$("f_prod").value="";$("dl_prod").innerHTML="";
-  fillVillageRT();
+  $('f_village').value='';$('f_rt').value='';$('f_prod').value='';$('dl_prod').innerHTML='';
+  fillVillageRT();calc();renderDiag();
 }
+
 async function onVillage(){
-  const name=$("f_village").value.trim();
-  const v=REF.villages.find(x=>vname(x)===name);
-  if(v) $("f_cluster").value=vcluster(v);   // recale le cluster
-  fillVillageRT();                          // RT restreints au village (ou au cluster si village non résolu)
-  // producteurs du village (cache puis réseau)
-  let list=[];
-  if(v){
-    list=REF.prodByVillage[v.id]||[];
-    if(ONLINE){
-      try{const r=await SB.from("producteurs").select("code,data,statut").eq("village_id",v.id).eq("deleted",false);
-        if(!r.error){list=r.data||[];REF.prodByVillage[v.id]=list;store(REF_KEY,REF);}}catch(e){}
-    }
-  }
-  $("dl_prod").innerHTML=list.map(p=>'<option value="'+esc(prodLabel(p))+'">').join("");
+  const v=findVillageByName($('f_village').value);
+  if(v){$('f_cluster').value=vcluster(v);}
+  $('f_rt').value='';$('f_prod').value='';$('dl_prod').innerHTML='';
+  fillVillageRT();
+  if(v) await loadProducteursForVillage(v);
+  calc();renderDiag();
 }
 
-/* ---- Règles métier ---- */
-function qualiteStatut(){
-  const hum=n($("f_hum").value), kor=n($("f_kor").value), rejet=$("f_rejet").value==="1";
-  if(rejet) return "Rejeté";
-  if((hum!=null&&hum>SEUIL_HUM)||(kor!=null&&kor<SEUIL_KOR)) return "À contrôler";
-  return "OK";
+function focusDiabo(){
+  const c=clustersList().find(x=>keyc(x)==='DIABO')||'Diabo';
+  $('f_cluster').value=c;
+  onCluster();
+  msg('Filtre DIABO activé. Les villages DIABO sont proposés dans la saisie.','ok');
 }
-function prixHorsBareme(){const p=n($("f_prix").value);return p!=null&&p!==PRIX_CAMPAGNE;}
-function estRefinancable(){return $("f_recu").value.trim().length>0 && $("f_rejet").value!=="1";}
 
-/* ---- Calculs ---- */
+function refreshAlerts(v){
+  if(!v){hide('rtAlert');hide('prodAlert');return;}
+  const noRt=rtForVillage(v).length===0;
+  if(noRt) show('rtAlert','Aucun RT rattaché - achat à contrôler. Ne pas valider définitivement avant rattachement RT.','warnbox'); else hide('rtAlert');
+  const prodLoaded=Object.prototype.hasOwnProperty.call(REF.prodByVillage,v.id);
+  const noProd=prodLoaded&&prodForVillage(v).length===0;
+  if(noProd) show('prodAlert','Aucun producteur référencé - producteur libre autorisé, statut à régulariser.','warnbox'); else hide('prodAlert');
+}
+
+function currentProducteurRow(v){
+  const name=$('f_prod').value.trim();
+  if(!name||!v)return null;
+  return prodForVillage(v).find(p=>keyc(prodLabel(p))===keyc(name))||null;
+}
+
+function currentRtRow(v){
+  const name=$('f_rt').value.trim();
+  if(!name)return null;
+  const pool=v?rtForVillage(v):REF.rt;
+  return pool.find(r=>keyc(rtLabel(r))===keyc(name))||null;
+}
+
+function rules(extra){
+  const brut=n($('f_brut').value)||0;
+  const tare=n($('f_tare').value)||0;
+  const prix=n($('f_prix').value)||0;
+  const hum=n($('f_hum').value);
+  const imp=n($('f_imp').value);
+  const rejet=$('f_rejet').value==='1';
+  const recu=$('f_recu').value.trim();
+  const net=brut-tare;
+  const qualite=(rejet||((hum!=null&&hum>SEUIL_HUM)||(imp!=null&&imp>SEUIL_IMP)))?'À contrôler':'Standard';
+  const refinancable=!!recu&&!rejet;
+  const noRt=!!(extra&&extra.noRt);
+  const producteurRef=!(extra&&extra.producteurRef===false);
+  let statut='À valider';
+  if(rejet) statut='À contrôler';
+  if(!refinancable) statut='À contrôler';
+  if(qualite!=='Standard') statut='À contrôler';
+  if(noRt) statut='À contrôler';
+  if(prix!==PRIX_CAMPAGNE&&statut==='À valider') statut='Validation BM requise';
+  if(!producteurRef&&statut==='À valider') statut='À régulariser';
+  return {
+    brut,tare,prix,net,montant:net*prix,commission:net*COMMISSION,bonus:net*BONUS,
+    qualite,refinancable,statut,stock:'Entrée RT',cash:refinancable?'Non réconcilié':'Non refinançable'
+  };
+}
+
 function calc(){
-  const brut=n($("f_brut").value)||0, tare=n($("f_tare").value)||0, prix=n($("f_prix").value)||0;
-  const net=Math.max(0, brut-tare);
-  $("f_net").value=net?fmt(net)+" kg":"";
-  $("f_montant").value=(net&&prix)?fmt(net*prix)+" FCFA":"";
-  $("d_com").textContent="Commission RT : "+fmt(net*COMMISSION)+" FCFA";
-  $("d_bonus").textContent="Bonus différé : "+fmt(net*BONUS)+" FCFA";
-  const refi=estRefinancable();
-  const d=$("d_refi");
-  d.textContent=refi?"Reçu saisi → refinançable":($("f_rejet").value==="1"?"Lot rejeté → non refinançable":"Sans reçu → non refinançable");
-  d.className="pill"+(refi?"":" warn");
-  const q=qualiteStatut(),qp=$("d_qual");
-  qp.textContent="Qualité : "+q;qp.className="pill"+(q==="OK"?"":" warn");
-  $("d_prix").style.display=prixHorsBareme()?"":"none";
+  const v=findVillageByName($('f_village').value);
+  const prodName=$('f_prod').value.trim();
+  const prodRef=prodName?(!!currentProducteurRow(v)):true;
+  const r=rules({noRt:v&&rtForVillage(v).length===0,producteurRef:prodRef});
+  $('f_net').value=r.net>0?fmtKg(r.net)+' kg':(r.net<0?'Tare > brut':'');
+  $('f_montant').value=r.net>0&&r.prix>0?fmt(r.montant)+' FCFA':'';
+  $('d_com').textContent='Commission RT : '+fmt(Math.max(0,r.commission))+' FCFA';
+  $('d_bonus').textContent='Bonus différé : '+fmt(Math.max(0,r.bonus))+' FCFA';
+  $('d_refi').textContent=r.refinancable?'Reçu saisi : refinançable':'Sans reçu : non refinançable';
+  $('d_refi').className='pill'+(r.refinancable?'':' warn');
+  $('d_qual').textContent='Qualité : '+r.qualite;
+  $('d_qual').className='pill'+(r.qualite==='Standard'?'':' warn');
+  $('d_statut').textContent='Statut : '+r.statut;
+  $('d_statut').className='pill'+(r.statut==='À valider'?'':' warn');
 }
 
-let PHOTO=null;
 function onPhoto(inp){
   const f=inp.files&&inp.files[0];if(!f){PHOTO=null;return;}
   const img=new Image(),rd=new FileReader();
-  rd.onload=()=>{img.onload=()=>{
+  rd.onload=function(){img.onload=function(){
     const max=900,sc=Math.min(1,max/Math.max(img.width,img.height));
-    const c=document.createElement("canvas");c.width=img.width*sc;c.height=img.height*sc;
-    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-    PHOTO=c.toDataURL("image/jpeg",0.55);
+    const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    PHOTO=c.toDataURL('image/jpeg',0.55);
   };img.src=rd.result;};
   rd.readAsDataURL(f);
 }
 
-/* ---- Enregistrement ---- */
 function save(){
-  const net=(n($("f_brut").value)||0)-(n($("f_tare").value)||0);
-  const prix=n($("f_prix").value);
-  const village=$("f_village").value.trim();
-  const rtName=$("f_rt").value.trim();
-  const sacs=n($("f_sacs").value);
-  // --- Règles bloquantes ---
-  if(!village) return msg("Village requis.","err");
-  if(!rtName)  return msg("RT requis : un achat doit être rattaché à une équipe RT.","err");
-  if(!(net>0)) return msg("Poids net invalide (brut − tare doit être > 0).","err");
-  if(prix==null||prix<=0) return msg("Prix / kg invalide.","err");
-  if(!(sacs>0)) return msg("Nombre de sacs requis (au moins 1) pour un achat avec poids.","err");
+  const villageName=clean($('f_village').value);
+  const producteurName=clean($('f_prod').value);
+  const v=findVillageByName(villageName);
+  const rtRow=currentRtRow(v);
+  const prodRow=currentProducteurRow(v);
+  const noRt=!!(v&&rtForVillage(v).length===0);
+  const producteurRef=producteurName?!!prodRow:true;
+  const r=rules({noRt:noRt,producteurRef:producteurRef});
+  const sacs=n($('f_sacs').value);
 
-  const v=REF.villages.find(x=>vname(x)===village);
-  const rtRow=REF.rt.find(r=>rtLabel(r)===rtName);
-  const prodName=$("f_prod").value.trim();
-  const prodList=(v&&REF.prodByVillage[v.id])||[];
-  const prodRow=prodName?prodList.find(p=>prodLabel(p)===prodName):null;
-  const recu=$("f_recu").value.trim();
-  const qual=qualiteStatut();
-  const refi=estRefinancable();
-  const statutVal = qual==="Rejeté" ? "Rejeté"
-                  : prixHorsBareme() ? "Validation BM requise"
-                  : qual!=="OK" ? "À contrôler"
-                  : "À valider";
+  if(!villageName) return msg('Village requis.','err');
+  if(!(r.net>0)) return msg('Poids net invalide : poids brut moins tare doit être supérieur à 0.','err');
+  if(!(r.prix>0)) return msg('Prix / kg invalide.','err');
+  if(!(sacs>0)) return msg('Nombre de sacs requis.','err');
+  if(!producteurName) return msg('Producteur requis. Si le producteur n’est pas référencé, saisissez son nom librement.','err');
 
+  let statut=r.statut;
+  if(!v) statut='À contrôler';
   const rec={
-    local_id:uid(), date:$("f_date").value||today(),
-    cluster:$("f_cluster").value.trim()||null,
-    village_id:v?v.id:null, village_nom:village,
-    rt_id:rtRow?String(rtRow.id):null, rt_nom:rtName,
-    producteur_id:prodRow?String(prodRow.code||prodRow.id):null,
-    producteur_nom:prodName||null,
-    producteur_ref: prodName? !!prodRow : true,
-    poids_brut:n($("f_brut").value), tare:n($("f_tare").value)||0, poids_net:net,
-    prix_kg:prix, montant:net*prix,
-    mode_paiement:$("f_mode").value, numero_recu:recu||null,
-    nb_sacs:sacs, humidite:n($("f_hum").value),
-    kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
-    observation:$("f_obs").value.trim()||null,
-    recu_photo:PHOTO||null, recu_photo_url:null,
-    commission_rt:net*COMMISSION, bonus_diff:net*BONUS,
-    refinancable:refi,
-    qualite_statut:qual, statut_validation:statutVal,
-    stock_statut:"Entrée RT", cash_statut:"Non réconcilié",
+    local_id:uid(),
+    date:$('f_date').value||today(),
+    cluster:v?vcluster(v):clean($('f_cluster').value)||null,
+    village_id:v?String(v.id):null,
+    village_nom:villageName,
+    rt_id:rtRow?String(rtRow.id):null,
+    rt_nom:clean($('f_rt').value)||null,
+    producteur_id:prodRow?String(prodRow.id||prodRow.code):null,
+    producteur_nom:producteurName,
+    producteur_ref:producteurRef,
+    poids_brut:r.brut,
+    tare:r.tare,
+    poids_net:r.net,
+    prix_kg:r.prix,
+    montant:r.montant,
+    mode_paiement:$('f_mode').value,
+    numero_recu:clean($('f_recu').value)||null,
+    nb_sacs:Math.round(sacs),
+    humidite:n($('f_hum').value),
+    impuretes:n($('f_imp').value),
+    kor:null,
+    rejet:$('f_rejet').value==='1',
+    observation:clean($('f_obs').value)||null,
+    recu_photo:PHOTO||null,
+    recu_photo_url:null,
+    commission_rt:r.commission,
+    bonus_diff:r.bonus,
+    refinancable:r.refinancable,
+    qualite_statut:r.qualite,
+    statut_validation:statut,
+    stock_statut:r.stock,
+    cash_statut:r.cash,
     created_by_nom:(ME&&ME.nom)||null,
     created_at:new Date().toISOString(),
-    _status:"pending"
+    _status:'pending'
   };
-  const all=load(Q_KEY,[]);all.unshift(rec);store(Q_KEY,all.slice(0,300));
-  // reset partiel (on garde village/RT/date/prix pour saisies en série)
-  ["f_brut","f_prod","f_recu","f_sacs","f_hum","f_kor","f_obs"].forEach(i=>$(i).value="");
-  $("f_tare").value="0";$("f_prix").value=PRIX_CAMPAGNE;$("f_rejet").value="0";
-  PHOTO=null;$("f_photo").value="";calc();
-  let extra = !rec.producteur_ref ? " Producteur non référencé — à régulariser." : "";
-  if(statutVal!=="À valider") extra += " Statut : "+statutVal+".";
-  msg("Achat enregistré"+(ONLINE?"":" (hors ligne)")+"."+extra, extra?"warn":"ok");
-  render();syncAll();
+
+  const all=load(Q_KEY,[]);all.unshift(rec);store(Q_KEY,all.slice(0,400));
+  ['f_brut','f_prod','f_recu','f_sacs','f_hum','f_imp','f_obs'].forEach(id=>$(id).value='');
+  $('f_tare').value='0';$('f_prix').value=PRIX_CAMPAGNE;$('f_rejet').value='0';PHOTO=null;$('f_photo').value='';
+  calc();render();renderDiag();
+  const notes=[];
+  if(noRt) notes.push('RT à contrôler');
+  if(!producteurRef) notes.push('producteur à régulariser');
+  if(statut!=='À valider') notes.push('statut '+statut);
+  msg('Achat enregistré'+(ONLINE?'':' hors ligne')+(notes.length?' - '+notes.join(', '):'')+'.',notes.length?'warnbox':'ok');
+  syncAll();
 }
 
-/* ---- Synchronisation ---- */
+function payloadFor(rec,omitVillageId){
+  const p={};
+  SYNC_COLS.forEach(k=>{if(Object.prototype.hasOwnProperty.call(rec,k))p[k]=rec[k];});
+  if(omitVillageId) p.village_id=null;
+  return p;
+}
+
 async function syncAll(){
-  const all=load(Q_KEY,[]);const pend=all.filter(r=>r._status!=="synced");
+  const all=load(Q_KEY,[]);
+  const pend=all.filter(r=>r._status!=='synced');
+  hide('syncMsg');
   if(!ONLINE||!SB||!pend.length){render();return;}
-  $("syncBtn").disabled=true;
+  $('syncBtn').disabled=true;
   for(const rec of pend){
-    const payload=Object.assign({},rec);delete payload._status;
     try{
-      const r=await SB.from("achats").upsert(payload,{onConflict:"local_id",ignoreDuplicates:true});
-      if(!r.error){rec._status="synced";delete rec.recu_photo;}
-      else{rec._error=r.error.message;}
+      let r=await SB.from('achats').upsert(payloadFor(rec,false),{onConflict:'local_id',ignoreDuplicates:true});
+      if(r.error&&/uuid|invalid input syntax/i.test(r.error.message||'')&&rec.village_id){
+        r=await SB.from('achats').upsert(payloadFor(rec,true),{onConflict:'local_id',ignoreDuplicates:true});
+        if(!r.error) rec._warning='village_id non synchronisé : appliquer la migration achats DIABO pour conserver l’ID village textuel.';
+      }
+      if(!r.error){rec._status='synced';delete rec.recu_photo;delete rec._error;}
+      else{rec._error=r.error.message||'Erreur Supabase';break;}
     }catch(e){rec._error=String(e&&e.message||e);break;}
   }
-  store(Q_KEY,all);$("syncBtn").disabled=false;render();
+  store(Q_KEY,all);$('syncBtn').disabled=false;render();renderDiag();loadRemoteAchats();
 }
 
-/* ---- Rendu ---- */
 function render(){
-  const all=load(Q_KEY,[]);const t=today();
-  let vol=0,mt=0,com=0,pend=0;
-  all.forEach(r=>{if(r.date===t){vol+=r.poids_net||0;mt+=r.montant||0;com+=r.commission_rt||0;}
-    if(r._status!=="synced")pend++;});
-  $("kVol").textContent=fmt(vol)+" kg";$("kMt").textContent=fmt(mt);
-  $("kCom").textContent=fmt(com);$("kPend").textContent=pend;
-  $("pendBadge").textContent=pend?("("+pend+")"):"";
-  $("list").innerHTML=all.slice(0,25).map(r=>{
-    const sync=r._status==="synced"?'<span class="st sync">Synchronisé</span>':'<span class="st pend">En attente</span>';
-    let biz="";
-    if(!r.refinancable) biz='<span class="st blk">Non refinançable</span>';
-    else if(r.statut_validation&&r.statut_validation!=="À valider") biz='<span class="st pend">'+esc(r.statut_validation)+'</span>';
-    const q=(r.qualite_statut&&r.qualite_statut!=="OK")?' · qualité '+esc(r.qualite_statut):'';
-    const pr=(r.producteur_ref===false)?' · producteur à régulariser':'';
-    return '<div class="it"><div class="h"><b>'+esc(r.village_nom||"—")+' · '+fmt(r.poids_net)+' kg</b>'
-      +'<span style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+biz+sync+'</span></div>'
-      +'<div class="meta">'+esc(r.date)+' · '+fmt(r.montant)+' FCFA · '+esc(r.rt_nom||"RT ?")
-      +' · '+esc(r.producteur_nom||"producteur ?")+(r.numero_recu?(" · reçu "+esc(r.numero_recu)):"")+q+pr+'</div></div>';
-  }).join("")||'<p class="muted">Aucun achat saisi sur cet appareil.</p>';
+  const all=load(Q_KEY,[]),t=today();
+  let vol=0,mt=0,com=0,pend=0,err=null;
+  all.forEach(r=>{
+    if(r.date===t){vol+=Number(r.poids_net)||0;mt+=Number(r.montant)||0;com+=Number(r.commission_rt)||0;}
+    if(r._status!=='synced')pend++;
+    if(!err&&r._error)err=r._error;
+  });
+  $('kVol').textContent=fmtKg(vol)+' kg';$('kMt').textContent=fmt(mt);$('kCom').textContent=fmt(com);$('kPend').textContent=pend;
+  $('pendBadge').textContent=pend?'('+pend+')':'';
+  if(err) show('syncMsg','Synchronisation échouée : '+err+' Utilisez Réessayer synchronisation après correction ou retour réseau.','err'); else hide('syncMsg');
+  $('list').innerHTML=all.slice(0,35).map(r=>{
+    const sync=r._status==='synced'?'<span class="st sync">Synchronisé</span>':'<span class="st pend">En attente</span>';
+    const biz=!r.refinancable?'<span class="st blk">Non refinançable</span>':(r.statut_validation&&r.statut_validation!=='À valider'?'<span class="st pend">'+esc(r.statut_validation)+'</span>':'');
+    const q=r.qualite_statut&&r.qualite_statut!=='Standard'?' · qualité '+esc(r.qualite_statut):'';
+    const pr=r.producteur_ref===false?' · producteur à régulariser':'';
+    const warn=r._warning?' · '+esc(r._warning):'';
+    return '<div class="it"><div class="h"><b>'+esc(r.village_nom||'--')+' · '+fmtKg(r.poids_net)+' kg</b><span class="badges">'+biz+sync+'</span></div><div class="meta">'+esc(r.date)+' · '+fmt(r.montant)+' FCFA · '+esc(r.rt_nom||'RT à rattacher')+' · '+esc(r.producteur_nom||'producteur ?')+(r.numero_recu?' · reçu '+esc(r.numero_recu):' · sans reçu')+q+pr+warn+'</div></div>';
+  }).join('')||'<p class="muted">Aucun achat saisi sur cet appareil.</p>';
 }
 
-/* ---- État réseau ---- */
-function setNet(){ONLINE=navigator.onLine;const e=$("net");e.className="net "+(ONLINE?"on":"off");
-  $("netTxt").textContent=ONLINE?"En ligne":"Hors ligne";}
-window.addEventListener("online",()=>{setNet();loadRef();syncAll();});
-window.addEventListener("offline",setNet);
+function renderDiag(){
+  const villages=diaboVillages();
+  const noRt=villages.filter(v=>rtForVillage(v).length===0).length;
+  const noProd=villages.filter(v=>Object.prototype.hasOwnProperty.call(REF.prodByVillage,v.id)?prodForVillage(v).length===0:true).length;
+  const pot=villages.reduce((s,v)=>s+vPotSec(v),0);
+  const all=load(Q_KEY,[]),t=today();
+  const localDiabo=all.filter(r=>r.date===t&&isDiaboCluster(r.cluster||''));
+  const syncedIds=new Set(localDiabo.filter(r=>r._status==='synced').map(r=>r.local_id));
+  const remoteDiabo=(REF.remoteAchats||[]).filter(r=>r.date===t&&isDiaboCluster(r.cluster||'')&&!syncedIds.has(r.local_id));
+  const dayCount=localDiabo.length+remoteDiabo.length;
+  const noReceipt=localDiabo.filter(r=>!r.numero_recu).length+remoteDiabo.filter(r=>!r.numero_recu).length;
+  const pending=localDiabo.filter(r=>r._status!=='synced').length;
+  $('dVillages').textContent=villages.length;
+  $('dSansRt').textContent=noRt;
+  $('dSansProd').textContent=noProd;
+  $('dPot').textContent=fmt(pot)+' MT';
+  $('dJour').textContent=dayCount;
+  $('dSansRecu').textContent=noReceipt;
+  $('dNonSync').textContent=pending;
+  const hub=REF.hubDiabo;
+  $('dHub').textContent=hub&&hub.distance_usine_routiere?fmt(hub.distance_usine_routiere)+' km':'À compléter';
+}
 
-/* ---- Init ---- */
-document.addEventListener("anagroci:authenticated",e=>{
+function setNet(){ONLINE=navigator.onLine;const e=$('net');e.className='net '+(ONLINE?'on':'off');$('netTxt').textContent=ONLINE?'En ligne':'Hors ligne';}
+window.addEventListener('online',()=>{setNet();loadRef();syncAll();});
+window.addEventListener('offline',()=>{setNet();render();});
+
+document.addEventListener('anagroci:authenticated',e=>{
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   REF=load(REF_KEY,REF);
-  $("f_date").value=today();
-  setNet();renderRef();render();calc();
-  $("f_recu").addEventListener("input",calc);
-  loadRef();syncAll();
+  $('f_date').value=today();
+  setNet();renderRef();render();calc();loadRef();syncAll();
 });
+
+function simulateRules(input){
+  const net=input.brut-input.tare;
+  const refinancable=!!input.recu;
+  let qualite=((input.humidite||0)>SEUIL_HUM||(input.impuretes||0)>SEUIL_IMP)?'À contrôler':'Standard';
+  let statut='À valider';
+  if(!refinancable) statut='À contrôler';
+  if(qualite!=='Standard') statut='À contrôler';
+  if(input.prix!==PRIX_CAMPAGNE&&statut==='À valider') statut='Validation BM requise';
+  if(input.noRt) statut='À contrôler';
+  if(input.producteurRef===false&&statut==='À valider') statut='À régulariser';
+  return {net:net,montant:net*input.prix,commission:net*COMMISSION,bonus:net*BONUS,refinancable:refinancable,qualite:qualite,statut:statut,blocked:net<=0};
+}
+window.ACHATS_DIABO_TESTS={run:function(){
+  const cases=[
+    ['Adiekro',{brut:100,tare:2,prix:400,recu:'R001'},{net:98,montant:39200,commission:980,bonus:490}],
+    ['Agbakro',{brut:250,tare:5,prix:400,recu:'R002'},{net:245,montant:98000,commission:2450,bonus:1225}],
+    ['Kouassi-Golikro sans reçu',{brut:80,tare:1,prix:400,recu:''},{net:79,montant:31600,refinancable:false,statut:'À contrôler'}],
+    ['YOMIEN KOUADIOKRO',{brut:500,tare:10,prix:400,recu:'R003'},{net:490,montant:196000,commission:4900,bonus:2450}],
+    ['Tare supérieure au brut',{brut:10,tare:12,prix:400,recu:'R004'},{blocked:true}],
+    ['Prix différent',{brut:100,tare:0,prix:390,recu:'R005'},{statut:'Validation BM requise'}],
+    ['Village sans RT',{brut:100,tare:0,prix:400,recu:'R006',noRt:true},{statut:'À contrôler'}],
+    ['Producteur libre',{brut:100,tare:0,prix:400,recu:'R007',producteurRef:false},{statut:'À régulariser'}]
+  ];
+  const out=cases.map(c=>{const got=simulateRules(c[1]);const ok=Object.keys(c[2]).every(k=>got[k]===c[2][k]);return {test:c[0],ok:ok,attendu:c[2],obtenu:got};});
+  console.table(out.map(x=>({test:x.test,ok:x.ok})));return out;
+}};
 </script>
-</body></html>
+</body>
+</html>
