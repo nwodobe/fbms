@@ -6,193 +6,161 @@
 <meta name="theme-color" content="#053B23">
 <title>ANAGROCI Operations Suite</title>
 <script defer src="./shared/auth-gate.js" data-module="portail"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* ---- PJS Global — tokens (extrait) ---- */
   :root{
-    --forest:#053B23;--pine:#0B2B21;--emerald:#1F5B3F;--green:#00712C;
-    --lime:#8DC556;--leaf:#3FA34D;--orange:#EE9E00;--gold:#F6B93B;
-    --mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--ink:#132A22;
-    --muted:#5b6b62;--line:#e6e2d6;--white:#fff;
-    --shadow:0 24px 60px rgba(5,59,35,.16);
+    --green-forest:#053B23; --green-deep:#0A5531; --green-pine:#00712C;
+    --green-emerald:#008F37; --green-lime:#8DC556; --green-sprout:#B6DC8E;
+    --green-pale:#E0F3DE; --green-mist:#F1F9EF; --orange-pjs:#EE9E00;
+    --orange-soft:#F5B229; --orange-tint:#FDEFCE;
+    --ink:#323131; --neutral-700:#4F4E4E; --neutral-500:#7A7878;
+    --neutral-200:#E8E7E7; --neutral-100:#F4F4F3; --white:#fff;
+    --on-dark-mut:#CFE3D3;
+    --font-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+    --font-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --max:1120px; --ease:cubic-bezier(.22,1,.36,1);
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
-    color:var(--ink);background:var(--cream);-webkit-font-smoothing:antialiased}
-  a{text-decoration:none;color:inherit}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--font-body);color:var(--ink);background:var(--green-mist);-webkit-font-smoothing:antialiased}
+  a{color:var(--green-emerald);text-decoration:none}
+  .wrap{max-width:var(--max);margin:0 auto}
 
-  /* ---------- HERO ---------- */
-  .hero{position:relative;overflow:hidden;color:#eafff2;
-    background:radial-gradient(1200px 600px at 80% -10%,#0d6b3e 0%,transparent 55%),
-               radial-gradient(900px 500px at -10% 110%,#0a5531 0%,transparent 50%),
-               linear-gradient(135deg,#03301c 0%,#053B23 45%,#0a4a2c 100%)}
-  .hero::after{content:"";position:absolute;inset:0;
-    background:radial-gradient(600px 300px at 50% 120%,rgba(141,197,86,.18),transparent 70%);
-    pointer-events:none}
-  .glow{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;pointer-events:none}
-  .glow.a{width:340px;height:340px;background:#8DC556;top:-120px;right:8%;animation:float 9s ease-in-out infinite}
-  .glow.b{width:260px;height:260px;background:#EE9E00;bottom:-140px;left:12%;opacity:.35;animation:float 11s ease-in-out infinite reverse}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(26px)}}
-
-  .nav{position:relative;z-index:2;max-width:1180px;margin:auto;padding:22px 22px 0;
-    display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  /* ---- Header ---- */
+  header.top{background:var(--green-forest);border-bottom:3px solid var(--green-lime)}
+  header.top .wrap{padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}
   .brand{display:flex;align-items:center;gap:14px}
-  .brand .logo{width:56px;height:56px;flex:0 0 auto;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25))}
-  .brand .name{font-weight:800;font-size:20px;letter-spacing:.3px;line-height:1.05}
-  .brand .name span{display:block;font-weight:600;font-size:12px;letter-spacing:2px;
-    text-transform:uppercase;color:#a9e5bf;opacity:.9}
-  .status{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
-    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
-    padding:8px 14px;border-radius:999px;backdrop-filter:blur(6px)}
-  .status .dot{width:9px;height:9px;border-radius:50%;background:var(--lime);
-    box-shadow:0 0 0 4px rgba(141,197,86,.28);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(141,197,86,.28)}50%{box-shadow:0 0 0 8px rgba(141,197,86,0)}}
+  .brand .chip{background:var(--white);border-radius:8px;padding:5px 8px;display:flex;align-items:center}
+  .brand .chip img{height:30px;display:block}
+  .brand .name{display:flex;flex-direction:column}
+  .brand .name b{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--white);letter-spacing:.01em}
+  .brand .name small{font-size:11px;color:var(--on-dark-mut);letter-spacing:.14em;text-transform:uppercase}
+  .head-right{display:flex;align-items:center;gap:14px}
+  .status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--on-dark-mut);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 14px}
+  .status .dot{width:7px;height:7px;border-radius:50%;background:var(--green-lime);display:inline-block}
 
-  .hero-body{position:relative;z-index:2;max-width:1180px;margin:auto;padding:46px 22px 92px}
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
-    letter-spacing:1.5px;text-transform:uppercase;color:#bff0cf;
-    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);
-    padding:7px 13px;border-radius:999px}
-  .hero h1{margin:20px 0 12px;font-size:clamp(30px,5vw,50px);line-height:1.05;
-    font-weight:800;letter-spacing:-.5px;max-width:720px}
-  .hero h1 b{color:var(--lime)}
-  .hero p{margin:0;max-width:600px;font-size:17px;line-height:1.6;color:#d7f0df;opacity:.95}
+  /* ---- Hero ---- */
+  .hero{background:var(--green-forest);color:var(--white);padding:56px 32px 64px}
+  .eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--green-lime);font-weight:600;margin-bottom:18px}
+  .hero h1{font-family:var(--font-display);font-weight:800;font-size:46px;line-height:1.1;letter-spacing:-.01em;margin:0 0 20px;max-width:720px;text-wrap:pretty}
+  .hero h1 span{color:var(--green-lime)}
+  .hero p{font-size:17px;line-height:1.6;color:var(--on-dark-mut);max-width:640px;margin:0;text-wrap:pretty}
 
-  .wave{position:absolute;bottom:-1px;left:0;width:100%;display:block;line-height:0}
+  /* ---- Modules ---- */
+  main{padding:0 32px 64px}
+  .grid{max-width:var(--max);margin:-28px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+  .card{display:flex;flex-direction:column;gap:14px;background:var(--white);border:1px solid var(--neutral-200);border-radius:12px;padding:24px;color:var(--ink);box-shadow:0 2px 8px rgba(5,59,35,.06);transition:box-shadow .22s var(--ease),transform .22s var(--ease)}
+  .card:hover{box-shadow:0 8px 24px rgba(5,59,35,.14);transform:translateY(-2px);text-decoration:none;color:var(--ink)}
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .ic{width:42px;height:42px;border-radius:10px;background:var(--green-pale);color:var(--green-emerald);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .badge{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .b-actif{background:var(--green-pale);color:var(--green-pine);border:1px solid var(--green-sprout)}
+  .b-prio{background:var(--orange-tint);color:#9A6600;border:1px solid var(--orange-soft)}
+  .b-off{background:var(--green-forest);color:var(--white);border:1px solid var(--green-forest)}
+  .card h2{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.005em;margin:0}
+  .card p{font-size:14px;line-height:1.55;color:var(--neutral-500);margin:6px 0 0;text-wrap:pretty}
+  .open{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;color:var(--green-emerald)}
+  .card:hover .open svg{transform:translateX(3px)}
+  .open svg{transition:transform .22s var(--ease)}
 
-  /* ---------- APPS ---------- */
-  .wrap{max-width:1180px;margin:auto;padding:0 22px 70px}
-  .apps{margin-top:-52px;position:relative;z-index:3;
-    display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-  .card{position:relative;background:var(--white);border:1px solid var(--line);
-    border-radius:22px;padding:24px;box-shadow:var(--shadow);overflow:hidden;
-    transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s;
-    display:flex;flex-direction:column;min-height:186px}
-  .card::before{content:"";position:absolute;inset:0;border-radius:22px;padding:1px;
-    background:linear-gradient(135deg,rgba(141,197,86,.6),transparent 40%);
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .28s}
-  .card:hover{transform:translateY(-8px);box-shadow:0 34px 70px rgba(5,59,35,.24)}
-  .card:hover::before{opacity:1}
-  .ic{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;
-    background:linear-gradient(135deg,var(--mist),var(--pale));color:var(--green);
-    margin-bottom:16px;transition:transform .28s}
-  .card:hover .ic{transform:scale(1.06) rotate(-4deg)}
-  .card.hot .ic{background:linear-gradient(135deg,#fff2d6,#ffe4ad);color:#a8770d}
-  .card h2{margin:0 0 6px;font-size:18px;color:var(--forest);font-weight:800}
-  .card p{margin:0 0 16px;font-size:13.5px;line-height:1.5;color:var(--muted);flex:1}
-  .foot{display:flex;align-items:center;justify-content:space-between}
-  .tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;
-    letter-spacing:.4px;text-transform:uppercase;padding:6px 11px;border-radius:999px;
-    background:var(--pale);color:var(--forest)}
-  .tag.hot{background:#fff2d6;color:#a8770d}
-  .tag .d{width:7px;height:7px;border-radius:50%;background:currentColor}
-  .go{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
-    background:var(--mist);color:var(--green);transition:.28s}
-  .card:hover .go{background:var(--green);color:#fff;transform:translateX(3px)}
+  /* ---- Footer ---- */
+  footer{background:var(--green-forest);color:var(--on-dark-mut);padding:22px 32px}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  footer b{color:var(--white)}
+  footer .tag{font-size:13px;color:var(--green-lime)}
+  footer span{font-size:13px}
 
-  footer{text-align:center;padding:30px 22px 44px;color:var(--muted);font-size:12.5px}
-  footer b{color:var(--forest)}
-
-  @media(max-width:900px){.apps{grid-template-columns:1fr 1fr}}
-  @media(max-width:620px){.apps{grid-template-columns:1fr;margin-top:-30px}
-    .hero-body{padding:34px 22px 80px}.status{display:none}}
+  @media(max-width:640px){
+    header.top .wrap,.hero,main,footer{padding-left:18px;padding-right:18px}
+    .hero{padding-top:40px;padding-bottom:52px}
+    .hero h1{font-size:34px}
+    .status{display:none}
+  }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <span class="glow a"></span><span class="glow b"></span>
-
-  <nav class="nav">
+<header class="top">
+  <div class="wrap">
     <div class="brand">
-      <!-- Logo PJS -->
-      <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PJS">
-        <circle cx="32" cy="32" r="30" fill="#fff"/>
-        <!-- croissant orange -->
-        <path d="M46 14 A21 21 0 1 0 51 42" fill="none" stroke="#F0A500" stroke-width="9" stroke-linecap="round"/>
-        <!-- pousses vertes -->
-        <path d="M31 50 C22 39 22 25 30 13 C38 25 38 39 31 50 Z" transform="rotate(-14 31 50)" fill="#1E8E3E"/>
-        <path d="M31 50 C22 39 22 25 30 13 C38 25 38 39 31 50 Z" transform="rotate(8 31 50)" fill="#34A853"/>
-        <path d="M31 50 C24 40 25 28 31 17 C37 28 37 40 31 50 Z" transform="rotate(30 31 50)" fill="#7CB342"/>
-      </svg>
-      <div class="name">ANAGROCI<span>Operations Suite</span></div>
+      <div class="chip"><img src="assets/logo-pjs-mark.png" alt="PJS"></div>
+      <div class="name"><b>ANAGROCI</b><small>Operations Suite</small></div>
     </div>
-    <div style="display:flex;align-items:center;gap:14px">
-      <div class="status"><span class="dot"></span> Plateforme en ligne</div>
+    <div class="head-right">
+      <span class="status"><span class="dot"></span> Plateforme en ligne</span>
       <span id="anagroci-userslot"></span>
     </div>
-  </nav>
-
-  <div class="hero-body">
-    <span class="eyebrow">🌿 Field Buying Platform</span>
-    <h1>Le poste de commande <b>terrain</b> d'ANAGROCI</h1>
-    <p>Référentiel maître FBMS, cartographie, audit des distances et logistique
-       ALIS — réunis dans un portail unique, gouverné par une donnée partagée.</p>
   </div>
-
-  <svg class="wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M0 60 C 240 10, 480 10, 720 45 C 960 80, 1200 80, 1440 40 L1440 90 L0 90Z" fill="#F7F5EF"/>
-  </svg>
 </header>
 
-<main class="wrap">
-  <section class="apps">
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Field Buying Platform</div>
+    <h1>Le poste de commande <span>terrain</span> d'ANAGROCI</h1>
+    <p>Référentiel maître FBMS, cartographie, audit des distances et logistique ALIS — réunis dans un portail unique, gouverné par une donnée partagée.</p>
+  </div>
+</section>
+
+<main>
+  <div class="grid">
 
     <a class="card" href="fbms/app.html">
-      <div class="ic">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></svg>
+      <div class="card-top">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></span>
+        <span class="badge b-actif">Actif</span>
       </div>
-      <h2>FBMS Référentiel</h2>
-      <p>Le référentiel maître : zones, clusters, villages, RT et producteurs. Ouvre FBMS avec retour portail.</p>
-      <div class="foot"><span class="tag"><span class="d"></span>Actif</span>
-        <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      <div><h2>FBMS Référentiel</h2><p>Le référentiel maître : zones, clusters, villages, RT et producteurs. Ouvre FBMS avec retour portail.</p></div>
+      <span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
     </a>
 
     <a class="card" href="fbms/fbms_hubs.html">
-      <div class="ic">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg>
+      <div class="card-top">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span class="badge b-actif">Actif</span>
       </div>
-      <h2>Hubs / Clusters</h2>
-      <p>Positions GPS des hubs et distances hub-usine pour structurer la collecte.</p>
-      <div class="foot"><span class="tag"><span class="d"></span>Actif</span>
-        <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      <div><h2>Hubs / Clusters</h2><p>Positions GPS des hubs et distances hub-usine pour structurer la collecte.</p></div>
+      <span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
     </a>
 
     <a class="card" href="fbms/fbms_carte.html">
-      <div class="ic">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2Z"/><path d="M9 3v16M15 5v16"/></svg>
+      <div class="card-top">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg></span>
+        <span class="badge b-actif">Actif</span>
       </div>
-      <h2>Cartographie Terrain</h2>
-      <p>Villages, hubs, axes routiers et distances visualisés sur une carte interactive.</p>
-      <div class="foot"><span class="tag"><span class="d"></span>Actif</span>
-        <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      <div><h2>Cartographie Terrain</h2><p>Villages, hubs, axes routiers et distances visualisés sur une carte interactive.</p></div>
+      <span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
     </a>
 
-    <a class="card hot" href="fbms/audit_distances.html">
-      <div class="ic">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/><path d="M14 4h6v6" opacity=".55"/></svg>
+    <a class="card" href="fbms/audit_distances.html">
+      <div class="card-top">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg></span>
+        <span class="badge b-prio">Prioritaire</span>
       </div>
-      <h2>Audit Distances</h2>
-      <p>Validation des distances routières et contrôle GPS avant tout calcul logistique.</p>
-      <div class="foot"><span class="tag hot"><span class="d"></span>Prioritaire</span>
-        <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      <div><h2>Audit Distances</h2><p>Validation des distances routières et contrôle GPS avant tout calcul logistique.</p></div>
+      <span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
     </a>
 
-    <a class="card hot" href="logistique/alis_fbms.html">
-      <div class="ic">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h13v11H1zM14 8h5l3 3v3h-8z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>
+    <a class="card" href="logistique/alis_fbms.html">
+      <div class="card-top">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></span>
+        <span class="badge b-off">Officiel</span>
       </div>
-      <h2>ALIS Depuis FBMS</h2>
-      <p>Module logistique officiel : coût rendu usine, tarifs et barème collecte courte modifiables.</p>
-      <div class="foot"><span class="tag hot"><span class="d"></span>Officiel</span>
-        <span class="go"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      <div><h2>ALIS Depuis FBMS</h2><p>Module logistique officiel : coût rendu usine, tarifs et barème collecte courte modifiables.</p></div>
+      <span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
     </a>
 
-  </section>
+  </div>
 </main>
 
 <footer>
-  © <b>ANAGROCI</b> — Operations Suite · Field Buying Platform · Une donnée, une identité, une plateforme.
+  <div class="wrap">
+    <span>© <b>ANAGROCI</b> — Operations Suite · Field Buying Platform</span>
+    <span class="tag">Une donnée, une identité, une plateforme.</span>
+  </div>
 </footer>
 
 </body>
