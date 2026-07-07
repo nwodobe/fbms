@@ -27,7 +27,8 @@ create table if not exists public.achats (
   numero_recu    text,
   nb_sacs        integer,
   humidite       numeric,
-  impuretes      numeric,
+  kor            numeric,                        -- Kernel Outturn Ratio (rendement amande)
+  impuretes      numeric,                        -- déprécié (remplacé par KOR)
   rejet          boolean default false,
   observation    text,
   recu_photo     text,                          -- dataURL facultatif (base64)
@@ -47,6 +48,7 @@ create table if not exists public.achats (
 );
 
 -- Mise à niveau d'une table achats déjà existante (idempotent) :
+alter table public.achats add column if not exists kor numeric;
 alter table public.achats add column if not exists rt_id text;
 alter table public.achats add column if not exists producteur_id text;
 alter table public.achats add column if not exists producteur_ref boolean default true;
