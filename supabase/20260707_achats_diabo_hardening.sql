@@ -21,12 +21,12 @@ alter table public.achats add column if not exists rt_id text;
 alter table public.achats add column if not exists producteur_id text;
 alter table public.achats add column if not exists producteur_ref boolean default true;
 alter table public.achats add column if not exists recu_photo_url text;
-alter table public.achats add column if not exists qualite_statut text default 'A controler';
-alter table public.achats add column if not exists statut_validation text default 'A valider';
+alter table public.achats add column if not exists qualite_statut text default 'À contrôler';
+alter table public.achats add column if not exists statut_validation text default 'À valider';
 alter table public.achats add column if not exists validated_by text;
 alter table public.achats add column if not exists validated_at timestamptz;
-alter table public.achats add column if not exists stock_statut text default 'Entree RT';
-alter table public.achats add column if not exists cash_statut text default 'Non reconcilie';
+alter table public.achats add column if not exists stock_statut text default 'Entrée RT';
+alter table public.achats add column if not exists cash_statut text default 'Non réconcilié';
 alter table public.achats add column if not exists kor numeric;
 
 create index if not exists achats_date_idx on public.achats (date);
