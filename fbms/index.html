@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ANAGROCI · FIELD BUYING 2027 — FBMS</title>
 
@@ -262,7 +263,12 @@ const APP_CONFIG = {
    Les DONNÉES restent stockées en français (compatibilité Sheets/backend) ;
    seule la présentation est traduite. Dictionnaire clé = texte français.
    ========================================================================== */
-let LANG = (function(){ try{ return localStorage.getItem("fbms_lang") || "fr"; }catch(e){ return "fr"; } })();
+// La traduction FR/EN est désormais assurée par le sélecteur partagé de la
+// plateforme (shared/i18n.js). FBMS émet donc toujours son texte source en
+// français ; le moteur partagé se charge de la bascule vers l'anglais. On
+// neutralise l'ancien état natif pour éviter tout doublon ou blocage en anglais.
+let LANG = "fr";
+try{ localStorage.removeItem("fbms_lang"); }catch(e){}
 const I18N_EN = {
   // Navigation
   "Tableau de bord":"Dashboard", "Recensement":"Census", "Base de données":"Database",
@@ -459,10 +465,11 @@ const I18N_EN = {
 };
 /** Traduit un libellé d'interface selon la langue active. */
 function t(s){ return LANG === "fr" ? s : (I18N_EN[s] || s); }
-/** Bascule FR/EN, mémorisée sur l'appareil, et re-rend l'interface. */
+/** Bascule FR/EN : déléguée au moteur i18n partagé de la plateforme. Conservée
+ *  pour compatibilité au cas où un appel interne subsisterait. */
 function setLang(l){
-  LANG = l;
-  try{ localStorage.setItem("fbms_lang", l); }catch(e){}
+  try{ if(window.ANAGROCI_I18N){ window.ANAGROCI_I18N.set(l==="en"?"en":"fr"); return; } }catch(e){}
+  LANG = "fr";
   buildSidebar(); buildTopbar(); renderContent();
 }
 
@@ -1724,9 +1731,11 @@ function buildTopbar(){
     + '</div>';
   // v0.16 : chip Sync/Login mobile (masquée ≥768px)
   html += '<button id="mobileUserChip" onclick="mobileSyncAction()" class="items-center gap-1.5 rounded-lg px-2.5 py-2 flex-shrink-0" style="display:none;background:'+T.cream+';border:1px solid '+T.line+';color:'+T.forest700+'">'+icon(AUTH.isConnected() ? 'refresh-cw' : 'log-in','w-4 h-4')+'<span class="ff-body text-xs font-semibold">'+(AUTH.isConnected()?'Sync':'Login')+'</span></button>';
+  // Bascule de langue FR/EN partagée (shared/i18n.js) : emplacement unique, hors
+  // de la zone desktop pour rester visible sur mobile ET desktop. On supprime ainsi
+  // le doublon avec l'ancienne bascule native de FBMS.
+  html += '<span id="anagroci-lang-slot" class="flex items-center flex-shrink-0"></span>';
   html += '<div class="desktopTopActions flex items-center gap-3">';
-  // v0.12 : bascule de langue FR/EN (mémorisée sur l'appareil)
-  html += '<button onclick="setLang(LANG===\'fr\'?\'en\':\'fr\')" title="'+(LANG==='fr'?'Switch to English':'Passer en français')+'" class="ff-mono text-xs font-bold rounded-lg px-2.5 py-2" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+(LANG==='fr'?'EN':'FR')+'</button>';
 
   /* Zone utilisateur (Étape 1) :
      · connecté          → chip utilisateur serveur + déconnexion ;
