@@ -9,7 +9,7 @@
      Actifs uniquement quand l'app est hébergée en HTTPS (GitHub Pages).
      Sans effet quand le fichier est ouvert localement. -->
 <link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0B2B21">
+<meta name="theme-color" content="#053B23">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -37,13 +37,15 @@
   .ff-body{font-family:'IBM Plex Sans',sans-serif;}
   .ff-mono{font-family:'IBM Plex Mono',monospace;}
   .fbms-scroll::-webkit-scrollbar{width:8px;height:8px;}
-  .fbms-scroll::-webkit-scrollbar-thumb{background:#E4DFD1;border-radius:8px;}
+  #content tbody tr{transition:background-color .15s;}
+  #content tbody tr:hover{background-color:#F1F9EF;}
+  .fbms-scroll::-webkit-scrollbar-thumb{background:#E8E7E7;border-radius:8px;}
   .fbms-scroll::-webkit-scrollbar-track{background:transparent;}
   details summary{list-style:none;cursor:pointer;}
   details summary::-webkit-details-marker{display:none;}
   details[open] summary .chev{transform:rotate(180deg);}
-  input[type="range"]{accent-color:#145C43;}
-  :focus-visible{outline:2px solid #1F9D6E;outline-offset:2px;}
+  input[type="range"]{accent-color:#00712C;}
+  :focus-visible{outline:2px solid #008F37;outline-offset:2px;}
   @media (prefers-reduced-motion: reduce){*{animation-duration:0.001ms !important;transition-duration:0.001ms !important;}}
 
   /* ===== Responsive mobile (PWA) =====
@@ -89,7 +91,7 @@
 <script defer src="../shared/uppercase.js"></script>
 </head>
 <body class="ff-body">
-<div id="app" class="flex" style="height:100vh;width:100%;background:#FAF8F3;overflow:hidden;">
+<div id="app" class="flex" style="height:100vh;width:100%;background:#F1F9EF;overflow:hidden;">
   <aside id="sidebar" class="flex-shrink-0"></aside>
   <div class="flex-1 flex flex-col min-w-0">
     <header id="topbar" class="flex-shrink-0"></header>
@@ -476,10 +478,10 @@ const CI_CENTER = [7.6, -5.5]; // centre approximatif Côte d'Ivoire
 
 /* --------------------------------- TOKENS -------------------------------- */
 const T = {
-  forestDark:"#0B2B21", forest:"#0F3D2E", forest700:"#145C43",
-  emerald:"#1F9D6E", cashew:"#D9A441", cashewDeep:"#B9822A",
-  cream:"#FAF8F3", cream100:"#F1ECE1", ink:"#16211C", inkSoft:"#4B5A52",
-  line:"#E4DFD1", red:"#C0392B", orange:"#E08E2D",
+  forestDark:"#053B23", forest:"#0A5531", forest700:"#00712C",
+  emerald:"#008F37", cashew:"#8DC556", cashewDeep:"#9A6600",
+  cream:"#F1F9EF", cream100:"#E0F3DE", ink:"#323131", inkSoft:"#7A7878",
+  line:"#E8E7E7", red:"#C0392B", orange:"#EE9E00",
 };
 tailwind.config = { theme: { extend: { colors: {
   forestDark:T.forestDark, forest:T.forest, forest700:T.forest700, emerald:T.emerald,
@@ -512,16 +514,16 @@ const ROLE_RIGHTS = {
    (Validé Supervisor, Validé Head of Field) ne sont plus proposés mais
    restent lisibles sur les fiches existantes et comptés dans la file BM.   */
 const STATUTS = [
-  { key:"Brouillon",   color:"#7A8580" },
-  { key:"Soumis",      color:"#4B5A52" },
-  { key:"À corriger",  color:"#E08E2D" },
-  { key:"Approuvé BM", color:"#1F9D6E" },
+  { key:"Brouillon",   color:"#7A7878" },
+  { key:"Soumis",      color:"#7A7878" },
+  { key:"À corriger",  color:"#EE9E00" },
+  { key:"Approuvé BM", color:"#008F37" },
   { key:"Rejeté",      color:"#C0392B" },
 ];
 /* File d'arbitrage BM : les Soumis + les anciens statuts intermédiaires. */
 const STATUTS_A_ARBITRER = ["Soumis","Validé Supervisor","Validé Head of Field"];
 function statutOf(v){ return v.statut || "Brouillon"; }
-function statutColor(s){ const o = STATUTS.find(x=>x.key===s); return o ? o.color : "#4B5A52"; }
+function statutColor(s){ const o = STATUTS.find(x=>x.key===s); return o ? o.color : "#7A7878"; }
 function statutPillHTML(s){
   const c = statutColor(s);
   return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style="background-color:'+c+'1A;color:'+c+'">'+t(s)+'</span>';
@@ -1176,12 +1178,12 @@ const RemoteRT = {
 
 /* Statuts RT — alignés avec RT_STATUTS_VALIDES du backend v1.6. */
 const RT_STATUTS = [
-  { key:"Pressenti", color:"#7A8580" },
-  { key:"Confirmé",  color:"#D9A441" },
-  { key:"Actif",     color:"#1F9D6E" },
+  { key:"Pressenti", color:"#7A7878" },
+  { key:"Confirmé",  color:"#8DC556" },
+  { key:"Actif",     color:"#008F37" },
   { key:"Écarté",    color:"#C0392B" },
 ];
-function rtStatutColor(s){ const o = RT_STATUTS.find(x=>x.key===s); return o ? o.color : "#4B5A52"; }
+function rtStatutColor(s){ const o = RT_STATUTS.find(x=>x.key===s); return o ? o.color : "#7A7878"; }
 function rtStatutPill(s){
   const c = rtStatutColor(s);
   return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style="background-color:'+c+'1A;color:'+c+'">'+t(s)+'</span>';
@@ -1635,7 +1637,7 @@ function kpiCardHTML(iconName, label, value, sub, accent){
   return '<div class="rounded-xl p-4 flex flex-col gap-2" style="background:#fff;border:1px solid '+T.line+'">'
     + '<div class="flex items-center justify-between">'
     + '<span class="ff-body text-xs font-medium" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
-    + '<div class="w-7 h-7 rounded-md flex items-center justify-center" style="background-color:'+accent+'1A">'+icon(iconName,'')+'</div></div>'
+    + '<div class="w-7 h-7 rounded-md flex items-center justify-center" style="background-color:'+accent+'1A;color:'+accent+'">'+icon(iconName,'')+'</div></div>'
     + '<div class="ff-display text-2xl font-bold" style="color:'+T.ink+'">'+value+'</div>'
     + (sub ? '<div class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+sub+'</div>' : '')
     + '</div>';
@@ -1668,7 +1670,7 @@ function buildSidebar(){
   let html = '<div class="ff-body flex flex-col justify-between h-full flex-shrink-0" style="width:'+w+'px;background:'+T.forestDark+';transition:width .25s;height:100vh;">';
   html += '<div>';
   html += '<div class="flex items-center gap-2 px-4 py-5" style="border-bottom:1px solid #ffffff14">';
-  html += '<div class="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0" style="background-color:'+T.cashew+'">'+icon('compass','')+'</div>';
+  html += '<div class="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0" style="background-color:#fff"><img src="../assets/logo-pjs-mark.png" alt="PJS" style="height:20px;display:block"></div>';
   if (!STATE.collapsed){
     html += '<div class="leading-tight overflow-hidden"><div class="ff-display text-white text-sm font-bold whitespace-nowrap">FIELD BUYING</div>'
       + '<div class="text-[10px] tracking-widest whitespace-nowrap" style="color:'+T.cashew+'">ANAGROCI · 2027</div></div>';
@@ -1677,11 +1679,11 @@ function buildSidebar(){
   html += '<nav class="py-3 px-2 space-y-1">';
   NAV.forEach(([key,label,ic])=>{
     const isActive = STATE.active===key || (key==="recensement" && STATE.active==="form");
-    html += '<button onclick="handleNavClick(\''+key+'\')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" style="background-color:'+(isActive?T.forest700:'transparent')+';color:'+(isActive?'#fff':'#B9C6BE')+'">'
+    html += '<button onclick="handleNavClick(\''+key+'\')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" style="background-color:'+(isActive?T.forest700:'transparent')+';color:'+(isActive?'#fff':'#CFE3D3')+'">'
       + icon(ic,'flex-shrink-0') + (STATE.collapsed?'':'<span class="whitespace-nowrap">'+t(label)+'</span>') + '</button>';
   });
   html += '</nav></div>';
-  html += '<div class="p-2"><button onclick="toggleCollapse()" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style="color:#B9C6BE">'
+  html += '<div class="p-2"><button onclick="toggleCollapse()" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style="color:#CFE3D3">'
     + (STATE.collapsed ? icon('chevron-right','') : icon('chevron-left','')+'<span>'+t('Réduire')+'</span>') + '</button></div>';
   html += '</div>';
   document.getElementById("sidebar").innerHTML = html;
@@ -1733,7 +1735,7 @@ function buildTopbar(){
   if (AUTH.isConnected()){
     // Étape 2 : bouton de synchronisation + zone d'état
     html += '<span id="syncStatus" class="ff-mono text-[10px]" style="color:'+T.inkSoft+'"></span>';
-    html += '<button onclick="syncNow()" title="'+t('Synchroniser')+'" class="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-2" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('refresh-cw','w-3.5 h-3.5')+' '+t('Synchroniser')+'</button>';
+    html += '<button onclick="syncNow()" title="'+t('Synchroniser')+'" class="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('refresh-cw','w-3.5 h-3.5')+' '+t('Synchroniser')+'</button>';
     html += '<div class="flex items-center gap-2 rounded-lg px-2.5 py-1.5" style="background:'+T.cream+';border:1px solid '+T.line+'">'
       + '<div class="w-7 h-7 rounded-full flex items-center justify-center ff-display text-xs font-bold flex-shrink-0" style="background-color:'+T.forest700+';color:#fff">'+AUTH.initials()+'</div>'
       + '<div class="leading-tight"><div class="ff-body text-xs font-semibold" style="color:'+T.ink+'">'+esc(AUTH.session.nom||AUTH.session.email)+'</div>'
@@ -1744,13 +1746,13 @@ function buildTopbar(){
     html += '<select onchange="setRole(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2 outline-none" style="'+inputStyleAttr()+'">'
       + ROLES.map(r=>'<option value="'+esc(r)+'" '+(r===STATE.role?'selected':'')+'>'+r+'</option>').join('') + '</select>';
     if (AUTH.isConfigured()){
-      html += '<button onclick="openLoginModal()" class="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-2" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('log-in','w-3.5 h-3.5')+' '+t('Se connecter')+'</button>';
+      html += '<button onclick="openLoginModal()" class="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('log-in','w-3.5 h-3.5')+' '+t('Se connecter')+'</button>';
     } else {
       html += '<span class="ff-mono text-[10px] rounded-full px-2.5 py-1.5" style="background:'+T.cream+';color:'+T.inkSoft+';border:1px solid '+T.line+'" title="Backend Cloud non configuré — voir Administration">'+t('Mode local')+'</span>';
     }
   }
 
-  html += '<button onclick="openNew()" class="flex items-center gap-1.5 text-sm font-semibold rounded-lg px-3.5 py-2" style="background-color:'+T.forest700+';color:#fff">'+icon('plus','w-4 h-4')+' '+t('Nouveau village')+'</button>';
+  html += '<button onclick="openNew()" class="flex items-center gap-1.5 text-sm font-semibold rounded-lg px-3.5 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">'+icon('plus','w-4 h-4')+' '+t('Nouveau village')+'</button>';
   html += '</div></header>';
   html += MobileActionBarHTML(); // v0.16 : barre d'actions mobile
   document.getElementById("topbar").innerHTML = html;
@@ -1766,26 +1768,26 @@ function openMobileMenu(){
   const sessionLine = AUTH.isConnected()
     ? esc(AUTH.session.nom || AUTH.session.email) + ' · ' + esc(AUTH.session.role)
     : (AUTH.isConfigured() ? t('Non connecté au Cloud') : t('Mode local'));
-  let html = '<div class="fixed inset-0 fbms-scroll" style="z-index:55;background:#0B2B21F5;overflow-y:auto" onclick="closeMobileMenu()">'
+  let html = '<div class="fixed inset-0 fbms-scroll" style="z-index:55;background:#053B23F5;overflow-y:auto" onclick="closeMobileMenu()">'
     + '<div class="p-5" onclick="event.stopPropagation()">'
     + '<div class="flex items-center justify-between mb-4">'
-    + '<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color:'+T.cashew+'">'+icon('compass','')+'</div>'
+    + '<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color:#fff"><img src="../assets/logo-pjs-mark.png" alt="PJS" style="height:20px;display:block"></div>'
     + '<div class="leading-tight"><div class="ff-display text-white text-sm font-bold">FIELD BUYING</div>'
     + '<div class="text-[10px] tracking-widest" style="color:'+T.cashew+'">ANAGROCI · 2027</div></div></div>'
     + '<button onclick="closeMobileMenu()" style="color:#fff">'+icon('x','w-6 h-6')+'</button></div>';
   html += '<div class="rounded-xl p-3 mb-3" style="background:#ffffff12;border:1px solid #ffffff20">'
     + '<div class="ff-body text-xs font-semibold" style="color:#fff">'+sessionLine+'</div>'
     + '<div class="grid grid-cols-2 gap-2 mt-3">'
-    + '<button onclick="closeMobileMenu();mobileSyncAction()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background:'+T.cashew+';color:'+T.forestDark+'">'+icon('refresh-cw','w-3.5 h-3.5')+' '+t('Synchroniser')+'</button>'
-    + '<button onclick="closeMobileMenu();openNew()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background:#ffffff18;color:#fff;border:1px solid #ffffff22">'+icon('plus','w-3.5 h-3.5')+' '+t('Nouveau village')+'</button>'
+    + '<button onclick="closeMobileMenu();mobileSyncAction()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cashew+';color:'+T.forestDark+'">'+icon('refresh-cw','w-3.5 h-3.5')+' '+t('Synchroniser')+'</button>'
+    + '<button onclick="closeMobileMenu();openNew()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:#ffffff18;color:#fff;border:1px solid #ffffff22">'+icon('plus','w-3.5 h-3.5')+' '+t('Nouveau village')+'</button>'
     + '</div></div>';
   html += '<div class="relative mb-4">'
-    + '<span class="absolute left-3 top-1/2 -translate-y-1/2" style="color:#B9C6BE">'+icon('search','w-4 h-4')+'</span>'
+    + '<span class="absolute left-3 top-1/2 -translate-y-1/2" style="color:#CFE3D3">'+icon('search','w-4 h-4')+'</span>'
     + '<input value="'+esc(STATE.query)+'" oninput="onSearchInput(this.value)" placeholder="'+t('Rechercher un village, un enquêteur, un cluster…')+'" class="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm outline-none" style="background:#ffffff12;border:1px solid #ffffff22;color:#fff"/>'
     + '</div>';
   NAV.forEach(([key,label,ic])=>{
     const isActive = STATE.active===key || (key==="recensement" && STATE.active==="form");
-    html += '<button onclick="closeMobileMenu();handleNavClick(\''+key+'\')" class="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm mb-1" style="background-color:'+(isActive?T.forest700:'transparent')+';color:'+(isActive?'#fff':'#B9C6BE')+'">'
+    html += '<button onclick="closeMobileMenu();handleNavClick(\''+key+'\')" class="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm mb-1" style="background-color:'+(isActive?T.forest700:'transparent')+';color:'+(isActive?'#fff':'#CFE3D3')+'">'
       + icon(ic,'flex-shrink-0') + '<span>'+t(label)+'</span></button>';
   });
   if (AUTH.isConnected()){
@@ -1805,7 +1807,7 @@ function openLoginModal(){
   root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:50;background-color:#00000066" onclick="closeLoginModal()">'
     + '<div onclick="event.stopPropagation()" class="rounded-xl p-6 w-full max-w-md mx-4" style="background:#fff;border:1px solid '+T.line+'">'
     + '<div class="flex items-center gap-2 mb-1">'
-    + '<div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color:'+T.cashew+'">'+icon('compass','')+'</div>'
+    + '<div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color:#fff"><img src="../assets/logo-pjs-mark.png" alt="PJS" style="height:20px;display:block"></div>'
     + '<h2 class="ff-display text-lg font-bold" style="color:'+T.ink+'">'+t('Connexion FBMS Cloud')+'</h2></div>'
     + '<p class="ff-body text-xs mb-4" style="color:'+T.inkSoft+'">'+t('Identifiants fournis par l\'administrateur ANAGROCI.')+'</p>'
     + '<form onsubmit="event.preventDefault();submitLogin();" class="space-y-3">'
@@ -2035,7 +2037,7 @@ function DashboardView(){
   const ranking = Object.entries(rankMap).sort((a,b)=>b[1]-a[1]);
 
   let html = '<div class="p-6 space-y-6">';
-  html += '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Tableau de bord exécutif')+'</h1>'
+  html += '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Tableau de bord exécutif')+'</h1>'
     + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t('Vue consolidée de la campagne de recensement villages — Field Buying 2027.')+'</p></div>';
   html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
     + kpiCardHTML('building-2','Villages recensés', villages.length, nbPrioritaires+' '+t('prioritaires'), T.forest700)
@@ -2180,11 +2182,11 @@ function DatabaseView(){
 
   let html = '<div class="p-6">';
   html += '<div class="flex items-center justify-between mb-4 flex-wrap gap-3">'
-    + '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Base de données villages')+'</h1>'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Base de données villages')+'</h1>'
     + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+filtered.length+' '+t('village(s) — filtrable et exportable')+'</p></div>';
   html += '<div class="flex items-center gap-2">';
   ["table","card"].forEach(mv=>{
-    html += '<button onclick="setDbView(\''+mv+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+(STATE.dbView===mv?T.forest700:T.cream)+';color:'+(STATE.dbView===mv?'#fff':T.ink)+';border:1px solid '+T.line+'">'+t(mv==="table"?"Vue tableau":"Vue fiche")+'</button>';
+    html += '<button onclick="setDbView(\''+mv+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+(STATE.dbView===mv?T.forest700:T.cream)+';color:'+(STATE.dbView===mv?'#fff':T.ink)+';border:1px solid '+T.line+'">'+t(mv==="table"?"Vue tableau":"Vue fiche")+'</button>';
   });
   html += '<button onclick="exportExcel()" class="ff-body text-xs font-semibold flex items-center gap-1.5 rounded-lg px-3 py-2" style="background-color:'+T.forest700+';color:#fff;border:1px solid '+T.forest700+'">'+icon('download','w-3.5 h-3.5')+' Excel</button>';
   html += '<button onclick="exportCSV()" class="ff-body text-xs font-semibold flex items-center gap-1.5 rounded-lg px-3 py-2" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+icon('download','w-3.5 h-3.5')+' CSV</button>';
@@ -2204,12 +2206,12 @@ function DatabaseView(){
   if (STATE.dbView==="table"){
     html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff"><table class="w-full text-sm"><thead><tr style="background-color:'+T.cream+'">';
     [["village","Village"],["potentiel","Potentiel MT"],["score","Score"]].forEach(([key,label])=>{
-      html += '<th onclick="toggleSort(\''+key+'\')" class="ff-body text-xs font-semibold text-left px-4 py-2.5 cursor-pointer select-none" style="color:'+T.inkSoft+'"><span class="inline-flex items-center gap-1">'+t(label)+' '+icon('arrow-up-down','w-3 h-3')+'</span></th>';
+      html += '<th onclick="toggleSort(\''+key+'\')" class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 cursor-pointer select-none uppercase tracking-wider" style="color:'+T.inkSoft+'"><span class="inline-flex items-center gap-1">'+t(label)+' '+icon('arrow-up-down','w-3 h-3')+'</span></th>';
     });
-    html += '<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t('Région / Dép.')+'</th>'
-      + '<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t('Enquêteur')+'</th>'
-      + '<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t('Classement')+'</th>'
-      + '<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t('Statut')+'</th><th class="px-4 py-2.5"></th></tr></thead><tbody>';
+    html += '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Région / Dép.')+'</th>'
+      + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Enquêteur')+'</th>'
+      + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Classement')+'</th>'
+      + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Statut')+'</th><th class="px-4 py-2.5"></th></tr></thead><tbody>';
     paged.forEach(({v,score})=>{
       html += '<tr style="border-top:1px solid '+T.line+'">'
         + '<td class="px-4 py-2.5 ff-body font-medium" style="color:'+T.ink+'">'+(v.s1.village||"—")
@@ -2298,14 +2300,14 @@ const RemoteProducteurs = {
 
 /* Statuts producteur — alignés avec PROD_STATUTS_VALIDES du backend v1.7. */
 const PROD_STATUTS = [
-  { key:"Identifié", color:"#7A8580" },
-  { key:"Enrôlé",    color:"#D9A441" },
-  { key:"Actif",     color:"#1F9D6E" },
+  { key:"Identifié", color:"#7A7878" },
+  { key:"Enrôlé",    color:"#8DC556" },
+  { key:"Actif",     color:"#008F37" },
   { key:"Inactif",   color:"#C0392B" },
 ];
 function prodStatutPill(s){
   const o = PROD_STATUTS.find(x=>x.key===s);
-  const c = o ? o.color : "#4B5A52";
+  const c = o ? o.color : "#7A7878";
   return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style="background-color:'+c+'1A;color:'+c+'">'+t(s)+'</span>';
 }
 
@@ -2390,9 +2392,9 @@ function ProducteursView(){
     .map(v=>'<option value="'+v.id+'" '+(STATE.prodVillageId===v.id?'selected':'')+'>'+esc((v.s1 && v.s1.village) || v.id)+'</option>').join('');
   let html = '<div class="p-6 space-y-6">';
   html += '<div class="flex items-center justify-between flex-wrap gap-3">'
-    + '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Producteurs')+'</h1>'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Producteurs')+'</h1>'
     + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t('Registre par village — l\'application ne charge que les producteurs du village sélectionné.')+'</p></div>'
-    + '<button '+(STATE.prodVillageId?'':'disabled style="opacity:.4" ')+'onclick="openProdModal(null)" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.forest700+';color:#fff">'+t('+ Enrôler un producteur')+'</button>'
+    + '<button '+(STATE.prodVillageId?'':'disabled style="opacity:.4" ')+'onclick="openProdModal(null)" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">'+t('+ Enrôler un producteur')+'</button>'
     + '</div>';
   html += '<div class="flex items-center gap-2 flex-wrap">'
     + '<select onchange="onProdVillageChange(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'">'+villageOpts+'</select>'
@@ -2430,7 +2432,7 @@ function ProducteursView(){
     html += '<div class="rounded-xl p-6 text-center ff-body text-sm" style="background:#fff;border:1px solid '+T.line+';color:'+T.inkSoft+'">Aucun producteur pour ce village (ou filtres trop restrictifs). Utilisez « + Enrôler un producteur ».</div>';
   } else {
     html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff"><div style="overflow-x:auto"><table class="w-full text-sm"><thead><tr style="background-color:'+T.cream+'">'
-      + ['Code','Nom','Téléphone','Campement','RT','Superficie','Prod. préc.','Statut',''].map(h=>'<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+      + ['Code','Nom','Téléphone','Campement','RT','Superficie','Prod. préc.','Statut',''].map(h=>'<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
       + '</tr></thead><tbody>';
     rows.forEach(p=>{
       const rt = STATE.rt.find(r=>r.id===p.rtId);
@@ -2620,11 +2622,11 @@ function RTView(){
 
   let html = '<div class="p-6 space-y-6">';
   html += '<div class="flex items-center justify-between flex-wrap gap-3">'
-    + '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Base RT')+'</h1>'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Base RT')+'</h1>'
     + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t('Registre consolidé des Représentants Terrain — indépendant des fiches villages, synchronisé vers l\'onglet RT.')+'</p></div>'
     + '<div class="flex items-center gap-2 flex-wrap">'
-    + '<button onclick="importRTFromVillages()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Importer depuis les fiches villages')+'</button>'
-    + '<button onclick="openRTModal(null)" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.forest700+';color:#fff">'+t('+ Nouveau RT')+'</button>'
+    + '<button onclick="importRTFromVillages()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Importer depuis les fiches villages')+'</button>'
+    + '<button onclick="openRTModal(null)" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">'+t('+ Nouveau RT')+'</button>'
     + '</div></div>';
 
   html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
@@ -2644,7 +2646,7 @@ function RTView(){
     html += '<div class="rounded-xl p-6 text-center ff-body text-sm" style="background:#fff;border:1px solid '+T.line+';color:'+T.inkSoft+'">Aucun RT. Utilisez « Importer depuis les fiches villages » pour consolider les candidats déjà recensés, ou créez un RT manuellement.</div>';
   } else {
     html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff"><div style="overflow-x:auto"><table class="w-full text-sm"><thead><tr style="background-color:'+T.cream+'">'
-      + ['Nom','Téléphone','Village','Statut','Score','Producteurs',''].map(h=>'<th class="ff-body text-xs font-semibold text-left px-4 py-2.5" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+      + ['Nom','Téléphone','Village','Statut','Score','Producteurs',''].map(h=>'<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
       + '</tr></thead><tbody>';
     rows.forEach(r=>{
       html += '<tr style="border-top:1px solid '+T.line+'">'
@@ -2904,7 +2906,7 @@ function DecisionView(){
   const canDecide = statutsAutorises().includes("Approuvé BM");
 
   let html = '<div class="p-6 space-y-6">';
-  html += '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Décision BM')+'</h1>'
+  html += '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Décision BM')+'</h1>'
     + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">File d\'arbitrage : fiches soumises par les agents, classées par score puis potentiel, avec signaux de risque.</p></div>';
   html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
     + kpiCardHTML('gavel',t('À arbitrer'), aArbitrer.length, null, T.cashewDeep)
@@ -2983,7 +2985,7 @@ function mountMapModule(){
       const m = L.circleMarker([lat, lng], { radius:9, color:"#fff", weight:2, fillColor:tier.color, fillOpacity:0.95 }).addTo(MAIN_MAP);
       m.bindPopup('<div style="font-family:IBM Plex Sans,sans-serif;min-width:170px">'
         + '<div style="font-weight:600;font-size:13px;margin-bottom:2px">'+v.s1.village+'</div>'
-        + '<div style="font-size:11px;color:#4B5A52;margin-bottom:8px">'+v.s1.departement+' · Score '+Math.round(score)+'/100</div>'
+        + '<div style="font-size:11px;color:#7A7878;margin-bottom:8px">'+v.s1.departement+' · Score '+Math.round(score)+'/100</div>'
         + '<button onclick="openVillage(\''+v.id+'\')" style="font-size:11px;font-weight:600;background:'+T.forest700+';color:#fff;border:none;border-radius:6px;padding:5px 9px;cursor:pointer">'+t('Voir la fiche')+'</button></div>');
       markers.push(m);
     } catch(e){ console.warn("[FBMS] Marqueur ignoré ("+((v.s1 && v.s1.village)||v.id)+") :", e.message); }
@@ -3036,7 +3038,7 @@ function StatsView(){
   const nbCandidatsFiches = villages.reduce((a,v)=>a+v.s7.candidats.filter(c=>c.nom).length,0);
   const totalMT = villages.reduce((a,v)=>a+(Number(v.s3.potentielMT)||0),0);
 
-  let html = '<div class="p-6 space-y-6"><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Statistiques')+'</h1>';
+  let html = '<div class="p-6 space-y-6"><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Statistiques')+'</h1>';
   html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
     + kpiCardHTML('building-2','Villages', villages.length, new Set(villages.map(v=>v.s1.departement)).size+' '+t('département(s)'), T.forest700)
     + kpiCardHTML('user-check','RT identifiés', nbRTBase, nbRTOperationnels+' '+t('confirmés/actifs')+' · '+nbCandidatsFiches+' '+t('candidats en fiches'), T.emerald)
@@ -3075,7 +3077,7 @@ function mountStatsCharts(){
    ADMINISTRATION
    ========================================================================== */
 function AdminView(){
-  let html = '<div class="p-6 space-y-4"><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">Administration</h1>'
+  let html = '<div class="p-6 space-y-4"><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">Administration</h1>'
     + '<p class="ff-body text-sm mb-2" style="color:'+T.inkSoft+'">'+t('Gestion des rôles et droits d\'accès au FBMS.')+'</p>';
   html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff">';
   ROLES.forEach(r=>{
@@ -3094,7 +3096,7 @@ function AdminView(){
       + '<div class="flex items-center justify-between mb-2 flex-wrap gap-2">'
       + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">Gestion des utilisateurs</div>'
       + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">Créer des accès, désactiver un compte, changer un rôle, réinitialiser un PIN. Chaque action est tracée dans AUDIT_LOG.</p></div>'
-      + '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.forest700+';color:#fff">+ Créer un utilisateur</button>'
+      + '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">+ Créer un utilisateur</button>'
       + '</div>'
       + '<div id="usersAdminZone" class="ff-body text-xs" style="color:'+T.inkSoft+'">Chargement des utilisateurs…</div>'
       + '</div>';
@@ -3134,9 +3136,9 @@ function AdminView(){
     // Étape 4 : commutateur de synchronisation automatique
     html += '<label class="flex items-center gap-1.5 ff-body text-xs mb-2" style="color:'+T.ink+'"><input type="checkbox" '+(isAutoSyncEnabled()?'checked':'')+' onchange="setAutoSync(this.checked)"> Synchronisation automatique toutes les '+((APP_CONFIG.sync && APP_CONFIG.sync.autoIntervalMin) || 5)+' minutes</label>';
     html += '<div class="flex items-center gap-2 flex-wrap">'
-      + '<button onclick="syncNow()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.forest700+';color:#fff">Synchroniser maintenant</button>'
-      + '<button onclick="testBackendConnection()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Tester la connexion</button>'
-      + (AUTH.isConnected() ? '<button onclick="logoutAction()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.red+'14;color:'+T.red+';border:1px solid '+T.red+'44">Se déconnecter</button>' : '')
+      + '<button onclick="syncNow()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">Synchroniser maintenant</button>'
+      + '<button onclick="testBackendConnection()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Tester la connexion</button>'
+      + (AUTH.isConnected() ? '<button onclick="logoutAction()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.red+'14;color:'+T.red+';border:1px solid '+T.red+'44">Se déconnecter</button>' : '')
       + '<span id="cloudTestResult" class="ff-mono text-[11px]" style="color:'+T.inkSoft+'"></span>'
       + '</div>';
   }
@@ -3147,8 +3149,8 @@ function AdminView(){
     + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">Données locales (cet appareil)</div>'
     + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+STATE.villages.length+' fiche(s) stockée(s) dans la base locale du navigateur ('+APP_CONFIG.storage.provider+'). Les fiches survivent au rafraîchissement et à la fermeture du navigateur.</p>'
     + '<div class="flex items-center gap-2 flex-wrap">'
-    + '<button onclick="loadDemoData()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Charger 10 villages de démonstration</button>'
-    + '<button onclick="clearLocalData()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background-color:'+T.red+'14;color:'+T.red+';border:1px solid '+T.red+'44">Vider la base locale</button>'
+    + '<button onclick="loadDemoData()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Charger 10 villages de démonstration</button>'
+    + '<button onclick="clearLocalData()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.red+'14;color:'+T.red+';border:1px solid '+T.red+'44">Vider la base locale</button>'
     + '</div></div>';
 
   html += '<div class="rounded-xl p-4 flex items-start gap-2" style="background-color:'+T.orange+'14;border:1px solid '+T.orange+'44">'
@@ -3293,7 +3295,7 @@ function openUserModal(){
     + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Code PIN')+'</span>'
     + '<div class="flex items-center gap-2">'
     + '<input id="nuPin" value="'+genPin()+'" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/>'
-    + '<button type="button" onclick="document.getElementById(\'nuPin\').value=genPin()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Générer</button>'
+    + '<button type="button" onclick="document.getElementById(\'nuPin\').value=genPin()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Générer</button>'
     + '</div></label>'
     + '<p id="nuError" class="ff-body text-xs" style="color:'+T.red+';display:none"></p>'
     + '<div class="flex items-center gap-2 pt-1">'
@@ -3571,7 +3573,7 @@ function FormView(id){
 
   let html = '<div class="p-6" id="recensement-form" oninput="flashAutoSave()">';
   html += '<div class="flex items-start justify-between mb-4 gap-4">'
-    + '<div><h1 class="ff-display text-xl font-bold" style="color:'+T.ink+'">'+t('Fiche de recensement village')+'</h1>'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Fiche de recensement village')+'</h1>'
     + '<p id="autoSaveFlash" class="ff-body text-sm" style="color:'+(draftRestored ? T.orange : T.inkSoft)+'">'
     + (draftRestored ? '⚠ Brouillon non enregistré restauré — cliquez « Enregistrer la fiche » pour le conserver.' : t('Un formulaire par village, conforme au FORMULAIRE_VILLAGE.xlsx'))
     + '</p></div>'
@@ -3863,14 +3865,14 @@ function openVillageReport(id){
   if (!v) return;
   const score = scoreOf(v), tier = tierFor(score), swot = swotFor(v, score);
   const rtList = v.s7.candidats.filter(c=>c.nom);
-  const meta = (lbl, val) => '<div style="padding:4px 0"><div class="ff-mono" style="font-size:9px;color:#4B5A52;text-transform:uppercase">'+t(lbl)+'</div><div class="ff-body" style="font-size:12px;color:#16211C;font-weight:600">'+esc(val||"—")+'</div></div>';
-  const flag = (ok, lbl) => '<span class="ff-body" style="font-size:10px;border:1px solid '+(ok?T.emerald:T.line)+';color:'+(ok?T.emerald:'#4B5A52')+';border-radius:99px;padding:2px 8px;margin:2px">'+(ok?'✔ ':'✖ ')+t(lbl)+'</span>';
+  const meta = (lbl, val) => '<div style="padding:4px 0"><div class="ff-mono" style="font-size:9px;color:#7A7878;text-transform:uppercase">'+t(lbl)+'</div><div class="ff-body" style="font-size:12px;color:#323131;font-weight:600">'+esc(val||"—")+'</div></div>';
+  const flag = (ok, lbl) => '<span class="ff-body" style="font-size:10px;border:1px solid '+(ok?T.emerald:T.line)+';color:'+(ok?T.emerald:'#7A7878')+';border-radius:99px;padding:2px 8px;margin:2px">'+(ok?'✔ ':'✖ ')+t(lbl)+'</span>';
   const swotBloc = (titre, items, color) => '<div style="border:1px solid '+color+'55;border-radius:8px;padding:8px;background:'+color+'0A">'
     + '<div class="ff-body" style="font-size:10px;font-weight:700;color:'+color+';margin-bottom:4px">'+t(titre)+'</div>'
-    + (items.length ? '<ul style="margin:0;padding-left:14px">'+items.map(it=>'<li class="ff-body" style="font-size:10px;color:#16211C;margin-bottom:2px">'+it+'</li>').join('')+'</ul>' : '<span class="ff-body" style="font-size:10px;color:#4B5A52">—</span>')
+    + (items.length ? '<ul style="margin:0;padding-left:14px">'+items.map(it=>'<li class="ff-body" style="font-size:10px;color:#323131;margin-bottom:2px">'+it+'</li>').join('')+'</ul>' : '<span class="ff-body" style="font-size:10px;color:#7A7878">—</span>')
     + '</div>';
 
-  let html = '<div class="fixed inset-0 fbms-scroll" style="z-index:80;background:#4B5A52;overflow-y:auto;padding:16px">';
+  let html = '<div class="fixed inset-0 fbms-scroll" style="z-index:80;background:#7A7878;overflow-y:auto;padding:16px">';
   html += '<div class="no-print" style="max-width:800px;margin:0 auto 10px;display:flex;gap:8px;justify-content:flex-end">'
     + '<button onclick="window.print()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2" style="background:'+T.forest700+';color:#fff;border:none;cursor:pointer">'+icon('printer','w-4 h-4')+' '+t('Imprimer / PDF')+'</button>'
     + '<button onclick="closeVillageReport()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2" style="background:#fff;color:'+T.ink+';border:none;cursor:pointer">'+t('Fermer')+'</button></div>';
@@ -3881,7 +3883,7 @@ function openVillageReport(id){
     + '<div><div class="ff-display" style="color:#fff;font-weight:800;font-size:15px">FIELD BUYING 2027 · ANAGROCI</div>'
     + '<div class="ff-mono" style="color:'+T.cashew+';font-size:10px;letter-spacing:.1em">'+t('Rapport village').toUpperCase()+'</div></div>'
     + '<div style="text-align:right"><div class="ff-display" style="color:#fff;font-weight:800;font-size:18px">'+esc(v.s1.village||"—")+'</div>'
-    + '<div class="ff-body" style="color:#B9C6BE;font-size:11px">'+statutPillHTML(statutOf(v))+'</div></div></div>';
+    + '<div class="ff-body" style="color:#CFE3D3;font-size:11px">'+statutPillHTML(statutOf(v))+'</div></div></div>';
   // Identification + score
   html += '<div style="display:flex;gap:16px;margin-bottom:14px">'
     + '<div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:2px 14px">'
@@ -3915,8 +3917,8 @@ function openVillageReport(id){
   if (rtList.length){
     html += '<div style="margin-bottom:14px"><div class="ff-body" style="font-size:11px;font-weight:700;color:'+T.forest700+';margin-bottom:4px">'+t('Candidats RT')+' ('+rtList.length+'/3)</div>'
       + '<table style="width:100%;border-collapse:collapse">'
-      + '<tr>'+['Nom','Téléphone','Activité','Réputation'].map(h=>'<th class="ff-body" style="font-size:9px;color:#4B5A52;text-align:left;padding:3px 6px;border-bottom:1px solid '+T.line+'">'+t(h)+'</th>').join('')+'</tr>'
-      + rtList.map(c=>'<tr>'+[c.nom,c.telephone,c.activite,t(c.reputation||"—")].map(x=>'<td class="ff-body" style="font-size:10px;color:#16211C;padding:3px 6px;border-bottom:1px solid '+T.cream100+'">'+esc(x||"—")+'</td>').join('')+'</tr>').join('')
+      + '<tr>'+['Nom','Téléphone','Activité','Réputation'].map(h=>'<th class="ff-body" style="font-size:9px;color:#7A7878;text-align:left;padding:3px 6px;border-bottom:1px solid '+T.line+'">'+t(h)+'</th>').join('')+'</tr>'
+      + rtList.map(c=>'<tr>'+[c.nom,c.telephone,c.activite,t(c.reputation||"—")].map(x=>'<td class="ff-body" style="font-size:10px;color:#323131;padding:3px 6px;border-bottom:1px solid '+T.cream100+'">'+esc(x||"—")+'</td>').join('')+'</tr>').join('')
       + '</table></div>';
   }
   // Photos
@@ -3924,15 +3926,15 @@ function openVillageReport(id){
   if (slotsAvecPhoto.length){
     html += '<div style="margin-bottom:14px"><div class="ff-body" style="font-size:11px;font-weight:700;color:'+T.forest700+';margin-bottom:4px">'+t('Photos')+' ('+slotsAvecPhoto.length+'/6)</div>'
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
-      + slotsAvecPhoto.map(([k,label])=>'<div><img src="'+v.photos[k]+'" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid '+T.line+'"/><div class="ff-body" style="font-size:9px;color:#4B5A52;text-align:center;margin-top:2px">'+t(label)+'</div></div>').join('')
+      + slotsAvecPhoto.map(([k,label])=>'<div><img src="'+v.photos[k]+'" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid '+T.line+'"/><div class="ff-body" style="font-size:9px;color:#7A7878;text-align:center;margin-top:2px">'+t(label)+'</div></div>').join('')
       + '</div></div>';
   }
   // Décision + signature
   html += '<div style="display:flex;gap:16px;border-top:2px solid '+T.forestDark+';padding-top:10px">'
     + '<div style="flex:1">'+meta('Décision', v.s9.decision)+'</div>'
-    + '<div style="width:220px"><div class="ff-mono" style="font-size:9px;color:#4B5A52;text-transform:uppercase">'+t('Signature Branch Manager')+'</div>'
+    + '<div style="width:220px"><div class="ff-mono" style="font-size:9px;color:#7A7878;text-transform:uppercase">'+t('Signature Branch Manager')+'</div>'
     + '<div style="height:52px;border-bottom:1px solid '+T.ink+'"></div></div></div>';
-  html += '<div class="ff-mono" style="font-size:8px;color:#4B5A52;margin-top:10px;text-align:right">'+t('Généré le')+' '+new Date().toLocaleString(LANG==="fr"?"fr-FR":"en-GB")+' · FBMS '+APP_CONFIG.app.version+'</div>';
+  html += '<div class="ff-mono" style="font-size:8px;color:#7A7878;margin-top:10px;text-align:right">'+t('Généré le')+' '+new Date().toLocaleString(LANG==="fr"?"fr-FR":"en-GB")+' · FBMS '+APP_CONFIG.app.version+'</div>';
   html += '</div></div>';
 
   const root = document.getElementById("report-root");
