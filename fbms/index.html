@@ -2655,7 +2655,8 @@ function RTView(){
       + '</tr></thead><tbody>';
     rows.forEach(r=>{
       html += '<tr style="border-top:1px solid '+T.line+'">'
-        + '<td class="px-4 py-2.5 ff-body font-medium" style="color:'+T.ink+'">'+esc(r.nom||"—")
+        + '<td class="px-4 py-2.5 ff-body font-medium">'
+        + '<button onclick="openRTModal(\''+r.id+'\')" class="text-left hover:underline" style="color:'+T.emerald+';font-weight:600;cursor:pointer;background:none;border:0;padding:0" title="Ouvrir la fiche RT">'+esc(r.nom||"—")+'</button>'
         + (r._sync && r._sync!=="synced" ? ' <span title="En attente de synchronisation" style="color:'+T.orange+'">'+icon('cloud-off','w-3 h-3')+'</span>' : '') + '</td>'
         + '<td class="px-4 py-2.5 ff-mono text-xs" style="color:'+T.inkSoft+'">'+esc(r.telephone||"—")+'</td>'
         + '<td class="px-4 py-2.5 ff-body text-xs" style="color:'+T.inkSoft+'">'+esc(r.villageNom||"—")+'</td>'
