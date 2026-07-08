@@ -33,6 +33,7 @@
     portail: ["bm", "chef", "agent", "direction"],
     fbms: ["bm", "chef", "agent"],
     achats: ["bm", "chef", "agent"],
+    cash: ["bm", "chef"],
     hubs: ["bm", "chef", "agent", "direction"],
     carte: ["bm", "chef", "agent", "direction"],
     audit: ["bm", "chef"],
