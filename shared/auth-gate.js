@@ -35,6 +35,7 @@
     achats: ["bm", "chef", "agent"],
     cash: ["bm", "chef"],
     sacs: ["bm", "chef", "agent"],
+    command: ["bm", "direction"],
     hubs: ["bm", "chef", "agent", "direction"],
     carte: ["bm", "chef", "agent", "direction"],
     audit: ["bm", "chef"],
