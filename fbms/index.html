@@ -2032,9 +2032,14 @@ function DashboardView(){
   const nbPrioritaires = scored.filter(s=>s.score>=80).length;
   const nbRT = villages.reduce((a,v)=>a+v.s7.candidats.filter(c=>c.nom).length,0);
   const topVillages = [...scored].sort((a,b)=>b.score-a.score).slice(0,5);
-  const rankMap={};
-  villages.forEach(v=>{ const e=v.s1.enqueteur||"—"; rankMap[e]=(rankMap[e]||0)+1; });
-  const ranking = Object.entries(rankMap).sort((a,b)=>b[1]-a[1]);
+  const rankMap={}, rankLabel={};
+  villages.forEach(v=>{
+    const raw=(v.s1.enqueteur||"—").trim() || "—";
+    const k=raw.normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");  // clé insensible casse/accents/espaces
+    rankMap[k]=(rankMap[k]||0)+1;
+    if(!rankLabel[k]) rankLabel[k]=raw.toUpperCase();
+  });
+  const ranking = Object.entries(rankMap).map(([k,n])=>[rankLabel[k],n]).sort((a,b)=>b[1]-a[1]);
 
   let html = '<div class="p-6 space-y-6">';
   html += '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Tableau de bord exécutif')+'</h1>'
