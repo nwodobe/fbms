@@ -81,18 +81,23 @@
   function showLogin(message, kind) {
     var note = message ? '<div style="margin-top:14px;font-size:13px;border-radius:10px;padding:10px 12px;' + (kind === "ok" ? 'background:rgba(141,197,86,.18);border:1px solid rgba(141,197,86,.5);color:#dff5d6"' : 'background:rgba(224,90,74,.16);border:1px solid rgba(224,90,74,.5);color:#ffd9d2"') + '>' + esc(message) + '</div>' : "";
     overlay.innerHTML = box(logoSvg() + '<div style="text-align:center;font-weight:800;font-size:19px;margin-bottom:2px">ANAGROCI Operations Suite</div><div style="text-align:center;font-size:12px;color:#bff0cf;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">Accès sécurisé</div><form id="ag-form"><label>Email</label><input id="ag-email" type="email" autocomplete="username" placeholder="vous@anagroci.ci" required><label>Mot de passe</label><input id="ag-pass" type="password" autocomplete="current-password" placeholder="••••••••" required><button class="ag-primary" id="ag-btn" type="submit">Se connecter</button>' + note + '<p style="margin:16px 0 0;font-size:11.5px;color:#a9d9ba;text-align:center;line-height:1.5">Pas encore d\'accès ? Le <b>Branch Manager</b> crée votre compte et vous attribue vos droits.</p></form>');
+    setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0);
     var form = document.getElementById("ag-form");
     form.addEventListener("submit", function (e) { e.preventDefault(); var email = document.getElementById("ag-email").value.trim().toLowerCase(); var pass = document.getElementById("ag-pass").value; var btn = document.getElementById("ag-btn"); btn.disabled = true; btn.textContent = "Connexion…"; SB.auth.signInWithPassword({ email: email, password: pass }).then(function (r) { if (r.error) { btn.disabled = false; btn.textContent = "Se connecter"; return showLogin("Email ou mot de passe incorrect.", "err"); } location.reload(); }); });
   }
 
   function showDenied(prof) {
     overlay.innerHTML = box(logoSvg() + '<div style="text-align:center;font-weight:800;font-size:18px;margin-bottom:6px">Accès non autorisé</div><p style="font-size:13.5px;color:#dcefe1;line-height:1.55;text-align:center">Bonjour <b>' + esc(prof.nom || "") + '</b>.<br>Votre rôle (<b>' + esc(prof.role || "") + '</b>) ne permet pas d\'ouvrir ce module.<br>Contactez le Branch Manager si besoin.</p><button class="ag-primary" onclick="location.href=\'' + portailHref() + '\'">Retour au portail</button><button class="ag-primary" style="background:transparent;border:1px solid rgba(255,255,255,.3);margin-top:10px" id="ag-out">Se déconnecter</button>');
+    setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0);
     document.getElementById("ag-out").addEventListener("click", function () { SB.auth.signOut().then(function () { location.reload(); }); });
   }
 
   function inSub() { return /\/(fbms|logistique|suite|shared|terrain)\//.test(location.pathname); }
   function portailHref() { return inSub() ? "../index.html" : "index.html"; }
   function adminHref() { return inSub() ? "../shared/admin.html" : "shared/admin.html"; }
+  function sharedHref(file) { return inSub() ? "../shared/" + file : "shared/" + file; }
+  function injectI18n() { if (document.getElementById("anagroci-i18n-js")) return; var s = document.createElement("script"); s.id = "anagroci-i18n-js"; s.src = sharedHref("i18n.js") + "?v=132333f"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
+  injectI18n();
 
   function chipHTML(prof) { return '<span class="ag-name">' + esc(prof.nom || prof.role) + ' · <span class="ag-role">' + esc(prof.role) + '</span></span>' + (estBM(prof.role) ? '<a class="ag-cog" href="' + adminHref() + '" title="Administration">⚙</a>' : '') + '<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
   function wireLogout() { var b = document.getElementById("ag-logout"); b && b.addEventListener("click", function () { SB.auth.signOut().then(function () { location.reload(); }); }); }
@@ -125,6 +130,7 @@
     overlay.parentNode && overlay.parentNode.removeChild(overlay);
     setTimeout(injectAchatsCard, 0);
     setTimeout(injectAchatsDropdownPatch, 0);
+    setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0);
   }
 
   function cacheProfile(uid, prof) { try { localStorage.setItem("anagroci_profile_" + uid, JSON.stringify(prof)); } catch (e) {} }
@@ -145,6 +151,6 @@
     });
   }
 
-  function ensureSupabase(cb) { if (window.supabase && window.supabase.createClient) { return cb(); } var sc = document.createElement("script"); sc.src = CDN; sc.onload = cb; sc.onerror = function () { overlay.innerHTML = box('<p style="text-align:center">Impossible de charger le module de sécurité (réseau).<br>Réessayez.</p>'); }; document.head.appendChild(sc); }
+  function ensureSupabase(cb) { if (window.supabase && window.supabase.createClient) { return cb(); } var sc = document.createElement("script"); sc.src = CDN; sc.onload = cb; sc.onerror = function () { overlay.innerHTML = box('<p style="text-align:center">Impossible de charger le module de sécurité (réseau).<br>Réessayez.</p>'); setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0); }; document.head.appendChild(sc); }
   ensureSupabase(run);
 })();
