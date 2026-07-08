@@ -1,0 +1,289 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Stock & Sacs · ANAGROCI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="../shared/auth-gate.js" data-module="sacs"></script>
+<style>
+  :root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;
+    --mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;
+    --line:#E8E7E7;--danger:#C0392B;--white:#fff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--mist);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
+  .top{background:var(--forest);color:#eafff2;display:flex;align-items:center;justify-content:space-between;
+    gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:3px solid var(--lime)}
+  .top .b{display:flex;align-items:center;gap:10px}
+  .chip{background:#fff;border-radius:8px;padding:4px 7px;display:inline-flex;align-items:center}
+  .chip img{height:26px;display:block}
+  .top b{font-size:16px}.top small{color:#CFE3D3;font-size:11px}
+  .top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{border:0;border-radius:9px;background:var(--emerald);color:#fff;font-weight:700;padding:10px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn.ghost{background:#fff;color:var(--forest)}.btn.sm{padding:7px 10px;font-size:12px}.btn:disabled{opacity:.55;cursor:default}
+  .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px;border:1px solid rgba(255,255,255,.25)}
+  .net .d{width:8px;height:8px;border-radius:50%}.on .d{background:var(--lime)}.off .d{background:var(--orange)}
+  .wrap{max-width:1140px;margin:auto;padding:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
+  .k small{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .k b{font-size:20px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
+  .k.kalert b{color:var(--orange)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 8px rgba(5,59,35,.05);margin-bottom:16px}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif}
+  .body{padding:14px 16px}
+  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px}
+  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;font-family:inherit;background:#fff}
+  .up{text-transform:uppercase}.up::placeholder{text-transform:none}
+  select#m_cluster{text-transform:uppercase}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .alert{border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;display:none}
+  .alert.show{display:block}
+  .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
+  .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
+  .warn{background:var(--orange-tint);border:1px solid var(--orange);color:#8a6a12}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.03em;padding:8px;text-align:left;position:sticky;top:0}
+  td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px}
+  td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  .neg{color:var(--danger);font-weight:700}
+  .scroll{max-height:48vh;overflow:auto}
+  .muted{color:var(--muted);font-size:12.5px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="stylesheet" href="../shared/pjs-theme.css">
+<script defer src="../shared/uppercase.js"></script>
+</head><body>
+
+<div class="top">
+  <div class="b"><span class="chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span>
+    <span><b>Stock &amp; Sacs</b><br><small>Dotation RT → distribution producteurs → enlèvement</small></span></div>
+  <div class="r">
+    <span id="net" class="net off"><span class="d"></span><span id="netTxt">Hors ligne</span></span>
+    <button class="btn sm" id="syncBtn" onclick="syncAll()">Synchroniser <span id="pendBadge"></span></button>
+    <a class="btn ghost sm" href="../index.html">Portail</a>
+    <span id="anagroci-userslot"></span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="kpis">
+    <div class="k"><small>Sacs distribués</small><b id="kDist">0</b></div>
+    <div class="k"><small>Sacs pleins ramassés</small><b id="kEnl">0</b></div>
+    <div class="k"><small>Sacs en main (RT)</small><b id="kRt">0</b></div>
+    <div class="k kalert"><small>Sacs déchirés</small><b id="kDech">0</b></div>
+  </div>
+
+  <section class="card">
+    <h2>Nouveau mouvement de sacs</h2>
+    <div class="body">
+      <div class="row">
+        <div><label>Type de mouvement</label><select id="m_type" onchange="onType()"></select></div>
+        <div><label>Date</label><input id="m_date" type="date"></div>
+      </div>
+      <div class="row">
+        <div><label>Cluster</label><select id="m_cluster" onchange="onCluster()"><option value="">Tous les clusters</option></select></div>
+        <div><label>Village</label><input id="m_village" class="up" list="dl_vil" oninput="onVillage()" placeholder="Choisir ou saisir"><datalist id="dl_vil"></datalist></div>
+      </div>
+      <div class="row">
+        <div><label>RT (équipe)</label><input id="m_rt" class="up" list="dl_rt" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
+        <div id="prodWrap"><label id="prodLbl">Producteur</label><input id="m_prod" class="up" list="dl_prod" placeholder="Producteur enrôlé"><datalist id="dl_prod"></datalist></div>
+      </div>
+      <div class="row">
+        <div><label>Nombre de sacs</label><input id="m_qte" type="number" min="1" step="1" inputmode="numeric"></div>
+        <div><label>Observation</label><input id="m_obs" class="up" placeholder="Facultatif"></div>
+      </div>
+      <div id="m_flux" class="alert show" style="background:var(--mist);border:1px solid var(--line);color:var(--ink)">Flux : —</div>
+      <p><button class="btn" id="mSave" onclick="saveMov()">Enregistrer le mouvement</button></p>
+      <div id="m_msg" class="alert"></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Soldes sacs par RT</h2>
+      <div class="body"><div class="scroll"><table>
+        <thead><tr><th>RT</th><th>Cluster</th><th class="num">Sacs en main</th></tr></thead>
+        <tbody id="soldeRT"><tr><td colspan="3" class="muted">—</td></tr></tbody>
+      </table></div></div>
+    </section>
+    <section class="card">
+      <h2>Soldes sacs par producteur</h2>
+      <div class="body"><div class="scroll"><table>
+        <thead><tr><th>Producteur</th><th>Village</th><th class="num">Sacs en main</th></tr></thead>
+        <tbody id="soldeProd"><tr><td colspan="3" class="muted">—</td></tr></tbody>
+      </table></div></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
+const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
+const Q="anagroci_sacs", REF="anagroci_ref_sacs";
+const TYPES=[
+ {k:'DOTATION_RT',  label:'Dotation RT (ANAGROCI → RT)',       src:'ANAGROCI',  dst:'RT',        prod:false},
+ {k:'DISTRIBUTION', label:'Distribution (RT → producteur)',    src:'RT',        dst:'PRODUCTEUR',prod:true, enrolled:true},
+ {k:'ENLEVEMENT',   label:'Enlèvement (sacs pleins ramassés)', src:'PRODUCTEUR',dst:'HUB',       prod:true},
+ {k:'RETOUR_PROD',  label:'Retour vides (producteur → RT)',    src:'PRODUCTEUR',dst:'RT',        prod:true},
+ {k:'RETOUR_RT',    label:'Retour vides (RT → ANAGROCI)',      src:'RT',        dst:'ANAGROCI',  prod:false},
+ {k:'DECHIRE_RT',   label:'Sacs déchirés (RT)',                src:'RT',        dst:'PERTE',     prod:false},
+ {k:'DECHIRE_PROD', label:'Sacs déchirés (producteur)',        src:'PRODUCTEUR',dst:'PERTE',     prod:true},
+];
+const $=i=>document.getElementById(i);
+let SB, ME=null, ONLINE=navigator.onLine;
+let D={villages:[],rt:[],prodByVillage:{},server:[]};
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
+function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
+function up(s){return String(s==null?"":s).toUpperCase();}
+function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
+function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
+function typ(){return TYPES.find(x=>x.k===$("m_type").value)||TYPES[0];}
+
+/* ---- Référentiel ---- */
+function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
+function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
+function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||(r.village_nom?("RT "+r.village_nom):"")||"";}
+function rtCluster(r){if(r.data&&r.data.cluster)return r.data.cluster;const v=D.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
+function prodLabel(p){return (p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||p.nom||p.code||"";}
+function prodEnrolled(p){return keyc(p.statut||(p.data&&p.data.statut))==="ENROLE";}
+
+async function loadRef(){
+  if(ONLINE){
+    try{
+      let r=await SB.from("villages").select("id,data").eq("deleted",false);
+      if(!r.error)D.villages=(r.data||[]).filter(x=>x.data&&x.data.s1);
+      r=await SB.from("rt").select("id,data,village_nom,statut").eq("deleted",false);
+      if(!r.error)D.rt=r.data||[];
+      r=await SB.from("sacs_mouvements").select("*");
+      if(!r.error)D.server=r.data||[];
+      store(REF,D);
+    }catch(e){}
+  }
+  renderRef();render();
+}
+function clustersList(){const m={};D.villages.forEach(v=>{const c=(vcluster(v)||"").trim();if(c&&!m[keyc(c)])m[keyc(c)]=c;});return Object.keys(m).map(k=>m[k]).sort((a,b)=>a.localeCompare(b,"fr"));}
+function renderRef(){
+  $("m_type").innerHTML=TYPES.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join("");
+  const cl=clustersList();
+  $("m_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(up(c))+'">'+esc(up(c))+'</option>').join("");
+  fillVillageRT();onType();
+}
+function fillVillageRT(){
+  const c=$("m_cluster").value, vn=$("m_village").value.trim();
+  const vs=c?D.villages.filter(v=>keyc(vcluster(v))===keyc(c)):D.villages;
+  const rts=D.rt.filter(function(r){if(vn)return keyc(r.village_nom||"")===keyc(vn);if(c)return keyc(rtCluster(r))===keyc(c);return true;});
+  $("dl_vil").innerHTML=vs.map(v=>'<option value="'+esc(up(vname(v)))+'">').join("");
+  $("dl_rt").innerHTML=rts.map(r=>'<option value="'+esc(up(rtLabel(r)))+'">').join("");
+}
+function onCluster(){$("m_village").value="";$("m_rt").value="";$("m_prod").value="";$("dl_prod").innerHTML="";fillVillageRT();}
+async function onVillage(){
+  const name=$("m_village").value.trim();const v=D.villages.find(x=>keyc(vname(x))===keyc(name));
+  if(v)$("m_cluster").value=up(vcluster(v));
+  fillVillageRT();
+  let list=[];
+  if(v){list=D.prodByVillage[v.id]||[];
+    if(ONLINE){try{const r=await SB.from("producteurs").select("code,data,statut").eq("village_id",v.id).eq("deleted",false);
+      if(!r.error){list=r.data||[];D.prodByVillage[v.id]=list;store(REF,D);}}catch(e){}}}
+  fillProd(list);
+}
+function fillProd(list){
+  const t=typ();
+  const filtered=t.enrolled?list.filter(prodEnrolled):list;
+  $("dl_prod").innerHTML=filtered.map(p=>'<option value="'+esc(up(prodLabel(p)))+'">').join("");
+}
+function curProdList(){const v=D.villages.find(x=>keyc(vname(x))===keyc($("m_village").value.trim()));return (v&&D.prodByVillage[v.id])||[];}
+function onType(){
+  const t=typ();
+  $("prodWrap").style.display=t.prod?"block":"none";
+  $("prodLbl").textContent=t.enrolled?"Producteur (enrôlé)":"Producteur";
+  $("m_prod").placeholder=t.enrolled?"Producteur enrôlé uniquement":"Producteur";
+  fillProd(curProdList());
+  $("m_flux").innerHTML="Flux : <b>"+esc(t.src)+" → "+esc(t.dst)+"</b>";
+}
+
+/* ---- Soldes ---- */
+function allMov(){return D.server.concat(load(Q,[]));}
+function saldos(){
+  const rt={}, prod={};
+  D.rt.forEach(r=>{rt[String(r.id||keyc(rtLabel(r)))]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),q:0};});
+  allMov().forEach(m=>{
+    const q=Number(m.quantite)||0;
+    const rk=m.rt_id||keyc(m.rt_nom||"");
+    if(rk){if(!rt[rk])rt[rk]={nom:up(m.rt_nom||"?"),cluster:up(m.cluster||""),q:0};
+      if(m.destination==='RT')rt[rk].q+=q; if(m.source==='RT')rt[rk].q-=q;}
+    const pk=m.producteur_id||keyc(m.producteur_nom||"");
+    if(pk&&(m.source==='PRODUCTEUR'||m.destination==='PRODUCTEUR')){
+      if(!prod[pk])prod[pk]={nom:up(m.producteur_nom||"?"),village:up(m.village_nom||""),q:0};
+      if(m.destination==='PRODUCTEUR')prod[pk].q+=q; if(m.source==='PRODUCTEUR')prod[pk].q-=q;}
+  });
+  return {rt:rt,prod:prod};
+}
+
+/* ---- Rendu ---- */
+function render(){
+  const mv=allMov();
+  let dist=0,enl=0,dech=0;
+  mv.forEach(m=>{const q=Number(m.quantite)||0;if(m.type==='DISTRIBUTION')dist+=q;if(m.type==='ENLEVEMENT')enl+=q;if(m.type==='DECHIRE_RT'||m.type==='DECHIRE_PROD')dech+=q;});
+  const S=saldos();
+  const rtTot=Object.values(S.rt).reduce((s,x)=>s+x.q,0);
+  $("kDist").textContent=fmt(dist);$("kEnl").textContent=fmt(enl);$("kRt").textContent=fmt(rtTot);$("kDech").textContent=fmt(dech);
+  const pend=load(Q,[]).filter(x=>x._status!=="synced").length;$("pendBadge").textContent=pend?("("+pend+")"):"";
+  const rrows=Object.values(S.rt).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
+  $("soldeRT").innerHTML=rrows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.cluster||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement RT.</td></tr>';
+  const prows=Object.values(S.prod).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
+  $("soldeProd").innerHTML=prows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.village||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement producteur.</td></tr>';
+}
+
+/* ---- Enregistrement ---- */
+function saveMov(){
+  const t=typ(), qte=n($("m_qte").value);
+  const rtNom=$("m_rt").value.trim(), prodNom=$("m_prod").value.trim(), village=$("m_village").value.trim();
+  if(!(qte>0)) return msg($("m_msg"),"Nombre de sacs invalide.","err");
+  // RT requis sauf mouvements purement producteur→hub/perte (enlèvement/déchiré prod ont quand même un RT référent recommandé)
+  if((t.src==='RT'||t.dst==='RT'||t.k==='DOTATION_RT') && !rtNom) return msg($("m_msg"),"RT requis pour ce mouvement.","err");
+  if(t.prod && !prodNom) return msg($("m_msg"),"Producteur requis pour ce mouvement.","err");
+  const v=D.villages.find(x=>keyc(vname(x))===keyc(village));
+  const r=D.rt.find(x=>keyc(rtLabel(x))===keyc(rtNom));
+  const prodList=curProdList(), p=prodNom?prodList.find(x=>keyc(prodLabel(x))===keyc(prodNom)):null;
+  if(t.enrolled && p && !prodEnrolled(p)) return msg($("m_msg"),"Ce producteur n'est pas enrôlé : les sacs ne se distribuent qu'aux producteurs enrôlés.","err");
+  if(t.enrolled && prodNom && !p) return msg($("m_msg"),"Producteur inconnu : sélectionnez un producteur enrôlé du village.","err");
+  const rec={local_id:uid(),date:$("m_date").value||today(),type:t.k,source:t.src,destination:t.dst,
+    cluster:up($("m_cluster").value.trim())||up(v?vcluster(v):"")||null,
+    village_id:v?v.id:null, village_nom:up(village)||null,
+    rt_id:r?String(r.id||""):null, rt_nom:up(rtNom)||null,
+    producteur_id:p?String(p.code||p.id):null, producteur_nom:up(prodNom)||null,
+    quantite:Math.round(qte), observation:up($("m_obs").value.trim())||null,
+    created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(), _status:"pending"};
+  const q=load(Q,[]);q.unshift(rec);store(Q,q.slice(0,500));
+  ["m_qte","m_obs","m_prod"].forEach(i=>$(i).value="");
+  msg($("m_msg"),"Mouvement enregistré ("+t.src+" → "+t.dst+")"+(ONLINE?"":" (hors ligne)")+".","ok");
+  render();syncAll();
+}
+
+/* ---- Synchro ---- */
+async function syncAll(){
+  const all=load(Q,[]);const pend=all.filter(r=>r._status!=="synced");
+  if(!ONLINE||!SB||!pend.length){render();return;}
+  $("syncBtn").disabled=true;
+  for(const rec of pend){const p=Object.assign({},rec);delete p._status;
+    try{const r=await SB.from("sacs_mouvements").upsert(p,{onConflict:"local_id",ignoreDuplicates:true});if(!r.error)rec._status="synced";}catch(e){break;}}
+  store(Q,all);await loadRef();$("syncBtn").disabled=false;render();
+}
+
+/* ---- Réseau + init ---- */
+function setNet(){ONLINE=navigator.onLine;const e=$("net");e.className="net "+(ONLINE?"on":"off");$("netTxt").textContent=ONLINE?"En ligne":"Hors ligne";}
+window.addEventListener("online",()=>{setNet();syncAll();});
+window.addEventListener("offline",setNet);
+document.addEventListener("anagroci:authenticated",e=>{
+  ME=e.detail.profile;SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  D=load(REF,D);$("m_date").value=today();
+  setNet();renderRef();render();loadRef();syncAll();
+});
+</script>
+</body></html>
