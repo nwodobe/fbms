@@ -1,0 +1,340 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Caisse & Avances · ANAGROCI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="../shared/auth-gate.js" data-module="cash"></script>
+<style>
+  :root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;
+    --mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;
+    --line:#E8E7E7;--danger:#C0392B;--white:#fff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--mist);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
+  .top{background:var(--forest);color:#eafff2;display:flex;align-items:center;justify-content:space-between;
+    gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:3px solid var(--lime)}
+  .top .b{display:flex;align-items:center;gap:10px}
+  .chip{background:#fff;border-radius:8px;padding:4px 7px;display:inline-flex;align-items:center}
+  .chip img{height:26px;display:block}
+  .top b{font-size:16px}.top small{color:#CFE3D3;font-size:11px}
+  .top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{border:0;border-radius:9px;background:var(--emerald);color:#fff;font-weight:700;padding:10px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn.ghost{background:#fff;color:var(--forest)}
+  .btn.sm{padding:7px 10px;font-size:12px}
+  .btn:disabled{opacity:.55;cursor:default}
+  .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px;border:1px solid rgba(255,255,255,.25)}
+  .net .d{width:8px;height:8px;border-radius:50%}
+  .on .d{background:var(--lime)} .off .d{background:var(--orange)}
+  .wrap{max-width:1140px;margin:auto;padding:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
+  .k small{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .k b{font-size:20px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
+  .k.kalert b{color:var(--orange)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 8px rgba(5,59,35,.05);margin-bottom:16px}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif}
+  .body{padding:14px 16px}
+  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px}
+  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;font-family:inherit;background:#fff}
+  input[readonly]{background:var(--mist);font-weight:700;color:var(--forest)}
+  .up{text-transform:uppercase}.up::placeholder{text-transform:none}
+  select#a_cluster,select#r_cluster{text-transform:uppercase}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .alert{border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;display:none}
+  .alert.show{display:block}
+  .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
+  .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
+  .warn{background:var(--orange-tint);border:1px solid var(--orange);color:#8a6a12}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.03em;padding:8px;text-align:left;position:sticky;top:0}
+  td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px}
+  td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  .tag{font-size:10px;font-weight:800;text-transform:uppercase;border-radius:999px;padding:3px 8px;white-space:nowrap}
+  .tag.ok{background:var(--pale);color:var(--pine)}
+  .tag.bad{background:#fdeceb;color:var(--danger)}
+  .tag.wait{background:var(--orange-tint);color:#9A6600}
+  .neg{color:var(--danger);font-weight:700}
+  .scroll{max-height:56vh;overflow:auto}
+  .muted{color:var(--muted);font-size:12.5px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="stylesheet" href="../shared/pjs-theme.css">
+<script defer src="../shared/uppercase.js"></script>
+</head><body>
+
+<div class="top">
+  <div class="b"><span class="chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span>
+    <span><b>Caisse &amp; Avances</b><br><small>Cash Control · avance → paiement → réconciliation</small></span></div>
+  <div class="r">
+    <span id="net" class="net off"><span class="d"></span><span id="netTxt">Hors ligne</span></span>
+    <button class="btn sm" id="syncBtn" onclick="syncAll()">Synchroniser <span id="pendBadge"></span></button>
+    <a class="btn ghost sm" href="../index.html">Portail</a>
+    <span id="anagroci-userslot"></span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="kpis">
+    <div class="k"><small>Total avancé</small><b id="kAv">0</b></div>
+    <div class="k"><small>Total payé (achats)</small><b id="kPay">0</b></div>
+    <div class="k"><small>Solde global</small><b id="kSolde">0</b></div>
+    <div class="k kalert"><small>RT à contrôler</small><b id="kCtrl">0</b></div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Nouvelle avance</h2>
+      <div class="body">
+        <div class="row">
+          <div><label>Date</label><input id="a_date" type="date"></div>
+          <div><label>Source</label><select id="a_source"><option>Finance</option><option>Cluster Head</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Cluster</label><select id="a_cluster" onchange="onACluster()"><option value="">Tous les clusters</option></select></div>
+          <div><label>RT (équipe)</label><input id="a_rt" class="up" list="dl_art" oninput="onARt()" placeholder="Choisir ou saisir"><datalist id="dl_art"></datalist></div>
+        </div>
+        <div class="row">
+          <div><label>Montant (FCFA)</label><input id="a_montant" type="number" min="1" step="500" inputmode="numeric"></div>
+          <div><label>Motif</label><input id="a_motif" class="up" placeholder="Facultatif"></div>
+        </div>
+        <div id="a_bloc" class="alert warn"></div>
+        <p><button class="btn" id="aSave" onclick="saveAvance()">Enregistrer l'avance</button></p>
+        <div id="a_msg" class="alert"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Réconciliation</h2>
+      <div class="body">
+        <label>RT à réconcilier</label>
+        <input id="r_rt" class="up" list="dl_rrt" oninput="onRRt()" placeholder="Choisir un RT">
+        <datalist id="dl_rrt"></datalist>
+        <div class="row">
+          <div><label>Avancé</label><input id="r_avance" readonly></div>
+          <div><label>Payé (achats)</label><input id="r_paye" readonly></div>
+        </div>
+        <div class="row">
+          <div><label>Cash restant déclaré</label><input id="r_cash" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
+          <div><label>Valeur stock estimée</label><input id="r_stock" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
+        </div>
+        <input id="r_cluster" type="hidden">
+        <div class="alert show" id="r_res" style="background:var(--mist);border:1px solid var(--line);color:var(--ink)">Écart : — · statut : —</div>
+        <p><button class="btn" id="rSave" onclick="saveRecon()">Enregistrer la réconciliation</button></p>
+        <div id="r_msg" class="alert"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Soldes par RT</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Payé</th><th class="num">Solde</th><th>Réconciliation</th></tr></thead>
+          <tbody id="soldes"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
+const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
+const SEUIL_ECART=5000;                       // |écart| toléré (FCFA) pour "Réconcilié"
+const QA="anagroci_avances", QR="anagroci_recons", REF="anagroci_ref_cash";
+const $=i=>document.getElementById(i);
+let SB, ME=null, ONLINE=navigator.onLine;
+let D={villages:[],rt:[],paye:{},avServer:[],reServer:[]};
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
+function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
+function up(s){return String(s==null?"":s).toUpperCase();}
+function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
+function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
+
+/* ---- Référentiel ---- */
+function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
+function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
+function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||(r.village_nom?("RT "+r.village_nom):"")||"";}
+function rtCluster(r){if(r.data&&r.data.cluster)return r.data.cluster;const v=D.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
+function rtKey(r){return String(r.id||"")||keyc(rtLabel(r));}
+
+async function loadRef(){
+  if(ONLINE){
+    try{
+      let r=await SB.from("villages").select("id,data").eq("deleted",false);
+      if(!r.error)D.villages=(r.data||[]).filter(x=>x.data&&x.data.s1);
+      r=await SB.from("rt").select("id,data,village_nom,statut").eq("deleted",false);
+      if(!r.error)D.rt=r.data||[];
+      r=await SB.from("achats").select("rt_id,rt_nom,cluster,montant");
+      if(!r.error){D.paye={};(r.data||[]).forEach(a=>{const k=a.rt_id||keyc(a.rt_nom);D.paye[k]=(D.paye[k]||0)+(Number(a.montant)||0);});}
+      r=await SB.from("avances").select("*");
+      if(!r.error)D.avServer=r.data||[];
+      r=await SB.from("reconciliations").select("*").order("created_at",{ascending:false});
+      if(!r.error)D.reServer=r.data||[];
+      store(REF,D);
+    }catch(e){/* hors ligne : cache */}
+  }
+  renderRef();render();
+}
+function clustersList(){const m={};D.villages.forEach(v=>{const c=(vcluster(v)||"").trim();if(c&&!m[keyc(c)])m[keyc(c)]=c;});return Object.keys(m).map(k=>m[k]).sort((a,b)=>a.localeCompare(b,"fr"));}
+function renderRef(){
+  const cl=clustersList();
+  $("a_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(up(c))+'">'+esc(up(c))+'</option>').join("");
+  fillARt();
+  $("dl_rrt").innerHTML=D.rt.map(r=>'<option value="'+esc(up(rtLabel(r)))+'">').join("");
+}
+function fillARt(){
+  const c=$("a_cluster").value;
+  const rts=c?D.rt.filter(r=>keyc(rtCluster(r))===keyc(c)):D.rt;
+  $("dl_art").innerHTML=rts.map(r=>'<option value="'+esc(up(rtLabel(r)))+'">').join("");
+}
+function onACluster(){$("a_rt").value="";fillARt();}
+function onARt(){checkBlocage();}
+
+/* ---- Agrégats / soldes ---- */
+function allAvances(){return D.avServer.concat(load(QA,[]));}
+function allRecons(){return load(QR,[]).concat(D.reServer);}  // locales d'abord (plus récentes)
+function findRtByName(nom){return D.rt.find(r=>keyc(rtLabel(r))===keyc(nom));}
+function soldeOf(rtId,rtNom){
+  const k=rtId||keyc(rtNom);
+  let av=0;allAvances().forEach(a=>{if((a.rt_id||keyc(a.rt_nom))===k)av+=Number(a.montant)||0;});
+  const pay=D.paye[k]||0;
+  return {avance:av,paye:pay,solde:av-pay};
+}
+function lastRecon(rtId,rtNom){const k=rtId||keyc(rtNom);return allRecons().find(x=>(x.rt_id||keyc(x.rt_nom))===k)||null;}
+function needsRecon(rtId,rtNom){const s=soldeOf(rtId,rtNom);if(s.avance<=0)return false;const lr=lastRecon(rtId,rtNom);return !lr||lr.statut!=="Réconcilié";}
+
+function buildRows(){
+  const map={};
+  D.rt.forEach(r=>{const k=rtKey(r);map[k]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),id:String(r.id||"")};});
+  allAvances().forEach(a=>{const k=a.rt_id||keyc(a.rt_nom);if(!map[k])map[k]={nom:up(a.rt_nom||"?"),cluster:up(a.cluster||""),id:a.rt_id||""};});
+  Object.keys(D.paye).forEach(k=>{if(!map[k])map[k]={nom:k,cluster:"",id:k};});
+  return Object.keys(map).map(k=>{const m=map[k];const s=soldeOf(m.id||k,m.nom);const lr=lastRecon(m.id||k,m.nom);
+    return {k:k,nom:m.nom,cluster:m.cluster,av:s.avance,pay:s.paye,solde:s.solde,recon:lr};})
+    .filter(x=>x.av>0||x.pay>0).sort((a,b)=>b.solde-a.solde);
+}
+
+/* ---- KPIs + tableau ---- */
+function render(){
+  const rows=buildRows();
+  let tAv=0,tPay=0,ctrl=0;
+  rows.forEach(r=>{tAv+=r.av;tPay+=r.pay;if(!r.recon||r.recon.statut!=="Réconcilié"){if(r.av>0)ctrl++;}});
+  $("kAv").textContent=fmt(tAv);$("kPay").textContent=fmt(tPay);$("kSolde").textContent=fmt(tAv-tPay);$("kCtrl").textContent=ctrl;
+  const pend=load(QA,[]).filter(x=>x._status!=="synced").length+load(QR,[]).filter(x=>x._status!=="synced").length;
+  $("pendBadge").textContent=pend?("("+pend+")"):"";
+  $("soldes").innerHTML=rows.map(r=>{
+    const rc=r.recon?('<span class="tag '+(r.recon.statut==="Réconcilié"?"ok":"bad")+'">'+esc(r.recon.statut)+'</span> <span class="muted">'+esc(r.recon.date||"")+'</span>')
+      :(r.av>0?'<span class="tag wait">À réconcilier</span>':'—');
+    return '<tr><td><b>'+esc(r.nom)+'</b></td><td>'+esc(r.cluster||"—")+'</td>'
+      +'<td class="num">'+fmt(r.av)+'</td><td class="num">'+fmt(r.pay)+'</td>'
+      +'<td class="num'+(r.solde<0?' neg':'')+'">'+fmt(r.solde)+'</td><td>'+rc+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="muted">Aucune avance ni achat enregistré.</td></tr>';
+}
+
+/* ---- Blocage : pas de réconciliation, pas de nouvelle avance ---- */
+function checkBlocage(){
+  const nom=$("a_rt").value.trim();const r=findRtByName(nom);
+  const id=r?String(r.id||""):"";
+  const el=$("a_bloc");
+  if(nom&&needsRecon(id,nom)){
+    const s=soldeOf(id,nom);
+    el.className="alert show warn";
+    el.innerHTML="⚠ Ce RT a un solde ouvert de <b>"+fmt(s.solde)+" FCFA</b> non réconcilié. Règle : pas de réconciliation, pas de nouvelle avance. Réconciliez d'abord, ou validez en connaissance de cause.";
+  } else { el.className="alert"; el.textContent=""; }
+}
+
+/* ---- Enregistrement avance ---- */
+function saveAvance(){
+  const nom=$("a_rt").value.trim(), montant=n($("a_montant").value);
+  if(!nom) return msg($("a_msg"),"RT requis.","err");
+  if(montant==null||montant<=0) return msg($("a_msg"),"Montant invalide.","err");
+  const r=findRtByName(nom);
+  const rec={local_id:uid(),date:$("a_date").value||today(),
+    cluster:up($("a_cluster").value.trim())||up(r?rtCluster(r):"")||null,
+    rt_id:r?String(r.id||""):null, rt_nom:up(nom),
+    source:$("a_source").value, montant:montant, motif:up($("a_motif").value.trim())||null,
+    statut:"Active", created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(), _status:"pending"};
+  const q=load(QA,[]);q.unshift(rec);store(QA,q.slice(0,500));
+  ["a_montant","a_motif"].forEach(i=>$(i).value="");$("a_bloc").className="alert";
+  msg($("a_msg"),"Avance enregistrée"+(ONLINE?"":" (hors ligne)")+".","ok");
+  render();syncAll();
+}
+
+/* ---- Réconciliation ---- */
+function onRRt(){
+  const nom=$("r_rt").value.trim();const r=findRtByName(nom);const id=r?String(r.id||""):"";
+  const s=soldeOf(id,nom);
+  $("r_avance").value=fmt(s.avance)+" FCFA";$("r_paye").value=fmt(s.paye)+" FCFA";
+  $("r_cluster").value=up(r?rtCluster(r):"");
+  if(!$("r_stock").value)$("r_stock").value=Math.round(s.paye)||"";
+  calcRecon();
+}
+function calcRecon(){
+  const nom=$("r_rt").value.trim();const r=findRtByName(nom);const id=r?String(r.id||""):"";
+  const s=soldeOf(id,nom);
+  const cash=n($("r_cash").value), stock=n($("r_stock").value);
+  const el=$("r_res");
+  if(cash==null&&stock==null){el.textContent="Écart : — · statut : —";return null;}
+  const ecart=(cash||0)+(stock||0)-s.avance;
+  const ok=Math.abs(ecart)<=SEUIL_ECART;
+  el.innerHTML="Écart : <b>"+fmt(ecart)+" FCFA</b> · statut : <b style=\"color:"+(ok?"#1c4b30":"#a5372c")+"\">"+(ok?"Réconcilié":"À contrôler")+"</b>";
+  return {avance:s.avance,paye:s.paye,ecart:ecart,statut:ok?"Réconcilié":"À contrôler"};
+}
+function saveRecon(){
+  const nom=$("r_rt").value.trim();if(!nom)return msg($("r_msg"),"RT requis.","err");
+  const cash=n($("r_cash").value), stock=n($("r_stock").value);
+  if(cash==null&&stock==null)return msg($("r_msg"),"Saisissez le cash restant et/ou la valeur stock.","err");
+  const c=calcRecon();const r=findRtByName(nom);
+  const rec={local_id:uid(),date:today(),cluster:$("r_cluster").value||up(r?rtCluster(r):"")||null,
+    rt_id:r?String(r.id||""):null, rt_nom:up(nom),
+    cash_restant:cash||0, valeur_stock:stock||0,
+    total_avance:c.avance, total_paye:c.paye, ecart:c.ecart, statut:c.statut,
+    created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(), _status:"pending"};
+  const q=load(QR,[]);q.unshift(rec);store(QR,q.slice(0,500));
+  ["r_cash","r_stock"].forEach(i=>$(i).value="");$("r_rt").value="";$("r_avance").value="";$("r_paye").value="";
+  $("r_res").innerHTML="Écart : — · statut : —";
+  msg($("r_msg"),"Réconciliation enregistrée ("+c.statut+")"+(ONLINE?"":" (hors ligne)")+".",c.statut==="Réconcilié"?"ok":"warn");
+  render();syncAll();
+}
+
+/* ---- Synchronisation ---- */
+async function syncTable(key,table){
+  const all=load(key,[]);const pend=all.filter(r=>r._status!=="synced");
+  if(!pend.length)return;
+  for(const rec of pend){
+    const p=Object.assign({},rec);delete p._status;
+    try{const r=await SB.from(table).upsert(p,{onConflict:"local_id",ignoreDuplicates:true});
+      if(!r.error)rec._status="synced";}catch(e){break;}
+  }
+  store(key,all);
+}
+async function syncAll(){
+  if(!ONLINE||!SB){render();return;}
+  $("syncBtn").disabled=true;
+  await syncTable(QA,"avances");await syncTable(QR,"reconciliations");
+  await loadRef();  // relit les serveurs pour consolider
+  $("syncBtn").disabled=false;render();
+}
+
+/* ---- Réseau ---- */
+function setNet(){ONLINE=navigator.onLine;const e=$("net");e.className="net "+(ONLINE?"on":"off");$("netTxt").textContent=ONLINE?"En ligne":"Hors ligne";}
+window.addEventListener("online",()=>{setNet();syncAll();});
+window.addEventListener("offline",setNet);
+
+/* ---- Init ---- */
+document.addEventListener("anagroci:authenticated",e=>{
+  ME=e.detail.profile;
+  SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  D=load(REF,D);$("a_date").value=today();
+  setNet();renderRef();render();
+  loadRef();syncAll();
+});
+</script>
+</body></html>
