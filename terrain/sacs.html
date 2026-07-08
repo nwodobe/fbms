@@ -110,8 +110,8 @@
     <section class="card">
       <h2>Soldes sacs par RT</h2>
       <div class="body"><div class="scroll"><table>
-        <thead><tr><th>RT</th><th>Cluster</th><th class="num">Sacs en main</th></tr></thead>
-        <tbody id="soldeRT"><tr><td colspan="3" class="muted">—</td></tr></tbody>
+        <thead><tr><th>RT</th><th>Village</th><th>Cluster</th><th class="num">Sacs en main</th></tr></thead>
+        <tbody id="soldeRT"><tr><td colspan="4" class="muted">—</td></tr></tbody>
       </table></div></div>
     </section>
     <section class="card">
@@ -159,6 +159,7 @@ function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
 function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
 function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||(r.village_nom?("RT "+r.village_nom):"")||"";}
 function rtCluster(r){if(r.data&&r.data.cluster)return r.data.cluster;const v=D.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
+function rtVillage(r){return r.village_nom||(r.data&&r.data.villageNom)||"";}
 function prodLabel(p){return (p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||p.nom||p.code||"";}
 function prodEnrolled(p){return keyc(p.statut||(p.data&&p.data.statut))==="ENROLE";}
 
@@ -220,11 +221,12 @@ function onType(){
 function allMov(){return D.server.concat(load(Q,[]));}
 function saldos(){
   const rt={}, prod={}, clus={};
-  D.rt.forEach(r=>{rt[String(r.id||keyc(rtLabel(r)))]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),q:0};});
+  D.rt.forEach(r=>{rt[String(r.id||keyc(rtLabel(r)))]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),village:up(rtVillage(r)),q:0};});
   allMov().forEach(m=>{
     const q=Number(m.quantite)||0;
     const rk=m.rt_id||keyc(m.rt_nom||"");
-    if(rk){if(!rt[rk])rt[rk]={nom:up(m.rt_nom||"?"),cluster:up(m.cluster||""),q:0};
+    if(rk){if(!rt[rk])rt[rk]={nom:up(m.rt_nom||"?"),cluster:up(m.cluster||""),village:up(m.village_nom||""),q:0};
+      if(!rt[rk].village&&m.village_nom)rt[rk].village=up(m.village_nom);
       if(m.destination==='RT')rt[rk].q+=q; if(m.source==='RT')rt[rk].q-=q;}
     const pk=m.producteur_id||keyc(m.producteur_nom||"");
     if(pk&&(m.source==='PRODUCTEUR'||m.destination==='PRODUCTEUR')){
@@ -250,7 +252,7 @@ function render(){
   const crows=Object.values(S.clus).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
   $("soldeClus").innerHTML=crows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="2" class="muted">Aucune réception cluster.</td></tr>';
   const rrows=Object.values(S.rt).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
-  $("soldeRT").innerHTML=rrows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.cluster||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement RT.</td></tr>';
+  $("soldeRT").innerHTML=rrows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.village||"—")+'</td><td>'+esc(x.cluster||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="4" class="muted">Aucun mouvement RT.</td></tr>';
   const prows=Object.values(S.prod).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
   $("soldeProd").innerHTML=prows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.village||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement producteur.</td></tr>';
 }
