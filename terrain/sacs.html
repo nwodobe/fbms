@@ -98,6 +98,14 @@
     </div>
   </section>
 
+  <section class="card">
+    <h2>Soldes sacs par cluster (entrepôt)</h2>
+    <div class="body"><div class="scroll" style="max-height:32vh"><table>
+      <thead><tr><th>Cluster</th><th class="num">Sacs en entrepôt</th></tr></thead>
+      <tbody id="soldeClus"><tr><td colspan="2" class="muted">—</td></tr></tbody>
+    </table></div></div>
+  </section>
+
   <div class="grid">
     <section class="card">
       <h2>Soldes sacs par RT</h2>
@@ -121,11 +129,12 @@ const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
 const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
 const Q="anagroci_sacs", REF="anagroci_ref_sacs";
 const TYPES=[
- {k:'DOTATION_RT',  label:'Dotation RT (ANAGROCI → RT)',       src:'ANAGROCI',  dst:'RT',        prod:false},
+ {k:'USINE_CLUSTER',label:'Réception cluster (Usine → Cluster)',src:'USINE',    dst:'CLUSTER',   prod:false},
+ {k:'DOTATION_RT',  label:'Dotation RT (Cluster → RT)',        src:'CLUSTER',   dst:'RT',        prod:false},
  {k:'DISTRIBUTION', label:'Distribution (RT → producteur)',    src:'RT',        dst:'PRODUCTEUR',prod:true, enrolled:true},
  {k:'ENLEVEMENT',   label:'Enlèvement (sacs pleins ramassés)', src:'PRODUCTEUR',dst:'HUB',       prod:true},
  {k:'RETOUR_PROD',  label:'Retour vides (producteur → RT)',    src:'PRODUCTEUR',dst:'RT',        prod:true},
- {k:'RETOUR_RT',    label:'Retour vides (RT → ANAGROCI)',      src:'RT',        dst:'ANAGROCI',  prod:false},
+ {k:'RETOUR_RT',    label:'Retour vides (RT → Cluster)',       src:'RT',        dst:'CLUSTER',   prod:false},
  {k:'DECHIRE_RT',   label:'Sacs déchirés (RT)',                src:'RT',        dst:'PERTE',     prod:false},
  {k:'DECHIRE_PROD', label:'Sacs déchirés (producteur)',        src:'PRODUCTEUR',dst:'PERTE',     prod:true},
 ];
@@ -210,7 +219,7 @@ function onType(){
 /* ---- Soldes ---- */
 function allMov(){return D.server.concat(load(Q,[]));}
 function saldos(){
-  const rt={}, prod={};
+  const rt={}, prod={}, clus={};
   D.rt.forEach(r=>{rt[String(r.id||keyc(rtLabel(r)))]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),q:0};});
   allMov().forEach(m=>{
     const q=Number(m.quantite)||0;
@@ -221,8 +230,12 @@ function saldos(){
     if(pk&&(m.source==='PRODUCTEUR'||m.destination==='PRODUCTEUR')){
       if(!prod[pk])prod[pk]={nom:up(m.producteur_nom||"?"),village:up(m.village_nom||""),q:0};
       if(m.destination==='PRODUCTEUR')prod[pk].q+=q; if(m.source==='PRODUCTEUR')prod[pk].q-=q;}
+    const ck=keyc(m.cluster||"");
+    if(ck&&(m.source==='CLUSTER'||m.destination==='CLUSTER')){
+      if(!clus[ck])clus[ck]={nom:up(m.cluster||"?"),q:0};
+      if(m.destination==='CLUSTER')clus[ck].q+=q; if(m.source==='CLUSTER')clus[ck].q-=q;}
   });
-  return {rt:rt,prod:prod};
+  return {rt:rt,prod:prod,clus:clus};
 }
 
 /* ---- Rendu ---- */
@@ -234,6 +247,8 @@ function render(){
   const rtTot=Object.values(S.rt).reduce((s,x)=>s+x.q,0);
   $("kDist").textContent=fmt(dist);$("kEnl").textContent=fmt(enl);$("kRt").textContent=fmt(rtTot);$("kDech").textContent=fmt(dech);
   const pend=load(Q,[]).filter(x=>x._status!=="synced").length;$("pendBadge").textContent=pend?("("+pend+")"):"";
+  const crows=Object.values(S.clus).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
+  $("soldeClus").innerHTML=crows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="2" class="muted">Aucune réception cluster.</td></tr>';
   const rrows=Object.values(S.rt).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
   $("soldeRT").innerHTML=rrows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.cluster||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement RT.</td></tr>';
   const prows=Object.values(S.prod).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
@@ -245,6 +260,7 @@ function saveMov(){
   const t=typ(), qte=n($("m_qte").value);
   const rtNom=$("m_rt").value.trim(), prodNom=$("m_prod").value.trim(), village=$("m_village").value.trim();
   if(!(qte>0)) return msg($("m_msg"),"Nombre de sacs invalide.","err");
+  if(t.k==='USINE_CLUSTER' && !$("m_cluster").value.trim()) return msg($("m_msg"),"Cluster requis pour la réception (Usine → Cluster).","err");
   // RT requis sauf mouvements purement producteur→hub/perte (enlèvement/déchiré prod ont quand même un RT référent recommandé)
   if((t.src==='RT'||t.dst==='RT'||t.k==='DOTATION_RT') && !rtNom) return msg($("m_msg"),"RT requis pour ce mouvement.","err");
   if(t.prod && !prodNom) return msg($("m_msg"),"Producteur requis pour ce mouvement.","err");
