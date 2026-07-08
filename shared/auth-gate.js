@@ -34,6 +34,7 @@
     fbms: ["bm", "chef", "agent"],
     achats: ["bm", "chef", "agent"],
     cash: ["bm", "chef"],
+    sacs: ["bm", "chef", "agent"],
     hubs: ["bm", "chef", "agent", "direction"],
     carte: ["bm", "chef", "agent", "direction"],
     audit: ["bm", "chef"],
