@@ -2487,6 +2487,27 @@ function blankProducteur(){
   };
 }
 
+/* Prefixe court (4 lettres, sans accents) du village — miroir cote client de la
+   fonction PostgreSQL fbms_slug4 utilisee par le trigger d'attribution du code
+   producteur definitif. */
+function slug4(txt){
+  const up = String(txt||"").toUpperCase()
+    .replace(/[ÀÁÂÃÄÅ]/g,"A").replace(/Ç/g,"C").replace(/[ÈÉÊË]/g,"E").replace(/[ÌÍÎÏ]/g,"I")
+    .replace(/Ñ/g,"N").replace(/[ÒÓÔÕÖ]/g,"O").replace(/[ÙÚÛÜ]/g,"U").replace(/[ÝŸ]/g,"Y")
+    .replace(/Æ/g,"AE").replace(/Œ/g,"OE").replace(/[^A-Z0-9]+/g,"");
+  return (up + "XXXX").slice(0,4);
+}
+
+/* Code PROVISOIRE lisible et base sur le village, attribue des la creation hors
+   ligne (ex. « TMP-KOUA-03 »). Il conserve le prefixe « TMP- » : a la 1re
+   synchro, le trigger serveur le remplace par le code definitif « KOUA-0001 »
+   (numerotation atomique par village). Le numero local n'est qu'un repere. */
+function provisionalProdCode(villageId, villageNom){
+  const prefix = slug4(villageNom || "VIL");
+  const n = STATE.producteurs.filter(p=>p.villageId===villageId).length + 1;
+  return "TMP-" + prefix + "-" + String(n).padStart(2,"0");
+}
+
 /* Suppressions producteurs hors ligne, à rejouer à la synchro. */
 function getPendingProdDeletes(){ try{ return JSON.parse(localStorage.getItem("fbms_pending_prod_deletes")||"[]"); }catch(e){ return []; } }
 function setPendingProdDeletes(arr){ try{ localStorage.setItem("fbms_pending_prod_deletes", JSON.stringify(arr)); }catch(e){} }
@@ -2624,6 +2645,9 @@ function openProdModal(id){
     PROD_EDIT.villageId = STATE.prodVillageId;
     const v = STATE.villages.find(x=>x.id===STATE.prodVillageId);
     PROD_EDIT.villageNom = v ? ((v.s1 && v.s1.village) || "") : "";
+    // Code provisoire base sur le village des la creation (remplace le TMP-xxx
+    // generique). Le code definitif reste attribue par le serveur a la synchro.
+    PROD_EDIT.code = provisionalProdCode(PROD_EDIT.villageId, PROD_EDIT.villageNom);
   }
   renderProdModal();
 }
