@@ -621,7 +621,7 @@ function parseCoord(s, maxAbs){
   return n;
 }
 
-function emptyCandidat(){ return { nom:"", telephone:"", activite:"", instruction:"", smartphone:false, compteBancaire:false, compteWave:false, reputation:"" }; }
+function emptyCandidat(){ return { nom:"", telephone:"", activite:"", instruction:"", smartphone:false, compteBancaire:false, compteWave:false, reputation:"", photo:"" }; }
 
 function placeholderPhotoDataUri(label, color){
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">'
@@ -2705,6 +2705,8 @@ async function importRTFromVillages(){
       r.nom = c.nom; r.telephone = c.telephone || ""; r.activite = c.activite || ""; r.instruction = c.instruction || "";
       r.smartphone = !!c.smartphone; r.compteBancaire = !!c.compteBancaire; r.compteWave = !!c.compteWave;
       r.reputation = c.reputation || "";
+      r.photo = c.photo || "";                 // reprend le portrait saisi en section 7
+
       r.villageId = v.id; r.villageNom = (v.s1 && v.s1.village) || "";
       r.historique = [{ date:new Date().toISOString(), par:(AUTH.isConnected()?AUTH.session.email:""), type:"Import", note:"Importé depuis la fiche village " + r.villageNom }];
       if (AUTH.isConnected()){ r.createdBy = AUTH.session.email; r.updatedBy = AUTH.session.email; }
@@ -3561,6 +3563,41 @@ function handlePhotoUpload(inputEl, slot, label){
     flashAutoSave();
   }).catch(function(){ alert("Impossible de lire cette image."); });
 }
+/* --- Photo d'identite d'un candidat RT (Section 7). Meme principe que les
+   photos village : stockage du data URI dans un input cache `data-path`, relu a
+   l'enregistrement. Mise a jour de l'apercu sans re-rendre tout le formulaire
+   (on ne perd pas la saisie en cours). --- */
+function rtCandPhotoHTML(i, dataUri){
+  const has = hasPhotoSrc(dataUri);
+  const avatar = 'width:64px;height:64px;border-radius:12px;overflow:hidden;flex:0 0 auto;border:1px solid '+T.line+';display:flex;align-items:center;justify-content:center;color:'+T.inkSoft
+    + (has ? ";background-image:url('"+dataUri+"');background-size:cover;background-position:center" : ";background:"+T.cream);
+  const btn = 'ff-body text-[11px] font-semibold rounded-lg px-2 py-1.5 flex items-center gap-1 cursor-pointer';
+  let h = '<div id="rtCandPhotoWrap_'+i+'" class="flex items-center gap-3 mb-3">';
+  h += '<input type="hidden" data-path="s7.candidats.'+i+'.photo" value="'+esc(dataUri||"")+'">';
+  h += '<div style="'+avatar+'">'+(has?'':icon('user','w-6 h-6'))+'</div>';
+  h += '<div class="flex items-center gap-1.5 flex-wrap">';
+  h += '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('camera','w-3.5 h-3.5')+t('Prendre une photo')+'<input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleRTCandPhoto(this,'+i+')"></label>';
+  h += '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('upload','w-3.5 h-3.5')+t('Importer')+'<input type="file" accept="image/*" class="hidden" onchange="handleRTCandPhoto(this,'+i+')"></label>';
+  if (has) h += '<button type="button" onclick="removeRTCandPhoto('+i+')" class="'+btn+'" style="background:#fff;color:'+T.red+';border:1px solid '+T.line+'">'+icon('trash-2','w-3.5 h-3.5')+t('Retirer')+'</button>';
+  h += '</div></div>';
+  return h;
+}
+function handleRTCandPhoto(inputEl, i){
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")){ alert("Veuillez sélectionner un fichier image (JPG, PNG…)."); return; }
+  if (file.size > 6*1024*1024){ alert("Image trop lourde (max 6 Mo)."); return; }
+  compressImageFile(file, 512, 0.72).then(function(dataUrl){
+    document.getElementById("rtCandPhotoWrap_"+i).outerHTML = rtCandPhotoHTML(i, dataUrl);
+    if (window.lucide) lucide.createIcons();
+    flashAutoSave();
+  }).catch(function(){ alert("Impossible de lire cette image."); });
+}
+function removeRTCandPhoto(i){
+  document.getElementById("rtCandPhotoWrap_"+i).outerHTML = rtCandPhotoHTML(i, "");
+  if (window.lucide) lucide.createIcons();
+  flashAutoSave();
+}
 function removePhoto(slot, label){
   document.getElementById("photoWrap_"+slot).outerHTML = photoTileHTML(slot, label, "");
   if (window.lucide) lucide.createIcons();
@@ -3772,6 +3809,7 @@ function FormView(id){
   draft.s7.candidats.forEach((c,i)=>{
     sec7Inner += '<div class="mb-4 pb-4" style="border-bottom:'+(i<2?'1px solid '+T.line:'none')+'">'
       + '<div class="ff-body text-xs font-semibold mb-2" style="color:'+T.forest700+'">RT Candidat '+(i+1)+'</div>'
+      + rtCandPhotoHTML(i, c.photo)
       + '<div class="grid grid-cols-2 gap-3 mb-2">'
       + fieldWrap("Nom", textInput("s7.candidats."+i+".nom", c.nom))
       + fieldWrap("Téléphone", textInput("s7.candidats."+i+".telephone", c.telephone))
