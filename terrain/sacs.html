@@ -49,6 +49,25 @@
   .scroll{max-height:48vh;overflow:auto}
   .muted{color:var(--muted);font-size:12.5px}
   @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+  /* Document de transaction (scan) */
+  .docbox{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .docprev{width:96px;height:64px;border-radius:10px;border:1px dashed var(--line);background:var(--mist);
+    display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;overflow:hidden;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer}
+  .docbtns{display:flex;gap:7px;flex-wrap:wrap}
+  .docbtns .btn.sm{background:#fff;color:var(--forest);border:1px solid var(--line)}
+  .docbtns .btn.sm.rm{color:var(--danger)}
+  /* Historique */
+  td .thumb{width:44px;height:30px;border-radius:6px;border:1px solid var(--line);background:var(--mist) center/cover no-repeat;display:inline-block;cursor:pointer;vertical-align:middle}
+  td .noscan{color:var(--muted);font-size:11px}
+  .badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700}
+  .badge.ok{background:var(--pale);color:var(--pine)}.badge.pend{background:var(--orange-tint);color:#8a6a12}
+  .flux{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+  /* Overlays (caméra + visionneuse) */
+  .ov{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+  .ov video,.ov img{max-width:100%;max-height:66vh;border-radius:14px;background:#111}
+  .ov .ttl{color:#fff;font-size:14px;font-weight:700;margin-bottom:12px;font-family:'Archivo',Arial,sans-serif}
+  .ov .bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+  .ov .bar .btn{background:var(--emerald);color:#fff}.ov .bar .btn.g{background:#ffffff22}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -92,6 +111,10 @@
         <div><label>Nombre de sacs</label><input id="m_qte" type="number" min="1" step="1" inputmode="numeric"></div>
         <div><label>Observation</label><input id="m_obs" class="up" placeholder="Facultatif"></div>
       </div>
+      <div>
+        <label>Document de transaction (scan)</label>
+        <div id="docBox" class="docbox"></div>
+      </div>
       <div id="m_flux" class="alert show" style="background:var(--mist);border:1px solid var(--line);color:var(--ink)">Flux : —</div>
       <p><button class="btn" id="mSave" onclick="saveMov()">Enregistrer le mouvement</button></p>
       <div id="m_msg" class="alert"></div>
@@ -122,6 +145,14 @@
       </table></div></div>
     </section>
   </div>
+
+  <section class="card">
+    <h2>Historique des mouvements de sacs</h2>
+    <div class="body"><div class="scroll"><table>
+      <thead><tr><th>Date</th><th>Type</th><th>Flux</th><th>Village</th><th>RT</th><th>Producteur</th><th class="num">Sacs</th><th>Doc.</th><th>État</th></tr></thead>
+      <tbody id="histBody"><tr><td colspan="9" class="muted">Aucun mouvement.</td></tr></tbody>
+    </table></div></div>
+  </section>
 </main>
 
 <script>
@@ -153,6 +184,61 @@ function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
 function typ(){return TYPES.find(x=>x.k===$("m_type").value)||TYPES[0];}
+function typeLabel(k){const t=TYPES.find(x=>x.k===k);return t?t.label:(k||"");}
+
+/* ---- Documents de transaction (scan) : stockes SUR L'APPAREIL ----
+   Les images de documents ne partent PAS dans le payload synchronise (la table
+   sacs_mouvements n'a pas de colonne dediee) : elles sont conservees en local,
+   indexees par local_id. La synchro reste donc intacte. Un script SQL
+   (supabase/sacs_documents.sql) permettra plus tard d'ajouter une colonne et de
+   synchroniser aussi l'image. On plafonne le stock local pour ne pas saturer. */
+const DKEY="anagroci_sacs_docs", DOC_MAX=80;
+function docs(){return load(DKEY,{});}
+function getDoc(id){return docs()[id]||"";}
+function setDoc(id,uri){const m=docs();m[id]=uri;const ks=Object.keys(m);if(ks.length>DOC_MAX){ks.slice(0,ks.length-DOC_MAX).forEach(k=>delete m[k]);}store(DKEY,m);}
+function delDoc(id){const m=docs();delete m[id];store(DKEY,m);}
+
+/* Compression d'un fichier image en JPEG (data URI). */
+function compressImg(file,maxDim,q){return new Promise((res,rej)=>{const rd=new FileReader();rd.onload=e=>{const im=new Image();im.onload=()=>{try{const sc=Math.min(1,(maxDim||1024)/Math.max(im.width,im.height));const w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc));const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);res(c.toDataURL("image/jpeg",q||0.75));}catch(err){res(e.target.result);}};im.onerror=()=>res(e.target.result);im.src=e.target.result;};rd.onerror=rej;rd.readAsDataURL(file);});}
+
+/* ---- Capture camera integree (telephone ET ordinateur, via getUserMedia) ---- */
+let CAM=null, CAM_CB=null, CAM_FACING="environment";
+function scanSupported(){return !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);}
+function openScan(cb){CAM_CB=cb;CAM_FACING="environment";if(!scanSupported()){scanFallback();return;}scanOverlay();scanStart();}
+function scanStart(){scanStop();navigator.mediaDevices.getUserMedia({video:{facingMode:CAM_FACING},audio:false}).then(s=>{CAM=s;const v=$("scanVid");if(v){v.srcObject=s;const p=v.play();if(p&&p.catch)p.catch(()=>{});}const h=$("scanHint");if(h)h.style.display="none";}).catch(()=>{scanClose(true);scanFallback();});}
+function scanStop(){if(CAM){try{CAM.getTracks().forEach(t=>t.stop());}catch(e){}CAM=null;}}
+function scanFacing(){CAM_FACING=CAM_FACING==="environment"?"user":"environment";scanStart();}
+function scanCap(){const v=$("scanVid");if(!v||!v.videoWidth)return;const mx=1280,sc=Math.min(1,mx/Math.max(v.videoWidth,v.videoHeight));const w=Math.round(v.videoWidth*sc),h=Math.round(v.videoHeight*sc);let uri="";try{const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(v,0,0,w,h);uri=c.toDataURL("image/jpeg",0.8);}catch(e){uri="";}const cb=CAM_CB;scanClose();if(uri&&cb)cb(uri);}
+function scanClose(keepCb){scanStop();if(!keepCb)CAM_CB=null;const o=$("camOv");if(o)o.remove();}
+function scanFallback(){const cb=CAM_CB;const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.setAttribute("capture","environment");inp.style.display="none";document.body.appendChild(inp);inp.onchange=()=>{const f=inp.files&&inp.files[0];try{document.body.removeChild(inp);}catch(e){}CAM_CB=null;if(!f||!cb)return;if(!/^image\//.test(f.type||"")){alert("Choisissez un fichier image.");return;}compressImg(f,1280,0.8).then(cb).catch(()=>alert("Image illisible."));};inp.click();}
+function scanOverlay(){let o=$("camOv");if(o)o.remove();o=document.createElement("div");o.id="camOv";o.className="ov";o.innerHTML='<div class="ttl">Scanner le document de transaction</div>'
+  +'<video id="scanVid" autoplay playsinline muted></video>'
+  +'<div id="scanHint" style="color:#cfe3d3;font-size:12px;margin-top:10px">Autorisez l\'accès à la caméra…</div>'
+  +'<div class="bar"><button class="btn" onclick="scanCap()">Capturer</button>'
+  +'<button class="btn g" onclick="scanFacing()">Changer de caméra</button>'
+  +'<button class="btn g" onclick="scanClose()">Annuler</button></div>';
+  document.body.appendChild(o);}
+
+/* ---- Document du mouvement en cours de saisie ---- */
+let M_DOC=null;
+function mScan(){openScan(uri=>{M_DOC=uri;mDocPrev();});}
+function mImport(inp){const f=inp.files&&inp.files[0];if(!f)return;if(!/^image\//.test(f.type||"")){alert("Choisissez un fichier image.");inp.value="";return;}compressImg(f,1280,0.8).then(uri=>{M_DOC=uri;mDocPrev();}).catch(()=>alert("Image illisible."));}
+function mDelDoc(){M_DOC=null;mDocPrev();}
+function mDocPrev(){
+  const b=$("docBox");if(!b)return;
+  const prev=M_DOC?'<div class="docprev" style="background-image:url(\''+M_DOC+'\')" onclick="viewImg(M_DOC)" title="Agrandir"></div>'
+                  :'<div class="docprev">Aucun</div>';
+  b.innerHTML=prev+'<div class="docbtns">'
+    +'<button type="button" class="btn sm" onclick="mScan()">📷 Scanner</button>'
+    +'<label class="btn sm" style="cursor:pointer">⬆ Importer<input type="file" accept="image/*" style="display:none" onchange="mImport(this)"></label>'
+    +(M_DOC?'<button type="button" class="btn sm rm" onclick="mDelDoc()">Retirer</button>':'')
+    +'</div>';
+}
+/* Visionneuse plein ecran d'une image (document). */
+function viewImg(uri){if(!uri)return;let o=$("docOv");if(o)o.remove();o=document.createElement("div");o.id="docOv";o.className="ov";o.innerHTML='<div class="ttl">Document de transaction</div><img src="'+uri+'" alt="document">'
+  +'<div class="bar"><a class="btn" href="'+uri+'" download="document-sacs.jpg">Télécharger</a><button class="btn g" onclick="(document.getElementById(\'docOv\')||{}).remove?document.getElementById(\'docOv\').remove():0">Fermer</button></div>';
+  o.addEventListener("click",e=>{if(e.target===o)o.remove();});document.body.appendChild(o);}
+function viewDoc(id){viewImg(getDoc(id));}
 
 /* ---- Référentiel ---- */
 function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
@@ -182,7 +268,7 @@ function renderRef(){
   $("m_type").innerHTML=TYPES.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join("");
   const cl=clustersList();
   $("m_cluster").innerHTML='<option value="">Tous les clusters</option>'+cl.map(c=>'<option value="'+esc(up(c))+'">'+esc(up(c))+'</option>').join("");
-  fillVillageRT();onType();
+  fillVillageRT();onType();mDocPrev();
 }
 function fillVillageRT(){
   const c=$("m_cluster").value, vn=$("m_village").value.trim();
@@ -218,7 +304,15 @@ function onType(){
 }
 
 /* ---- Soldes ---- */
-function allMov(){return D.server.concat(load(Q,[]));}
+/* Union serveur + file locale, dedupliquee par local_id (on prefere la copie
+   locale, qui porte le statut). Evite le double-comptage d'un mouvement present
+   a la fois sur le serveur et dans la file apres synchronisation. */
+function allMov(){
+  const seen={}, out=[];
+  load(Q,[]).forEach(m=>{const k=m.local_id||("q"+out.length);if(!seen[k]){seen[k]=1;out.push(m);}});
+  D.server.forEach(m=>{const k=m.local_id||("s"+out.length);if(!seen[k]){seen[k]=1;out.push(m);}});
+  return out;
+}
 function saldos(){
   const rt={}, prod={}, clus={};
   D.rt.forEach(r=>{rt[String(r.id||keyc(rtLabel(r)))]={nom:up(rtLabel(r)),cluster:up(rtCluster(r)),village:up(rtVillage(r)),q:0};});
@@ -255,6 +349,29 @@ function render(){
   $("soldeRT").innerHTML=rrows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.village||"—")+'</td><td>'+esc(x.cluster||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="4" class="muted">Aucun mouvement RT.</td></tr>';
   const prows=Object.values(S.prod).filter(x=>x.q!==0).sort((a,b)=>b.q-a.q);
   $("soldeProd").innerHTML=prows.map(x=>'<tr><td><b>'+esc(x.nom)+'</b></td><td>'+esc(x.village||"—")+'</td><td class="num'+(x.q<0?' neg':'')+'">'+fmt(x.q)+'</td></tr>').join("")||'<tr><td colspan="3" class="muted">Aucun mouvement producteur.</td></tr>';
+  renderHistory(mv);
+}
+
+/* ---- Historique des mouvements ---- */
+function renderHistory(mv){
+  const rows=(mv||allMov()).slice().sort((a,b)=>String(b.created_at||b.date||"").localeCompare(String(a.created_at||a.date||"")));
+  $("histBody").innerHTML=rows.map(m=>{
+    const doc=getDoc(m.local_id);
+    const docCell=doc?'<span class="thumb" style="background-image:url(\''+doc+'\')" onclick="viewDoc(\''+esc(m.local_id)+'\')" title="Voir le document"></span>'
+                     :'<span class="noscan">—</span>';
+    const synced=m._status==="synced" || (m._status===undefined);  // les enreg. serveur n'ont pas de _status
+    const etat=synced?'<span class="badge ok">Synchronisé</span>':'<span class="badge pend">En attente</span>';
+    return '<tr>'
+      +'<td>'+esc(m.date||"")+'</td>'
+      +'<td>'+esc(typeLabel(m.type))+'</td>'
+      +'<td class="flux">'+esc((m.source||"")+" → "+(m.destination||""))+'</td>'
+      +'<td>'+esc(m.village_nom||"—")+'</td>'
+      +'<td>'+esc(m.rt_nom||"—")+'</td>'
+      +'<td>'+esc(m.producteur_nom||"—")+'</td>'
+      +'<td class="num">'+fmt(Number(m.quantite)||0)+'</td>'
+      +'<td>'+docCell+'</td>'
+      +'<td>'+etat+'</td></tr>';
+  }).join("")||'<tr><td colspan="9" class="muted">Aucun mouvement.</td></tr>';
 }
 
 /* ---- Enregistrement ---- */
@@ -279,6 +396,8 @@ function saveMov(){
     quantite:Math.round(qte), observation:up($("m_obs").value.trim())||null,
     created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(), _status:"pending"};
   const q=load(Q,[]);q.unshift(rec);store(Q,q.slice(0,500));
+  if(M_DOC) setDoc(rec.local_id, M_DOC);   // document conserve sur l'appareil, indexe par local_id
+  M_DOC=null; mDocPrev();
   ["m_qte","m_obs","m_prod"].forEach(i=>$(i).value="");
   msg($("m_msg"),"Mouvement enregistré ("+t.src+" → "+t.dst+")"+(ONLINE?"":" (hors ligne)")+".","ok");
   render();syncAll();
