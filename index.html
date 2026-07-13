@@ -38,7 +38,7 @@
 <script>
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('./i18n-sw.js?v=75af3d9').then(function(reg){
+  navigator.serviceWorker.register('./i18n-sw.js?v=nocache1').then(function(reg){
     if(reg.update) reg.update();
   }).catch(function(){});
 })();
