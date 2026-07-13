@@ -2016,7 +2016,7 @@ function handleNavClick(key){
   buildSidebar(); renderContent();
 }
 function openNew(){ STATE.active="form"; STATE.formId="new"; buildSidebar(); renderContent(); }
-function openEdit(id){ closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
+function openEdit(id){ if (!canEditVillages()){ refuseEditVillage(); return; } closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
 function cancelForm(){
   try{ localStorage.removeItem("fbms_form_draft"); }catch(e){} // v0.11.1 : annulation = brouillon abandonné
   STATE.active="database"; STATE.formId=null; buildSidebar(); renderContent();
@@ -2025,6 +2025,9 @@ function openVillage(id){ STATE.drawerId=id; renderDrawer(); }
 function closeDrawer(){ STATE.drawerId=null; document.getElementById("drawer-root").innerHTML=""; }
 
 async function saveForm(){
+  // Modification d'une fiche existante reservee a l'administrateur (la creation
+  // d'une nouvelle fiche reste ouverte). Double barriere avec la RLS Supabase.
+  if (STATE.formId !== "new" && !canEditVillages()){ refuseEditVillage(); return; }
   const base = STATE.formId==="new" ? blankVillage() : STATE.villages.find(v=>v.id===STATE.formId);
   const draft = collectFormData(base);
   // v0.11.3 : normalisation GPS à l'enregistrement (virgule → point, espaces retirés).
@@ -2095,6 +2098,16 @@ function canDelete(){
   return AUTH.isConnected() && AUTH.session.role === "Branch Manager";
 }
 function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fiches. Contactez l'administrateur.")); }
+
+/* Droit de MODIFIER une fiche village. En mode Supabase (avec authentification),
+ * seul le Branch Manager (administrateur) peut modifier ; les autres consultent
+ * la fiche en lecture seule. En mode local (sans auth), edition libre. La barriere
+ * serveur reste la RLS Supabase ; ceci est le garde-fou cote interface. */
+function canEditVillages(){
+  if (!isSupabase()) return true;
+  return AUTH.isConnected() && AUTH.session.role === "Branch Manager";
+}
+function refuseEditVillage(){ alert(t("Consultation seule : seule l'administrateur (Branch Manager) peut modifier une fiche village.")); }
 
 async function deleteVillageAction(id){
   if (!canDelete()) return refuseDelete();
@@ -2356,7 +2369,8 @@ function DatabaseView(){
       + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Statut')+'</th><th class="px-4 py-2.5"></th></tr></thead><tbody>';
     paged.forEach(({v,score})=>{
       html += '<tr style="border-top:1px solid '+T.line+'">'
-        + '<td class="px-4 py-2.5 ff-body font-medium" style="color:'+T.ink+'">'+(v.s1.village||"—")
+        + '<td class="px-4 py-2.5 ff-body font-medium" style="color:'+T.ink+'">'
+        + '<button onclick="openVillage(\''+v.id+'\')" class="text-left hover:underline" style="color:'+T.emerald+';font-weight:600;cursor:pointer;background:none;border:0;padding:0" title="'+t('Voir la fiche du village')+'">'+esc(v.s1.village||"—")+'</button>'
         + (v._conflictServer ? ' <span onclick="event.stopPropagation();openConflictModal(\''+v.id+'\')" title="Conflit de synchronisation — cliquer pour arbitrer" style="color:'+T.red+';cursor:pointer">'+icon('alert-triangle','w-3 h-3')+'</span>'
            : (v._sync && v._sync!=="synced" ? ' <span title="En attente de synchronisation" style="color:'+T.orange+'">'+icon('cloud-off','w-3 h-3')+'</span>' : '')) + '</td>'
         + '<td class="px-4 py-2.5 ff-mono" style="color:'+T.ink+'">'+(v.s3.potentielMT||0)+'</td>'
@@ -4238,7 +4252,10 @@ function renderDrawer(){
     + '<span class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+drawerNavPos()+'</span>'
     + '<button onclick="drawerNav(1)" title="'+t('Suivant')+'" class="p-1.5 rounded-lg" style="border:1px solid '+T.line+';color:'+T.inkSoft+'">'+icon('chevron-right','w-4 h-4')+'</button>'
     + '<button onclick="openVillageReport(\''+v.id+'\')" title="'+t('Rapport village')+'" class="p-1.5 rounded-lg" style="border:1px solid '+T.line+';color:'+T.forest700+'">'+icon('printer','w-4 h-4')+'</button>'
-    + '<button onclick="openEdit(\''+v.id+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-1.5" style="background-color:'+T.forest700+';color:#fff">'+t('Modifier')+'</button>'
+    // Modification reservee a l'administrateur (Branch Manager) ; sinon lecture seule.
+    + (canEditVillages()
+        ? '<button onclick="openEdit(\''+v.id+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-1.5" style="background-color:'+T.forest700+';color:#fff">'+t('Modifier')+'</button>'
+        : '<span title="'+t('Modification réservée à l\'administrateur')+'" class="ff-body text-[11px] font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1" style="background:'+T.cream+';color:'+T.inkSoft+';border:1px solid '+T.line+'">'+icon('lock','w-3 h-3')+t('Lecture seule')+'</span>')
     + '<button onclick="closeDrawer()">'+icon('x','w-5 h-5')+'</button></div></div>';
 
   html += '<div class="p-5 space-y-5">';
