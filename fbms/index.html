@@ -1291,6 +1291,132 @@ function compressImageFile(file, maxDim, quality){
   });
 }
 
+/* ===== Capture camera integree (telephone ET ordinateur) ===================
+   getUserMedia ouvre la webcam sur ordinateur comme sur mobile (l'attribut
+   <input capture> ne marche QUE sur mobile). Aperçu video plein ecran, capture
+   d'une image compressee (JPEG), puis callback. Repli automatique sur le
+   selecteur de fichier si la camera est indisponible ou refusee. Necessite un
+   contexte securise (HTTPS / localhost) — c'est le cas sur GitHub Pages.
+   ========================================================================== */
+let CAM_STREAM = null, CAM_CB = null, CAM_OPTS = null, CAM_FACING = "environment";
+
+function cameraSupported(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+
+/** Ouvre la capture camera. cb(dataUri) est appele apres capture.
+ *  opts = { maxDim, quality, title, facing }. */
+function openCameraCapture(cb, opts){
+  CAM_CB = cb;
+  CAM_OPTS = Object.assign({ maxDim:1024, quality:0.8, title:"Prendre une photo", facing:"environment" }, opts || {});
+  CAM_FACING = CAM_OPTS.facing;
+  if (!cameraSupported()){ triggerCamFallback(); return; }   // pas de webcam -> fichier
+  renderCameraOverlay();
+  startCamStream();
+}
+
+function startCamStream(){
+  stopCamStream();
+  navigator.mediaDevices.getUserMedia({ video:{ facingMode: CAM_FACING }, audio:false })
+    .then(function(stream){
+      CAM_STREAM = stream;
+      const v = document.getElementById("camVideo");
+      if (v){ v.srcObject = stream; const pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); }
+      const hint = document.getElementById("camHint"); if (hint) hint.style.display = "none";
+    })
+    .catch(function(err){
+      // acces refuse ou pas de camera : on retombe sur le selecteur de fichier
+      const cb = CAM_CB;
+      closeCameraCapture();
+      CAM_CB = cb; CAM_OPTS = CAM_OPTS; // conserve pour le repli
+      triggerCamFallback();
+    });
+}
+
+function stopCamStream(){ if (CAM_STREAM){ try{ CAM_STREAM.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} CAM_STREAM = null; } }
+
+/** Bascule camera avant / arriere (utile sur mobile). */
+function switchCamFacing(){ CAM_FACING = (CAM_FACING === "environment") ? "user" : "environment"; startCamStream(); }
+
+/** Capture l'image courante de la video en JPEG compresse puis rappelle cb. */
+function captureCamFrame(){
+  const v = document.getElementById("camVideo");
+  if (!v || !v.videoWidth){ return; }
+  const vw = v.videoWidth, vh = v.videoHeight;
+  const scale = Math.min(1, (CAM_OPTS.maxDim || 1024) / Math.max(vw, vh));
+  const w = Math.max(1, Math.round(vw * scale)), h = Math.max(1, Math.round(vh * scale));
+  let dataUrl = "";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(v, 0, 0, w, h);
+    dataUrl = canvas.toDataURL("image/jpeg", CAM_OPTS.quality || 0.8);
+  } catch(e){ dataUrl = ""; }
+  const cb = CAM_CB;
+  closeCameraCapture();
+  if (dataUrl && cb) cb(dataUrl);
+}
+
+/** Repli : selecteur de fichier (avec capture=environment sur mobile). */
+function triggerCamFallback(){
+  const opts = CAM_OPTS || { maxDim:1024, quality:0.8 };
+  const cb = CAM_CB;
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment");
+  inp.style.display = "none";
+  document.body.appendChild(inp);
+  inp.onchange = function(){
+    const f = inp.files && inp.files[0];
+    try{ document.body.removeChild(inp); }catch(e){}
+    CAM_CB = null;
+    if (!f || !cb) return;
+    if (!/^image\//.test(f.type || "")){ alert("Choisissez un fichier image."); return; }
+    compressImageFile(f, opts.maxDim, opts.quality).then(function(d){ cb(d); }).catch(function(){ alert("Impossible de lire cette image."); });
+  };
+  inp.click();
+}
+
+function closeCameraCapture(){
+  stopCamStream();
+  CAM_CB = null;
+  const root = document.getElementById("cam-root");
+  if (root) root.innerHTML = "";
+}
+
+function renderCameraOverlay(){
+  let root = document.getElementById("cam-root");
+  if (!root){ root = document.createElement("div"); root.id = "cam-root"; document.body.appendChild(root); }
+  const bar = 'display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:16px';
+  const btn = 'ff-body font-semibold rounded-full px-4 py-2.5 text-sm flex items-center gap-1.5 cursor-pointer;border:0';
+  root.innerHTML = '<div id="camOverlay" style="position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px">'
+    + '<div class="ff-display font-bold" style="color:#fff;font-size:15px;margin-bottom:12px">'+esc(t(CAM_OPTS.title))+'</div>'
+    + '<video id="camVideo" autoplay playsinline muted style="max-width:100%;max-height:64vh;border-radius:14px;background:#111"></video>'
+    + '<div id="camHint" class="ff-body" style="color:#cfe3d3;font-size:12px;margin-top:10px">'+esc(t("Autorisez l'accès à la caméra…"))+'</div>'
+    + '<div style="'+bar+'">'
+    +   '<button type="button" onclick="captureCamFrame()" style="'+btn+';background:'+T.emerald+';color:#fff">'+icon('camera','w-4 h-4')+esc(t("Capturer"))+'</button>'
+    +   '<button type="button" onclick="switchCamFacing()" style="'+btn+';background:#ffffff22;color:#fff">'+icon('refresh-cw','w-4 h-4')+esc(t("Changer de caméra"))+'</button>'
+    +   '<button type="button" onclick="closeCameraCapture()" style="'+btn+';background:#ffffff22;color:#fff">'+icon('x','w-4 h-4')+esc(t("Annuler"))+'</button>'
+    + '</div></div>';
+  if (window.lucide) lucide.createIcons();
+}
+
+/** Capture camera -> stocke dans le champ image du RT en cours (modal Base RT). */
+function rtCameraCapture(field){
+  const cfg = RT_IMG_FIELDS[field] || RT_IMG_FIELDS.photo;
+  openCameraCapture(function(dataUrl){
+    captureRTModalFields();
+    RT_EDIT[field] = dataUrl;
+    renderRTModal();
+  }, { maxDim: cfg.isDoc ? 1024 : 512, quality: cfg.isDoc ? 0.8 : 0.72, title: (cfg.isDoc ? "Scanner · " : "Photo · ") + cfg.label });
+}
+
+/** Capture camera -> stocke dans l'image d'un candidat RT (Section 7). */
+function rtCandCameraCapture(i, field){
+  const cfg = RT_IMG_FIELDS[field] || RT_IMG_FIELDS.photo;
+  openCameraCapture(function(dataUrl){
+    const wrap = document.getElementById("rtCandImg_"+i+"_"+field);
+    if (wrap){ wrap.outerHTML = rtCandPhotoHTML(i, field, dataUrl); if (window.lucide) lucide.createIcons(); flashAutoSave(); }
+  }, { maxDim: cfg.isDoc ? 1024 : 512, quality: cfg.isDoc ? 0.8 : 0.72, title: (cfg.isDoc ? "Scanner · " : "Photo · ") + cfg.label });
+}
+
 /**
  * Envoie vers Drive toutes les photos encore en base64 d'une fiche déjà
  * synchronisée, puis remplace le base64 par l'URL Drive dans le cache local.
@@ -2785,7 +2911,7 @@ function renderRTModal(){
     + '<div class="min-w-0">'
     + '<span class="ff-body text-[11px] font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Photo du RT')+'</span>'
     + '<div class="flex items-center gap-1.5 flex-wrap">'
-    + '<label class="ff-body text-xs font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('camera','w-3.5 h-3.5')+t('Prendre une photo')+'<input type="file" accept="image/*" capture="environment" onchange="onRTPhotoPick(this)" style="display:none"></label>'
+    + '<button type="button" onclick="rtCameraCapture(\'photo\')" class="ff-body text-xs font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('camera','w-3.5 h-3.5')+t('Prendre une photo')+'</button>'
     + '<label class="ff-body text-xs font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('upload','w-3.5 h-3.5')+t('Importer')+'<input type="file" accept="image/*" onchange="onRTPhotoPick(this)" style="display:none"></label>'
     + (r.photo ? '<button type="button" onclick="removeRTPhoto(\'photo\')" class="ff-body text-xs font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1.5" style="background:#fff;color:'+T.red+';border:1px solid '+T.line+'">'+icon('trash-2','w-3.5 h-3.5')+t('Retirer')+'</button>' : '')
     + '</div></div></div>'
@@ -2880,7 +3006,7 @@ function rtDocTileHTML(field, r){
   let h = '<div><div class="ff-body text-[11px] font-medium mb-1" style="color:'+T.inkSoft+'">'+t(cfg.label)+'</div>';
   h += '<div style="'+box+'">'+(has?'':icon(cfg.icon,'w-6 h-6'))+'</div>';
   h += '<div class="flex items-center gap-1 mt-1 flex-wrap">';
-  h += '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('scan-line','w-3 h-3')+t('Scanner')+'<input type="file" accept="image/*" capture="environment" class="hidden" onchange="onRTPhotoPick(this,\''+field+'\')"></label>';
+  h += '<button type="button" onclick="rtCameraCapture(\''+field+'\')" class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('scan-line','w-3 h-3')+t('Scanner')+'</button>';
   h += '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('upload','w-3 h-3')+t('Importer')+'<input type="file" accept="image/*" class="hidden" onchange="onRTPhotoPick(this,\''+field+'\')"></label>';
   if (has) h += '<button type="button" onclick="removeRTPhoto(\''+field+'\')" class="'+btn+'" style="background:#fff;color:'+T.red+';border:1px solid '+T.line+'">'+icon('trash-2','w-3 h-3')+'</button>';
   h += '</div></div>';
@@ -3594,7 +3720,7 @@ function rtCandPhotoHTML(i, field, dataUri){
   const btn = 'ff-body text-[11px] font-semibold rounded-lg px-2 py-1.5 flex items-center gap-1 cursor-pointer';
   const hidden = '<input type="hidden" data-path="s7.candidats.'+i+'.'+field+'" value="'+esc(dataUri||"")+'">';
   const controls = '<div class="flex items-center gap-1.5 flex-wrap">'
-    + '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon(cfg.isDoc?'scan-line':'camera','w-3.5 h-3.5')+t(cfg.isDoc?'Scanner':'Prendre une photo')+'<input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleRTCandPhoto(this,'+i+',\''+field+'\')"></label>'
+    + '<button type="button" onclick="rtCandCameraCapture('+i+',\''+field+'\')" class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon(cfg.isDoc?'scan-line':'camera','w-3.5 h-3.5')+t(cfg.isDoc?'Scanner':'Prendre une photo')+'</button>'
     + '<label class="'+btn+'" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+icon('upload','w-3.5 h-3.5')+t('Importer')+'<input type="file" accept="image/*" class="hidden" onchange="handleRTCandPhoto(this,'+i+',\''+field+'\')"></label>'
     + (has ? '<button type="button" onclick="removeRTCandPhoto('+i+',\''+field+'\')" class="'+btn+'" style="background:#fff;color:'+T.red+';border:1px solid '+T.line+'">'+icon('trash-2','w-3.5 h-3.5')+t('Retirer')+'</button>' : '')
     + '</div>';
