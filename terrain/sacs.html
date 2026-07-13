@@ -71,6 +71,12 @@
     padding:7px 14px;border-radius:999px;color:var(--n700);transition:background .14s var(--ease)}
   .segb.on{background:var(--emerald);color:#fff}
   .count{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+  .histfilter{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .histfilter .field{gap:5px}
+  .histfilter .field label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .histfilter .field.grow{flex:1;min-width:190px}
+  .histfilter input{padding:9px 11px;font-size:14px}
+  .histfilter .btn.sm{align-self:flex-end}
 
   /* ---- Form ---- */
   .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-bottom:16px}
@@ -239,6 +245,12 @@
       <h2 class="sectitle">Historique des mouvements</h2>
       <div class="sp"></div>
       <span id="histCount" class="count">0 mouvement</span>
+    </div>
+    <div class="histfilter">
+      <div class="field"><label>Du</label><input type="date" id="histFrom" onchange="renderHistory()"></div>
+      <div class="field"><label>Au</label><input type="date" id="histTo" onchange="renderHistory()"></div>
+      <div class="field grow"><label>Acteur · village · type</label><input id="histQ" class="up" placeholder="Rechercher…" oninput="renderHistory()"></div>
+      <button type="button" class="btn sm" id="histReset" onclick="clearHistFilter()">Réinitialiser</button>
     </div>
     <div class="tw"><table>
       <thead><tr><th>Date</th><th>Type</th><th>Flux</th><th>Acteur · village</th><th class="num">Sacs</th><th>Doc.</th><th>État</th></tr></thead>
@@ -454,10 +466,22 @@ function render(){
   renderHistory(mv);
 }
 
-/* ---- Historique des mouvements ---- */
+/* ---- Historique des mouvements (avec filtres date + acteur/village/type) ---- */
+function clearHistFilter(){["histFrom","histTo","histQ"].forEach(i=>{const e=$(i);if(e)e.value="";});renderHistory();}
 function renderHistory(mv){
-  const rows=(mv||allMov()).slice().sort((a,b)=>String(b.created_at||b.date||"").localeCompare(String(a.created_at||a.date||"")));
-  $("histCount").textContent=rows.length+" mouvement"+(rows.length>1?"s":"");
+  const from=($("histFrom")&&$("histFrom").value)||"";
+  const to=($("histTo")&&$("histTo").value)||"";
+  const q=keyc(($("histQ")&&$("histQ").value)||"");
+  const all=(mv||allMov()).slice().sort((a,b)=>String(b.created_at||b.date||"").localeCompare(String(a.created_at||a.date||"")));
+  const rows=all.filter(m=>{
+    const d=String(m.date||"");
+    if(from && d && d<from) return false;
+    if(to && d && d>to) return false;
+    if(q){const hay=keyc((m.producteur_nom||"")+" "+(m.rt_nom||"")+" "+(m.village_nom||"")+" "+(m.cluster||"")+" "+typeLabel(m.type)+" "+(m.source||"")+" "+(m.destination||""));if(hay.indexOf(q)<0)return false;}
+    return true;
+  });
+  const filtered=(from||to||q);
+  $("histCount").textContent=rows.length+" mouvement"+(rows.length>1?"s":"")+(filtered?(" / "+all.length):"");
   $("histBody").innerHTML=rows.map(m=>{
     const doc=getDoc(m.local_id);
     const docCell=doc?'<span class="thumb" style="background-image:url(\''+doc+'\')" onclick="viewDoc(\''+esc(m.local_id)+'\')" title="Voir le document"></span>'
@@ -474,7 +498,7 @@ function renderHistory(mv){
       +'<td>'+docCell+'</td>'
       +'<td><span class="bdg '+(synced?'success':'warning')+'">'+(synced?'Synchronisé':'En attente')+'</span></td>'
       +'</tr>';
-  }).join("")||'<tr><td colspan="7" class="muted">Aucun mouvement.</td></tr>';
+  }).join("")||'<tr><td colspan="7" class="muted">'+(filtered?"Aucun mouvement pour ce filtre.":"Aucun mouvement.")+'</td></tr>';
 }
 
 /* ---- Enregistrement ---- */
