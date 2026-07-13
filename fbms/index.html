@@ -3291,7 +3291,13 @@ function StatsView(){
   const nbRTOperationnels = STATE.rt.filter(r=>["Confirmé","Actif"].includes(r.statut||"Pressenti")).length;
   const nbProd = STATE.producteurs.length; // cache local : villages consultés sur CET appareil
   const nbProdActifs = STATE.producteurs.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Identifié")).length;
-  const clusters = new Set(villages.map(v=>(v.s1.cluster||"").trim()).filter(c=>c)).size;
+  // Comptage des clusters insensible a la casse / aux accents / aux espaces
+  // (meme cle que le classement enqueteurs) : « DIABO », « Diabo » et « Diabo »
+  // avec espace ne comptent que pour un seul cluster.
+  const clusters = new Set(
+    villages.map(v=>String(v.s1.cluster||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,""))
+            .filter(c=>c)
+  ).size;
   const nbCandidatsFiches = villages.reduce((a,v)=>a+v.s7.candidats.filter(c=>c.nom).length,0);
   const totalMT = villages.reduce((a,v)=>a+(Number(v.s3.potentielMT)||0),0);
 
