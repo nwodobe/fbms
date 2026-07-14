@@ -1708,6 +1708,9 @@ async function syncNow(silent){
     await syncProducteursPushPhase(()=>{ done++; setSyncProgress(done, total); });
 
     STATE.villages = await ADAPTER.list();
+    // Backfill : tout candidat RT du recensement encore absent de la base RT y est
+    // créé automatiquement (données à jour du serveur, dédoublonnage garanti).
+    try{ await autoLinkRTFromRecensement(); }catch(e){ console.warn("[FBMS] autoLink RT :", e && e.message); }
     try{ localStorage.setItem("fbms_last_sync", new Date().toISOString()); }catch(e){}
     setSyncProgress(total, total);
     if (conflicts > 0) setSyncStatus("✔ Synchronisé — " + conflicts + " conflit(s) à arbitrer (Base de données)", T.orange);
@@ -2084,6 +2087,8 @@ async function saveForm(){
     }
   }
   STATE.villages = await ADAPTER.list();
+  // Les candidats RT saisis en Section 7 apparaissent automatiquement dans la base RT.
+  try{ await autoLinkRTFromRecensement(draft.id); }catch(e){ console.warn("[FBMS] autoLink RT :", e && e.message); }
   STATE.active="database"; STATE.formId=null;
   buildSidebar(); renderContent();
 }
@@ -2857,37 +2862,59 @@ function RTView(){
  * Import consolidé des candidats RT depuis les fiches villages (section 7).
  * Dédoublonnage : par téléphone normalisé, puis par nom si pas de téléphone.
  */
-async function importRTFromVillages(){
-  const byPhone = new Set(STATE.rt.map(r=>normPhone(r.telephone)).filter(p=>p));
-  const byName = new Set(STATE.rt.map(r=>(r.nom||"").trim().toLowerCase()).filter(n=>n));
-  let created = 0, skipped = 0;
-  for (const v of STATE.villages){
-    if (isDemoRecord(v)) continue;
+/* Clé de dédoublonnage RT par NOM + VILLAGE (deux RT homonymes dans des villages
+   différents sont bien deux RT distincts — l'ancien dédoublonnage par nom seul
+   en faisait disparaître certains). */
+function rtNameVilKey(nom, vid){ const n=(nom||"").trim().toLowerCase(); return n ? (n+"@@"+(vid||"")) : ""; }
+
+/* Matérialise dans la BASE RT les candidats RT saisis en Section 7 des fiches
+   village qui n'y figurent pas encore. Idempotent : on ne crée que les RT
+   manquants (dédoublonnage par téléphone, sinon par nom+village). Appelé
+   automatiquement après chaque synchro et après l'enregistrement d'un village,
+   pour que tout RT du recensement apparaisse tout seul dans la base RT.
+   Passer un villageId pour ne traiter que ce village. Renvoie le nombre créé. */
+async function autoLinkRTFromRecensement(onlyVillageId){
+  if (!STATE.villages || !STATE.villages.length) return 0;
+  const byPhone = new Set(STATE.rt.map(r=>normPhone(r.telephone)).filter(Boolean));
+  const byNameVil = new Set(STATE.rt.map(r=>rtNameVilKey(r.nom, r.villageId)).filter(Boolean));
+  const villages = onlyVillageId ? STATE.villages.filter(v=>v.id===onlyVillageId) : STATE.villages;
+  let created = 0;
+  for (const v of villages){
+    if (isDemoRecord(v) || !v.s7 || !v.s7.candidats) continue;
     for (const c of v.s7.candidats){
-      if (!c.nom) continue;
-      const p = normPhone(c.telephone);
-      const dup = (p && byPhone.has(p)) || (!p && byName.has(c.nom.trim().toLowerCase()));
-      if (dup){ skipped++; continue; }
+      if (!c || !c.nom) continue;
+      const ph = normPhone(c.telephone);
+      const nk = rtNameVilKey(c.nom, v.id);
+      if ((ph && byPhone.has(ph)) || (!ph && byNameVil.has(nk))) continue; // RT déjà présent
       const r = blankRT();
       r.nom = c.nom; r.telephone = c.telephone || ""; r.activite = c.activite || ""; r.instruction = c.instruction || "";
       r.smartphone = !!c.smartphone; r.compteBancaire = !!c.compteBancaire; r.compteWave = !!c.compteWave;
       r.reputation = c.reputation || "";
-      r.photo = c.photo || "";                 // reprend le portrait saisi en section 7
-      r.pieceRecto = c.pieceRecto || ""; r.pieceVerso = c.pieceVerso || ""; // + piece d'identite
-
-
+      r.photo = c.photo || ""; r.pieceRecto = c.pieceRecto || ""; r.pieceVerso = c.pieceVerso || "";
       r.villageId = v.id; r.villageNom = (v.s1 && v.s1.village) || "";
-      r.historique = [{ date:new Date().toISOString(), par:(AUTH.isConnected()?AUTH.session.email:""), type:"Import", note:"Importé depuis la fiche village " + r.villageNom }];
+      r.historique = [{ date:new Date().toISOString(), par:(AUTH.isConnected()?AUTH.session.email:""), type:"Recensement", note:"Ajouté automatiquement depuis la fiche village " + r.villageNom }];
       if (AUTH.isConnected()){ r.createdBy = AUTH.session.email; r.updatedBy = AUTH.session.email; }
       r._sync = "pending";
       await RT_ADAPTER.upsert(r);
-      if (p) byPhone.add(p); else byName.add(c.nom.trim().toLowerCase());
+      if (AUTH.isConnected()){
+        try{ const resp = await RemoteRT.upsert(r); r._sync = "synced"; r._serverUpdatedAt = (resp && resp.rt && resp.rt.updatedAt) || r.updatedAt; await RT_ADAPTER.upsert(r); }
+        catch(e){ /* reste "pending" : partira à la prochaine synchro */ }
+      }
+      if (ph) byPhone.add(ph); else byNameVil.add(nk);
       created++;
     }
   }
-  STATE.rt = await RT_ADAPTER.list();
+  if (created) STATE.rt = await RT_ADAPTER.list();
+  return created;
+}
+
+/* Bouton « Importer depuis les fiches villages » : même logique, avec message. */
+async function importRTFromVillages(){
+  const created = await autoLinkRTFromRecensement();
   renderContent();
-  alert(created + " RT importé(s), " + skipped + " doublon(s) ignoré(s)." + (created ? " Synchronisation en cours vers Google Sheets." : ""));
+  alert(created
+    ? (created + " RT ajouté(s) à la base depuis les fiches villages. Synchronisation en cours.")
+    : "Tous les RT du recensement sont déjà présents dans la base RT.");
   if (created && AUTH.isConnected()) syncNow(true);
 }
 
