@@ -2099,15 +2099,17 @@ function canDelete(){
 }
 function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fiches. Contactez l'administrateur.")); }
 
-/* Droit de MODIFIER une fiche village. En mode Supabase (avec authentification),
- * seul le Branch Manager (administrateur) peut modifier ; les autres consultent
- * la fiche en lecture seule. En mode local (sans auth), edition libre. La barriere
- * serveur reste la RLS Supabase ; ceci est le garde-fou cote interface. */
+/* Droit de MODIFIER le referentiel de recensement (villages, RT, producteurs).
+ * Aligne sur la RLS serveur public.peut_editer_terrain() : les roles de terrain
+ * — dont l'AGENT RECENSEUR — peuvent modifier ; seul « Consultation uniquement »
+ * est en lecture seule (et n'a de toute facon pas acces a ce module). En mode
+ * local (sans auth), edition libre. La vraie barriere reste la RLS Supabase. */
+const EDIT_TERRAIN_ROLES = ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur"];
 function canEditVillages(){
   if (!isSupabase()) return true;
-  return AUTH.isConnected() && AUTH.session.role === "Branch Manager";
+  return AUTH.isConnected() && EDIT_TERRAIN_ROLES.indexOf(AUTH.session.role) >= 0;
 }
-function refuseEditVillage(){ alert(t("Consultation seule : seule l'administrateur (Branch Manager) peut modifier une fiche village.")); }
+function refuseEditVillage(){ alert(t("Consultation seule : votre rôle ne permet pas de modifier cette fiche.")); }
 
 async function deleteVillageAction(id){
   if (!canDelete()) return refuseDelete();
