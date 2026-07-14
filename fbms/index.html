@@ -1149,9 +1149,11 @@ const RemoteRT = {
   async list(){
     if (isSupabase()){
       if (!(await sbSession_())) throw new Error(t("Session expirée. Reconnectez-vous.")); // v0.15.2 : anti liste vide RLS
-      const { data, error } = await SB.from("rt").select("data, created_at, updated_at, created_by, updated_by").eq("deleted", false);
+      const { data, error } = await SB.from("rt").select("data, id_rt, cluster, village_id, created_at, updated_at, created_by, updated_by").eq("deleted", false);
       if (error) throw new Error(sbErr(error));
-      return data.map(r=>Object.assign(r.data, { createdAt: r.created_at, updatedAt: r.updated_at, createdBy: r.created_by || "", updatedBy: r.updated_by || "" }));
+      // On rapatrie aussi le code RT (id_rt) et le cluster (colonnes plates,
+      // alimentées par le trigger serveur) pour un affichage/filtrage natifs.
+      return data.map(r=>Object.assign(r.data, { idRt: r.id_rt || (r.data&&r.data.idRt) || "", cluster: r.cluster || (r.data&&r.data.cluster) || "", villageId: (r.data&&r.data.villageId) || r.village_id || "", createdAt: r.created_at, updatedAt: r.updated_at, createdBy: r.created_by || "", updatedBy: r.updated_by || "" }));
     }
     const r = await callBackend("rt.list", {}); return r.rts || [];
   },
@@ -1731,7 +1733,7 @@ async function syncNow(silent){
 /* --------------------------------- STATE ---------------------------------- */
 const STATE = {
   villages: [], rt: [], producteurs: [], role: "Branch Manager", active: "dashboard", collapsed: false,
-  rtQuery: "", rtStatutFilter: "",
+  rtQuery: "", rtStatutFilter: "", rtClusterFilter: "",
   prodVillageId: "", prodQuery: "", prodStatutFilter: "",
   query: "", drawerId: null, formId: null,
   regionFilter: "", tierFilter: "", statutFilter: "", camionOnly: false,
@@ -2370,7 +2372,8 @@ function DatabaseView(){
     [["village","Village"],["potentiel","Potentiel MT"],["score","Score"]].forEach(([key,label])=>{
       html += '<th onclick="toggleSort(\''+key+'\')" class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 cursor-pointer select-none uppercase tracking-wider" style="color:'+T.inkSoft+'"><span class="inline-flex items-center gap-1">'+t(label)+' '+icon('arrow-up-down','w-3 h-3')+'</span></th>';
     });
-    html += '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Région / Dép.')+'</th>'
+    html += '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Cluster')+'</th>'
+      + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Région / Dép.')+'</th>'
       + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Enquêteur')+'</th>'
       + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Classement')+'</th>'
       + '<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t('Statut')+'</th><th class="px-4 py-2.5"></th></tr></thead><tbody>';
@@ -2382,6 +2385,7 @@ function DatabaseView(){
            : (v._sync && v._sync!=="synced" ? ' <span title="En attente de synchronisation" style="color:'+T.orange+'">'+icon('cloud-off','w-3 h-3')+'</span>' : '')) + '</td>'
         + '<td class="px-4 py-2.5 ff-mono" style="color:'+T.ink+'">'+(v.s3.potentielMT||0)+'</td>'
         + '<td class="px-4 py-2.5">'+scoreCompassSVG(score,30)+'</td>'
+        + '<td class="px-4 py-2.5 ff-body text-xs">'+((v.s1.cluster||"").trim() ? '<span class="rounded-full px-2 py-0.5" style="background:'+T.cream100+';color:'+T.forest700+';font-weight:600;font-size:11px">'+esc((v.s1.cluster||"").toUpperCase())+'</span>' : '<span style="color:'+T.inkSoft+'">—</span>')+'</td>'
         + '<td class="px-4 py-2.5 ff-body text-xs" style="color:'+T.inkSoft+'">'+v.s1.region+' / '+v.s1.departement+'</td>'
         + '<td class="px-4 py-2.5 ff-body text-xs" style="color:'+T.inkSoft+'">'+v.s1.enqueteur+'</td>'
         + '<td class="px-4 py-2.5">'+tierPillHTML(score)+'</td>'
@@ -2795,6 +2799,27 @@ async function deleteProducteur(id){
 
 function onRTSearch(v){ STATE.rtQuery = v; renderContent(); }
 function setRTStatutFilter(v){ STATE.rtStatutFilter = v; renderContent(); }
+function setRTClusterFilter(v){ STATE.rtClusterFilter = v; renderContent(); }
+
+/** Clé de normalisation (casse/accents/espaces/ponctuation ignorés). */
+function ckey(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+/** Cluster d'un RT : sa valeur propre si présente, sinon dérivée de son village
+ *  (par id, sinon par nom) — robuste même si le cluster du RT est vide. */
+function rtClusterOf(r){
+  const own = (r.cluster||"").trim();
+  if (own) return own.toUpperCase();
+  let v = r.villageId ? STATE.villages.find(x=>x.id===r.villageId) : null;
+  if (!v && r.villageNom) v = STATE.villages.find(x=>ckey((x.s1&&x.s1.village)||"")===ckey(r.villageNom));
+  const cl = v ? ((v.s1&&v.s1.cluster)||v.cluster||"") : "";
+  return cl ? cl.trim().toUpperCase() : "";
+}
+/** Options de clusters présents (RT + villages), dédupliquées et triées. */
+function rtClusterOptions(){
+  const seen={}, out=[];
+  STATE.rt.forEach(r=>{ const c=rtClusterOf(r); if(c&&!seen[ckey(c)]){seen[ckey(c)]=1;out.push(c);} });
+  STATE.villages.forEach(v=>{ const c=((v.s1&&v.s1.cluster)||v.cluster||"").trim().toUpperCase(); if(c&&!seen[ckey(c)]){seen[ckey(c)]=1;out.push(c);} });
+  return out.sort((a,b)=>a.localeCompare(b,"fr"));
+}
 
 /** Vue "Base RT" : KPIs, recherche, filtre statut, tableau trié par score. */
 function RTView(){
@@ -2804,6 +2829,7 @@ function RTView(){
     rows = rows.filter(r=> ((r.nom||"")+" "+(r.telephone||"")+" "+(r.villageNom||"")).toLowerCase().includes(q));
   }
   if (STATE.rtStatutFilter) rows = rows.filter(r=> (r.statut||"Pressenti") === STATE.rtStatutFilter);
+  if (STATE.rtClusterFilter) rows = rows.filter(r=> ckey(rtClusterOf(r)) === ckey(STATE.rtClusterFilter));
   rows.sort((a,b)=> (Number(b.score)||0) - (Number(a.score)||0));
   const nb = k => STATE.rt.filter(r=>(r.statut||"Pressenti")===k).length;
 
@@ -2823,17 +2849,21 @@ function RTView(){
     + kpiCardHTML('user-plus','Pressentis', nb("Pressenti"), null, T.inkSoft)
     + '</div>';
 
+  const clOpts = rtClusterOptions();
   html += '<div class="flex items-center gap-2 flex-wrap">'
     + '<input value="'+esc(STATE.rtQuery)+'" oninput="onRTSearch(this.value)" placeholder="'+t('Rechercher un RT, un téléphone, un village…')+'" class="ff-body text-xs rounded-lg px-3 py-2 outline-none flex-1" style="'+inputStyleAttr()+';max-width:320px"/>'
+    + '<select onchange="setRTClusterFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'"><option value="">'+t('Tous les clusters')+'</option>'
+    + clOpts.map(c=>'<option value="'+esc(c)+'" '+(ckey(STATE.rtClusterFilter)===ckey(c)?'selected':'')+'>'+esc(c)+'</option>').join('') + '</select>'
     + '<select onchange="setRTStatutFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'"><option value="">'+t('Tous statuts')+'</option>'
     + RT_STATUTS.map(s=>'<option value="'+s.key+'" '+(STATE.rtStatutFilter===s.key?'selected':'')+'>'+t(s.key)+'</option>').join('') + '</select>'
+    + (STATE.rtQuery||STATE.rtStatutFilter||STATE.rtClusterFilter ? '<span class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+rows.length+' / '+STATE.rt.length+'</span>' : '')
     + '</div>';
 
   if (rows.length === 0){
     html += '<div class="rounded-xl p-6 text-center ff-body text-sm" style="background:#fff;border:1px solid '+T.line+';color:'+T.inkSoft+'">Aucun RT. Utilisez « Importer depuis les fiches villages » pour consolider les candidats déjà recensés, ou créez un RT manuellement.</div>';
   } else {
     html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff"><div style="overflow-x:auto"><table class="w-full text-sm"><thead><tr style="background-color:'+T.cream+'">'
-      + ['Nom','Téléphone','Village','Statut','Score','Producteurs',''].map(h=>'<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+      + ['Nom','Téléphone','Village','Cluster','Statut','Score','Producteurs',''].map(h=>'<th class="ff-body text-[11px] font-semibold text-left px-4 py-2.5 uppercase tracking-wider" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
       + '</tr></thead><tbody>';
     rows.forEach(r=>{
       html += '<tr style="border-top:1px solid '+T.line+'">'
@@ -2841,10 +2871,12 @@ function RTView(){
         + '<span style="width:30px;height:30px;border-radius:8px;overflow:hidden;flex:0 0 auto;background:'+T.cream+';border:1px solid '+T.line+';display:flex;align-items:center;justify-content:center;color:'+T.inkSoft+'">'
         + (r.photo ? '<img src="'+esc(r.photo)+'" alt="" style="width:100%;height:100%;object-fit:cover"/>' : icon('user','w-3.5 h-3.5'))
         + '</span><span class="min-w-0">'
-        + '<button onclick="openRTModal(\''+r.id+'\')" class="text-left hover:underline" style="color:'+T.emerald+';font-weight:600;cursor:pointer;background:none;border:0;padding:0" title="Ouvrir la fiche RT">'+esc(r.nom||"—")+'</button>'
+        + '<button onclick="openRTModal(\''+r.id+'\')" class="text-left hover:underline block" style="color:'+T.emerald+';font-weight:600;cursor:pointer;background:none;border:0;padding:0" title="Ouvrir la fiche RT">'+esc(r.nom||"—")+'</button>'
+        + (r.idRt ? '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+esc(r.idRt)+'</span>' : '')
         + (r._sync && r._sync!=="synced" ? ' <span title="En attente de synchronisation" style="color:'+T.orange+'">'+icon('cloud-off','w-3 h-3')+'</span>' : '') + '</span></div></td>'
         + '<td class="px-4 py-2.5 ff-mono text-xs" style="color:'+T.inkSoft+'">'+esc(r.telephone||"—")+'</td>'
         + '<td class="px-4 py-2.5 ff-body text-xs" style="color:'+T.inkSoft+'">'+esc(r.villageNom||"—")+'</td>'
+        + '<td class="px-4 py-2.5 ff-body text-xs">'+(function(){ const c=rtClusterOf(r); return c ? '<span class="rounded-full px-2 py-0.5" style="background:'+T.cream100+';color:'+T.forest700+';font-weight:600;font-size:11px">'+esc(c)+'</span>' : '<span style="color:'+T.inkSoft+'">—</span>'; })()+'</td>'
         + '<td class="px-4 py-2.5">'+rtStatutPill(r.statut||"Pressenti")+'</td>'
         + '<td class="px-4 py-2.5">'+scoreCompassSVG(Number(r.score)||0,30)+'</td>'
         + '<td class="px-4 py-2.5 ff-mono text-xs" style="color:'+T.inkSoft+'">'+(function(){ const n = STATE.producteurs.filter(p=>p.rtId===r.id).length; return n ? String(n) : esc(r.nbProducteurs||"—"); })()+'</td>'
