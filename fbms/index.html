@@ -87,6 +87,20 @@
     #report-root .report-page{ box-shadow:none !important; margin:0 !important; max-width:none !important; }
   }
   #report-root, #report-root *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  /* ===== Tableau de bord executif (design v2) ===== */
+  @keyframes dashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .dash-hero{background:linear-gradient(112deg,#053B23 0%,#0A5531 78%,#00712C 100%);color:#fff;padding:36px 28px 84px;border-top:3px solid #EE9E00}
+  .dash-body{padding:0 28px 28px}
+  .dash-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:-52px;position:relative;z-index:2}
+  .dash-kpi{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(5,59,35,.10);padding:20px 20px 16px;border-top:3px solid #8DC556;display:flex;flex-direction:column;gap:6px;transition:box-shadow .2s}
+  .dash-kpi:hover{box-shadow:0 14px 36px rgba(5,59,35,.16)}
+  .dash-row{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:16px}
+  .dash-card{background:#fff;border:1px solid #E8E7E7;border-radius:14px;padding:22px}
+  .dash-h{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;margin:0;padding-left:12px;border-left:4px solid #8DC556;color:#323131}
+  .dash-vrow{display:flex;align-items:center;gap:14px;padding:10px 4px;border-bottom:1px solid #F4F4F3;width:100%;text-align:left;background:none;border-left:0;border-right:0;border-top:0;cursor:pointer}
+  .dash-vrow:hover{background:#F1F9EF}
+  @media(max-width:1000px){.dash-kpis{grid-template-columns:repeat(2,1fr)}.dash-row{grid-template-columns:1fr}.dash-hero{padding:28px 18px 80px}.dash-body{padding:0 18px 24px}}
+  @media(max-width:560px){.dash-kpis{grid-template-columns:1fr;margin-top:-40px}}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -2200,41 +2214,115 @@ function DashboardView(){
   });
   const ranking = Object.entries(rankMap).map(([k,n])=>[rankLabel[k],n]).sort((a,b)=>b[1]-a[1]);
 
-  let html = '<div class="p-6 space-y-6">';
-  html += '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">'+t('Tableau de bord exécutif')+'</h1>'
-    + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t('Vue consolidée de la campagne de recensement villages — Field Buying 2027.')+'</p></div>';
-  html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
-    + kpiCardHTML('building-2','Villages recensés', villages.length, nbPrioritaires+' '+t('prioritaires'), T.forest700)
-    + kpiCardHTML('target','Potentiel total', totalMT+' MT', totalSecure+' '+t('MT sécurisés'), T.cashew)
-    + kpiCardHTML('user-check','RT identifiés', nbRT, t('sur')+' '+(villages.length*3)+' '+t('candidats possibles'), T.emerald)
-    + kpiCardHTML('route','Accessibles 10T', villages.filter(v=>v.s5.camion10T).length, t('sur')+' '+villages.length+' '+t('villages'), T.orange)
-    + '</div>';
+  const fmtN = x => (Math.round(Number(x)||0)).toLocaleString("fr-FR");
+  const pct = totalMT>0 ? Math.round(totalSecure/totalMT*100) : 0;
+  const reste = Math.max(0, totalMT - totalSecure);
+  const nb10T = villages.filter(v=>v.s5 && v.s5.camion10T).length;
+  // Potentiel + securise par region (donnees reelles)
+  const rmap={};
+  villages.forEach(v=>{ const r=(v.s1.region||"Non renseigné"); if(!rmap[r])rmap[r]={name:r,villages:0,mt:0,sec:0}; rmap[r].villages++; rmap[r].mt+=Number(v.s3.potentielMT)||0; rmap[r].sec+=Number(v.s3.potentielSecuriseMT)||0; });
+  const regions = Object.values(rmap).sort((a,b)=>b.mt-a.mt);
+  const maxRegMt = Math.max(1, ...regions.map(r=>r.mt));
+  const weeks = computeEvolution(); const maxN = Math.max(1, ...weeks.map(w=>w.n));
+  const ring = s => 'width:38px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:conic-gradient('+T.emerald+' '+(Math.max(0,Math.min(100,s))*3.6)+'deg,'+T.cream100+' 0)';
 
-  html += '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">';
-  html += '<div class="lg:col-span-2 rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
-    + '<h3 class="ff-body text-sm font-semibold mb-3" style="color:'+T.ink+'">'+t('Potentiel (MT) par région')+'</h3>'
-    + '<div style="height:220px"><canvas id="chartRegion"></canvas></div></div>';
-  html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
-    + '<h3 class="ff-body text-sm font-semibold mb-3" style="color:'+T.ink+'">'+t('Top villages (score)')+'</h3><div class="space-y-2">';
-  topVillages.forEach(({v,score})=>{
-    html += '<button onclick="openVillage(\''+v.id+'\')" class="w-full flex items-center justify-between gap-2 py-1.5 text-left">'
-      + '<div class="min-w-0"><div class="ff-body text-sm font-medium truncate" style="color:'+T.ink+'">'+(v.s1.village||"Sans nom")+'</div>'
-      + '<div class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+v.s1.departement+'</div></div>'
-      + scoreCompassSVG(score,34) + '</button>';
+  // ---- Bande hero ----
+  let html = '<div class="dash-hero">'
+    + '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:28px;flex-wrap:wrap">'
+    + '<div><div class="ff-mono" style="font-size:11px;letter-spacing:.2em;color:'+T.cashew+';text-transform:uppercase;margin-bottom:10px">'+t('Campagne census · Field Buying 2027')+'</div>'
+    + '<h1 class="ff-display" style="font-weight:800;font-size:34px;margin:0;letter-spacing:-.02em;line-height:1.05">'+t('Tableau de bord exécutif')+'</h1>'
+    + '<p class="ff-body" style="margin:10px 0 0;color:#CFE3D3;font-size:14.5px;max-width:520px">'+t('Vue consolidée de la campagne de recensement villages — Field Buying 2027.')+'</p></div>'
+    + '<div style="min-width:300px;flex:0 1 380px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px">'
+    + '<span class="ff-body" style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#CFE3D3">'+t('Potentiel sécurisé')+'</span>'
+    + '<span class="ff-mono" style="font-size:13px"><strong style="color:'+T.cashew+';font-size:19px">'+fmtN(totalSecure)+'</strong> / '+fmtN(totalMT)+' MT · <span style="color:'+T.orange+';font-weight:600">'+pct+'%</span></span></div>'
+    + '<div style="height:10px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden">'
+    + '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,'+T.cashew+',#B6DC8E);border-radius:999px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div></div>'
+    + '</div></div>';
+
+  html += '<div class="dash-body">';
+
+  // ---- Cartes KPI (superposees) ----
+  const KPI = [
+    {label:t('Villages recensés'), value:fmtN(villages.length), unit:'', sub:nbPrioritaires+' '+t('prioritaires'), subColor:T.orange, icon:'home'},
+    {label:t('Potentiel total'),   value:fmtN(totalMT), unit:'MT', sub:fmtN(totalSecure)+' '+t('MT sécurisés'), subColor:T.emerald, icon:'target'},
+    {label:t('RT identifiés'),     value:fmtN(nbRT), unit:'', sub:t('sur')+' '+(villages.length*3)+' '+t('candidats'), subColor:T.inkSoft, icon:'user-check'},
+    {label:t('Accessibles 10T'),   value:fmtN(nb10T), unit:'/'+villages.length, sub:(villages.length?Math.round(nb10T/villages.length*100):0)+'% '+t('des villages'), subColor:T.emerald, icon:'truck'},
+  ];
+  html += '<div class="dash-kpis">' + KPI.map(k=>
+      '<div class="dash-kpi">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between">'
+      + '<span class="ff-body" style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:'+T.inkSoft+';font-weight:600">'+esc(k.label)+'</span>'
+      + '<span style="width:34px;height:34px;border-radius:10px;background:'+T.cream100+';color:'+T.emerald+';display:inline-flex;align-items:center;justify-content:center">'+icon(k.icon,'w-4 h-4')+'</span></div>'
+      + '<div class="ff-display" style="font-weight:800;font-size:30px;letter-spacing:-.02em;color:'+T.forestDark+';line-height:1">'+esc(k.value)+(k.unit?'<span style="font-size:15px;font-weight:700;color:'+T.inkSoft+';margin-left:5px">'+esc(k.unit)+'</span>':'')+'</div>'
+      + '<div class="ff-mono" style="font-size:12px;color:'+k.subColor+'">'+esc(k.sub)+'</div></div>'
+    ).join('') + '</div>';
+
+  // ---- Rangee 1 : Potentiel par region + Top villages ----
+  html += '<div class="dash-row">';
+  html += '<div class="dash-card">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">MT · '+t('campagne 2027')+'</span></div>'
+    + '<div style="display:flex;flex-direction:column;gap:16px">';
+  if (!regions.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucune donnée.')+'</div>';
+  regions.forEach(r=>{
+    html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
+      + '<span class="ff-body" style="font-weight:600;font-size:14px">'+esc(r.name)+' <span style="color:'+T.inkSoft+';font-weight:400;font-size:12.5px">· '+r.villages+' '+t('villages')+'</span></span>'
+      + '<span class="ff-mono" style="font-size:14px;color:'+T.forestDark+';font-weight:600">'+fmtN(r.mt)+' MT</span></div>'
+      + '<div style="height:24px;background:'+T.cream+';border-radius:7px;overflow:hidden;position:relative">'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.mt/maxRegMt*100)+'%;background:'+T.emerald+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div>'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.sec/maxRegMt*100)+'%;background:'+T.cashew+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div>'
+      + '<div style="display:flex;gap:16px;margin-top:5px;font-size:11.5px;color:'+T.inkSoft+'" class="ff-body">'
+      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.emerald+';margin-right:5px"></span>'+t('Potentiel')+'</span>'
+      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.cashew+';margin-right:5px"></span>'+t('Sécurisé')+' · <span class="ff-mono">'+fmtN(r.sec)+' MT</span></span></div></div>';
+  });
+  html += '</div>'
+    + '<div style="margin-top:20px;padding-top:16px;border-top:1px solid '+T.line+';display:flex;gap:28px;flex-wrap:wrap">'
+    + '<div><div class="ff-body" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:'+T.inkSoft+'">'+t('Total potentiel')+'</div><div class="ff-mono" style="font-size:18px;font-weight:600;color:'+T.forestDark+';margin-top:3px">'+fmtN(totalMT)+' MT</div></div>'
+    + '<div><div class="ff-body" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:'+T.inkSoft+'">'+t('Sécurisé')+'</div><div class="ff-mono" style="font-size:18px;font-weight:600;color:'+T.emerald+';margin-top:3px">'+fmtN(totalSecure)+' MT</div></div>'
+    + '<div><div class="ff-body" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:'+T.inkSoft+'">'+t('Reste à sécuriser')+'</div><div class="ff-mono" style="font-size:18px;font-weight:600;color:'+T.orange+';margin-top:3px">'+fmtN(reste)+' MT</div></div>'
+    + '</div></div>';
+
+  html += '<div class="dash-card"><h2 class="dash-h" style="margin-bottom:14px">'+t('Top villages (score)')+'</h2><div style="display:flex;flex-direction:column">';
+  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucun village.')+'</div>';
+  topVillages.forEach(({v,score},i)=>{
+    html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow">'
+      + '<span class="ff-mono" style="font-size:12px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
+      + '<div style="min-width:0;flex:1"><div class="ff-body" style="font-weight:600;font-size:13.5px;color:'+T.ink+'">'+esc(v.s1.village||"Sans nom")+'</div>'
+      + '<div class="ff-body" style="font-size:11.5px;color:'+T.inkSoft+'">'+esc(v.s1.departement||v.s1.cluster||"")+'</div></div>'
+      + '<div style="'+ring(score)+'"><div style="width:30px;height:30px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center" class="ff-mono"><span style="font-size:12px;font-weight:600;color:'+T.forestDark+'">'+Math.round(score)+'</span></div></div></button>';
   });
   html += '</div></div></div>';
 
-  html += '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">';
-  html += '<div class="lg:col-span-2 rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
-    + '<h3 class="ff-body text-sm font-semibold mb-3" style="color:'+T.ink+'">'+t('Évolution des recensements')+'</h3>'
-    + '<div style="height:200px"><canvas id="chartEvolution"></canvas></div></div>';
-  html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-semibold mb-3" style="color:'+T.ink+'">'+t('Classement enquêteurs')+'</h3><div class="space-y-2.5">';
-  ranking.forEach(([nom,n],i)=>{
-    html += '<div class="flex items-center gap-3"><span class="ff-mono text-xs w-4" style="color:'+T.inkSoft+'">'+(i+1)+'</span>'
-      + '<span class="ff-body text-sm flex-1 truncate" style="color:'+T.ink+'">'+nom+'</span>'
-      + '<span class="ff-mono text-xs font-semibold" style="color:'+T.forest700+'">'+n+'</span></div>';
+  // ---- Rangee 2 : Progression census + Classement enqueteurs ----
+  html += '<div class="dash-row">';
+  html += '<div class="dash-card">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Progression du census')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">'+villages.length+' '+t('villages')+'</span></div>'
+    + '<div style="display:flex;align-items:flex-end;gap:14px;height:130px">';
+  weeks.forEach((w,i)=>{
+    const h = Math.max(4, Math.round(w.n/maxN*96));
+    const last = i===weeks.length-1;
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">'
+      + '<span class="ff-mono" style="font-size:12px;color:'+T.forestDark+';font-weight:600">'+w.n+'</span>'
+      + '<div style="width:100%;max-width:56px;height:'+h+'px;border-radius:6px 6px 2px 2px;background:'+(last?'linear-gradient(180deg,'+T.cashew+','+T.emerald+')':T.emerald)+'"></div>'
+      + '<span class="ff-mono" style="font-size:11px;color:#A3A1A1">'+esc(w.semaine)+'</span></div>';
   });
-  html += '</div></div></div></div>';
+  html += '</div></div>';
+
+  html += '<div style="background:'+T.forestDark+';color:#fff;border-radius:14px;padding:22px;position:relative;overflow:hidden">'
+    + '<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+T.orange+'"></div>'
+    + '<h2 class="ff-display" style="font-weight:700;font-size:16px;margin:0 0 16px">'+t('Classement enquêteurs')+'</h2>'
+    + '<div style="display:flex;flex-direction:column;gap:4px">';
+  if (!ranking.length) html += '<div class="ff-body" style="color:#CFE3D3;font-size:13px">'+t('Aucun enquêteur.')+'</div>';
+  ranking.slice(0,6).forEach(([nom,n],i)=>{
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;background:'+(i===0?'rgba(141,197,86,.16)':'transparent')+'">'
+      + '<span class="ff-mono" style="font-size:12px;color:'+T.cashew+';width:14px">'+(i+1)+'</span>'
+      + '<span class="ff-body" style="flex:1;font-weight:600;font-size:13.5px">'+esc(nom)+'</span>'
+      + '<span class="ff-mono" style="font-size:14px;font-weight:600;color:'+(i===0?T.cashew:'#fff')+'">'+n+'</span></div>';
+  });
+  html += '<div class="ff-body" style="margin-top:14px;font-size:11.5px;color:#CFE3D3">'+t('Villages recensés · campagne en cours')+'</div>';
+  html += '</div></div>';
+
+  html += '</div>'; // fin dash-body
   return html;
 }
 function mountDashboardCharts(){
