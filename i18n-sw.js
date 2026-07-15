@@ -1,5 +1,5 @@
 /* ANAGROCI service worker: injects FR/EN switch into every HTML module */
-const I18N_SCRIPT = '<script id="anagroci-i18n-js" defer src="/fbms/shared/i18n.js?v=ede4aed"></script>';
+const I18N_SCRIPT = '<script id="anagroci-i18n-js" defer src="/fbms/shared/i18n.js?v=ede4aed"></script><script id="anagroci-i18n-extra-js" defer src="/fbms/shared/i18n-extra.js?v=20260715b"></script>';
 self.addEventListener('install', event => { self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
 self.addEventListener('fetch', event => {
@@ -18,6 +18,8 @@ self.addEventListener('fetch', event => {
     let html = await res.text();
     if (!html.includes('anagroci-i18n-js')) {
       html = html.replace(/<\/head>/i, I18N_SCRIPT + '</head>');
+    } else if (!html.includes('anagroci-i18n-extra-js')) {
+      html = html.replace(/<\/head>/i, '<script id="anagroci-i18n-extra-js" defer src="/fbms/shared/i18n-extra.js?v=20260715b"></script></head>');
     }
     return new Response(html, { status: res.status, statusText: res.statusText, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
   })());
