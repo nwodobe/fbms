@@ -34,6 +34,10 @@
   // Espaces de travail (workspaces) : le portail oriente vers un grand module,
   // et la barre latérale n'affiche QUE les sections du module où l'on se trouve.
   var WS = {
+    procurement: { titre: "Procurement", ic: "🤝", nav: [
+      ["procurement", "Tableau de bord"], ["proceng", "Engagements"], ["procfin", "Financements LBA"],
+      ["procplan", "Arrivées prévues"], ["procperf", "Performance fournisseurs"], ["fournisseurs", "Base fournisseurs"]
+    ] },
     entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
       ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
       ["stock", "Stock & BIN"], ["sechage", "Séchage / triage"], ["sacs", "Sacs de jute"],
@@ -106,6 +110,11 @@
 
   var CRUMB = {
     accueil: ["Portail", "Chaîne de transformation cajou"],
+    procurement: ["Procurement", "Objectifs, engagements et exposition financière"],
+    proceng: ["Engagements fournisseurs", "Promesse de volume, prix, qualité et échéance"],
+    procfin: ["Financements LBA", "Avances, couverture par livraison et alertes"],
+    procplan: ["Arrivées prévues", "Planning camion relié à la réception"],
+    procperf: ["Performance fournisseurs", "Volume, qualité, ponctualité, sacs et financement"],
     entrepot: ["Activité entrepôt", "Réception, qualité, stock, séchage, transferts & sacs"],
     reception: ["Réception", "Module 1 · Dossiers camion & sampling"],
     qualite: ["Qualité", "Module 1 · Sampling, décision GM & libération"],
@@ -145,7 +154,7 @@
 
   // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
   var EYEBROW = {
-    accueil: "Portail · Chaîne cajou", entrepot: "Portail · Activité entrepôt", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
+    accueil: "Portail · Chaîne cajou", procurement: "Procurement · Pilotage", proceng: "Procurement · Engagements", procfin: "Procurement · Financements", procplan: "Procurement · Arrivées", procperf: "Procurement · Performance", entrepot: "Portail · Activité entrepôt", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
     stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
     calibrage: "Module 2 · Calibrage", caltransferts: "Module 2 · Calibrage", calreception: "Module 2 · Calibrage", calops: "Module 2 · Calibrage",
     calsorties: "Module 2 · Calibrage", calqc: "Module 2 · Calibrage", calbins: "Module 2 · Calibrage", calstops: "Module 2 · Calibrage",
@@ -174,6 +183,7 @@
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
   // Chaîne de transformation (portail v2). Étapes réelles + maillons à venir.
   var CHAIN = [
+    { key: "procurement", ic: "🤝", t: "Procurement", d: "Engagements fournisseurs, financements LBA, arrivées prévues et performance d'achat.", n: "00", tint: "neutral", go: "procurement", statut: "Nouveau" },
     { key: "entrepot", ic: "🏭", t: "Activité entrepôt", d: "Réceptions, fournisseurs, qualité, BIN, séchage, transferts et sacs de jute.", n: "01", tint: "", go: "entrepot", statut: "Opérationnel" },
     { key: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation des noix par taille, rendement par calibre et bilan matière.", n: "02", tint: "orange", go: "calibrage", statut: "Actif" },
     { key: "cuisson", ic: "🔥", t: "Cuisson", d: "Lots chargés, cycles vapeur, paramètres et contrôles de sortie.", n: "03", tint: "orange", soon: true, statut: "À connecter" },
@@ -258,6 +268,43 @@
       '</div>';
   };
   function fmtKg0(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " kg"; }
+
+  /* ---- PROCUREMENT : avant la réception physique ------------------ */
+  function money(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " FCFA"; }
+  function supplierOptions() { return (R.referentials().fournisseurs || []).map(function (f, i) { return '<option value="' + i + '">' + esc(f.lba + " · " + f.nom) + '</option>'; }).join(""); }
+  function engagementOptions() { return '<option value="">— Sans engagement —</option>' + R.procEngagements().filter(function (e) { return e.statut === "ACTIF"; }).map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.id + " · " + e.supplierNom) + '</option>'; }).join(""); }
+
+  PAGES.procurement = function () {
+    var s = R.procurementSummary(), eng = R.procEngagements(), fin = R.procFinancements(), arr = R.procArrivages();
+    var progress = s.promisKg ? Math.min(100, s.livreKg / s.promisKg * 100) : 0;
+    var overdue = fin.filter(function (f) { return f.statut === "APPROUVÉ" && f.echeance && new Date(f.echeance) < new Date() && R.supplierDelivered(f.supplierLba, f.supplierNom).valeurFcfa < f.montant; }).length;
+    return '<div class="pagehead"><h1>Procurement · Centre de pilotage</h1><p>Avant l’arrivée du camion : combien avons-nous promis, financé et planifié ? Après la réception : combien a réellement été livré et reconnu ?</p></div>' +
+      '<div class="kpis">' + kpi("Volume promis", R.round2(s.promisKg / 1000), "tonnes · engagements actifs", "") + kpi("Volume réellement reçu", R.round2(s.livreKg / 1000), progress.toFixed(1) + " % de la promesse", "") + kpi("Reste à livrer", R.round2(s.restantKg / 1000), "tonnes", s.restantKg ? "warn" : "") + kpi("Arrivées sous 7 jours", s.arrivages7j, "camions annoncés", "") + '</div>' +
+      '<div class="kpis">' + kpi("Financements approuvés", money(s.financeFcfa), "LBA", "") + kpi("Valeur livrée reconnue", money(s.couvertFcfa), "poids payé × prix", "") + kpi("Exposition non couverte", money(s.expositionFcfa), "à récupérer par livraison", s.expositionFcfa ? "danger" : "") + kpi("Financements en retard", overdue, "échéance dépassée", overdue ? "danger" : "") + '</div>' +
+      '<div class="grid2"><div class="card"><h2>Progression de la campagne</h2><div class="cbody"><div class="metric big"><small>Promesse couverte par les réceptions</small><b>' + progress.toFixed(1) + ' %</b><span>' + R.kg(s.livreKg) + ' reçus sur ' + R.kg(s.promisKg) + '</span></div>' + bar(progress) + '<div class="rule" style="margin-top:14px"><b>Lecture simple.</b> Procurement porte la promesse. La Réception et la Qualité confirment le volume réellement accepté.</div></div></div>' +
+      '<div class="card"><h2>Actions prioritaires</h2><div class="cbody"><div class="actions" style="display:grid"><button class="btn" onclick="__rcngo(\'proceng\')">+ Nouvel engagement fournisseur</button><button class="btn ghost" onclick="__rcngo(\'procfin\')">Enregistrer un financement LBA</button><button class="btn ghost" onclick="__rcngo(\'procplan\')">Planifier une arrivée camion</button><button class="btn ghost" onclick="__rcngo(\'procperf\')">Comparer les fournisseurs</button></div></div></div></div>' +
+      '<div class="grid2" style="margin-top:18px"><div class="card"><h2>Portefeuille actif</h2><div class="cbody"><div class="metrics"><div class="metric"><small>Engagements</small><b>' + eng.length + '</b></div><div class="metric"><small>Financements</small><b>' + fin.length + '</b></div><div class="metric"><small>Arrivées planifiées</small><b>' + arr.filter(function (a) { return a.statut === "ANNONCÉ"; }).length + '</b></div></div></div></div><div class="rule"><b>Quatre valeurs distinctes.</b> Volume promis ≠ poids physique reçu ≠ poids payé ≠ valeur financière reconnue. Le module les rapproche sans les mélanger.</div></div>';
+  };
+
+  PAGES.proceng = function () {
+    var rows = R.procEngagements().map(function (e) { var d = R.supplierDelivered(e.supplierLba, e.supplierNom), rest = Math.max(0, e.volumeKg - d.accepteKg), p = e.volumeKg ? d.accepteKg / e.volumeKg * 100 : 0; return '<tr><td class="mono">' + esc(e.id) + '</td><td><b>' + esc(e.supplierNom) + '</b><small style="display:block;color:var(--n500)">' + esc(e.supplierLba) + '</small></td><td>' + esc(e.type) + '</td><td class="mono">' + R.kg(e.volumeKg) + '</td><td class="mono">' + R.kg(d.accepteKg) + '</td><td class="mono">' + R.kg(rest) + '</td><td>' + bar(Math.min(100, p)) + '</td><td>' + esc(e.echeance || "—") + '</td></tr>'; }).join("") || '<tr><td colspan="8" class="empty">Aucun engagement. Utilisez le formulaire pour créer le premier.</td></tr>';
+    return '<div class="pagehead"><h1>Engagements fournisseurs</h1><p>Ce que le fournisseur s’engage à livrer : volume, prix, qualité, site et date attendue.</p></div><div class="grid2" style="align-items:start"><div class="card"><h2>Nouvel engagement</h2><div class="cbody"><label>Fournisseur</label><select id="pe_supplier">' + supplierOptions() + '</select><div class="row"><div><label>Type</label><select id="pe_type"><option>LBA</option><option>DIS</option></select></div>' + inp("pe_campaign", "Campagne", "2026") + '</div><div class="row">' + inp("pe_qty", "Volume promis (kg)", "", "number") + inp("pe_price", "Prix prévu (FCFA/kg)", "", "number") + '</div><div class="row">' + inp("pe_kor", "KOR minimum", "47", "number") + inp("pe_hum", "Humidité maximum (%)", "10", "number") + '</div><div class="row"><div><label>Site de livraison</label><select id="pe_site">' + R.ENTREPOTS.map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.nom) + '</option>'; }).join("") + '</select></div>' + inp("pe_due", "Échéance", "", "date") + '</div><label>Observation</label><textarea id="pe_note" rows="2"></textarea><div class="actions"><button class="btn" onclick="RCNUI.createProcEngagement()">Créer l’engagement</button></div></div></div><div class="rule"><b>Règle.</b> Le volume livré est repris automatiquement des lots acceptés. Une promesse ne crée jamais du stock.</div></div><div class="card" style="margin-top:18px"><h2>Suivi promesse → livraison</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>Engagement</th><th>Fournisseur</th><th>Type</th><th>Promis</th><th>Accepté</th><th>Reste</th><th>Progression</th><th>Échéance</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+  };
+
+  PAGES.procfin = function () {
+    var rows = R.procFinancements().map(function (f) { var d = R.supplierDelivered(f.supplierLba, f.supplierNom), exp = Math.max(0, f.montant - d.valeurFcfa), late = f.echeance && new Date(f.echeance) < new Date() && exp > 0; var act = f.statut === "À_APPROUVER" && R.hasPermission("finance_approve") ? '<button class="btn sm" onclick="RCNUI.approveProcFin(\'' + f.id + '\',true)">Approuver</button> <button class="btn danger sm" onclick="RCNUI.approveProcFin(\'' + f.id + '\',false)">Refuser</button>' : badgeEtat(f.statut); return '<tr><td class="mono">' + esc(f.id) + '</td><td>' + esc(f.supplierNom) + '</td><td class="mono">' + money(f.montant) + '</td><td class="mono">' + money(d.valeurFcfa) + '</td><td class="mono" style="color:' + (exp ? 'var(--danger)' : 'var(--ok)') + '">' + money(exp) + '</td><td>' + (late ? '<span class="badge b-danger">EN RETARD</span>' : esc(f.echeance || "—")) + '</td><td>' + act + '</td></tr>'; }).join("") || '<tr><td colspan="7" class="empty">Aucun financement enregistré.</td></tr>';
+    return '<div class="pagehead"><h1>Financements LBA</h1><p>Une avance doit être couverte par des livraisons reconnues. L’application montre immédiatement le montant encore exposé.</p></div><div class="grid2" style="align-items:start"><div class="card"><h2>Nouveau financement</h2><div class="cbody"><label>Fournisseur</label><select id="pf_supplier">' + supplierOptions() + '</select><label>Engagement lié</label><select id="pf_eng">' + engagementOptions() + '</select><div class="row">' + inp("pf_amount", "Montant (FCFA)", "", "number") + inp("pf_bank", "Banque", "", "text") + '</div><div class="row">' + inp("pf_ref", "Référence paiement", "", "text") + inp("pf_due", "Échéance livraison", "", "date") + '</div><div class="actions"><button class="btn" onclick="RCNUI.createProcFin()">Soumettre à approbation</button></div></div></div><div class="rule"><b>Séparation des rôles.</b> Procurement prépare le financement. Le Branch Manager l’approuve ou le refuse. La couverture provient des réceptions réelles.</div></div><div class="card" style="margin-top:18px"><h2>Exposition financière par fournisseur</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>FIN</th><th>Fournisseur</th><th>Financé</th><th>Valeur livrée</th><th>Exposition</th><th>Échéance</th><th>Décision</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+  };
+
+  PAGES.procplan = function () {
+    var rows = R.procArrivages().slice().sort(function (a, b) { return new Date(a.prevuAt) - new Date(b.prevuAt); }).map(function (a) { var act = a.recId ? '<a href="#reception/' + encodeURIComponent(a.recId) + '">' + esc(a.recId) + ' →</a>' : '<button class="btn sm" onclick="RCNUI.arriveProc(\'' + a.id + '\')">Camion arrivé</button>'; return '<tr><td>' + esc(a.prevuAt ? R.fmtDateTime(a.prevuAt) : "—") + '</td><td>' + esc(a.supplierNom) + '</td><td class="mono">' + esc(a.camion || "—") + '</td><td class="mono">' + R.kg(a.volumeKg) + '</td><td>' + esc(a.site) + '</td><td>' + esc(a.statut) + '</td><td>' + act + '</td></tr>'; }).join("") || '<tr><td colspan="7" class="empty">Aucune arrivée annoncée.</td></tr>';
+    return '<div class="pagehead"><h1>Planification des arrivées</h1><p>Le camion est annoncé une seule fois. À son arrivée, son dossier Réception est créé automatiquement avec les informations déjà connues.</p></div><div class="grid2" style="align-items:start"><div class="card"><h2>Annoncer un camion</h2><div class="cbody"><label>Fournisseur</label><select id="pa_supplier">' + supplierOptions() + '</select><label>Engagement lié</label><select id="pa_eng">' + engagementOptions() + '</select><div class="row">' + inp("pa_truck", "Immatriculation", "") + inp("pa_driver", "Chauffeur", "") + '</div><div class="row">' + inp("pa_phone", "Téléphone chauffeur", "") + inp("pa_date", "Date et heure prévues", "", "datetime-local") + '</div><div class="row">' + inp("pa_qty", "Volume annoncé (kg)", "", "number") + inp("pa_bags", "Nombre de sacs", "", "number") + '</div><label>Site prévu</label><select id="pa_site">' + R.ENTREPOTS.map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.nom) + '</option>'; }).join("") + '</select><div class="actions"><button class="btn" onclick="RCNUI.createProcArrival()">Planifier l’arrivée</button></div></div></div><div class="rule"><b>Gain terrain.</b> Lorsque le camion se présente, cliquez « Camion arrivé » : Procurement transmet le fournisseur, le camion, le volume, les sacs et le site à la Réception.</div></div><div class="card" style="margin-top:18px"><h2>Planning camion</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>Prévu</th><th>Fournisseur</th><th>Camion</th><th>Volume</th><th>Site</th><th>Statut</th><th>Réception</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+  };
+
+  PAGES.procperf = function () {
+    var rows = R.fournisseursBase().filter(function (f) { return f.livraisons > 0 || R.procEngagements().some(function (e) { return e.supplierLba === f.lba; }); }).map(function (f) { var d = R.supplierDelivered(f.lba, f.nom), js = R.juteBalance(f.lba), recs = R.receptions().filter(function (r) { return r.lba === f.lba; }), kors = recs.map(function (r) { return (r.finale || {}).korDisplay; }).filter(function (x) { return x != null; }), kor = kors.length ? kors.reduce(function (a, b) { return a + b; }, 0) / kors.length : null, rejected = recs.filter(function (r) { return r.etat === R.ETAT_REC.REFUSEE || r.etat === R.ETAT_REC.BLOQUE; }).length; return '<tr><td><a href="#sacs/' + encodeURIComponent(f.lba) + '/profil"><b>' + esc(f.nom) + '</b></a><small style="display:block;color:var(--n500)">' + esc(f.lba) + '</small></td><td class="mono">' + d.livraisons + '</td><td class="mono">' + R.kg(d.accepteKg) + '</td><td class="mono">' + (kor == null ? "—" : kor.toFixed(2)) + '</td><td class="mono">' + rejected + '</td><td class="mono">' + js.solde + '</td></tr>'; }).join("") || '<tr><td colspan="6" class="empty">Aucune livraison fournisseur.</td></tr>';
+    return '<div class="pagehead"><h1>Performance fournisseurs</h1><p>Une vue commune des livraisons, de la qualité, des blocages et de la dette de sacs.</p></div><div class="card"><h2>Fiche fournisseur simplifiée</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>Fournisseur</th><th>Livraisons</th><th>Volume accepté</th><th>KOR moyen</th><th>Refus/blocages</th><th>Sacs à retourner</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div><div class="rule" style="margin-top:18px"><b>Étape suivante.</b> La note fournisseur sera activée après validation officielle des pondérations : volume, ponctualité, qualité, couverture financière et retour des sacs.</div>';
+  };
   // Tableau de bord « Activité entrepôt » (landing du workspace entrepôt).
   PAGES.entrepot = function () {
     var d = R.dashboard();
@@ -1571,6 +1618,19 @@
 
   UI.toggleLang = function () { LANG = LANG === "fr" ? "en" : "fr"; localStorage.setItem("rcntrace.lang", LANG); route(); };
   UI.confirmReset = function () { if (confirm("Réinitialiser la démonstration ? Les données locales seront effacées et les exemples régénérés.")) { R.reset(); R.seedDemo(true); go("accueil"); route(); toast("Démonstration réinitialisée."); } };
+
+  function pickedSupplier(id) { return (R.referentials().fournisseurs || [])[Number(val(id)) || 0] || {}; }
+  UI.createProcEngagement = function () {
+    try { var f = pickedSupplier("pe_supplier"); R.createProcEngagement({ supplierNom: f.nom, supplierLba: f.lba, campagne: val("pe_campaign"), type: val("pe_type"), volumeKg: val("pe_qty"), prixKg: val("pe_price"), korMin: val("pe_kor"), humiditeMax: val("pe_hum"), site: val("pe_site"), echeance: val("pe_due"), note: val("pe_note") }); toast("Engagement fournisseur créé."); route(); } catch (e) { toast(e.message, true); }
+  };
+  UI.createProcFin = function () {
+    try { var f = pickedSupplier("pf_supplier"); R.createProcFinancement({ supplierNom: f.nom, supplierLba: f.lba, engagementId: val("pf_eng"), montant: val("pf_amount"), banque: val("pf_bank"), reference: val("pf_ref"), echeance: val("pf_due") }); toast("Financement soumis à approbation."); route(); } catch (e) { toast(e.message, true); }
+  };
+  UI.approveProcFin = function (id, ok) { var c = prompt(ok ? "Commentaire d’approbation (facultatif)" : "Motif du refus (obligatoire)", "") || ""; if (!ok && !c) return; try { R.approveProcFinancement(id, ok, c); toast(ok ? "Financement approuvé." : "Financement refusé."); route(); } catch (e) { toast(e.message, true); } };
+  UI.createProcArrival = function () {
+    try { var f = pickedSupplier("pa_supplier"), dt = val("pa_date"); R.createProcArrivage({ supplierNom: f.nom, supplierLba: f.lba, engagementId: val("pa_eng"), camion: val("pa_truck"), chauffeur: val("pa_driver"), telephone: val("pa_phone"), prevuAt: dt ? new Date(dt).toISOString() : null, volumeKg: val("pa_qty"), sacs: val("pa_bags"), site: val("pa_site") }); toast("Arrivée camion planifiée."); route(); } catch (e) { toast(e.message, true); }
+  };
+  UI.arriveProc = function (id) { if (!confirm("Confirmer que le camion est physiquement arrivé sur le site ?")) return; try { var rec = R.receptionFromProcArrivage(id); toast("Dossier " + rec.id + " créé sans ressaisie."); go("reception/" + rec.id); route(); } catch (e) { toast(e.message, true); } };
 
   UI.createReception = function () {
     try {
