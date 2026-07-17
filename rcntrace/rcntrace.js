@@ -33,16 +33,18 @@
   };
 
   // Catégories de sorties non-calibre (§M2-FR-08).
+  // Sorties non-calibre (§8) : ne jamais tout mettre dans « perte ».
+  // La « perte inexpliquée » n'est pas déclarée — c'est l'écart du bilan.
   var CATEGORIES_PERTE = [
-    { code: "rejet", label: "Rejet" },
-    { code: "poussiere", label: "Poussière" },
-    { code: "perte", label: "Perte" },
-    { code: "rework", label: "Rework" },
+    { code: "rejet_valorisable", label: "Rejet valorisable" },
+    { code: "rebut", label: "Rebut définitif" },
+    { code: "poussiere", label: "Poussière / corps étrangers" },
+    { code: "rework", label: "À retraiter (rework)" },
     { code: "residu_machine", label: "Résidu machine" }
   ];
 
-  // Motifs d'arrêt configurables (§M2-FR-06).
-  var MOTIFS_ARRET = ["Maintenance", "Changement de calibre", "Nettoyage", "Panne", "Pause équipe", "Manque matière"];
+  // Motifs d'arrêt configurables (§M2-FR-06, étape 7 « Arrêts et maintenance »).
+  var MOTIFS_ARRET = ["Panne", "Nettoyage", "Manque de matière", "Changement de réglage", "Coupure électrique", "Bourrage", "Attente de BIN", "Contrôle qualité", "Maintenance", "Pause équipe"];
 
   // Catégories de sacs constatées sur le terrain (rapports Bouaké/Yakro).
   var CATEGORIES_SAC = [
@@ -196,7 +198,8 @@
         fournisseurs: FOURNISSEURS.slice(),
         origines: ORIGINES.slice(),
         entrepots: ENTREPOTS.slice(),
-        categoriesSac: CATEGORIES_SAC.slice()
+        categoriesSac: CATEGORIES_SAC.slice(),
+        toleranceCalibragePct: null   // §9 : à définir par Production & Qualité
       },
       user: { nom: "Innocent K.", role: "Coordination" },
       seeded: false
@@ -988,26 +991,74 @@
     calEvent(c, "Déclaration " + code, poids); saveDb(); return c;
   }
 
-  // M2-FR-10 · Bilan matière : reçu = sorties + pertes + résidu.
-  function calBalance(cal) {
-    var sorties = cal.outputs.reduce(function (t, o) { return t + (o.poids || 0); }, 0);
-    var pertes = cal.losses.filter(function (l) { return l.code !== "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
-    var residu = cal.losses.filter(function (l) { return l.code === "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
-    var recu = cal.recu || 0;
-    var ecart = round2(recu - sorties - pertes - residu);
-    return { recu: round2(recu), sorties: round2(sorties), pertes: round2(pertes), residu: round2(residu), ecart: ecart, equilibre: Math.abs(ecart) < 0.001 };
+  // Tolérance de bilan matière (%) — DÉFINIE PAR LA PRODUCTION & LA QUALITÉ,
+  // jamais figée arbitrairement (§9). Non renseignée ⇒ tolérance nulle (exact).
+  function toleranceCalibrage() { var r = referentials(); return (r && r.toleranceCalibragePct != null) ? r.toleranceCalibragePct : null; }
+  function setToleranceCalibrage(pct) {
+    var r = referentials(); var p = num(pct);
+    if (p !== null && (p < 0 || p > 100)) throw new Error("Tolérance invalide (0–100 %).");
+    var avant = r.toleranceCalibragePct == null ? null : r.toleranceCalibragePct;
+    r.toleranceCalibragePct = p; audit("CAL-TOL", "tolérance calibrage", avant, p, "Réglage de la tolérance de bilan"); saveDb(); return p;
   }
 
-  // M2-FR-11 · Valider & clôturer (bloque quantité négative & écart inexpliqué).
+  // M2-FR-10 · Bilan matière : reçu = Σ calibres + rejets + résidus + écart.
+  // Écart = perte inexpliquée. Taux d'écart = écart / reçu. Tolérance configurable.
+  function calBalance(cal) {
+    var sorties = cal.outputs.reduce(function (t, o) { return t + (o.poids || 0); }, 0);
+    var residu = cal.losses.filter(function (l) { return l.code === "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
+    var pertes = cal.losses.filter(function (l) { return l.code !== "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
+    var recu = cal.recu || 0;
+    var ecart = round2(recu - sorties - pertes - residu);
+    var taux = recu ? round2(ecart / recu * 100) : null;
+    var tolPct = toleranceCalibrage();
+    var tolKg = tolPct != null ? round2(recu * tolPct / 100) : null;
+    var dansTolerance = tolPct != null ? (Math.abs(ecart) <= tolKg + 0.001) : (Math.abs(ecart) < 0.001);
+    // Répartition par calibre (part du reçu et des sorties).
+    var repartition = cal.outputs.filter(function (o) { return (o.poids || 0) > 0; }).map(function (o) {
+      return { calibre: o.calibre, poids: round2(o.poids), sacs: o.sacs || null, binDest: o.binDest || "",
+        pctRecu: recu ? round2(o.poids / recu * 100) : null, pctSorties: sorties ? round2(o.poids / sorties * 100) : null };
+    }).sort(function (a, b) { return b.poids - a.poids; });
+    return {
+      recu: round2(recu), sorties: round2(sorties), pertes: round2(pertes), residu: round2(residu),
+      ecart: ecart, taux: taux, tolerancePct: tolPct, toleranceKg: tolKg,
+      dansTolerance: dansTolerance, equilibre: Math.abs(ecart) < 0.001, repartition: repartition,
+      pertesDetail: cal.losses.map(function (l) { return { code: l.code, poids: round2(l.poids || 0) }; })
+    };
+  }
+
+  // Étape 11 · Affecter chaque calibre à sa BIN de sortie, en conservant la
+  // généalogie : la BIN de calibre porte l'opération CAL comme contributrice
+  // (CAL → TRF → BIN brute → lots → fournisseurs).
+  function calAffectBins(cal) {
+    var db = loadDb();
+    cal.outputs.forEach(function (o) {
+      if (!o.binDest || !(o.poids > 0)) return;
+      var binId = String(o.binDest).toUpperCase();
+      var cyc = binCycles().filter(function (c) { return c.binId === binId && c.etat !== ETAT_BIN.CLOS; })[0];
+      if (!cyc) {
+        cyc = { id: binId + "/" + today() + "-" + pad(nextSeq("BINCYCLE:" + binId, false), 2), binId: binId, qualiteAutorisee: "Calibre " + o.calibre, capaciteKg: null, openedAt: nowISO(), closedAt: null, etat: ETAT_BIN.ACTIF, contributors: [], calibre: o.calibre, residuKg: null };
+        db.binCycles.unshift(cyc); db.bins[binId] = cyc.id;
+      }
+      var key = "CAL:" + cal.id + ":" + o.calibre;
+      var contrib = cyc.contributors.filter(function (x) { return x.calRef === key; })[0];
+      if (!contrib) { contrib = { calRef: key, calId: cal.id, calibre: o.calibre, entree: 0, sorti: 0, qualite: "calibré" }; cyc.contributors.push(contrib); }
+      contrib.entree = round2(o.poids);
+      o.binCycleId = cyc.id;
+    });
+  }
+
+  // M2-FR-11 · Valider & clôturer (bloque quantité négative & écart hors tolérance).
   function calClose(calId, motif) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
     var b = calBalance(c);
     if (b.sorties < 0 || b.pertes < 0 || b.residu < 0) throw new Error("Quantité négative interdite (§M2-FR-10).");
-    if (!b.equilibre && !(motif && motif.trim())) throw new Error("Écart de " + kg(b.ecart) + " : justification obligatoire avant clôture (§9.1).");
+    if (!b.dansTolerance && !(motif && motif.trim()))
+      throw new Error("Écart de " + kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ")" + (b.tolerancePct != null ? " au-delà de la tolérance de " + b.tolerancePct + " %" : "") + " : justification obligatoire avant clôture (§9).");
+    calAffectBins(c);   // BIN de calibre + généalogie (étape 11)
     c.etat = ETAT_CAL.CLOS; c.endedAt = nowISO(); c.clotureMotif = motif || "";
     c.validation = { at: nowISO(), auteur: (loadDb().user || {}).nom, bilan: b };
-    calEvent(c, "Clôture — bilan " + (b.equilibre ? "équilibré" : "écart " + kg(b.ecart)));
-    audit(c.id, "calibrage", c.etat, ETAT_CAL.CLOS, motif || "Bilan équilibré");
+    calEvent(c, "Clôture — bilan " + (b.equilibre ? "équilibré" : "écart " + kg(b.ecart) + (b.taux != null ? " (" + b.taux + " %)" : "")));
+    audit(c.id, "calibrage", c.etat, ETAT_CAL.CLOS, motif || "Bilan dans la tolérance");
     saveDb();
     return c;
   }
@@ -1459,6 +1510,7 @@
     regleSortieBin: regleSortieBin, toleranceTransit: toleranceTransit, setLotPrice: setLotPrice, prixMoyenPondere: prixMoyenPondere, binPrixMoyen: binPrixMoyen, computeTransferFinance: computeTransferFinance,
     // calibrage
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
+    toleranceCalibrage: toleranceCalibrage, setToleranceCalibrage: setToleranceCalibrage,
     // sacs jute
     jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
     // géographie / entrepôts / statistiques par zone
