@@ -303,6 +303,28 @@
     if (db.audit.length > 500) db.audit.length = 500;
   }
 
+  // Habilitations par ACTION : masquer un bouton ne suffit pas, le moteur
+  // refuse également l'opération si le profil connecté n'est pas autorisé.
+  var ACTION_ROLES = {
+    reception_create: ["Opérateur", "Procurement Officer", "Warehouse Manager", "Coordination", "Administrateur"],
+    sampling: ["Qualité", "Quality Manager", "Supervisor", "Coordination", "Administrateur"],
+    gm_decision: ["GM", "General Manager", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"],
+    unloading: ["Opérateur", "Warehouse Manager", "Entrepôt", "Supervisor", "Head of Field", "Coordination", "Administrateur"],
+    lot_release: ["Qualité", "Quality Manager", "Supervisor", "Coordination", "Administrateur"],
+    bin_close: ["Warehouse Manager", "Entrepôt", "Supervisor", "Coordination", "Administrateur"],
+    bin_reopen: ["GM", "General Manager", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"],
+    correction: ["Warehouse Manager", "Supervisor", "Branch Manager", "Coordination", "Administrateur"],
+    document: ["Opérateur", "Qualité", "Quality Manager", "Warehouse Manager", "Procurement Officer", "Coordination", "Administrateur"]
+  };
+  function currentRole() { return String((loadDb().user || {}).role || "").trim(); }
+  function hasPermission(action) {
+    var allowed = ACTION_ROLES[action];
+    return !allowed || allowed.indexOf(currentRole()) >= 0;
+  }
+  function requirePermission(action) {
+    if (!hasPermission(action)) throw new Error("Action non autorisée pour le rôle « " + (currentRole() || "non défini") + " ».");
+  }
+
   /* ------------------------------------------------------------------ */
   /*  4. Calculs qualité (§6.1)                                          */
   /* ------------------------------------------------------------------ */
@@ -344,6 +366,7 @@
   function referentials() { return loadDb().referentials; }
   function movements() { return loadDb().movements; }
   function dryings() { return loadDb().dryings || (loadDb().dryings = []); }
+  function documents() { return loadDb().documents || (loadDb().documents = []); }
 
   function getRec(id) { return receptions().filter(function (r) { return r.id === id; })[0] || null; }
   function getLot(id) { return lots().filter(function (l) { return l.id === id; })[0] || null; }
@@ -365,6 +388,7 @@
 
   // M1-FR-02 · Créer la réception temporaire (lot vide et verrouillé).
   function createReception(data) {
+    requirePermission("reception_create");
     var db = loadDb();
     var rec = {
       id: genId("REC", true),
@@ -409,6 +433,7 @@
 
   // M1-FR-04 · Saisir & calculer le sampling (avant déchargement).
   function saveSampling(recId, s) {
+    requirePermission("sampling");
     var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
     var kor = computeKor(s);
     rec.sampling = {
@@ -442,6 +467,7 @@
 
   // M1-FR-05 · Décision du GM (autorise/refuse). Le lot est créé seulement après accord.
   function gmDecision(recId, autorise, commentaire, delegataire) {
+    requirePermission("gm_decision");
     var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
     if (rec.etat !== ETAT_REC.ATTENTE_GM && rec.etat !== ETAT_REC.SAMPLING)
       throw new Error("La décision GM n'est possible qu'après le sampling.");
@@ -457,6 +483,7 @@
 
   // M1-FR-07 · Enregistrer le déchargement (le net physique alimente le stock).
   function saveDechargement(recId, d) {
+    requirePermission("unloading");
     var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
     if (rec.etat !== ETAT_REC.AUTORISEE && rec.etat !== ETAT_REC.DECHARGE)
       throw new Error("Le déchargement exige l'autorisation du GM.");
@@ -494,6 +521,7 @@
   // M1-FR-08 · Analyse finale (sans écraser le sampling) + M1-FR-09 libération.
   // M1-FR-06 · Création du lot officiel après analyse finale acceptée.
   function saveFinaleAndRelease(recId, f, decision, binId) {
+    requirePermission("lot_release");
     var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
     if (!rec.gm || !rec.gm.autorise) throw new Error("Le GM doit avoir autorisé le déchargement.");
     var korFinal = computeKor(f);
@@ -618,6 +646,7 @@
   // Manager). Perte = restant théorique − résidu. Seuil : alerte orange avant
   // la limite, BLOCAGE rouge au-dessus sans justification. Verrouille la BIN.
   function closeBinCycle(cycleId, d) {
+    requirePermission("bin_close");
     var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
     if (cycle.etat === ETAT_BIN.CLOS) throw new Error("Ce cycle est déjà clos (verrouillé). Une réouverture autorisée est requise.");
     var totals = binTotals(cycle);
@@ -641,6 +670,7 @@
   // Réouverture d'une BIN clôturée : exige une autorisation nominative (GM ou
   // profil désigné) et laisse une trace d'audit.
   function reopenBinCycle(cycleId, d) {
+    requirePermission("bin_reopen");
     var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
     if (cycle.etat !== ETAT_BIN.CLOS) throw new Error("Ce cycle n'est pas clos.");
     if (!d || !(d.autorisePar && d.autorisePar.trim())) throw new Error("Réouverture refusée : autorisation nominative (GM ou profil désigné) requise.");
@@ -651,6 +681,52 @@
     audit(cycle.id, "cycle BIN", ETAT_BIN.CLOS, ETAT_BIN.RECONCILIER, "Réouverture autorisée par " + d.autorisePar + (d.motif ? " · " + d.motif : ""));
     saveDb();
     return cycle;
+  }
+
+  /* Pièces justificatives du pilote. Le contenu est conservé avec le dossier
+     pour fonctionner hors connexion ; limite volontaire pour ne pas saturer
+     la tablette. En production, ces mêmes métadonnées pointeront vers Storage. */
+  function documentsFor(objetId) {
+    return documents().filter(function (d) { return d.objetId === objetId; });
+  }
+  function addDocument(data) {
+    requirePermission("document");
+    if (!data || !data.objetId) throw new Error("Dossier de rattachement obligatoire.");
+    if (!data.nom || !data.dataUrl) throw new Error("Choisissez un fichier.");
+    if ((num(data.size) || 0) > 750000) throw new Error("Fichier trop lourd : maximum 750 Ko pour le pilote hors connexion.");
+    if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/i.test(data.mime || "")) throw new Error("Format accepté : photo JPG/PNG/WEBP ou PDF.");
+    var doc = { id: genId("DOC"), objetId: data.objetId, type: data.type || "autre", nom: data.nom, mime: data.mime, size: num(data.size), dataUrl: data.dataUrl, at: nowISO(), auteur: (loadDb().user || {}).nom };
+    documents().unshift(doc);
+    audit(data.objetId, "document", null, doc.nom, "Ajout " + doc.type);
+    saveDb(); return doc;
+  }
+  function deleteDocument(id, motif) {
+    requirePermission("correction");
+    if (!(motif && motif.trim())) throw new Error("Motif obligatoire pour retirer une pièce.");
+    var idx = documents().findIndex(function (d) { return d.id === id; });
+    if (idx < 0) throw new Error("Document introuvable.");
+    var doc = documents()[idx]; documents().splice(idx, 1);
+    audit(doc.objetId, "document", doc.nom, "RETIRÉ", motif); saveDb(); return doc;
+  }
+
+  // Correction encadrée des données d'entrepôt : liste blanche, motif et
+  // approbateur obligatoires, ancienne et nouvelle valeurs conservées.
+  var REC_CORRECTABLE = ["poidsAnnonce", "sacsAnnonce", "transporteur", "chauffeur", "dechargement.net", "dechargement.refraction", "dechargement.poidsPaye", "dechargement.sacs"];
+  function correctReceptionField(recId, path, value, motif, approbateur) {
+    requirePermission("correction");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable.");
+    if (REC_CORRECTABLE.indexOf(path) < 0) throw new Error("Ce champ ne peut pas être corrigé depuis cet écran.");
+    if (!(motif && motif.trim()) || !(approbateur && approbateur.trim())) throw new Error("Motif et approbateur sont obligatoires.");
+    var parts = path.split("."), target = rec;
+    for (var i = 0; i < parts.length - 1; i++) { if (!target[parts[i]]) throw new Error("Champ indisponible sur ce dossier."); target = target[parts[i]]; }
+    var key = parts[parts.length - 1], before = target[key];
+    var numeric = /poids|sacs|net|refraction/i.test(path); var after = numeric ? num(value) : String(value || "");
+    if (numeric && after === null) throw new Error("La nouvelle valeur doit être un nombre.");
+    target[key] = after;
+    if (rec.dechargement && (path === "dechargement.net" || path === "dechargement.refraction")) rec.dechargement.poidsPaye = round2((rec.dechargement.net || 0) - (rec.dechargement.refraction || 0));
+    rec.corrections = rec.corrections || [];
+    rec.corrections.unshift({ at: nowISO(), champ: path, avant: before, apres: after, motif: motif, approbateur: approbateur, auteur: (loadDb().user || {}).nom });
+    audit(rec.id, path, before, after, motif + " · approuvé par " + approbateur); saveDb(); return rec;
   }
 
   // M1-FR-11 · Ajouter un lot dans une BIN (refuse un lot non libéré, §M1-FR-11).
@@ -1764,11 +1840,12 @@
     // qualité
     computeKor: computeKor, totalDefect: totalDefect, totalKernels: totalKernels, ecartKor: ecartKor, ecartConforme: ecartConforme,
     // collections
-    receptions: receptions, lots: lots, transfers: transfers, cals: cals, binCycles: binCycles, auditLog: auditLog, referentials: referentials, movements: movements, dryings: dryings,
+    receptions: receptions, lots: lots, transfers: transfers, cals: cals, binCycles: binCycles, auditLog: auditLog, referentials: referentials, movements: movements, dryings: dryings, documents: documents,
     getRec: getRec, getLot: getLot, getCycle: getCycle, getTrf: getTrf, getCal: getCal, getDrying: getDrying, binStock: binStock, lotQuality: lotQuality,
     // module 1
     createReception: createReception, saveSampling: saveSampling, submitToGm: submitToGm, gmDecision: gmDecision,
     saveDechargement: saveDechargement, saveFinaleAndRelease: saveFinaleAndRelease,
+    hasPermission: hasPermission, actionRoles: ACTION_ROLES, addDocument: addDocument, deleteDocument: deleteDocument, documentsFor: documentsFor, correctReceptionField: correctReceptionField,
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
     closeBinCycle: closeBinCycle, reopenBinCycle: reopenBinCycle, binTotals: binTotals, binDurationH: binDurationH, binPerteNiveau: binPerteNiveau, seuilPerteBin: seuilPerteBin,
