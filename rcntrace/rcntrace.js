@@ -65,11 +65,15 @@
     { nom: "DAGNOGO KARIM / SCOPPA", lba: "LBA-013-DAG" }
   ];
   var ORIGINES = ["Dianra", "Mankono", "Niakara", "Bouaké", "Vavoua", "Dabakala", "Kounahiri", "Korhogo", "Séguéla"];
-  // Entrepôts / sites (format d'identifiant BIN dérivé : <ENTREPÔT>-BIN-nn).
+  // Entrepôts par localité (une localité a plusieurs entrepôts).
+  // Format d'identifiant BIN dérivé : <ENTREPÔT>-BIN-nn (ex. BKE-002-BIN-017).
   var ENTREPOTS = [
-    { code: "BKE-002", nom: "Bouaké" },
-    { code: "YAKRO", nom: "Yamoussoukro" },
-    { code: "ANAGROCI-01", nom: "ANAGROCI Usine" }
+    { code: "BKE-001", nom: "Bouaké — Entrepôt 1", location: "Bouaké" },
+    { code: "BKE-002", nom: "Bouaké — Entrepôt 2", location: "Bouaké" },
+    { code: "BKE-003", nom: "Bouaké — Entrepôt 3", location: "Bouaké" },
+    { code: "YAKRO-01", nom: "Yamoussoukro — Entrepôt 1", location: "Yamoussoukro" },
+    { code: "YAKRO-02", nom: "Yamoussoukro — Entrepôt 2", location: "Yamoussoukro" },
+    { code: "ANAGROCI-01", nom: "Usine (calibrage)", location: "Yamoussoukro" }
   ];
 
   // Statuts (cf. §5).
@@ -257,9 +261,14 @@
       id: genId("REC", true),
       createdAt: nowISO(),
       camion: data.camion || "", fournisseur: data.fournisseur || "", lba: data.lba || "",
-      origine: data.origine || "", site: data.site || "", arriveeAt: data.arriveeAt || nowISO(),
+      origine: data.origine || "", site: data.site || "", warehouse: data.warehouse || data.site || "",
+      arriveeAt: data.arriveeAt || nowISO(),
       poidsAnnonce: num(data.poidsAnnonce), sacsAnnonce: num(data.sacsAnnonce),
       refDoc: data.refDoc || "",
+      source: data.fromTransfer ? "inter-entrepôt" : "fournisseur",
+      fromTransfer: data.fromTransfer || null,         // transfert d'origine (arrivée inter-entrepôt)
+      parents: data.parents || null,                    // lots contributeurs d'origine (généalogie)
+      binSuggeree: data.binSuggeree || null,
       etat: ETAT_REC.ARRIVEE,
       lotId: null,               // reste vide et verrouillé (§M1-FR-02)
       sampling: null, finale: null, gm: null, dechargement: null,
@@ -392,14 +401,17 @@
     // Libération → création du lot officiel RCN.
     var lot = {
       id: genId("RCN", true), recId: rec.id,
-      fournisseur: rec.fournisseur, origine: rec.origine, site: rec.site || "",
+      fournisseur: rec.fournisseur, origine: rec.origine, site: rec.site || "", warehouse: rec.warehouse || rec.site || "",
       sacs: rec.dechargement ? rec.dechargement.sacs : null,   // sacs portés (affichage BIN)
       korSampling: korSampling, korFinal: korFinal, korDisplay: round2(korFinal),
       ecart: ec, netInitial: rec.dechargement ? rec.dechargement.net : null,
       stock: rec.dechargement ? rec.dechargement.net : 0,   // solde du lot (kg)
       etat: ETAT_REC.LIBERE, binId: binId || null, createdAt: nowISO(),
+      fromTransfer: rec.fromTransfer || null, parents: rec.parents || null,   // généalogie ascendante
       children: []   // contributions vers BIN/TRF (généalogie descendante)
     };
+    // Généalogie : lots d'origine (arrivée inter-entrepôt) → ce lot.
+    if (rec.parents) rec.parents.forEach(function (p) { var src = getLot(p.lotId); if (src) src.children.push({ type: "lot", ref: lot.id, qty: p.qty, via: rec.fromTransfer, at: nowISO() }); });
     rec.lotId = lot.id;
     rec.etat = ETAT_REC.LIBERE;
     loadDb().lots.unshift(lot);
@@ -439,6 +451,41 @@
 
   function binStock(cycle) {
     return round2(cycle.contributors.reduce(function (t, c) { return t + (c.entree - c.sorti); }, 0));
+  }
+  // Cumuls d'un cycle : total entré, total sorti, stock théorique restant.
+  function binTotals(cycle) {
+    var entree = cycle.contributors.reduce(function (t, c) { return t + c.entree; }, 0);
+    var sorti = cycle.contributors.reduce(function (t, c) { return t + c.sorti; }, 0);
+    return { entree: round2(entree), sorti: round2(sorti), restant: round2(entree - sorti) };
+  }
+  // Durée d'un cycle en heures (ouverture → clôture ou maintenant). now optionnel.
+  function binDurationH(cycle, nowMs) {
+    var start = new Date(cycle.openedAt).getTime();
+    var end = cycle.closedAt ? new Date(cycle.closedAt).getTime() : (nowMs || null);
+    if (!end) return null;
+    return Math.round((end - start) / 3600000 * 10) / 10;
+  }
+  // M1-FR-16 · Fermeture du cycle de BIN : clôturer après confirmation du stock
+  // nul ou du résidu pesé. La perte de poids = restant théorique − résidu réel.
+  function closeBinCycle(cycleId, d) {
+    var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+    if (cycle.etat === ETAT_BIN.CLOS) throw new Error("Ce cycle est déjà clos.");
+    var totals = binTotals(cycle);
+    if (totals.restant < -0.001) throw new Error("Stock BIN négatif : impossible de clôturer.");
+    var residu = num(d.residuKg); if (residu === null) residu = totals.restant;
+    if (residu < 0) throw new Error("Résidu négatif interdit.");
+    var perte = round2(totals.restant - residu);   // perte de poids de la BIN (shrinkage)
+    cycle.residuKg = residu;
+    cycle.perteKg = perte;
+    cycle.pertePct = totals.entree ? round2(perte / totals.entree * 100) : null;
+    cycle.closedAt = nowISO();
+    cycle.dureeH = binDurationH(cycle);
+    cycle.confirmeur = d.confirmeur || (loadDb().user || {}).nom;
+    cycle.clotureMotif = d.motif || "";
+    cycle.etat = ETAT_BIN.CLOS;
+    audit(cycle.id, "cycle BIN", ETAT_BIN.ACTIF, ETAT_BIN.CLOS, "Clôture · résidu " + kg(residu) + " · perte " + kg(perte));
+    saveDb();
+    return cycle;
   }
 
   // M1-FR-11 · Ajouter un lot dans une BIN (refuse un lot non libéré, §M1-FR-11).
@@ -632,49 +679,35 @@
   }
 
   // Réception d'un transfert ENTREPÔT→ENTREPÔT (ex. Bouaké → Yakro).
-  // Chaque déchargement crée un NOUVEAU lot au site d'arrivée, rangé en BIN,
-  // avec généalogie vers les lots contributeurs d'origine (la chaîne ne se
-  // casse pas). Le stock inter-entrepôt arrive déjà qualifié : pas de nouveau
-  // sampling/GM ; seule une qualité d'arrivée est saisie.
+  // Le stock inter-entrepôt REPASSE par le cycle qualité complet (re-sampling +
+  // décision GM) : on crée donc une RÉCEPTION à destination, reliée au transfert
+  // et portant la généalogie vers les lots d'origine. Le lot officiel naîtra
+  // après sampling → GM → déchargement → analyse finale, comme une réception
+  // fournisseur, mais sa généalogie remonte aux lots d'origine.
   function receiveTransferToWarehouse(trfId, d) {
     var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
     if (trf.destinationType !== "warehouse") throw new Error("Ce transfert n'est pas destiné à un entrepôt (destination : " + trf.destinationType + ").");
     var net = num(d.net); if (net === null || net <= 0) throw new Error("Poids net reçu invalide.");
-    var binId = d.binId; if (!binId) throw new Error("BIN de déchargement requise à l'arrivée.");
-    // Réception (voyage) + perte de transit cumulée.
-    trf.voyages.push({ recu: net, binId: binId, at: nowISO(), auteur: (loadDb().user || {}).nom });
+    // Voyage + perte de transit cumulée.
+    trf.voyages.push({ recu: net, at: nowISO(), auteur: (loadDb().user || {}).nom });
     var totalRecu = trf.voyages.reduce(function (t, v) { return t + (v.recu || 0); }, 0);
     trf.poidsRecu = round2(totalRecu);
     trf.ecart = round2(trf.poidsEnvoye - trf.poidsRecu);
     trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
     if (d.kor || d.humidity || d.nc) trf.qualiteArrivee = { kor: num(d.kor), humidity: num(d.humidity), nc: num(d.nc), at: nowISO() };
-    // Nouveau lot au site d'arrivée (déjà libéré, qualité héritée / d'arrivée).
-    var korArr = d.kor != null && d.kor !== "" ? round2(num(d.kor)) : (trf.qualiteDepart && trf.qualiteDepart.kor != null ? round2(trf.qualiteDepart.kor) : null);
+    trf.etat = d.partiel ? ETAT_TRF.PARTIEL : (Math.abs(trf.ecart) > 0.001 ? ETAT_TRF.ECART : ETAT_TRF.RECU);
+    // Création de la réception à destination (repasse par sampling + GM).
     var ratio = trf.poidsEnvoye ? net / trf.poidsEnvoye : 0;
-    var lot = {
-      id: genId("RCN", true), recId: null, fromTransfer: trf.id,
-      site: trf.destinationSite || d.site || "", fournisseur: "Transfert " + trf.binId,
-      origine: "Inter-entrepôt (" + trf.binId + ")",
-      sacs: num(d.sacs), korSampling: null, korFinal: korArr, korDisplay: korArr,
-      ecart: null, netInitial: net, stock: net, etat: ETAT_REC.LIBERE, binId: null, createdAt: nowISO(),
-      // Généalogie ascendante : les lots d'origine et leur quantité portée.
-      parents: (trf.contributors || []).map(function (c) { return { lotId: c.lotId, qty: round2(c.qty * ratio) }; }),
-      children: []
-    };
-    loadDb().lots.unshift(lot);
-    // Rangement en BIN au site d'arrivée (stock d'entrepôt).
-    try { addLotToBin(binId, lot.id, net); } catch (e) { /* garde le stock sur le lot si BIN indisponible */ }
-    // Liens de généalogie : chaque lot source → nouveau lot d'arrivée.
-    (trf.contributors || []).forEach(function (c) {
-      var src = getLot(c.lotId); if (src) src.children.push({ type: "lot", ref: lot.id, qty: round2(c.qty * ratio), via: trf.id, at: nowISO() });
+    var rec = createReception({
+      camion: trf.camion || trf.voyage || "", fournisseur: "Transfert " + trf.binId,
+      origine: "Inter-entrepôt (" + trf.binId + ")", site: trf.destinationSite || d.site || "",
+      poidsAnnonce: net, sacsAnnonce: num(d.sacs), refDoc: trf.id,
+      fromTransfer: trf.id, binSuggeree: d.binId,
+      parents: (trf.contributors || []).map(function (c) { return { lotId: c.lotId, qty: round2(c.qty * ratio) }; })
     });
-    var partiel = !!d.partiel;
-    if (partiel) trf.etat = ETAT_TRF.PARTIEL;
-    else if (Math.abs(trf.ecart) > 0.001) trf.etat = ETAT_TRF.ECART;
-    else trf.etat = ETAT_TRF.RECU;
-    audit(trf.id, "réception entrepôt", trf.destinationSite, lot.id + " · " + kg(net), "Déchargement transfert → lot " + lot.id);
+    audit(trf.id, "réception entrepôt", trf.destinationSite, rec.id, "Transfert reçu → dossier " + rec.id + " (re-sampling requis)");
     saveDb();
-    return { trf: trf, lot: lot };
+    return { trf: trf, rec: rec };
   }
 
   /* ------------------------------------------------------------------ */
@@ -819,7 +852,7 @@
     if (force) { _db = emptyDb(); db = _db; }
 
     // Fournisseurs réels (coopératives + code LBA), site Bouaké, BIN <WH>-BIN-nn.
-    var F = FOURNISSEURS; var SITE = "BKE-002 · Bouaké";
+    var F = FOURNISSEURS; var SITE = "BKE-002";
     // Exemple fourni §6.2 : ligne 1 → GK 267, IMM 0, SP 15 → KOR 48.41
     var rec1 = createReception({ camion: "827KT01", fournisseur: F[0].nom, lba: F[0].lba, origine: "Korhogo", site: SITE, poidsAnnonce: 12000, sacsAnnonce: 150, refDoc: "0401-0007" });
     saveSampling(rec1.id, { gk: 267, imm: 0, spotted: 15, nc: 210, humidity: 7.2, browns: 4, voids: 3, oil: 1 });
@@ -862,16 +895,21 @@
     saveFinaleAndRelease(rec5.id, { gk: 250, imm: 0, spotted: 20, nc: 190, humidity: 7.6, browns: 8, voids: 5, oil: 3 }, "liberer", null); // écart ≥ 1 → bloqué
 
     // TRF-0001 : Bouaké → ENTREPÔT Yakro (pas l'usine), 5 000 kg (60/25/15).
-    var trf = prepareTransfer(cycle.id, 5000, "Entrepôt YAKRO", { destinationType: "warehouse", destinationSite: "YAKRO · Yamoussoukro", transporteur: "SONEL TRANS", voyage: "BKT001", chauffeur: "TRAORE BAKARY", camion: "1796GC01", korDepart: 47.6, humDepart: 9.5, ncDepart: 172 });
+    var trf = prepareTransfer(cycle.id, 5000, "Entrepôt YAKRO", { destinationType: "warehouse", destinationSite: "YAKRO-01", transporteur: "SONEL TRANS", voyage: "BKT001", chauffeur: "TRAORE BAKARY", camion: "1796GC01", korDepart: 47.6, humDepart: 9.5, ncDepart: 172 });
     qaApproveTransfer(trf.id, true, "Contrôle OK");
     shipTransfer(trf.id);
-    // Réception à Yakro : déchargement → nouveau lot en BIN (perte transit ~1 %).
+    // Réception à Yakro : le transfert crée un dossier qui REPASSE par sampling + GM.
     var yakroCyc = openBinCycle("YAKRO-BIN-01", "RCN standard", 20000);
-    receiveTransferToWarehouse(trf.id, { net: 4950, sacs: 300, binId: "YAKRO-BIN-01", kor: 47.5, humidity: 9.4, nc: 174 });
+    var arr = receiveTransferToWarehouse(trf.id, { net: 4950, sacs: 300, kor: 47.5, humidity: 9.4, nc: 174 });
     resolveTransferEcart(trf.id, "Perte de transit constatée et validée");
+    // Re-sampling + décision GM + déchargement + analyse finale à Yakro.
+    saveSampling(arr.rec.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.4, browns: 5, voids: 3, oil: 1 });
+    submitToGm(arr.rec.id); gmDecision(arr.rec.id, true, "OK", null);
+    saveDechargement(arr.rec.id, { whReceipt: "82001", ficheCca: trf.id, binDecharge: "YAKRO-BIN-01", sacsBon: 295, sacsHumid: 3, sacsDechire: 2, brut: 5000, tare: 50, net: 4950 });
+    saveFinaleAndRelease(arr.rec.id, { gk: 260, imm: 0, spotted: 15, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 2 }, "liberer", "YAKRO-BIN-01");
 
     // Livraison DIRECTE d'un fournisseur à Yakro (cycle complet sampling + GM).
-    var recy = createReception({ camion: "5521YK02", fournisseur: F[5].nom, lba: F[5].lba, origine: "Bouaké", site: "YAKRO · Yamoussoukro", poidsAnnonce: 6000, sacsAnnonce: 75, refDoc: "YK-0001" });
+    var recy = createReception({ camion: "5521YK02", fournisseur: F[5].nom, lba: F[5].lba, origine: "Bouaké", site: "YAKRO-01", poidsAnnonce: 6000, sacsAnnonce: 75, refDoc: "YK-0001" });
     saveSampling(recy.id, { gk: 264, imm: 0, spotted: 13, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 1 });
     submitToGm(recy.id); gmDecision(recy.id, true, "OK", null);
     saveDechargement(recy.id, { whReceipt: "81001", ficheCca: "YK-0001", binDecharge: "YAKRO-BIN-01", sacsBon: 73, sacsHumid: 0, sacsDechire: 2, brut: 6050, tare: 50, poidsMainDoeuvre: 20, prestataire: "MAGAH TRANS", destination: "YAKRO" });
@@ -914,6 +952,7 @@
     saveDechargement: saveDechargement, saveFinaleAndRelease: saveFinaleAndRelease,
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
+    closeBinCycle: closeBinCycle, binTotals: binTotals, binDurationH: binDurationH,
     // transfert
     prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
     // calibrage

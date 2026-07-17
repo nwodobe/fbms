@@ -213,7 +213,7 @@
         '<label>Numéro temporaire</label><input readonly value="Généré à l\'enregistrement (REC-' + R.today() + '-…)">' +
         '<div class="row"><div><label>Immatriculation camion</label><input id="f_camion" placeholder="AA-0000-CI"></div>' +
         '<div><label>Date & heure d\'arrivée</label><input id="f_arrivee" type="datetime-local" value="' + nowLocal() + '"></div></div>' +
-        '<div class="row"><div><label>Site / entrepôt</label><select id="f_site">' + refs.entrepots.map(function (e) { return '<option>' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="row"><div><label>Entrepôt (localité)</label><select id="f_site">' + refs.entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; }).map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select></div>' +
         '<div><label>Provenance / origine</label><select id="f_origine">' + refs.origines.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select></div></div>' +
         '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
         '<div class="row3"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div>' +
@@ -428,9 +428,10 @@
   PAGES.stock = function (r) {
     if (r.id) return binDetail(r.id);
     var cycles = R.binCycles();
-    var body = cycles.length ? '<div class="tablewrap"><table><thead><tr><th>Cycle BIN</th><th>BIN</th><th>Stock physique</th><th>Contributeurs</th><th>Statut</th><th></th></tr></thead><tbody>' +
+    var body = cycles.length ? '<div class="tablewrap"><table><thead><tr><th>Cycle BIN</th><th>BIN</th><th>Stock physique</th><th>Durée</th><th>Perte</th><th>Contributeurs</th><th>Statut</th><th></th></tr></thead><tbody>' +
       cycles.map(function (c) {
-        return '<tr><td class="mono">' + esc(c.id) + '</td><td class="mono">' + esc(c.binId) + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td>' + c.contributors.length + '</td><td>' + badgeEtat(c.etat) + '</td>' +
+        var h = R.binDurationH(c, Date.now()); var dur = h == null ? "—" : (h >= 48 ? Math.round(h / 24) + " j" : h + " h");
+        return '<tr><td class="mono">' + esc(c.id) + '</td><td class="mono">' + esc(c.binId) + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td>' + dur + '</td><td class="mono">' + (c.perteKg != null ? R.kg(c.perteKg) : "—") + '</td><td>' + c.contributors.length + '</td><td>' + badgeEtat(c.etat) + '</td>' +
           '<td><button class="btn ghost sm" onclick="__rcngo(\'stock/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
       }).join("") + '</tbody></table></div>' : '<div class="empty">Aucun cycle de BIN ouvert.</div>';
     return '<div class="pagehead"><h1>Stock & BIN collectives</h1><p>La BIN est un contenant, pas un nouveau lot. Après mélange, on suit les quantités et les contributeurs, pas chaque noix.</p></div>' +
@@ -447,12 +448,20 @@
       return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + esc(q.fournisseur || "—") + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td class="mono">' + (q.kor != null ? q.kor.toFixed(2) : "—") + '</td><td class="mono">' + (q.sacs == null ? "—" : q.sacs) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
     }).join("");
     var libLots = R.lots().filter(function (l) { return l.etat === R.ETAT_REC.LIBERE && l.stock > 0; });
+    var totals = R.binTotals(cyc);
+    var dureeH = R.binDurationH(cyc, Date.now());
+    var duree = dureeH == null ? "—" : (dureeH >= 48 ? Math.round(dureeH / 24) + " j" : dureeH + " h");
+    var closed = cyc.etat === R.ETAT_BIN.CLOS;
+    var closeBox = closed
+      ? '<div class="okbox">Cycle clos le ' + R.fmtDateTime(cyc.closedAt) + ' · résidu ' + R.kg(cyc.residuKg) + ' · <b>perte ' + R.kg(cyc.perteKg) + (cyc.pertePct != null ? " (" + cyc.pertePct + " %)" : "") + '</b> · par ' + esc(cyc.confirmeur || "—") + '</div>'
+      : '<div class="actions" style="margin:0 0 16px"><button class="btn ghost" onclick="RCNUI.closeBin(\'' + encodeURIComponent(cyc.id) + '\')">Clôturer la BIN (résidu + perte)</button></div>';
     return '<div class="pagehead"><h1>' + esc(cyc.binId) + ' · ' + esc(cyc.id) + ' ' + badgeEtat(cyc.etat) + '</h1><p>Composition théorique du cycle — après mélange, les pourcentages suivent le bilan matière.</p></div>' +
+      closeBox +
       '<div class="metrics">' +
         '<div class="metric big"><small>Stock physique</small><b>' + R.round2(stock) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Lots contributeurs</small><b>' + pad2(cyc.contributors.length) + '</b></div>' +
-        '<div class="metric"><small>Qualité autorisée</small><b style="font-size:15px">' + esc(cyc.qualiteAutorisee || "À valider") + '</b></div>' +
-        '<div class="metric"><small>Capacité</small><b>' + (cyc.capaciteKg ? R.round2(cyc.capaciteKg) : "—") + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Entré / Sorti</small><b style="font-size:17px">' + totals.entree + ' / ' + totals.sorti + '</b><span>kg cumulés</span></div>' +
+        '<div class="metric"><small>Durée du cycle</small><b>' + duree + '</b><span>' + (closed ? "clos" : "ouvert") + '</span></div>' +
+        '<div class="metric"><small>Contributeurs</small><b>' + pad2(cyc.contributors.length) + '</b><span>' + esc(cyc.qualiteAutorisee || "à valider") + '</span></div>' +
       '</div>' +
       '<div class="card" style="margin-bottom:16px"><h2>Composition théorique du cycle</h2><div class="cbody" style="padding:0">' +
         (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Lot officiel</th><th>Fournisseur</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>KOR</th><th>Sacs</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">BIN vide.</div>') +
@@ -510,13 +519,13 @@
     return '<div class="pagehead"><h1>Transferts</h1><p>Le transfert TRF transporte la matière et sa généalogie. C\'est le contrat de passage entre les modules.</p></div>' + body;
   };
 
-  // Formulaire de réception d'un transfert en ENTREPÔT (déchargement → lot → BIN).
+  // Réception d'un transfert en ENTREPÔT : ouvre un dossier qui REPASSE par
+  // sampling + GM (le stock inter-entrepôt est re-contrôlé à l'arrivée).
   function whReceiveForm(trf) {
-    return '<p style="color:var(--n500);font-size:13px;margin:0 0 10px">Réception à ' + esc(trf.destinationSite || "l\'entrepôt") + ' : le déchargement crée un lot rangé en BIN.</p>' +
+    return '<p style="color:var(--n500);font-size:13px;margin:0 0 10px">Réception à ' + esc(trf.destinationSite || "l\'entrepôt") + ' : ouvre un dossier qui repasse par sampling + décision GM, puis déchargement en BIN.</p>' +
       '<div class="row">' + inp("wh_net", "Poids net reçu (kg)", "", "number") + inp("wh_sacs", "Sacs reçus", "", "number") + '</div>' +
-      '<label>BIN de déchargement (au site d\'arrivée)</label><input id="wh_bin" placeholder="ex. YAKRO-BIN-01">' +
-      '<div class="row3">' + inp("wh_kor", "KOR arrivée", "", "number") + inp("wh_hum", "Humidité arrivée (%)", "", "number") + inp("wh_nc", "Nut Count arrivée", "", "number") + '</div>' +
-      '<div class="actions"><button class="btn" onclick="RCNUI.receiveWh(\'' + trf.id + '\')">Réceptionner → créer le lot en BIN</button></div>';
+      '<div class="row3">' + inp("wh_kor", "KOR arrivée (info)", "", "number") + inp("wh_hum", "Humidité arrivée (%)", "", "number") + inp("wh_nc", "Nut Count arrivée", "", "number") + '</div>' +
+      '<div class="actions"><button class="btn" onclick="RCNUI.receiveWh(\'' + trf.id + '\')">Réceptionner → sampling à l\'arrivée</button></div>';
   }
 
   function transfertDetail(id) {
@@ -813,11 +822,18 @@
   UI.receiveWh = function (id) {
     try {
       var res = R.receiveTransferToWarehouse(id, {
-        net: val("wh_net"), sacs: val("wh_sacs"), binId: val("wh_bin"),
+        net: val("wh_net"), sacs: val("wh_sacs"),
         kor: val("wh_kor"), humidity: val("wh_hum"), nc: val("wh_nc")
       });
-      toast("Réceptionné · lot " + res.lot.id + " créé en BIN."); go("stock"); route();
+      toast("Réceptionné · dossier " + res.rec.id + " (sampling requis)."); go("qualite/" + res.rec.id + "/sampling"); route();
     } catch (e) { toast(e.message, true); }
+  };
+  UI.closeBin = function (cycleId) {
+    var residu = prompt("Résidu pesé restant (kg) — laisser vide si stock nul :", "");
+    if (residu === null) return;
+    var motif = prompt("Motif / observation de clôture :", "") || "";
+    try { var c = R.closeBinCycle(decodeURIComponent(cycleId), { residuKg: residu, motif: motif }); toast("BIN clôturée · perte " + R.kg(c.perteKg) + "."); route(); }
+    catch (e) { toast(e.message, true); }
   };
   UI.qaApprove = function (id) { try { R.qaApproveTransfer(id, true, "Contrôle OK"); toast("QA approuvé."); route(); } catch (e) { toast(e.message, true); } };
   UI.ship = function (id) { try { R.shipTransfer(id); toast("Transfert expédié."); route(); } catch (e) { toast(e.message, true); } };
