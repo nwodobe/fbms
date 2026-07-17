@@ -1477,31 +1477,52 @@
 
   /* ---- FOURNISSEURS : base LBA + création à code auto -------------- */
   PAGES.fournisseurs = function () {
-    var base = R.fournisseursBase();
-    var actifs = base.filter(function (f) { return f.livraisons > 0; }).length;
-    var volTotal = base.reduce(function (a, f) { return a + f.volumeKg; }, 0);
-    var rows = base.slice().sort(function (a, b) { return (a.lba || "").localeCompare(b.lba || ""); }).map(function (f) {
-      return '<tr><td class="mono">' + esc(f.lba) + '</td><td><a href="#sacs/' + encodeURIComponent(f.lba) + '/profil">' + esc(f.nom) + '</a></td>' +
-        '<td class="mono">' + f.livraisons + '</td><td class="mono">' + (f.volumeKg ? R.kg(f.volumeKg) : "—") + '</td></tr>';
+    var sync = global.RCNSync, status = sync ? sync.status() : { hasSession: false };
+    if (!status.hasSession) {
+      return '<div class="pagehead"><h1>Base fournisseurs</h1><p>Référentiel Procurement protégé.</p></div>' +
+        '<div class="card"><div class="cbody" style="padding:42px;text-align:center"><div style="font-size:42px">🔐</div><h2>Connexion obligatoire</h2>' +
+        '<p style="color:var(--n500);max-width:520px;margin:8px auto">Les volumes, indicateurs qualité et historiques fournisseurs sont confidentiels. Connectez-vous avec un compte autorisé pour les consulter.</p></div></div>';
+    }
+    var base = sync.suppliers();
+    if (base === null) {
+      sync.loadSuppliers();
+      return '<div class="pagehead"><h1>Base fournisseurs</h1><p>Chargement du référentiel sécurisé…</p></div><div class="card"><div class="empty">Synchronisation des fiches fournisseurs…</div></div>';
+    }
+    var actifs = base.filter(function (f) { return Number(f.nb_livraisons || 0) > 0; }).length;
+    var volTotal = base.reduce(function (a, f) { return a + Number(f.volume_livre_kg || 0); }, 0);
+    var lbaCount = base.filter(function (f) { return f.categorie === "LBA"; }).length;
+    var last = base.reduce(function (m, f) { return !f.derniere_livraison ? m : (!m || f.derniere_livraison > m ? f.derniere_livraison : m); }, null);
+    var rows = base.map(function (f) {
+      var sites = (f.sites || []).join(", ") || "—";
+      var search = [f.code, f.nom, f.categorie, sites].join(" ").toLowerCase();
+      return '<tr class="supplier-row" data-search="' + esc(search) + '"><td class="mono"><b>' + esc(f.code) + '</b></td>' +
+        '<td><a href="#sacs/' + encodeURIComponent(f.code) + '/profil"><b>' + esc(f.nom) + '</b></a><small style="display:block;color:var(--n500)">' + esc(sites) + '</small></td>' +
+        '<td><span class="badge ' + (f.categorie === "LBA" ? "b-ok" : "b-neutral") + '">' + esc(f.categorie) + '</span></td>' +
+        '<td class="mono">' + Number(f.nb_livraisons || 0).toLocaleString("fr-FR") + '</td>' +
+        '<td class="mono">' + (Number(f.volume_livre_kg || 0) ? R.kg(Number(f.volume_livre_kg)) : "—") + '</td>' +
+        '<td class="mono">' + (f.kor_moyen == null ? "—" : Number(f.kor_moyen).toFixed(2)) + '</td>' +
+        '<td class="mono">' + (f.humidite_moyenne == null ? "—" : Number(f.humidite_moyenne).toFixed(1) + " %") + '</td>' +
+        '<td class="mono">' + esc(f.derniere_livraison || "—") + '</td></tr>';
     }).join("");
     var apercu = R.nextLbaCode("", "LBA");
-    return '<div class="pagehead"><h1>Base fournisseurs (LBA)</h1><p>L\'existant : coopératives et leur code officiel. Les nouveaux fournisseurs reçoivent un code généré automatiquement selon la même structuration.</p></div>' +
+    return '<div class="pagehead"><h1>Base fournisseurs</h1><p>Référentiel central du Procurement, alimenté depuis le rapport consolidé 2026. Cliquez sur un fournisseur pour consulter sa traçabilité et sa balance de sacs.</p></div>' +
       '<div class="kpis">' +
-        kpi("Fournisseurs", base.length, "codes enregistrés", "") +
-        kpi("Actifs (livraisons)", actifs, "avec au moins un lot", "") +
-        kpi("Volume acheté", R.round2(volTotal), "kg (net)", "") +
-        kpi("Prochain code", esc(apercu.replace(/-\w+$/, "-…")), "préfixe LBA", "") +
+        kpi("Fournisseurs", base.length, lbaCount + " partenaires LBA", "") +
+        kpi("Fournisseurs actifs", actifs, "avec livraison enregistrée", "") +
+        kpi("Volume livré", (volTotal / 1000000).toFixed(2), "millions de kg", "") +
+        kpi("Dernière livraison", last || "—", "mise à jour du fichier source", "") +
       '</div>' +
-      '<div class="grid2" style="align-items:start"><div class="card"><h2>Base fournisseurs <span class="badge b-neutral">' + base.length + '</span></h2><div class="cbody" style="padding:0">' +
-        '<div class="tablewrap" style="border:0"><table><thead><tr><th>Code</th><th>Nom</th><th>Livraisons</th><th>Volume</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="card"><h2>Portefeuille fournisseurs <span class="badge b-ok">Accès protégé</span></h2><div class="cbody">' +
+        '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px"><input style="max-width:420px" placeholder="Rechercher par nom, code, catégorie ou site…" oninput="RCNUI.filterSuppliers(this.value)">' +
+        '<span id="supplier-count" class="badge b-neutral">' + base.length + ' résultat(s)</span></div>' +
+        '<div class="tablewrap"><table><thead><tr><th>Code</th><th>Fournisseur / site</th><th>Type</th><th>Livraisons</th><th>Volume</th><th>KOR moy.</th><th>Humidité</th><th>Dernière livraison</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '</div></div>' +
-      '<div class="card"><h2>Nouveau fournisseur</h2><div class="cbody">' +
+      '<div class="grid2" style="align-items:start;margin-top:18px"><div class="card"><h2>Nouveau fournisseur</h2><div class="cbody">' +
         '<label>Nom de la coopérative / du fournisseur</label><input id="fo_nom" placeholder="ex. SCOOPS NOUVELLE ERE" oninput="RCNUI.previewLba()">' +
-        '<label>Préfixe du code</label><select id="fo_prefix" onchange="RCNUI.previewLba()"><option value="LBA">LBA (coopérative)</option><option value="DIS">DIS (distributeur)</option></select>' +
-        '<div class="metric" style="margin:12px 0"><small>Code qui sera attribué</small><b id="fo_preview" style="font-size:18px" class="mono">' + esc(apercu) + '</b><span>numéro séquentiel + abréviation du mot-clé</span></div>' +
-        '<div class="actions"><button class="btn" onclick="RCNUI.addFournisseur()">+ Créer le fournisseur</button></div>' +
-        '<small style="color:var(--n500)">Le code suit la logique <span class="mono">&lt;PRÉFIXE&gt;-NNN-XXX</span> : numéro incrémental et abréviation à 3 lettres du mot identifiant (hors « SCOOP », « COOP »…).</small>' +
-      '</div></div></div>';
+        '<label>Catégorie</label><select id="fo_prefix" onchange="RCNUI.previewLba()"><option value="LBA">LBA (partenaire financé)</option><option value="DIS">DIS (fournisseur direct)</option></select>' +
+        '<div class="metric" style="margin:12px 0"><small>Code proposé</small><b id="fo_preview" style="font-size:18px" class="mono">' + esc(apercu) + '</b></div>' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.addFournisseur()">+ Créer dans la base centrale</button></div></div></div>' +
+        '<div class="rule"><b>Lecture simple.</b> Les chiffres viennent du rapport consolidé. Une valeur absente reste « — » : elle n’est jamais transformée en zéro.</div></div>';
   };
 
   /* ---- CARTOGRAPHIE : qualité & volume par localité / région ------ */
@@ -1732,13 +1753,26 @@
     try { var e = R.addEntrepot({ code: val("wh_code"), nom: val("wh_nom"), location: val("wh_loc") }); toast("Entrepôt " + e.code + " créé (" + e.location + ")."); route(); }
     catch (e) { toast(e.message, true); }
   };
-  UI.previewLba = function () {
+  UI.filterSuppliers = function (q) {
+    q = String(q || "").toLowerCase().trim();
+    var shown = 0;
+    document.querySelectorAll(".supplier-row").forEach(function (row) {
+      var ok = !q || (row.getAttribute("data-search") || "").indexOf(q) >= 0;
+      row.style.display = ok ? "" : "none"; if (ok) shown += 1;
+    });
+    if (el("supplier-count")) el("supplier-count").textContent = shown + " résultat(s)";
+  };
+    UI.previewLba = function () {
     var box = el("fo_preview"); if (!box) return;
     box.textContent = R.nextLbaCode(val("fo_nom") || "", val("fo_prefix") || "LBA");
   };
   UI.addFournisseur = function () {
-    try { var f = R.addFournisseur(val("fo_nom"), val("fo_prefix") || "LBA"); toast("Fournisseur " + f.lba + " créé."); route(); }
-    catch (e) { toast(e.message, true); }
+    try {
+      var f = R.addFournisseur(val("fo_nom"), val("fo_prefix") || "LBA");
+      if (!global.RCNSync || !global.RCNSync.status().hasSession) throw new Error("Connexion requise pour enregistrer le fournisseur.");
+      global.RCNSync.saveSupplier(f).then(function () { toast("Fournisseur " + f.lba + " créé dans la base centrale."); route(); })
+        .catch(function (e) { toast("Création centrale impossible : " + e.message, true); });
+    } catch (e) { toast(e.message, true); }
   };
   UI.addToBin = function (binId) {
     try { R.addLotToBin(binId, val("bin_lot"), val("bin_qty")); toast("Lot ajouté en BIN."); route(); }
