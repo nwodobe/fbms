@@ -40,6 +40,7 @@
     carte: ["bm", "chef", "agent", "direction"],
     audit: ["bm", "chef"],
     logistique: ["bm", "chef"],
+    rcntrace: ["bm", "chef", "agent", "direction"],
     admin: ["bm"]
   };
 
