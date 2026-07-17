@@ -340,7 +340,7 @@ alter table rcn_audit                 enable row level security;
 
 -- Fonction utilitaire : l'utilisateur est-il un profil actif ?
 create or replace function rcn_est_actif() returns boolean
-language sql stable security definer as $$
+language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from profils p
     where p.user_id = auth.uid() and coalesce(p.actif, false) = true
@@ -348,7 +348,7 @@ language sql stable security definer as $$
 $$;
 
 create or replace function rcn_est_bm() returns boolean
-language sql stable security definer as $$
+language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from profils p
     where p.user_id = auth.uid() and p.role = 'Branch Manager'
