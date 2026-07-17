@@ -9,6 +9,16 @@
 --    · Aucune correction n'efface le passé : table rcn_audit + versions.
 --    · Le poids physique commande le stock ; le poids main-d'œuvre est séparé.
 --  À exécuter dans l'éditeur SQL Supabase. Complète les tables existantes FBMS.
+--  ----------------------------------------------------------------------------
+--  DEUX COUCHES :
+--    A) rcn_state (§15) — magasin OPÉRATIONNEL synchronisé par l'application
+--       (une ligne JSONB par agrégat : reception, lot, cycle BIN, transfert,
+--       calibrage, meta). C'est ce que l'app écrit en temps réel (offline-first,
+--       write-through + file d'attente). Partage multi-appareils.
+--    B) rcn_* normalisées (§1–11) — modèle ANALYTIQUE / reporting cible, prêt
+--       pour les tableaux de bord et exports. Alimentables par vues ou ETL à
+--       partir de rcn_state.
+--    rcn_audit (§11) est commun : journal append-only non modifiable.
 -- ============================================================================
 
 -- Extensions utiles
@@ -390,18 +400,48 @@ create index if not exists idx_rcn_audit_objet on rcn_audit(objet);
 -- ----------------------------------------------------------------------------
 -- 14. Amorce des référentiels (codes provisoires — à valider, §9.3)
 -- ----------------------------------------------------------------------------
-insert into rcn_referentiels (type, code, libelle, ordre) values
-  ('calibre','W180','Calibre W180',1),('calibre','W210','Calibre W210',2),
-  ('calibre','W240','Calibre W240',3),('calibre','W320','Calibre W320',4),
-  ('calibre','W450','Calibre W450',5),('calibre','SW','Scorched Wholes',6),
-  ('calibre','LWP','Large White Pieces',7),('calibre','SWP','Small White Pieces',8),
-  ('calibre','BB','Baby Bits',9),
-  ('categorie_perte','rejet','Rejet',1),('categorie_perte','poussiere','Poussière',2),
-  ('categorie_perte','perte','Perte',3),('categorie_perte','rework','Rework',4),
-  ('categorie_perte','residu_machine','Résidu machine',5),
-  ('motif_arret','maintenance','Maintenance',1),('motif_arret','changement_calibre','Changement de calibre',2),
-  ('motif_arret','nettoyage','Nettoyage',3),('motif_arret','panne','Panne',4),
-  ('motif_arret','manque_matiere','Manque matière',5)
+insert into rcn_referentiels (type, code, libelle, ordre, meta) values
+  ('calibre','C1','Calibre 1 — Très gros',1,'{"bande_noix_kg":"<=180"}'),
+  ('calibre','C2','Calibre 2',2,'{"bande_noix_kg":"181-190"}'),
+  ('calibre','C3','Calibre 3',3,'{"bande_noix_kg":"191-200"}'),
+  ('calibre','C4','Calibre 4',4,'{"bande_noix_kg":"201-210"}'),
+  ('calibre','C5','Calibre 5',5,'{"bande_noix_kg":"211-220"}'),
+  ('calibre','C6','Calibre 6',6,'{"bande_noix_kg":"221-230"}'),
+  ('calibre','C7','Calibre 7',7,'{"bande_noix_kg":"231-240"}'),
+  ('calibre','C8','Calibre 8',8,'{"bande_noix_kg":"241-250"}'),
+  ('calibre','C9','Calibre 9 — Petit',9,'{"bande_noix_kg":">250"}'),
+  ('categorie_perte','rejet','Rejet',1,'{}'),('categorie_perte','poussiere','Poussière',2,'{}'),
+  ('categorie_perte','perte','Perte',3,'{}'),('categorie_perte','rework','Rework',4,'{}'),
+  ('categorie_perte','residu_machine','Résidu machine',5,'{}'),
+  ('motif_arret','maintenance','Maintenance',1,'{}'),('motif_arret','changement_calibre','Changement de calibre',2,'{}'),
+  ('motif_arret','nettoyage','Nettoyage',3,'{}'),('motif_arret','panne','Panne',4,'{}'),
+  ('motif_arret','manque_matiere','Manque matière',5,'{}')
 on conflict (type, code) do nothing;
+
+-- ----------------------------------------------------------------------------
+-- 15. Magasin opérationnel synchronisé par l'application (offline-first)
+--     Une ligne JSONB par agrégat. L'app fait un write-through à chaque
+--     mutation ; hors connexion, les écritures sont mises en file et rejouées.
+-- ----------------------------------------------------------------------------
+create table if not exists rcn_state (
+  kind        text not null,   -- 'reception' | 'lot' | 'binCycle' | 'transfer' | 'cal' | 'meta'
+  id          text not null,
+  payload     jsonb not null,
+  updated_at  timestamptz default now(),
+  updated_by  uuid references auth.users(id),
+  primary key (kind, id)
+);
+create index if not exists idx_rcn_state_kind on rcn_state(kind);
+create index if not exists idx_rcn_state_updated on rcn_state(updated_at);
+
+alter table rcn_state enable row level security;
+drop policy if exists rcn_state_sel on rcn_state;
+drop policy if exists rcn_state_ins on rcn_state;
+drop policy if exists rcn_state_upd on rcn_state;
+drop policy if exists rcn_state_del on rcn_state;
+create policy rcn_state_sel on rcn_state for select using (rcn_est_actif());
+create policy rcn_state_ins on rcn_state for insert with check (rcn_est_actif());
+create policy rcn_state_upd on rcn_state for update using (rcn_est_actif()) with check (rcn_est_actif());
+create policy rcn_state_del on rcn_state for delete using (rcn_est_bm());
 
 -- Fin du schéma RCN TRACE.

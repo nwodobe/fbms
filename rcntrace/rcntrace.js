@@ -24,8 +24,13 @@
   var KOR_FORMULA_VERSION = "v1.0";
   var KOR_TOLERANCE = 1;                          // écart conforme si strictement < 1
 
-  // Neuf calibres — noms provisoires (§9.3 : à valider avec la Production).
-  var CALIBRES = ["W180", "W210", "W240", "W320", "W450", "SW", "LWP", "SWP", "BB"];
+  // Neuf calibres officiels RCN — grille retenue au nombre de noix/kg (§9.3).
+  var CALIBRES = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"];
+  var CALIBRE_LABELS = {
+    C1: "Très gros · ≤ 180 noix/kg", C2: "181–190 noix/kg", C3: "191–200 noix/kg",
+    C4: "201–210 noix/kg", C5: "211–220 noix/kg", C6: "221–230 noix/kg",
+    C7: "231–240 noix/kg", C8: "241–250 noix/kg", C9: "Petit · > 250 noix/kg"
+  };
 
   // Catégories de sorties non-calibre (§M2-FR-08).
   var CATEGORIES_PERTE = [
@@ -713,7 +718,7 @@
   global.RCN = {
     // constantes
     KOR_FACTOR: KOR_FACTOR, KOR_FORMULA: KOR_FORMULA, KOR_TOLERANCE: KOR_TOLERANCE,
-    CALIBRES: CALIBRES, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS,
+    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS,
     ETAT_REC: ETAT_REC, ETAT_BIN: ETAT_BIN, ETAT_TRF: ETAT_TRF, ETAT_CAL: ETAT_CAL,
     // magasin
     db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo,

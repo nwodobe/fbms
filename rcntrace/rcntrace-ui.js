@@ -551,7 +551,7 @@
     var refs = R.referentials();
     var rows = refs.calibres.map(function (cal) {
       var o = c.outputs.filter(function (x) { return x.calibre === cal; })[0] || {};
-      return '<tr><td class="mono">' + esc(cal) + '</td>' +
+      return '<tr><td class="mono">' + esc(cal) + '<br><span style="font-family:var(--fb);font-size:10px;color:var(--n500);font-weight:400">' + esc(R.CALIBRE_LABELS[cal] || "") + '</span></td>' +
         '<td><input id="o_sacs_' + esc(cal) + '" type="number" style="padding:6px;width:80px" value="' + (o.sacs == null ? "" : o.sacs) + '" placeholder="—"></td>' +
         '<td><input id="o_poids_' + esc(cal) + '" type="number" style="padding:6px;width:100px" value="' + (o.poids == null ? "" : o.poids) + '" placeholder="—"></td>' +
         '<td><input id="o_bin_' + esc(cal) + '" type="text" style="padding:6px;width:110px" value="' + esc(o.binDest || "") + '" placeholder="BIN dest."></td>' +
@@ -776,6 +776,7 @@
 
   /* ---------------- Réseau + offline box --------------------------- */
   function setNet() {
+    if (global.RCNSync) { global.RCNTRACE_SYNCSTATUS(global.RCNSync.status()); return; }
     var on = navigator.onLine;
     var n = el("net"); n.className = "net " + (on ? "on" : "off");
     el("netlbl").textContent = on ? t("net.on") : t("net.off");
@@ -789,19 +790,40 @@
   var _origRecep = PAGES.reception;
   PAGES.reception = function (r) { if (r.id && r.sub === "dech") return dechForm(r.id); return _origRecep(r); };
 
+  /* ---------------- Statut de synchronisation ---------------------- */
+  global.RCNTRACE_SYNCSTATUS = function (s) {
+    var n = el("net"); if (!n) return;
+    var online = navigator.onLine;
+    if (s.mode === "online") { n.className = "net on"; el("netlbl").textContent = s.pending ? ("Sync… " + s.pending) : "Synchronisé"; }
+    else if (s.mode === "offline") { n.className = "net off"; el("netlbl").textContent = "Hors ligne" + (s.pending ? " · " + s.pending : ""); }
+    else { n.className = "net " + (online ? "on" : "off"); el("netlbl").textContent = online ? (s.hasSession ? "En ligne" : "Local (non connecté)") : "Hors ligne"; }
+    var ob = el("offlineBox");
+    if (ob) {
+      if (s.mode === "online" && !s.pending) ob.innerHTML = '<span class="badge b-ok">Synchronisé Supabase</span> <span style="font-size:13px;color:var(--n500)">Aucun brouillon en attente.</span>';
+      else if (s.pending) ob.innerHTML = '<span class="badge b-warn">' + s.pending + ' écriture(s) en attente</span> <span style="font-size:13px;color:var(--n500)">Rejeu automatique au retour du réseau.</span>';
+      else ob.innerHTML = '<span class="badge b-neutral">Mode local</span> <span style="font-size:13px;color:var(--n500)">Connectez-vous pour synchroniser avec Supabase.</span>';
+    }
+  };
+  // Re-rendu déclenché par une hydratation asynchrone (connexion tardive).
+  global.RCNTRACE_RERENDER = function () { try { route(); } catch (e) {} };
+
   /* ---------------- Boot ------------------------------------------- */
-  function boot() {
-    if (!global.RCN) { setTimeout(boot, 60); return; }
-    R = global.RCN;
-    R.seedDemo(false);
+  function start() {
     var u = R.db().user;
     if (el("whoName")) el("whoName").textContent = u.nom;
     if (el("whoRole")) el("whoRole").textContent = u.role;
-    global.RCNTRACE_ONSAVE = function () { /* hook de resynchro éventuelle */ };
     window.addEventListener("hashchange", route);
     setNet();
     if (!location.hash) location.hash = "accueil";
     route();
+    if (global.RCNSync) global.RCNTRACE_SYNCSTATUS(global.RCNSync.status());
+  }
+  function boot() {
+    if (!global.RCN) { setTimeout(boot, 60); return; }
+    R = global.RCN;
+    // La couche de sync hydrate depuis Supabase (ou amorce localement) puis rend.
+    if (global.RCNSync) { global.RCNSync.init().then(start, start); }
+    else { R.seedDemo(false); start(); }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 
