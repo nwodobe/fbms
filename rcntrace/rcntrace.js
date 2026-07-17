@@ -462,6 +462,19 @@
   function binStock(cycle) {
     return round2(cycle.contributors.reduce(function (t, c) { return t + (c.entree - c.sorti); }, 0));
   }
+  // Entrepôt (code) et localité d'une BIN, dérivés de l'identifiant <WH>-BIN-nn.
+  function warehouseOf(binId) { var i = String(binId).indexOf("-BIN-"); return i > 0 ? binId.slice(0, i) : binId; }
+  function locationOfBin(binId) {
+    var w = warehouseOf(binId);
+    var e = (referentials().entrepots || []).filter(function (x) { return x.code === w; })[0];
+    if (e) return e.location;
+    if (/^BKE/i.test(w)) return "Bouaké";
+    if (/^YAKRO|^ANAGROCI/i.test(w)) return "Yamoussoukro";
+    return null;
+  }
+  // Le calibrage n'a lieu qu'à l'usine (Yamoussoukro) : une BIN de Bouaké ne
+  // peut pas expédier directement vers le calibrage.
+  function calibrageAutorise(binId) { var loc = locationOfBin(binId); return !loc || loc === "Yamoussoukro"; }
   // Cumuls d'un cycle : total entré, total sorti, stock théorique restant.
   function binTotals(cycle) {
     var entree = cycle.contributors.reduce(function (t, c) { return t + c.entree; }, 0);
@@ -606,6 +619,10 @@
   function prepareTransfer(cycleId, poids, destination, meta) {
     var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
     poids = num(poids); if (poids === null || poids <= 0) throw new Error("Quantité invalide.");
+    meta = meta || {};
+    // Les entrepôts de Bouaké ne font pas de calibrage (usine à Yamoussoukro).
+    if (meta.destinationType === "calibrage" && !calibrageAutorise(cycle.binId))
+      throw new Error("Les entrepôts de " + (locationOfBin(cycle.binId) || "cette localité") + " ne font pas de calibrage. Transférez d'abord vers un entrepôt de Yamoussoukro.");
     var parts = allocateFromCycle(cycle, poids);
     // Débit des contributeurs.
     parts.forEach(function (p) {
@@ -1017,6 +1034,7 @@
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
     closeBinCycle: closeBinCycle, binTotals: binTotals, binDurationH: binDurationH,
+    warehouseOf: warehouseOf, locationOfBin: locationOfBin, calibrageAutorise: calibrageAutorise,
     // transfert
     prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
     // calibrage

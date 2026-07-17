@@ -474,8 +474,10 @@
       '</div></div>' +
       '<div class="card"><h2>Créer une sortie / transfert</h2><div class="cbody">' +
         '<p style="margin:0 0 10px;color:var(--n500);font-size:13px">Répartition proportionnelle entre contributeurs (R-03).</p>' +
-        '<label>Destination</label><select id="bin_dest"><option value="cal">Calibrage · Usine</option>' +
-          R.referentials().entrepots.map(function (e) { return '<option value="wh:' + esc(e.code + " · " + e.nom) + '">Entrepôt ' + esc(e.nom) + ' (' + esc(e.code) + ')</option>'; }).join("") + '</select>' +
+        '<label>Destination</label><select id="bin_dest">' +
+          (R.calibrageAutorise(cyc.binId) ? '<option value="cal">Calibrage · Usine</option>' : "") +
+          R.referentials().entrepots.filter(function (e) { return e.code !== "ANAGROCI-01" && e.code !== R.warehouseOf(cyc.binId); }).map(function (e) { return '<option value="wh:' + esc(e.code + " · " + e.nom) + '">Entrepôt ' + esc(e.nom) + ' (' + esc(e.code) + ')</option>'; }).join("") + '</select>' +
+          (R.calibrageAutorise(cyc.binId) ? "" : '<div class="hint">Les entrepôts de ' + esc(R.locationOfBin(cyc.binId) || "cette localité") + ' ne calibrent pas : transfert vers un entrepôt uniquement.</div>') +
         '<label>Quantité à sortir (kg)</label><input id="bin_out" type="number" placeholder="—">' +
         '<div class="actions"><button class="btn" onclick="RCNUI.prepareTransfer(\'' + encodeURIComponent(cyc.id) + '\')" ' + (stock > 0 ? "" : "disabled") + '>Préparer le transfert →</button></div>' +
       '</div></div></div>';
