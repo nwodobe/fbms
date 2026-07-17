@@ -171,7 +171,9 @@
       if (r.etat === R.ETAT_REC.AUTORISEE) out.push({ ref: r.id, etape: "Déchargement", resp: "Entrepôt", statut: "À FAIRE", cls: "b-warn", hash: "reception/" + r.id });
     });
     R.transfers().forEach(function (tr) {
-      if (tr.etat === R.ETAT_TRF.EXPEDIE || tr.etat === R.ETAT_TRF.CONTROLE) out.push({ ref: tr.id, etape: "Réception", resp: "Calibrage", statut: "ARRIVÉ", cls: "b-info", hash: "calibrage" });
+      var toWh = tr.destinationType === "warehouse";
+      if (tr.etat === R.ETAT_TRF.EXPEDIE || tr.etat === R.ETAT_TRF.CONTROLE)
+        out.push({ ref: tr.id, etape: toWh ? "Réception entrepôt" : "Réception", resp: toWh ? (tr.destinationSite || "Entrepôt").split(" ")[0] : "Calibrage", statut: "ARRIVÉ", cls: "b-info", hash: toWh ? "transfert/" + tr.id : "calibrage" });
       if (tr.etat === R.ETAT_TRF.ECART) out.push({ ref: tr.id, etape: "Écart transfert", resp: "QA / Entrepôt", statut: "EN ÉCART", cls: "b-danger", hash: "transfert/" + tr.id });
     });
     R.cals().forEach(function (c) {
@@ -462,6 +464,8 @@
       '</div></div>' +
       '<div class="card"><h2>Créer une sortie / transfert</h2><div class="cbody">' +
         '<p style="margin:0 0 10px;color:var(--n500);font-size:13px">Répartition proportionnelle entre contributeurs (R-03).</p>' +
+        '<label>Destination</label><select id="bin_dest"><option value="cal">Calibrage · Usine</option>' +
+          R.referentials().entrepots.map(function (e) { return '<option value="wh:' + esc(e.code + " · " + e.nom) + '">Entrepôt ' + esc(e.nom) + ' (' + esc(e.code) + ')</option>'; }).join("") + '</select>' +
         '<label>Quantité à sortir (kg)</label><input id="bin_out" type="number" placeholder="—">' +
         '<div class="actions"><button class="btn" onclick="RCNUI.prepareTransfer(\'' + encodeURIComponent(cyc.id) + '\')" ' + (stock > 0 ? "" : "disabled") + '>Préparer le transfert →</button></div>' +
       '</div></div></div>';
@@ -506,24 +510,37 @@
     return '<div class="pagehead"><h1>Transferts</h1><p>Le transfert TRF transporte la matière et sa généalogie. C\'est le contrat de passage entre les modules.</p></div>' + body;
   };
 
+  // Formulaire de réception d'un transfert en ENTREPÔT (déchargement → lot → BIN).
+  function whReceiveForm(trf) {
+    return '<p style="color:var(--n500);font-size:13px;margin:0 0 10px">Réception à ' + esc(trf.destinationSite || "l\'entrepôt") + ' : le déchargement crée un lot rangé en BIN.</p>' +
+      '<div class="row">' + inp("wh_net", "Poids net reçu (kg)", "", "number") + inp("wh_sacs", "Sacs reçus", "", "number") + '</div>' +
+      '<label>BIN de déchargement (au site d\'arrivée)</label><input id="wh_bin" placeholder="ex. YAKRO-BIN-01">' +
+      '<div class="row3">' + inp("wh_kor", "KOR arrivée", "", "number") + inp("wh_hum", "Humidité arrivée (%)", "", "number") + inp("wh_nc", "Nut Count arrivée", "", "number") + '</div>' +
+      '<div class="actions"><button class="btn" onclick="RCNUI.receiveWh(\'' + trf.id + '\')">Réceptionner → créer le lot en BIN</button></div>';
+  }
+
   function transfertDetail(id) {
     var trf = R.getTrf(id); if (!trf) return notFound(id);
     var v = trf.validations;
     var rows = trf.contributors.map(function (c) {
       return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + bar(c.share) + '</td><td class="mono">' + R.kg(c.qty) + '</td><td>' + badgeEtat(c.qualite) + '</td></tr>';
     }).join("");
+    var toWh = trf.destinationType === "warehouse";
+    var step3 = toWh ? ("Réception " + (trf.destinationSite || "entrepôt").split(" ")[0]) : "Calibrage";
     var valStep = '<div class="stepper" style="margin-top:6px">' +
-      '<div class="st ' + (v.entrepot ? "done" : "cur") + '"><i>' + (v.entrepot ? "✓" : "1") + '</i>Entrepôt</div>' +
+      '<div class="st ' + (v.entrepot ? "done" : "cur") + '"><i>' + (v.entrepot ? "✓" : "1") + '</i>Départ</div>' +
       '<div class="st ' + (v.qa && v.qa.ok ? "done" : (v.entrepot ? "cur" : "")) + '"><i>' + (v.qa && v.qa.ok ? "✓" : "2") + '</i>QA / Lab</div>' +
-      '<div class="st ' + (v.calibrage ? "done" : "") + '"><i>' + (v.calibrage ? "✓" : "3") + '</i>Calibrage</div></div>';
+      '<div class="st ' + (v.calibrage ? "done" : "") + '"><i>' + (v.calibrage ? "✓" : "3") + '</i>' + esc(step3) + '</div></div>';
     var action = "";
     if (trf.etat === R.ETAT_TRF.PREPARE) action = '<button class="btn" onclick="RCNUI.qaApprove(\'' + id + '\')">Contrôle QA / Lab → approuver</button>';
-    else if (trf.etat === R.ETAT_TRF.CONTROLE) action = '<button class="btn" onclick="RCNUI.ship(\'' + id + '\')">Expédier vers le calibrage</button>';
-    else if (trf.etat === R.ETAT_TRF.ECART) action = '<div class="alert">Écart de ' + R.kg(trf.ecart) + ' à justifier.</div><label>Justification</label><input id="trf_motif" placeholder="Cause de l\'écart"><div class="actions"><button class="btn warn" onclick="RCNUI.resolveEcart(\'' + id + '\')">Valider l\'écart</button></div>';
-    else if ([R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = '<p style="color:var(--n500);font-size:13px;margin:0 0 8px">Réception côté calibrage.</p><button class="btn" onclick="__rcngo(\'calibrage\')">Aller au tableau de bord calibrage →</button>';
-    else action = '<div class="okbox">Transfert ' + esc(trf.etat) + '.</div>';
+    else if (trf.etat === R.ETAT_TRF.CONTROLE) action = '<button class="btn" onclick="RCNUI.ship(\'' + id + '\')">Expédier vers ' + (toWh ? esc(trf.destinationSite || "l\'entrepôt") : "le calibrage") + '</button>';
+    else if (trf.etat === R.ETAT_TRF.ECART && !toWh) action = '<div class="alert">Écart de ' + R.kg(trf.ecart) + ' à justifier.</div><label>Justification</label><input id="trf_motif" placeholder="Cause de l\'écart"><div class="actions"><button class="btn warn" onclick="RCNUI.resolveEcart(\'' + id + '\')">Valider l\'écart</button></div>';
+    else if (toWh && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = whReceiveForm(trf);
+    else if (!toWh && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = '<p style="color:var(--n500);font-size:13px;margin:0 0 8px">Réception côté calibrage.</p><button class="btn" onclick="__rcngo(\'calibrage\')">Aller au tableau de bord calibrage →</button>';
+    else action = '<div class="okbox">Transfert ' + esc(trf.etat) + (toWh && trf.destinationSite ? " · reçu à " + esc(trf.destinationSite) : "") + '.</div>';
     var logi = (trf.transporteur || trf.voyage) ? '<div style="font-size:12.5px;color:var(--n500);margin:-8px 0 16px">Transporteur <b style="color:var(--ink)">' + esc(trf.transporteur || "—") + '</b> · voyage <b style="color:var(--ink)">' + esc(trf.voyage || "—") + '</b>' + (trf.chauffeur ? ' · chauffeur ' + esc(trf.chauffeur) : "") + (trf.camion ? ' · camion ' + esc(trf.camion) : "") + '</div>' : "";
-    return '<div class="pagehead"><h1>Préparer le transfert ' + esc(trf.id) + ' ' + badgeEtat(trf.etat) + '</h1><p>CAL hérite des contributeurs de TRF ; aucune origine n\'est ressaisie.</p></div>' + logi +
+    var destTxt = toWh ? ("Entrepôt " + esc(trf.destinationSite || "?") + " — chaque déchargement y crée un lot rangé en BIN, avec généalogie.") : "Calibrage (usine) — CAL hérite des contributeurs ; aucune origine ressaisie.";
+    return '<div class="pagehead"><h1>Transfert ' + esc(trf.id) + ' → ' + (toWh ? "entrepôt" : "calibrage") + ' ' + badgeEtat(trf.etat) + '</h1><p>' + destTxt + '</p></div>' + logi +
       '<div class="metrics">' +
         '<div class="metric"><small>BIN source</small><b style="font-size:16px">' + esc(trf.binId) + '</b><span>' + esc(trf.cycleId) + '</span></div>' +
         '<div class="metric big"><small>Quantité envoyée</small><b>' + R.round2(trf.poidsEnvoye) + '</b><span>kg</span></div>' +
@@ -547,7 +564,7 @@
   };
 
   function calDashboard() {
-    var attendus = R.transfers().filter(function (t) { return [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; });
+    var attendus = R.transfers().filter(function (t) { return t.destinationType !== "warehouse" && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; });
     var enCours = R.cals().filter(function (c) { return [R.ETAT_CAL.EN_COURS, R.ETAT_CAL.PARTIEL, R.ETAT_CAL.PAUSE, R.ETAT_CAL.PRET].indexOf(c.etat) >= 0; });
     var pauses = R.cals().filter(function (c) { return c.etat === R.ETAT_CAL.PAUSE; }).length;
     var aCloturer = R.cals().filter(function (c) { return [R.ETAT_CAL.PARTIEL, R.ETAT_CAL.RAPPROCHER, R.ETAT_CAL.VALIDER].indexOf(c.etat) >= 0; }).length;
@@ -785,8 +802,22 @@
     catch (e) { toast(e.message, true); }
   };
   UI.prepareTransfer = function (cycleId) {
-    try { var trf = R.prepareTransfer(decodeURIComponent(cycleId), val("bin_out"), "Calibrage"); toast("Transfert " + trf.id + " préparé."); go("transfert/" + trf.id); route(); }
-    catch (e) { toast(e.message, true); }
+    try {
+      var dest = val("bin_dest") || "cal", meta, label;
+      if (dest.indexOf("wh:") === 0) { var site = dest.slice(3); meta = { destinationType: "warehouse", destinationSite: site }; label = "Entrepôt " + site; }
+      else { meta = { destinationType: "calibrage" }; label = "Calibrage · Usine"; }
+      var trf = R.prepareTransfer(decodeURIComponent(cycleId), val("bin_out"), label, meta);
+      toast("Transfert " + trf.id + " préparé."); go("transfert/" + trf.id); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.receiveWh = function (id) {
+    try {
+      var res = R.receiveTransferToWarehouse(id, {
+        net: val("wh_net"), sacs: val("wh_sacs"), binId: val("wh_bin"),
+        kor: val("wh_kor"), humidity: val("wh_hum"), nc: val("wh_nc")
+      });
+      toast("Réceptionné · lot " + res.lot.id + " créé en BIN."); go("stock"); route();
+    } catch (e) { toast(e.message, true); }
   };
   UI.qaApprove = function (id) { try { R.qaApproveTransfer(id, true, "Contrôle OK"); toast("QA approuvé."); route(); } catch (e) { toast(e.message, true); } };
   UI.ship = function (id) { try { R.shipTransfer(id); toast("Transfert expédié."); route(); } catch (e) { toast(e.message, true); } };

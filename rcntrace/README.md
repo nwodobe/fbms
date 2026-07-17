@@ -47,6 +47,14 @@ Aligné sur les vrais classeurs d'exploitation :
   « after drying », perte = envoyé − récupéré (généalogie préservée).
 - **Transfert** : transporteur / voyage / chauffeur, qualité au départ et à
   l'arrivée, perte de transit %.
+- **Chaîne multi-entrepôts** : Yakro n'est pas le calibrage mais un **second
+  entrepôt** qui refait le cycle réception → lot → BIN → séchage. Un transfert a
+  une destination typée — **entrepôt** (Bouaké → Yakro) ou **calibrage**
+  (Yakro → usine). Réceptionner un transfert entrepôt→entrepôt crée un **nouveau
+  lot** au site d'arrivée, rangé en BIN, avec **généalogie** vers les lots
+  d'origine. Les **livraisons directes** de fournisseurs à Yakro sont possibles
+  (réception complète sampling + GM). Le calibrage ne consomme que les
+  transferts qui lui sont destinés.
 
 > À valider avec le magasin avant implémentation : la définition exacte des
 > poids (réfaction, GRN, payé) et la règle physique de sortie d'une BIN

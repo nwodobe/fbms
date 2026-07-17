@@ -558,7 +558,10 @@
     meta = meta || {};
     var trf = {
       id: genId("TRF"), createdAt: nowISO(),
-      cycleId: cycle.id, binId: cycle.binId, destination: destination || "Calibrage",
+      cycleId: cycle.id, binId: cycle.binId,
+      // Destination typée : 'warehouse' (autre entrepôt) ou 'calibrage' (usine).
+      destinationType: meta.destinationType === "warehouse" ? "warehouse" : "calibrage",
+      destinationSite: meta.destinationSite || "", destination: destination || "Calibrage",
       transporteur: meta.transporteur || "", voyage: meta.voyage || "", chauffeur: meta.chauffeur || "", camion: meta.camion || "",
       poidsEnvoye: poids, poidsRecu: null, ecart: null, transitLossPct: null,
       // Qualité au départ (héritée de la BIN) et à l'arrivée (saisie à la réception).
@@ -628,6 +631,52 @@
     return trf;
   }
 
+  // Réception d'un transfert ENTREPÔT→ENTREPÔT (ex. Bouaké → Yakro).
+  // Chaque déchargement crée un NOUVEAU lot au site d'arrivée, rangé en BIN,
+  // avec généalogie vers les lots contributeurs d'origine (la chaîne ne se
+  // casse pas). Le stock inter-entrepôt arrive déjà qualifié : pas de nouveau
+  // sampling/GM ; seule une qualité d'arrivée est saisie.
+  function receiveTransferToWarehouse(trfId, d) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType !== "warehouse") throw new Error("Ce transfert n'est pas destiné à un entrepôt (destination : " + trf.destinationType + ").");
+    var net = num(d.net); if (net === null || net <= 0) throw new Error("Poids net reçu invalide.");
+    var binId = d.binId; if (!binId) throw new Error("BIN de déchargement requise à l'arrivée.");
+    // Réception (voyage) + perte de transit cumulée.
+    trf.voyages.push({ recu: net, binId: binId, at: nowISO(), auteur: (loadDb().user || {}).nom });
+    var totalRecu = trf.voyages.reduce(function (t, v) { return t + (v.recu || 0); }, 0);
+    trf.poidsRecu = round2(totalRecu);
+    trf.ecart = round2(trf.poidsEnvoye - trf.poidsRecu);
+    trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
+    if (d.kor || d.humidity || d.nc) trf.qualiteArrivee = { kor: num(d.kor), humidity: num(d.humidity), nc: num(d.nc), at: nowISO() };
+    // Nouveau lot au site d'arrivée (déjà libéré, qualité héritée / d'arrivée).
+    var korArr = d.kor != null && d.kor !== "" ? round2(num(d.kor)) : (trf.qualiteDepart && trf.qualiteDepart.kor != null ? round2(trf.qualiteDepart.kor) : null);
+    var ratio = trf.poidsEnvoye ? net / trf.poidsEnvoye : 0;
+    var lot = {
+      id: genId("RCN", true), recId: null, fromTransfer: trf.id,
+      site: trf.destinationSite || d.site || "", fournisseur: "Transfert " + trf.binId,
+      origine: "Inter-entrepôt (" + trf.binId + ")",
+      sacs: num(d.sacs), korSampling: null, korFinal: korArr, korDisplay: korArr,
+      ecart: null, netInitial: net, stock: net, etat: ETAT_REC.LIBERE, binId: null, createdAt: nowISO(),
+      // Généalogie ascendante : les lots d'origine et leur quantité portée.
+      parents: (trf.contributors || []).map(function (c) { return { lotId: c.lotId, qty: round2(c.qty * ratio) }; }),
+      children: []
+    };
+    loadDb().lots.unshift(lot);
+    // Rangement en BIN au site d'arrivée (stock d'entrepôt).
+    try { addLotToBin(binId, lot.id, net); } catch (e) { /* garde le stock sur le lot si BIN indisponible */ }
+    // Liens de généalogie : chaque lot source → nouveau lot d'arrivée.
+    (trf.contributors || []).forEach(function (c) {
+      var src = getLot(c.lotId); if (src) src.children.push({ type: "lot", ref: lot.id, qty: round2(c.qty * ratio), via: trf.id, at: nowISO() });
+    });
+    var partiel = !!d.partiel;
+    if (partiel) trf.etat = ETAT_TRF.PARTIEL;
+    else if (Math.abs(trf.ecart) > 0.001) trf.etat = ETAT_TRF.ECART;
+    else trf.etat = ETAT_TRF.RECU;
+    audit(trf.id, "réception entrepôt", trf.destinationSite, lot.id + " · " + kg(net), "Déchargement transfert → lot " + lot.id);
+    saveDb();
+    return { trf: trf, lot: lot };
+  }
+
   /* ------------------------------------------------------------------ */
   /*  9. MODULE 2 — Calibrage (§9)                                      */
   /* ------------------------------------------------------------------ */
@@ -635,6 +684,8 @@
   // M2-FR-03 · Créer l'opération CAL à partir d'un TRF reçu (hérite contributeurs).
   function createCal(trfId, machine, shift, equipe) {
     var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType === "warehouse")
+      throw new Error("Ce transfert est destiné à un entrepôt (" + (trf.destinationSite || "?") + "), pas au calibrage : il doit y être réceptionné (déchargement → lot → BIN).");
     if (trf.etat !== ETAT_TRF.RECU && trf.etat !== ETAT_TRF.PARTIEL && trf.etat !== ETAT_TRF.EXPEDIE)
       throw new Error("Le transfert doit être reçu ou autorisé pour créer une opération CAL (§8.2).");
     var recu = trf.poidsRecu !== null ? trf.poidsRecu : trf.poidsEnvoye;
@@ -810,17 +861,32 @@
     saveDechargement(rec5.id, { whReceipt: "72540", ficheCca: "0429-0041", binDecharge: "BKE-002-BIN-020", sacsBon: 95, sacsHumid: 3, sacsDechire: 2, brut: 8050, tare: 50, poidsMainDoeuvre: 30, prestataire: "CAMARA MAGAH", destination: "BKE-002" });
     saveFinaleAndRelease(rec5.id, { gk: 250, imm: 0, spotted: 20, nc: 190, humidity: 7.6, browns: 8, voids: 5, oil: 3 }, "liberer", null); // écart ≥ 1 → bloqué
 
-    // Transfert TRF-0001 : 5 000 kg depuis BIN-017 (60/25/15) vers l'usine.
-    var trf = prepareTransfer(cycle.id, 5000, "Calibrage YAKRO", { transporteur: "SONEL TRANS", voyage: "BKT001", chauffeur: "TRAORE BAKARY", camion: "1796GC01" });
+    // TRF-0001 : Bouaké → ENTREPÔT Yakro (pas l'usine), 5 000 kg (60/25/15).
+    var trf = prepareTransfer(cycle.id, 5000, "Entrepôt YAKRO", { destinationType: "warehouse", destinationSite: "YAKRO · Yamoussoukro", transporteur: "SONEL TRANS", voyage: "BKT001", chauffeur: "TRAORE BAKARY", camion: "1796GC01", korDepart: 47.6, humDepart: 9.5, ncDepart: 172 });
     qaApproveTransfer(trf.id, true, "Contrôle OK");
     shipTransfer(trf.id);
+    // Réception à Yakro : déchargement → nouveau lot en BIN (perte transit ~1 %).
+    var yakroCyc = openBinCycle("YAKRO-BIN-01", "RCN standard", 20000);
+    receiveTransferToWarehouse(trf.id, { net: 4950, sacs: 300, binId: "YAKRO-BIN-01", kor: 47.5, humidity: 9.4, nc: 174 });
+    resolveTransferEcart(trf.id, "Perte de transit constatée et validée");
 
-    // Exemple de séchage : 2 000 kg de BIN-017 (humidité 11 %→9,5 %), perte ~1,7 %.
+    // Livraison DIRECTE d'un fournisseur à Yakro (cycle complet sampling + GM).
+    var recy = createReception({ camion: "5521YK02", fournisseur: F[5].nom, lba: F[5].lba, origine: "Bouaké", site: "YAKRO · Yamoussoukro", poidsAnnonce: 6000, sacsAnnonce: 75, refDoc: "YK-0001" });
+    saveSampling(recy.id, { gk: 264, imm: 0, spotted: 13, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 1 });
+    submitToGm(recy.id); gmDecision(recy.id, true, "OK", null);
+    saveDechargement(recy.id, { whReceipt: "81001", ficheCca: "YK-0001", binDecharge: "YAKRO-BIN-01", sacsBon: 73, sacsHumid: 0, sacsDechire: 2, brut: 6050, tare: 50, poidsMainDoeuvre: 20, prestataire: "MAGAH TRANS", destination: "YAKRO" });
+    saveFinaleAndRelease(recy.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.0, browns: 5, voids: 3, oil: 2 }, "liberer", "YAKRO-BIN-01");
+
+    // Séchage à Bouaké : 2 000 kg de BIN-017 (humidité 11 %→9,5 %), perte ~1,7 %.
     createDrying(cycle.id, "BKE-002-BIN-003-DRIED", { type: "sechage", inputKg: 2000, outputKg: 1966, inputSacs: 120, outputSacs: 118, inputMoisture: 11, outputMoisture: 9.5, inputNc: 161, outputNc: 176, inputKor: 47.97, outputKor: 47.26 });
 
-    // Deux BIN planifiées.
+    // TRF-0002 : Yakro → CALIBRAGE (usine), 4 000 kg depuis YAKRO-BIN-01.
+    var trf2 = prepareTransfer(yakroCyc.id, 4000, "Calibrage · Usine", { destinationType: "calibrage", transporteur: "USINE LOG", voyage: "YKT001" });
+    qaApproveTransfer(trf2.id, true, "Contrôle OK");
+    shipTransfer(trf2.id);
+
+    // BIN planifiées.
     openBinCycle("BKE-002-BIN-019", "RCN standard", 10000);
-    openBinCycle("BKE-002-BIN-021", "RCN standard", 10000);
 
     db.seeded = true;
     saveDb();
@@ -849,7 +915,7 @@
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
     // transfert
-    prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, resolveTransferEcart: resolveTransferEcart,
+    prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
     // calibrage
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
     // dashboard / audit
