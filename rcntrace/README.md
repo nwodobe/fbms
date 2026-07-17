@@ -16,7 +16,22 @@ Couvre la chaîne **REC → QLT → RCN → BIN → TRF → CAL** :
 | `index.html` | Shell SPA (sidebar + topbar), design system partagé ANAGROCI |
 | `rcntrace.js` | Moteur métier + magasin local (localStorage). KOR, états, allocation BIN proportionnelle, bilan matière, généalogie, audit |
 | `rcntrace-ui.js` | Router par ancre + rendu des 16 écrans + liaisons UI → moteur |
-| `../supabase/rcntrace.sql` | Schéma Supabase (modèle §10) + RLS + amorce des référentiels |
+| `rcntrace-sync.js` | Synchronisation Supabase offline-first (write-through + file d'attente + hydratation) |
+| `../supabase/rcntrace.sql` | Schéma Supabase (modèle §10) + `rcn_state`/`rcn_audit` + RLS + amorce des référentiels |
+| `../supabase/rcntrace_etl.sql` | ETL & BI : vues de dépliage `rcn_state` → modèle normalisé, fonction `rcn_etl_refresh()`, vues d'indicateurs `rcn_bi_*` (§14) |
+
+## Reporting BI
+
+L'application écrit en temps réel dans `rcn_state` (agrégats JSONB, offline-first).
+Pour l'analytique :
+
+- Les vues `rcn_v_*` déplient `rcn_state` vers le modèle normalisé (toujours à jour).
+- `select rcn_etl_refresh();` matérialise ces vues dans les tables physiques `rcn_*`
+  (à planifier, ou à appeler à la demande par un profil actif).
+- Les vues `rcn_bi_*` répondent directement aux indicateurs du cahier (§14.2) :
+  cohérence KOR, délais du parcours, âge/occupation des BIN, écarts de transfert,
+  rendement par calibre, pertes & résidus, bilan matière par opération. Elles
+  s'ouvrent dans n'importe quel outil BI (Supabase, Metabase, export Excel/PDF).
 
 ## Prototype V1
 
