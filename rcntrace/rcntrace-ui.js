@@ -346,9 +346,10 @@
           '<small style="color:var(--n500)"><a href="#stock" onclick="setTimeout(function(){location.hash=\'stock\'},0)" style="color:var(--forest)">+ Créer un entrepôt</a> (onglet Stock)</small></div>' +
         '<div><label>Provenance / origine (localité CI)</label><select id="f_origine">' + localiteOptions() + '</select></div></div>' +
         '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
-        '<div class="row3"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div>' +
-        '<div><label>Sacs annoncés</label><input id="f_sacs" type="number" placeholder="—"></div>' +
-        '<div><label>Réf. document fournisseur</label><input id="f_ref" placeholder="BL-…"></div></div>' +
+        '<div class="row3"><div><label>Type d\'achat</label><select id="f_type"><option value="LBA">LBA financé</option><option value="DIS">DIS non financé</option></select></div>' +
+        '<div><label>Commande / contrat</label><input id="f_po" placeholder="PO-…"></div><div><label>Réf. document fournisseur</label><input id="f_ref" placeholder="BL-…"></div></div>' +
+        '<div class="row3"><div><label>Transporteur</label><input id="f_transporteur" placeholder="Société de transport"></div><div><label>Chauffeur</label><input id="f_chauffeur" placeholder="Nom complet"></div><div><label>Téléphone chauffeur</label><input id="f_phone" inputmode="tel" placeholder="+225 …"></div></div>' +
+        '<div class="row"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div><div><label>Sacs annoncés</label><input id="f_sacs" type="number" placeholder="—"></div></div>' +
         '<div class="actions"><button class="btn" onclick="RCNUI.createReception()">Enregistrer & envoyer au labo</button>' +
         '<button class="btn ghost" onclick="__rcngo(\'reception\')">Annuler</button></div>' +
       '</div></div>' +
@@ -376,11 +377,12 @@
       '<div class="grid2"><div>' +
         '<div class="card"><h2>Dossier ' + badgeEtat(rec.etat) + '</h2><div class="cbody">' +
           field("Poids annoncé", R.kg(rec.poidsAnnonce)) + field("Sacs annoncés", rec.sacsAnnonce == null ? "—" : rec.sacsAnnonce) +
-          field("Réf. fournisseur", rec.refDoc || "—") +
+          field("Type d'achat", rec.typeAchat || "—") + field("Commande / contrat", rec.commandeRef || "—") + field("Réf. fournisseur", rec.refDoc || "—") +
+          field("Transporteur", rec.transporteur || "—") + field("Chauffeur", (rec.chauffeur || "—") + (rec.telephoneChauffeur ? " · " + rec.telephoneChauffeur : "")) +
           (s ? '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Sampling ' + esc(s.id) + '</b>' +
             field("KOR sampling", s.korDisplay != null ? s.korDisplay.toFixed(2) : "—") + field("Total Defect", s.totalDefect == null ? "—" : s.totalDefect + " g") + field("Total Kernels", s.totalKernels == null ? "—" : s.totalKernels + " g") + field("Nut Count", s.nc == null ? "—" : s.nc) + field("Humidité", s.humidity == null ? "—" : s.humidity + " %") : "") +
           (g ? '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Décision GM</b>' + field("Décision", g.autorise ? "AUTORISÉ" : "REFUSÉ") + field("Commentaire", g.commentaire || "—") + field("Le", R.fmtDateTime(g.at)) : "") +
-          (dech ? '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Déchargement</b>' + field("Net physique", R.kg(dech.net)) + field("Bordereau", dech.bordereau || "—") + field("Poids main-d\'œuvre", dech.poidsMainDoeuvre == null ? "—" : R.kg(dech.poidsMainDoeuvre) + " (séparé du stock)") : "") +
+          (dech ? '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Déchargement</b>' + field("Net physique", R.kg(dech.net)) + field("Réfaction", R.kg(dech.refraction || 0)) + field("Poids payé", R.kg(dech.poidsPaye)) + field("Bordereau", dech.bordereau || "—") + field("Poids main-d\'œuvre", dech.poidsMainDoeuvre == null ? "—" : R.kg(dech.poidsMainDoeuvre) + " (séparé du stock)") : "") +
           (f ? '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Analyse finale</b>' + field("KOR final", f.korDisplay != null ? f.korDisplay.toFixed(2) : "—") + field("Écart absolu", f.ecartDisplay != null ? f.ecartDisplay.toFixed(2) + (f.conforme ? " (< 1)" : " (≥ 1)") : "—") : "") +
           (rec.lotId ? field("Lot officiel", '<a href="#qualite/' + rec.id + '/fiche">' + esc(rec.lotId) + ' →</a>') : "") +
         '</div></div>' +
@@ -503,10 +505,13 @@
         '<div class="row">' + inp("d_sacsDech", "Sacs déchirés", "", "number") + inp("d_sacsRec", "Sacs reconditionnés", "", "number") + '</div>' +
         '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Poids</b>' +
         '<div class="row3" style="margin-top:8px">' + inp("d_brut", "Poids brut (kg)", "", "number") + inp("d_tare", "Tare (kg)", "", "number") + inp("d_net", "Net (kg) — auto si vide", "", "number") + '</div>' +
+        '<div class="row">' + inp("d_refraction", "Réfaction / déduction (kg)", "0", "number") + inp("d_paye", "Poids payé (kg) — auto si vide", "", "number") + '</div>' +
         '<div class="row">' + inp("d_mo", "Poids main-d\'œuvre (kg)", "", "number") + inp("d_prest", "Prestataire / transporteur", "", "text") + '</div>' +
+        '<div class="row">' + inp("d_debut", "Début du déchargement", "", "datetime-local") + inp("d_fin", "Fin du déchargement", "", "datetime-local") + '</div>' +
+        '<label>Incident / matière renversée / observation</label><textarea id="d_incident" rows="3" placeholder="Aucun incident, ou décrire précisément…"></textarea>' +
         '<div class="actions"><button class="btn" onclick="RCNUI.saveDechargement(\'' + id + '\')">Enregistrer le déchargement</button></div>' +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock ; le poids main-d\'œuvre reste séparé. <b>À valider avec le magasin :</b> réfaction, poids GRN et poids payé (non implémentés tant que leur définition n\'est pas confirmée).</div>' +
+      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock. Le poids payé = net physique − réfaction. Le poids main-d\'œuvre reste séparé et ne modifie jamais le stock.</div>' +
       '</div>';
   }
 
@@ -1362,7 +1367,12 @@
     var byCalibre = {}; R.cals().forEach(function (c) { c.outputs.forEach(function (o) { byCalibre[o.calibre] = (byCalibre[o.calibre] || 0) + (o.poids || 0); }); });
     var calRows = Object.keys(byCalibre).length ? Object.keys(byCalibre).sort().map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + R.kg(byCalibre[k]) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune sortie calibrée.</td></tr>';
     var whRows = Object.keys(byWh).sort().map(function (w) { return '<tr><td class="mono">' + esc(w) + '</td><td>' + byWh[w].bins + '</td><td class="mono">' + R.kg(byWh[w].stock) + '</td></tr>'; }).join("") || '<tr><td colspan="3" class="empty">Aucun stock.</td></tr>';
+    var recRows = recs.slice().sort(function (a, b) { return new Date(b.arriveeAt) - new Date(a.arriveeAt); }).slice(0, 25).map(function (r) {
+      var d = r.dechargement || {}, f = r.finale || {};
+      return '<tr><td>' + R.fmtDateTime(r.arriveeAt) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.warehouse || r.site || "—") + '</td><td>' + esc(r.fournisseur || "—") + '</td><td class="mono">' + esc(r.camion || "—") + '</td><td class="mono">' + R.kg(d.net) + '</td><td class="mono">' + R.kg(d.poidsPaye) + '</td><td class="mono">' + (f.korDisplay == null ? "—" : f.korDisplay.toFixed(2)) + '</td><td>' + badgeEtat(r.etat) + '</td></tr>';
+    }).join("") || '<tr><td colspan="9" class="empty">Aucune réception.</td></tr>';
     return '<div class="pagehead"><h1>Pilotage du stock & de la qualité</h1><p>Vue globale : stock humide/sec, matière en transit, écarts non expliqués et qualité moyenne — par entrepôt.</p></div>' +
+      '<div class="actions" style="margin:-10px 0 18px"><button class="btn" onclick="RCNUI.exportWarehouseReport()">⇩ Exporter le rapport entrepôt CSV</button></div>' +
       '<div class="kpis">' +
         kpi("Stock total", R.round2(stockTotal), "kg en cycles ouverts", "") +
         kpi("Stock humide", R.round2(stockHumide), "non séché", "") +
@@ -1381,7 +1391,8 @@
         '<div class="metric"><small>Sacs distribués</small><b>' + jDist + '</b></div>' +
         '<div class="metric"><small>Solde en circulation</small><b>' + jSolde + '</b><span>chez les fournisseurs</span></div>' +
         '<div class="metric"><small>Fournisseurs suivis</small><b>' + jSup.length + '</b></div>' +
-      '</div></div></div>';
+      '</div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Rapport journalier des réceptions <span class="badge b-neutral">25 dernières</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0"><table><thead><tr><th>Arrivée</th><th>REC</th><th>Entrepôt</th><th>Fournisseur</th><th>Camion</th><th>Net physique</th><th>Poids payé</th><th>KOR final</th><th>Statut</th></tr></thead><tbody>' + recRows + '</tbody></table></div></div></div>';
   };
 
   /* ---- FOURNISSEURS : base LBA + création à code auto -------------- */
@@ -1530,7 +1541,7 @@
   UI.createReception = function () {
     try {
       var f = R.referentials().fournisseurs[Number(val("f_fournisseur")) || 0] || {};
-      var rec = R.createReception({ camion: val("f_camion"), fournisseur: f.nom || "", lba: f.lba || "", origine: val("f_origine"), site: val("f_site"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref") });
+      var rec = R.createReception({ camion: val("f_camion"), fournisseur: f.nom || "", lba: f.lba || "", origine: val("f_origine"), site: val("f_site"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref"), typeAchat: val("f_type"), commandeRef: val("f_po"), transporteur: val("f_transporteur"), chauffeur: val("f_chauffeur"), telephoneChauffeur: val("f_phone") });
       toast("Réception " + rec.id + " créée.");
       go("qualite/" + rec.id + "/sampling"); route();
     } catch (e) { toast(e.message, true); }
@@ -1552,10 +1563,24 @@
       R.saveDechargement(id, {
         whReceipt: val("d_wh"), ficheCca: val("d_fiche"), binDecharge: val("d_bin"), bordereau: val("d_bord"), ticket: val("d_ticket"),
         sacsBon: val("d_sacsBon"), sacsHumid: val("d_sacsHum"), sacsDechire: val("d_sacsDech"), sacsRecond: val("d_sacsRec"),
-        brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest")
+        brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), refraction: val("d_refraction"), poidsPaye: val("d_paye"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest"), debutAt: val("d_debut"), finAt: val("d_fin"), incident: val("d_incident")
       });
       toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route();
     } catch (e) { toast(e.message, true); }
+  };
+  UI.exportWarehouseReport = function () {
+    try {
+      var q = function (v) { v = v == null ? "" : String(v); return '"' + v.replace(/"/g, '""') + '"'; };
+      var rows = [["Arrivée", "REC", "Entrepôt", "Type achat", "Fournisseur", "Code LBA", "Camion", "Transporteur", "Chauffeur", "Sacs", "Net physique kg", "Réfaction kg", "Poids payé kg", "KOR sampling", "KOR final", "Humidité finale %", "Statut"]];
+      R.receptions().slice().sort(function (a, b) { return new Date(b.arriveeAt) - new Date(a.arriveeAt); }).forEach(function (r) {
+        var d = r.dechargement || {}, s = r.sampling || {}, f = r.finale || {};
+        rows.push([R.fmtDateTime(r.arriveeAt), r.id, r.warehouse || r.site, r.typeAchat, r.fournisseur, r.lba, r.camion, r.transporteur, r.chauffeur, d.sacs, d.net, d.refraction, d.poidsPaye, s.korDisplay, f.korDisplay, f.humidity, r.etat]);
+      });
+      var csv = "\uFEFF" + rows.map(function (row) { return row.map(q).join(";"); }).join("\r\n");
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "RCN_TRACE_Rapport_Entrepot_" + R.today() + ".csv"; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); toast("Rapport entrepôt exporté.");
+    } catch (e) { toast("Export impossible : " + e.message, true); }
   };
   UI.createDrying = function () {
     try {
