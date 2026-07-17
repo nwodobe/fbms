@@ -39,12 +39,37 @@
     { code: "rejet_valorisable", label: "Rejet valorisable" },
     { code: "rebut", label: "Rebut définitif" },
     { code: "poussiere", label: "Poussière / corps étrangers" },
-    { code: "rework", label: "À retraiter (rework)" },
-    { code: "residu_machine", label: "Résidu machine" }
+    { code: "hors_calibre", label: "Noix hors calibre" },
+    { code: "recalibrer", label: "Matière à recalibrer" },
+    { code: "renversee", label: "Matière renversée" },
+    { code: "reste_machine", label: "Reste dans la machine" },
+    { code: "a_traiter", label: "Matière restant à traiter" },
+    { code: "perte_expliquee", label: "Perte expliquée" }
   ];
 
   // Motifs d'arrêt configurables (§M2-FR-06, étape 7 « Arrêts et maintenance »).
-  var MOTIFS_ARRET = ["Panne", "Nettoyage", "Manque de matière", "Changement de réglage", "Coupure électrique", "Bourrage", "Attente de BIN", "Contrôle qualité", "Maintenance", "Pause équipe"];
+  var MOTIFS_ARRET = ["Panne", "Bourrage", "Nettoyage", "Coupure électrique", "Manque de matière", "Attente d'une BIN", "Réglage de la machine", "Contrôle qualité", "Changement de calibre", "Maintenance", "Autre motif"];
+
+  // Checklist de contrôle avant démarrage (§écran 4) — toutes obligatoires.
+  var CAL_CHECKLIST = [
+    { code: "seche", label: "Matière suffisamment sèche" },
+    { code: "refs", label: "Sacs et références conformes" },
+    { code: "dispo", label: "Machine disponible" },
+    { code: "propre", label: "Machine nettoyée" },
+    { code: "vide", label: "Aucune matière de l'opération précédente" },
+    { code: "sorties", label: "Sorties de calibre identifiées" },
+    { code: "bins", label: "BIN de destination disponibles" },
+    { code: "balance", label: "Balance vérifiée" },
+    { code: "operateurs", label: "Opérateurs affectés" },
+    { code: "autorisation", label: "Autorisation du responsable obtenue" }
+  ];
+  // Décisions de contrôle qualité des sorties (§écran 10).
+  var QC_DECISIONS = [
+    { code: "conforme", label: "Conforme" }, { code: "reserve", label: "Accepté avec réserve" },
+    { code: "recalibrer", label: "À recalibrer" }, { code: "bloque", label: "Bloqué" }, { code: "rejete", label: "Rejeté" }
+  ];
+  // Rôles (habilitations — §contraintes).
+  var ROLES = ["Opérateur", "Responsable Production", "Qualité", "Maintenance", "Administrateur", "Coordination"];
 
   // Catégories de sacs constatées sur le terrain (rapports Bouaké/Yakro).
   var CATEGORIES_SAC = [
@@ -170,7 +195,7 @@
   };
   var ETAT_BIN = { OUVERT: "OUVERT", ACTIF: "ACTIF", BLOQUE: "BLOQUÉ", RECONCILIER: "À_RÉCONCILIER", VIDE: "VIDE_À_CONFIRMER", CLOS: "CLOS" };
   var ETAT_TRF = { BROUILLON: "BROUILLON", PREPARE: "PRÉPARÉ", CONTROLE: "CONTRÔLÉ_QA", EXPEDIE: "EXPÉDIÉ", PARTIEL: "PARTIELLEMENT_REÇU", RECU: "REÇU", ECART: "EN_ÉCART", CLOS: "CLOS", ANNULE: "ANNULÉ" };
-  var ETAT_CAL = { PRET: "PRÊT", EN_COURS: "EN_COURS", PAUSE: "EN_PAUSE", PARTIEL: "PARTIEL", RAPPROCHER: "À_RAPPROCHER", VALIDER: "À_VALIDER", CLOS: "CLOS", ROUVERT: "ROUVERT_AUTORISÉ" };
+  var ETAT_CAL = { PREPARE: "EN_PRÉPARATION", PRET: "PRÊT", EN_COURS: "EN_COURS", PAUSE: "EN_PAUSE", PARTIEL: "PARTIEL", TERMINE: "TERMINÉ", RAPPROCHER: "À_RAPPROCHER", VALIDER: "À_VALIDER", CLOS: "CLOS", ROUVERT: "ROUVERT_AUTORISÉ" };
 
   /* ------------------------------------------------------------------ */
   /*  1. Magasin persistant (localStorage)                              */
@@ -199,7 +224,8 @@
         origines: ORIGINES.slice(),
         entrepots: ENTREPOTS.slice(),
         categoriesSac: CATEGORIES_SAC.slice(),
-        toleranceCalibragePct: null   // §9 : à définir par Production & Qualité
+        toleranceCalibragePct: null,     // §9 : à définir par Production & Qualité
+        toleranceReceptionCalPct: null   // §écran 3 : à définir par Production & Qualité
       },
       user: { nom: "Innocent K.", role: "Coordination" },
       seeded: false
@@ -915,30 +941,74 @@
   /* ------------------------------------------------------------------ */
 
   // M2-FR-03 · Créer l'opération CAL à partir d'un TRF reçu (hérite contributeurs).
-  function createCal(trfId, machine, shift, equipe) {
+  // Tolérance de réception au calibrage (%) — configurable (§écran 3).
+  function toleranceReceptionCal() { var r = referentials(); return (r && r.toleranceReceptionCalPct != null) ? r.toleranceReceptionCalPct : null; }
+  function setToleranceReceptionCal(pct) {
+    var r = referentials(); var p = num(pct);
+    if (p !== null && (p < 0 || p > 100)) throw new Error("Tolérance invalide (0–100 %).");
+    var avant = r.toleranceReceptionCalPct == null ? null : r.toleranceReceptionCalPct;
+    r.toleranceReceptionCalPct = p; audit("CAL-TOL-REC", "tolérance réception calibrage", avant, p, "Réglage tolérance réception"); saveDb(); return p;
+  }
+
+  // §écran 3 · Réception au calibrage : rapproche poids/sacs envoyés vs reçus.
+  // La différence n'est JAMAIS appelée « perte » automatiquement. Au-delà de la
+  // tolérance : motif + responsable + validation obligatoires (bloque la suite).
+  function receiveAtCalibrage(trfId, d) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType === "warehouse") throw new Error("Ce transfert est destiné à un entrepôt, pas au calibrage.");
+    d = d || {};
+    var recu = num(d.poidsRecu); if (recu === null || recu < 0) throw new Error("Poids reçu invalide.");
+    trf.poidsRecu = round2(recu);
+    trf.ecart = round2(trf.poidsEnvoye - recu);       // = différence de réception (kg), pas « perte »
+    trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
+    var tolPct = toleranceReceptionCal();
+    var horsTol = tolPct != null && Math.abs(trf.transitLossPct || 0) > tolPct;
+    var justifie = !!(d.motif && d.motif.trim() && d.responsable && d.responsable.trim());
+    if (horsTol && !justifie)
+      throw new Error("Différence de réception " + kg(trf.ecart) + " (" + trf.transitLossPct + " %) au-delà de la tolérance de " + tolPct + " % : motif ET responsable obligatoires avant d'ouvrir l'opération.");
+    trf.recCal = {
+      poidsEnvoye: trf.poidsEnvoye, poidsRecu: round2(recu), ecartKg: trf.ecart, ecartPct: trf.transitLossPct,
+      sacsEnvoye: num(d.sacsEnvoye), sacsRecu: num(d.sacsRecu),
+      ecartSacs: (num(d.sacsEnvoye) != null && num(d.sacsRecu) != null) ? (num(d.sacsEnvoye) - num(d.sacsRecu)) : null,
+      etatSacs: d.etatSacs || "", humidity: num(d.humidity), nc: num(d.nc),
+      motif: d.motif || "", responsable: d.responsable || "", commentaire: d.commentaire || "",
+      horsTolerance: horsTol, valide: !horsTol || justifie, at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    trf.recCalOk = trf.recCal.valide;
+    trf.etat = (Math.abs(trf.ecart) > 0.001 && !justifie && horsTol) ? ETAT_TRF.ECART : ETAT_TRF.RECU;
+    trf.validations = trf.validations || {}; trf.validations.calibrage = { at: nowISO(), auteur: (loadDb().user || {}).nom };
+    audit(trf.id, "réception calibrage", trf.poidsEnvoye, trf.poidsRecu, d.motif || (horsTol ? "Écart justifié" : "Réception conforme"));
+    saveDb();
+    return trf;
+  }
+
+  // §écran 5 · Créer une opération CAL (uniquement depuis un transfert REÇU).
+  function createCal(trfId, d) {
     var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
     if (trf.destinationType === "warehouse")
-      throw new Error("Ce transfert est destiné à un entrepôt (" + (trf.destinationSite || "?") + "), pas au calibrage : il doit y être réceptionné (déchargement → lot → BIN).");
-    if (trf.etat !== ETAT_TRF.RECU && trf.etat !== ETAT_TRF.PARTIEL && trf.etat !== ETAT_TRF.EXPEDIE)
-      throw new Error("Le transfert doit être reçu ou autorisé pour créer une opération CAL (§8.2).");
+      throw new Error("Ce transfert est destiné à un entrepôt, pas au calibrage : il doit y être réceptionné (déchargement → lot → BIN).");
+    // Principe métier : jamais d'opération sans transfert REÇU depuis une BIN de Yamoussoukro.
+    if (trf.etat !== ETAT_TRF.RECU && trf.etat !== ETAT_TRF.PARTIEL)
+      throw new Error("Le transfert doit être RÉCEPTIONNÉ au calibrage avant d'ouvrir une opération (§écran 3).");
+    if (trf.recCal && trf.recCalOk === false)
+      throw new Error("La différence de réception n'est pas traitée (motif/responsable requis) : opération bloquée (§écran 3).");
+    d = d || {};
     var recu = trf.poidsRecu !== null ? trf.poidsRecu : trf.poidsEnvoye;
     var cal = {
-      id: genId("CAL"), trfId: trf.id, createdAt: nowISO(),
-      machine: machine || "CAL-01", shift: shift || "A", equipe: equipe || "",
-      contributors: trf.contributors.slice(),   // hérités, jamais ressaisis (§10.3)
-      recu: recu, entreeMachine: 0,
-      etat: ETAT_CAL.PRET,
+      id: "CAL-BATCH-" + today().slice(0, 4) + "-" + pad(nextSeq("CALBATCH", false), 4),
+      trfId: trf.id, binId: trf.binId, createdAt: nowISO(), demo: !!trf.demo,
+      machine: d.machine || "Calibreuse 01", shift: d.shift || "Jour", equipe: d.equipe || "",
+      operateurs: d.operateurs || "", responsable: d.responsable || "",
+      contributors: (trf.contributors || []).slice(),   // hérités, jamais ressaisis
+      recu: recu, prevu: num(d.prevu) != null ? num(d.prevu) : recu, entreeMachine: 0,
+      binsDest: d.binsDest || "", melangeAutorise: !!d.melangeAutorise, melangeMotif: d.melangeMotif || "",
+      etat: ETAT_CAL.PREPARE, checklist: {}, checklistOk: false,
       startedAt: null, endedAt: null,
-      feeds: [],       // alimentations machine
-      stops: [],       // arrêts
-      outputs: [],     // sorties par calibre
-      losses: [],      // rejets/pertes/résidus
-      events: [],
-      validation: null
+      feeds: [], stops: [], outputs: [], losses: [], corrections: [], events: [], validation: null
     };
     loadDb().cals.unshift(cal);
-    audit(cal.id, "calibrage", null, ETAT_CAL.PRET, "Création CAL depuis " + trf.id);
-    calEvent(cal, "Création CAL");
+    audit(cal.id, "calibrage", null, ETAT_CAL.PREPARE, "Création opération depuis " + trf.id + (trf.demo ? " (démo)" : ""));
+    calEvent(cal, "Création de l'opération");
     saveDb();
     return cal;
   }
@@ -946,21 +1016,39 @@
     cal.events.unshift({ at: nowISO(), label: label, qty: qty === undefined ? null : qty, auteur: (loadDb().user || {}).nom });
   }
 
-  // M2-FR-04 · Démarrer / pause / reprise.
-  function calStart(calId) { var c = getCal(calId); if (!c) throw new Error("CAL introuvable"); c.etat = ETAT_CAL.EN_COURS; if (!c.startedAt) c.startedAt = nowISO(); calEvent(c, "Démarrage"); audit(c.id, "calibrage", ETAT_CAL.PRET, ETAT_CAL.EN_COURS, "Démarrage"); saveDb(); return c; }
-  function calPause(calId, motif) {
+  // §écran 4 · Checklist de contrôle avant démarrage (toutes obligatoires).
+  function calSetChecklist(calId, obj) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
-    if (!motif) throw new Error("Un motif de pause est obligatoire (§M2-FR-04).");
-    c.etat = ETAT_CAL.PAUSE; c.stops.push({ id: genId("MOV"), motif: motif, startAt: nowISO(), endAt: null });
-    calEvent(c, "Pause : " + motif); audit(c.id, "calibrage", ETAT_CAL.EN_COURS, ETAT_CAL.PAUSE, motif); saveDb(); return c;
-  }
-  function calResume(calId) {
-    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
-    var open = c.stops.filter(function (s) { return !s.endAt; })[0]; if (open) open.endAt = nowISO();
-    c.etat = ETAT_CAL.EN_COURS; calEvent(c, "Reprise"); audit(c.id, "calibrage", ETAT_CAL.PAUSE, ETAT_CAL.EN_COURS, "Reprise"); saveDb(); return c;
+    c.checklist = c.checklist || {};
+    Object.keys(obj || {}).forEach(function (k) { c.checklist[k] = !!obj[k]; });
+    c.checklistOk = CAL_CHECKLIST.every(function (it) { return c.checklist[it.code]; });
+    if (c.checklistOk && c.etat === ETAT_CAL.PREPARE) c.etat = ETAT_CAL.PRET;
+    if (!c.checklistOk && c.etat === ETAT_CAL.PRET) c.etat = ETAT_CAL.PREPARE;
+    saveDb(); return c;
   }
 
-  // M2-FR-05 · Enregistrer une alimentation machine (ne dépasse pas le reçu).
+  // §écran 6 · Démarrer / pause / arrêt / reprise / terminer.
+  function calStart(calId) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (!c.checklistOk) throw new Error("Checklist de contrôle incomplète : impossible de démarrer (§écran 4).");
+    c.etat = ETAT_CAL.EN_COURS; if (!c.startedAt) c.startedAt = nowISO();
+    calEvent(c, "Démarrage"); audit(c.id, "calibrage", ETAT_CAL.PRET, ETAT_CAL.EN_COURS, "Démarrage"); saveDb(); return c;
+  }
+  function calStop(calId, motif, commentaire) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (!motif) throw new Error("Un motif d'arrêt est obligatoire (§écran 6).");
+    if (/autre/i.test(motif) && !(commentaire && commentaire.trim())) throw new Error("Motif « Autre » : commentaire obligatoire.");
+    c.stops.push({ id: genId("MOV"), motif: motif, commentaire: commentaire || "", startAt: nowISO(), endAt: null, dureeMin: null, auteur: (loadDb().user || {}).nom });
+    c.etat = ETAT_CAL.PAUSE;
+    calEvent(c, "Arrêt : " + motif); audit(c.id, "arrêt machine", null, motif, commentaire || ""); saveDb(); return c;
+  }
+  function calPause(calId, motif) { return calStop(calId, motif || "Pause équipe", ""); }
+  function calResume(calId) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    var open = c.stops.filter(function (s) { return !s.endAt; })[0];
+    if (open) { open.endAt = nowISO(); open.dureeMin = Math.round((new Date(open.endAt) - new Date(open.startAt)) / 60000 * 10) / 10; }
+    c.etat = ETAT_CAL.EN_COURS; calEvent(c, "Reprise" + (open ? " (arrêt " + open.dureeMin + " min)" : "")); audit(c.id, "calibrage", ETAT_CAL.PAUSE, ETAT_CAL.EN_COURS, "Reprise"); saveDb(); return c;
+  }
   function calFeed(calId, poids, binSource) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
     poids = num(poids); if (poids === null || poids <= 0) throw new Error("Poids invalide.");
@@ -970,25 +1058,41 @@
     calEvent(c, "Alimentation", poids); audit(c.id, "alimentation", null, kg(poids), "Entrée machine"); saveDb(); return c;
   }
 
-  // M2-FR-07 · Sorties par calibre.
-  function calOutput(calId, calibre, sacs, poids, binDest) {
+  // §écran 7 · Sorties par calibre (nom, poids, sacs, NC, BIN, heures, commentaire).
+  function calOutput(calId, calibre, d) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
-    poids = num(poids); if (poids === null || poids < 0) throw new Error("Poids invalide.");
-    var o = { id: c.id + "/" + calibre, calibre: calibre, sacs: num(sacs), poids: poids, binDest: binDest || "", at: nowISO() };
+    d = d || {}; var poids = num(d.poids); if (poids === null || poids < 0) throw new Error("Poids invalide.");
     var ex = c.outputs.filter(function (x) { return x.calibre === calibre; })[0];
-    if (ex) { Object.assign(ex, o); } else { c.outputs.push(o); }
+    var o = ex || { calibre: calibre, qc: null };
+    o.id = c.id + "/" + calibre; o.poids = poids; o.sacs = num(d.sacs); o.nc = num(d.nc);
+    o.binDest = d.binDest || o.binDest || ""; o.debut = d.debut || o.debut || null; o.fin = d.fin || o.fin || null;
+    o.commentaire = d.commentaire != null ? d.commentaire : (o.commentaire || ""); o.at = nowISO();
+    if (!ex) c.outputs.push(o);
     if (c.etat === ETAT_CAL.EN_COURS) c.etat = ETAT_CAL.PARTIEL;
     calEvent(c, "Sortie " + calibre, poids); audit(c.id, "sortie " + calibre, null, kg(poids), "Sortie calibre"); saveDb(); return c;
   }
-
-  // M2-FR-08 · Rejets/pertes/résidus (catégories contrôlées).
-  function calLoss(calId, code, poids, destination, justification) {
+  // §écran 10 · Contrôle qualité d'une sortie (décision bloquante).
+  function calOutputQC(calId, calibre, qc) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
-    poids = num(poids);
+    var o = c.outputs.filter(function (x) { return x.calibre === calibre; })[0];
+    if (!o) throw new Error("Sortie " + calibre + " non saisie.");
+    qc = qc || {};
+    if (!qc.decision) throw new Error("Une décision qualité est requise.");
+    o.qc = { taille: qc.taille || "", melange: qc.melange || "", impuretes: num(qc.impuretes), humidity: num(qc.humidity), nc: num(qc.nc),
+      decision: qc.decision, commentaire: qc.commentaire || "", controleur: qc.controleur || (loadDb().user || {}).nom, at: nowISO() };
+    calEvent(c, "QC " + calibre + " : " + qc.decision);
+    audit(c.id, "QC " + calibre, null, qc.decision, qc.commentaire || "");
+    saveDb(); return c;
+  }
+
+  // §écran 8 · Rejets, résidus et restes (catégories distinctes, jamais « perte » unique).
+  function calLoss(calId, code, d) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    d = d || {}; var poids = num(d.poids);
     var l = c.losses.filter(function (x) { return x.code === code; })[0];
-    if (!l) { l = { code: code, poids: 0, destination: "", justification: "" }; c.losses.push(l); }
-    l.poids = poids; l.destination = destination || ""; l.justification = justification || ""; l.at = nowISO();
-    calEvent(c, "Déclaration " + code, poids); saveDb(); return c;
+    if (!l) { l = { code: code }; c.losses.push(l); }
+    l.poids = poids; l.destination = d.destination || ""; l.responsable = d.responsable || ""; l.commentaire = d.commentaire || ""; l.at = nowISO();
+    calEvent(c, "Déclaration " + code, poids); audit(c.id, "sortie " + code, null, kg(poids), d.commentaire || ""); saveDb(); return c;
   }
 
   // Tolérance de bilan matière (%) — DÉFINIE PAR LA PRODUCTION & LA QUALITÉ,
@@ -1001,28 +1105,33 @@
     r.toleranceCalibragePct = p; audit("CAL-TOL", "tolérance calibrage", avant, p, "Réglage de la tolérance de bilan"); saveDb(); return p;
   }
 
-  // M2-FR-10 · Bilan matière : reçu = Σ calibres + rejets + résidus + écart.
-  // Écart = perte inexpliquée. Taux d'écart = écart / reçu. Tolérance configurable.
+  // §écran 9 · Bilan matière : Reçu = Σ calibres + Σ (rejets/résidus/restes) + écart.
+  // L'écart = perte INEXPLIQUÉE. Taux = écart / reçu. Tolérance configurable.
   function calBalance(cal) {
     var sorties = cal.outputs.reduce(function (t, o) { return t + (o.poids || 0); }, 0);
-    var residu = cal.losses.filter(function (l) { return l.code === "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
-    var pertes = cal.losses.filter(function (l) { return l.code !== "residu_machine"; }).reduce(function (t, l) { return t + (l.poids || 0); }, 0);
+    var pertes = cal.losses.reduce(function (t, l) { return t + (l.poids || 0); }, 0);   // toutes catégories confondues
     var recu = cal.recu || 0;
-    var ecart = round2(recu - sorties - pertes - residu);
+    var connu = round2(sorties + pertes);                 // total des sorties connues
+    var ecart = round2(recu - connu);                     // écart inexpliqué
     var taux = recu ? round2(ecart / recu * 100) : null;
     var tolPct = toleranceCalibrage();
     var tolKg = tolPct != null ? round2(recu * tolPct / 100) : null;
     var dansTolerance = tolPct != null ? (Math.abs(ecart) <= tolKg + 0.001) : (Math.abs(ecart) < 0.001);
-    // Répartition par calibre (part du reçu et des sorties).
+    // Heures de marche / arrêt et débit (kg/h).
+    var arretMin = cal.stops.reduce(function (t, s) { return t + (s.dureeMin || (s.endAt ? (new Date(s.endAt) - new Date(s.startAt)) / 60000 : 0)); }, 0);
+    var marcheMin = (cal.startedAt) ? ((cal.endedAt ? new Date(cal.endedAt) : new Date()) - new Date(cal.startedAt)) / 60000 - arretMin : 0;
+    marcheMin = Math.max(0, marcheMin);
+    var kgH = marcheMin > 0 ? round2(sorties / (marcheMin / 60)) : null;
     var repartition = cal.outputs.filter(function (o) { return (o.poids || 0) > 0; }).map(function (o) {
-      return { calibre: o.calibre, poids: round2(o.poids), sacs: o.sacs || null, binDest: o.binDest || "",
+      return { calibre: o.calibre, poids: round2(o.poids), sacs: o.sacs || null, binDest: o.binDest || "", qc: o.qc ? o.qc.decision : null,
         pctRecu: recu ? round2(o.poids / recu * 100) : null, pctSorties: sorties ? round2(o.poids / sorties * 100) : null };
     }).sort(function (a, b) { return b.poids - a.poids; });
     return {
-      recu: round2(recu), sorties: round2(sorties), pertes: round2(pertes), residu: round2(residu),
+      recu: round2(recu), sorties: round2(sorties), pertes: round2(pertes), connu: connu,
       ecart: ecart, taux: taux, tolerancePct: tolPct, toleranceKg: tolKg,
       dansTolerance: dansTolerance, equilibre: Math.abs(ecart) < 0.001, repartition: repartition,
-      pertesDetail: cal.losses.map(function (l) { return { code: l.code, poids: round2(l.poids || 0) }; })
+      pertesDetail: CATEGORIES_PERTE.map(function (cat) { var l = cal.losses.filter(function (x) { return x.code === cat.code; })[0]; return { code: cat.code, label: cat.label, poids: l ? round2(l.poids || 0) : 0 }; }),
+      arretMin: Math.round(arretMin), marcheMin: Math.round(marcheMin), kgH: kgH
     };
   }
 
@@ -1047,32 +1156,176 @@
     });
   }
 
-  // M2-FR-11 · Valider & clôturer (bloque quantité négative & écart hors tolérance).
-  function calClose(calId, motif) {
+  // Contrôles de cohérence avant clôture (§écran 9). Retourne la liste des
+  // blocages (vide = clôture possible).
+  function calCloseBlockers(cal, motif) {
+    var b = calBalance(cal); var out = [];
+    if (b.sorties <= 0) out.push("Aucune sortie pesée.");
+    cal.outputs.forEach(function (o) {
+      if ((o.poids || 0) > 0 && !o.binDest) out.push("Sortie " + o.calibre + " sans BIN de destination.");
+      if ((o.poids || 0) > 0 && !o.qc) out.push("Sortie " + o.calibre + " sans contrôle qualité.");
+      if (o.binDest && !(o.poids > 0)) out.push("Sortie " + o.calibre + " a une BIN mais aucun poids.");
+    });
+    var resteMachine = cal.losses.filter(function (l) { return l.code === "reste_machine"; })[0];
+    if (!resteMachine) out.push("Reste dans la machine non déclaré (mettre 0 si aucun).");
+    cal.stops.filter(function (s) { return !s.endAt; }).forEach(function () { out.push("Un arrêt n'est pas clôturé."); });
+    if (!b.dansTolerance && !(motif && motif.trim())) out.push("Écart de " + kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") au-delà de la tolérance" + (b.tolerancePct != null ? " de " + b.tolerancePct + " %" : "") + " : justification requise.");
+    if (b.sorties < 0 || b.pertes < 0) out.push("Quantité négative interdite.");
+    return out;
+  }
+  // §écran 9/12 · Valider & clôturer (bloque tout bilan incohérent).
+  function calClose(calId, motif, responsable) {
     var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    var blockers = calCloseBlockers(c, motif);
+    if (blockers.length) throw new Error("Clôture impossible : " + blockers[0] + (blockers.length > 1 ? " (+" + (blockers.length - 1) + " autre(s))" : ""));
     var b = calBalance(c);
-    if (b.sorties < 0 || b.pertes < 0 || b.residu < 0) throw new Error("Quantité négative interdite (§M2-FR-10).");
-    if (!b.dansTolerance && !(motif && motif.trim()))
-      throw new Error("Écart de " + kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ")" + (b.tolerancePct != null ? " au-delà de la tolérance de " + b.tolerancePct + " %" : "") + " : justification obligatoire avant clôture (§9).");
     calAffectBins(c);   // BIN de calibre + généalogie (étape 11)
-    c.etat = ETAT_CAL.CLOS; c.endedAt = nowISO(); c.clotureMotif = motif || "";
-    c.validation = { at: nowISO(), auteur: (loadDb().user || {}).nom, bilan: b };
+    c.etat = ETAT_CAL.CLOS; c.endedAt = c.endedAt || nowISO(); c.clotureMotif = motif || "";
+    c.validation = { at: nowISO(), auteur: (loadDb().user || {}).nom, responsable: responsable || "", bilan: b, verrou: true };
     calEvent(c, "Clôture — bilan " + (b.equilibre ? "équilibré" : "écart " + kg(b.ecart) + (b.taux != null ? " (" + b.taux + " %)" : "")));
-    audit(c.id, "calibrage", c.etat, ETAT_CAL.CLOS, motif || "Bilan dans la tolérance");
+    audit(c.id, "calibrage", ETAT_CAL.PARTIEL, ETAT_CAL.CLOS, motif || "Bilan dans la tolérance");
+    saveDb();
+    return c;
+  }
+  // §écran 14 · Correction APRÈS clôture : trace ancienne/nouvelle valeur,
+  // auteur, motif, approbateur (jamais de remplacement silencieux).
+  function calCorrect(calId, champ, calibre, nouvelleVal, motif, approbateur) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (c.etat !== ETAT_CAL.CLOS) throw new Error("La correction tracée ne s'applique qu'après clôture.");
+    if (!(motif && motif.trim()) || !(approbateur && approbateur.trim())) throw new Error("Motif et approbateur obligatoires pour une correction après clôture.");
+    var ancienne = null;
+    if (champ === "sortie") {
+      var o = c.outputs.filter(function (x) { return x.calibre === calibre; })[0]; if (!o) throw new Error("Sortie introuvable.");
+      ancienne = o.poids; o.poids = num(nouvelleVal);
+    } else throw new Error("Champ non corrigible : " + champ);
+    var corr = { at: nowISO(), champ: champ + (calibre ? " " + calibre : ""), avant: ancienne, apres: num(nouvelleVal), auteur: (loadDb().user || {}).nom, motif: motif, approbateur: approbateur, ref: c.id };
+    c.corrections = c.corrections || []; c.corrections.push(corr);
+    c.validation.bilan = calBalance(c);
+    audit(c.id, "correction " + champ + (calibre ? " " + calibre : ""), ancienne, num(nouvelleVal), "Motif : " + motif + " · approbateur : " + approbateur);
     saveDb();
     return c;
   }
 
-  // M2-FR-12 · Généalogie inverse : d'une opération CAL vers les lots officiels.
+  // §écran 12 · Généalogie inverse : d'une opération CAL vers les lots officiels.
   function genealogy(calId) {
     var cal = getCal(calId); if (!cal) return null;
     var trf = getTrf(cal.trfId);
     var cycle = trf ? getCycle(trf.cycleId) : null;
     var contributors = (cal.contributors || []).map(function (c) {
       var lot = getLot(c.lotId);
-      return { lotId: c.lotId, share: c.share, qty: c.qty, rec: lot ? lot.recId : null, fournisseur: lot ? lot.fournisseur : null, korFinal: lot ? lot.korDisplay : null };
+      return { lotId: c.lotId, share: c.share, qty: c.qty, rec: lot ? lot.recId : null, fournisseur: lot ? (getLot(c.lotId) || {}).fournisseur : null, korFinal: lot ? lot.korDisplay : null };
     });
     return { cal: cal, trf: trf, cycle: cycle, contributors: contributors };
+  }
+  // §écran 12 · Généalogie d'une BIN de calibre → opérations → transferts →
+  // BIN brutes → lots → fournisseurs (contribution théorique en cas de mélange).
+  function binCalGenealogy(binId) {
+    var cyc = binCycles().filter(function (c) { return c.binId === String(binId).toUpperCase(); })[0];
+    if (!cyc) return null;
+    var ops = (cyc.contributors || []).filter(function (x) { return x.calId; }).map(function (x) {
+      var cal = getCal(x.calId); var g = cal ? genealogy(cal.id) : null;
+      return { calId: x.calId, calibre: x.calibre, entree: x.entree, trf: g ? g.trf : null, binBrute: cal ? cal.binId : null, contributors: g ? g.contributors : [] };
+    });
+    return { bin: cyc, ops: ops };
+  }
+  // §écran 12 · Fournisseur → calibres auxquels sa matière a contribué (théorique).
+  function supplierCalibres(key) {
+    var res = {};
+    cals().forEach(function (cal) {
+      var touche = (cal.contributors || []).some(function (c) { var l = getLot(c.lotId); return l && (l.lba === key || l.fournisseur === key); });
+      if (!touche) return;
+      cal.outputs.forEach(function (o) { if (o.poids > 0) res[o.calibre] = (res[o.calibre] || 0) + o.poids; });
+    });
+    return Object.keys(res).map(function (k) { return { calibre: k, poidsTheorique: round2(res[k]) }; }).sort(function (a, b) { return b.poidsTheorique - a.poidsTheorique; });
+  }
+  // §Données de démonstration · Scénario complet de calibrage (clairement étiqueté).
+  // CAL-TRF-2026-0001 (BIN YAKRO-01-BIN-008, 20 000→19 970) → CAL-BATCH-2026-0042.
+  // Nombres vérifiés : 9 calibres 19 650 + poussière 120 + recalibrer 150 +
+  // reste machine 20 = 19 940 ; écart inexpliqué = 19 970 − 19 940 = 30 kg (0,15 %).
+  // (Le « reste machine » est ramené de 50 à 20 kg : avec 50, la somme égalait
+  //  le reçu et l'écart tombait à 0, incompatible avec l'écart de 30 demandé.)
+  function seedCalibrageDemo() {
+    var db = loadDb();
+    if (db.cals.some(function (c) { return c.id === "CAL-BATCH-2026-0042"; })) return;
+    var cals9 = (referentials().calibres || CALIBRES).slice(0, 9);
+    // Lots contributeurs de démo (BIN source de Yamoussoukro).
+    var fs = (referentials().fournisseurs || FOURNISSEURS);
+    var demoLots = [
+      { id: "RCN-DEMO-Y1", fournisseur: (fs[5] || {}).nom || "SCOOP IMANE", lba: (fs[5] || {}).lba || "LBA-006-IMA", origine: "Korhogo", netInitial: 9000, korDisplay: 47.8 },
+      { id: "RCN-DEMO-Y2", fournisseur: (fs[6] || {}).nom || "CASP-S SCOOPS", lba: (fs[6] || {}).lba || "LBA-007-CAS", origine: "Mankono", netInitial: 6500, korDisplay: 47.2 },
+      { id: "RCN-DEMO-Y3", fournisseur: (fs[2] || {}).nom || "SCOOPS HERE B", lba: (fs[2] || {}).lba || "LBA-003-HER", origine: "Séguéla", netInitial: 4500, korDisplay: 46.9 }
+    ];
+    demoLots.forEach(function (l) { l.recId = "REC-" + l.id; l.warehouse = "YAKRO-01"; l.site = "YAKRO-01"; l.stock = 0; l.etat = ETAT_REC.LIBERE; l.demo = true; l.children = []; db.lots.push(l); });
+    var srcBin = { id: "YAKRO-01-BIN-008/20260717-01", binId: "YAKRO-01-BIN-008", qualiteAutorisee: "RCN standard", capaciteKg: 30000, openedAt: "2026-07-16T08:00:00.000Z", closedAt: null, etat: ETAT_BIN.ACTIF, demo: true,
+      contributors: demoLots.map(function (l) { return { lotId: l.id, entree: l.netInitial, sorti: 20000 * l.netInitial / 20000, qualite: ETAT_REC.LIBERE }; }), residuKg: null };
+    db.binCycles.push(srcBin); db.bins["YAKRO-01-BIN-008"] = srcBin.id;
+    var totalSrc = demoLots.reduce(function (a, l) { return a + l.netInitial; }, 0);
+    var contributors = demoLots.map(function (l) { return { lotId: l.id, share: round2(l.netInitial / totalSrc * 100), qty: round2(20000 * l.netInitial / totalSrc), qualite: ETAT_REC.LIBERE }; });
+    // Transfert reçu au calibrage (20 000 envoyé → 19 970 reçu, écart 30 à expliquer).
+    var trf = {
+      id: "CAL-TRF-2026-0001", createdAt: "2026-07-17T07:30:00.000Z", cycleId: srcBin.id, binId: "YAKRO-01-BIN-008",
+      destinationType: "calibrage", destinationSite: "", destination: "Calibrage · Usine", demo: true,
+      transporteur: "Navette interne", voyage: "CAL-V01", chauffeur: "KONE M.", camion: "INT-01",
+      poidsEnvoye: 20000, poidsRecu: 19970, ecart: 30, transitLossPct: 0.15,
+      qualiteDepart: { kor: 47.4, humidity: 9, nc: 180 }, qualiteArrivee: { kor: 47.4, humidity: 9, nc: 181 },
+      contributors: contributors, etat: ETAT_TRF.RECU,
+      recCal: { poidsEnvoye: 20000, poidsRecu: 19970, ecartKg: 30, ecartPct: 0.15, sacsEnvoye: 250, sacsRecu: 250, ecartSacs: 0, etatSacs: "Bon", humidity: 9, nc: 181, motif: "Différence de pesée à la bascule, contrôlée", responsable: "Responsable Production", commentaire: "", horsTolerance: false, valide: true, at: "2026-07-17T08:10:00.000Z", auteur: "Démo" },
+      recCalOk: true, validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: { at: "2026-07-17T08:10:00.000Z" } }, voyages: [{ recu: 19970, at: "2026-07-17T08:10:00.000Z" }]
+    };
+    trf.finance = computeTransferFinance(trf);
+    db.transfers.push(trf);
+    // Second transfert « attendu » (en route) pour démontrer réception & ouverture.
+    var trf2 = { id: "CAL-TRF-2026-0002", createdAt: "2026-07-17T09:00:00.000Z", cycleId: srcBin.id, binId: "YAKRO-01-BIN-008",
+      destinationType: "calibrage", destination: "Calibrage · Usine", demo: true, transporteur: "Navette interne", voyage: "CAL-V02", camion: "INT-02",
+      poidsEnvoye: 12000, poidsRecu: null, ecart: null, transitLossPct: null, qualiteDepart: { kor: 47.1, humidity: 9.1, nc: 182 }, qualiteArrivee: null,
+      contributors: demoLots.map(function (l) { return { lotId: l.id, share: round2(l.netInitial / totalSrc * 100), qty: round2(12000 * l.netInitial / totalSrc), qualite: ETAT_REC.LIBERE }; }),
+      etat: ETAT_TRF.EXPEDIE, recCalOk: false, validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: null }, voyages: [] };
+    trf2.finance = computeTransferFinance(trf2);
+    db.transfers.push(trf2);
+    // Opération CAL-BATCH-2026-0042 en cours (checklist OK, 9 sorties, rejets, un arrêt).
+    var poids = [2800, 2650, 2500, 2350, 2200, 2000, 1750, 1450, 1950];   // Σ = 19 650
+    var checklist = {}; CAL_CHECKLIST.forEach(function (it) { checklist[it.code] = true; });
+    var outputs = cals9.map(function (cal, i) {
+      var dec = i === 8 ? "reserve" : "conforme";
+      return { id: "CAL-BATCH-2026-0042/" + cal, calibre: cal, poids: poids[i], sacs: Math.round(poids[i] / 80), nc: 180 + i, binDest: "YAK-CAL-BIN-" + pad(i + 1, 3), debut: "2026-07-17T09:00:00.000Z", fin: "2026-07-17T13:00:00.000Z", commentaire: "",
+        qc: { taille: "Conforme", melange: "Faible", impuretes: 0.4, humidity: 8.5, nc: 180 + i, decision: dec, commentaire: dec === "reserve" ? "Léger mélange avec le calibre voisin" : "", controleur: "Qualité", at: "2026-07-17T13:10:00.000Z" } };
+    });
+    var losses = [
+      { code: "poussiere", poids: 120, destination: "Bac corps étrangers", responsable: "Opérateur", commentaire: "Poussière + petits cailloux", at: "2026-07-17T13:00:00.000Z" },
+      { code: "recalibrer", poids: 150, destination: "File de recalibrage", responsable: "Opérateur", commentaire: "", at: "2026-07-17T13:00:00.000Z" },
+      { code: "reste_machine", poids: 20, destination: "Machine", responsable: "Opérateur", commentaire: "Résidu tambour", at: "2026-07-17T13:00:00.000Z" }
+    ];
+    var cal = {
+      id: "CAL-BATCH-2026-0042", trfId: "CAL-TRF-2026-0001", binId: "YAKRO-01-BIN-008", createdAt: "2026-07-17T08:20:00.000Z", demo: true,
+      machine: "Calibreuse 01", shift: "Jour", equipe: "Équipe A", operateurs: "DIALLO A., BAMBA S.", responsable: "Responsable Production",
+      contributors: contributors, recu: 19970, prevu: 19970, entreeMachine: 19970,
+      binsDest: "YAK-CAL-BIN-001…009", melangeAutorise: false, melangeMotif: "",
+      etat: ETAT_CAL.PARTIEL, checklist: checklist, checklistOk: true,
+      startedAt: "2026-07-17T09:00:00.000Z", endedAt: null,
+      feeds: [{ id: "MOV-DEMO1", qty: 19970, binSource: "YAKRO-01-BIN-008", at: "2026-07-17T09:00:00.000Z" }],
+      stops: [{ id: "MOV-DEMO2", motif: "Bourrage", commentaire: "Bourrage tamis 3", startAt: "2026-07-17T10:30:00.000Z", endAt: "2026-07-17T10:48:00.000Z", dureeMin: 18, auteur: "Opérateur" }],
+      outputs: outputs, losses: losses, corrections: [],
+      events: [{ at: "2026-07-17T13:10:00.000Z", label: "Sorties saisies (9 calibres)", qty: null, auteur: "Opérateur" }, { at: "2026-07-17T09:00:00.000Z", label: "Démarrage", qty: null, auteur: "Opérateur" }],
+      validation: null
+    };
+    db.cals.push(cal);
+    // BIN de calibre (généalogie CAL → TRF → BIN brute → lots → fournisseurs).
+    outputs.forEach(function (o, i) {
+      var binId = o.binDest;
+      var cyc = { id: binId + "/20260717-01", binId: binId, qualiteAutorisee: "Calibre " + o.calibre, capaciteKg: 4000, openedAt: "2026-07-17T13:00:00.000Z", closedAt: null, etat: ETAT_BIN.ACTIF, calibre: o.calibre, demo: true,
+        contributors: [{ calRef: "CAL:CAL-BATCH-2026-0042:" + o.calibre, calId: "CAL-BATCH-2026-0042", calibre: o.calibre, entree: o.poids, sorti: 0, qualite: "calibré" }], residuKg: null };
+      db.binCycles.push(cyc); db.bins[binId] = cyc.id; o.binCycleId = cyc.id;
+    });
+    audit("CAL-BATCH-2026-0042", "démonstration", null, "scénario calibrage", "Données de démonstration : transfert, réception, opération, 9 sorties, BIN de calibre");
+  }
+
+  // Référentiel administrable des 9 noms de calibre (§écran 7).
+  function setCalibreNames(arr) {
+    if (!Array.isArray(arr) || arr.length !== 9) throw new Error("Neuf appellations de calibre sont attendues.");
+    var r = referentials(); var avant = (r.calibres || []).join(", ");
+    r.calibres = arr.map(function (s, i) { return (s && String(s).trim()) || ("C" + (i + 1)); });
+    audit("CAL-REF", "appellations calibres", avant, r.calibres.join(", "), "Mise à jour des noms officiels de calibre");
+    saveDb(); return r.calibres;
   }
 
   /* ------------------------------------------------------------------ */
@@ -1370,6 +1623,7 @@
     // Séquences (pour que les prochaines créations ne collisionnent pas).
     db.seq["TRF"] = Math.max(db.seq["TRF"] || 0, (sim.transfers || []).length);
     audit("SIM", "simulation", null, recs.length + " réceptions · " + (sim.transfers || []).length + " transferts", "Import des données réelles 2026 (OFFLOADINGS + BOUAKE TRF)");
+    seedCalibrageDemo();   // scénario de démonstration du calibrage (étiqueté)
     db.seeded = true;
     saveDb();
     return true;
@@ -1509,8 +1763,13 @@
     // prix & finance (§4 règle de sortie, §6 valorisation/pénalité)
     regleSortieBin: regleSortieBin, toleranceTransit: toleranceTransit, setLotPrice: setLotPrice, prixMoyenPondere: prixMoyenPondere, binPrixMoyen: binPrixMoyen, computeTransferFinance: computeTransferFinance,
     // calibrage
-    createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
+    createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calStop: calStop, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
     toleranceCalibrage: toleranceCalibrage, setToleranceCalibrage: setToleranceCalibrage,
+    // calibrage enrichi (écrans 3–14)
+    receiveAtCalibrage: receiveAtCalibrage, toleranceReceptionCal: toleranceReceptionCal, setToleranceReceptionCal: setToleranceReceptionCal,
+    calSetChecklist: calSetChecklist, calOutputQC: calOutputQC, calCloseBlockers: calCloseBlockers, calCorrect: calCorrect,
+    binCalGenealogy: binCalGenealogy, supplierCalibres: supplierCalibres, setCalibreNames: setCalibreNames,
+    CAL_CHECKLIST: CAL_CHECKLIST, QC_DECISIONS: QC_DECISIONS, ROLES: ROLES,
     // sacs jute
     jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
     // géographie / entrepôts / statistiques par zone

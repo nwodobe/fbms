@@ -244,6 +244,21 @@
   .app.portal .side{display:none}
   .app.portal .menu-toggle{display:none!important}
   .app.portal .content{max-width:none}
+  /* calibrage : flux visuel + interface opérateur (tablette) */
+  .cal-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 20px;padding:14px 16px;border:1px solid var(--n200);border-radius:14px;background:linear-gradient(100deg,var(--pale),#fff)}
+  .cal-step{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:88px;font-size:11px;color:var(--n700);text-align:center;font-weight:600}
+  .cal-step b{font-size:20px;line-height:1}
+  .cal-arr{color:var(--pine);font-weight:800;font-size:16px}
+  .cal-op{border:1px solid var(--n200);border-radius:16px;padding:20px;background:#fff}
+  .cal-op-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .cal-op-metrics>div{background:var(--mist);border-radius:12px;padding:12px 10px;text-align:center}
+  .cal-op-metrics small{display:block;color:var(--n500);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  .cal-op-metrics b{display:block;font-family:var(--fd);font-weight:800;font-size:22px;color:var(--forest);margin:2px 0}
+  .cal-op-metrics span{font-size:10px;color:var(--n500)}
+  .cal-op-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+  .btn.big{font-size:16px;padding:16px 24px;border-radius:14px;min-width:180px;justify-content:center}
+  @media(max-width:900px){.cal-op-metrics{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:640px){.cal-op-metrics{grid-template-columns:repeat(2,1fr)}.btn.big{min-width:100%}}
 </style>
 </head>
 <body>
@@ -278,9 +293,9 @@
 <!-- Version d'assets : à incrémenter à chaque déploiement pour forcer le
      rechargement des JS (le HTML est servi frais par le service worker,
      donc une nouvelle version ici fait charger les scripts à jour). -->
-<script defer src="./ci-geo.js?v=20260717-r10"></script>
-<script defer src="./sim-data.js?v=20260717-r10"></script>
-<script defer src="./rcntrace.js?v=20260717-r10"></script>
-<script defer src="./rcntrace-sync.js?v=20260717-r10"></script>
-<script defer src="./rcntrace-ui.js?v=20260717-r10"></script>
+<script defer src="./ci-geo.js?v=20260717-r11"></script>
+<script defer src="./sim-data.js?v=20260717-r11"></script>
+<script defer src="./rcntrace.js?v=20260717-r11"></script>
+<script defer src="./rcntrace-sync.js?v=20260717-r11"></script>
+<script defer src="./rcntrace-ui.js?v=20260717-r11"></script>
 </body></html>
