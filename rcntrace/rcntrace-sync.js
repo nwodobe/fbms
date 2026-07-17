@@ -169,11 +169,16 @@
       var stateRows = all[0].data || [], auditRows = all[1].data || [];
       rebuildFromRows(stateRows, auditRows);
       var db = R.db();
-      db.procurement = {
-        engagements: (all[2].data || []).map(function (x) { return x.payload; }),
-        financements: (all[3].data || []).map(function (x) { return x.payload; }),
-        arrivages: (all[4].data || []).map(function (x) { return x.payload; })
-      };
+      var pe = (all[2].data || []).map(function (x) { return x.payload; });
+      var pf = (all[3].data || []).map(function (x) { return x.payload; });
+      var pa = (all[4].data || []).map(function (x) { return x.payload; });
+      // Première migration : préserver les anciennes données locales / meta
+      // lorsque les nouvelles tables centrales sont encore vides.
+      if (pe.length || pf.length || pa.length) {
+        db.procurement = { engagements: pe, financements: pf, arrivages: pa };
+      } else if (!db.procurement) {
+        db.procurement = { engagements: [], financements: [], arrivages: [] };
+      }
       R.save();
       return !!(stateRows.length || db.procurement.engagements.length || db.procurement.financements.length || db.procurement.arrivages.length);
     });
