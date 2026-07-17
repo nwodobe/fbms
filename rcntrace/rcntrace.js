@@ -52,6 +52,15 @@
     { code: "recond", label: "Sacs reconditionnés" }
   ];
 
+  // Types de mouvement de sacs de jute (module Sacs jute).
+  // Le solde d'un fournisseur = dotation − (retour + déchiré + rebaging).
+  var TYPES_JUTE = [
+    { code: "dotation", label: "Dotation (sacs remis au fournisseur)", signe: +1 },
+    { code: "retour", label: "Retour après livraison", signe: -1 },
+    { code: "dechire", label: "Sacs déchirés", signe: -1 },
+    { code: "rebaging", label: "Rebaging (reconditionnement)", signe: -1 }
+  ];
+
   // Référentiels RÉELS extraits des rapports d'exploitation 2026 (configurables).
   // Fournisseurs = coopératives avec leur code LBA.
   var FOURNISSEURS = [
@@ -107,6 +116,7 @@
       binCycles: [],           // cycles de BIN
       movements: [],           // mouvements MOV (entrées/sorties/séchage/triage)
       dryings: [],             // opérations de séchage / triage SEC (avant/après)
+      jute: [],                // mouvements de sacs de jute JUT (dotation/retour/déchiré/rebaging)
       transfers: [],           // transferts TRF
       cals: [],                // opérations de calibrage CAL
       documents: [],           // pièces jointes DOC (métadonnées)
@@ -828,6 +838,50 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /*  9bis. Sacs de jute — dotation, retours, déchirés, rebaging         */
+  /*  Suivi par fournisseur + solde. « Cliquer un fournisseur » ouvre    */
+  /*  sa traçabilité et sa balance.                                      */
+  /* ------------------------------------------------------------------ */
+  function jute() { return loadDb().jute || (loadDb().jute = []); }
+  function juteSigne(code) { var t = TYPES_JUTE.filter(function (x) { return x.code === code; })[0]; return t ? t.signe : 0; }
+
+  // Enregistre un mouvement de sacs de jute.
+  function juteMovement(d) {
+    var qty = num(d.qty); if (qty === null || qty <= 0) throw new Error("Nombre de sacs invalide.");
+    if (!d.supplierNom && !d.supplierLba) throw new Error("Fournisseur requis.");
+    if (juteSigne(d.type) === 0) throw new Error("Type de mouvement inconnu.");
+    var mv = {
+      id: genId("JUT"), type: d.type,
+      supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "",
+      qty: qty, ref: d.ref || "", note: d.note || "",
+      at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    jute().unshift(mv);
+    audit(mv.id, "sacs jute", null, d.type + " · " + qty + " · " + (d.supplierNom || d.supplierLba), d.ref || "");
+    saveDb();
+    return mv;
+  }
+
+  // Balance d'un fournisseur (par code LBA de préférence, sinon nom).
+  function juteBalance(key) {
+    var b = { dotation: 0, retour: 0, dechire: 0, rebaging: 0 };
+    jute().forEach(function (m) {
+      if (m.supplierLba === key || m.supplierNom === key) b[m.type] = (b[m.type] || 0) + m.qty;
+    });
+    b.solde = b.dotation - b.retour - b.dechire - b.rebaging;   // sacs encore chez le fournisseur
+    return b;
+  }
+  function juteMovementsFor(key) { return jute().filter(function (m) { return m.supplierLba === key || m.supplierNom === key; }); }
+
+  // Liste des fournisseurs avec leur balance de sacs (référentiel + observés).
+  function juteSuppliers() {
+    var refs = (referentials().fournisseurs || []).map(function (f) { return { nom: f.nom, lba: f.lba }; });
+    var seen = {}; refs.forEach(function (f) { seen[f.lba || f.nom] = true; });
+    jute().forEach(function (m) { var k = m.supplierLba || m.supplierNom; if (!seen[k]) { seen[k] = true; refs.push({ nom: m.supplierNom, lba: m.supplierLba }); } });
+    return refs.map(function (f) { return Object.assign({}, f, { balance: juteBalance(f.lba || f.nom) }); });
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 10. Indicateurs / tableau de bord                                  */
   /* ------------------------------------------------------------------ */
   function dashboard() {
@@ -923,6 +977,16 @@
     qaApproveTransfer(trf2.id, true, "Contrôle OK");
     shipTransfer(trf2.id);
 
+    // Sacs de jute : dotations, retours, déchirés, rebaging par fournisseur.
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "dotation", qty: 500, ref: "DOT-001" });
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "retour", qty: 470, ref: "RET-001" });
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "dechire", qty: 15, ref: "" });
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "dotation", qty: 300, ref: "DOT-002" });
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "retour", qty: 260, ref: "RET-002" });
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "rebaging", qty: 20, ref: "" });
+    juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "dotation", qty: 400, ref: "DOT-003" });
+    juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "retour", qty: 120, ref: "RET-003" });
+
     // BIN planifiées.
     openBinCycle("BKE-002-BIN-019", "RCN standard", 10000);
 
@@ -936,7 +1000,7 @@
   global.RCN = {
     // constantes
     KOR_FACTOR: KOR_FACTOR, KOR_FORMULA: KOR_FORMULA, KOR_TOLERANCE: KOR_TOLERANCE,
-    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC,
+    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC, TYPES_JUTE: TYPES_JUTE,
     ETAT_REC: ETAT_REC, ETAT_BIN: ETAT_BIN, ETAT_TRF: ETAT_TRF, ETAT_CAL: ETAT_CAL,
     // magasin
     db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo,
@@ -957,6 +1021,8 @@
     prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
     // calibrage
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
+    // sacs jute
+    jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers,
     // dashboard / audit
     dashboard: dashboard, audit: audit
   };

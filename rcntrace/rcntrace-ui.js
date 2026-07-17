@@ -15,7 +15,7 @@
     fr: {
       "brand.sub": "Traçabilité matière", "nav.portal": "Portail ANAGROCI",
       "nav.accueil": "Accueil", "nav.reception": "Réception", "nav.qualite": "Qualité",
-      "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.sacs": "Sacs jute", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
       "nav.rapports": "Rapports", "nav.audit": "Audit",
       "net.on": "En ligne", "net.off": "Hors connexion",
       "save": "Enregistrer", "send": "Envoyer", "cancel": "Annuler", "back": "Retour",
@@ -23,7 +23,7 @@
     en: {
       "brand.sub": "Material traceability", "nav.portal": "ANAGROCI Portal",
       "nav.accueil": "Home", "nav.reception": "Reception", "nav.qualite": "Quality",
-      "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.sacs": "Jute bags", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
       "nav.rapports": "Reports", "nav.audit": "Audit",
       "net.on": "Online", "net.off": "Offline",
       "save": "Save", "send": "Send", "cancel": "Cancel", "back": "Back",
@@ -33,8 +33,8 @@
 
   var NAV = [
     { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
-    { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "transfert", ni: "06" }, { id: "calibrage", ni: "07" },
-    { id: "rapports", ni: "08" }, { id: "audit", ni: "09" }
+    { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "sacs", ni: "06" }, { id: "transfert", ni: "07" }, { id: "calibrage", ni: "08" },
+    { id: "rapports", ni: "09" }, { id: "audit", ni: "10" }
   ];
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -86,6 +86,7 @@
     qualite: ["Qualité", "Module 1 · Sampling, décision GM & libération"],
     stock: ["Stock & BIN", "Module 1 · Cycles, compositions & mouvements"],
     sechage: ["Séchage / triage", "Module 1 · Avant/après, BIN après séchage & perte"],
+    sacs: ["Sacs de jute", "Dotation, retours, déchirés, rebaging & balance par fournisseur"],
     transfert: ["Transfert", "Passage entre modules · contributeurs & triple validation"],
     calibrage: ["Calibrage", "Module 2 · CAL, sorties, arrêts & bilan matière"],
     rapports: ["Rapports", "Indicateurs & cartographie du business"],
@@ -108,7 +109,7 @@
   // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
   var EYEBROW = {
     accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
-    stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", transfert: "Passage entre modules",
+    stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
     calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
@@ -507,6 +508,60 @@
       '</div></div></div>';
   };
 
+  /* ---- SACS DE JUTE ----------------------------------------------- */
+  PAGES.sacs = function (r) {
+    if (r.id) return sacsSupplier(decodeURIComponent(r.id));
+    var suppliers = R.juteSuppliers();
+    var totDot = 0, totSolde = 0;
+    var rows = suppliers.map(function (s) {
+      var b = s.balance; var key = s.lba || s.nom; totDot += b.dotation; totSolde += b.solde;
+      return '<tr><td><a href="#sacs/' + encodeURIComponent(key) + '" style="font-weight:600">' + esc(s.nom) + '</a><br><span style="font-family:var(--fm);font-size:11px;color:var(--n500)">' + esc(s.lba || "") + '</span></td>' +
+        '<td class="mono">' + b.dotation + '</td><td class="mono">' + b.retour + '</td><td class="mono">' + b.dechire + '</td><td class="mono">' + b.rebaging + '</td>' +
+        '<td class="mono"><b>' + b.solde + '</b></td>' +
+        '<td><button class="btn ghost sm" onclick="__rcngo(\'sacs/' + encodeURIComponent(key) + '\')">Voir →</button></td></tr>';
+    }).join("");
+    var supOpts = suppliers.map(function (s, i) { return '<option value="' + i + '">' + esc(s.nom + " · " + (s.lba || "")) + '</option>'; }).join("");
+    var typeOpts = R.TYPES_JUTE.map(function (t) { return '<option value="' + t.code + '">' + esc(t.label) + '</option>'; }).join("");
+    return '<div class="pagehead"><h1>Gestion des sacs de jute</h1><p>Dotation aux fournisseurs, retours après livraison, sacs déchirés et rebaging. Cliquez un fournisseur pour sa traçabilité et sa balance.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Fournisseurs suivis", suppliers.length, "avec dotation ou mouvement", "") +
+        kpi("Sacs distribués", totDot, "cumul dotations", "") +
+        kpi("Solde en circulation", totSolde, "sacs chez les fournisseurs", totSolde ? "warn" : "") +
+        kpi("Mouvements", R.jute().length, "enregistrés", "") +
+      '</div>' +
+      '<div class="grid2"><div class="card"><h2>Balance par fournisseur</h2><div class="cbody" style="padding:0">' +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Fournisseur</th><th>Dotation</th><th>Retour</th><th>Déchirés</th><th>Rebaging</th><th>Solde</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucun fournisseur.</div>') +
+      '</div></div>' +
+      '<div><div class="card"><h2>Enregistrer un mouvement</h2><div class="cbody">' +
+        '<label>Fournisseur</label><select id="j_sup">' + supOpts + '</select>' +
+        '<label>Type de mouvement</label><select id="j_type">' + typeOpts + '</select>' +
+        '<div class="row">' + inp("j_qty", "Nombre de sacs", "", "number") + inp("j_ref", "Référence (bordereau)", "", "text") + '</div>' +
+        '<label>Observation</label><input id="j_note" placeholder="Facultatif">' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.juteMove()">Enregistrer</button></div>' +
+      '</div></div>' +
+      '<div class="rule"><b>Règle métier.</b> Solde = dotation − (retours + déchirés + rebaging). Le solde représente les sacs encore chez le fournisseur.</div></div></div>';
+  };
+  function sacsSupplier(key) {
+    var sups = R.juteSuppliers();
+    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0] || { nom: key, lba: "", balance: R.juteBalance(key) };
+    var b = sup.balance || R.juteBalance(key);
+    var moves = R.juteMovementsFor(key);
+    var tl = moves.length ? '<ul class="timeline">' + moves.map(function (m) {
+      var t = R.TYPES_JUTE.filter(function (x) { return x.code === m.type; })[0] || {};
+      return '<li><span class="tl-t">' + R.fmtDateTime(m.at).split(" · ")[0] + '</span><span class="tl-b"><b>' + esc(t.label || m.type) + ' · ' + m.qty + ' sacs</b><span>' + (m.ref ? "réf. " + esc(m.ref) + " · " : "") + esc(m.auteur || "") + (m.note ? " · " + esc(m.note) : "") + '</span></span></li>';
+    }).join("") + '</ul>' : '<div class="empty">Aucun mouvement.</div>';
+    return '<div class="pagehead"><h1>' + esc(sup.nom) + '</h1><p>Traçabilité des sacs de jute · ' + esc(sup.lba || "") + '</p></div>' +
+      '<div class="metrics">' +
+        '<div class="metric"><small>Dotation</small><b>' + b.dotation + '</b><span>sacs remis</span></div>' +
+        '<div class="metric"><small>Retournés</small><b>' + b.retour + '</b><span>après livraison</span></div>' +
+        '<div class="metric"><small>Déchirés</small><b>' + b.dechire + '</b></div>' +
+        '<div class="metric"><small>Rebaging</small><b>' + b.rebaging + '</b></div>' +
+        '<div class="metric big ' + (b.solde ? "" : "") + '"><small>Solde (en circulation)</small><b>' + b.solde + '</b><span>sacs chez le fournisseur</span></div>' +
+      '</div>' +
+      '<div class="card"><h2>Mouvements <span class="badge b-neutral">' + moves.length + '</span></h2><div class="cbody">' + tl + '</div></div>' +
+      '<div class="actions"><button class="btn ghost" onclick="__rcngo(\'sacs\')">← Tous les fournisseurs</button></div>';
+  }
+
   /* ---- TRANSFERT (slide 10) --------------------------------------- */
   PAGES.transfert = function (r) {
     if (r.id) return transfertDetail(r.id);
@@ -826,6 +881,13 @@
         kor: val("wh_kor"), humidity: val("wh_hum"), nc: val("wh_nc")
       });
       toast("Réceptionné · dossier " + res.rec.id + " (sampling requis)."); go("qualite/" + res.rec.id + "/sampling"); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.juteMove = function () {
+    try {
+      var s = R.juteSuppliers()[Number(val("j_sup")) || 0] || {};
+      R.juteMovement({ supplierNom: s.nom, supplierLba: s.lba, type: val("j_type"), qty: val("j_qty"), ref: val("j_ref"), note: val("j_note") });
+      toast("Mouvement enregistré."); route();
     } catch (e) { toast(e.message, true); }
   };
   UI.closeBin = function (cycleId) {
