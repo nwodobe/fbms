@@ -417,4 +417,26 @@ select
     - coalesce((select sum(poids_kg) from rcn_v_cal_pertes  l where l.cal_id = c.id), 0) as ecart_kg
 from rcn_v_calibrages c;
 
+-- ----------------------------------------------------------------------------
+-- D. SÉCURITÉ — vues en security_invoker : la RLS de rcn_state s'applique à
+--    travers chaque vue (sinon une vue s'exécute avec les droits du
+--    propriétaire et contournerait la RLS). Reporting « live » = choix retenu :
+--    toujours frais, zéro maintenance ; rcn_etl_refresh() reste à la demande.
+-- ----------------------------------------------------------------------------
+do $$
+declare v text;
+begin
+  foreach v in array array[
+    'rcn_v_receptions','rcn_v_qualites','rcn_v_decisions_gm','rcn_v_dechargements',
+    'rcn_v_lots','rcn_v_bin_cycles','rcn_v_bin_contributeurs','rcn_v_transferts',
+    'rcn_v_transfert_contributeurs','rcn_v_calibrages','rcn_v_cal_sorties','rcn_v_cal_pertes',
+    'rcn_v_cal_arrets','rcn_v_cal_alimentations','rcn_v_mouvements','rcn_v_genealogie',
+    'rcn_bi_kor','rcn_bi_delais','rcn_bi_stock_bin','rcn_bi_ecart_transfert',
+    'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal'
+  ]
+  loop
+    execute format('alter view %I set (security_invoker = on);', v);
+  end loop;
+end $$;
+
 -- Fin ETL & BI RCN TRACE.
