@@ -197,11 +197,23 @@
     return supplierLoading;
   }
 
+  function saveSupplier(f) {
+    if (!hasSession) return Promise.reject(new Error("Connexion requise."));
+    var client = ensureClient();
+    var row = { code: f.lba, nom: f.nom, categorie: /^LBA-/.test(f.lba) ? "LBA" : "DIRECT", statut: "ACTIF", updated_at: nowISO() };
+    return client.from("rcn_fournisseurs").upsert(row, { onConflict: "code" }).then(function (res) {
+      if (res.error) throw res.error;
+      supplierCache = null;
+      return loadSuppliers();
+    });
+  }
+
   /* ---- API publique ------------------------------------------------- */
   var API = {
     status: function () { return { mode: mode, pending: pending, hasSession: hasSession }; },
     suppliers: function () { return supplierCache ? supplierCache.slice() : null; },
     loadSuppliers: loadSuppliers,
+    saveSupplier: saveSupplier,
     flush: function () { return doFlush(); },
     init: function () {
       R = global.RCN;
