@@ -99,8 +99,29 @@
     var fn = PAGES[r.page] || PAGES.accueil;
     try { el("view").innerHTML = fn(r); }
     catch (e) { el("view").innerHTML = '<div class="alert">Erreur d\'affichage : ' + esc(e.message) + '</div>'; console.error(e); }
+    injectEyebrow(r);
     el("view").scrollTop = 0; window.scrollTo(0, 0);
     if (el("side").classList.contains("open")) el("side").classList.remove("open");
+  }
+
+  // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
+  var EYEBROW = {
+    accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
+    stock: "Module 1 · Stock & BIN", transfert: "Passage entre modules",
+    calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", audit: "Sécurité · Audit"
+  };
+  function injectEyebrow(r) {
+    var head = el("view") && el("view").querySelector(".pagehead");
+    if (!head || head.querySelector(".eyebrow")) return;
+    var txt = EYEBROW[r.page] || "RCN TRACE";
+    var span = document.createElement("span");
+    span.className = "eyebrow"; span.textContent = txt;
+    head.insertBefore(span, head.firstChild);
+  }
+  // Barre de progression pour une part en pourcentage (composition BIN, TRF).
+  function bar(pct) {
+    var p = Math.max(0, Math.min(100, Number(pct) || 0));
+    return '<div class="bar"><span class="track"><span class="fill" style="width:' + p + '%"></span></span><b>' + (Math.round(p * 10) / 10) + ' %</b></div>';
   }
 
   /* ================================================================== */
@@ -415,7 +436,7 @@
       var dispo = R.round2(c.entree - c.sorti);
       var part = stock ? R.round2(dispo / stock * 100) : 0;
       var lot = R.getLot(c.lotId);
-      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + part + ' %</td><td class="mono">' + R.kg(dispo) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
+      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
     }).join("");
     var libLots = R.lots().filter(function (l) { return l.etat === R.ETAT_REC.LIBERE && l.stock > 0; });
     return '<div class="pagehead"><h1>' + esc(cyc.binId) + ' · ' + esc(cyc.id) + ' ' + badgeEtat(cyc.etat) + '</h1><p>Composition théorique du cycle — après mélange, les pourcentages suivent le bilan matière.</p></div>' +
@@ -456,7 +477,7 @@
     var trf = R.getTrf(id); if (!trf) return notFound(id);
     var v = trf.validations;
     var rows = trf.contributors.map(function (c) {
-      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + c.share + ' %</td><td class="mono">' + R.kg(c.qty) + '</td><td>' + badgeEtat(c.qualite) + '</td></tr>';
+      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + bar(c.share) + '</td><td class="mono">' + R.kg(c.qty) + '</td><td>' + badgeEtat(c.qualite) + '</td></tr>';
     }).join("");
     var valStep = '<div class="stepper" style="margin-top:6px">' +
       '<div class="st ' + (v.entrepot ? "done" : "cur") + '"><i>' + (v.entrepot ? "✓" : "1") + '</i>Entrepôt</div>' +
