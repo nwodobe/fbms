@@ -389,8 +389,18 @@
         recActionCard(rec) +
       '</div>' +
       '<div class="card"><h2>Parcours du dossier</h2><div class="cbody">' + timeline(rec.events) + '</div></div>' +
+      receptionDocuments(rec) +
       '</div>';
     return out;
+  }
+  function receptionDocuments(rec) {
+    var docs = R.documentsFor(rec.id);
+    var rows = docs.length ? docs.map(function (d) {
+      return '<tr><td>' + esc(d.type) + '</td><td><a href="' + esc(d.dataUrl) + '" download="' + esc(d.nom) + '">' + esc(d.nom) + '</a></td><td>' + R.fmtDateTime(d.at) + '</td><td>' + esc(d.auteur || "—") + '</td></tr>';
+    }).join("") : '<tr><td colspan="4" class="empty">Aucune pièce jointe.</td></tr>';
+    var add = R.hasPermission("document") ? '<div class="row3" style="margin-top:14px"><div><label>Type de pièce</label><select id="doc_type"><option value="ticket_pesee">Ticket de pesée</option><option value="fiche_ccak">Fiche CCAK</option><option value="photo_camion">Photo camion</option><option value="bordereau">Bordereau</option><option value="autre">Autre</option></select></div><div><label>Photo ou PDF (max. 750 Ko)</label><input id="doc_file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></div><div style="align-self:end"><button class="btn" onclick="RCNUI.addDocument(\'' + rec.id + '\')">Joindre au dossier</button></div></div>' : '<div class="alert">Lecture seule : votre rôle ne peut pas ajouter de pièce.</div>';
+    var correction = R.hasPermission("correction") ? '<button class="btn ghost sm" onclick="RCNUI.correctReception(\'' + rec.id + '\')">✎ Corriger une valeur</button>' : '';
+    return '<div class="card" style="margin-top:18px"><h2>Preuves & pièces justificatives <span class="badge b-neutral">' + docs.length + '</span></h2><div class="cbody"><div class="tablewrap"><table><thead><tr><th>Type</th><th>Fichier</th><th>Ajouté le</th><th>Par</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + add + '<div class="actions">' + correction + '</div><small style="color:var(--n500)">Les pièces restent disponibles hors connexion pendant le pilote. En production, elles seront placées dans un stockage documentaire sécurisé.</small></div></div>';
   }
   function recStep(rec) {
     var e = R.ETAT_REC;
@@ -404,16 +414,19 @@
   function recActionCard(rec) {
     var e = R.ETAT_REC;
     if ([e.ARRIVEE, e.SAMPLING].indexOf(rec.etat) >= 0)
-      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Qualité</h2><div class="cbody"><p style="margin:0 0 12px;color:var(--n500)">Le laboratoire saisit le sampling avant déchargement.</p><button class="btn" onclick="__rcngo(\'qualite/' + rec.id + '/sampling\')">Saisir le sampling →</button></div></div>';
+      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Qualité</h2><div class="cbody"><p style="margin:0 0 12px;color:var(--n500)">Le laboratoire saisit le sampling avant déchargement.</p>' + actionButton("sampling", "Saisir le sampling →", "qualite/" + rec.id + "/sampling") + '</div></div>';
     if (rec.etat === e.ATTENTE_GM)
-      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · GM</h2><div class="cbody"><p style="margin:0 0 12px;color:var(--n500)">Sans autorisation GM, le déchargement reste indisponible.</p><button class="btn" onclick="__rcngo(\'qualite/' + rec.id + '/gm\')">Décision de déchargement →</button></div></div>';
+      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · GM</h2><div class="cbody"><p style="margin:0 0 12px;color:var(--n500)">Sans autorisation GM, le déchargement reste indisponible.</p>' + actionButton("gm_decision", "Décision de déchargement →", "qualite/" + rec.id + "/gm") + '</div></div>';
     if (rec.etat === e.AUTORISEE)
-      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Entrepôt</h2><div class="cbody"><button class="btn" onclick="__rcngo(\'reception/' + rec.id + '/dech\')">Enregistrer le déchargement →</button></div></div>';
+      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Entrepôt</h2><div class="cbody">' + actionButton("unloading", "Enregistrer le déchargement →", "reception/" + rec.id + "/dech") + '</div></div>';
     if (rec.etat === e.DECHARGE)
-      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Qualité</h2><div class="cbody"><button class="btn" onclick="__rcngo(\'qualite/' + rec.id + '/finale\')">Analyse finale & libération →</button></div></div>';
+      return '<div class="card" style="margin-top:16px"><h2>Prochaine action · Qualité</h2><div class="cbody">' + actionButton("lot_release", "Analyse finale & libération →", "qualite/" + rec.id + "/finale") + '</div></div>';
     if (rec.etat === e.BLOQUE)
       return '<div class="card" style="margin-top:16px"><h2 style="color:var(--danger)">Lot bloqué qualité</h2><div class="cbody"><div class="alert">Écart KOR ≥ 1. Flux d\'exception : nouvelle analyse, justification, décision et éventuel déclassement.</div><button class="btn warn" onclick="__rcngo(\'qualite/' + rec.id + '/finale\')">Nouvelle analyse →</button></div></div>';
     return "";
+  }
+  function actionButton(permission, label, routeTo) {
+    return R.hasPermission(permission) ? '<button class="btn" onclick="__rcngo(\'' + routeTo + '\')">' + esc(label) + '</button>' : '<div class="alert">Lecture seule · action réservée au rôle responsable.</div>';
   }
 
   /* sub-route reception/<id>/dech --------------------------------- */
@@ -1371,8 +1384,25 @@
       var d = r.dechargement || {}, f = r.finale || {};
       return '<tr><td>' + R.fmtDateTime(r.arriveeAt) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.warehouse || r.site || "—") + '</td><td>' + esc(r.fournisseur || "—") + '</td><td class="mono">' + esc(r.camion || "—") + '</td><td class="mono">' + R.kg(d.net) + '</td><td class="mono">' + R.kg(d.poidsPaye) + '</td><td class="mono">' + (f.korDisplay == null ? "—" : f.korDisplay.toFixed(2)) + '</td><td>' + badgeEtat(r.etat) + '</td></tr>';
     }).join("") || '<tr><td colspan="9" class="empty">Aucune réception.</td></tr>';
+    var now = Date.now();
+    var activeCycles = R.binCycles().filter(function (c) { return c.etat !== ETB.CLOS; });
+    var agingRows = activeCycles.slice().sort(function (a, b) { return new Date(a.openedAt) - new Date(b.openedAt); }).map(function (c) {
+      var days = Math.floor((now - new Date(c.openedAt).getTime()) / 86400000), cls = days >= 90 ? "b-danger" : (days >= 60 ? "b-warn" : "b-ok");
+      return '<tr><td class="mono">' + esc(c.binId) + '</td><td>' + esc(whOf(c.binId)) + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td><span class="badge ' + cls + '">' + days + ' jours</span></td><td>' + badgeEtat(c.etat) + '</td></tr>';
+    }).join("") || '<tr><td colspan="5" class="empty">Aucune BIN active.</td></tr>';
+    var lossRows = R.binCycles().filter(function (c) { return c.etat === ETB.CLOS; }).slice(0, 25).map(function (c) {
+      return '<tr><td class="mono">' + esc(c.binId) + '</td><td class="mono">' + R.kg((R.binTotals(c) || {}).entree) + '</td><td class="mono">' + R.kg(c.perteKg) + '</td><td>' + (c.pertePct == null ? "—" : c.pertePct + " %") + '</td><td>' + esc(c.justification || "—") + '</td></tr>';
+    }).join("") || '<tr><td colspan="5" class="empty">Aucune BIN clôturée.</td></tr>';
+    var dryRows = R.dryings().slice().sort(function (a, b) { return new Date(b.createdAt || b.at) - new Date(a.createdAt || a.at); }).slice(0, 25).map(function (d) {
+      return '<tr><td class="mono">' + esc(d.id) + '</td><td>' + esc(d.sourceBinId || d.sourceCycleId || "—") + '</td><td class="mono">' + R.kg(d.inputKg) + '</td><td class="mono">' + R.kg(d.outputKg) + '</td><td>' + (d.lossPct == null ? "—" : d.lossPct + " %") + '</td></tr>';
+    }).join("") || '<tr><td colspan="5" class="empty">Aucun séchage enregistré.</td></tr>';
+    var trfRows = transfers.slice().sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }).slice(0, 25).map(function (t) {
+      return '<tr><td class="mono">' + esc(t.id) + '</td><td>' + esc(t.destination || t.destinationSite || "—") + '</td><td class="mono">' + R.kg(t.poidsEnvoye) + '</td><td class="mono">' + R.kg(t.poidsRecu) + '</td><td class="mono">' + R.kg(t.ecart) + '</td><td>' + badgeEtat(t.etat) + '</td></tr>';
+    }).join("") || '<tr><td colspan="6" class="empty">Aucun transfert.</td></tr>';
+    var oldBins = activeCycles.filter(function (c) { return now - new Date(c.openedAt).getTime() >= 90 * 86400000; }).length;
+    var exceptions = bloques + enEcart.length + oldBins;
     return '<div class="pagehead"><h1>Pilotage du stock & de la qualité</h1><p>Vue globale : stock humide/sec, matière en transit, écarts non expliqués et qualité moyenne — par entrepôt.</p></div>' +
-      '<div class="actions" style="margin:-10px 0 18px"><button class="btn" onclick="RCNUI.exportWarehouseReport()">⇩ Exporter le rapport entrepôt CSV</button></div>' +
+      '<div class="actions" style="margin:-10px 0 18px"><button class="btn" onclick="RCNUI.exportWarehouseReport()">⇩ Réceptions CSV</button><button class="btn ghost" onclick="RCNUI.exportControlReport()">⇩ Contrôles CSV</button><button class="btn ghost" onclick="window.print()">Imprimer / PDF</button></div>' +
       '<div class="kpis">' +
         kpi("Stock total", R.round2(stockTotal), "kg en cycles ouverts", "") +
         kpi("Stock humide", R.round2(stockHumide), "non séché", "") +
@@ -1385,6 +1415,7 @@
         kpi("KOR moyen", korAvg == null ? "—" : korAvg.toFixed(2), "lots libérés", "") +
         kpi("Humidité moyenne", moisAvg == null ? "—" : moisAvg.toFixed(1) + " %", "analyses finales", "") +
       '</div>' +
+      '<div class="alert" style="margin-bottom:18px"><b>' + exceptions + ' exception(s) à traiter :</b> ' + bloques + ' lot(s) bloqué(s), ' + enEcart.length + ' transfert(s) en écart et ' + oldBins + ' BIN âgée(s) de 90 jours ou plus.</div>' +
       '<div class="grid2"><div class="card"><h2>Stock par entrepôt</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Entrepôt</th><th>BIN actives</th><th>Stock</th></tr></thead><tbody>' + whRows + '</tbody></table></div></div>' +
       '<div class="card"><h2>Sorties par calibre (cumul)</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Poids</th></tr></thead><tbody>' + calRows + '</tbody></table></div></div></div>' +
       '<div class="card" style="margin-top:18px"><h2>Sacs de jute</h2><div class="cbody"><div class="metrics" style="margin:0">' +
@@ -1392,7 +1423,10 @@
         '<div class="metric"><small>Solde en circulation</small><b>' + jSolde + '</b><span>chez les fournisseurs</span></div>' +
         '<div class="metric"><small>Fournisseurs suivis</small><b>' + jSup.length + '</b></div>' +
       '</div></div></div>' +
-      '<div class="card" style="margin-top:18px"><h2>Rapport journalier des réceptions <span class="badge b-neutral">25 dernières</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0"><table><thead><tr><th>Arrivée</th><th>REC</th><th>Entrepôt</th><th>Fournisseur</th><th>Camion</th><th>Net physique</th><th>Poids payé</th><th>KOR final</th><th>Statut</th></tr></thead><tbody>' + recRows + '</tbody></table></div></div></div>';
+      '<div class="card" style="margin-top:18px"><h2>Rapport journalier des réceptions <span class="badge b-neutral">25 dernières</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0"><table><thead><tr><th>Arrivée</th><th>REC</th><th>Entrepôt</th><th>Fournisseur</th><th>Camion</th><th>Net physique</th><th>Poids payé</th><th>KOR final</th><th>Statut</th></tr></thead><tbody>' + recRows + '</tbody></table></div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Âge des BIN actives</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>BIN</th><th>Entrepôt</th><th>Stock</th><th>Âge</th><th>Statut</th></tr></thead><tbody>' + agingRows + '</tbody></table></div></div></div>' +
+      '<div class="grid2" style="margin-top:18px"><div class="card"><h2>Pertes à la clôture des BIN</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>BIN</th><th>Entré</th><th>Perte</th><th>%</th><th>Justification</th></tr></thead><tbody>' + lossRows + '</tbody></table></div></div></div><div class="card"><h2>Séchage · bilan avant/après</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>Opération</th><th>Source</th><th>Entré</th><th>Sorti</th><th>Perte</th></tr></thead><tbody>' + dryRows + '</tbody></table></div></div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Rapprochement des transferts</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>TRF</th><th>Destination</th><th>Envoyé</th><th>Reçu</th><th>Écart</th><th>Statut</th></tr></thead><tbody>' + trfRows + '</tbody></table></div></div></div>';
   };
 
   /* ---- FOURNISSEURS : base LBA + création à code auto -------------- */
@@ -1568,6 +1602,22 @@
       toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route();
     } catch (e) { toast(e.message, true); }
   };
+  UI.addDocument = function (recId) {
+    var input = el("doc_file"), file = input && input.files && input.files[0];
+    if (!file) return toast("Choisissez une photo ou un PDF.", true);
+    var reader = new FileReader();
+    reader.onload = function () { try { R.addDocument({ objetId: recId, type: val("doc_type"), nom: file.name, mime: file.type, size: file.size, dataUrl: reader.result }); toast("Pièce jointe ajoutée et tracée."); route(); } catch (e) { toast(e.message, true); } };
+    reader.onerror = function () { toast("Lecture du fichier impossible.", true); };
+    reader.readAsDataURL(file);
+  };
+  UI.correctReception = function (recId) {
+    var choices = "poidsAnnonce, sacsAnnonce, transporteur, chauffeur, dechargement.net, dechargement.refraction, dechargement.poidsPaye, dechargement.sacs";
+    var champ = prompt("Champ à corriger :\n" + choices); if (!champ) return;
+    var valeur = prompt("Nouvelle valeur :"); if (valeur === null) return;
+    var motif = prompt("Motif précis de la correction :"); if (!motif) return;
+    var approbateur = prompt("Nom de l'approbateur :"); if (!approbateur) return;
+    try { R.correctReceptionField(recId, champ.trim(), valeur, motif, approbateur); toast("Correction enregistrée dans l'audit."); route(); } catch (e) { toast(e.message, true); }
+  };
   UI.exportWarehouseReport = function () {
     try {
       var q = function (v) { v = v == null ? "" : String(v); return '"' + v.replace(/"/g, '""') + '"'; };
@@ -1580,6 +1630,19 @@
       var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "RCN_TRACE_Rapport_Entrepot_" + R.today() + ".csv"; a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); toast("Rapport entrepôt exporté.");
+    } catch (e) { toast("Export impossible : " + e.message, true); }
+  };
+  UI.exportControlReport = function () {
+    try {
+      var q = function (v) { v = v == null ? "" : String(v); return '"' + v.replace(/"/g, '""') + '"'; };
+      var rows = [["Type", "Référence", "Entrepôt/Destination", "Entrée/Envoyé kg", "Sortie/Reçu kg", "Écart/Perte kg", "Écart/Perte %", "Statut/Justification"]];
+      R.binCycles().forEach(function (c) { var t = R.binTotals(c); rows.push(["BIN", c.binId, whOf(c.binId), t.entree, c.residuKg, c.perteKg, c.pertePct, c.etat + (c.justification ? " · " + c.justification : "")]); });
+      R.dryings().forEach(function (d) { rows.push(["SÉCHAGE", d.id, d.sourceBinId + " → " + d.targetBinId, d.inputKg, d.outputKg, d.lossKg, d.lossPct, d.type]); });
+      R.transfers().forEach(function (t) { rows.push(["TRANSFERT", t.id, t.destination || t.destinationSite, t.poidsEnvoye, t.poidsRecu, t.ecart, t.transitLossPct, t.etat]); });
+      var csv = "\uFEFF" + rows.map(function (row) { return row.map(q).join(";"); }).join("\r\n");
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" }), a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "RCN_TRACE_Controles_BIN_Sechage_Transferts_" + R.today() + ".csv"; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); toast("Rapport de contrôle exporté.");
     } catch (e) { toast("Export impossible : " + e.message, true); }
   };
   UI.createDrying = function () {
