@@ -859,24 +859,40 @@
   function calBilan(id) {
     var c = R.getCal(id); if (!c) return notFound(id);
     var b = R.calBalance(c);
-    var eqTxt = b.equilibre ? "Bilan équilibré." : "Écart inexpliqué : " + R.kg(b.ecart) + " — justification requise.";
-    return '<div class="pagehead"><h1>' + esc(c.id) + ' · Bilan & clôture ' + badgeEtat(c.etat) + '</h1><p>Une opération ne se ferme pas tant que l\'écart n\'est pas expliqué.</p></div>' +
+    var tolTxt = b.tolerancePct == null ? "non définie" : b.tolerancePct + " % (" + R.kg(b.toleranceKg) + ")";
+    var etatEcart = b.equilibre ? "okbox" : (b.dansTolerance ? "okbox" : "alert");
+    var ecartTxt = b.equilibre ? "Écart : 0 kg · bilan exact."
+      : (b.dansTolerance ? "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") — dans la tolérance."
+      : "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ")" + (b.tolerancePct != null ? " au-delà de la tolérance de " + b.tolerancePct + " %" : "") + " — justification requise.");
+    // Répartition par calibre (rapport « sur 100 kg entrés »).
+    var repRows = b.repartition.length ? b.repartition.map(function (o) {
+      return '<tr><td class="mono">' + esc(o.calibre) + '</td><td class="mono">' + R.kg(o.poids) + '</td><td class="mono">' + (o.sacs == null ? "—" : o.sacs) + '</td>' +
+        '<td>' + bar(o.pctSorties || 0) + '</td><td class="mono">' + (o.pctRecu == null ? "—" : o.pctRecu + " %") + '</td><td class="mono">' + esc(o.binDest || "—") + '</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">Aucune sortie calibrée saisie.</td></tr>';
+    return '<div class="pagehead"><h1>' + esc(c.id) + ' · Bilan & clôture ' + badgeEtat(c.etat) + '</h1><p>Reçu = Σ calibres + rejets + résidus + écart. L\'opération ne se ferme pas tant que l\'écart n\'est pas dans la tolérance ou justifié.</p></div>' +
       '<div class="metrics">' +
         '<div class="metric big"><small>Quantité reçue</small><b>' + b.recu + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Sorties calibres</small><b>' + b.sorties + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Pertes justifiées</small><b>' + b.pertes + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Résidu / encours</small><b>' + b.residu + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Sorties calibres</small><b>' + b.sorties + '</b><span>' + (b.recu ? R.round2(b.sorties / b.recu * 100) + " % du reçu" : "kg") + '</span></div>' +
+        '<div class="metric"><small>Rejets / résidus</small><b>' + R.round2(b.pertes + b.residu) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Écart (taux)</small><b>' + b.ecart + '</b><span>' + (b.taux == null ? "kg" : b.taux + " %") + '</span></div>' +
       '</div>' +
-      '<div class="balance">' + b.recu + '  =  ' + b.sorties + '  +  ' + b.pertes + '  +  ' + b.residu +
-        '<small>Reçu = Sorties + Pertes + Restant · ' + esc(eqTxt) + '</small></div>' +
-      (b.equilibre ? '<div class="okbox">Écart inexpliqué : 0 kg · bilan équilibré.</div>' : '<div class="alert">' + esc(eqTxt) + '</div>') +
-      '<div class="card" style="margin-top:8px"><h2>Validation & clôture</h2><div class="cbody">' +
-        '<label>Commentaire de clôture' + (b.equilibre ? " (facultatif)" : " (obligatoire — écart)") + '</label><textarea id="cal_motif" rows="2" placeholder="Observation / justification de l\'écart"></textarea>' +
-        '<div class="actions"><button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/sorties\')">← Retour aux sorties</button>' +
-        (c.etat === R.ETAT_CAL.CLOS ? '<span class="badge b-ok">Opération clôturée</span>' : '<button class="btn" onclick="RCNUI.calClose(\'' + id + '\')">Valider & clôturer</button>') +
-        '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/genealogie\')">Voir la généalogie →</button></div>' +
+      '<div class="balance">' + b.recu + '  =  ' + b.sorties + '  +  ' + b.pertes + '  +  ' + b.residu + '  +  ' + b.ecart +
+        '<small>Reçu = Sorties calibres + Rejets + Résidu + Écart (perte inexpliquée) · tolérance ' + esc(tolTxt) + '</small></div>' +
+      '<div class="' + etatEcart + '">' + esc(ecartTxt) + '</div>' +
+      '<div class="card" style="margin:8px 0 16px"><h2>Répartition par calibre <span class="badge b-info">sur ' + R.kg(b.sorties) + ' calibrés</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Calibre</th><th>Poids</th><th>Sacs</th><th>Part des sorties</th><th>% du reçu</th><th>BIN sortie</th></tr></thead><tbody>' + repRows + '</tbody></table></div></div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Tolérance de bilan (Production & Qualité)</h2><div class="cbody">' +
+        '<p style="margin:0 0 8px;color:var(--n500);font-size:13px">La tolérance n\'est pas figée par l\'application : elle est définie ici par la Production et la Qualité (§9).</p>' +
+        '<label>Tolérance d\'écart (%)</label><input id="cal_tol" type="number" step="0.1" value="' + (b.tolerancePct == null ? "" : b.tolerancePct) + '" placeholder="ex. 0,5">' +
+        '<div class="actions"><button class="btn ghost sm" onclick="RCNUI.setTolCal()">Enregistrer la tolérance</button></div>' +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Aucune tolérance industrielle n\'est inventée : tout écart reste visible jusqu\'à validation. Toute quantité négative est bloquée.</div>';
+      '<div class="card"><h2>Validation & clôture</h2><div class="cbody">' +
+        '<label>Commentaire de clôture' + (b.dansTolerance ? " (facultatif)" : " (obligatoire — écart hors tolérance)") + '</label><textarea id="cal_motif" rows="2" placeholder="Observation / justification de l\'écart"></textarea>' +
+        '<div class="actions">' +
+        (c.etat === R.ETAT_CAL.CLOS ? '<span class="badge b-ok">Opération clôturée</span>' : '<button class="btn" onclick="RCNUI.calClose(\'' + id + '\')">Valider & clôturer</button>') +
+        '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/genealogie\')">Généalogie →</button></div>' +
+      '</div></div></div>' +
+      '<div class="rule"><b>Règle métier.</b> Chaque kilo reçu a une destination. Tout écart reste visible ; au-delà de la tolérance définie, il doit être justifié. Quantité négative bloquée. À la clôture, chaque calibre alimente sa BIN de sortie en conservant la généalogie.</div>';
   }
 
   function calGenealogie(id) {
@@ -1237,6 +1253,10 @@
   };
   UI.calClose = function (id) {
     try { R.calClose(id, val("cal_motif")); toast("Opération clôturée."); route(); }
+    catch (e) { toast(e.message, true); }
+  };
+  UI.setTolCal = function () {
+    try { var p = R.setToleranceCalibrage(val("cal_tol")); toast(p == null ? "Tolérance effacée." : "Tolérance réglée à " + p + " %."); route(); }
     catch (e) { toast(e.message, true); }
   };
 
