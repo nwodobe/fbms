@@ -41,7 +41,7 @@
     entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
       ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
       ["stock", "Stock & BIN"], ["sechage", "Séchage / triage"], ["sacs", "Sacs de jute"],
-      ["transfert", "Transferts"], ["fournisseurs", "Fournisseurs"],
+      ["transfert", "Transferts"],
       ["rapports", "Rapports entrepôt"], ["carte", "Cartographie"], ["audit", "Audit"]
     ] },
     calibrage: { titre: "Calibrage", ic: "⚙️", nav: [
@@ -183,22 +183,21 @@
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
   // Chaîne de transformation (portail v2). Étapes réelles + maillons à venir.
   var CHAIN = [
-    { key: "procurement", ic: "🤝", t: "Procurement", d: "Engagements fournisseurs, financements LBA, arrivées prévues et performance d'achat.", n: "00", tint: "neutral", go: "procurement", statut: "Nouveau" },
-    { key: "entrepot", ic: "🏭", t: "Activité entrepôt", d: "Réceptions, fournisseurs, qualité, BIN, séchage, transferts et sacs de jute.", n: "01", tint: "", go: "entrepot", statut: "Opérationnel" },
-    { key: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation des noix par taille, rendement par calibre et bilan matière.", n: "02", tint: "orange", go: "calibrage", statut: "Actif" },
-    { key: "cuisson", ic: "🔥", t: "Cuisson", d: "Lots chargés, cycles vapeur, paramètres et contrôles de sortie.", n: "03", tint: "orange", soon: true, statut: "À connecter" },
-    { key: "decorticage", ic: "🥜", t: "Décorticage", d: "Coques, amandes, entiers, brisures et rendement industriel.", n: "04", soon: true, statut: "À connecter" },
-    { key: "borma", ic: "🌡️", t: "Borma", d: "Chargement des fours, température, durée et perte de séchage.", n: "05", soon: true, statut: "À connecter" },
-    { key: "peeling", ic: "🧽", t: "Peeling & tri", d: "Dépelliculage, défauts, grades et destination des amandes.", n: "06", soon: true, statut: "À connecter" },
-    { key: "packing", ic: "📦", t: "Packing", d: "Conditionnement, mise sous vide, cartons, validation et expédition.", n: "07", tint: "orange", soon: true, statut: "Pilote conseillé" },
+    { key: "procurement", ic: "🤝", t: "Procurement", d: "Base fournisseurs, codes LBA, contrats, financements, banques, prix d'achat, performances et soldes.", n: "01", tint: "procurement", go: "procurement", statut: "Propriétaire des fournisseurs" },
+    { key: "entrepot", ic: "🏭", t: "Activité entrepôt", d: "Réceptions physiques, qualité, déchargement, BIN, séchage, transferts et mouvements de sacs.", n: "02", tint: "", go: "entrepot", statut: "Utilise la base fournisseur" },
+    { key: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation des noix par taille, rendement par calibre et bilan matière.", n: "03", tint: "orange", go: "calibrage", statut: "Actif" },
+    { key: "cuisson", ic: "🔥", t: "Cuisson", d: "Lots chargés, cycles vapeur, paramètres et contrôles de sortie.", n: "04", tint: "orange", soon: true, statut: "À connecter" },
+    { key: "decorticage", ic: "🥜", t: "Décorticage", d: "Coques, amandes, entiers, brisures et rendement industriel.", n: "05", soon: true, statut: "À connecter" },
+    { key: "borma", ic: "🌡️", t: "Borma", d: "Chargement des fours, température, durée et perte de séchage.", n: "06", soon: true, statut: "À connecter" },
+    { key: "peeling", ic: "🧽", t: "Peeling & tri", d: "Dépelliculage, défauts, grades et destination des amandes.", n: "07", soon: true, statut: "À connecter" },
+    { key: "packing", ic: "📦", t: "Packing", d: "Conditionnement, mise sous vide, cartons, validation et expédition.", n: "08", tint: "orange", soon: true, statut: "Pilote conseillé" },
     { key: "maintenance", ic: "🔧", t: "Maintenance", d: "Arrêts, interventions, pièces, préventif et disponibilité des machines.", n: "—", tint: "neutral", soon: true, statut: "Transversal" }
   ];
   // Hub « Activité entrepôt » : sections granulaires (clic → section dédiée).
   var ENTREPOT_GROUPS = [
     { titre: "Réception & Qualité", items: [
       { id: "reception", ic: "🚚", t: "Réception", d: "Camions, sampling, décision GM" },
-      { id: "qualite", ic: "🔬", t: "Qualité", d: "Analyses, KOR, libération des lots" },
-      { id: "fournisseurs", ic: "🤝", t: "Fournisseurs", d: "Base LBA & création de fournisseurs" }
+      { id: "qualite", ic: "🔬", t: "Qualité", d: "Analyses, KOR, libération des lots" }
     ] },
     { titre: "Entrepôt & Stock", items: [
       { id: "stock", ic: "📦", t: "Stock & BIN", d: "BIN collectives, entrepôts, clôtures" },
@@ -231,7 +230,7 @@
       { ic: "⚙️", t: "Transformation", s: "Calibrage · cuisson · tri" },
       { ic: "📦", t: "Packing", s: "Grade · carton · export" }
     ].map(function (n) { return '<div class="rp-node"><span class="e">' + n.ic + '</span><strong>' + esc(n.t) + '</strong><small>' + esc(n.s) + '</small></div>'; }).join("");
-    var strip = ["Entrepôt", "Calibrage", "Cuisson", "Décorticage", "Borma", "Peeling", "Tri", "Packing"]
+    var strip = ["Procurement", "Entrepôt", "Calibrage", "Cuisson", "Décorticage", "Borma", "Peeling", "Tri", "Packing"]
       .map(function (s, i) { return '<span><i>' + pad2(i + 1) + '</i>' + esc(s) + '</span>'; }).join("");
     var mods = CHAIN.map(function (m) {
       var onclick = m.soon ? 'RCNUI.soon(\'' + esc(m.t) + '\')' : '__rcngo(\'' + m.go + '\')';
@@ -244,7 +243,7 @@
       '<div class="rp-hero"><div class="rp-in">' +
         '<div><p class="rp-eyebrow">Centre de contrôle · Transformation cajou</p>' +
           '<h1>Une seule chaîne. Une traçabilité totale.</h1>' +
-          '<p class="lead">Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Suivez la noix brute depuis l\'entrepôt jusqu\'au carton export — chaque lot, chaque mouvement et chaque validation restent reliés.</p>' +
+          '<p class="lead">Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Suivez la relation fournisseur, l\'achat de la noix brute et toute sa transformation jusqu\'au carton export — chaque lot, chaque mouvement et chaque validation restent reliés.</p>' +
           '<div class="rp-acts"><button class="rp-btn pri" onclick="__rcngo(\'entrepot\')">Ouvrir les opérations →</button>' +
           '<button class="rp-btn gho" onclick="__rcngo(\'rapports\')">Voir les rapports</button></div>' +
         '</div>' +
@@ -252,19 +251,19 @@
           '<div class="rp-chip"><span><small>Dernier lot officiel</small><br><strong>' + esc(lotRef) + '</strong></span><b>TRAÇABLE ✓</b></div>' +
           '<div class="rp-flowmini">' + nodes + '</div>' +
           '<div class="rp-kpis"><div><strong>' + fmtKg0(recu) + '</strong><small>Matière reçue</small></div>' +
-            '<div><strong>08</strong><small>Étapes contrôlées</small></div>' +
+            '<div><strong>09</strong><small>Modules business & production</small></div>' +
             '<div><strong>100 %</strong><small>Traçabilité</small></div></div>' +
         '</div>' +
       '</div></div>' +
       '<div class="rp-strip">' + strip + '</div>' +
       '<div class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:18px">' +
-        '<div><small style="color:var(--emerald);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Chaîne de production</small>' +
+        '<div><small style="color:var(--emerald);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Chaîne business & production</small>' +
         '<h2 style="margin:6px 0 0;color:var(--forest);font-family:var(--fd);font-weight:800;font-size:26px;letter-spacing:-.02em">Choisissez votre espace de travail</h2></div>' +
-        '<p style="max-width:440px;margin:0;color:var(--n500);font-size:12.5px;line-height:1.5">Les modules suivent le parcours réel de la matière. Les données d\'un maillon alimentent le suivant.</p></div>' +
+        '<p style="max-width:440px;margin:0;color:var(--n500);font-size:12.5px;line-height:1.5">Procurement possède le référentiel fournisseur. L\'entrepôt utilise ensuite ces informations sans pouvoir les modifier.</p></div>' +
       '<div class="rp-modules">' + mods + '</div>' +
       '<div class="rp-insight">' +
         '<div class="rp-ins dark"><span class="ic">🧭</span><div><strong>Traçabilité de bout en bout</strong><p>Du fournisseur jusqu\'au packing, retrouvez l\'origine et le parcours complet d\'un lot.</p></div><b>100%</b></div>' +
-        '<div class="rp-ins"><span class="ic">🛡️</span><div><strong>Contrôles & validations</strong><p>Chaque action importante conserve son auteur, son heure et sa preuve.</p></div></div>' +
+        '<div class="rp-ins"><span class="ic">🗄️</span><div><strong>Une seule base fournisseur</strong><p>Procurement crée et valide. L\'entrepôt sélectionne le fournisseur sans modifier ses données de référence.</p></div></div>' +
       '</div>';
   };
   function fmtKg0(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " kg"; }
