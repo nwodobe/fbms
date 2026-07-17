@@ -747,26 +747,55 @@
   }
 
   /* ---- RAPPORTS (§14.1) ------------------------------------------- */
+  function whOf(binId) { var i = binId.indexOf("-BIN-"); return i > 0 ? binId.slice(0, i) : binId; }
+  function avg(arr) { arr = arr.filter(function (x) { return x != null; }); return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; }
   PAGES.rapports = function () {
     var recs = R.receptions();
-    var stockLots = R.lots().filter(function (l) { return l.stock > 0; });
-    var totalStock = R.binCycles().reduce(function (t, c) { return t + R.binStock(c); }, 0);
-    function count(pred) { return recs.filter(pred).length; }
-    var byCalibre = {};
-    R.cals().forEach(function (c) { c.outputs.forEach(function (o) { byCalibre[o.calibre] = (byCalibre[o.calibre] || 0) + (o.poids || 0); }); });
-    var calRows = Object.keys(byCalibre).length ? Object.keys(byCalibre).map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + R.kg(byCalibre[k]) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune sortie calibrée.</td></tr>';
-    return '<div class="pagehead"><h1>Rapports opérationnels</h1><p>Les indicateurs servent d\'abord à comprendre le fonctionnement, les délais, les pertes et les responsabilités.</p></div>' +
+    var ETB = R.ETAT_BIN, ETT = R.ETAT_TRF, ETR = R.ETAT_REC;
+    // Stock : total, humide (non séché), sec (BIN « after drying »), par entrepôt.
+    var stockTotal = 0, stockHumide = 0, stockSec = 0, byWh = {};
+    R.binCycles().filter(function (c) { return c.etat !== ETB.CLOS; }).forEach(function (c) {
+      var s = R.binStock(c); stockTotal += s;
+      if (/DRIED/i.test(c.binId)) stockSec += s; else stockHumide += s;
+      var wh = whOf(c.binId); byWh[wh] = byWh[wh] || { bins: 0, stock: 0 }; byWh[wh].bins++; byWh[wh].stock += s;
+    });
+    // Transit : expédié non encore reçu. Écarts : transferts en écart + lots bloqués.
+    var transfers = R.transfers();
+    var enTransit = transfers.filter(function (t) { return [ETT.EXPEDIE, ETT.PARTIEL].indexOf(t.etat) >= 0; }).reduce(function (a, t) { return a + (t.poidsEnvoye - (t.poidsRecu || 0)); }, 0);
+    var enEcart = transfers.filter(function (t) { return t.etat === ETT.ECART; });
+    var ecartKg = enEcart.reduce(function (a, t) { return a + Math.abs(t.ecart || 0); }, 0);
+    var bloques = recs.filter(function (r) { return r.etat === ETR.BLOQUE; }).length;
+    // Qualité moyenne (lots libérés) + humidité moyenne (analyses finales).
+    var korAvg = avg(R.lots().filter(function (l) { return l.etat === ETR.LIBERE; }).map(function (l) { return l.korFinal; }));
+    var moisAvg = avg(recs.map(function (r) { return (r.finale || {}).humidity; }));
+    // Sacs jute.
+    var jSup = R.juteSuppliers();
+    var jDist = jSup.reduce(function (a, s) { return a + s.balance.dotation; }, 0);
+    var jSolde = jSup.reduce(function (a, s) { return a + s.balance.solde; }, 0);
+    // Sorties par calibre.
+    var byCalibre = {}; R.cals().forEach(function (c) { c.outputs.forEach(function (o) { byCalibre[o.calibre] = (byCalibre[o.calibre] || 0) + (o.poids || 0); }); });
+    var calRows = Object.keys(byCalibre).length ? Object.keys(byCalibre).sort().map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + R.kg(byCalibre[k]) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune sortie calibrée.</td></tr>';
+    var whRows = Object.keys(byWh).sort().map(function (w) { return '<tr><td class="mono">' + esc(w) + '</td><td>' + byWh[w].bins + '</td><td class="mono">' + R.kg(byWh[w].stock) + '</td></tr>'; }).join("") || '<tr><td colspan="3" class="empty">Aucun stock.</td></tr>';
+    return '<div class="pagehead"><h1>Pilotage du stock & de la qualité</h1><p>Vue globale : stock humide/sec, matière en transit, écarts non expliqués et qualité moyenne — par entrepôt.</p></div>' +
       '<div class="kpis">' +
-        kpi("Réceptions du jour", recs.filter(function (r) { return (r.id || "").indexOf("REC-" + R.today()) === 0; }).length, "Camions enregistrés", "") +
-        kpi("Lots libérés", count(function (r) { return r.etat === R.ETAT_REC.LIBERE; }), "Disponibles", "") +
-        kpi("Lots bloqués", count(function (r) { return r.etat === R.ETAT_REC.BLOQUE; }), "Qualité", count(function (r) { return r.etat === R.ETAT_REC.BLOQUE; }) ? "danger" : "") +
-        kpi("Stock BIN total", R.round2(totalStock), "kg en cycles", "") +
+        kpi("Stock total", R.round2(stockTotal), "kg en cycles ouverts", "") +
+        kpi("Stock humide", R.round2(stockHumide), "non séché", "") +
+        kpi("Stock sec", R.round2(stockSec), "après séchage", "") +
+        kpi("En transit", R.round2(enTransit), "expédié non reçu", enTransit ? "warn" : "") +
       '</div>' +
-      '<div class="grid2"><div class="card"><h2>Sorties par calibre (cumul)</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Poids</th></tr></thead><tbody>' + calRows + '</tbody></table></div></div>' +
-      '<div class="card"><h2>Rapports disponibles</h2><div class="cbody"><ul style="margin:0;padding-left:18px;line-height:2;color:var(--n700);font-size:14px">' +
-        '<li>Réceptions du jour & dossiers en attente</li><li>Lots par statut qualité</li><li>Stock par lot, BIN, cycle et âge</li>' +
-        '<li>Composition & historique des BIN</li><li>Transferts préparés, reçus, partiels ou en écart</li>' +
-        '<li>Opérations CAL en cours, à rapprocher ou clôturées</li><li>Sorties par calibre, pertes, résidus & rework</li><li>Journal des corrections & validations</li></ul></div></div></div>';
+      '<div class="kpis">' +
+        kpi("Lots bloqués", bloques, "écart KOR", bloques ? "danger" : "") +
+        kpi("Transferts en écart", enEcart.length, R.kg(ecartKg) + " à justifier", enEcart.length ? "warn" : "") +
+        kpi("KOR moyen", korAvg == null ? "—" : korAvg.toFixed(2), "lots libérés", "") +
+        kpi("Humidité moyenne", moisAvg == null ? "—" : moisAvg.toFixed(1) + " %", "analyses finales", "") +
+      '</div>' +
+      '<div class="grid2"><div class="card"><h2>Stock par entrepôt</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Entrepôt</th><th>BIN actives</th><th>Stock</th></tr></thead><tbody>' + whRows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Sorties par calibre (cumul)</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Poids</th></tr></thead><tbody>' + calRows + '</tbody></table></div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Sacs de jute</h2><div class="cbody"><div class="metrics" style="margin:0">' +
+        '<div class="metric"><small>Sacs distribués</small><b>' + jDist + '</b></div>' +
+        '<div class="metric"><small>Solde en circulation</small><b>' + jSolde + '</b><span>chez les fournisseurs</span></div>' +
+        '<div class="metric"><small>Fournisseurs suivis</small><b>' + jSup.length + '</b></div>' +
+      '</div></div></div>';
   };
 
   /* ---- AUDIT (slide 15) ------------------------------------------- */
