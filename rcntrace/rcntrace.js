@@ -176,6 +176,7 @@
     { code: "BKE-001", nom: "Bouaké — Entrepôt 1", location: "Bouaké" },
     { code: "BKE-002", nom: "Bouaké — Entrepôt 2", location: "Bouaké" },
     { code: "BKE-003", nom: "Bouaké — Entrepôt 3", location: "Bouaké" },
+    { code: "BKE-004", nom: "Bouaké — Entrepôt 4 (tampon)", location: "Bouaké" },
     { code: "YAKRO-01", nom: "Yamoussoukro — Entrepôt 1", location: "Yamoussoukro" },
     { code: "YAKRO-02", nom: "Yamoussoukro — Entrepôt 2", location: "Yamoussoukro" },
     { code: "ANAGROCI-01", nom: "Usine (calibrage)", location: "Yamoussoukro" }
@@ -374,6 +375,11 @@
       poidsAnnonce: num(data.poidsAnnonce), sacsAnnonce: num(data.sacsAnnonce),
       prixUnitaire: num(data.prixUnitaire),            // prix d'achat (FCFA/kg) — base des valorisations (§6)
       refDoc: data.refDoc || "",
+      typeAchat: data.typeAchat || "LBA",
+      commandeRef: data.commandeRef || "",
+      transporteur: data.transporteur || "",
+      chauffeur: data.chauffeur || "",
+      telephoneChauffeur: data.telephoneChauffeur || "",
       source: data.fromTransfer ? "inter-entrepôt" : "fournisseur",
       fromTransfer: data.fromTransfer || null,         // transfert d'origine (arrivée inter-entrepôt)
       parents: data.parents || null,                    // lots contributeurs d'origine (généalogie)
@@ -461,14 +467,21 @@
     var sacsTotal = num(d.sacs);
     if (sacsTotal === null && (sBon !== null || sHum !== null || sDech !== null || sRec !== null))
       sacsTotal = (sBon || 0) + (sHum || 0) + (sDech || 0) + (sRec || 0);
+    var refraction = num(d.refraction); if (refraction === null) refraction = 0;
+    if (net === null || net <= 0) throw new Error("Le poids net physique doit être supérieur à zéro.");
+    if (refraction < 0 || refraction > net) throw new Error("La réfaction doit être comprise entre 0 et le poids net physique.");
+    var poidsPaye = num(d.poidsPaye); if (poidsPaye === null) poidsPaye = round2(net - refraction);
     rec.dechargement = {
       bordereau: d.bordereau || "", ticket: d.ticket || "",
       whReceipt: d.whReceipt || "", ficheCca: d.ficheCca || "",   // reçu magasin & fiche CCA
       binDecharge: d.binDecharge || "", balance: d.balance || "",  // BIN de déchargement, emplacement balance
       sacs: sacsTotal, sacsBon: sBon, sacsHumid: sHum, sacsDechire: sDech, sacsRecond: sRec,
       brut: brut, tare: tare, net: net,
+      refraction: refraction, poidsPaye: poidsPaye,
       poidsMainDoeuvre: num(d.poidsMainDoeuvre),   // conservé séparément (§1.2)
       prestataire: d.prestataire || "", destination: d.destination || "",
+      debutAt: d.debutAt || null, finAt: d.finAt || null,
+      incident: d.incident || "",
       at: nowISO(), auteur: (loadDb().user || {}).nom
     };
     rec.etat = ETAT_REC.DECHARGE;
@@ -514,6 +527,8 @@
       sacs: rec.dechargement ? rec.dechargement.sacs : null,   // sacs portés (affichage BIN)
       korSampling: korSampling, korFinal: korFinal, korDisplay: round2(korFinal),
       prixUnitaire: (num(f.prixUnitaire) != null ? num(f.prixUnitaire) : rec.prixUnitaire),   // prix d'achat FCFA/kg (§6)
+      poidsPaye: rec.dechargement ? rec.dechargement.poidsPaye : null,
+      refraction: rec.dechargement ? rec.dechargement.refraction : null,
       ecart: ec, netInitial: rec.dechargement ? rec.dechargement.net : null,
       stock: rec.dechargement ? rec.dechargement.net : 0,   // solde du lot (kg)
       etat: ETAT_REC.LIBERE, binId: binId || null, createdAt: nowISO(),
