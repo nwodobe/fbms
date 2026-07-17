@@ -16,7 +16,7 @@
       "brand.sub": "Traçabilité matière", "nav.portal": "Portail ANAGROCI",
       "nav.accueil": "Accueil", "nav.reception": "Réception", "nav.qualite": "Qualité",
       "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.sacs": "Sacs jute", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
-      "nav.rapports": "Rapports", "nav.audit": "Audit",
+      "nav.rapports": "Rapports", "nav.carte": "Cartographie", "nav.audit": "Audit",
       "net.on": "En ligne", "net.off": "Hors connexion",
       "save": "Enregistrer", "send": "Envoyer", "cancel": "Annuler", "back": "Retour",
     },
@@ -24,7 +24,7 @@
       "brand.sub": "Material traceability", "nav.portal": "ANAGROCI Portal",
       "nav.accueil": "Home", "nav.reception": "Reception", "nav.qualite": "Quality",
       "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.sacs": "Jute bags", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
-      "nav.rapports": "Reports", "nav.audit": "Audit",
+      "nav.rapports": "Reports", "nav.carte": "Map", "nav.audit": "Audit",
       "net.on": "Online", "net.off": "Offline",
       "save": "Save", "send": "Send", "cancel": "Cancel", "back": "Back",
     }
@@ -34,7 +34,7 @@
   var NAV = [
     { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
     { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "sacs", ni: "06" }, { id: "transfert", ni: "07" }, { id: "calibrage", ni: "08" },
-    { id: "rapports", ni: "09" }, { id: "audit", ni: "10" }
+    { id: "rapports", ni: "09" }, { id: "carte", ni: "10" }, { id: "audit", ni: "11" }
   ];
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -110,7 +110,7 @@
   var EYEBROW = {
     accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
     stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
-    calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", audit: "Sécurité · Audit"
+    calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
     var head = el("view") && el("view").querySelector(".pagehead");
@@ -214,8 +214,9 @@
         '<label>Numéro temporaire</label><input readonly value="Généré à l\'enregistrement (REC-' + R.today() + '-…)">' +
         '<div class="row"><div><label>Immatriculation camion</label><input id="f_camion" placeholder="AA-0000-CI"></div>' +
         '<div><label>Date & heure d\'arrivée</label><input id="f_arrivee" type="datetime-local" value="' + nowLocal() + '"></div></div>' +
-        '<div class="row"><div><label>Entrepôt (localité)</label><select id="f_site">' + refs.entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; }).map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select></div>' +
-        '<div><label>Provenance / origine</label><select id="f_origine">' + refs.origines.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select></div></div>' +
+        '<div class="row"><div><label>Entrepôt de réception</label><select id="f_site">' + refs.entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; }).map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select>' +
+          '<small style="color:var(--n500)"><a href="#stock" onclick="setTimeout(function(){location.hash=\'stock\'},0)" style="color:var(--forest)">+ Créer un entrepôt</a> (onglet Stock)</small></div>' +
+        '<div><label>Provenance / origine (localité CI)</label><select id="f_origine">' + localiteOptions() + '</select></div></div>' +
         '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
         '<div class="row3"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div>' +
         '<div><label>Sacs annoncés</label><input id="f_sacs" type="number" placeholder="—"></div>' +
@@ -227,6 +228,16 @@
       '</div>';
   }
   function nowLocal() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+  // Options <optgroup> des localités CI groupées par région (pour l'origine).
+  function localiteOptions(selected) {
+    var locs = R.localites(); var byR = {};
+    locs.forEach(function (l) { (byR[l.region] || (byR[l.region] = [])).push(l); });
+    return Object.keys(byR).sort().map(function (reg) {
+      return '<optgroup label="' + esc(reg) + '">' + byR[reg].sort(function (a, b) { return a.ville.localeCompare(b.ville); }).map(function (l) {
+        return '<option value="' + esc(l.ville) + '"' + (selected === l.ville ? " selected" : "") + '>' + esc(l.ville) + '</option>';
+      }).join("") + '</optgroup>';
+    }).join("");
+  }
 
   function receptionDetail(id) {
     var rec = R.getRec(id); if (!rec) return notFound(id);
@@ -439,8 +450,30 @@
           '<td><button class="btn ghost sm" onclick="__rcngo(\'stock/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
       }).join("") + '</tbody></table></div>' : '<div class="empty">Aucun cycle de BIN ouvert.</div>';
     return '<div class="pagehead"><h1>Stock & BIN collectives</h1><p>La BIN est un contenant, pas un nouveau lot. Après mélange, on suit les quantités et les contributeurs, pas chaque noix.</p></div>' +
+      warehousePanel() +
       '<div class="actions" style="margin:0 0 16px"><button class="btn" onclick="RCNUI.openCycle()">+ Ouvrir un cycle de BIN</button></div>' + body;
   };
+
+  // Gestion des entrepôts de réception : liste + création (localité CI).
+  function warehousePanel() {
+    var ents = R.referentials().entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; });
+    var byLoc = {};
+    R.binCycles().forEach(function (c) { var w = R.warehouseOf(c.binId); byLoc[w] = (byLoc[w] || 0) + (c.etat !== R.ETAT_BIN.CLOS ? 1 : 0); });
+    var rows = ents.map(function (e) {
+      return '<tr><td class="mono">' + esc(e.code) + '</td><td>' + esc(e.nom) + '</td><td>' + esc(e.location || "—") + '</td><td class="mono">' + (byLoc[e.code] || 0) + '</td></tr>';
+    }).join("");
+    return '<div class="card" style="margin:0 0 16px"><h2>Entrepôts de réception <span class="badge b-neutral">' + ents.length + '</span></h2><div class="cbody">' +
+      '<div class="grid2" style="align-items:start">' +
+        '<div class="tablewrap" style="border:0"><table><thead><tr><th>Code</th><th>Nom</th><th>Localité</th><th>BIN actives</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="empty">Aucun entrepôt.</td></tr>') + '</tbody></table></div>' +
+        '<div><div class="row"><div><label>Code entrepôt</label><input id="wh_code" placeholder="ex. BKE-004"></div>' +
+          '<div><label>Nom (facultatif)</label><input id="wh_nom" placeholder="ex. Bouaké — Entrepôt 4"></div></div>' +
+          '<label>Localité (ville CI)</label><select id="wh_loc">' + localiteOptions("Bouaké") + '</select>' +
+          '<div class="actions"><button class="btn" onclick="RCNUI.addEntrepot()">+ Créer l\'entrepôt</button></div>' +
+          '<small style="color:var(--n500)">L\'identifiant des BIN en découle : <span class="mono">&lt;CODE&gt;-BIN-nn</span>. Le calibrage reste réservé à Yamoussoukro.</small>' +
+        '</div>' +
+      '</div>' +
+    '</div></div>';
+  }
 
   function binDetail(cycleId) {
     var cyc = R.getCycle(cycleId); if (!cyc) return notFound(cycleId);
@@ -886,6 +919,82 @@
       '</div></div></div>';
   };
 
+  /* ---- CARTOGRAPHIE : qualité & volume par localité / région ------ */
+  // Palette qualité (KOR) — du meilleur au plus faible.
+  function korColor(kor) {
+    if (kor == null) return "#9AA0A6";
+    if (kor >= 48) return "#1B5E20";
+    if (kor >= 46) return "#43A047";
+    if (kor >= 44) return "#F9A825";
+    return "#E53935";
+  }
+  function korTier(kor) {
+    if (kor == null) return "—";
+    if (kor >= 48) return "Excellent";
+    if (kor >= 46) return "Bon";
+    if (kor >= 44) return "Moyen";
+    return "Faible";
+  }
+  PAGES.carte = function () {
+    var G = global.RCN_GEO;
+    var st = R.geoStats();
+    if (!G) return '<div class="pagehead"><h1>Cartographie</h1></div><div class="empty">Référentiel géographique indisponible.</div>';
+    var W = 560, H = 600, PAD = 26;
+    function P(lon, lat) { return G.project(lon, lat, W, H, PAD); }
+    var outline = G.outline.map(function (p, i) { var q = P(p[0], p[1]); return (i ? "L" : "M") + q.x + " " + q.y; }).join(" ") + " Z";
+    var withGeo = st.parLocalite.filter(function (l) { return l.lat != null && l.lon != null && l.volumeKg > 0; });
+    var maxVol = Math.max.apply(null, withGeo.map(function (l) { return l.volumeKg; }).concat([1]));
+    function radius(v) { return 5 + 22 * Math.sqrt(v / maxVol); }
+    // Bulles (grandes derrière), + étiquettes pour les plus gros volumes.
+    var sorted = withGeo.slice().sort(function (a, b) { return b.volumeKg - a.volumeKg; });
+    var bubbles = sorted.map(function (l) {
+      var q = P(l.lon, l.lat), rr = radius(l.volumeKg);
+      return '<circle cx="' + q.x + '" cy="' + q.y + '" r="' + rr.toFixed(1) + '" fill="' + korColor(l.korMoyen) + '" fill-opacity="0.68" stroke="#fff" stroke-width="1.2"><title>' + esc(l.ville + " (" + l.region + ") · " + R.kg(l.volumeKg) + " · KOR " + (l.korMoyen == null ? "—" : l.korMoyen.toFixed(2))) + '</title></circle>';
+    }).join("");
+    var labels = sorted.slice(0, 7).map(function (l) {
+      var q = P(l.lon, l.lat), rr = radius(l.volumeKg);
+      return '<text x="' + (q.x + rr + 3) + '" y="' + (q.y + 3.5) + '" font-size="11" font-weight="600" fill="#0F2A16" paint-order="stroke" stroke="#fff" stroke-width="2.6">' + esc(l.ville) + '</text>';
+    }).join("");
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:520px;display:block;margin:auto" role="img" aria-label="Carte des achats par localité">' +
+      '<path d="' + outline + '" fill="#EAF3EC" stroke="#B7CDBC" stroke-width="1.5" stroke-linejoin="round"/>' +
+      bubbles + labels + '</svg>';
+    var legend = '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:8px;font-size:12px;color:var(--n500)">' +
+      [["#1B5E20", "KOR ≥ 48 · Excellent"], ["#43A047", "46–48 · Bon"], ["#F9A825", "44–46 · Moyen"], ["#E53935", "< 44 · Faible"]].map(function (c) {
+        return '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:50%;background:' + c[0] + ';display:inline-block"></span>' + c[1] + '</span>';
+      }).join("") + '<span style="width:100%;text-align:center;margin-top:2px">Taille du cercle ∝ volume acheté</span></div>';
+
+    var best = st.parRegion.filter(function (r) { return r.korMoyen != null; }).slice().sort(function (a, b) { return b.korMoyen - a.korMoyen; })[0];
+    var top = st.parRegion[0];
+    var regRows = st.parRegion.length ? st.parRegion.map(function (r) {
+      var pctV = st.totalVolume ? Math.round(r.volumeKg / st.totalVolume * 100) : 0;
+      return '<tr><td><b>' + esc(r.region) + '</b><div style="font-size:11px;color:var(--n500)">' + esc(r.district) + '</div></td>' +
+        '<td class="mono">' + R.kg(r.volumeKg) + '<div style="font-size:11px;color:var(--n500)">' + pctV + ' %</div></td>' +
+        '<td><span class="badge" style="background:' + korColor(r.korMoyen) + '22;color:' + korColor(r.korMoyen) + '">' + (r.korMoyen == null ? "—" : r.korMoyen.toFixed(2)) + '</span><div style="font-size:11px;color:var(--n500)">' + korTier(r.korMoyen) + '</div></td>' +
+        '<td class="mono">' + r.nbLocalites + '</td><td style="font-size:11px;color:var(--n500)">' + esc(r.villes.slice(0, 4).join(", ")) + (r.villes.length > 4 ? "…" : "") + '</td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">Aucun achat enregistré.</td></tr>';
+    var locRows = st.parLocalite.length ? st.parLocalite.map(function (l) {
+      return '<tr><td><b>' + esc(l.ville) + '</b></td><td>' + esc(l.region) + '</td><td class="mono">' + R.kg(l.volumeKg) + '</td>' +
+        '<td><span class="badge" style="background:' + korColor(l.korMoyen) + '22;color:' + korColor(l.korMoyen) + '">' + (l.korMoyen == null ? "—" : l.korMoyen.toFixed(2)) + '</span></td>' +
+        '<td class="mono">' + (l.humMoyen == null ? "—" : l.humMoyen.toFixed(1) + " %") + '</td><td class="mono">' + l.nbLots + '</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">Aucun achat enregistré.</td></tr>';
+
+    return '<div class="pagehead"><h1>Cartographie des achats</h1><p>Qualité (KOR) et volume par localité et par région de Côte d\'Ivoire — pour orienter les décisions d\'achat de la direction.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Volume total acheté", R.round2(st.totalVolume), "kg (net)", "") +
+        kpi("Localités actives", st.nbLocalitesActives, "sur " + R.localites().length + " référencées", "") +
+        kpi("Région n°1 (volume)", top ? esc(top.region) : "—", top ? R.kg(top.volumeKg) : "", "") +
+        kpi("Meilleure qualité", best ? esc(best.region) : "—", best ? "KOR " + best.korMoyen.toFixed(2) : "", "") +
+      '</div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Carte · qualité & volume</h2><div class="cbody">' + svg + legend + '</div></div>' +
+      '<div class="card"><h2>Statistiques par région <span class="badge b-neutral">' + st.parRegion.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<div class="tablewrap" style="border:0"><table><thead><tr><th>Région</th><th>Volume</th><th>KOR moyen</th><th>Localités</th><th>Principales</th></tr></thead><tbody>' + regRows + '</tbody></table></div>' +
+      '</div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Détail par localité <span class="badge b-neutral">' + st.parLocalite.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<div class="tablewrap" style="border:0"><table><thead><tr><th>Localité</th><th>Région</th><th>Volume</th><th>KOR moyen</th><th>Humidité moy.</th><th>Lots</th></tr></thead><tbody>' + locRows + '</tbody></table></div>' +
+      '</div></div>' +
+      '<div class="rule" style="margin-top:16px"><b>Aide à la décision.</b> Le volume reflète les achats réels (hors mouvements inter-entrepôts). La couleur indique la qualité moyenne pondérée par le volume : la direction repère d\'un coup d\'œil les bassins à fort volume et/ou forte qualité.</div>';
+  };
+
   /* ---- AUDIT (slide 15) ------------------------------------------- */
   PAGES.audit = function () {
     var log = R.auditLog();
@@ -976,6 +1085,10 @@
   UI.openCycle = function () {
     var binId = prompt("Identifiant de la BIN physique (ex. BIN-023) :"); if (!binId) return;
     try { var c = R.openBinCycle(binId.trim(), null, null); toast("Cycle " + c.id + " ouvert."); go("stock/" + encodeURIComponent(c.id)); route(); }
+    catch (e) { toast(e.message, true); }
+  };
+  UI.addEntrepot = function () {
+    try { var e = R.addEntrepot({ code: val("wh_code"), nom: val("wh_nom"), location: val("wh_loc") }); toast("Entrepôt " + e.code + " créé (" + e.location + ")."); route(); }
     catch (e) { toast(e.message, true); }
   };
   UI.addToBin = function (binId) {

@@ -117,7 +117,8 @@ select
   p->>'binId'                       as bin_id,
   p->>'etat'                        as etat,
   (p->>'createdAt')::timestamptz    as created_at,
-  (p->>'prixUnitaire')::numeric     as prix_unitaire        -- FCFA/kg (§6)
+  (p->>'prixUnitaire')::numeric     as prix_unitaire,       -- FCFA/kg (§6)
+  p->>'fromTransfer'                 as from_transfer        -- ré-réception inter-entrepôt (mvt interne)
 from (select payload p from rcn_state where kind = 'lot') r;
 
 -- Cycles de BIN (stock physique recalculé depuis les contributeurs) ----------
@@ -397,6 +398,20 @@ create or replace view rcn_bi_ecart_transfert as
 select id as trf_id, bin_id, poids_envoye, poids_recu, ecart_kg, etat, ecart_motif
 from rcn_v_transferts;
 
+-- Achats par localité d'origine (aide à la décision — volume & qualité).
+-- N'inclut que les achats réels (on exclut les ré-réceptions inter-entrepôts).
+create or replace view rcn_bi_achats_localite as
+select
+  coalesce(origine, '—')                       as localite,
+  round(sum(net_initial), 2)                   as volume_kg,
+  count(*)                                     as nb_lots,
+  case when sum(net_initial) > 0
+       then round(sum(kor_final * net_initial) / sum(net_initial), 2) end as kor_moyen_pondere
+from rcn_v_lots
+where from_transfer is null and net_initial is not null
+group by coalesce(origine, '—')
+order by volume_kg desc;
+
 -- Finance du transfert (§6) : valorisation, perte tolérée/pénalisable, pénalité
 -- (perte de transit ≤ tolérance : tolérée ; au-delà : pénalisable au prix moyen)
 create or replace view rcn_bi_transfert_finance as
@@ -499,7 +514,7 @@ begin
     'rcn_bi_kor','rcn_bi_delais','rcn_bi_stock_bin','rcn_bi_ecart_transfert',
     'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal',
     'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_jute_interne','rcn_bi_sechage',
-    'rcn_bi_transfert_finance'
+    'rcn_bi_transfert_finance','rcn_bi_achats_localite'
   ]
   loop
     execute format('alter view %I set (security_invoker = on);', v);

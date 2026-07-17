@@ -1040,6 +1040,80 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* 10bis. Géographie : localités CI, entrepôts, statistiques par zone */
+  /* ------------------------------------------------------------------ */
+  function geo() { return (typeof RCN_GEO !== "undefined") ? RCN_GEO : (typeof window !== "undefined" ? window.RCN_GEO : null); }
+  // Liste nationale des localités (référentiel géographique CI).
+  function localites() { var g = geo(); return g ? g.localites : (referentials().origines || []).map(function (o) { return { ville: o, region: "—", district: "—", lat: null, lon: null }; }); }
+  function regionsGeo() { var g = geo(); return g ? g.regions : []; }
+  function localiteInfo(ville) { var g = geo(); return g ? g.findLocalite(ville) : null; }
+
+  // Créer un nouvel entrepôt de réception (référentiel partagé, synchronisé).
+  function addEntrepot(d) {
+    d = d || {};
+    var code = (d.code || "").trim().toUpperCase().replace(/\s+/g, "-");
+    var nom = (d.nom || "").trim();
+    var location = (d.location || "").trim();
+    if (!code) throw new Error("Code entrepôt requis (ex. BKE-004).");
+    if (!/^[A-Z0-9\-]+$/.test(code)) throw new Error("Code invalide : lettres, chiffres et tirets uniquement.");
+    if (!location) throw new Error("Localité de l'entrepôt requise.");
+    var refs = referentials();
+    if (!refs.entrepots) refs.entrepots = [];
+    if (refs.entrepots.filter(function (e) { return e.code === code; }).length) throw new Error("Un entrepôt porte déjà le code " + code + ".");
+    if (!nom) nom = location + " — Entrepôt " + code;
+    var ent = { code: code, nom: nom, location: location };
+    refs.entrepots.push(ent);
+    audit(code, "entrepôt", null, location, "Création entrepôt " + code + " (" + location + ")");
+    saveDb();
+    return ent;
+  }
+
+  // Statistiques qualité & volume par localité et par région (aide à la
+  // décision d'achat). Volume = net reçu (kg) ; qualité = KOR moyen pondéré
+  // par le volume ; humidité moyenne si disponible.
+  function geoStats() {
+    var byV = {}, all = lots();
+    all.forEach(function (l) {
+      // Seuls les achats réels comptent (on ignore les ré-réceptions
+      // inter-entrepôts, qui sont des mouvements internes déjà comptés à l'achat).
+      if (l.fromTransfer) return;
+      var ville = l.origine || "—";
+      var net = num(l.netInitial) || 0;
+      var kor = (l.korFinal != null) ? l.korFinal : (l.korDisplay != null ? l.korDisplay : null);
+      var rec = l.recId ? getRec(l.recId) : null;
+      var hum = rec && rec.finale && rec.finale.humidity != null ? rec.finale.humidity : null;
+      var g = byV[ville] || (byV[ville] = { ville: ville, volume: 0, korPond: 0, korW: 0, humPond: 0, humW: 0, nbLots: 0 });
+      g.volume += net; g.nbLots += 1;
+      if (kor != null && net > 0) { g.korPond += kor * net; g.korW += net; }
+      if (hum != null && net > 0) { g.humPond += hum * net; g.humW += net; }
+    });
+    var parLocalite = Object.keys(byV).map(function (v) {
+      var g = byV[v]; var info = localiteInfo(v) || {};
+      return {
+        ville: v, region: info.region || "—", district: info.district || "—",
+        lat: info.lat != null ? info.lat : null, lon: info.lon != null ? info.lon : null,
+        volumeKg: round2(g.volume), nbLots: g.nbLots,
+        korMoyen: g.korW > 0 ? round2(g.korPond / g.korW) : null,
+        humMoyen: g.humW > 0 ? round2(g.humPond / g.humW) : null
+      };
+    }).sort(function (a, b) { return b.volumeKg - a.volumeKg; });
+
+    var byR = {};
+    parLocalite.forEach(function (l) {
+      var r = byR[l.region] || (byR[l.region] = { region: l.region, district: l.district, volume: 0, korPond: 0, korW: 0, nbLots: 0, villes: [] });
+      r.volume += l.volumeKg; r.nbLots += l.nbLots; r.villes.push(l.ville);
+      if (l.korMoyen != null && l.volumeKg > 0) { r.korPond += l.korMoyen * l.volumeKg; r.korW += l.volumeKg; }
+    });
+    var parRegion = Object.keys(byR).map(function (k) {
+      var r = byR[k];
+      return { region: r.region, district: r.district, volumeKg: round2(r.volume), nbLots: r.nbLots, nbLocalites: r.villes.length, villes: r.villes, korMoyen: r.korW > 0 ? round2(r.korPond / r.korW) : null };
+    }).sort(function (a, b) { return b.volumeKg - a.volumeKg; });
+
+    var totalVolume = parLocalite.reduce(function (t, l) { return t + l.volumeKg; }, 0);
+    return { parLocalite: parLocalite, parRegion: parRegion, totalVolume: round2(totalVolume), nbLocalitesActives: parLocalite.length, nbRegionsActives: parRegion.length };
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 11. Données de démonstration (reprennent les exemples du cahier)   */
   /* ------------------------------------------------------------------ */
   function seedDemo(force) {
@@ -1174,6 +1248,8 @@
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
     // sacs jute
     jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
+    // géographie / entrepôts / statistiques par zone
+    localites: localites, regionsGeo: regionsGeo, localiteInfo: localiteInfo, addEntrepot: addEntrepot, geoStats: geoStats,
     // dashboard / audit
     dashboard: dashboard, audit: audit
   };
