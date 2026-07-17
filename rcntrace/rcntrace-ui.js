@@ -804,8 +804,16 @@
       else ob.innerHTML = '<span class="badge b-neutral">Mode local</span> <span style="font-size:13px;color:var(--n500)">Connectez-vous pour synchroniser avec Supabase.</span>';
     }
   };
+  // Rafraîchit le nom/rôle affichés (barre latérale) depuis le profil courant.
+  function refreshWho() {
+    var u = R.db().user || {};
+    if (el("whoName")) el("whoName").textContent = u.nom || "—";
+    if (el("whoRole")) el("whoRole").textContent = u.role || "";
+  }
   // Re-rendu déclenché par une hydratation asynchrone (connexion tardive).
-  global.RCNTRACE_RERENDER = function () { try { route(); } catch (e) {} };
+  global.RCNTRACE_RERENDER = function () { try { refreshWho(); route(); } catch (e) {} };
+  // Appelé par la couche de sync quand le profil connecté est injecté.
+  global.RCNTRACE_USER_SET = function () { try { refreshWho(); } catch (e) {} };
 
   /* ---------------- Boot ------------------------------------------- */
   function start() {
