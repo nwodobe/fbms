@@ -15,7 +15,7 @@
     fr: {
       "brand.sub": "Traçabilité matière", "nav.portal": "Portail ANAGROCI",
       "nav.accueil": "Accueil", "nav.reception": "Réception", "nav.qualite": "Qualité",
-      "nav.stock": "Stock & BIN", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
       "nav.rapports": "Rapports", "nav.audit": "Audit",
       "net.on": "En ligne", "net.off": "Hors connexion",
       "save": "Enregistrer", "send": "Envoyer", "cancel": "Annuler", "back": "Retour",
@@ -23,7 +23,7 @@
     en: {
       "brand.sub": "Material traceability", "nav.portal": "ANAGROCI Portal",
       "nav.accueil": "Home", "nav.reception": "Reception", "nav.qualite": "Quality",
-      "nav.stock": "Stock & BIN", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
       "nav.rapports": "Reports", "nav.audit": "Audit",
       "net.on": "Online", "net.off": "Offline",
       "save": "Save", "send": "Send", "cancel": "Cancel", "back": "Back",
@@ -33,8 +33,8 @@
 
   var NAV = [
     { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
-    { id: "stock", ni: "04" }, { id: "transfert", ni: "05" }, { id: "calibrage", ni: "06" },
-    { id: "rapports", ni: "07" }, { id: "audit", ni: "08" }
+    { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "transfert", ni: "06" }, { id: "calibrage", ni: "07" },
+    { id: "rapports", ni: "08" }, { id: "audit", ni: "09" }
   ];
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -85,6 +85,7 @@
     reception: ["Réception", "Module 1 · Dossiers camion & sampling"],
     qualite: ["Qualité", "Module 1 · Sampling, décision GM & libération"],
     stock: ["Stock & BIN", "Module 1 · Cycles, compositions & mouvements"],
+    sechage: ["Séchage / triage", "Module 1 · Avant/après, BIN après séchage & perte"],
     transfert: ["Transfert", "Passage entre modules · contributeurs & triple validation"],
     calibrage: ["Calibrage", "Module 2 · CAL, sorties, arrêts & bilan matière"],
     rapports: ["Rapports", "Indicateurs & cartographie du business"],
@@ -107,7 +108,7 @@
   // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
   var EYEBROW = {
     accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
-    stock: "Module 1 · Stock & BIN", transfert: "Passage entre modules",
+    stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", transfert: "Passage entre modules",
     calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
@@ -210,8 +211,9 @@
         '<label>Numéro temporaire</label><input readonly value="Généré à l\'enregistrement (REC-' + R.today() + '-…)">' +
         '<div class="row"><div><label>Immatriculation camion</label><input id="f_camion" placeholder="AA-0000-CI"></div>' +
         '<div><label>Date & heure d\'arrivée</label><input id="f_arrivee" type="datetime-local" value="' + nowLocal() + '"></div></div>' +
-        '<label>Fournisseur</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join("") + '</select>' +
-        '<label>Provenance / origine</label><input id="f_origine" placeholder="Localité d\'origine">' +
+        '<div class="row"><div><label>Site / entrepôt</label><select id="f_site">' + refs.entrepots.map(function (e) { return '<option>' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select></div>' +
+        '<div><label>Provenance / origine</label><select id="f_origine">' + refs.origines.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select></div></div>' +
+        '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
         '<div class="row3"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div>' +
         '<div><label>Sacs annoncés</label><input id="f_sacs" type="number" placeholder="—"></div>' +
         '<div><label>Réf. document fournisseur</label><input id="f_ref" placeholder="BL-…"></div></div>' +
@@ -351,14 +353,18 @@
     var rec = R.getRec(id); if (!rec) return notFound(id);
     return '<div class="pagehead"><h1>Déchargement & pesée</h1><p>' + esc(rec.id) + ' · le poids net physique alimente le stock ; le poids main-d\'œuvre reste séparé.</p></div>' +
       stepper(STEPS, 3) +
-      '<div class="grid2"><div class="card"><h2>Pesée</h2><div class="cbody">' +
+      '<div class="grid2"><div class="card"><h2>Pesée & documents</h2><div class="cbody">' +
+        '<div class="row3">' + inp("d_wh", "Reçu magasin (W/H)", "", "text") + inp("d_fiche", "N° fiche CCA", "", "text") + inp("d_bin", "BIN de déchargement", "", "text") + '</div>' +
         '<div class="row">' + inp("d_bord", "Bordereau", "", "text") + inp("d_ticket", "Ticket de pesée", "", "text") + '</div>' +
-        '<div class="row3">' + inp("d_sacs", "Sacs", "", "number") + inp("d_brut", "Poids brut (kg)", "", "number") + inp("d_tare", "Tare (kg)", "", "number") + '</div>' +
-        '<div class="row">' + inp("d_net", "Poids net (kg) — auto si vide", "", "number") + inp("d_mo", "Poids main-d\'œuvre (kg)", "", "number") + '</div>' +
-        '<div class="row">' + inp("d_prest", "Prestataire", "", "text") + inp("d_dest", "Destination", "", "text") + '</div>' +
+        '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Sacs par catégorie</b>' +
+        '<div class="row" style="margin-top:8px">' + inp("d_sacsBon", "Bons sacs", "", "number") + inp("d_sacsHum", "Sacs humides", "", "number") + '</div>' +
+        '<div class="row">' + inp("d_sacsDech", "Sacs déchirés", "", "number") + inp("d_sacsRec", "Sacs reconditionnés", "", "number") + '</div>' +
+        '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Poids</b>' +
+        '<div class="row3" style="margin-top:8px">' + inp("d_brut", "Poids brut (kg)", "", "number") + inp("d_tare", "Tare (kg)", "", "number") + inp("d_net", "Net (kg) — auto si vide", "", "number") + '</div>' +
+        '<div class="row">' + inp("d_mo", "Poids main-d\'œuvre (kg)", "", "number") + inp("d_prest", "Prestataire / transporteur", "", "text") + '</div>' +
         '<div class="actions"><button class="btn" onclick="RCNUI.saveDechargement(\'' + id + '\')">Enregistrer le déchargement</button></div>' +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock. Le poids de main-d\'œuvre est conservé séparément et ne modifie jamais le stock physique.</div>' +
+      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock ; le poids main-d\'œuvre reste séparé. <b>À valider avec le magasin :</b> réfaction, poids GRN et poids payé (non implémentés tant que leur définition n\'est pas confirmée).</div>' +
       '</div>';
   }
 
@@ -435,8 +441,8 @@
     var rows = cyc.contributors.map(function (c) {
       var dispo = R.round2(c.entree - c.sorti);
       var part = stock ? R.round2(dispo / stock * 100) : 0;
-      var lot = R.getLot(c.lotId);
-      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
+      var lot = R.getLot(c.lotId); var q = R.lotQuality(c.lotId);
+      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + esc(q.fournisseur || "—") + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td class="mono">' + (q.kor != null ? q.kor.toFixed(2) : "—") + '</td><td class="mono">' + (q.sacs == null ? "—" : q.sacs) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
     }).join("");
     var libLots = R.lots().filter(function (l) { return l.etat === R.ETAT_REC.LIBERE && l.stock > 0; });
     return '<div class="pagehead"><h1>' + esc(cyc.binId) + ' · ' + esc(cyc.id) + ' ' + badgeEtat(cyc.etat) + '</h1><p>Composition théorique du cycle — après mélange, les pourcentages suivent le bilan matière.</p></div>' +
@@ -447,7 +453,7 @@
         '<div class="metric"><small>Capacité</small><b>' + (cyc.capaciteKg ? R.round2(cyc.capaciteKg) : "—") + '</b><span>kg</span></div>' +
       '</div>' +
       '<div class="card" style="margin-bottom:16px"><h2>Composition théorique du cycle</h2><div class="cbody" style="padding:0">' +
-        (rows ? '<table><thead><tr><th>Lot officiel</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="empty">BIN vide.</div>') +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Lot officiel</th><th>Fournisseur</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>KOR</th><th>Sacs</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">BIN vide.</div>') +
       '</div></div>' +
       '<div class="grid2"><div class="card"><h2>Ajouter une entrée</h2><div class="cbody">' +
         '<label>Lot libéré</label><select id="bin_lot">' + (libLots.length ? libLots.map(function (l) { return '<option value="' + esc(l.id) + '">' + esc(l.id) + ' · dispo ' + R.round2(l.stock) + ' kg</option>'; }).join("") : '<option value="">Aucun lot libéré disponible</option>') + '</select>' +
@@ -460,6 +466,33 @@
         '<div class="actions"><button class="btn" onclick="RCNUI.prepareTransfer(\'' + encodeURIComponent(cyc.id) + '\')" ' + (stock > 0 ? "" : "disabled") + '>Préparer le transfert →</button></div>' +
       '</div></div></div>';
   }
+
+  /* ---- SÉCHAGE / TRIAGE (§7.5) ------------------------------------ */
+  PAGES.sechage = function () {
+    var ops = R.dryings();
+    var cycles = R.binCycles().filter(function (c) { return c.etat !== R.ETAT_BIN.CLOS && R.binStock(c) > 0; });
+    var rows = ops.length ? ops.map(function (d) {
+      return '<tr><td class="mono">' + esc(d.id) + '</td><td>' + esc(d.type) + '</td><td class="mono">' + esc(d.sourceBinId) + ' → ' + esc(d.targetBinId) + '</td>' +
+        '<td class="mono">' + R.kg(d.inputKg) + '</td><td class="mono">' + R.kg(d.outputKg) + '</td>' +
+        '<td class="mono">' + R.kg(d.lossKg) + ' <span style="color:var(--n500)">(' + d.lossPct + ' %)</span></td>' +
+        '<td>' + (d.inputMoisture != null ? d.inputMoisture + '→' + (d.outputMoisture != null ? d.outputMoisture : "—") + ' %' : "—") + '</td>' +
+        '<td>' + R.fmtDateTime(d.at) + '</td></tr>';
+    }).join("") : '';
+    return '<div class="pagehead"><h1>Une BIN est un contenant vivant : séchage & triage</h1><p>Entre le stockage et le transfert, la matière peut être séchée ou triée. On compare avant/après (humidité, NC, KOR, sacs) et on calcule la perte.</p></div>' +
+      '<div class="grid2 rev"><div><div class="card"><h2>Nouvelle opération de séchage / triage</h2><div class="cbody">' +
+        '<label>Type d\'opération</label><select id="dry_type"><option value="sechage">Séchage</option><option value="triage">Triage</option></select>' +
+        '<label>BIN source</label><select id="dry_src">' + (cycles.length ? cycles.map(function (c) { return '<option value="' + encodeURIComponent(c.id) + '">' + esc(c.binId) + ' · dispo ' + R.round2(R.binStock(c)) + ' kg</option>'; }).join("") : '<option value="">Aucune BIN avec stock</option>') + '</select>' +
+        '<label>BIN après séchage (destination)</label><input id="dry_target" placeholder="ex. BKE-002-BIN-003-DRIED">' +
+        '<div class="row"><div><b style="font-family:var(--fd);color:var(--forest);font-size:13px">ENTRÉE</b>' + inp("dry_inKg", "Poids envoyé (kg)", "", "number") + inp("dry_inSacs", "Sacs envoyés", "", "number") + inp("dry_inMois", "Humidité entrée (%)", "", "number") + inp("dry_inNc", "Nut Count entrée", "", "number") + inp("dry_inKor", "KOR entrée", "", "number") + '</div>' +
+        '<div><b style="font-family:var(--fd);color:var(--forest);font-size:13px">SORTIE</b>' + inp("dry_outKg", "Poids récupéré (kg)", "", "number") + inp("dry_outSacs", "Sacs récupérés", "", "number") + inp("dry_outMois", "Humidité sortie (%)", "", "number") + inp("dry_outNc", "Nut Count sortie", "", "number") + inp("dry_outKor", "KOR sortie", "", "number") + '</div></div>' +
+        '<div class="balance" id="dryLoss">Perte = envoyé − récupéré</div>' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.createDrying()" ' + (cycles.length ? "" : "disabled") + '>Enregistrer l\'opération</button></div>' +
+      '</div></div>' +
+      '<div class="rule"><b>Règle métier.</b> Perte = poids envoyé − poids récupéré (jamais négative). La matière séchée passe dans une nouvelle BIN « after drying » en conservant ses contributeurs (généalogie préservée).</div></div>' +
+      '<div class="card"><h2>Opérations enregistrées <span class="badge b-neutral">' + ops.length + '</span></h2><div class="cbody" style="padding:0">' +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>SEC</th><th>Type</th><th>BIN</th><th>Envoyé</th><th>Récupéré</th><th>Perte</th><th>Humidité</th><th>Le</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucune opération de séchage.</div>') +
+      '</div></div></div>';
+  };
 
   /* ---- TRANSFERT (slide 10) --------------------------------------- */
   PAGES.transfert = function (r) {
@@ -489,12 +522,13 @@
     else if (trf.etat === R.ETAT_TRF.ECART) action = '<div class="alert">Écart de ' + R.kg(trf.ecart) + ' à justifier.</div><label>Justification</label><input id="trf_motif" placeholder="Cause de l\'écart"><div class="actions"><button class="btn warn" onclick="RCNUI.resolveEcart(\'' + id + '\')">Valider l\'écart</button></div>';
     else if ([R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = '<p style="color:var(--n500);font-size:13px;margin:0 0 8px">Réception côté calibrage.</p><button class="btn" onclick="__rcngo(\'calibrage\')">Aller au tableau de bord calibrage →</button>';
     else action = '<div class="okbox">Transfert ' + esc(trf.etat) + '.</div>';
-    return '<div class="pagehead"><h1>Préparer le transfert ' + esc(trf.id) + ' ' + badgeEtat(trf.etat) + '</h1><p>CAL hérite des contributeurs de TRF ; aucune origine n\'est ressaisie.</p></div>' +
+    var logi = (trf.transporteur || trf.voyage) ? '<div style="font-size:12.5px;color:var(--n500);margin:-8px 0 16px">Transporteur <b style="color:var(--ink)">' + esc(trf.transporteur || "—") + '</b> · voyage <b style="color:var(--ink)">' + esc(trf.voyage || "—") + '</b>' + (trf.chauffeur ? ' · chauffeur ' + esc(trf.chauffeur) : "") + (trf.camion ? ' · camion ' + esc(trf.camion) : "") + '</div>' : "";
+    return '<div class="pagehead"><h1>Préparer le transfert ' + esc(trf.id) + ' ' + badgeEtat(trf.etat) + '</h1><p>CAL hérite des contributeurs de TRF ; aucune origine n\'est ressaisie.</p></div>' + logi +
       '<div class="metrics">' +
         '<div class="metric"><small>BIN source</small><b style="font-size:16px">' + esc(trf.binId) + '</b><span>' + esc(trf.cycleId) + '</span></div>' +
         '<div class="metric big"><small>Quantité envoyée</small><b>' + R.round2(trf.poidsEnvoye) + '</b><span>kg</span></div>' +
         '<div class="metric"><small>Reçu</small><b>' + (trf.poidsRecu == null ? "—" : R.round2(trf.poidsRecu)) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Destination</small><b style="font-size:16px">' + esc(trf.destination) + '</b></div>' +
+        '<div class="metric"><small>Perte de transit</small><b>' + (trf.transitLossPct == null ? "—" : trf.transitLossPct + " %") + '</b><span>' + (trf.ecart == null ? "envoyé vs reçu" : R.kg(trf.ecart)) + '</span></div>' +
       '</div>' +
       '<div class="grid2"><div class="card"><h2>Contributeurs calculés automatiquement</h2><div class="cbody" style="padding:0">' +
         '<table><thead><tr><th>Lot parent</th><th>Part BIN</th><th>Attribué au TRF</th><th>Qualité</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
@@ -694,7 +728,8 @@
 
   UI.createReception = function () {
     try {
-      var rec = R.createReception({ camion: val("f_camion"), fournisseur: val("f_fournisseur"), origine: val("f_origine"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref") });
+      var f = R.referentials().fournisseurs[Number(val("f_fournisseur")) || 0] || {};
+      var rec = R.createReception({ camion: val("f_camion"), fournisseur: f.nom || "", lba: f.lba || "", origine: val("f_origine"), site: val("f_site"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref") });
       toast("Réception " + rec.id + " créée.");
       go("qualite/" + rec.id + "/sampling"); route();
     } catch (e) { toast(e.message, true); }
@@ -712,8 +747,25 @@
     catch (e) { toast(e.message, true); }
   };
   UI.saveDechargement = function (id) {
-    try { R.saveDechargement(id, { bordereau: val("d_bord"), ticket: val("d_ticket"), sacs: val("d_sacs"), brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest"), destination: val("d_dest") }); toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route(); }
-    catch (e) { toast(e.message, true); }
+    try {
+      R.saveDechargement(id, {
+        whReceipt: val("d_wh"), ficheCca: val("d_fiche"), binDecharge: val("d_bin"), bordereau: val("d_bord"), ticket: val("d_ticket"),
+        sacsBon: val("d_sacsBon"), sacsHumid: val("d_sacsHum"), sacsDechire: val("d_sacsDech"), sacsRecond: val("d_sacsRec"),
+        brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest")
+      });
+      toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.createDrying = function () {
+    try {
+      var d = R.createDrying(decodeURIComponent(val("dry_src")), val("dry_target"), {
+        type: val("dry_type"), inputKg: val("dry_inKg"), outputKg: val("dry_outKg"),
+        inputSacs: val("dry_inSacs"), outputSacs: val("dry_outSacs"),
+        inputMoisture: val("dry_inMois"), outputMoisture: val("dry_outMois"),
+        inputNc: val("dry_inNc"), outputNc: val("dry_outNc"), inputKor: val("dry_inKor"), outputKor: val("dry_outKor")
+      });
+      toast(d.id + " · perte " + R.kg(d.lossKg) + " (" + d.lossPct + " %)."); route();
+    } catch (e) { toast(e.message, true); }
   };
   UI.finale = function (id, decision) {
     try {
@@ -776,6 +828,15 @@
   /* ---------------- Live KOR (sampling & finale) ------------------- */
   document.addEventListener("input", function (ev) {
     var id = ev.target.id;
+    if (id === "dry_inKg" || id === "dry_outKg") {
+      var ink = R.num(val("dry_inKg")), outk = R.num(val("dry_outKg")), box = el("dryLoss");
+      if (box) {
+        if (ink != null && outk != null) {
+          var loss = R.round2(ink - outk), pct = ink ? R.round2(loss / ink * 100) : 0;
+          box.innerHTML = R.kg(ink) + " − " + R.kg(outk) + " = <b>" + R.kg(loss) + "</b> de perte (" + pct + " %)" + (loss < 0 ? '<small style="color:var(--danger)">Perte négative interdite</small>' : "");
+        } else box.innerHTML = "Perte = envoyé − récupéré";
+      }
+    }
     if (["s_gk", "s_imm", "s_sp", "s_browns", "s_voids", "s_oil"].indexOf(id) >= 0) {
       var s = { gk: val("s_gk"), imm: val("s_imm"), spotted: val("s_sp"), browns: val("s_browns"), voids: val("s_voids"), oil: val("s_oil") };
       var kor = R.computeKor(s), td = R.totalDefect(s), tk = R.totalKernels(s);

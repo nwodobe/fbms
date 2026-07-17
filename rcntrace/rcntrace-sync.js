@@ -57,6 +57,7 @@
       db.user = meta.user || db.user;
       db.movements = meta.movements || [];
       db.documents = meta.documents || [];
+      db.dryings = meta.dryings || [];
     }
     db.audit = (auditRows || []).map(function (a) {
       return { id: a.id, at: a.created_at, objet: a.objet, champ: a.champ, avant: a.avant, apres: a.apres, motif: a.motif, auteur: a.auteur, role: a.role };
@@ -71,7 +72,7 @@
 
   function snapshot() {
     var db = R.db();
-    var rows = [{ kind: "meta", id: "singleton", payload: { seq: db.seq, referentials: db.referentials, user: db.user, seeded: true, movements: db.movements, documents: db.documents } }];
+    var rows = [{ kind: "meta", id: "singleton", payload: { seq: db.seq, referentials: db.referentials, user: db.user, seeded: true, movements: db.movements, documents: db.documents, dryings: db.dryings || [] } }];
     db.receptions.forEach(function (r) { rows.push({ kind: "reception", id: r.id, payload: r }); });
     db.lots.forEach(function (l) { rows.push({ kind: "lot", id: l.id, payload: l }); });
     db.binCycles.forEach(function (c) { rows.push({ kind: "binCycle", id: c.id, payload: c }); });
