@@ -214,6 +214,7 @@
       movements: [],           // mouvements MOV (entrées/sorties/séchage/triage)
       dryings: [],             // opérations de séchage / triage SEC (avant/après)
       jute: [],                // mouvements de sacs de jute JUT (dotation/retour/déchiré/rebaging)
+      procurement: { engagements: [], financements: [], arrivages: [] },
       transfers: [],           // transferts TRF
       cals: [],                // opérations de calibrage CAL
       documents: [],           // pièces jointes DOC (métadonnées)
@@ -240,6 +241,10 @@
       _db = raw ? JSON.parse(raw) : emptyDb();
     } catch (e) { _db = emptyDb(); }
     if (!_db.seq) _db = emptyDb();
+    if (!_db.procurement) _db.procurement = { engagements: [], financements: [], arrivages: [] };
+    if (!_db.procurement.engagements) _db.procurement.engagements = [];
+    if (!_db.procurement.financements) _db.procurement.financements = [];
+    if (!_db.procurement.arrivages) _db.procurement.arrivages = [];
     return _db;
   }
   function saveDb() {
@@ -315,6 +320,8 @@
     bin_reopen: ["GM", "General Manager", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"],
     correction: ["Warehouse Manager", "Supervisor", "Branch Manager", "Coordination", "Administrateur"],
     document: ["Opérateur", "Qualité", "Quality Manager", "Warehouse Manager", "Procurement Officer", "Coordination", "Administrateur"]
+    ,procurement_write: ["Procurement Officer", "Head of Field", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"]
+    ,finance_approve: ["Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"]
   };
   function currentRole() { return String((loadDb().user || {}).role || "").trim(); }
   function hasPermission(action) {
@@ -381,6 +388,60 @@
     return { fournisseur: lot.fournisseur, kor: lot.korDisplay, sacs: lot.sacs, nc: q.nc, humidity: q.humidity };
   }
   function getCal(id) { return cals().filter(function (c) { return c.id === id; })[0] || null; }
+
+  /* ------------------------------------------------------------------ */
+  /* 5bis. PROCUREMENT — engagement → financement → arrivée → réception */
+  /* ------------------------------------------------------------------ */
+  function procurement() { return loadDb().procurement; }
+  function procEngagements() { return procurement().engagements; }
+  function procFinancements() { return procurement().financements; }
+  function procArrivages() { return procurement().arrivages; }
+  function supplierDelivered(lba, nom) {
+    var rs = receptions().filter(function (r) { return (lba && r.lba === lba) || (!lba && r.fournisseur === nom); });
+    var volume = 0, valeur = 0, accepted = 0;
+    rs.forEach(function (r) { var d = r.dechargement || {}, net = num(d.net) || 0, paid = num(d.poidsPaye); volume += net; if (r.etat === ETAT_REC.LIBERE) accepted += net; valeur += (paid == null ? net : paid) * (num(r.prixUnitaire) || num((getLot(r.lotId) || {}).prixUnitaire) || 0); });
+    return { livraisons: rs.length, volumeKg: round2(volume), accepteKg: round2(accepted), valeurFcfa: round2(valeur) };
+  }
+  function createProcEngagement(d) {
+    requirePermission("procurement_write");
+    var qty = num(d.volumeKg); if (qty === null || qty <= 0) throw new Error("Volume promis obligatoire.");
+    var e = { id: genId("ENG"), supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", campagne: d.campagne || "2026", type: d.type || "LBA", volumeKg: qty, prixKg: num(d.prixKg), korMin: num(d.korMin), humiditeMax: num(d.humiditeMax), site: d.site || "BKE-002", debut: d.debut || null, echeance: d.echeance || null, statut: "ACTIF", note: d.note || "", createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procEngagements().unshift(e); audit(e.id, "engagement fournisseur", null, kg(qty), e.supplierNom); saveDb(); return e;
+  }
+  function createProcFinancement(d) {
+    requirePermission("procurement_write");
+    var amount = num(d.montant); if (amount === null || amount <= 0) throw new Error("Montant du financement obligatoire.");
+    var f = { id: genId("FIN"), engagementId: d.engagementId || null, supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", montant: amount, banque: d.banque || "", reference: d.reference || "", decaisseAt: d.decaisseAt || nowISO(), echeance: d.echeance || null, statut: "À_APPROUVER", approuvePar: null, createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procFinancements().unshift(f); audit(f.id, "financement", null, amount + " FCFA", f.supplierNom); saveDb(); return f;
+  }
+  function approveProcFinancement(id, ok, commentaire) {
+    requirePermission("finance_approve");
+    var f = procFinancements().filter(function (x) { return x.id === id; })[0]; if (!f) throw new Error("Financement introuvable.");
+    var before = f.statut; f.statut = ok ? "APPROUVÉ" : "REFUSÉ"; f.approuvePar = (loadDb().user || {}).nom; f.approuveAt = nowISO(); f.commentaire = commentaire || "";
+    audit(f.id, "validation financement", before, f.statut, commentaire || ""); saveDb(); return f;
+  }
+  function createProcArrivage(d) {
+    requirePermission("procurement_write");
+    var qty = num(d.volumeKg); if (qty === null || qty <= 0) throw new Error("Volume annoncé obligatoire.");
+    var a = { id: genId("ARR"), engagementId: d.engagementId || null, supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", camion: d.camion || "", chauffeur: d.chauffeur || "", telephone: d.telephone || "", volumeKg: qty, sacs: num(d.sacs), site: d.site || "BKE-002", prevuAt: d.prevuAt || null, statut: "ANNONCÉ", recId: null, createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procArrivages().unshift(a); audit(a.id, "arrivée planifiée", null, kg(qty), a.supplierNom); saveDb(); return a;
+  }
+  function receptionFromProcArrivage(id) {
+    requirePermission("procurement_write");
+    var a = procArrivages().filter(function (x) { return x.id === id; })[0]; if (!a) throw new Error("Arrivée planifiée introuvable.");
+    if (a.recId) return getRec(a.recId);
+    var rec = createReception({ camion: a.camion, fournisseur: a.supplierNom, lba: a.supplierLba, site: a.site, warehouse: a.site, poidsAnnonce: a.volumeKg, sacsAnnonce: a.sacs, arriveeAt: nowISO(), refDoc: a.id, typeAchat: (procEngagements().filter(function (e) { return e.id === a.engagementId; })[0] || {}).type || "LBA" });
+    rec.procArrivalId = a.id; rec.procEngagementId = a.engagementId; a.recId = rec.id; a.statut = "ARRIVÉ";
+    audit(a.id, "passage en réception", null, rec.id, "Camion arrivé au site"); saveDb(); return rec;
+  }
+  function procurementSummary() {
+    var promised = procEngagements().filter(function (e) { return e.statut === "ACTIF"; }).reduce(function (t, e) { return t + (e.volumeKg || 0); }, 0);
+    var delivered = receptions().filter(function (r) { return r.source !== "inter-entrepôt"; }).reduce(function (t, r) { return t + (num((r.dechargement || {}).net) || 0); }, 0);
+    var financed = procFinancements().filter(function (f) { return f.statut === "APPROUVÉ"; }).reduce(function (t, f) { return t + f.montant; }, 0);
+    var covered = 0; var seen = {};
+    procFinancements().filter(function (f) { return f.statut === "APPROUVÉ"; }).forEach(function (f) { var k = f.supplierLba || f.supplierNom; if (!seen[k]) { seen[k] = true; covered += supplierDelivered(f.supplierLba, f.supplierNom).valeurFcfa; } });
+    return { promisKg: round2(promised), livreKg: round2(delivered), restantKg: round2(Math.max(0, promised - delivered)), financeFcfa: round2(financed), couvertFcfa: round2(covered), expositionFcfa: round2(Math.max(0, financed - covered)), arrivages7j: procArrivages().filter(function (a) { if (!a.prevuAt || a.statut !== "ANNONCÉ") return false; var x = new Date(a.prevuAt).getTime() - Date.now(); return x >= 0 && x <= 7 * 86400000; }).length };
+  }
 
   /* ------------------------------------------------------------------ */
   /*  6. MODULE 1 — Réception, qualité, lot                              */
@@ -1846,6 +1907,8 @@
     createReception: createReception, saveSampling: saveSampling, submitToGm: submitToGm, gmDecision: gmDecision,
     saveDechargement: saveDechargement, saveFinaleAndRelease: saveFinaleAndRelease,
     hasPermission: hasPermission, actionRoles: ACTION_ROLES, addDocument: addDocument, deleteDocument: deleteDocument, documentsFor: documentsFor, correctReceptionField: correctReceptionField,
+    procurement: procurement, procEngagements: procEngagements, procFinancements: procFinancements, procArrivages: procArrivages, supplierDelivered: supplierDelivered,
+    createProcEngagement: createProcEngagement, createProcFinancement: createProcFinancement, approveProcFinancement: approveProcFinancement, createProcArrivage: createProcArrivage, receptionFromProcArrivage: receptionFromProcArrivage, procurementSummary: procurementSummary,
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
     closeBinCycle: closeBinCycle, reopenBinCycle: reopenBinCycle, binTotals: binTotals, binDurationH: binDurationH, binPerteNiveau: binPerteNiveau, seuilPerteBin: seuilPerteBin,
