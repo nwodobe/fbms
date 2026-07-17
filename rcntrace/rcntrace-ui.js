@@ -81,7 +81,8 @@
   }
 
   var CRUMB = {
-    accueil: ["Accueil", "Tableau de bord opérationnel"],
+    accueil: ["Portail", "Chaîne de transformation cajou"],
+    entrepot: ["Activité entrepôt", "Réception, qualité, stock, séchage, transferts & sacs"],
     reception: ["Réception", "Module 1 · Dossiers camion & sampling"],
     qualite: ["Qualité", "Module 1 · Sampling, décision GM & libération"],
     stock: ["Stock & BIN", "Module 1 · Cycles, compositions & mouvements"],
@@ -108,7 +109,7 @@
 
   // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
   var EYEBROW = {
-    accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
+    accueil: "Portail · Chaîne cajou", entrepot: "Portail · Activité entrepôt", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
     stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
     calibrage: "Module 2 · Calibrage", fournisseurs: "Procurement · Base fournisseurs", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
   };
@@ -132,8 +133,19 @@
   var PAGES = {};
 
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
-  // Portail : sections regroupées par domaine ; un clic ouvre la section.
-  var PORTAL_GROUPS = [
+  // Chaîne de transformation (portail v2). Étapes réelles + maillons à venir.
+  var CHAIN = [
+    { key: "entrepot", ic: "🏭", t: "Activité entrepôt", d: "Réceptions, fournisseurs, qualité, BIN, séchage, transferts et sacs de jute.", n: "01", tint: "", go: "entrepot", statut: "Opérationnel" },
+    { key: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation des noix par taille, rendement par calibre et bilan matière.", n: "02", tint: "orange", go: "calibrage", statut: "Actif" },
+    { key: "cuisson", ic: "🔥", t: "Cuisson", d: "Lots chargés, cycles vapeur, paramètres et contrôles de sortie.", n: "03", tint: "orange", soon: true, statut: "À connecter" },
+    { key: "decorticage", ic: "🥜", t: "Décorticage", d: "Coques, amandes, entiers, brisures et rendement industriel.", n: "04", soon: true, statut: "À connecter" },
+    { key: "borma", ic: "🌡️", t: "Borma", d: "Chargement des fours, température, durée et perte de séchage.", n: "05", soon: true, statut: "À connecter" },
+    { key: "peeling", ic: "🧽", t: "Peeling & tri", d: "Dépelliculage, défauts, grades et destination des amandes.", n: "06", soon: true, statut: "À connecter" },
+    { key: "packing", ic: "📦", t: "Packing", d: "Conditionnement, mise sous vide, cartons, validation et expédition.", n: "07", tint: "orange", soon: true, statut: "Pilote conseillé" },
+    { key: "maintenance", ic: "🔧", t: "Maintenance", d: "Arrêts, interventions, pièces, préventif et disponibilité des machines.", n: "—", tint: "neutral", soon: true, statut: "Transversal" }
+  ];
+  // Hub « Activité entrepôt » : sections granulaires (clic → section dédiée).
+  var ENTREPOT_GROUPS = [
     { titre: "Réception & Qualité", items: [
       { id: "reception", ic: "🚚", t: "Réception", d: "Camions, sampling, décision GM" },
       { id: "qualite", ic: "🔬", t: "Qualité", d: "Analyses, KOR, libération des lots" },
@@ -142,11 +154,8 @@
     { titre: "Entrepôt & Stock", items: [
       { id: "stock", ic: "📦", t: "Stock & BIN", d: "BIN collectives, entrepôts, clôtures" },
       { id: "sechage", ic: "🌤️", t: "Séchage / triage", d: "Humidité, pertes de séchage" },
-      { id: "sacs", ic: "🧺", t: "Sacs de jute", d: "Dotation, retours, dette fournisseur" }
-    ] },
-    { titre: "Logistique & Usine", items: [
-      { id: "transfert", ic: "🔁", t: "Transfert", d: "Bouaké → Yamoussoukro, finance transit" },
-      { id: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation par calibre à l'usine" }
+      { id: "sacs", ic: "🧺", t: "Sacs de jute", d: "Dotation, retours, dette fournisseur" },
+      { id: "transfert", ic: "🔁", t: "Transfert", d: "Bouaké → Yamoussoukro, finance transit" }
     ] },
     { titre: "Pilotage & Sécurité", items: [
       { id: "rapports", ic: "📊", t: "Rapports", d: "Stock, qualité, écarts, sacs" },
@@ -155,22 +164,65 @@
     ] }
   ];
   function portalBadge(id, d) {
-    // Pastille de charge/alerte par section (orange = à traiter, vert = info).
     if (id === "reception" && d.camionsEnAttente) return { n: d.camionsEnAttente, q: false };
     if (id === "qualite" && (d.decisionGm + d.lotsBloques)) return { n: d.decisionGm + d.lotsBloques, q: false };
     if (id === "transfert" && d.transfertsARecevoir) return { n: d.transfertsARecevoir, q: false };
-    if (id === "calibrage" && (d.calEnCours + d.calAValider)) return { n: d.calEnCours + d.calAValider, q: false };
     if (id === "fournisseurs") return { n: (R.referentials().fournisseurs || []).length, q: true };
     return null;
   }
   PAGES.accueil = function () {
-    var d = R.dashboard();
     var u = R.db().user;
-    var priorities = buildPriorities();
-    var cta = priorities.length
-      ? '<div class="portal-cta"><div><b>' + priorities.length + ' action(s) prioritaire(s)</b><span> — dossiers en attente d\'une intervention.</span></div><button onclick="__rcngo(\'rapports\')">Voir le pilotage →</button></div>'
-      : '<div class="portal-cta"><div><b>Chaîne à jour</b><span> — aucune action prioritaire en attente.</span></div><button onclick="__rcngo(\'reception/new\')">+ Nouvelle réception</button></div>';
-    var groups = PORTAL_GROUPS.map(function (g) {
+    var gs = R.geoStats();
+    var lots = R.lots();
+    var lotRef = lots.length ? lots[lots.length - 1].id : "—";
+    var recu = gs.totalVolume;
+    var nodes = [
+      { ic: "🚚", t: "Réception", s: "Camion · sampling · pesée" },
+      { ic: "📦", t: "Stockage", s: "BIN · séchage · transfert" },
+      { ic: "⚙️", t: "Transformation", s: "Calibrage · cuisson · tri" },
+      { ic: "📦", t: "Packing", s: "Grade · carton · export" }
+    ].map(function (n) { return '<div class="rp-node"><span class="e">' + n.ic + '</span><strong>' + esc(n.t) + '</strong><small>' + esc(n.s) + '</small></div>'; }).join("");
+    var strip = ["Entrepôt", "Calibrage", "Cuisson", "Décorticage", "Borma", "Peeling", "Tri", "Packing"]
+      .map(function (s, i) { return '<span><i>' + pad2(i + 1) + '</i>' + esc(s) + '</span>'; }).join("");
+    var mods = CHAIN.map(function (m) {
+      var onclick = m.soon ? 'RCNUI.soon(\'' + esc(m.t) + '\')' : '__rcngo(\'' + m.go + '\')';
+      return '<button class="rp-mod ' + (m.tint || "") + (m.soon ? " soon" : "") + '" onclick="' + onclick + '">' +
+        '<div class="rp-mtop"><span class="rp-micon">' + m.ic + '</span><span class="rp-num">' + esc(m.n) + '</span></div>' +
+        '<h3>' + esc(m.t) + '</h3><p>' + esc(m.d) + '</p>' +
+        '<div class="rp-mfoot"><span class="rp-stat">' + esc(m.statut) + '</span><span class="rp-go">' + (m.soon ? "+" : "→") + '</span></div></button>';
+    }).join("");
+    return '' +
+      '<div class="rp-hero"><div class="rp-in">' +
+        '<div><p class="rp-eyebrow">Centre de contrôle · Transformation cajou</p>' +
+          '<h1>Une seule chaîne. Une traçabilité totale.</h1>' +
+          '<p class="lead">Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Suivez la noix brute depuis l\'entrepôt jusqu\'au carton export — chaque lot, chaque mouvement et chaque validation restent reliés.</p>' +
+          '<div class="rp-acts"><button class="rp-btn pri" onclick="__rcngo(\'entrepot\')">Ouvrir les opérations →</button>' +
+          '<button class="rp-btn gho" onclick="__rcngo(\'rapports\')">Voir les rapports</button></div>' +
+        '</div>' +
+        '<div class="rp-panel"><div class="rp-phead"><small>Parcours de la matière</small><span class="rp-live">Flux actif</span></div>' +
+          '<div class="rp-chip"><span><small>Dernier lot officiel</small><br><strong>' + esc(lotRef) + '</strong></span><b>TRAÇABLE ✓</b></div>' +
+          '<div class="rp-flowmini">' + nodes + '</div>' +
+          '<div class="rp-kpis"><div><strong>' + fmtKg0(recu) + '</strong><small>Matière reçue</small></div>' +
+            '<div><strong>08</strong><small>Étapes contrôlées</small></div>' +
+            '<div><strong>100 %</strong><small>Traçabilité</small></div></div>' +
+        '</div>' +
+      '</div></div>' +
+      '<div class="rp-strip">' + strip + '</div>' +
+      '<div class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:18px">' +
+        '<div><small style="color:var(--emerald);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Chaîne de production</small>' +
+        '<h2 style="margin:6px 0 0;color:var(--forest);font-family:var(--fd);font-weight:800;font-size:26px;letter-spacing:-.02em">Choisissez votre espace de travail</h2></div>' +
+        '<p style="max-width:440px;margin:0;color:var(--n500);font-size:12.5px;line-height:1.5">Les modules suivent le parcours réel de la matière. Les données d\'un maillon alimentent le suivant.</p></div>' +
+      '<div class="rp-modules">' + mods + '</div>' +
+      '<div class="rp-insight">' +
+        '<div class="rp-ins dark"><span class="ic">🧭</span><div><strong>Traçabilité de bout en bout</strong><p>Du fournisseur jusqu\'au packing, retrouvez l\'origine et le parcours complet d\'un lot.</p></div><b>100%</b></div>' +
+        '<div class="rp-ins"><span class="ic">🛡️</span><div><strong>Contrôles & validations</strong><p>Chaque action importante conserve son auteur, son heure et sa preuve.</p></div></div>' +
+      '</div>';
+  };
+  function fmtKg0(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " kg"; }
+  // Hub « Activité entrepôt » : cartes de sections granulaires.
+  PAGES.entrepot = function () {
+    var d = R.dashboard();
+    var groups = ENTREPOT_GROUPS.map(function (g) {
       return '<div class="portal-group"><h2>' + esc(g.titre) + '</h2><div class="portal-grid">' +
         g.items.map(function (it) {
           var b = portalBadge(it.id, d);
@@ -179,10 +231,8 @@
             '<span class="ic">' + it.ic + '</span><b>' + esc(it.t) + '</b><span>' + esc(it.d) + '</span></button>';
         }).join("") + '</div></div>';
     }).join("");
-    return '' +
-      '<div class="pagehead"><h1>Portail RCN TRACE</h1>' +
-      '<p>Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Choisissez une section pour y accéder directement — chaque module a sa page dédiée.</p></div>' +
-      cta + groups;
+    return '<div class="pagehead"><h1>Activité entrepôt</h1><p>Réception, qualité, fournisseurs, stock, séchage, transferts, sacs de jute et pilotage — un clic ouvre la section dédiée.</p></div>' +
+      '<div class="actions" style="margin:0 0 14px"><button class="btn ghost" onclick="__rcngo(\'accueil\')">← Portail</button></div>' + groups;
   };
   function kpi(lbl, val, sub, cls) {
     return '<div class="kpi ' + (cls || "") + '"><small>' + esc(lbl) + '</small><b>' + (typeof val === "number" ? pad2(val) : esc(val)) + '</b><span>' + esc(sub) + '</span></div>';
@@ -1259,6 +1309,7 @@
     try { var p = R.setToleranceCalibrage(val("cal_tol")); toast(p == null ? "Tolérance effacée." : "Tolérance réglée à " + p + " %."); route(); }
     catch (e) { toast(e.message, true); }
   };
+  UI.soon = function (nom) { toast("Module « " + nom + " » à venir dans une prochaine version."); };
 
   global.RCNUI = UI;
 
