@@ -165,10 +165,20 @@
     return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
   }
 
+  // Normalise pour comparaison : minuscules, sans accents ni ponctuation.
+  function norm(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  var _byNorm = null;
   function findLocalite(ville) {
     if (!ville) return null;
-    var key = String(ville).trim().toLowerCase();
-    return localites.filter(function (l) { return l.ville.toLowerCase() === key; })[0] || null;
+    if (!_byNorm) { _byNorm = {}; localites.forEach(function (l) { _byNorm[norm(l.ville)] = l; }); }
+    var k = norm(ville);
+    if (_byNorm[k]) return _byNorm[k];
+    // Tolérance : préfixe (ex. « Niakara » ↔ « Niakaramandougou »).
+    var hit = null;
+    localites.forEach(function (l) { var n = norm(l.ville); if (!hit && (n.indexOf(k) === 0 || k.indexOf(n) === 0) && Math.min(n.length, k.length) >= 4) hit = l; });
+    return hit;
   }
 
   global.RCN_GEO = {
