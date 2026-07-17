@@ -453,9 +453,10 @@
     var dureeH = R.binDurationH(cyc, Date.now());
     var duree = dureeH == null ? "—" : (dureeH >= 48 ? Math.round(dureeH / 24) + " j" : dureeH + " h");
     var closed = cyc.etat === R.ETAT_BIN.CLOS;
+    var perteCls = cyc.perteNiveau === "rouge" ? "alert" : (cyc.perteNiveau === "orange" ? "" : "okbox");
     var closeBox = closed
-      ? '<div class="okbox">Cycle clos le ' + R.fmtDateTime(cyc.closedAt) + ' · résidu ' + R.kg(cyc.residuKg) + ' · <b>perte ' + R.kg(cyc.perteKg) + (cyc.pertePct != null ? " (" + cyc.pertePct + " %)" : "") + '</b> · par ' + esc(cyc.confirmeur || "—") + '</div>'
-      : '<div class="actions" style="margin:0 0 16px"><button class="btn ghost" onclick="RCNUI.closeBin(\'' + encodeURIComponent(cyc.id) + '\')">Clôturer la BIN (résidu + perte)</button></div>';
+      ? '<div class="' + (cyc.perteNiveau === "rouge" ? "alert" : "okbox") + '">🔒 Cycle clos (verrouillé) le ' + R.fmtDateTime(cyc.closedAt || cyc.reouvertAt) + ' · résidu ' + R.kg(cyc.residuKg) + ' · <b>perte ' + R.kg(cyc.perteKg) + (cyc.pertePct != null ? " (" + cyc.pertePct + " %, seuil " + R.seuilPerteBin() + " %)" : "") + '</b> · validé par ' + esc(cyc.confirmeur || "—") + (cyc.justification ? ' · justif. : ' + esc(cyc.justification) : "") + (cyc.reouvertures ? ' · réouvertures : ' + cyc.reouvertures : "") + '<div class="actions" style="margin-top:10px"><button class="btn ghost sm" onclick="RCNUI.reopenBin(\'' + encodeURIComponent(cyc.id) + '\')">Réouvrir (autorisation requise)</button></div></div>'
+      : '<div class="actions" style="margin:0 0 16px"><button class="btn ghost" onclick="RCNUI.closeBin(\'' + encodeURIComponent(cyc.id) + '\')">Clôturer la BIN (inventaire + validation)</button></div>';
     return '<div class="pagehead"><h1>' + esc(cyc.binId) + ' · ' + esc(cyc.id) + ' ' + badgeEtat(cyc.etat) + '</h1><p>Composition théorique du cycle — après mélange, les pourcentages suivent le bilan matière.</p></div>' +
       closeBox +
       '<div class="metrics">' +
@@ -966,10 +967,18 @@
     catch (e) { toast(e.message, true); }
   };
   UI.closeBin = function (cycleId) {
-    var residu = prompt("Résidu pesé restant (kg) — laisser vide si stock nul :", "");
+    var residu = prompt("Inventaire — résidu pesé restant (kg), vide si stock nul :", "");
     if (residu === null) return;
-    var motif = prompt("Motif / observation de clôture :", "") || "";
-    try { var c = R.closeBinCycle(decodeURIComponent(cycleId), { residuKg: residu, motif: motif }); toast("BIN clôturée · perte " + R.kg(c.perteKg) + "."); route(); }
+    var justif = prompt("Justification des pertes (obligatoire si perte > seuil) :", "") || "";
+    var confirmeur = prompt("Validation — nom du Warehouse Manager :", R.db().user.nom) || "";
+    try { var c = R.closeBinCycle(decodeURIComponent(cycleId), { residuKg: residu, justification: justif, confirmeur: confirmeur }); toast("BIN clôturée · perte " + R.kg(c.perteKg) + " (" + c.perteNiveau + ")."); route(); }
+    catch (e) { toast(e.message, true); }
+  };
+  UI.reopenBin = function (cycleId) {
+    var autorisePar = prompt("Réouverture — autorisation nominative (GM ou profil désigné) :", "");
+    if (autorisePar === null) return;
+    var motif = prompt("Motif de réouverture :", "") || "";
+    try { R.reopenBinCycle(decodeURIComponent(cycleId), { autorisePar: autorisePar, motif: motif }); toast("BIN rouverte (tracée)."); route(); }
     catch (e) { toast(e.message, true); }
   };
   UI.qaApprove = function (id) { try { R.qaApproveTransfer(id, true, "Contrôle OK"); toast("QA approuvé."); route(); } catch (e) { toast(e.message, true); } };

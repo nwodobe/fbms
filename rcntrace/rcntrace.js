@@ -498,25 +498,52 @@
     if (!end) return null;
     return Math.round((end - start) / 3600000 * 10) / 10;
   }
-  // M1-FR-16 · Fermeture du cycle de BIN : clôturer après confirmation du stock
-  // nul ou du résidu pesé. La perte de poids = restant théorique − résidu réel.
+  var SEUIL_PERTE_BIN = 1.5;   // objectif de perte BIN (%) — à confirmer (§5).
+  function seuilPerteBin() { var r = referentials(); return (r && r.seuilPerteBinPct != null) ? r.seuilPerteBinPct : SEUIL_PERTE_BIN; }
+  // Niveau d'alerte sur la perte d'une BIN : vert / orange (proche du seuil) / rouge (au-dessus).
+  function binPerteNiveau(pertePct) {
+    if (pertePct == null) return "vert";
+    var s = seuilPerteBin();
+    if (pertePct > s) return "rouge";
+    if (pertePct >= s * 0.8) return "orange";
+    return "vert";
+  }
+  // M1-FR-16 · Fermeture SÉCURISÉE du cycle de BIN. Réunit inventaire (résidu
+  // pesé), justification des pertes et validation (confirmeur = Warehouse
+  // Manager). Perte = restant théorique − résidu. Seuil : alerte orange avant
+  // la limite, BLOCAGE rouge au-dessus sans justification. Verrouille la BIN.
   function closeBinCycle(cycleId, d) {
     var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
-    if (cycle.etat === ETAT_BIN.CLOS) throw new Error("Ce cycle est déjà clos.");
+    if (cycle.etat === ETAT_BIN.CLOS) throw new Error("Ce cycle est déjà clos (verrouillé). Une réouverture autorisée est requise.");
     var totals = binTotals(cycle);
     if (totals.restant < -0.001) throw new Error("Stock BIN négatif : impossible de clôturer.");
     var residu = num(d.residuKg); if (residu === null) residu = totals.restant;
     if (residu < 0) throw new Error("Résidu négatif interdit.");
-    var perte = round2(totals.restant - residu);   // perte de poids de la BIN (shrinkage)
-    cycle.residuKg = residu;
-    cycle.perteKg = perte;
-    cycle.pertePct = totals.entree ? round2(perte / totals.entree * 100) : null;
-    cycle.closedAt = nowISO();
-    cycle.dureeH = binDurationH(cycle);
+    var perte = round2(totals.restant - residu);
+    var pertePct = totals.entree ? round2(perte / totals.entree * 100) : 0;
+    var niveau = binPerteNiveau(pertePct);
+    if (niveau === "rouge" && !(d.justification && d.justification.trim()))
+      throw new Error("Perte " + pertePct + " % supérieure au seuil (" + seuilPerteBin() + " %) : justification obligatoire avant clôture (blocage).");
+    cycle.residuKg = residu; cycle.perteKg = perte; cycle.pertePct = pertePct; cycle.perteNiveau = niveau;
+    cycle.closedAt = nowISO(); cycle.dureeH = binDurationH(cycle);
     cycle.confirmeur = d.confirmeur || (loadDb().user || {}).nom;
-    cycle.clotureMotif = d.motif || "";
-    cycle.etat = ETAT_BIN.CLOS;
-    audit(cycle.id, "cycle BIN", ETAT_BIN.ACTIF, ETAT_BIN.CLOS, "Clôture · résidu " + kg(residu) + " · perte " + kg(perte));
+    cycle.clotureMotif = d.motif || ""; cycle.justification = d.justification || "";
+    cycle.etat = ETAT_BIN.CLOS; cycle.verrou = true;
+    audit(cycle.id, "cycle BIN", ETAT_BIN.ACTIF, ETAT_BIN.CLOS, "Clôture · résidu " + kg(residu) + " · perte " + kg(perte) + " (" + pertePct + "%, " + niveau + ")" + (d.justification ? " · " + d.justification : ""));
+    saveDb();
+    return cycle;
+  }
+  // Réouverture d'une BIN clôturée : exige une autorisation nominative (GM ou
+  // profil désigné) et laisse une trace d'audit.
+  function reopenBinCycle(cycleId, d) {
+    var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+    if (cycle.etat !== ETAT_BIN.CLOS) throw new Error("Ce cycle n'est pas clos.");
+    if (!d || !(d.autorisePar && d.autorisePar.trim())) throw new Error("Réouverture refusée : autorisation nominative (GM ou profil désigné) requise.");
+    cycle.etat = ETAT_BIN.RECONCILIER; cycle.verrou = false;
+    cycle.closedAt = null;
+    cycle.reouvertures = (cycle.reouvertures || 0) + 1;
+    cycle.reouvertPar = d.autorisePar; cycle.reouvertMotif = d.motif || "";
+    audit(cycle.id, "cycle BIN", ETAT_BIN.CLOS, ETAT_BIN.RECONCILIER, "Réouverture autorisée par " + d.autorisePar + (d.motif ? " · " + d.motif : ""));
     saveDb();
     return cycle;
   }
@@ -1063,7 +1090,7 @@
     saveDechargement: saveDechargement, saveFinaleAndRelease: saveFinaleAndRelease,
     // BIN & séchage
     openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
-    closeBinCycle: closeBinCycle, binTotals: binTotals, binDurationH: binDurationH,
+    closeBinCycle: closeBinCycle, reopenBinCycle: reopenBinCycle, binTotals: binTotals, binDurationH: binDurationH, binPerteNiveau: binPerteNiveau, seuilPerteBin: seuilPerteBin,
     warehouseOf: warehouseOf, locationOfBin: locationOfBin, calibrageAutorise: calibrageAutorise,
     // transfert
     prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
