@@ -41,7 +41,10 @@
       ["rapports", "Rapports entrepôt"], ["carte", "Cartographie"], ["audit", "Audit"]
     ] },
     calibrage: { titre: "Calibrage", ic: "⚙️", nav: [
-      ["calibrage", "Tableau de bord"], ["calbins", "BIN de sortie"], ["calrapports", "Rapports calibrage"]
+      ["calibrage", "Vue d'ensemble"], ["caltransferts", "Transferts attendus"], ["calreception", "Réception au calibrage"],
+      ["calops", "Opérations de calibrage"], ["calsorties", "Saisie des sorties"], ["calqc", "Contrôle qualité"],
+      ["calbins", "BIN de calibre"], ["calstops", "Arrêts & maintenance"], ["caltrace", "Traçabilité"],
+      ["calrapports", "Rapports"], ["calaudit", "Journal d'audit"]
     ] }
   };
   var PAGE_WS = {};
@@ -110,9 +113,17 @@
     sechage: ["Séchage / triage", "Module 1 · Avant/après, BIN après séchage & perte"],
     sacs: ["Sacs de jute", "Dotation, retours, déchirés, rebaging & balance par fournisseur"],
     transfert: ["Transfert", "Passage entre modules · contributeurs & triple validation"],
-    calibrage: ["Calibrage", "Module 2 · CAL, sorties, arrêts & bilan matière"],
-    calbins: ["BIN de sortie", "Calibrage · BIN de calibre & généalogie"],
-    calrapports: ["Rapports calibrage", "Répartition par calibre & bilan matière cumulé"],
+    calibrage: ["Calibrage", "Vue d'ensemble · quelle matière attend, est en machine, est calibrée"],
+    caltransferts: ["Transferts attendus", "Sorties de BIN de Yamoussoukro vers le calibrage"],
+    calreception: ["Réception au calibrage", "Rapprochement envoyé / reçu · écart à traiter"],
+    calops: ["Opérations de calibrage", "Ouverture, pilotage, sorties, bilan & clôture"],
+    calsorties: ["Saisie des sorties", "Neuf calibres · poids, sacs, BIN de destination"],
+    calqc: ["Contrôle qualité", "Conformité des sorties · décisions bloquantes"],
+    calbins: ["BIN de calibre", "BIN de sortie, capacité & généalogie complète"],
+    calstops: ["Arrêts & maintenance", "Motifs, durées & disponibilité machines"],
+    caltrace: ["Traçabilité", "Recherche dans les deux sens · contribution théorique"],
+    calrapports: ["Rapports calibrage", "Journalier, répartition, bilan, machines, qualité"],
+    calaudit: ["Journal d'audit", "Calibrage · corrections tracées après clôture"],
     rapports: ["Rapports", "Indicateurs & cartographie du business"],
     audit: ["Audit", "Journal, corrections & synchronisation"]
   };
@@ -136,7 +147,10 @@
   var EYEBROW = {
     accueil: "Portail · Chaîne cajou", entrepot: "Portail · Activité entrepôt", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
     stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
-    calibrage: "Module 2 · Calibrage", fournisseurs: "Procurement · Base fournisseurs", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
+    calibrage: "Module 2 · Calibrage", caltransferts: "Module 2 · Calibrage", calreception: "Module 2 · Calibrage", calops: "Module 2 · Calibrage",
+    calsorties: "Module 2 · Calibrage", calqc: "Module 2 · Calibrage", calbins: "Module 2 · Calibrage", calstops: "Module 2 · Calibrage",
+    caltrace: "Module 2 · Calibrage", calrapports: "Module 2 · Calibrage", calaudit: "Module 2 · Calibrage",
+    fournisseurs: "Procurement · Base fournisseurs", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
     var head = el("view") && el("view").querySelector(".pagehead");
@@ -855,195 +869,467 @@
       '</div></div>';
   }
 
-  /* ---- CALIBRAGE (slides 11-14) ----------------------------------- */
-  PAGES.calibrage = function (r) {
-    if (r.id && r.sub === "sorties") return calSorties(r.id);
-    if (r.id && r.sub === "bilan") return calBilan(r.id);
-    if (r.id && r.sub === "genealogie") return calGenealogie(r.id);
-    if (r.id) return calOperation(r.id);
-    return calDashboard();
+  /* ================================================================== */
+  /*  MODULE CALIBRAGE — 11 écrans (prototype fonctionnel)              */
+  /* ================================================================== */
+  function demoTag(x) { return (x && x.demo) ? ' <span class="badge b-warn" title="Scénario de démonstration">DÉMO</span>' : ''; }
+  function qcCls(d) { return d === "conforme" ? "b-ok" : (d === "bloque" || d === "rejete" ? "b-danger" : (d ? "b-warn" : "b-neutral")); }
+  function calAttendus() { return R.transfers().filter(function (t) { return t.destinationType !== "warehouse" && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; }); }
+  function calRecus() { return R.transfers().filter(function (t) { return t.destinationType !== "warehouse" && t.etat === R.ETAT_TRF.RECU; }); }
+  function calActives() { return R.cals().filter(function (c) { return [R.ETAT_CAL.PREPARE, R.ETAT_CAL.PRET, R.ETAT_CAL.EN_COURS, R.ETAT_CAL.PARTIEL, R.ETAT_CAL.PAUSE].indexOf(c.etat) >= 0; }); }
+  function today0() { return R.today(); }
+  function isToday(iso) { return iso && String(iso).slice(0, 10).replace(/-/g, "") === today0(); }
+
+  /* ---- ÉCRAN 1 · Vue d'ensemble ----------------------------------- */
+  PAGES.calibrage = function () {
+    var cals = R.cals();
+    var attendus = calAttendus(), recusJour = calRecus().filter(function (t) { return isToday((t.recCal || {}).at || t.createdAt); });
+    var prepa = cals.filter(function (c) { return [R.ETAT_CAL.PREPARE, R.ETAT_CAL.PRET].indexOf(c.etat) >= 0; });
+    var enCours = cals.filter(function (c) { return [R.ETAT_CAL.EN_COURS, R.ETAT_CAL.PARTIEL].indexOf(c.etat) >= 0; });
+    var pauses = cals.filter(function (c) { return c.etat === R.ETAT_CAL.PAUSE; });
+    var termJour = cals.filter(function (c) { return c.etat === R.ETAT_CAL.CLOS && isToday(c.endedAt); });
+    var recuJourKg = recusJour.reduce(function (a, t) { return a + (t.poidsRecu || 0); }, 0) + enCours.reduce(function (a, c) { return a + (c.recu || 0); }, 0);
+    var calibreJourKg = enCours.concat(termJour).reduce(function (a, c) { return a + R.calBalance(c).sorties; }, 0);
+    var resteKg = enCours.reduce(function (a, c) { return a + Math.max(0, (c.recu || 0) - R.calBalance(c).sorties - R.calBalance(c).pertes); }, 0);
+    var ecartsNon = cals.filter(function (c) { var b = R.calBalance(c); return c.etat !== R.ETAT_CAL.CLOS && !b.dansTolerance; }).length;
+    var qcEnAttente = 0; enCours.forEach(function (c) { c.outputs.forEach(function (o) { if (o.poids > 0 && !o.qc) qcEnAttente++; }); });
+    var binsCal = R.binCycles().filter(function (c) { return c.calibre; });
+    var binsProches = binsCal.filter(function (c) { return c.capaciteKg && R.binStock(c) >= c.capaciteKg * 0.85; }).length;
+    var machines = {}; enCours.concat(pauses).forEach(function (c) { machines[c.machine] = c.etat === R.ETAT_CAL.PAUSE ? "arrêt" : "marche"; });
+    // Visuel du flux : BIN brute → transfert → réception → calibreuse → 9 calibres → BIN de sortie.
+    var flow = '<div class="cal-flow">' +
+      ['🗄️ BIN brute', '🔁 Transfert', '⚖️ Réception', '⚙️ Calibreuse', '🎚️ 9 calibres', '📦 BIN de sortie']
+        .map(function (s, i, a) { return '<span class="cal-step"><b>' + s.split(" ")[0] + '</b>' + esc(s.slice(s.indexOf(" ") + 1)) + '</span>' + (i < a.length - 1 ? '<span class="cal-arr">→</span>' : ''); }).join("") +
+      '</div>';
+    function q(t, v, s, cls) { return '<div class="kpi ' + (cls || "") + '"><small>' + esc(t) + '</small><b>' + v + '</b><span>' + esc(s) + '</span></div>'; }
+    var machTxt = Object.keys(machines).length ? Object.keys(machines).map(function (m) { return m + " (" + machines[m] + ")"; }).join(", ") : "—";
+    return '<div class="pagehead"><h1>Vue d\'ensemble du calibrage</h1><p>Trois questions : quelle matière attend d\'être calibrée, quelle matière est dans la machine, où se trouve la matière déjà calibrée.' + (cals.some(function (c) { return c.demo; }) ? ' <b>Comprend des données de démonstration (DÉMO).</b>' : '') + '</p></div>' +
+      flow +
+      '<div class="kpis">' +
+        q("Transferts attendus", attendus.length, "à réceptionner", attendus.length ? "warn" : "") +
+        q("Reçus aujourd'hui", recusJour.length, R.round2(recuJourKg) + " kg", "") +
+        q("En préparation", prepa.length, "checklist / ouverture", "") +
+        q("En cours", enCours.length, "dans la machine", "") +
+      '</div>' +
+      '<div class="kpis">' +
+        q("En pause", pauses.length, "arrêt machine", pauses.length ? "warn" : "") +
+        q("Terminées aujourd'hui", termJour.length, "clôturées", "") +
+        q("Calibré aujourd'hui", R.round2(calibreJourKg), "kg", "") +
+        q("Reste à traiter", R.round2(resteKg), "kg", resteKg ? "warn" : "") +
+      '</div>' +
+      '<div class="kpis">' +
+        q("Écarts non expliqués", ecartsNon, "opérations", ecartsNon ? "danger" : "") +
+        q("Contrôles qualité en attente", qcEnAttente, "sorties", qcEnAttente ? "warn" : "") +
+        q("Machines", machTxt || "—", "marche / arrêt", "") +
+        q("BIN de calibre", binsCal.length, binsProches + " proche(s) capacité", binsProches ? "warn" : "") +
+      '</div>' +
+      '<div class="grid2" style="align-items:start">' +
+        '<div class="card"><h2>① Matière qui attend <span class="badge b-neutral">' + attendus.length + '</span></h2><div class="cbody" style="padding:0">' +
+          '<table><thead><tr><th>Transfert</th><th>BIN source</th><th>Envoyé</th><th>Statut</th><th></th></tr></thead><tbody>' +
+          (attendus.length ? attendus.map(function (t) { return '<tr><td class="mono">' + esc(t.id) + demoTag(t) + '</td><td class="mono">' + esc(t.binId) + '</td><td class="mono">' + R.kg(t.poidsEnvoye) + '</td><td>' + badgeEtat(t.etat) + '</td><td><button class="btn sm" onclick="__rcngo(\'calreception/' + t.id + '\')">Réceptionner</button></td></tr>'; }).join("") : '<tr><td colspan="5" class="empty">Aucun transfert attendu.</td></tr>') +
+          '</tbody></table></div></div>' +
+        '<div class="card"><h2>② Matière dans la machine <span class="badge b-neutral">' + enCours.concat(pauses).length + '</span></h2><div class="cbody" style="padding:0">' +
+          '<table><thead><tr><th>Opération</th><th>Machine</th><th>Reçu</th><th>Statut</th><th></th></tr></thead><tbody>' +
+          (enCours.concat(pauses).length ? enCours.concat(pauses).map(function (c) { return '<tr><td class="mono">' + esc(c.id) + demoTag(c) + '</td><td>' + esc(c.machine) + '</td><td class="mono">' + R.kg(c.recu) + '</td><td>' + badgeEtat(c.etat) + '</td><td><button class="btn ghost sm" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>'; }).join("") : '<tr><td colspan="5" class="empty">Aucune opération en cours.</td></tr>') +
+          '</tbody></table></div></div>' +
+      '</div>' +
+      '<div class="card" style="margin-top:16px"><h2>③ Matière déjà calibrée — BIN de sortie <span class="badge b-neutral">' + binsCal.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>BIN</th><th>Calibre</th><th>Stock</th><th>Capacité</th><th></th></tr></thead><tbody>' +
+        (binsCal.length ? binsCal.slice(0, 12).map(function (c) { return '<tr><td class="mono">' + esc(c.binId) + '</td><td>' + esc(c.calibre || "—") + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td class="mono">' + (c.capaciteKg ? R.kg(c.capaciteKg) : "—") + '</td><td><button class="btn ghost sm" onclick="__rcngo(\'calbins/' + encodeURIComponent(c.binId) + '\')">Fiche</button></td></tr>'; }).join("") : '<tr><td colspan="5" class="empty">Aucune BIN de calibre.</td></tr>') +
+        '</tbody></table></div></div>';
   };
 
-  function calDashboard() {
-    var attendus = R.transfers().filter(function (t) { return t.destinationType !== "warehouse" && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; });
-    var enCours = R.cals().filter(function (c) { return [R.ETAT_CAL.EN_COURS, R.ETAT_CAL.PARTIEL, R.ETAT_CAL.PAUSE, R.ETAT_CAL.PRET].indexOf(c.etat) >= 0; });
-    var pauses = R.cals().filter(function (c) { return c.etat === R.ETAT_CAL.PAUSE; }).length;
-    var aCloturer = R.cals().filter(function (c) { return [R.ETAT_CAL.PARTIEL, R.ETAT_CAL.RAPPROCHER, R.ETAT_CAL.VALIDER].indexOf(c.etat) >= 0; }).length;
-    var attRows = attendus.length ? attendus.map(function (t) {
-      return '<tr><td class="mono">' + esc(t.id) + '</td><td class="mono">' + esc(t.binId) + '</td><td class="mono">' + R.kg(t.poidsEnvoye) + '</td><td>' + badgeEtat(t.etat) + '</td>' +
-        '<td><button class="btn sm" onclick="RCNUI.receiveTrf(\'' + t.id + '\')">Recevoir</button></td></tr>';
-    }).join("") : '<tr><td colspan="5" class="empty">Aucun transfert attendu.</td></tr>';
-    var opRows = enCours.length ? enCours.map(function (c) {
-      return '<tr><td class="mono">' + esc(c.id) + '</td><td class="mono">' + esc(c.machine) + '</td><td>Shift ' + esc(c.shift) + '</td><td>' + badgeEtat(c.etat) + '</td>' +
-        '<td><button class="btn ghost sm" onclick="__rcngo(\'calibrage/' + c.id + '\')">Ouvrir</button></td></tr>';
-    }).join("") : '<tr><td colspan="5" class="empty">Aucune opération en cours.</td></tr>';
-    return '<div class="pagehead"><h1>Tableau de bord calibrage</h1><p>L\'opérateur commence par vérifier ce qui arrive. Une opération CAL ne démarre pas depuis une origine saisie à la main.</p></div>' +
-      '<div class="kpis">' +
-        kpi("TRF à recevoir", attendus.length, "En attente", attendus.length ? "warn" : "") +
-        kpi("CAL en cours", enCours.length, "Opérations actives", "") +
-        kpi("Pauses", pauses, "Arrêt machine", pauses ? "warn" : "") +
-        kpi("À clôturer", aCloturer, "Écart à expliquer", aCloturer ? "warn" : "") +
-      '</div>' +
-      '<div class="card" style="margin-bottom:16px"><h2>Transferts attendus</h2><div class="cbody" style="padding:0">' +
-        '<table><thead><tr><th>TRF</th><th>BIN source</th><th>Poids envoyé</th><th>Statut</th><th></th></tr></thead><tbody>' + attRows + '</tbody></table></div></div>' +
-      '<div class="card"><h2>Opérations de calibrage</h2><div class="cbody" style="padding:0">' +
-        '<table><thead><tr><th>CAL</th><th>Machine</th><th>Shift</th><th>Statut</th><th></th></tr></thead><tbody>' + opRows + '</tbody></table></div></div>';
-  }
+  /* ---- ÉCRAN 2 · Transferts attendus ------------------------------ */
+  PAGES.caltransferts = function () {
+    var all = R.transfers().filter(function (t) { return t.destinationType !== "warehouse"; });
+    var rows = all.length ? all.map(function (t) {
+      var q = t.qualiteDepart || {};
+      var sec = (q.humidity != null && q.humidity <= 10) ? "Sec" : (q.humidity != null ? "Humide" : "—");
+      var lots = (t.contributors || []).length;
+      var act = (t.etat === R.ETAT_TRF.RECU) ? '<span class="badge b-ok">reçu</span>' : '<button class="btn sm" onclick="__rcngo(\'calreception/' + t.id + '\')">Réceptionner</button>';
+      return '<tr><td class="mono">' + esc(t.id) + demoTag(t) + '</td><td class="mono">' + esc(R.warehouseOf(t.binId)) + '</td><td class="mono">' + esc(t.binId) + '</td><td class="mono">' + lots + '</td>' +
+        '<td class="mono">' + R.kg(t.poidsEnvoye) + '</td><td class="mono">' + ((t.recCal && t.recCal.sacsEnvoye != null) ? t.recCal.sacsEnvoye : "—") + '</td>' +
+        '<td class="mono">' + (q.humidity == null ? "—" : q.humidity + " %") + '</td><td class="mono">' + (q.nc == null ? "—" : q.nc) + '</td><td>' + esc(sec) + '</td>' +
+        '<td>' + badgeEtat(t.etat) + '</td><td>' + act + '</td></tr>';
+    }).join("") : '<tr><td colspan="11" class="empty">Aucun transfert vers le calibrage.</td></tr>';
+    return '<div class="pagehead"><h1>Transferts attendus</h1><p>Sorties autorisées de BIN de Yamoussoukro vers le calibrage. Une opération ne peut jamais démarrer sans un transfert reçu.</p></div>' +
+      '<div class="card"><h2>Transferts vers le calibrage <span class="badge b-neutral">' + all.length + '</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0">' +
+      '<table><thead><tr><th>Transfert</th><th>Entrepôt</th><th>BIN source</th><th>Lots</th><th>Envoyé</th><th>Sacs</th><th>Humidité</th><th>NC</th><th>Sec/Humide</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</div></div></div>' +
+      '<div class="rule"><b>Statuts.</b> préparé · autorisé · en route interne · reçu partiellement · reçu · écart à expliquer · refusé · annulé. La liste des lots contributeurs reste attachée au transfert.</div>';
+  };
 
-  function calOperation(id) {
-    var c = R.getCal(id); if (!c) return notFound(id);
-    var reste = R.round2(c.recu - c.entreeMachine);
-    var openStop = c.stops.filter(function (s) { return !s.endAt; })[0];
-    var ctrl;
-    if (c.etat === R.ETAT_CAL.PRET) ctrl = '<button class="btn" onclick="RCNUI.calStart(\'' + id + '\')">Démarrer l\'opération</button>';
-    else if (c.etat === R.ETAT_CAL.PAUSE) ctrl = '<button class="btn" onclick="RCNUI.calResume(\'' + id + '\')">Reprendre</button>';
-    else ctrl = '<button class="btn warn" onclick="RCNUI.calPause(\'' + id + '\')">Mettre en pause</button>';
-    return '<div class="pagehead"><h1>' + esc(c.id) + ' · Calibrage ' + badgeEtat(c.etat) + '</h1><p>Machine ' + esc(c.machine) + ' · Shift ' + esc(c.shift) + ' · depuis ' + esc(c.trfId) + '. L\'opération se pilote comme une mission de production.</p></div>' +
-      '<div class="metrics">' +
-        '<div class="metric"><small>Reçu du TRF</small><b>' + R.round2(c.recu) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Entrée machine</small><b>' + R.round2(c.entreeMachine) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Reste à traiter</small><b>' + reste + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Arrêts</small><b>' + c.stops.length + '</b><span>' + (openStop ? "en pause" : "cumulés") + '</span></div>' +
-      '</div>' +
-      '<div class="grid2"><div class="card"><h2>Pilotage</h2><div class="cbody">' +
-        '<div class="actions" style="margin-top:0">' + ctrl +
-          '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/sorties\')">Sorties par calibre →</button>' +
-          '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/bilan\')">Bilan matière →</button></div>' +
-        '<hr style="border:0;border-top:1px solid var(--n200);margin:16px 0">' +
-        '<b style="font-family:var(--fd);color:var(--forest)">Alimentation machine</b>' +
-        '<div class="row" style="margin-top:8px">' + inp("feed_qty", "Poids (kg)", "", "number") + inp("feed_bin", "BIN d\'alimentation", "", "text") + '</div>' +
-        '<div class="actions"><button class="btn sm" onclick="RCNUI.calFeed(\'' + id + '\')" ' + (c.etat === R.ETAT_CAL.EN_COURS || c.etat === R.ETAT_CAL.PARTIEL ? "" : "disabled") + '>Ajouter une alimentation</button></div>' +
+  /* ---- ÉCRAN 3 · Réception au calibrage --------------------------- */
+  PAGES.calreception = function (r) {
+    if (r.id) return calReceptionForm(r.id);
+    var att = calAttendus();
+    var rows = att.length ? att.map(function (t) {
+      return '<tr><td class="mono">' + esc(t.id) + demoTag(t) + '</td><td class="mono">' + esc(t.binId) + '</td><td class="mono">' + R.kg(t.poidsEnvoye) + '</td><td>' + badgeEtat(t.etat) + '</td><td><button class="btn sm" onclick="__rcngo(\'calreception/' + t.id + '\')">Réceptionner →</button></td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">Aucun transfert à réceptionner.</td></tr>';
+    var tol = R.toleranceReceptionCal();
+    return '<div class="pagehead"><h1>Réception au calibrage</h1><p>Rapprochement du poids et des sacs envoyés vs reçus. La différence n\'est jamais appelée « perte » automatiquement.</p></div>' +
+      '<div class="card" style="margin-bottom:16px"><h2>À réceptionner <span class="badge b-neutral">' + att.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Transfert</th><th>BIN source</th><th>Envoyé</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Tolérance de réception (Production & Qualité)</h2><div class="cbody">' +
+        '<p style="margin:0 0 8px;color:var(--n500);font-size:13px">Au-delà de cette tolérance, un motif et un responsable sont exigés avant d\'ouvrir l\'opération. Non figée par l\'application.</p>' +
+        '<label>Tolérance de différence de réception (%)</label><input id="rec_tol" type="number" step="0.1" value="' + (tol == null ? "" : tol) + '" placeholder="ex. 0,3">' +
+        '<div class="actions"><button class="btn ghost sm" onclick="RCNUI.setTolRec()">Enregistrer la tolérance</button></div>' +
+      '</div></div>';
+  };
+  function calReceptionForm(id) {
+    var t = R.getTrf(id); if (!t) return notFound(id);
+    var rc = t.recCal || {};
+    var lots = (t.contributors || []).map(function (c) { var l = R.getLot(c.lotId) || {}; return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + esc(l.fournisseur || "—") + '</td><td class="mono">' + (c.share == null ? "—" : c.share + " %") + '</td><td class="mono">' + R.kg(c.qty) + '</td></tr>'; }).join("");
+    var done = t.etat === R.ETAT_TRF.RECU && rc.valide;
+    return '<div class="pagehead"><h1>Réception ' + esc(t.id) + demoTag(t) + '</h1><p>BIN source ' + esc(t.binId) + ' · ' + (t.contributors || []).length + ' lot(s) contributeur(s). Rapprochez ce qui est réellement reçu.</p></div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Rapprochement des poids & sacs</h2><div class="cbody">' +
+        '<div class="metrics" style="margin:0 0 8px">' +
+          '<div class="metric"><small>Poids envoyé</small><b>' + R.round2(t.poidsEnvoye) + '</b><span>kg</span></div>' +
+          '<div class="metric"><small>Poids reçu</small><b>' + (t.poidsRecu == null ? "—" : R.round2(t.poidsRecu)) + '</b><span>kg</span></div>' +
+          '<div class="metric"><small>Différence</small><b>' + (t.ecart == null ? "—" : R.round2(t.ecart)) + '</b><span>' + (t.transitLossPct == null ? "kg" : t.transitLossPct + " %") + '</span></div>' +
+        '</div>' +
+        (done ? '' :
+        '<div class="row">' + inp("rc_recu", "Poids réellement reçu (kg)", rc.poidsRecu != null ? rc.poidsRecu : "", "number") + inp("rc_sacsE", "Sacs envoyés", rc.sacsEnvoye != null ? rc.sacsEnvoye : "", "number") + '</div>' +
+        '<div class="row">' + inp("rc_sacsR", "Sacs reçus", rc.sacsRecu != null ? rc.sacsRecu : "", "number") + '<div><label>État des sacs</label><input id="rc_etat" value="' + esc(rc.etatSacs || "") + '" placeholder="Bon / humide / déchiré"></div></div>' +
+        '<div class="row">' + inp("rc_hum", "Humidité (%)", rc.humidity != null ? rc.humidity : "", "number") + inp("rc_nc", "NC", rc.nc != null ? rc.nc : "", "number") + '</div>' +
+        '<label>Commentaire</label><input id="rc_com" placeholder="ex. différence de pesée" value="' + esc(rc.commentaire || "") + '">' +
+        '<div class="rule" style="margin:12px 0"><b>Écart hors tolérance :</b> motif + responsable obligatoires (bloque l\'ouverture).</div>' +
+        '<div class="row">' + '<div><label>Motif (si écart)</label><input id="rc_motif" value="' + esc(rc.motif || "") + '" placeholder="pesée, sac manquant, renversement…"></div>' + '<div><label>Responsable</label><input id="rc_resp" value="' + esc(rc.responsable || "") + '" placeholder="Nom"></div></div>' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.receiveAtCal(\'' + t.id + '\')">Valider la réception</button></div>') +
+        (done ? '<div class="okbox">Réception validée' + (rc.ecartKg ? ' · différence ' + R.kg(rc.ecartKg) + ' (' + rc.ecartPct + ' %) ' + (rc.horsTolerance ? 'justifiée : ' + esc(rc.motif) : 'dans la tolérance') : '') + '. <a href="#calops">Ouvrir une opération →</a></div>' : '') +
       '</div></div>' +
-      '<div class="card"><h2>Derniers événements</h2><div class="cbody">' + timeline(c.events.slice(0, 8).map(function (e) { return e; })) + '</div></div>' +
-      '</div>' +
-      '<div class="rule"><b>Règle métier.</b> Une pause exige un motif ; une coupure ne doit pas créer de doublon. On ne dépasse jamais le reçu disponible.</div>';
+      '<div class="card"><h2>Lots contributeurs (attachés)</h2><div class="cbody" style="padding:0">' +
+        (lots ? '<table><thead><tr><th>Lot</th><th>Fournisseur</th><th>Part</th><th>Attribué</th></tr></thead><tbody>' + lots + '</tbody></table>' : '<div class="empty">—</div>') +
+      '</div></div></div>';
   }
 
-  function calSorties(id) {
-    var c = R.getCal(id); if (!c) return notFound(id);
-    var refs = R.referentials();
-    var rows = refs.calibres.map(function (cal) {
-      var o = c.outputs.filter(function (x) { return x.calibre === cal; })[0] || {};
-      return '<tr><td class="mono">' + esc(cal) + '<br><span style="font-family:var(--fb);font-size:10px;color:var(--n500);font-weight:400">' + esc(R.CALIBRE_LABELS[cal] || "") + '</span></td>' +
-        '<td><input id="o_sacs_' + esc(cal) + '" type="number" style="padding:6px;width:80px" value="' + (o.sacs == null ? "" : o.sacs) + '" placeholder="—"></td>' +
-        '<td><input id="o_poids_' + esc(cal) + '" type="number" style="padding:6px;width:100px" value="' + (o.poids == null ? "" : o.poids) + '" placeholder="—"></td>' +
-        '<td><input id="o_bin_' + esc(cal) + '" type="text" style="padding:6px;width:110px" value="' + esc(o.binDest || "") + '" placeholder="BIN dest."></td>' +
-        '<td>' + (o.poids != null ? '<span class="badge b-ok">SAISI</span>' : '<span class="badge b-neutral">OUVERT</span>') + '</td></tr>';
-    }).join("");
-    var lossInputs = R.CATEGORIES_PERTE.map(function (l) {
-      var ex = c.losses.filter(function (x) { return x.code === l.code; })[0] || {};
-      return '<div><label>' + esc(l.label) + ' (kg)</label><input id="l_' + l.code + '" type="number" value="' + (ex.poids == null ? "" : ex.poids) + '" placeholder="—"></div>';
-    }).join("");
-    return '<div class="pagehead"><h1>' + esc(c.id) + ' · Sorties par calibre</h1><p>Chaque kilo doit avoir une catégorie. Saisie partielle autorisée — enregistrez sans attendre la fin.</p></div>' +
-      '<div class="card" style="margin-bottom:16px"><h2>Sorties par calibre <span class="badge b-info">' + refs.calibres.length + ' calibres</span></h2><div class="cbody" style="padding:0">' +
-        '<table><thead><tr><th>Calibre</th><th>Sacs</th><th>Poids (kg)</th><th>BIN destination</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-      '<div class="card" style="margin-bottom:16px"><h2>Autres matières à déclarer</h2><div class="cbody"><div class="row3">' + lossInputs + '</div></div></div>' +
-      '<div class="actions"><button class="btn" onclick="RCNUI.saveOutputs(\'' + id + '\')">Enregistrer les sorties</button>' +
-      '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/bilan\')">Voir le bilan →</button></div>' +
-      '<div class="rule"><b>Règle métier.</b> Les noms exacts des neuf calibres restent à confirmer avec la Production (§9.3). Aucune catégorie libre non contrôlée.</div>';
+  /* ---- ÉCRAN 4-6 · Opérations (liste, création, détail) ----------- */
+  PAGES.calops = function (r) {
+    if (r.id) return calOpDetail(r.id, r.sub);
+    var cals = R.cals();
+    var recus = calRecus().filter(function (t) { return t.recCalOk !== false; });
+    var opts = recus.length ? recus.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.id) + ' · ' + esc(t.binId) + ' · ' + R.kg(t.poidsRecu != null ? t.poidsRecu : t.poidsEnvoye) + '</option>'; }).join("") : '<option value="">Aucun transfert reçu disponible</option>';
+    var rows = cals.length ? cals.map(function (c) {
+      var b = R.calBalance(c);
+      return '<tr><td class="mono">' + esc(c.id) + demoTag(c) + '</td><td>' + esc(c.machine) + '</td><td>' + esc(c.shift) + '</td><td class="mono">' + R.kg(c.recu) + '</td><td class="mono">' + R.kg(b.sorties) + '</td><td>' + badgeEtat(c.etat) + '</td><td><button class="btn ghost sm" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
+    }).join("") : '<tr><td colspan="7" class="empty">Aucune opération.</td></tr>';
+    return '<div class="pagehead"><h1>Opérations de calibrage</h1><p>Une opération naît uniquement d\'un transfert reçu. Numéro généré automatiquement (CAL-BATCH-AAAA-NNNN).</p></div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Opérations <span class="badge b-neutral">' + cals.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Opération</th><th>Machine</th><th>Shift</th><th>Reçu</th><th>Calibré</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Nouvelle opération</h2><div class="cbody">' +
+        '<label>Transfert reçu (BIN de Yamoussoukro)</label><select id="op_trf">' + opts + '</select>' +
+        '<div class="row">' + '<div><label>Machine / ligne</label><input id="op_mach" value="Calibreuse 01"></div>' + '<div><label>Shift</label><input id="op_shift" value="Jour"></div></div>' +
+        '<div class="row">' + '<div><label>Opérateurs</label><input id="op_ops" placeholder="Noms"></div>' + '<div><label>Responsable production</label><input id="op_resp" placeholder="Nom"></div></div>' +
+        '<label><input type="checkbox" id="op_melange" style="width:auto;margin-right:6px">Autoriser le mélange de plusieurs BIN (motif requis)</label>' +
+        '<input id="op_melmotif" placeholder="Motif du mélange (si coché)">' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.createCalOp()" ' + (recus.length ? "" : "disabled") + '>Créer l\'opération</button></div>' +
+        '<small style="color:var(--n500)">Mélange de BIN interdit par défaut : autorisé seulement avec motif et traçabilité.</small>' +
+      '</div></div></div>';
+  };
+  function calSubnav(id, sub) {
+    var tabs = [["", "Opérateur"], ["checklist", "Checklist"], ["sorties", "Sorties"], ["qualite", "Qualité"], ["rejets", "Rejets & restes"], ["bilan", "Bilan"], ["genealogie", "Généalogie"]];
+    return '<div class="stepper" style="margin:0 0 16px;flex-wrap:wrap">' + tabs.map(function (t) {
+      var h = "calops/" + encodeURIComponent(id) + (t[0] ? "/" + t[0] : "");
+      return '<a href="#' + h + '" class="st ' + ((sub || "") === t[0] ? "cur" : "") + '" style="text-decoration:none">' + esc(t[1]) + '</a>';
+    }).join("") + '</div>';
   }
-
-  function calBilan(id) {
+  function calOpDetail(id, sub) {
     var c = R.getCal(id); if (!c) return notFound(id);
+    var head = '<div class="pagehead"><h1>' + esc(c.id) + demoTag(c) + ' ' + badgeEtat(c.etat) + '</h1><p>Machine ' + esc(c.machine) + ' · Shift ' + esc(c.shift) + ' · reçu ' + R.kg(c.recu) + ' depuis ' + esc(c.trfId) + '.</p></div>' + calSubnav(id, sub);
+    if (sub === "checklist") return head + calChecklistView(c);
+    if (sub === "sorties") return head + calSortiesView(c);
+    if (sub === "qualite") return head + calQCView(c);
+    if (sub === "rejets") return head + calRejetsView(c);
+    if (sub === "bilan") return head + calBilanView(c);
+    if (sub === "genealogie") return head + calGenealogieView(c);
+    return head + calOperatorView(c);
+  }
+  // Écran 6 · Interface opérateur (grand, tablette).
+  function calOperatorView(c) {
     var b = R.calBalance(c);
-    var tolTxt = b.tolerancePct == null ? "non définie" : b.tolerancePct + " % (" + R.kg(b.toleranceKg) + ")";
-    var etatEcart = b.equilibre ? "okbox" : (b.dansTolerance ? "okbox" : "alert");
-    var ecartTxt = b.equilibre ? "Écart : 0 kg · bilan exact."
-      : (b.dansTolerance ? "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") — dans la tolérance."
-      : "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ")" + (b.tolerancePct != null ? " au-delà de la tolérance de " + b.tolerancePct + " %" : "") + " — justification requise.");
-    // Répartition par calibre (rapport « sur 100 kg entrés »).
-    var repRows = b.repartition.length ? b.repartition.map(function (o) {
-      return '<tr><td class="mono">' + esc(o.calibre) + '</td><td class="mono">' + R.kg(o.poids) + '</td><td class="mono">' + (o.sacs == null ? "—" : o.sacs) + '</td>' +
-        '<td>' + bar(o.pctSorties || 0) + '</td><td class="mono">' + (o.pctRecu == null ? "—" : o.pctRecu + " %") + '</td><td class="mono">' + esc(o.binDest || "—") + '</td></tr>';
-    }).join("") : '<tr><td colspan="6" class="empty">Aucune sortie calibrée saisie.</td></tr>';
-    return '<div class="pagehead"><h1>' + esc(c.id) + ' · Bilan & clôture ' + badgeEtat(c.etat) + '</h1><p>Reçu = Σ calibres + rejets + résidus + écart. L\'opération ne se ferme pas tant que l\'écart n\'est pas dans la tolérance ou justifié.</p></div>' +
-      '<div class="metrics">' +
-        '<div class="metric big"><small>Quantité reçue</small><b>' + b.recu + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Sorties calibres</small><b>' + b.sorties + '</b><span>' + (b.recu ? R.round2(b.sorties / b.recu * 100) + " % du reçu" : "kg") + '</span></div>' +
-        '<div class="metric"><small>Rejets / résidus</small><b>' + R.round2(b.pertes + b.residu) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Écart (taux)</small><b>' + b.ecart + '</b><span>' + (b.taux == null ? "kg" : b.taux + " %") + '</span></div>' +
+    var reste = R.round2(c.recu - b.sorties - b.pertes);
+    var open = c.stops.filter(function (s) { return !s.endAt; })[0];
+    var running = c.etat === R.ETAT_CAL.EN_COURS || c.etat === R.ETAT_CAL.PARTIEL;
+    var ctrls = '';
+    if (c.etat === R.ETAT_CAL.PREPARE) ctrls = '<button class="btn big" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/checklist\')">Checklist avant démarrage →</button>';
+    else if (c.etat === R.ETAT_CAL.PRET) ctrls = '<button class="btn big" onclick="RCNUI.calStart(\'' + c.id + '\')">▶ Démarrer</button>';
+    else if (c.etat === R.ETAT_CAL.PAUSE) ctrls = '<button class="btn big" onclick="RCNUI.calResume(\'' + c.id + '\')">▶ Reprendre</button>';
+    else if (running) ctrls = '<button class="btn big warn" onclick="RCNUI.calStopPrompt(\'' + c.id + '\')">⏸ Déclarer un arrêt</button><button class="btn big" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/sorties\')">Saisir les sorties →</button>';
+    return '<div class="cal-op">' +
+      '<div class="cal-op-metrics">' +
+        '<div><small>Poids prévu</small><b>' + R.round2(c.prevu) + '</b><span>kg</span></div>' +
+        '<div><small>Chargé (machine)</small><b>' + R.round2(c.entreeMachine || c.recu) + '</b><span>kg</span></div>' +
+        '<div><small>Déjà traité</small><b>' + b.sorties + '</b><span>kg</span></div>' +
+        '<div><small>Restant</small><b>' + Math.max(0, reste) + '</b><span>kg</span></div>' +
+        '<div><small>Marche</small><b>' + Math.floor(b.marcheMin / 60) + 'h' + pad2(b.marcheMin % 60) + '</b><span>fonctionnement</span></div>' +
+        '<div><small>Arrêts</small><b>' + b.arretMin + '</b><span>min</span></div>' +
       '</div>' +
-      '<div class="balance">' + b.recu + '  =  ' + b.sorties + '  +  ' + b.pertes + '  +  ' + b.residu + '  +  ' + b.ecart +
-        '<small>Reçu = Sorties calibres + Rejets + Résidu + Écart (perte inexpliquée) · tolérance ' + esc(tolTxt) + '</small></div>' +
-      '<div class="' + etatEcart + '">' + esc(ecartTxt) + '</div>' +
-      '<div class="card" style="margin:8px 0 16px"><h2>Répartition par calibre <span class="badge b-info">sur ' + R.kg(b.sorties) + ' calibrés</span></h2><div class="cbody" style="padding:0">' +
-        '<table><thead><tr><th>Calibre</th><th>Poids</th><th>Sacs</th><th>Part des sorties</th><th>% du reçu</th><th>BIN sortie</th></tr></thead><tbody>' + repRows + '</tbody></table></div></div>' +
-      '<div class="grid2" style="align-items:start"><div class="card"><h2>Tolérance de bilan (Production & Qualité)</h2><div class="cbody">' +
-        '<p style="margin:0 0 8px;color:var(--n500);font-size:13px">La tolérance n\'est pas figée par l\'application : elle est définie ici par la Production et la Qualité (§9).</p>' +
+      (open ? '<div class="alert" style="margin:12px 0">⏸ En arrêt — motif : <b>' + esc(open.motif) + '</b>. Reprenez pour continuer.</div>' : '') +
+      '<div class="cal-op-actions">' + ctrls + '</div>' +
+      '</div>' +
+      '<div class="rule"><b>Règle métier.</b> Le démarrage exige la checklist ; une pause/arrêt exige un motif ; la durée d\'arrêt est calculée automatiquement. On ne dépasse jamais le reçu.</div>';
+  }
+  // Écran 4 · Checklist avant démarrage.
+  function calChecklistView(c) {
+    var items = R.CAL_CHECKLIST.map(function (it) {
+      var on = !!(c.checklist || {})[it.code];
+      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--n100);text-transform:none;font-size:14px;color:var(--ink);font-weight:500"><input type="checkbox" id="ck_' + it.code + '" ' + (on ? "checked" : "") + ' style="width:auto" ' + (c.etat === R.ETAT_CAL.CLOS ? "disabled" : "") + '>' + esc(it.label) + '</label>';
+    }).join("");
+    return '<div class="card"><h2>Contrôle avant démarrage — toutes obligatoires</h2><div class="cbody">' +
+      items +
+      '<div class="actions" style="margin-top:14px">' + (c.etat === R.ETAT_CAL.CLOS ? '<span class="badge b-ok">Opération clôturée</span>' :
+        '<button class="btn" onclick="RCNUI.calChecklistSave(\'' + c.id + '\')">Enregistrer la checklist</button>' + (c.checklistOk ? '<button class="btn" onclick="RCNUI.calStart(\'' + c.id + '\')">▶ Démarrer</button>' : '<span class="badge b-warn">Compléter pour démarrer</span>')) + '</div>' +
+      '</div></div>';
+  }
+  // Écran 7 · Saisie des neuf calibres.
+  function calSortiesView(c) {
+    var cals = R.referentials().calibres;
+    var closed = c.etat === R.ETAT_CAL.CLOS;
+    var rows = cals.map(function (cal) {
+      var o = c.outputs.filter(function (x) { return x.calibre === cal; })[0] || {};
+      return '<tr><td class="mono">' + esc(cal) + '</td>' +
+        '<td><input id="o_poids_' + esc(cal) + '" type="number" style="padding:6px;width:90px" value="' + (o.poids == null ? "" : o.poids) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="o_sacs_' + esc(cal) + '" type="number" style="padding:6px;width:70px" value="' + (o.sacs == null ? "" : o.sacs) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="o_nc_' + esc(cal) + '" type="number" style="padding:6px;width:70px" value="' + (o.nc == null ? "" : o.nc) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="o_bin_' + esc(cal) + '" type="text" style="padding:6px;width:120px" value="' + esc(o.binDest || "") + '" placeholder="YAK-CAL-BIN-…" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td>' + (o.poids != null ? '<span class="badge b-ok">' + (o.pctRecu != null ? "" : "") + R.round2(o.poids) + ' kg</span>' : '<span class="badge b-neutral">—</span>') + '</td>' +
+        '<td>' + (o.qc ? '<span class="badge ' + qcCls(o.qc.decision) + '">' + esc(o.qc.decision) + '</span>' : '<span class="badge b-neutral">à contrôler</span>') + '</td></tr>';
+    }).join("");
+    return '<div class="card"><h2>Neuf sorties de calibre <span class="badge b-info">' + cals.length + ' calibres</span></h2><div class="cbody">' +
+      '<p style="margin:0 0 8px;color:var(--n500);font-size:12.5px">Le NC de contrôle du calibrage est distinct du NC de sampling : il vérifie la sortie physique, il ne la remplace pas.</p>' +
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Calibre</th><th>Poids (kg)</th><th>Sacs</th><th>NC</th><th>BIN destination</th><th>Obtenu</th><th>Qualité</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (closed ? '' : '<div class="actions"><button class="btn" onclick="RCNUI.saveOutputs(\'' + c.id + '\')">Enregistrer les sorties</button><button class="btn ghost" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/rejets\')">Rejets & restes →</button></div>') +
+      '</div></div>';
+  }
+  // Écran 10 · Contrôle qualité des sorties.
+  function calQCView(c) {
+    var closed = c.etat === R.ETAT_CAL.CLOS;
+    var outs = c.outputs.filter(function (o) { return o.poids > 0; });
+    var rows = outs.length ? outs.map(function (o) {
+      var qc = o.qc || {};
+      var decSel = R.QC_DECISIONS.map(function (d) { return '<option value="' + d.code + '"' + (qc.decision === d.code ? " selected" : "") + '>' + esc(d.label) + '</option>'; }).join("");
+      return '<tr><td class="mono">' + esc(o.calibre) + '<br><span style="font-size:10px;color:var(--n500)">' + R.kg(o.poids) + '</span></td>' +
+        '<td><input id="qc_imp_' + esc(o.calibre) + '" type="number" step="0.1" style="padding:6px;width:70px" value="' + (qc.impuretes == null ? "" : qc.impuretes) + '" placeholder="%" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="qc_hum_' + esc(o.calibre) + '" type="number" step="0.1" style="padding:6px;width:70px" value="' + (qc.humidity == null ? "" : qc.humidity) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="qc_nc_' + esc(o.calibre) + '" type="number" style="padding:6px;width:70px" value="' + (qc.nc == null ? "" : qc.nc) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><select id="qc_dec_' + esc(o.calibre) + '" style="padding:6px" ' + (closed ? "disabled" : "") + '>' + decSel + '</select></td>' +
+        '<td>' + (qc.decision ? '<span class="badge ' + qcCls(qc.decision) + '">' + esc(qc.decision) + '</span>' : '<span class="badge b-neutral">—</span>') + '</td>' +
+        (closed ? '' : '<td><button class="btn ghost sm" onclick="RCNUI.calQCSave(\'' + c.id + '\',\'' + esc(o.calibre) + '\')">Valider</button></td>') + '</tr>';
+    }).join("") : '<tr><td colspan="7" class="empty">Aucune sortie pesée à contrôler.</td></tr>';
+    return '<div class="card"><h2>Contrôle qualité des sorties</h2><div class="cbody"><div class="tablewrap" style="border:0">' +
+      '<table><thead><tr><th>Calibre</th><th>Impuretés %</th><th>Humidité %</th><th>NC</th><th>Décision</th><th>Statut</th>' + (closed ? '' : '<th></th>') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="rule" style="margin-top:12px"><b>Décisions.</b> conforme · accepté avec réserve · à recalibrer · bloqué · rejeté. Une sortie bloquée ou rejetée ne peut pas passer à l\'étape suivante.</div>' +
+      '</div></div>';
+  }
+  // Écran 8 · Rejets, résidus et restes.
+  function calRejetsView(c) {
+    var closed = c.etat === R.ETAT_CAL.CLOS;
+    var rows = R.CATEGORIES_PERTE.map(function (cat) {
+      var l = c.losses.filter(function (x) { return x.code === cat.code; })[0] || {};
+      return '<tr><td>' + esc(cat.label) + '</td>' +
+        '<td><input id="l_poids_' + cat.code + '" type="number" style="padding:6px;width:90px" value="' + (l.poids == null ? "" : l.poids) + '" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="l_dest_' + cat.code + '" type="text" style="padding:6px;width:130px" value="' + esc(l.destination || "") + '" placeholder="destination" ' + (closed ? "disabled" : "") + '></td>' +
+        '<td><input id="l_com_' + cat.code + '" type="text" style="padding:6px;width:150px" value="' + esc(l.commentaire || "") + '" placeholder="commentaire" ' + (closed ? "disabled" : "") + '></td></tr>';
+    }).join("");
+    return '<div class="card"><h2>Rejets, résidus et restes</h2><div class="cbody">' +
+      '<p style="margin:0 0 8px;color:var(--n500);font-size:12.5px">Ne jamais tout mettre dans une seule case « perte ». La perte inexpliquée est l\'écart du bilan (calculé).</p>' +
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Catégorie</th><th>Quantité (kg)</th><th>Destination</th><th>Commentaire</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (closed ? '' : '<div class="actions"><button class="btn" onclick="RCNUI.saveLosses(\'' + c.id + '\')">Enregistrer</button><button class="btn ghost" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/bilan\')">Bilan matière →</button></div>') +
+      '</div></div>';
+  }
+  // Écran 9 · Bilan matière + clôture.
+  function calBilanView(c) {
+    var b = R.calBalance(c);
+    var col = b.equilibre || b.dansTolerance ? "vert" : "rouge";
+    var etatEcart = (b.equilibre || b.dansTolerance) ? "okbox" : "alert";
+    var blockers = R.calCloseBlockers(c);
+    var tolTxt = b.tolerancePct == null ? "non définie" : b.tolerancePct + " % (" + R.kg(b.toleranceKg) + ")";
+    var repRows = b.repartition.length ? b.repartition.map(function (o) {
+      return '<tr><td class="mono">' + esc(o.calibre) + '</td><td class="mono">' + R.kg(o.poids) + '</td><td class="mono">' + (o.sacs == null ? "—" : o.sacs) + '</td><td>' + bar(o.pctSorties || 0) + '</td><td class="mono">' + (o.pctRecu == null ? "—" : o.pctRecu + " %") + '</td><td class="mono">' + esc(o.binDest || "—") + '</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">Aucune sortie.</td></tr>';
+    var lossRows = b.pertesDetail.filter(function (l) { return l.poids > 0; }).map(function (l) { return '<tr><td>' + esc(l.label) + '</td><td class="mono">' + R.kg(l.poids) + '</td></tr>'; }).join("") || '<tr><td colspan="2" class="empty">—</td></tr>';
+    var closed = c.etat === R.ETAT_CAL.CLOS;
+    return '<div class="metrics">' +
+        '<div class="metric big"><small>Quantité reçue</small><b>' + b.recu + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Total sorties connues</small><b>' + b.connu + '</b><span>' + (b.recu ? R.round2(b.connu / b.recu * 100) + " %" : "kg") + '</span></div>' +
+        '<div class="metric"><small>Écart inexpliqué</small><b>' + b.ecart + '</b><span>' + (b.taux == null ? "kg" : b.taux + " %") + '</span></div>' +
+        '<div class="metric"><small>Débit</small><b>' + (b.kgH == null ? "—" : R.round2(b.kgH)) + '</b><span>kg/h</span></div>' +
+      '</div>' +
+      '<div class="balance">Reçu ' + b.recu + '  =  Σ calibres ' + b.sorties + '  +  rejets/restes ' + b.pertes + '  +  écart ' + b.ecart +
+        '<small>Total des sorties connues ' + b.connu + ' · tolérance ' + esc(tolTxt) + '</small></div>' +
+      '<div class="' + etatEcart + '">' + (b.equilibre ? "Bilan exact (écart 0)." : (b.dansTolerance ? "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") — dans la tolérance." : "Écart de " + R.kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") — à expliquer avant clôture.")) + '</div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Répartition par calibre</h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Calibre</th><th>Poids</th><th>Sacs</th><th>Part sorties</th><th>% reçu</th><th>BIN</th></tr></thead><tbody>' + repRows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Rejets, résidus & restes</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Catégorie</th><th>Poids</th></tr></thead><tbody>' + lossRows + '</tbody></table></div></div></div>' +
+      '<div class="grid2" style="align-items:start;margin-top:16px"><div class="card"><h2>Tolérance de bilan (Production & Qualité)</h2><div class="cbody">' +
         '<label>Tolérance d\'écart (%)</label><input id="cal_tol" type="number" step="0.1" value="' + (b.tolerancePct == null ? "" : b.tolerancePct) + '" placeholder="ex. 0,5">' +
         '<div class="actions"><button class="btn ghost sm" onclick="RCNUI.setTolCal()">Enregistrer la tolérance</button></div>' +
       '</div></div>' +
       '<div class="card"><h2>Validation & clôture</h2><div class="cbody">' +
-        '<label>Commentaire de clôture' + (b.dansTolerance ? " (facultatif)" : " (obligatoire — écart hors tolérance)") + '</label><textarea id="cal_motif" rows="2" placeholder="Observation / justification de l\'écart"></textarea>' +
-        '<div class="actions">' +
-        (c.etat === R.ETAT_CAL.CLOS ? '<span class="badge b-ok">Opération clôturée</span>' : '<button class="btn" onclick="RCNUI.calClose(\'' + id + '\')">Valider & clôturer</button>') +
-        '<button class="btn ghost" onclick="__rcngo(\'calibrage/' + id + '/genealogie\')">Généalogie →</button></div>' +
-      '</div></div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Chaque kilo reçu a une destination. Tout écart reste visible ; au-delà de la tolérance définie, il doit être justifié. Quantité négative bloquée. À la clôture, chaque calibre alimente sa BIN de sortie en conservant la généalogie.</div>';
+        (blockers.length && !closed ? '<div class="alert" style="margin-top:0"><b>Clôture bloquée :</b><ul style="margin:6px 0 0;padding-left:18px">' + blockers.slice(0, 6).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></div>' : '') +
+        (closed ? '<div class="okbox">Opération clôturée le ' + R.fmtDateTime(c.endedAt) + (c.validation && c.validation.responsable ? ' · validée par ' + esc(c.validation.responsable) : '') + '. Valeurs verrouillées (§audit).</div>' :
+        '<label>Commentaire / justification (si écart)</label><textarea id="cal_motif" rows="2"></textarea>' +
+        '<label>Responsable de la validation</label><input id="cal_resp" placeholder="Nom">' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.calClose(\'' + c.id + '\')" ' + (blockers.length && b.dansTolerance ? "" : "") + '>Valider & clôturer</button>' +
+        '<button class="btn ghost" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/genealogie\')">Généalogie →</button></div>') +
+      '</div></div></div>';
   }
-
-  function calGenealogie(id) {
-    var g = R.genealogy(id); if (!g) return notFound(id);
-    var rows = g.contributors.map(function (c) {
-      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + (c.share == null ? "—" : c.share + " %") + '</td><td class="mono">' + R.kg(c.qty) + '</td><td class="mono">' + esc(c.rec || "—") + '</td><td>' + esc(c.fournisseur || "—") + '</td><td>' + (c.korFinal != null ? c.korFinal.toFixed(2) : "—") + '</td></tr>';
+  function calGenealogieView(c) {
+    var g = R.genealogy(c.id);
+    var rows = g.contributors.map(function (x) {
+      var l = R.getLot(x.lotId) || {};
+      return '<tr><td class="mono">' + esc(x.lotId) + '</td><td>' + esc(l.fournisseur || "—") + '</td><td>' + esc(l.origine || "—") + '</td><td class="mono">' + (x.share == null ? "—" : x.share + " %") + '</td><td class="mono">' + R.kg(x.qty) + '</td><td class="mono">' + (l.korDisplay != null ? l.korDisplay.toFixed(2) : "—") + '</td></tr>';
     }).join("");
-    return '<div class="pagehead"><h1>Généalogie de ' + esc(g.cal.id) + '</h1><p>Recherche inverse : d\'une sortie CAL vers le TRF, le cycle de BIN et les lots officiels contributeurs.</p></div>' +
-      '<div class="stepper" style="margin-bottom:16px">' +
-        '<div class="st done"><i>✓</i>' + esc(g.cal.id) + '</div>' +
-        '<div class="st done"><i>✓</i>' + esc(g.trf ? g.trf.id : "TRF ?") + '</div>' +
-        '<div class="st done"><i>✓</i>' + esc(g.cycle ? g.cycle.id : "BIN ?") + '</div>' +
-        '<div class="st cur"><i>4</i>Lots officiels</div></div>' +
-      '<div class="card"><h2>Lots officiels contributeurs</h2><div class="cbody" style="padding:0">' +
-        (rows ? '<table><thead><tr><th>Lot (RCN)</th><th>Part</th><th>Attribué</th><th>Réception</th><th>Fournisseur</th><th>KOR final</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="empty">Aucun contributeur.</div>') +
+    return '<div class="stepper" style="margin-bottom:16px;flex-wrap:wrap">' +
+        '<div class="st done"><i>✓</i>' + esc(g.cal.id) + '</div><div class="st done"><i>✓</i>' + esc(g.trf ? g.trf.id : "TRF") + '</div>' +
+        '<div class="st done"><i>✓</i>' + esc(c.binId || "BIN") + '</div><div class="st cur"><i>4</i>Lots & fournisseurs</div></div>' +
+      '<div class="card"><h2>Lots contributeurs (contribution théorique)</h2><div class="cbody" style="padding:0">' +
+        (rows ? '<table><thead><tr><th>Lot</th><th>Fournisseur</th><th>Origine</th><th>Part</th><th>Attribué</th><th>KOR</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="empty">Aucun contributeur.</div>') +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Les contributions sont présentées comme théoriques après mélange. Une sortie calibrée ne remplace pas ses parents : elle pointe vers CAL → TRF → contributeurs BIN → lots officiels.</div>';
+      '<div class="rule"><b>Mélange.</b> Les contributions sont théoriques : après mélange, on ne peut pas affirmer qu\'une noix précise appartient encore physiquement à un fournisseur.</div>';
   }
 
-  /* ---- CALIBRAGE · BIN de sortie ---------------------------------- */
-  PAGES.calbins = function () {
-    var bins = R.binCycles().filter(function (c) { return c.calibre || /CAL/.test(c.binId); });
-    var rows = bins.length ? bins.map(function (c) {
-      var contribs = (c.contributors || []).map(function (x) { return x.calId || x.calRef || x.lotId; }).filter(Boolean);
-      var h = R.binDurationH(c, Date.now()); var dur = h == null ? "—" : (h >= 48 ? Math.round(h / 24) + " j" : h + " h");
-      return '<tr><td class="mono">' + esc(c.binId) + '</td><td>' + esc(c.calibre || "—") + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td>' +
-        '<td class="mono">' + contribs.length + '</td><td>' + dur + '</td><td>' + badgeEtat(c.etat) + '</td>' +
-        '<td><button class="btn ghost sm" onclick="__rcngo(\'stock/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
-    }).join("") : '<tr><td colspan="7" class="empty">Aucune BIN de calibre. Elles se créent à la clôture d\'une opération de calibrage.</td></tr>';
-    return '<div class="pagehead"><h1>BIN de sortie du calibrage</h1><p>Chaque calibre est rangé dans sa BIN de sortie ; une BIN peut recevoir plusieurs opérations tout en conservant la généalogie (CAL → TRF → BIN brute → lots → fournisseurs).</p></div>' +
-      '<div class="card"><h2>BIN de calibre <span class="badge b-neutral">' + bins.length + '</span></h2><div class="cbody" style="padding:0">' +
-      '<table><thead><tr><th>BIN</th><th>Calibre</th><th>Stock</th><th>Opérations</th><th>Âge</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  /* ---- ÉCRAN 5 · Saisie des sorties (choisir une opération) -------- */
+  PAGES.calsorties = function () {
+    var ops = calActives();
+    var rows = ops.length ? ops.map(function (c) {
+      var b = R.calBalance(c);
+      return '<tr><td class="mono">' + esc(c.id) + demoTag(c) + '</td><td>' + esc(c.machine) + '</td><td class="mono">' + R.kg(b.sorties) + ' / ' + R.kg(c.recu) + '</td><td>' + badgeEtat(c.etat) + '</td><td><button class="btn sm" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/sorties\')">Saisir les sorties →</button></td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">Aucune opération active. Ouvrez-en une depuis « Opérations de calibrage ».</td></tr>';
+    return '<div class="pagehead"><h1>Saisie des sorties</h1><p>Choisissez l\'opération en cours pour saisir ses neuf calibres, rejets et restes.</p></div>' +
+      '<div class="card"><h2>Opérations actives <span class="badge b-neutral">' + ops.length + '</span></h2><div class="cbody" style="padding:0">' +
+      '<table><thead><tr><th>Opération</th><th>Machine</th><th>Calibré / reçu</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  };
+  /* ---- ÉCRAN 6bis · Contrôle qualité (choisir une opération) ------- */
+  PAGES.calqc = function () {
+    var ops = R.cals().filter(function (c) { return c.outputs.some(function (o) { return o.poids > 0; }); });
+    var rows = ops.length ? ops.map(function (c) {
+      var tot = c.outputs.filter(function (o) { return o.poids > 0; }).length, done = c.outputs.filter(function (o) { return o.poids > 0 && o.qc; }).length;
+      var bloque = c.outputs.filter(function (o) { return o.qc && (o.qc.decision === "bloque" || o.qc.decision === "rejete"); }).length;
+      return '<tr><td class="mono">' + esc(c.id) + demoTag(c) + '</td><td>' + esc(c.machine) + '</td><td class="mono">' + done + ' / ' + tot + '</td><td>' + (bloque ? '<span class="badge b-danger">' + bloque + ' bloqué(s)</span>' : (done === tot ? '<span class="badge b-ok">complet</span>' : '<span class="badge b-warn">en attente</span>')) + '</td><td><button class="btn sm" onclick="__rcngo(\'calops/' + encodeURIComponent(c.id) + '/qualite\')">Contrôler →</button></td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">Aucune sortie à contrôler.</td></tr>';
+    return '<div class="pagehead"><h1>Contrôle qualité des sorties</h1><p>Vérifier la conformité de chaque calibre. Une sortie bloquée ou rejetée ne passe pas à l\'étape suivante.</p></div>' +
+      '<div class="card"><h2>Opérations à contrôler <span class="badge b-neutral">' + ops.length + '</span></h2><div class="cbody" style="padding:0">' +
+      '<table><thead><tr><th>Opération</th><th>Machine</th><th>Contrôlés</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   };
 
-  /* ---- CALIBRAGE · Rapports (répartition + bilan cumulé) ---------- */
+  /* ---- ÉCRAN 11 · BIN de calibre (fiche + généalogie) ------------- */
+  PAGES.calbins = function (r) {
+    if (r.id) return calBinFiche(r.id);
+    var bins = R.binCycles().filter(function (c) { return c.calibre; });
+    var rows = bins.length ? bins.map(function (c) {
+      var stock = R.binStock(c), dispo = c.capaciteKg != null ? R.round2(c.capaciteKg - stock) : null;
+      var pleine = c.capaciteKg && stock >= c.capaciteKg * 0.99;
+      var ops = (c.contributors || []).filter(function (x) { return x.calId; }).length;
+      var h = R.binDurationH(c, Date.now()); var age = h == null ? "—" : (h >= 48 ? Math.round(h / 24) + " j" : h + " h");
+      return '<tr><td class="mono">' + esc(c.binId) + demoTag(c) + '</td><td>' + esc(c.calibre || "—") + '</td><td class="mono">' + (c.capaciteKg ? R.kg(c.capaciteKg) : "—") + '</td><td class="mono">' + R.kg(stock) + '</td><td class="mono">' + (dispo == null ? "—" : R.kg(dispo)) + '</td><td>' + (pleine ? '<span class="badge b-warn">pleine</span>' : badgeEtat(c.etat)) + '</td><td class="mono">' + ops + '</td><td class="mono">' + age + '</td><td><button class="btn ghost sm" onclick="__rcngo(\'calbins/' + encodeURIComponent(c.binId) + '\')">Fiche</button></td></tr>';
+    }).join("") : '<tr><td colspan="9" class="empty">Aucune BIN de calibre.</td></tr>';
+    return '<div class="pagehead"><h1>BIN de calibre</h1><p>Une BIN peut recevoir plusieurs opérations, mais sa généalogie n\'est jamais perdue.</p></div>' +
+      '<div class="card"><h2>BIN de sortie <span class="badge b-neutral">' + bins.length + '</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0">' +
+      '<table><thead><tr><th>BIN</th><th>Calibre</th><th>Capacité</th><th>Quantité</th><th>Disponible</th><th>Statut</th><th>Opérations</th><th>Âge</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+  };
+  function calBinFiche(binId) {
+    var g = R.binCalGenealogy(binId); if (!g) return notFound(binId);
+    var c = g.bin, stock = R.binStock(c);
+    var opRows = g.ops.map(function (o) {
+      var fs = (o.contributors || []).map(function (x) { var l = R.getLot(x.lotId) || {}; return l.fournisseur; }).filter(Boolean);
+      return '<tr><td class="mono">' + esc(o.calId) + '</td><td class="mono">' + R.kg(o.entree) + '</td><td class="mono">' + esc(o.binBrute || "—") + '</td><td class="mono">' + esc(o.trf ? o.trf.id : "—") + '</td><td style="font-size:11px;color:var(--n500)">' + esc(fs.join(", ") || "—") + '</td></tr>';
+    }).join("") || '<tr><td colspan="5" class="empty">—</td></tr>';
+    return '<div class="pagehead"><h1>Fiche BIN ' + esc(c.binId) + demoTag(c) + '</h1><p>Calibre ' + esc(c.calibre || "—") + ' · ouverte le ' + R.fmtDateTime(c.openedAt) + '.</p></div>' +
+      '<div class="metrics">' +
+        '<div class="metric"><small>Calibre</small><b style="font-size:18px">' + esc(c.calibre || "—") + '</b></div>' +
+        '<div class="metric"><small>Quantité</small><b>' + R.round2(stock) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Capacité</small><b>' + (c.capaciteKg ? R.round2(c.capaciteKg) : "—") + '</b><span>' + (c.capaciteKg ? "disponible " + R.kg(c.capaciteKg - stock) : "kg") + '</span></div>' +
+        '<div class="metric"><small>Statut</small><b style="font-size:16px">' + esc(c.etat) + '</b></div>' +
+      '</div>' +
+      '<div class="card"><h2>Généalogie · opérations contributrices <span class="badge b-neutral">' + g.ops.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Opération CAL</th><th>Entré</th><th>BIN brute</th><th>Transfert</th><th>Fournisseurs d\'origine</th></tr></thead><tbody>' + opRows + '</tbody></table></div></div>' +
+      '<div class="rule"><b>Traçabilité conservée.</b> BIN de calibre → opérations CAL → transferts → BIN brutes → lots → fournisseurs (contribution théorique en cas de mélange).</div>';
+  }
+
+  /* ---- ÉCRAN 8bis · Arrêts & maintenance -------------------------- */
+  PAGES.calstops = function () {
+    var stops = [];
+    R.cals().forEach(function (c) { (c.stops || []).forEach(function (s) { stops.push({ cal: c, s: s }); }); });
+    stops.sort(function (a, b) { return new Date(b.s.startAt) - new Date(a.s.startAt); });
+    var byMotif = {}; stops.forEach(function (x) { byMotif[x.s.motif] = (byMotif[x.s.motif] || 0) + (x.s.dureeMin || 0); });
+    var rows = stops.length ? stops.map(function (x) {
+      return '<tr><td class="mono">' + esc(x.cal.id) + demoTag(x.cal) + '</td><td>' + esc(x.cal.machine) + '</td><td>' + esc(x.s.motif) + '</td><td>' + R.fmtTime(x.s.startAt) + '</td><td>' + (x.s.endAt ? R.fmtTime(x.s.endAt) : '<span class="badge b-warn">en cours</span>') + '</td><td class="mono">' + (x.s.dureeMin == null ? "—" : x.s.dureeMin + " min") + '</td><td style="font-size:11px;color:var(--n500)">' + esc(x.s.commentaire || "") + '</td></tr>';
+    }).join("") : '<tr><td colspan="7" class="empty">Aucun arrêt déclaré.</td></tr>';
+    var motRows = Object.keys(byMotif).sort(function (a, b) { return byMotif[b] - byMotif[a]; }).map(function (m) { return '<tr><td>' + esc(m) + '</td><td class="mono">' + byMotif[m] + ' min</td></tr>'; }).join("") || '<tr><td colspan="2" class="empty">—</td></tr>';
+    var totMin = stops.reduce(function (a, x) { return a + (x.s.dureeMin || 0); }, 0);
+    return '<div class="pagehead"><h1>Arrêts & maintenance</h1><p>Chaque arrêt calcule automatiquement sa durée. Motifs normalisés pour le suivi de disponibilité.</p></div>' +
+      '<div class="kpis">' + kpi("Arrêts", stops.length, "cumulés", "") + kpi("Durée totale", totMin, "minutes", totMin ? "warn" : "") + kpi("En cours", stops.filter(function (x) { return !x.s.endAt; }).length, "non clôturés", "") + kpi("Machines", Object.keys(R.cals().reduce(function (a, c) { a[c.machine] = 1; return a; }, {})).length, "suivies", "") + '</div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Journal des arrêts <span class="badge b-neutral">' + stops.length + '</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0">' +
+      '<table><thead><tr><th>Opération</th><th>Machine</th><th>Motif</th><th>Début</th><th>Fin</th><th>Durée</th><th>Commentaire</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>' +
+      '<div class="card"><h2>Durée par motif</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Motif</th><th>Durée</th></tr></thead><tbody>' + motRows + '</tbody></table></div></div></div>';
+  };
+
+  /* ---- ÉCRAN 12 · Traçabilité (deux sens) ------------------------- */
+  PAGES.caltrace = function (r) {
+    var q = r.id ? decodeURIComponent(r.id) : "";
+    var res = "";
+    if (q) {
+      var cal = R.getCal(q);
+      var binCyc = R.binCycles().filter(function (c) { return c.binId === q.toUpperCase(); })[0];
+      var fr = (R.referentials().fournisseurs || []).filter(function (f) { return f.lba === q || f.nom.toLowerCase() === q.toLowerCase(); })[0];
+      if (cal) { var g = R.genealogy(q);
+        res = '<div class="card"><h2>Opération ' + esc(cal.id) + ' → amont</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Lot</th><th>Fournisseur</th><th>Origine</th><th>Part</th></tr></thead><tbody>' + g.contributors.map(function (x) { var l = R.getLot(x.lotId) || {}; return '<tr><td class="mono">' + esc(x.lotId) + '</td><td>' + esc(l.fournisseur || "—") + '</td><td>' + esc(l.origine || "—") + '</td><td class="mono">' + (x.share == null ? "—" : x.share + " %") + '</td></tr>'; }).join("") + '</tbody></table></div></div>';
+      } else if (binCyc && binCyc.calibre) { var bg = R.binCalGenealogy(q);
+        res = '<div class="card"><h2>BIN de calibre ' + esc(q) + ' → amont</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Opération</th><th>BIN brute</th><th>Transfert</th><th>Fournisseurs</th></tr></thead><tbody>' + bg.ops.map(function (o) { var fs = (o.contributors || []).map(function (x) { return (R.getLot(x.lotId) || {}).fournisseur; }).filter(Boolean); return '<tr><td class="mono">' + esc(o.calId) + '</td><td class="mono">' + esc(o.binBrute || "—") + '</td><td class="mono">' + esc(o.trf ? o.trf.id : "—") + '</td><td style="font-size:11px">' + esc(fs.join(", ")) + '</td></tr>'; }).join("") + '</tbody></table></div></div>';
+      } else if (fr) { var sc = R.supplierCalibres(fr.lba);
+        res = '<div class="card"><h2>Fournisseur ' + esc(fr.nom) + ' (' + esc(fr.lba) + ') → calibres</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Contribution théorique</th></tr></thead><tbody>' + (sc.length ? sc.map(function (x) { return '<tr><td class="mono">' + esc(x.calibre) + '</td><td class="mono">' + R.kg(x.poidsTheorique) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune contribution au calibrage.</td></tr>') + '</tbody></table></div></div>';
+      } else res = '<div class="alert">Aucun résultat pour « ' + esc(q) +' ». Essayez un identifiant CAL-BATCH, une BIN de calibre (YAK-CAL-BIN-…) ou un code/nom fournisseur.</div>';
+    }
+    return '<div class="pagehead"><h1>Traçabilité</h1><p>Recherche dans les deux sens : fournisseur → … → calibre, ou BIN de calibre → … → fournisseurs. En cas de mélange : contribution théorique.</p></div>' +
+      '<div class="card" style="margin-bottom:16px"><div class="cbody">' +
+        '<label>Identifiant à tracer (opération CAL, BIN de calibre, code ou nom fournisseur)</label>' +
+        '<div class="row"><input id="trace_q" value="' + esc(q) + '" placeholder="CAL-BATCH-2026-0042 · YAK-CAL-BIN-001 · LBA-006-IMA"><div style="display:flex;align-items:end"><button class="btn" onclick="RCNUI.traceGo()">Rechercher</button></div></div>' +
+        '<small style="color:var(--n500)">Exemples : <a href="#caltrace/CAL-BATCH-2026-0042">CAL-BATCH-2026-0042</a> · <a href="#caltrace/YAK-CAL-BIN-001">YAK-CAL-BIN-001</a></small>' +
+      '</div></div>' + res;
+  };
+
+  /* ---- ÉCRAN 13 · Rapports ---------------------------------------- */
   PAGES.calrapports = function () {
     var cals = R.cals();
-    // Répartition cumulée par calibre + bilan matière global.
-    var byCal = {}, totReçu = 0, totSorties = 0, totPertes = 0, totResidu = 0, totEcart = 0;
-    cals.forEach(function (c) {
-      var b = R.calBalance(c);
-      totReçu += b.recu; totSorties += b.sorties; totPertes += b.pertes; totResidu += b.residu; totEcart += b.ecart;
-      (c.outputs || []).forEach(function (o) { if (o.poids > 0) byCal[o.calibre] = (byCal[o.calibre] || 0) + o.poids; });
-    });
+    var byCal = {}, totRecu = 0, totSorties = 0, totPertes = 0, totEcart = 0, totMarche = 0, totArret = 0;
+    cals.forEach(function (c) { var b = R.calBalance(c); totRecu += b.recu; totSorties += b.sorties; totPertes += b.pertes; totEcart += b.ecart; totMarche += b.marcheMin; totArret += b.arretMin; (c.outputs || []).forEach(function (o) { if (o.poids > 0) byCal[o.calibre] = (byCal[o.calibre] || 0) + o.poids; }); });
     var sommeCal = Object.keys(byCal).reduce(function (a, k) { return a + byCal[k]; }, 0);
-    var repRows = R.referentials().calibres.map(function (cal) {
-      var p = byCal[cal] || 0;
-      return '<tr><td class="mono">' + esc(cal) + '</td><td class="mono">' + R.kg(p) + '</td><td>' + bar(sommeCal ? R.round2(p / sommeCal * 100) : 0) + '</td><td class="mono">' + (sommeCal ? R.round2(p / sommeCal * 100) : 0) + ' %</td></tr>';
-    }).join("");
-    var opRows = cals.length ? cals.map(function (c) {
-      var b = R.calBalance(c);
-      return '<tr><td class="mono"><a href="#calibrage/' + c.id + '/bilan">' + esc(c.id) + '</a></td><td class="mono">' + esc(c.machine) + '</td><td class="mono">' + R.kg(b.recu) + '</td><td class="mono">' + R.kg(b.sorties) + '</td><td class="mono">' + b.ecart + (b.taux != null ? " (" + b.taux + " %)" : "") + '</td><td>' + badgeEtat(c.etat) + '</td></tr>';
-    }).join("") : '<tr><td colspan="6" class="empty">Aucune opération de calibrage.</td></tr>';
-    return '<div class="pagehead"><h1>Rapports de calibrage</h1><p>Répartition par calibre et bilan matière cumulés — pour comparer la qualité achetée au résultat industriel obtenu.</p></div>' +
+    var repRows = R.referentials().calibres.map(function (cal) { var p = byCal[cal] || 0; return '<tr><td class="mono">' + esc(cal) + '</td><td class="mono">' + R.kg(p) + '</td><td>' + bar(sommeCal ? R.round2(p / sommeCal * 100) : 0) + '</td><td class="mono">' + (sommeCal ? R.round2(p / sommeCal * 100) : 0) + ' %</td></tr>'; }).join("");
+    var opRows = cals.length ? cals.map(function (c) { var b = R.calBalance(c); return '<tr><td class="mono"><a href="#calops/' + encodeURIComponent(c.id) + '/bilan">' + esc(c.id) + '</a>' + demoTag(c) + '</td><td>' + esc(c.machine) + '</td><td>' + esc(c.shift) + '</td><td class="mono">' + R.kg(b.recu) + '</td><td class="mono">' + R.kg(b.sorties) + '</td><td class="mono">' + b.ecart + (b.taux != null ? " (" + b.taux + "%)" : "") + '</td><td class="mono">' + (b.kgH == null ? "—" : R.round2(b.kgH)) + '</td><td>' + badgeEtat(c.etat) + '</td></tr>'; }).join("") : '<tr><td colspan="8" class="empty">Aucune opération.</td></tr>';
+    var reports = ["Rapport journalier", "Répartition par calibre", "Bilan matière", "Traçabilité", "Performance machines", "Arrêts & motifs", "Qualité des sorties", "Stock BIN de calibre"];
+    return '<div class="pagehead"><h1>Rapports de calibrage</h1><p>Comparer la qualité achetée au résultat industriel. Filtres : période, shift, machine, opération, BIN, lot, fournisseur, calibre.</p></div>' +
       '<div class="kpis">' +
-        kpi("Reçu au calibrage", R.round2(totReçu), "kg cumulés", "") +
-        kpi("Calibré", R.round2(totSorties), (totReçu ? R.round2(totSorties / totReçu * 100) + " % du reçu" : "kg"), "") +
-        kpi("Rejets / résidus", R.round2(totPertes + totResidu), "kg", "") +
-        kpi("Écart cumulé", R.round2(totEcart), (totReçu ? R.round2(totEcart / totReçu * 100) + " %" : "kg"), Math.abs(totEcart) > 0.001 ? "warn" : "") +
+        kpi("Reçu au calibrage", R.round2(totRecu), "kg cumulés", "") +
+        kpi("Calibré", R.round2(totSorties), (totRecu ? R.round2(totSorties / totRecu * 100) + " % du reçu" : "kg"), "") +
+        kpi("Rejets / restes", R.round2(totPertes), "kg", "") +
+        kpi("Écart cumulé", R.round2(totEcart), (totRecu ? R.round2(totEcart / totRecu * 100) + " %" : "kg"), Math.abs(totEcart) > 0.001 ? "warn" : "") +
       '</div>' +
+      '<div class="card" style="margin-bottom:16px"><h2>Rapport journalier</h2><div class="cbody"><div class="metrics" style="margin:0">' +
+        '<div class="metric"><small>Reçu</small><b>' + R.round2(totRecu) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Calibré</small><b>' + R.round2(totSorties) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Rejets/restes</small><b>' + R.round2(totPertes) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Écart inexpliqué</small><b>' + R.round2(totEcart) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Marche / arrêt</small><b>' + Math.round(totMarche) + ' / ' + Math.round(totArret) + '</b><span>min</span></div>' +
+      '</div></div></div>' +
       '<div class="grid2" style="align-items:start"><div class="card"><h2>Répartition par calibre (cumul)</h2><div class="cbody" style="padding:0">' +
         '<table><thead><tr><th>Calibre</th><th>Poids</th><th>Part</th><th>%</th></tr></thead><tbody>' + repRows + '</tbody></table></div></div>' +
-      '<div class="card"><h2>Opérations <span class="badge b-neutral">' + cals.length + '</span></h2><div class="cbody" style="padding:0">' +
-        '<table><thead><tr><th>CAL</th><th>Machine</th><th>Reçu</th><th>Calibré</th><th>Écart</th><th>Statut</th></tr></thead><tbody>' + opRows + '</tbody></table></div></div></div>';
+      '<div class="card"><h2>Détail des opérations <span class="badge b-neutral">' + cals.length + '</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0">' +
+        '<table><thead><tr><th>CAL</th><th>Machine</th><th>Shift</th><th>Reçu</th><th>Calibré</th><th>Écart</th><th>kg/h</th><th>Statut</th></tr></thead><tbody>' + opRows + '</tbody></table></div></div></div></div>' +
+      '<div class="rule" style="margin-top:16px"><b>Exports.</b> Les rapports ci-dessus (' + reports.join(", ") + ') sont disponibles à l\'écran. L\'export Excel/PDF sera activé quand la génération de fichier sera branchée — aucun bouton d\'export non fonctionnel n\'est affiché.</div>';
+  };
+
+  /* ---- ÉCRAN 14 · Journal d'audit (calibrage) --------------------- */
+  PAGES.calaudit = function () {
+    var log = R.auditLog().filter(function (a) { return /calibrage|CAL|sortie|arrêt|QC|correction|tolérance|réception calibrage/i.test((a.objet || "") + " " + (a.champ || "")); });
+    var corrs = []; R.cals().forEach(function (c) { (c.corrections || []).forEach(function (x) { corrs.push({ cal: c, x: x }); }); });
+    var corrRows = corrs.length ? corrs.map(function (o) { return '<tr><td class="mono">' + esc(o.cal.id) + '</td><td>' + esc(o.x.champ) + '</td><td>' + esc(String(o.x.avant)) + ' → <b>' + esc(String(o.x.apres)) + '</b></td><td>' + esc(o.x.auteur || "—") + '</td><td>' + esc(o.x.motif || "—") + '</td><td>' + esc(o.x.approbateur || "—") + '</td></tr>'; }).join("") : '<tr><td colspan="6" class="empty">Aucune correction après clôture.</td></tr>';
+    var rows = log.length ? log.slice(0, 80).map(function (a) { return '<tr><td class="mono">' + R.fmtTime(a.at) + '</td><td class="mono">' + esc(a.objet) + '</td><td>' + esc(a.champ) + '</td><td>' + (a.avant == null ? '—' : esc(String(a.avant))) + ' → <b>' + esc(String(a.apres == null ? "—" : a.apres)) + '</b></td><td>' + esc(a.auteur || "—") + '</td><td>' + esc(a.motif || "") + '</td></tr>'; }).join("") : '<tr><td colspan="6" class="empty">Journal vide.</td></tr>';
+    return '<div class="pagehead"><h1>Journal d\'audit — calibrage</h1><p>Après clôture, les valeurs importantes sont verrouillées. Toute correction conserve ancienne/nouvelle valeur, auteur, motif et approbateur.</p></div>' +
+      '<div class="card" style="margin-bottom:16px"><h2>Corrections après clôture <span class="badge b-neutral">' + corrs.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Opération</th><th>Champ</th><th>Ancien → Nouveau</th><th>Auteur</th><th>Motif</th><th>Approbateur</th></tr></thead><tbody>' + corrRows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Journal des actions <span class="badge b-neutral">' + log.length + '</span></h2><div class="cbody" style="padding:0"><div class="tablewrap" style="border:0">' +
+        '<table><thead><tr><th>Heure</th><th>Objet</th><th>Champ</th><th>Ancien → Nouveau</th><th>Auteur</th><th>Motif</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
   };
 
   /* ---- RAPPORTS (§14.1) ------------------------------------------- */
@@ -1358,41 +1644,67 @@
   UI.qaApprove = function (id) { try { R.qaApproveTransfer(id, true, "Contrôle OK"); toast("QA approuvé."); route(); } catch (e) { toast(e.message, true); } };
   UI.ship = function (id) { try { R.shipTransfer(id); toast("Transfert expédié."); route(); } catch (e) { toast(e.message, true); } };
   UI.resolveEcart = function (id) { try { R.resolveTransferEcart(id, val("trf_motif")); toast("Écart justifié."); route(); } catch (e) { toast(e.message, true); } };
-  UI.receiveTrf = function (id) {
-    var trf = R.getTrf(id); if (!trf) return;
-    var p = prompt("Poids reçu (kg) pour " + id + " — envoyé " + trf.poidsEnvoye + " kg :", trf.poidsEnvoye); if (p === null) return;
+  UI.setTolRec = function () {
+    try { var p = R.setToleranceReceptionCal(val("rec_tol")); toast(p == null ? "Tolérance effacée." : "Tolérance de réception réglée à " + p + " %."); route(); }
+    catch (e) { toast(e.message, true); }
+  };
+  UI.receiveAtCal = function (id) {
     try {
-      R.receiveTransfer(id, p, false);
-      var mach = prompt("Machine (ex. CAL-01) :", "CAL-01") || "CAL-01";
-      var cal = R.createCal(id, mach, "A", "");
-      toast("TRF reçu · " + cal.id + " créé."); go("calibrage/" + cal.id); route();
+      R.receiveAtCalibrage(id, { poidsRecu: val("rc_recu"), sacsEnvoye: val("rc_sacsE"), sacsRecu: val("rc_sacsR"), etatSacs: val("rc_etat"), humidity: val("rc_hum"), nc: val("rc_nc"), commentaire: val("rc_com"), motif: val("rc_motif"), responsable: val("rc_resp") });
+      toast("Réception validée."); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.createCalOp = function () {
+    try {
+      var cal = R.createCal(val("op_trf"), { machine: val("op_mach"), shift: val("op_shift"), operateurs: val("op_ops"), responsable: val("op_resp"), melangeAutorise: el("op_melange") && el("op_melange").checked, melangeMotif: val("op_melmotif") });
+      toast("Opération " + cal.id + " créée."); go("calops/" + encodeURIComponent(cal.id)); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.calChecklistSave = function (id) {
+    try {
+      var obj = {}; R.CAL_CHECKLIST.forEach(function (it) { var e = el("ck_" + it.code); obj[it.code] = !!(e && e.checked); });
+      var c = R.calSetChecklist(id, obj); toast(c.checklistOk ? "Checklist complète — prêt à démarrer." : "Checklist enregistrée (incomplète)."); route();
     } catch (e) { toast(e.message, true); }
   };
   UI.calStart = function (id) { try { R.calStart(id); toast("Opération démarrée."); route(); } catch (e) { toast(e.message, true); } };
   UI.calResume = function (id) { try { R.calResume(id); toast("Reprise."); route(); } catch (e) { toast(e.message, true); } };
-  UI.calPause = function (id) {
-    var m = prompt("Motif de pause (obligatoire) :\n" + R.MOTIFS_ARRET.join(" · ")); if (!m) return;
-    try { R.calPause(id, m); toast("En pause : " + m); route(); } catch (e) { toast(e.message, true); }
+  UI.calStopPrompt = function (id) {
+    var m = prompt("Motif de l'arrêt (obligatoire) :\n" + R.MOTIFS_ARRET.join(" · ")); if (!m) return;
+    var com = /autre/i.test(m) ? (prompt("Commentaire (obligatoire pour « Autre ») :") || "") : "";
+    try { R.calStop(id, m, com); toast("Arrêt : " + m); route(); } catch (e) { toast(e.message, true); }
   };
   UI.calFeed = function (id) { try { R.calFeed(id, val("feed_qty"), val("feed_bin")); toast("Alimentation enregistrée."); route(); } catch (e) { toast(e.message, true); } };
   UI.saveOutputs = function (id) {
     try {
+      var n = 0;
       R.referentials().calibres.forEach(function (cal) {
         var p = val("o_poids_" + cal);
-        if (p !== "" && p != null) R.calOutput(id, cal, val("o_sacs_" + cal), p, val("o_bin_" + cal));
+        if (p !== "" && p != null) { R.calOutput(id, cal, { poids: p, sacs: val("o_sacs_" + cal), nc: val("o_nc_" + cal), binDest: val("o_bin_" + cal) }); n++; }
       });
-      R.CATEGORIES_PERTE.forEach(function (l) { var p = val("l_" + l.code); if (p !== "" && p != null) R.calLoss(id, l.code, p, "", ""); });
-      toast("Sorties enregistrées."); route();
+      toast(n + " sortie(s) enregistrée(s)."); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.saveLosses = function (id) {
+    try {
+      R.CATEGORIES_PERTE.forEach(function (l) { var p = val("l_poids_" + l.code); if (p !== "" && p != null) R.calLoss(id, l.code, { poids: p, destination: val("l_dest_" + l.code), commentaire: val("l_com_" + l.code) }); });
+      toast("Rejets & restes enregistrés."); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.calQCSave = function (id, calibre) {
+    try {
+      R.calOutputQC(id, calibre, { impuretes: val("qc_imp_" + calibre), humidity: val("qc_hum_" + calibre), nc: val("qc_nc_" + calibre), decision: val("qc_dec_" + calibre) });
+      toast("Contrôle qualité " + calibre + " enregistré."); route();
     } catch (e) { toast(e.message, true); }
   };
   UI.calClose = function (id) {
-    try { R.calClose(id, val("cal_motif")); toast("Opération clôturée."); route(); }
+    try { R.calClose(id, val("cal_motif"), val("cal_resp")); toast("Opération clôturée."); route(); }
     catch (e) { toast(e.message, true); }
   };
   UI.setTolCal = function () {
     try { var p = R.setToleranceCalibrage(val("cal_tol")); toast(p == null ? "Tolérance effacée." : "Tolérance réglée à " + p + " %."); route(); }
     catch (e) { toast(e.message, true); }
   };
+  UI.traceGo = function () { var q = val("trace_q"); go("caltrace" + (q ? "/" + encodeURIComponent(q.trim()) : "")); route(); };
   UI.soon = function (nom) { toast("Module « " + nom + " » à venir dans une prochaine version."); };
 
   global.RCNUI = UI;
