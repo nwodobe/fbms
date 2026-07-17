@@ -146,6 +146,29 @@
     global.RCNTRACE_ONSAVE = function () { scheduleFlush(); };
   }
 
+  /* ---- Acteur : reprendre le profil connecté (nom + rôle) ----------- */
+  // Le moteur estampille l'auteur des saisies et de l'audit avec R.db().user.
+  // On y injecte le profil Supabase de l'utilisateur connecté (NFR-05, §13.1)
+  // pour que « qui a saisi/contrôlé/validé » soit exact. Cache local pour le
+  // mode hors connexion.
+  function setEngineUser(u) {
+    if (!u || !u.nom) return;
+    var db = R.db(); db.user = { nom: u.nom, role: u.role || "" };
+    R.save();
+    try { localStorage.setItem("rcntrace.profil", JSON.stringify(db.user)); } catch (e) {}
+    if (typeof global.RCNTRACE_USER_SET === "function") global.RCNTRACE_USER_SET(db.user);
+  }
+  function applyProfil(uid) {
+    if (!uid) return Promise.resolve();
+    if (!sb || !navigator.onLine) {
+      try { var c = JSON.parse(localStorage.getItem("rcntrace.profil") || "null"); if (c) setEngineUser(c); } catch (e) {}
+      return Promise.resolve();
+    }
+    return sb.from("profils").select("nom, role, actif").eq("user_id", uid).single()
+      .then(function (res) { if (res.data && res.data.actif) setEngineUser(res.data); })
+      .catch(function () { /* profil non lisible : on garde le défaut */ });
+  }
+
   /* ---- API publique ------------------------------------------------- */
   var API = {
     status: function () { return { mode: mode, pending: pending, hasSession: hasSession }; },
@@ -159,12 +182,14 @@
       if (!client) { R.seedDemo(false); mode = "local"; done(); return Promise.resolve(); }
 
       return client.auth.getSession().then(function (r) {
-        hasSession = !!(r && r.data && r.data.session);
+        var session = r && r.data && r.data.session;
+        hasSession = !!session;
+        var uid = session ? session.user.id : null;
         // Ré-hydrater / repousser lors d'une connexion ultérieure (auth-gate).
-        client.auth.onAuthStateChange(function (ev, session) {
-          if (ev === "SIGNED_IN" && session && !hasSession) {
+        client.auth.onAuthStateChange(function (ev, sess) {
+          if (ev === "SIGNED_IN" && sess && !hasSession) {
             hasSession = true;
-            hydrate().then(function (had) { if (!had) doFlush(); else { report(); if (global.RCNTRACE_RERENDER) global.RCNTRACE_RERENDER(); } })
+            applyProfil(sess.user.id).then(hydrate).then(function (had) { if (!had) doFlush(); else { report(); if (global.RCNTRACE_RERENDER) global.RCNTRACE_RERENDER(); } })
               .catch(function () { doFlush(); });
           }
           if (ev === "SIGNED_OUT") { hasSession = false; mode = "local"; report(); }
@@ -172,11 +197,11 @@
 
         if (hasSession && navigator.onLine) {
           return hydrate().then(function (had) {
-            if (!had) { R.seedDemo(false); mode = "online"; done(); return doFlush(); }
-            mode = "online"; done();
-          }).catch(function () { R.seedDemo(false); mode = "offline"; done(); });
+            if (!had) R.seedDemo(false);
+            return applyProfil(uid).then(function () { mode = "online"; done(); return doFlush(); });
+          }).catch(function () { R.seedDemo(false); applyProfil(uid); mode = "offline"; done(); });
         }
-        R.seedDemo(false); mode = navigator.onLine ? "local" : "offline"; done();
+        R.seedDemo(false); applyProfil(uid); mode = navigator.onLine ? "local" : "offline"; done();
       }).catch(function () { R.seedDemo(false); mode = "offline"; done(); });
     }
   };
