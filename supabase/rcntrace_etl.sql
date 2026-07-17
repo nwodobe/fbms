@@ -116,7 +116,8 @@ select
   (p->>'stock')::numeric            as stock_kg,
   p->>'binId'                       as bin_id,
   p->>'etat'                        as etat,
-  (p->>'createdAt')::timestamptz    as created_at
+  (p->>'createdAt')::timestamptz    as created_at,
+  (p->>'prixUnitaire')::numeric     as prix_unitaire        -- FCFA/kg (§6)
 from (select payload p from rcn_state where kind = 'lot') r;
 
 -- Cycles de BIN (stock physique recalculé depuis les contributeurs) ----------
@@ -159,7 +160,16 @@ select
   p->'validations'->'entrepot'      as val_entrepot,
   p->'validations'->'qa'            as val_qa,
   p->'validations'->'calibrage'     as val_calibrage,
-  (p->>'createdAt')::timestamptz    as created_at
+  (p->>'createdAt')::timestamptz    as created_at,
+  -- Finance du transfert (§6) : valorisation, tolérance & pénalité de transit
+  (p->'finance'->>'prixMoyen')::numeric        as prix_moyen,
+  (p->'finance'->>'tolerancePct')::numeric     as tolerance_pct,
+  (p->'finance'->>'toleranceKg')::numeric      as tolerance_kg,
+  (p->'finance'->>'valeurEnvoyee')::numeric    as valeur_envoyee,
+  (p->'finance'->>'valeurRecue')::numeric      as valeur_recue,
+  (p->'finance'->>'perteTolerable')::numeric   as perte_tolerable_kg,
+  (p->'finance'->>'pertePenalisable')::numeric as perte_penalisable_kg,
+  (p->'finance'->>'penalite')::numeric         as penalite
 from (select payload p from rcn_state where kind = 'transfer') r;
 
 -- Contributeurs du transfert ------------------------------------------------
@@ -387,6 +397,18 @@ create or replace view rcn_bi_ecart_transfert as
 select id as trf_id, bin_id, poids_envoye, poids_recu, ecart_kg, etat, ecart_motif
 from rcn_v_transferts;
 
+-- Finance du transfert (§6) : valorisation, perte tolérée/pénalisable, pénalité
+-- (perte de transit ≤ tolérance : tolérée ; au-delà : pénalisable au prix moyen)
+create or replace view rcn_bi_transfert_finance as
+select
+  id as trf_id, bin_id, etat,
+  poids_envoye, poids_recu, ecart_kg as perte_transit_kg,
+  case when poids_envoye > 0 then round(ecart_kg / poids_envoye * 100, 3) end as perte_transit_pct,
+  prix_moyen, tolerance_pct, tolerance_kg,
+  perte_tolerable_kg, perte_penalisable_kg,
+  valeur_envoyee, valeur_recue, penalite
+from rcn_v_transferts;
+
 -- Rendement par calibre (part du reçu) -------------------------------------
 create or replace view rcn_bi_rendement_calibre as
 select s.cal_id, s.calibre, s.poids_kg,
@@ -476,7 +498,8 @@ begin
     'rcn_v_cal_arrets','rcn_v_cal_alimentations','rcn_v_mouvements','rcn_v_genealogie',
     'rcn_bi_kor','rcn_bi_delais','rcn_bi_stock_bin','rcn_bi_ecart_transfert',
     'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal',
-    'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_jute_interne','rcn_bi_sechage'
+    'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_jute_interne','rcn_bi_sechage',
+    'rcn_bi_transfert_finance'
   ]
   loop
     execute format('alter view %I set (security_invoker = on);', v);
