@@ -31,11 +31,22 @@
   };
   function t(k) { return (T[LANG] && T[LANG][k]) || (T.fr[k]) || k; }
 
-  var NAV = [
-    { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
-    { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "sacs", ni: "06" }, { id: "transfert", ni: "07" }, { id: "calibrage", ni: "08" },
-    { id: "fournisseurs", ni: "09" }, { id: "rapports", ni: "10" }, { id: "carte", ni: "11" }, { id: "audit", ni: "12" }
-  ];
+  // Espaces de travail (workspaces) : le portail oriente vers un grand module,
+  // et la barre latérale n'affiche QUE les sections du module où l'on se trouve.
+  var WS = {
+    entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
+      ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
+      ["stock", "Stock & BIN"], ["sechage", "Séchage / triage"], ["sacs", "Sacs de jute"],
+      ["transfert", "Transferts"], ["fournisseurs", "Fournisseurs"],
+      ["rapports", "Rapports entrepôt"], ["carte", "Cartographie"], ["audit", "Audit"]
+    ] },
+    calibrage: { titre: "Calibrage", ic: "⚙️", nav: [
+      ["calibrage", "Tableau de bord"], ["calbins", "BIN de sortie"], ["calrapports", "Rapports calibrage"]
+    ] }
+  };
+  var PAGE_WS = {};
+  Object.keys(WS).forEach(function (k) { WS[k].nav.forEach(function (it) { PAGE_WS[it[0]] = k; }); });
+  function workspaceOf(page) { return PAGE_WS[page] || null; }
 
   /* ---------------- Helpers DOM ------------------------------------- */
   function $(s) { return document.querySelector(s); }
@@ -72,10 +83,20 @@
   global.__rcngo = go;
 
   function renderNav(active) {
-    el("nav").innerHTML = NAV.map(function (n) {
-      return '<a href="#' + n.id + '" class="' + (n.id === active ? "on" : "") + '"><span class="ni">' + n.ni + '</span>' + esc(t("nav." + n.id)) + '</a>';
-    }).join("");
-    // i18n static bits
+    var ws = workspaceOf(active);
+    var html;
+    if (!ws) {
+      // Portail : aiguillage vers les 8 grands modules (« où voulez-vous travailler ? »).
+      html = '<div class="nav-sec">Modules</div>' + CHAIN.map(function (m) {
+        var oc = m.soon ? "RCNUI.soon('" + esc(m.t).replace(/'/g, "\\'") + "')" : "location.hash='#" + m.go + "'";
+        return '<a href="javascript:void(0)" onclick="' + oc + '" class="' + (m.soon ? "soon" : "") + '"><span class="ni">' + esc(m.n) + '</span>' + esc(m.t) + (m.soon ? ' <em>à venir</em>' : '') + '</a>';
+      }).join("");
+    } else {
+      var w = WS[ws];
+      html = '<a href="#accueil" class="nav-back">← Portail</a><div class="nav-sec">' + w.ic + ' ' + esc(w.titre) + '</div>' +
+        w.nav.map(function (it) { return '<a href="#' + it[0] + '" class="' + (it[0] === active ? "on" : "") + '">' + esc(it[1]) + '</a>'; }).join("");
+    }
+    el("nav").innerHTML = html;
     document.querySelectorAll("[data-i18n]").forEach(function (e) { e.textContent = t(e.getAttribute("data-i18n")); });
     el("langbtn").textContent = LANG === "fr" ? "EN" : "FR";
   }
@@ -90,6 +111,8 @@
     sacs: ["Sacs de jute", "Dotation, retours, déchirés, rebaging & balance par fournisseur"],
     transfert: ["Transfert", "Passage entre modules · contributeurs & triple validation"],
     calibrage: ["Calibrage", "Module 2 · CAL, sorties, arrêts & bilan matière"],
+    calbins: ["BIN de sortie", "Calibrage · BIN de calibre & généalogie"],
+    calrapports: ["Rapports calibrage", "Répartition par calibre & bilan matière cumulé"],
     rapports: ["Rapports", "Indicateurs & cartographie du business"],
     audit: ["Audit", "Journal, corrections & synchronisation"]
   };
@@ -219,20 +242,32 @@
       '</div>';
   };
   function fmtKg0(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " kg"; }
-  // Hub « Activité entrepôt » : cartes de sections granulaires.
+  // Tableau de bord « Activité entrepôt » (landing du workspace entrepôt).
   PAGES.entrepot = function () {
     var d = R.dashboard();
-    var groups = ENTREPOT_GROUPS.map(function (g) {
-      return '<div class="portal-group"><h2>' + esc(g.titre) + '</h2><div class="portal-grid">' +
-        g.items.map(function (it) {
-          var b = portalBadge(it.id, d);
-          return '<button class="sec-card" onclick="__rcngo(\'' + it.id + '\')">' +
-            (b ? '<span class="pill ' + (b.q ? "q" : "") + '">' + b.n + '</span>' : "") +
-            '<span class="ic">' + it.ic + '</span><b>' + esc(it.t) + '</b><span>' + esc(it.d) + '</span></button>';
-        }).join("") + '</div></div>';
-    }).join("");
-    return '<div class="pagehead"><h1>Activité entrepôt</h1><p>Réception, qualité, fournisseurs, stock, séchage, transferts, sacs de jute et pilotage — un clic ouvre la section dédiée.</p></div>' +
-      '<div class="actions" style="margin:0 0 14px"><button class="btn ghost" onclick="__rcngo(\'accueil\')">← Portail</button></div>' + groups;
+    var priorities = buildPriorities();
+    var lots = R.lots();
+    var stockBin = R.binCycles().filter(function (c) { return c.etat !== R.ETAT_BIN.CLOS && !/CAL/.test(c.binId); })
+      .reduce(function (a, c) { return a + R.binStock(c); }, 0);
+    var korAvg = avg(lots.filter(function (l) { return l.etat === R.ETAT_REC.LIBERE; }).map(function (l) { return l.korFinal; }));
+    return '<div class="pagehead"><h1>Activité entrepôt</h1><p>Réception, qualité, stock, séchage, transferts, sacs et pilotage. Choisissez une section dans le menu — voici l\'essentiel du jour.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Camions en attente", d.camionsEnAttente, d.decisionGm + " décision(s) GM", d.decisionGm ? "warn" : "") +
+        kpi("Lots bloqués", d.lotsBloques, "Écart KOR à traiter", d.lotsBloques ? "danger" : "") +
+        kpi("Stock en BIN", R.round2(stockBin), "kg (cycles ouverts)", "") +
+        kpi("Transferts à recevoir", d.transfertsARecevoir, "arrivées inter-entrepôt", d.transfertsARecevoir ? "warn" : "") +
+      '</div>' +
+      '<div class="grid2">' +
+        '<div class="card"><h2>Actions prioritaires</h2>' + priorityTable(priorities) + '</div>' +
+        '<div><div class="card" style="margin-bottom:16px"><h2>Raccourcis</h2><div class="cbody" style="display:grid;gap:10px">' +
+          shortcut("Nouvelle réception", "Créer le dossier temporaire du camion", "reception/new") +
+          shortcut("Base fournisseurs", (R.referentials().fournisseurs || []).length + " fournisseurs (LBA)", "fournisseurs") +
+          shortcut("Cartographie des achats", "Qualité & volume par localité / région", "carte") +
+          shortcut("Rapports entrepôt", "Stock, qualité, écarts, sacs", "rapports") +
+        '</div></div>' +
+        '<div class="rule"><b>KOR moyen (lots libérés) : ' + (korAvg == null ? "—" : korAvg.toFixed(2)) + '.</b> Un dossier sans responsable ni prochaine action est considéré incomplet.</div>' +
+        '</div>' +
+      '</div>';
   };
   function kpi(lbl, val, sub, cls) {
     return '<div class="kpi ' + (cls || "") + '"><small>' + esc(lbl) + '</small><b>' + (typeof val === "number" ? pad2(val) : esc(val)) + '</b><span>' + esc(sub) + '</span></div>';
@@ -961,6 +996,53 @@
       '</div></div>' +
       '<div class="rule"><b>Règle métier.</b> Les contributions sont présentées comme théoriques après mélange. Une sortie calibrée ne remplace pas ses parents : elle pointe vers CAL → TRF → contributeurs BIN → lots officiels.</div>';
   }
+
+  /* ---- CALIBRAGE · BIN de sortie ---------------------------------- */
+  PAGES.calbins = function () {
+    var bins = R.binCycles().filter(function (c) { return c.calibre || /CAL/.test(c.binId); });
+    var rows = bins.length ? bins.map(function (c) {
+      var contribs = (c.contributors || []).map(function (x) { return x.calId || x.calRef || x.lotId; }).filter(Boolean);
+      var h = R.binDurationH(c, Date.now()); var dur = h == null ? "—" : (h >= 48 ? Math.round(h / 24) + " j" : h + " h");
+      return '<tr><td class="mono">' + esc(c.binId) + '</td><td>' + esc(c.calibre || "—") + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td>' +
+        '<td class="mono">' + contribs.length + '</td><td>' + dur + '</td><td>' + badgeEtat(c.etat) + '</td>' +
+        '<td><button class="btn ghost sm" onclick="__rcngo(\'stock/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
+    }).join("") : '<tr><td colspan="7" class="empty">Aucune BIN de calibre. Elles se créent à la clôture d\'une opération de calibrage.</td></tr>';
+    return '<div class="pagehead"><h1>BIN de sortie du calibrage</h1><p>Chaque calibre est rangé dans sa BIN de sortie ; une BIN peut recevoir plusieurs opérations tout en conservant la généalogie (CAL → TRF → BIN brute → lots → fournisseurs).</p></div>' +
+      '<div class="card"><h2>BIN de calibre <span class="badge b-neutral">' + bins.length + '</span></h2><div class="cbody" style="padding:0">' +
+      '<table><thead><tr><th>BIN</th><th>Calibre</th><th>Stock</th><th>Opérations</th><th>Âge</th><th>Statut</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  };
+
+  /* ---- CALIBRAGE · Rapports (répartition + bilan cumulé) ---------- */
+  PAGES.calrapports = function () {
+    var cals = R.cals();
+    // Répartition cumulée par calibre + bilan matière global.
+    var byCal = {}, totReçu = 0, totSorties = 0, totPertes = 0, totResidu = 0, totEcart = 0;
+    cals.forEach(function (c) {
+      var b = R.calBalance(c);
+      totReçu += b.recu; totSorties += b.sorties; totPertes += b.pertes; totResidu += b.residu; totEcart += b.ecart;
+      (c.outputs || []).forEach(function (o) { if (o.poids > 0) byCal[o.calibre] = (byCal[o.calibre] || 0) + o.poids; });
+    });
+    var sommeCal = Object.keys(byCal).reduce(function (a, k) { return a + byCal[k]; }, 0);
+    var repRows = R.referentials().calibres.map(function (cal) {
+      var p = byCal[cal] || 0;
+      return '<tr><td class="mono">' + esc(cal) + '</td><td class="mono">' + R.kg(p) + '</td><td>' + bar(sommeCal ? R.round2(p / sommeCal * 100) : 0) + '</td><td class="mono">' + (sommeCal ? R.round2(p / sommeCal * 100) : 0) + ' %</td></tr>';
+    }).join("");
+    var opRows = cals.length ? cals.map(function (c) {
+      var b = R.calBalance(c);
+      return '<tr><td class="mono"><a href="#calibrage/' + c.id + '/bilan">' + esc(c.id) + '</a></td><td class="mono">' + esc(c.machine) + '</td><td class="mono">' + R.kg(b.recu) + '</td><td class="mono">' + R.kg(b.sorties) + '</td><td class="mono">' + b.ecart + (b.taux != null ? " (" + b.taux + " %)" : "") + '</td><td>' + badgeEtat(c.etat) + '</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">Aucune opération de calibrage.</td></tr>';
+    return '<div class="pagehead"><h1>Rapports de calibrage</h1><p>Répartition par calibre et bilan matière cumulés — pour comparer la qualité achetée au résultat industriel obtenu.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Reçu au calibrage", R.round2(totReçu), "kg cumulés", "") +
+        kpi("Calibré", R.round2(totSorties), (totReçu ? R.round2(totSorties / totReçu * 100) + " % du reçu" : "kg"), "") +
+        kpi("Rejets / résidus", R.round2(totPertes + totResidu), "kg", "") +
+        kpi("Écart cumulé", R.round2(totEcart), (totReçu ? R.round2(totEcart / totReçu * 100) + " %" : "kg"), Math.abs(totEcart) > 0.001 ? "warn" : "") +
+      '</div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Répartition par calibre (cumul)</h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>Calibre</th><th>Poids</th><th>Part</th><th>%</th></tr></thead><tbody>' + repRows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Opérations <span class="badge b-neutral">' + cals.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<table><thead><tr><th>CAL</th><th>Machine</th><th>Reçu</th><th>Calibré</th><th>Écart</th><th>Statut</th></tr></thead><tbody>' + opRows + '</tbody></table></div></div></div>';
+  };
 
   /* ---- RAPPORTS (§14.1) ------------------------------------------- */
   function whOf(binId) { var i = binId.indexOf("-BIN-"); return i > 0 ? binId.slice(0, i) : binId; }
