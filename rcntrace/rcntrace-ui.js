@@ -510,58 +510,98 @@
       '</div></div></div>';
   };
 
-  /* ---- SACS DE JUTE ----------------------------------------------- */
+  /* ---- SACS DE JUTE + COMPTE FOURNISSEUR --------------------------- */
   PAGES.sacs = function (r) {
-    if (r.id) return sacsSupplier(decodeURIComponent(r.id));
+    if (r.id) return supplierAccount(decodeURIComponent(r.id), r.sub || "profil");
     var suppliers = R.juteSuppliers();
     var totDot = 0, totSolde = 0;
     var rows = suppliers.map(function (s) {
       var b = s.balance; var key = s.lba || s.nom; totDot += b.dotation; totSolde += b.solde;
       return '<tr><td><a href="#sacs/' + encodeURIComponent(key) + '" style="font-weight:600">' + esc(s.nom) + '</a><br><span style="font-family:var(--fm);font-size:11px;color:var(--n500)">' + esc(s.lba || "") + '</span></td>' +
-        '<td class="mono">' + b.dotation + '</td><td class="mono">' + b.retour + '</td><td class="mono">' + b.dechire + '</td><td class="mono">' + b.rebaging + '</td>' +
+        '<td class="mono">' + b.dotation + '</td><td class="mono">' + b.retour + '</td><td class="mono">' + b.perte_approuvee + '</td>' +
         '<td class="mono"><b>' + b.solde + '</b></td>' +
-        '<td><button class="btn ghost sm" onclick="__rcngo(\'sacs/' + encodeURIComponent(key) + '\')">Voir →</button></td></tr>';
+        '<td><button class="btn ghost sm" onclick="__rcngo(\'sacs/' + encodeURIComponent(key) + '\')">Compte →</button></td></tr>';
     }).join("");
     var supOpts = suppliers.map(function (s, i) { return '<option value="' + i + '">' + esc(s.nom + " · " + (s.lba || "")) + '</option>'; }).join("");
-    var typeOpts = R.TYPES_JUTE.map(function (t) { return '<option value="' + t.code + '">' + esc(t.label) + '</option>'; }).join("");
-    return '<div class="pagehead"><h1>Gestion des sacs de jute</h1><p>Dotation aux fournisseurs, retours après livraison, sacs déchirés et rebaging. Cliquez un fournisseur pour sa traçabilité et sa balance.</p></div>' +
+    var debtOpts = R.TYPES_JUTE.map(function (t) { return '<option value="' + t.code + '">' + esc(t.label) + '</option>'; }).join("");
+    var dispOpts = R.DISPOSITIONS_JUTE.map(function (t) { return '<option value="' + t.code + '">' + esc(t.label) + '</option>'; }).join("");
+    var st = R.juteInternalStock();
+    return '<div class="pagehead"><h1>Gestion des sacs de jute</h1><p>Deux registres distincts : la <b>dette du fournisseur</b> (dotation − retours − pertes approuvées) et la <b>disposition interne</b> des sacs retournés. Le rebagging est une consommation interne, pas une réduction de dette.</p></div>' +
       '<div class="kpis">' +
-        kpi("Fournisseurs suivis", suppliers.length, "avec dotation ou mouvement", "") +
+        kpi("Fournisseurs suivis", suppliers.length, "avec mouvement", "") +
         kpi("Sacs distribués", totDot, "cumul dotations", "") +
         kpi("Solde en circulation", totSolde, "sacs chez les fournisseurs", totSolde ? "warn" : "") +
-        kpi("Mouvements", R.jute().length, "enregistrés", "") +
+        kpi("Retournés à classer", st.aClasser, "disposition interne", st.aClasser ? "warn" : "") +
       '</div>' +
-      '<div class="grid2"><div class="card"><h2>Balance par fournisseur</h2><div class="cbody" style="padding:0">' +
-        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Fournisseur</th><th>Dotation</th><th>Retour</th><th>Déchirés</th><th>Rebaging</th><th>Solde</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucun fournisseur.</div>') +
+      '<div class="grid2"><div class="card"><h2>Dette par fournisseur</h2><div class="cbody" style="padding:0">' +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Fournisseur</th><th>Dotation</th><th>Retour</th><th>Perte appr.</th><th>Solde</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucun fournisseur.</div>') +
       '</div></div>' +
-      '<div><div class="card"><h2>Enregistrer un mouvement</h2><div class="cbody">' +
+      '<div><div class="card" style="margin-bottom:16px"><h2>Mouvement · dette fournisseur</h2><div class="cbody">' +
         '<label>Fournisseur</label><select id="j_sup">' + supOpts + '</select>' +
-        '<label>Type de mouvement</label><select id="j_type">' + typeOpts + '</select>' +
-        '<div class="row">' + inp("j_qty", "Nombre de sacs", "", "number") + inp("j_ref", "Référence (bordereau)", "", "text") + '</div>' +
-        '<label>Observation</label><input id="j_note" placeholder="Facultatif">' +
+        '<label>Type</label><select id="j_type">' + debtOpts + '</select>' +
+        '<div class="row">' + inp("j_qty", "Nombre de sacs", "", "number") + inp("j_ref", "Référence", "", "text") + '</div>' +
         '<div class="actions"><button class="btn" onclick="RCNUI.juteMove()">Enregistrer</button></div>' +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Solde = dotation − (retours + déchirés + rebaging). Le solde représente les sacs encore chez le fournisseur.</div></div></div>';
+      '<div class="card"><h2>Disposition interne (sacs retournés)</h2><div class="cbody">' +
+        '<label>Catégorie</label><select id="jd_type">' + dispOpts + '</select>' +
+        '<div class="row">' + inp("jd_qty", "Nombre de sacs", "", "number") + inp("jd_ref", "Réf. retour", "", "text") + '</div>' +
+        '<div class="actions"><button class="btn ghost" onclick="RCNUI.juteDispose()">Classer</button></div>' +
+      '</div></div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Stock interne des sacs retournés</h2><div class="cbody"><div class="metrics" style="margin:0">' +
+        '<div class="metric"><small>Utilisables</small><b>' + st.utilisable + '</b></div>' +
+        '<div class="metric"><small>À réparer</small><b>' + st.a_reparer + '</b></div>' +
+        '<div class="metric"><small>Réparés</small><b>' + st.repare + '</b></div>' +
+        '<div class="metric"><small>Rebagging</small><b>' + st.rebaging + '</b><span>consommé</span></div>' +
+        '<div class="metric"><small>Réformés</small><b>' + st.reforme + '</b></div>' +
+        '<div class="metric"><small>Déchirés</small><b>' + st.dechire + '</b></div>' +
+      '</div></div></div>';
   };
-  function sacsSupplier(key) {
+
+  // Compte fournisseur — 5 onglets (Profil, Livraisons, Traçabilité, Sacs, Financement).
+  function supplierAccount(key, tab) {
     var sups = R.juteSuppliers();
-    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0] || { nom: key, lba: "", balance: R.juteBalance(key) };
-    var b = sup.balance || R.juteBalance(key);
-    var moves = R.juteMovementsFor(key);
-    var tl = moves.length ? '<ul class="timeline">' + moves.map(function (m) {
-      var t = R.TYPES_JUTE.filter(function (x) { return x.code === m.type; })[0] || {};
-      return '<li><span class="tl-t">' + R.fmtDateTime(m.at).split(" · ")[0] + '</span><span class="tl-b"><b>' + esc(t.label || m.type) + ' · ' + m.qty + ' sacs</b><span>' + (m.ref ? "réf. " + esc(m.ref) + " · " : "") + esc(m.auteur || "") + (m.note ? " · " + esc(m.note) : "") + '</span></span></li>';
-    }).join("") + '</ul>' : '<div class="empty">Aucun mouvement.</div>';
-    return '<div class="pagehead"><h1>' + esc(sup.nom) + '</h1><p>Traçabilité des sacs de jute · ' + esc(sup.lba || "") + '</p></div>' +
-      '<div class="metrics">' +
-        '<div class="metric"><small>Dotation</small><b>' + b.dotation + '</b><span>sacs remis</span></div>' +
-        '<div class="metric"><small>Retournés</small><b>' + b.retour + '</b><span>après livraison</span></div>' +
-        '<div class="metric"><small>Déchirés</small><b>' + b.dechire + '</b></div>' +
-        '<div class="metric"><small>Rebaging</small><b>' + b.rebaging + '</b></div>' +
-        '<div class="metric big ' + (b.solde ? "" : "") + '"><small>Solde (en circulation)</small><b>' + b.solde + '</b><span>sacs chez le fournisseur</span></div>' +
-      '</div>' +
-      '<div class="card"><h2>Mouvements <span class="badge b-neutral">' + moves.length + '</span></h2><div class="cbody">' + tl + '</div></div>' +
-      '<div class="actions"><button class="btn ghost" onclick="__rcngo(\'sacs\')">← Tous les fournisseurs</button></div>';
+    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0] || { nom: key, lba: "" };
+    var nom = sup.nom, lba = sup.lba || "";
+    var recs = R.receptions().filter(function (r) { return r.fournisseur === nom; });
+    var lots = R.lots().filter(function (l) { return l.fournisseur === nom; });
+    var b = R.juteBalance(key);
+    var volLivre = lots.reduce(function (a, l) { return a + (l.netInitial || 0); }, 0);
+    var origines = {}; recs.forEach(function (r) { if (r.origine) origines[r.origine] = 1; });
+    var TABS = [["profil", "Profil"], ["livraisons", "Livraisons"], ["tracabilite", "Traçabilité matière"], ["sacs", "Sacs de jute"], ["financement", "Financement"]];
+    var tabbar = '<div class="stepper" style="margin:0 0 18px">' + TABS.map(function (t) {
+      return '<a href="#sacs/' + encodeURIComponent(key) + '/' + t[0] + '" class="st ' + (tab === t[0] ? "cur" : "") + '" style="text-decoration:none">' + esc(t[1]) + '</a>';
+    }).join("") + '</div>';
+    var body = "";
+    if (tab === "profil") {
+      body = '<div class="metrics">' +
+        '<div class="metric"><small>Code LBA</small><b style="font-size:16px">' + esc(lba || "—") + '</b></div>' +
+        '<div class="metric"><small>Statut financement</small><b style="font-size:15px">À confirmer</b><span>financé / DIS</span></div>' +
+        '<div class="metric"><small>Livraisons</small><b>' + recs.length + '</b></div>' +
+        '<div class="metric big"><small>Volume livré</small><b>' + R.round2(volLivre) + '</b><span>kg (net)</span></div>' +
+      '</div>' + field("Origines", Object.keys(origines).join(", ") || "—") + field("Coordonnées", "— (à compléter)") + field("Solde sacs", b.solde + " sacs en circulation");
+    } else if (tab === "livraisons") {
+      body = recs.length ? '<div class="tablewrap"><table><thead><tr><th>REC</th><th>Camion</th><th>Lot</th><th>Net</th><th>KOR</th><th>Humidité</th><th>NC</th></tr></thead><tbody>' +
+        recs.map(function (r) { var f = r.finale || {}; return '<tr><td class="mono"><a href="#reception/' + r.id + '">' + esc(r.id) + '</a></td><td class="mono">' + esc(r.camion || "—") + '</td><td class="mono">' + esc(r.lotId || "—") + '</td><td class="mono">' + (r.dechargement ? R.kg(r.dechargement.net) : "—") + '</td><td class="mono">' + (f.korDisplay != null ? f.korDisplay.toFixed(2) : "—") + '</td><td>' + (f.humidity == null ? "—" : f.humidity + " %") + '</td><td>' + (f.nc == null ? "—" : f.nc) + '</td></tr>'; }).join("") + '</tbody></table></div>' : '<div class="empty">Aucune livraison enregistrée.</div>';
+    } else if (tab === "tracabilite") {
+      body = lots.length ? '<div class="tablewrap"><table><thead><tr><th>Lot (RCN)</th><th>KOR</th><th>BIN actuelle</th><th>Stock lot</th><th>Statut</th><th>Destinations</th></tr></thead><tbody>' +
+        lots.map(function (l) { var kids = (l.children || []).map(function (c) { return c.type + ":" + c.ref; }).join(", "); return '<tr><td class="mono">' + esc(l.id) + '</td><td class="mono">' + (l.korDisplay != null ? l.korDisplay.toFixed(2) : "—") + '</td><td class="mono">' + esc(l.binId || "—") + '</td><td class="mono">' + R.round2(l.stock) + ' kg</td><td>' + badgeEtat(l.etat) + '</td><td style="font-size:11px;color:var(--n500)">' + esc(kids || "—") + '</td></tr>'; }).join("") + '</tbody></table></div>' : '<div class="empty">Aucun lot pour ce fournisseur.</div>';
+    } else if (tab === "sacs") {
+      var moves = R.juteMovementsFor(key);
+      var tl = moves.length ? '<ul class="timeline">' + moves.map(function (m) { var t = (R.TYPES_JUTE.concat(R.DISPOSITIONS_JUTE)).filter(function (x) { return x.code === m.type; })[0] || {}; return '<li><span class="tl-t">' + R.fmtDateTime(m.at).split(" · ")[0] + '</span><span class="tl-b"><b>' + esc(t.label || m.type) + ' · ' + m.qty + ' sacs</b><span>' + esc(m.ledger || "") + (m.ref ? " · réf. " + esc(m.ref) : "") + " · " + esc(m.auteur || "") + '</span></span></li>'; }).join("") + '</ul>' : '<div class="empty">Aucun mouvement.</div>';
+      body = '<div class="metrics">' +
+        '<div class="metric"><small>Dotation</small><b>' + b.dotation + '</b></div>' +
+        '<div class="metric"><small>Retours physiques</small><b>' + b.retour + '</b></div>' +
+        '<div class="metric"><small>Pertes approuvées</small><b>' + b.perte_approuvee + '</b></div>' +
+        '<div class="metric big"><small>Solde (dette)</small><b>' + b.solde + '</b><span>sacs chez le fournisseur</span></div>' +
+      '</div><div class="card"><h2>Mouvements de dette</h2><div class="cbody">' + tl + '</div></div>';
+    } else {
+      body = '<div class="rule"><b>Module Procurement (ultérieur).</b> Cet onglet regroupera : limites de financement, avances, volume livré et valeur livrée, pour répondre à « que nous doit-il encore ? ».</div>' +
+        '<div class="metrics" style="margin-top:14px"><div class="metric big"><small>Volume livré</small><b>' + R.round2(volLivre) + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Valeur livrée</small><b>—</b><span>prix à intégrer</span></div>' +
+        '<div class="metric"><small>Avances</small><b>—</b></div></div>';
+    }
+    return '<div class="pagehead"><h1>' + esc(nom) + '</h1><p>Compte fournisseur · ' + esc(lba || "—") + '</p></div>' + tabbar + body +
+      '<div class="actions" style="margin-top:18px"><button class="btn ghost" onclick="__rcngo(\'sacs\')">← Tous les fournisseurs</button></div>';
   }
 
   /* ---- TRANSFERT (slide 10) --------------------------------------- */
@@ -917,9 +957,13 @@
   UI.juteMove = function () {
     try {
       var s = R.juteSuppliers()[Number(val("j_sup")) || 0] || {};
-      R.juteMovement({ supplierNom: s.nom, supplierLba: s.lba, type: val("j_type"), qty: val("j_qty"), ref: val("j_ref"), note: val("j_note") });
+      R.juteMovement({ supplierNom: s.nom, supplierLba: s.lba, type: val("j_type"), qty: val("j_qty"), ref: val("j_ref") });
       toast("Mouvement enregistré."); route();
     } catch (e) { toast(e.message, true); }
+  };
+  UI.juteDispose = function () {
+    try { R.juteMovement({ type: val("jd_type"), qty: val("jd_qty"), ref: val("jd_ref") }); toast("Sacs classés (stock interne)."); route(); }
+    catch (e) { toast(e.message, true); }
   };
   UI.closeBin = function (cycleId) {
     var residu = prompt("Résidu pesé restant (kg) — laisser vide si stock nul :", "");

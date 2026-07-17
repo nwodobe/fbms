@@ -52,13 +52,23 @@
     { code: "recond", label: "Sacs reconditionnés" }
   ];
 
-  // Types de mouvement de sacs de jute (module Sacs jute).
-  // Le solde d'un fournisseur = dotation − (retour + déchiré + rebaging).
+  // Sacs de jute — DEUX registres distincts (évite le double comptage) :
+  // A) Dette fournisseur : solde = dotation − retours physiques − pertes approuvées.
+  //    (« retour » = TOUS les sacs physiquement rendus, quelle que soit leur condition.)
   var TYPES_JUTE = [
-    { code: "dotation", label: "Dotation (sacs remis au fournisseur)", signe: +1 },
-    { code: "retour", label: "Retour après livraison", signe: -1 },
-    { code: "dechire", label: "Sacs déchirés", signe: -1 },
-    { code: "rebaging", label: "Rebaging (reconditionnement)", signe: -1 }
+    { code: "dotation", label: "Dotation (sacs remis au fournisseur)", signe: +1, ledger: "fournisseur" },
+    { code: "retour", label: "Retour physique (tous sacs rendus)", signe: -1, ledger: "fournisseur" },
+    { code: "perte_approuvee", label: "Perte approuvée", signe: -1, ledger: "fournisseur" }
+  ];
+  // B) Disposition INTERNE des sacs retournés (n'affecte PAS la dette fournisseur).
+  //    Le rebagging est une consommation interne, pas une réduction de dette.
+  var DISPOSITIONS_JUTE = [
+    { code: "utilisable", label: "Utilisables", ledger: "interne" },
+    { code: "a_reparer", label: "À réparer", ledger: "interne" },
+    { code: "repare", label: "Réparés", ledger: "interne" },
+    { code: "rebaging", label: "Rebagging (consommation interne)", ledger: "interne" },
+    { code: "reforme", label: "Réformés", ledger: "interne" },
+    { code: "dechire", label: "Déchirés", ledger: "interne" }
   ];
 
   // Référentiels RÉELS extraits des rapports d'exploitation 2026 (configurables).
@@ -860,35 +870,49 @@
   /*  sa traçabilité et sa balance.                                      */
   /* ------------------------------------------------------------------ */
   function jute() { return loadDb().jute || (loadDb().jute = []); }
-  function juteSigne(code) { var t = TYPES_JUTE.filter(function (x) { return x.code === code; })[0]; return t ? t.signe : 0; }
+  function juteType(code) { return TYPES_JUTE.filter(function (x) { return x.code === code; })[0] || DISPOSITIONS_JUTE.filter(function (x) { return x.code === code; })[0] || null; }
 
-  // Enregistre un mouvement de sacs de jute.
+  // Enregistre un mouvement de sacs. Le registre (fournisseur / interne) est
+  // déterminé par le type. Un mouvement de disposition interne (déchiré,
+  // rebagging…) n'affecte JAMAIS la dette du fournisseur.
   function juteMovement(d) {
     var qty = num(d.qty); if (qty === null || qty <= 0) throw new Error("Nombre de sacs invalide.");
-    if (!d.supplierNom && !d.supplierLba) throw new Error("Fournisseur requis.");
-    if (juteSigne(d.type) === 0) throw new Error("Type de mouvement inconnu.");
+    var t = juteType(d.type); if (!t) throw new Error("Type de mouvement inconnu.");
+    if (t.ledger === "fournisseur" && !d.supplierNom && !d.supplierLba) throw new Error("Fournisseur requis pour un mouvement de dette.");
     var mv = {
-      id: genId("JUT"), type: d.type,
+      id: genId("JUT"), type: d.type, ledger: t.ledger,
       supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "",
       qty: qty, ref: d.ref || "", note: d.note || "",
       at: nowISO(), auteur: (loadDb().user || {}).nom
     };
     jute().unshift(mv);
-    audit(mv.id, "sacs jute", null, d.type + " · " + qty + " · " + (d.supplierNom || d.supplierLba), d.ref || "");
+    audit(mv.id, "sacs jute", null, t.ledger + " · " + d.type + " · " + qty + " · " + (d.supplierNom || d.supplierLba || "interne"), d.ref || "");
     saveDb();
     return mv;
   }
 
-  // Balance d'un fournisseur (par code LBA de préférence, sinon nom).
+  // Balance = DETTE du fournisseur : dotation − retours physiques − pertes approuvées.
   function juteBalance(key) {
-    var b = { dotation: 0, retour: 0, dechire: 0, rebaging: 0 };
+    var b = { dotation: 0, retour: 0, perte_approuvee: 0 };
     jute().forEach(function (m) {
-      if (m.supplierLba === key || m.supplierNom === key) b[m.type] = (b[m.type] || 0) + m.qty;
+      if (m.ledger === "fournisseur" && (m.supplierLba === key || m.supplierNom === key)) b[m.type] = (b[m.type] || 0) + m.qty;
     });
-    b.solde = b.dotation - b.retour - b.dechire - b.rebaging;   // sacs encore chez le fournisseur
+    b.solde = b.dotation - b.retour - b.perte_approuvee;   // sacs encore chez le fournisseur
     return b;
   }
   function juteMovementsFor(key) { return jute().filter(function (m) { return m.supplierLba === key || m.supplierNom === key; }); }
+
+  // Stock INTERNE des sacs retournés : disposition par catégorie + « à classer ».
+  function juteInternalStock() {
+    var s = { utilisable: 0, a_reparer: 0, repare: 0, rebaging: 0, reforme: 0, dechire: 0, retourTotal: 0 };
+    jute().forEach(function (m) {
+      if (m.ledger === "interne") s[m.type] = (s[m.type] || 0) + m.qty;
+      if (m.type === "retour") s.retourTotal += m.qty;
+    });
+    var classes = s.utilisable + s.a_reparer + s.repare + s.rebaging + s.reforme + s.dechire;
+    s.aClasser = s.retourTotal - classes;   // sacs retournés pas encore classés
+    return s;
+  }
 
   // Liste des fournisseurs avec leur balance de sacs (référentiel + observés).
   function juteSuppliers() {
@@ -994,15 +1018,21 @@
     qaApproveTransfer(trf2.id, true, "Contrôle OK");
     shipTransfer(trf2.id);
 
-    // Sacs de jute : dotations, retours, déchirés, rebaging par fournisseur.
+    // Sacs de jute — dette fournisseur (dotation/retour/perte) + disposition interne.
+    // IMANE : 500 remis, 485 rendus (dont 15 déchirés) → solde 15. Interne : 470 utilisables, 15 déchirés.
     juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "dotation", qty: 500, ref: "DOT-001" });
-    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "retour", qty: 470, ref: "RET-001" });
-    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "dechire", qty: 15, ref: "" });
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "retour", qty: 485, ref: "RET-001" });
+    juteMovement({ type: "utilisable", qty: 470, ref: "RET-001" });
+    juteMovement({ type: "dechire", qty: 15, ref: "RET-001" });
+    // CASP-S : 300 remis, 280 rendus → solde 20. Interne : 260 utilisables, 20 rebagging (consommation interne).
     juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "dotation", qty: 300, ref: "DOT-002" });
-    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "retour", qty: 260, ref: "RET-002" });
-    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "rebaging", qty: 20, ref: "" });
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "retour", qty: 280, ref: "RET-002" });
+    juteMovement({ type: "utilisable", qty: 260, ref: "RET-002" });
+    juteMovement({ type: "rebaging", qty: 20, ref: "RET-002" });
+    // HERE B : 400 remis, 120 rendus → solde 280.
     juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "dotation", qty: 400, ref: "DOT-003" });
     juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "retour", qty: 120, ref: "RET-003" });
+    juteMovement({ type: "utilisable", qty: 120, ref: "RET-003" });
 
     // BIN planifiées.
     openBinCycle("BKE-002-BIN-019", "RCN standard", 10000);
@@ -1017,7 +1047,7 @@
   global.RCN = {
     // constantes
     KOR_FACTOR: KOR_FACTOR, KOR_FORMULA: KOR_FORMULA, KOR_TOLERANCE: KOR_TOLERANCE,
-    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC, TYPES_JUTE: TYPES_JUTE,
+    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC, TYPES_JUTE: TYPES_JUTE, DISPOSITIONS_JUTE: DISPOSITIONS_JUTE,
     ETAT_REC: ETAT_REC, ETAT_BIN: ETAT_BIN, ETAT_TRF: ETAT_TRF, ETAT_CAL: ETAT_CAL,
     // magasin
     db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo,
@@ -1040,7 +1070,7 @@
     // calibrage
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
     // sacs jute
-    jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers,
+    jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
     // dashboard / audit
     dashboard: dashboard, audit: audit
   };
