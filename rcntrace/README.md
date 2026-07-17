@@ -33,6 +33,33 @@ Pour l'analytique :
   rendement par calibre, pertes & résidus, bilan matière par opération. Elles
   s'ouvrent dans n'importe quel outil BI (Supabase, Metabase, export Excel/PDF).
 
+## v2 — enrichissements terrain (rapports Bouaké / Yakro 2026)
+
+Aligné sur les vrais classeurs d'exploitation :
+
+- **Référentiels réels** : coopératives + codes LBA, origines (Dianra, Mankono…),
+  entrepôts, format BIN `<entrepôt>-BIN-nn` (ex. `BKE-002-BIN-017`).
+- **Déchargement enrichi** : reçu magasin (W/H), n° fiche CCA, BIN de
+  déchargement, catégories de sacs (bon / humide / déchiré / reconditionné).
+- **BIN = contenant vivant** : composition par contributeur avec fournisseur,
+  KOR et sacs.
+- **Module Séchage / triage** : avant/après (humidité, NC, KOR, sacs), BIN
+  « after drying », perte = envoyé − récupéré (généalogie préservée).
+- **Transfert** : transporteur / voyage / chauffeur, qualité au départ et à
+  l'arrivée, perte de transit %.
+- **Chaîne multi-entrepôts** : Yakro n'est pas le calibrage mais un **second
+  entrepôt** qui refait le cycle réception → lot → BIN → séchage. Un transfert a
+  une destination typée — **entrepôt** (Bouaké → Yakro) ou **calibrage**
+  (Yakro → usine). Réceptionner un transfert entrepôt→entrepôt crée un **nouveau
+  lot** au site d'arrivée, rangé en BIN, avec **généalogie** vers les lots
+  d'origine. Les **livraisons directes** de fournisseurs à Yakro sont possibles
+  (réception complète sampling + GM). Le calibrage ne consomme que les
+  transferts qui lui sont destinés.
+
+> À valider avec le magasin avant implémentation : la définition exacte des
+> poids (réfaction, GRN, payé) et la règle physique de sortie d'une BIN
+> mélangée. Non codés tant que non confirmés.
+
 ## Prototype V1
 
 Conforme au cahier des charges : saisie manuelle, fonctionnement hors connexion

@@ -15,7 +15,7 @@
     fr: {
       "brand.sub": "Traçabilité matière", "nav.portal": "Portail ANAGROCI",
       "nav.accueil": "Accueil", "nav.reception": "Réception", "nav.qualite": "Qualité",
-      "nav.stock": "Stock & BIN", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.sacs": "Sacs jute", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
       "nav.rapports": "Rapports", "nav.audit": "Audit",
       "net.on": "En ligne", "net.off": "Hors connexion",
       "save": "Enregistrer", "send": "Envoyer", "cancel": "Annuler", "back": "Retour",
@@ -23,7 +23,7 @@
     en: {
       "brand.sub": "Material traceability", "nav.portal": "ANAGROCI Portal",
       "nav.accueil": "Home", "nav.reception": "Reception", "nav.qualite": "Quality",
-      "nav.stock": "Stock & BIN", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
+      "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.sacs": "Jute bags", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
       "nav.rapports": "Reports", "nav.audit": "Audit",
       "net.on": "Online", "net.off": "Offline",
       "save": "Save", "send": "Send", "cancel": "Cancel", "back": "Back",
@@ -33,8 +33,8 @@
 
   var NAV = [
     { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
-    { id: "stock", ni: "04" }, { id: "transfert", ni: "05" }, { id: "calibrage", ni: "06" },
-    { id: "rapports", ni: "07" }, { id: "audit", ni: "08" }
+    { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "sacs", ni: "06" }, { id: "transfert", ni: "07" }, { id: "calibrage", ni: "08" },
+    { id: "rapports", ni: "09" }, { id: "audit", ni: "10" }
   ];
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -85,6 +85,8 @@
     reception: ["Réception", "Module 1 · Dossiers camion & sampling"],
     qualite: ["Qualité", "Module 1 · Sampling, décision GM & libération"],
     stock: ["Stock & BIN", "Module 1 · Cycles, compositions & mouvements"],
+    sechage: ["Séchage / triage", "Module 1 · Avant/après, BIN après séchage & perte"],
+    sacs: ["Sacs de jute", "Dotation, retours, déchirés, rebaging & balance par fournisseur"],
     transfert: ["Transfert", "Passage entre modules · contributeurs & triple validation"],
     calibrage: ["Calibrage", "Module 2 · CAL, sorties, arrêts & bilan matière"],
     rapports: ["Rapports", "Indicateurs & cartographie du business"],
@@ -107,7 +109,7 @@
   // Eyebrow éditorial (contexte de section) injecté au-dessus du titre de page.
   var EYEBROW = {
     accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
-    stock: "Module 1 · Stock & BIN", transfert: "Passage entre modules",
+    stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
     calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
@@ -170,7 +172,9 @@
       if (r.etat === R.ETAT_REC.AUTORISEE) out.push({ ref: r.id, etape: "Déchargement", resp: "Entrepôt", statut: "À FAIRE", cls: "b-warn", hash: "reception/" + r.id });
     });
     R.transfers().forEach(function (tr) {
-      if (tr.etat === R.ETAT_TRF.EXPEDIE || tr.etat === R.ETAT_TRF.CONTROLE) out.push({ ref: tr.id, etape: "Réception", resp: "Calibrage", statut: "ARRIVÉ", cls: "b-info", hash: "calibrage" });
+      var toWh = tr.destinationType === "warehouse";
+      if (tr.etat === R.ETAT_TRF.EXPEDIE || tr.etat === R.ETAT_TRF.CONTROLE)
+        out.push({ ref: tr.id, etape: toWh ? "Réception entrepôt" : "Réception", resp: toWh ? (tr.destinationSite || "Entrepôt").split(" ")[0] : "Calibrage", statut: "ARRIVÉ", cls: "b-info", hash: toWh ? "transfert/" + tr.id : "calibrage" });
       if (tr.etat === R.ETAT_TRF.ECART) out.push({ ref: tr.id, etape: "Écart transfert", resp: "QA / Entrepôt", statut: "EN ÉCART", cls: "b-danger", hash: "transfert/" + tr.id });
     });
     R.cals().forEach(function (c) {
@@ -210,8 +214,9 @@
         '<label>Numéro temporaire</label><input readonly value="Généré à l\'enregistrement (REC-' + R.today() + '-…)">' +
         '<div class="row"><div><label>Immatriculation camion</label><input id="f_camion" placeholder="AA-0000-CI"></div>' +
         '<div><label>Date & heure d\'arrivée</label><input id="f_arrivee" type="datetime-local" value="' + nowLocal() + '"></div></div>' +
-        '<label>Fournisseur</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join("") + '</select>' +
-        '<label>Provenance / origine</label><input id="f_origine" placeholder="Localité d\'origine">' +
+        '<div class="row"><div><label>Entrepôt (localité)</label><select id="f_site">' + refs.entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; }).map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select></div>' +
+        '<div><label>Provenance / origine</label><select id="f_origine">' + refs.origines.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select></div></div>' +
+        '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
         '<div class="row3"><div><label>Poids annoncé (kg)</label><input id="f_poids" type="number" inputmode="decimal" placeholder="—"></div>' +
         '<div><label>Sacs annoncés</label><input id="f_sacs" type="number" placeholder="—"></div>' +
         '<div><label>Réf. document fournisseur</label><input id="f_ref" placeholder="BL-…"></div></div>' +
@@ -351,14 +356,18 @@
     var rec = R.getRec(id); if (!rec) return notFound(id);
     return '<div class="pagehead"><h1>Déchargement & pesée</h1><p>' + esc(rec.id) + ' · le poids net physique alimente le stock ; le poids main-d\'œuvre reste séparé.</p></div>' +
       stepper(STEPS, 3) +
-      '<div class="grid2"><div class="card"><h2>Pesée</h2><div class="cbody">' +
+      '<div class="grid2"><div class="card"><h2>Pesée & documents</h2><div class="cbody">' +
+        '<div class="row3">' + inp("d_wh", "Reçu magasin (W/H)", "", "text") + inp("d_fiche", "N° fiche CCA", "", "text") + inp("d_bin", "BIN de déchargement", "", "text") + '</div>' +
         '<div class="row">' + inp("d_bord", "Bordereau", "", "text") + inp("d_ticket", "Ticket de pesée", "", "text") + '</div>' +
-        '<div class="row3">' + inp("d_sacs", "Sacs", "", "number") + inp("d_brut", "Poids brut (kg)", "", "number") + inp("d_tare", "Tare (kg)", "", "number") + '</div>' +
-        '<div class="row">' + inp("d_net", "Poids net (kg) — auto si vide", "", "number") + inp("d_mo", "Poids main-d\'œuvre (kg)", "", "number") + '</div>' +
-        '<div class="row">' + inp("d_prest", "Prestataire", "", "text") + inp("d_dest", "Destination", "", "text") + '</div>' +
+        '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Sacs par catégorie</b>' +
+        '<div class="row" style="margin-top:8px">' + inp("d_sacsBon", "Bons sacs", "", "number") + inp("d_sacsHum", "Sacs humides", "", "number") + '</div>' +
+        '<div class="row">' + inp("d_sacsDech", "Sacs déchirés", "", "number") + inp("d_sacsRec", "Sacs reconditionnés", "", "number") + '</div>' +
+        '<hr style="border:0;border-top:1px solid var(--n200);margin:14px 0"><b style="font-family:var(--fd);color:var(--forest)">Poids</b>' +
+        '<div class="row3" style="margin-top:8px">' + inp("d_brut", "Poids brut (kg)", "", "number") + inp("d_tare", "Tare (kg)", "", "number") + inp("d_net", "Net (kg) — auto si vide", "", "number") + '</div>' +
+        '<div class="row">' + inp("d_mo", "Poids main-d\'œuvre (kg)", "", "number") + inp("d_prest", "Prestataire / transporteur", "", "text") + '</div>' +
         '<div class="actions"><button class="btn" onclick="RCNUI.saveDechargement(\'' + id + '\')">Enregistrer le déchargement</button></div>' +
       '</div></div>' +
-      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock. Le poids de main-d\'œuvre est conservé séparément et ne modifie jamais le stock physique.</div>' +
+      '<div class="rule"><b>Règle métier.</b> Le poids net physique commande le stock ; le poids main-d\'œuvre reste séparé. <b>À valider avec le magasin :</b> réfaction, poids GRN et poids payé (non implémentés tant que leur définition n\'est pas confirmée).</div>' +
       '</div>';
   }
 
@@ -420,9 +429,10 @@
   PAGES.stock = function (r) {
     if (r.id) return binDetail(r.id);
     var cycles = R.binCycles();
-    var body = cycles.length ? '<div class="tablewrap"><table><thead><tr><th>Cycle BIN</th><th>BIN</th><th>Stock physique</th><th>Contributeurs</th><th>Statut</th><th></th></tr></thead><tbody>' +
+    var body = cycles.length ? '<div class="tablewrap"><table><thead><tr><th>Cycle BIN</th><th>BIN</th><th>Stock physique</th><th>Durée</th><th>Perte</th><th>Contributeurs</th><th>Statut</th><th></th></tr></thead><tbody>' +
       cycles.map(function (c) {
-        return '<tr><td class="mono">' + esc(c.id) + '</td><td class="mono">' + esc(c.binId) + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td>' + c.contributors.length + '</td><td>' + badgeEtat(c.etat) + '</td>' +
+        var h = R.binDurationH(c, Date.now()); var dur = h == null ? "—" : (h >= 48 ? Math.round(h / 24) + " j" : h + " h");
+        return '<tr><td class="mono">' + esc(c.id) + '</td><td class="mono">' + esc(c.binId) + '</td><td class="mono">' + R.kg(R.binStock(c)) + '</td><td>' + dur + '</td><td class="mono">' + (c.perteKg != null ? R.kg(c.perteKg) : "—") + '</td><td>' + c.contributors.length + '</td><td>' + badgeEtat(c.etat) + '</td>' +
           '<td><button class="btn ghost sm" onclick="__rcngo(\'stock/' + encodeURIComponent(c.id) + '\')">Ouvrir</button></td></tr>';
       }).join("") + '</tbody></table></div>' : '<div class="empty">Aucun cycle de BIN ouvert.</div>';
     return '<div class="pagehead"><h1>Stock & BIN collectives</h1><p>La BIN est un contenant, pas un nouveau lot. Après mélange, on suit les quantités et les contributeurs, pas chaque noix.</p></div>' +
@@ -435,19 +445,27 @@
     var rows = cyc.contributors.map(function (c) {
       var dispo = R.round2(c.entree - c.sorti);
       var part = stock ? R.round2(dispo / stock * 100) : 0;
-      var lot = R.getLot(c.lotId);
-      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
+      var lot = R.getLot(c.lotId); var q = R.lotQuality(c.lotId);
+      return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + esc(q.fournisseur || "—") + '</td><td class="mono">' + R.kg(c.entree) + '</td><td>' + bar(part) + '</td><td class="mono">' + R.kg(dispo) + '</td><td class="mono">' + (q.kor != null ? q.kor.toFixed(2) : "—") + '</td><td class="mono">' + (q.sacs == null ? "—" : q.sacs) + '</td><td>' + badgeEtat((lot || {}).etat || c.qualite) + '</td></tr>';
     }).join("");
     var libLots = R.lots().filter(function (l) { return l.etat === R.ETAT_REC.LIBERE && l.stock > 0; });
+    var totals = R.binTotals(cyc);
+    var dureeH = R.binDurationH(cyc, Date.now());
+    var duree = dureeH == null ? "—" : (dureeH >= 48 ? Math.round(dureeH / 24) + " j" : dureeH + " h");
+    var closed = cyc.etat === R.ETAT_BIN.CLOS;
+    var closeBox = closed
+      ? '<div class="okbox">Cycle clos le ' + R.fmtDateTime(cyc.closedAt) + ' · résidu ' + R.kg(cyc.residuKg) + ' · <b>perte ' + R.kg(cyc.perteKg) + (cyc.pertePct != null ? " (" + cyc.pertePct + " %)" : "") + '</b> · par ' + esc(cyc.confirmeur || "—") + '</div>'
+      : '<div class="actions" style="margin:0 0 16px"><button class="btn ghost" onclick="RCNUI.closeBin(\'' + encodeURIComponent(cyc.id) + '\')">Clôturer la BIN (résidu + perte)</button></div>';
     return '<div class="pagehead"><h1>' + esc(cyc.binId) + ' · ' + esc(cyc.id) + ' ' + badgeEtat(cyc.etat) + '</h1><p>Composition théorique du cycle — après mélange, les pourcentages suivent le bilan matière.</p></div>' +
+      closeBox +
       '<div class="metrics">' +
         '<div class="metric big"><small>Stock physique</small><b>' + R.round2(stock) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Lots contributeurs</small><b>' + pad2(cyc.contributors.length) + '</b></div>' +
-        '<div class="metric"><small>Qualité autorisée</small><b style="font-size:15px">' + esc(cyc.qualiteAutorisee || "À valider") + '</b></div>' +
-        '<div class="metric"><small>Capacité</small><b>' + (cyc.capaciteKg ? R.round2(cyc.capaciteKg) : "—") + '</b><span>kg</span></div>' +
+        '<div class="metric"><small>Entré / Sorti</small><b style="font-size:17px">' + totals.entree + ' / ' + totals.sorti + '</b><span>kg cumulés</span></div>' +
+        '<div class="metric"><small>Durée du cycle</small><b>' + duree + '</b><span>' + (closed ? "clos" : "ouvert") + '</span></div>' +
+        '<div class="metric"><small>Contributeurs</small><b>' + pad2(cyc.contributors.length) + '</b><span>' + esc(cyc.qualiteAutorisee || "à valider") + '</span></div>' +
       '</div>' +
       '<div class="card" style="margin-bottom:16px"><h2>Composition théorique du cycle</h2><div class="cbody" style="padding:0">' +
-        (rows ? '<table><thead><tr><th>Lot officiel</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="empty">BIN vide.</div>') +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Lot officiel</th><th>Fournisseur</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>KOR</th><th>Sacs</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">BIN vide.</div>') +
       '</div></div>' +
       '<div class="grid2"><div class="card"><h2>Ajouter une entrée</h2><div class="cbody">' +
         '<label>Lot libéré</label><select id="bin_lot">' + (libLots.length ? libLots.map(function (l) { return '<option value="' + esc(l.id) + '">' + esc(l.id) + ' · dispo ' + R.round2(l.stock) + ' kg</option>'; }).join("") : '<option value="">Aucun lot libéré disponible</option>') + '</select>' +
@@ -456,9 +474,94 @@
       '</div></div>' +
       '<div class="card"><h2>Créer une sortie / transfert</h2><div class="cbody">' +
         '<p style="margin:0 0 10px;color:var(--n500);font-size:13px">Répartition proportionnelle entre contributeurs (R-03).</p>' +
+        '<label>Destination</label><select id="bin_dest">' +
+          (R.calibrageAutorise(cyc.binId) ? '<option value="cal">Calibrage · Usine</option>' : "") +
+          R.referentials().entrepots.filter(function (e) { return e.code !== "ANAGROCI-01" && e.code !== R.warehouseOf(cyc.binId); }).map(function (e) { return '<option value="wh:' + esc(e.code + " · " + e.nom) + '">Entrepôt ' + esc(e.nom) + ' (' + esc(e.code) + ')</option>'; }).join("") + '</select>' +
+          (R.calibrageAutorise(cyc.binId) ? "" : '<div class="hint">Les entrepôts de ' + esc(R.locationOfBin(cyc.binId) || "cette localité") + ' ne calibrent pas : transfert vers un entrepôt uniquement.</div>') +
         '<label>Quantité à sortir (kg)</label><input id="bin_out" type="number" placeholder="—">' +
         '<div class="actions"><button class="btn" onclick="RCNUI.prepareTransfer(\'' + encodeURIComponent(cyc.id) + '\')" ' + (stock > 0 ? "" : "disabled") + '>Préparer le transfert →</button></div>' +
       '</div></div></div>';
+  }
+
+  /* ---- SÉCHAGE / TRIAGE (§7.5) ------------------------------------ */
+  PAGES.sechage = function () {
+    var ops = R.dryings();
+    var cycles = R.binCycles().filter(function (c) { return c.etat !== R.ETAT_BIN.CLOS && R.binStock(c) > 0; });
+    var rows = ops.length ? ops.map(function (d) {
+      return '<tr><td class="mono">' + esc(d.id) + '</td><td>' + esc(d.type) + '</td><td class="mono">' + esc(d.sourceBinId) + ' → ' + esc(d.targetBinId) + '</td>' +
+        '<td class="mono">' + R.kg(d.inputKg) + '</td><td class="mono">' + R.kg(d.outputKg) + '</td>' +
+        '<td class="mono">' + R.kg(d.lossKg) + ' <span style="color:var(--n500)">(' + d.lossPct + ' %)</span></td>' +
+        '<td>' + (d.inputMoisture != null ? d.inputMoisture + '→' + (d.outputMoisture != null ? d.outputMoisture : "—") + ' %' : "—") + '</td>' +
+        '<td>' + R.fmtDateTime(d.at) + '</td></tr>';
+    }).join("") : '';
+    return '<div class="pagehead"><h1>Une BIN est un contenant vivant : séchage & triage</h1><p>Entre le stockage et le transfert, la matière peut être séchée ou triée. On compare avant/après (humidité, NC, KOR, sacs) et on calcule la perte.</p></div>' +
+      '<div class="grid2 rev"><div><div class="card"><h2>Nouvelle opération de séchage / triage</h2><div class="cbody">' +
+        '<label>Type d\'opération</label><select id="dry_type"><option value="sechage">Séchage</option><option value="triage">Triage</option></select>' +
+        '<label>BIN source</label><select id="dry_src">' + (cycles.length ? cycles.map(function (c) { return '<option value="' + encodeURIComponent(c.id) + '">' + esc(c.binId) + ' · dispo ' + R.round2(R.binStock(c)) + ' kg</option>'; }).join("") : '<option value="">Aucune BIN avec stock</option>') + '</select>' +
+        '<label>BIN après séchage (destination)</label><input id="dry_target" placeholder="ex. BKE-002-BIN-003-DRIED">' +
+        '<div class="row"><div><b style="font-family:var(--fd);color:var(--forest);font-size:13px">ENTRÉE</b>' + inp("dry_inKg", "Poids envoyé (kg)", "", "number") + inp("dry_inSacs", "Sacs envoyés", "", "number") + inp("dry_inMois", "Humidité entrée (%)", "", "number") + inp("dry_inNc", "Nut Count entrée", "", "number") + inp("dry_inKor", "KOR entrée", "", "number") + '</div>' +
+        '<div><b style="font-family:var(--fd);color:var(--forest);font-size:13px">SORTIE</b>' + inp("dry_outKg", "Poids récupéré (kg)", "", "number") + inp("dry_outSacs", "Sacs récupérés", "", "number") + inp("dry_outMois", "Humidité sortie (%)", "", "number") + inp("dry_outNc", "Nut Count sortie", "", "number") + inp("dry_outKor", "KOR sortie", "", "number") + '</div></div>' +
+        '<div class="balance" id="dryLoss">Perte = envoyé − récupéré</div>' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.createDrying()" ' + (cycles.length ? "" : "disabled") + '>Enregistrer l\'opération</button></div>' +
+      '</div></div>' +
+      '<div class="rule"><b>Règle métier.</b> Perte = poids envoyé − poids récupéré (jamais négative). La matière séchée passe dans une nouvelle BIN « after drying » en conservant ses contributeurs (généalogie préservée).</div></div>' +
+      '<div class="card"><h2>Opérations enregistrées <span class="badge b-neutral">' + ops.length + '</span></h2><div class="cbody" style="padding:0">' +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>SEC</th><th>Type</th><th>BIN</th><th>Envoyé</th><th>Récupéré</th><th>Perte</th><th>Humidité</th><th>Le</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucune opération de séchage.</div>') +
+      '</div></div></div>';
+  };
+
+  /* ---- SACS DE JUTE ----------------------------------------------- */
+  PAGES.sacs = function (r) {
+    if (r.id) return sacsSupplier(decodeURIComponent(r.id));
+    var suppliers = R.juteSuppliers();
+    var totDot = 0, totSolde = 0;
+    var rows = suppliers.map(function (s) {
+      var b = s.balance; var key = s.lba || s.nom; totDot += b.dotation; totSolde += b.solde;
+      return '<tr><td><a href="#sacs/' + encodeURIComponent(key) + '" style="font-weight:600">' + esc(s.nom) + '</a><br><span style="font-family:var(--fm);font-size:11px;color:var(--n500)">' + esc(s.lba || "") + '</span></td>' +
+        '<td class="mono">' + b.dotation + '</td><td class="mono">' + b.retour + '</td><td class="mono">' + b.dechire + '</td><td class="mono">' + b.rebaging + '</td>' +
+        '<td class="mono"><b>' + b.solde + '</b></td>' +
+        '<td><button class="btn ghost sm" onclick="__rcngo(\'sacs/' + encodeURIComponent(key) + '\')">Voir →</button></td></tr>';
+    }).join("");
+    var supOpts = suppliers.map(function (s, i) { return '<option value="' + i + '">' + esc(s.nom + " · " + (s.lba || "")) + '</option>'; }).join("");
+    var typeOpts = R.TYPES_JUTE.map(function (t) { return '<option value="' + t.code + '">' + esc(t.label) + '</option>'; }).join("");
+    return '<div class="pagehead"><h1>Gestion des sacs de jute</h1><p>Dotation aux fournisseurs, retours après livraison, sacs déchirés et rebaging. Cliquez un fournisseur pour sa traçabilité et sa balance.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Fournisseurs suivis", suppliers.length, "avec dotation ou mouvement", "") +
+        kpi("Sacs distribués", totDot, "cumul dotations", "") +
+        kpi("Solde en circulation", totSolde, "sacs chez les fournisseurs", totSolde ? "warn" : "") +
+        kpi("Mouvements", R.jute().length, "enregistrés", "") +
+      '</div>' +
+      '<div class="grid2"><div class="card"><h2>Balance par fournisseur</h2><div class="cbody" style="padding:0">' +
+        (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Fournisseur</th><th>Dotation</th><th>Retour</th><th>Déchirés</th><th>Rebaging</th><th>Solde</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">Aucun fournisseur.</div>') +
+      '</div></div>' +
+      '<div><div class="card"><h2>Enregistrer un mouvement</h2><div class="cbody">' +
+        '<label>Fournisseur</label><select id="j_sup">' + supOpts + '</select>' +
+        '<label>Type de mouvement</label><select id="j_type">' + typeOpts + '</select>' +
+        '<div class="row">' + inp("j_qty", "Nombre de sacs", "", "number") + inp("j_ref", "Référence (bordereau)", "", "text") + '</div>' +
+        '<label>Observation</label><input id="j_note" placeholder="Facultatif">' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.juteMove()">Enregistrer</button></div>' +
+      '</div></div>' +
+      '<div class="rule"><b>Règle métier.</b> Solde = dotation − (retours + déchirés + rebaging). Le solde représente les sacs encore chez le fournisseur.</div></div></div>';
+  };
+  function sacsSupplier(key) {
+    var sups = R.juteSuppliers();
+    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0] || { nom: key, lba: "", balance: R.juteBalance(key) };
+    var b = sup.balance || R.juteBalance(key);
+    var moves = R.juteMovementsFor(key);
+    var tl = moves.length ? '<ul class="timeline">' + moves.map(function (m) {
+      var t = R.TYPES_JUTE.filter(function (x) { return x.code === m.type; })[0] || {};
+      return '<li><span class="tl-t">' + R.fmtDateTime(m.at).split(" · ")[0] + '</span><span class="tl-b"><b>' + esc(t.label || m.type) + ' · ' + m.qty + ' sacs</b><span>' + (m.ref ? "réf. " + esc(m.ref) + " · " : "") + esc(m.auteur || "") + (m.note ? " · " + esc(m.note) : "") + '</span></span></li>';
+    }).join("") + '</ul>' : '<div class="empty">Aucun mouvement.</div>';
+    return '<div class="pagehead"><h1>' + esc(sup.nom) + '</h1><p>Traçabilité des sacs de jute · ' + esc(sup.lba || "") + '</p></div>' +
+      '<div class="metrics">' +
+        '<div class="metric"><small>Dotation</small><b>' + b.dotation + '</b><span>sacs remis</span></div>' +
+        '<div class="metric"><small>Retournés</small><b>' + b.retour + '</b><span>après livraison</span></div>' +
+        '<div class="metric"><small>Déchirés</small><b>' + b.dechire + '</b></div>' +
+        '<div class="metric"><small>Rebaging</small><b>' + b.rebaging + '</b></div>' +
+        '<div class="metric big ' + (b.solde ? "" : "") + '"><small>Solde (en circulation)</small><b>' + b.solde + '</b><span>sacs chez le fournisseur</span></div>' +
+      '</div>' +
+      '<div class="card"><h2>Mouvements <span class="badge b-neutral">' + moves.length + '</span></h2><div class="cbody">' + tl + '</div></div>' +
+      '<div class="actions"><button class="btn ghost" onclick="__rcngo(\'sacs\')">← Tous les fournisseurs</button></div>';
   }
 
   /* ---- TRANSFERT (slide 10) --------------------------------------- */
@@ -473,28 +576,42 @@
     return '<div class="pagehead"><h1>Transferts</h1><p>Le transfert TRF transporte la matière et sa généalogie. C\'est le contrat de passage entre les modules.</p></div>' + body;
   };
 
+  // Réception d'un transfert en ENTREPÔT : ouvre un dossier qui REPASSE par
+  // sampling + GM (le stock inter-entrepôt est re-contrôlé à l'arrivée).
+  function whReceiveForm(trf) {
+    return '<p style="color:var(--n500);font-size:13px;margin:0 0 10px">Réception à ' + esc(trf.destinationSite || "l\'entrepôt") + ' : ouvre un dossier qui repasse par sampling + décision GM, puis déchargement en BIN.</p>' +
+      '<div class="row">' + inp("wh_net", "Poids net reçu (kg)", "", "number") + inp("wh_sacs", "Sacs reçus", "", "number") + '</div>' +
+      '<div class="row3">' + inp("wh_kor", "KOR arrivée (info)", "", "number") + inp("wh_hum", "Humidité arrivée (%)", "", "number") + inp("wh_nc", "Nut Count arrivée", "", "number") + '</div>' +
+      '<div class="actions"><button class="btn" onclick="RCNUI.receiveWh(\'' + trf.id + '\')">Réceptionner → sampling à l\'arrivée</button></div>';
+  }
+
   function transfertDetail(id) {
     var trf = R.getTrf(id); if (!trf) return notFound(id);
     var v = trf.validations;
     var rows = trf.contributors.map(function (c) {
       return '<tr><td class="mono">' + esc(c.lotId) + '</td><td>' + bar(c.share) + '</td><td class="mono">' + R.kg(c.qty) + '</td><td>' + badgeEtat(c.qualite) + '</td></tr>';
     }).join("");
+    var toWh = trf.destinationType === "warehouse";
+    var step3 = toWh ? ("Réception " + (trf.destinationSite || "entrepôt").split(" ")[0]) : "Calibrage";
     var valStep = '<div class="stepper" style="margin-top:6px">' +
-      '<div class="st ' + (v.entrepot ? "done" : "cur") + '"><i>' + (v.entrepot ? "✓" : "1") + '</i>Entrepôt</div>' +
+      '<div class="st ' + (v.entrepot ? "done" : "cur") + '"><i>' + (v.entrepot ? "✓" : "1") + '</i>Départ</div>' +
       '<div class="st ' + (v.qa && v.qa.ok ? "done" : (v.entrepot ? "cur" : "")) + '"><i>' + (v.qa && v.qa.ok ? "✓" : "2") + '</i>QA / Lab</div>' +
-      '<div class="st ' + (v.calibrage ? "done" : "") + '"><i>' + (v.calibrage ? "✓" : "3") + '</i>Calibrage</div></div>';
+      '<div class="st ' + (v.calibrage ? "done" : "") + '"><i>' + (v.calibrage ? "✓" : "3") + '</i>' + esc(step3) + '</div></div>';
     var action = "";
     if (trf.etat === R.ETAT_TRF.PREPARE) action = '<button class="btn" onclick="RCNUI.qaApprove(\'' + id + '\')">Contrôle QA / Lab → approuver</button>';
-    else if (trf.etat === R.ETAT_TRF.CONTROLE) action = '<button class="btn" onclick="RCNUI.ship(\'' + id + '\')">Expédier vers le calibrage</button>';
-    else if (trf.etat === R.ETAT_TRF.ECART) action = '<div class="alert">Écart de ' + R.kg(trf.ecart) + ' à justifier.</div><label>Justification</label><input id="trf_motif" placeholder="Cause de l\'écart"><div class="actions"><button class="btn warn" onclick="RCNUI.resolveEcart(\'' + id + '\')">Valider l\'écart</button></div>';
-    else if ([R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = '<p style="color:var(--n500);font-size:13px;margin:0 0 8px">Réception côté calibrage.</p><button class="btn" onclick="__rcngo(\'calibrage\')">Aller au tableau de bord calibrage →</button>';
-    else action = '<div class="okbox">Transfert ' + esc(trf.etat) + '.</div>';
-    return '<div class="pagehead"><h1>Préparer le transfert ' + esc(trf.id) + ' ' + badgeEtat(trf.etat) + '</h1><p>CAL hérite des contributeurs de TRF ; aucune origine n\'est ressaisie.</p></div>' +
+    else if (trf.etat === R.ETAT_TRF.CONTROLE) action = '<button class="btn" onclick="RCNUI.ship(\'' + id + '\')">Expédier vers ' + (toWh ? esc(trf.destinationSite || "l\'entrepôt") : "le calibrage") + '</button>';
+    else if (trf.etat === R.ETAT_TRF.ECART && !toWh) action = '<div class="alert">Écart de ' + R.kg(trf.ecart) + ' à justifier.</div><label>Justification</label><input id="trf_motif" placeholder="Cause de l\'écart"><div class="actions"><button class="btn warn" onclick="RCNUI.resolveEcart(\'' + id + '\')">Valider l\'écart</button></div>';
+    else if (toWh && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = whReceiveForm(trf);
+    else if (!toWh && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.PARTIEL].indexOf(trf.etat) >= 0) action = '<p style="color:var(--n500);font-size:13px;margin:0 0 8px">Réception côté calibrage.</p><button class="btn" onclick="__rcngo(\'calibrage\')">Aller au tableau de bord calibrage →</button>';
+    else action = '<div class="okbox">Transfert ' + esc(trf.etat) + (toWh && trf.destinationSite ? " · reçu à " + esc(trf.destinationSite) : "") + '.</div>';
+    var logi = (trf.transporteur || trf.voyage) ? '<div style="font-size:12.5px;color:var(--n500);margin:-8px 0 16px">Transporteur <b style="color:var(--ink)">' + esc(trf.transporteur || "—") + '</b> · voyage <b style="color:var(--ink)">' + esc(trf.voyage || "—") + '</b>' + (trf.chauffeur ? ' · chauffeur ' + esc(trf.chauffeur) : "") + (trf.camion ? ' · camion ' + esc(trf.camion) : "") + '</div>' : "";
+    var destTxt = toWh ? ("Entrepôt " + esc(trf.destinationSite || "?") + " — chaque déchargement y crée un lot rangé en BIN, avec généalogie.") : "Calibrage (usine) — CAL hérite des contributeurs ; aucune origine ressaisie.";
+    return '<div class="pagehead"><h1>Transfert ' + esc(trf.id) + ' → ' + (toWh ? "entrepôt" : "calibrage") + ' ' + badgeEtat(trf.etat) + '</h1><p>' + destTxt + '</p></div>' + logi +
       '<div class="metrics">' +
         '<div class="metric"><small>BIN source</small><b style="font-size:16px">' + esc(trf.binId) + '</b><span>' + esc(trf.cycleId) + '</span></div>' +
         '<div class="metric big"><small>Quantité envoyée</small><b>' + R.round2(trf.poidsEnvoye) + '</b><span>kg</span></div>' +
         '<div class="metric"><small>Reçu</small><b>' + (trf.poidsRecu == null ? "—" : R.round2(trf.poidsRecu)) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Destination</small><b style="font-size:16px">' + esc(trf.destination) + '</b></div>' +
+        '<div class="metric"><small>Perte de transit</small><b>' + (trf.transitLossPct == null ? "—" : trf.transitLossPct + " %") + '</b><span>' + (trf.ecart == null ? "envoyé vs reçu" : R.kg(trf.ecart)) + '</span></div>' +
       '</div>' +
       '<div class="grid2"><div class="card"><h2>Contributeurs calculés automatiquement</h2><div class="cbody" style="padding:0">' +
         '<table><thead><tr><th>Lot parent</th><th>Part BIN</th><th>Attribué au TRF</th><th>Qualité</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
@@ -513,7 +630,7 @@
   };
 
   function calDashboard() {
-    var attendus = R.transfers().filter(function (t) { return [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; });
+    var attendus = R.transfers().filter(function (t) { return t.destinationType !== "warehouse" && [R.ETAT_TRF.EXPEDIE, R.ETAT_TRF.CONTROLE, R.ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; });
     var enCours = R.cals().filter(function (c) { return [R.ETAT_CAL.EN_COURS, R.ETAT_CAL.PARTIEL, R.ETAT_CAL.PAUSE, R.ETAT_CAL.PRET].indexOf(c.etat) >= 0; });
     var pauses = R.cals().filter(function (c) { return c.etat === R.ETAT_CAL.PAUSE; }).length;
     var aCloturer = R.cals().filter(function (c) { return [R.ETAT_CAL.PARTIEL, R.ETAT_CAL.RAPPROCHER, R.ETAT_CAL.VALIDER].indexOf(c.etat) >= 0; }).length;
@@ -632,26 +749,55 @@
   }
 
   /* ---- RAPPORTS (§14.1) ------------------------------------------- */
+  function whOf(binId) { var i = binId.indexOf("-BIN-"); return i > 0 ? binId.slice(0, i) : binId; }
+  function avg(arr) { arr = arr.filter(function (x) { return x != null; }); return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; }
   PAGES.rapports = function () {
     var recs = R.receptions();
-    var stockLots = R.lots().filter(function (l) { return l.stock > 0; });
-    var totalStock = R.binCycles().reduce(function (t, c) { return t + R.binStock(c); }, 0);
-    function count(pred) { return recs.filter(pred).length; }
-    var byCalibre = {};
-    R.cals().forEach(function (c) { c.outputs.forEach(function (o) { byCalibre[o.calibre] = (byCalibre[o.calibre] || 0) + (o.poids || 0); }); });
-    var calRows = Object.keys(byCalibre).length ? Object.keys(byCalibre).map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + R.kg(byCalibre[k]) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune sortie calibrée.</td></tr>';
-    return '<div class="pagehead"><h1>Rapports opérationnels</h1><p>Les indicateurs servent d\'abord à comprendre le fonctionnement, les délais, les pertes et les responsabilités.</p></div>' +
+    var ETB = R.ETAT_BIN, ETT = R.ETAT_TRF, ETR = R.ETAT_REC;
+    // Stock : total, humide (non séché), sec (BIN « after drying »), par entrepôt.
+    var stockTotal = 0, stockHumide = 0, stockSec = 0, byWh = {};
+    R.binCycles().filter(function (c) { return c.etat !== ETB.CLOS; }).forEach(function (c) {
+      var s = R.binStock(c); stockTotal += s;
+      if (/DRIED/i.test(c.binId)) stockSec += s; else stockHumide += s;
+      var wh = whOf(c.binId); byWh[wh] = byWh[wh] || { bins: 0, stock: 0 }; byWh[wh].bins++; byWh[wh].stock += s;
+    });
+    // Transit : expédié non encore reçu. Écarts : transferts en écart + lots bloqués.
+    var transfers = R.transfers();
+    var enTransit = transfers.filter(function (t) { return [ETT.EXPEDIE, ETT.PARTIEL].indexOf(t.etat) >= 0; }).reduce(function (a, t) { return a + (t.poidsEnvoye - (t.poidsRecu || 0)); }, 0);
+    var enEcart = transfers.filter(function (t) { return t.etat === ETT.ECART; });
+    var ecartKg = enEcart.reduce(function (a, t) { return a + Math.abs(t.ecart || 0); }, 0);
+    var bloques = recs.filter(function (r) { return r.etat === ETR.BLOQUE; }).length;
+    // Qualité moyenne (lots libérés) + humidité moyenne (analyses finales).
+    var korAvg = avg(R.lots().filter(function (l) { return l.etat === ETR.LIBERE; }).map(function (l) { return l.korFinal; }));
+    var moisAvg = avg(recs.map(function (r) { return (r.finale || {}).humidity; }));
+    // Sacs jute.
+    var jSup = R.juteSuppliers();
+    var jDist = jSup.reduce(function (a, s) { return a + s.balance.dotation; }, 0);
+    var jSolde = jSup.reduce(function (a, s) { return a + s.balance.solde; }, 0);
+    // Sorties par calibre.
+    var byCalibre = {}; R.cals().forEach(function (c) { c.outputs.forEach(function (o) { byCalibre[o.calibre] = (byCalibre[o.calibre] || 0) + (o.poids || 0); }); });
+    var calRows = Object.keys(byCalibre).length ? Object.keys(byCalibre).sort().map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + R.kg(byCalibre[k]) + '</td></tr>'; }).join("") : '<tr><td colspan="2" class="empty">Aucune sortie calibrée.</td></tr>';
+    var whRows = Object.keys(byWh).sort().map(function (w) { return '<tr><td class="mono">' + esc(w) + '</td><td>' + byWh[w].bins + '</td><td class="mono">' + R.kg(byWh[w].stock) + '</td></tr>'; }).join("") || '<tr><td colspan="3" class="empty">Aucun stock.</td></tr>';
+    return '<div class="pagehead"><h1>Pilotage du stock & de la qualité</h1><p>Vue globale : stock humide/sec, matière en transit, écarts non expliqués et qualité moyenne — par entrepôt.</p></div>' +
       '<div class="kpis">' +
-        kpi("Réceptions du jour", recs.filter(function (r) { return (r.id || "").indexOf("REC-" + R.today()) === 0; }).length, "Camions enregistrés", "") +
-        kpi("Lots libérés", count(function (r) { return r.etat === R.ETAT_REC.LIBERE; }), "Disponibles", "") +
-        kpi("Lots bloqués", count(function (r) { return r.etat === R.ETAT_REC.BLOQUE; }), "Qualité", count(function (r) { return r.etat === R.ETAT_REC.BLOQUE; }) ? "danger" : "") +
-        kpi("Stock BIN total", R.round2(totalStock), "kg en cycles", "") +
+        kpi("Stock total", R.round2(stockTotal), "kg en cycles ouverts", "") +
+        kpi("Stock humide", R.round2(stockHumide), "non séché", "") +
+        kpi("Stock sec", R.round2(stockSec), "après séchage", "") +
+        kpi("En transit", R.round2(enTransit), "expédié non reçu", enTransit ? "warn" : "") +
       '</div>' +
-      '<div class="grid2"><div class="card"><h2>Sorties par calibre (cumul)</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Poids</th></tr></thead><tbody>' + calRows + '</tbody></table></div></div>' +
-      '<div class="card"><h2>Rapports disponibles</h2><div class="cbody"><ul style="margin:0;padding-left:18px;line-height:2;color:var(--n700);font-size:14px">' +
-        '<li>Réceptions du jour & dossiers en attente</li><li>Lots par statut qualité</li><li>Stock par lot, BIN, cycle et âge</li>' +
-        '<li>Composition & historique des BIN</li><li>Transferts préparés, reçus, partiels ou en écart</li>' +
-        '<li>Opérations CAL en cours, à rapprocher ou clôturées</li><li>Sorties par calibre, pertes, résidus & rework</li><li>Journal des corrections & validations</li></ul></div></div></div>';
+      '<div class="kpis">' +
+        kpi("Lots bloqués", bloques, "écart KOR", bloques ? "danger" : "") +
+        kpi("Transferts en écart", enEcart.length, R.kg(ecartKg) + " à justifier", enEcart.length ? "warn" : "") +
+        kpi("KOR moyen", korAvg == null ? "—" : korAvg.toFixed(2), "lots libérés", "") +
+        kpi("Humidité moyenne", moisAvg == null ? "—" : moisAvg.toFixed(1) + " %", "analyses finales", "") +
+      '</div>' +
+      '<div class="grid2"><div class="card"><h2>Stock par entrepôt</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Entrepôt</th><th>BIN actives</th><th>Stock</th></tr></thead><tbody>' + whRows + '</tbody></table></div></div>' +
+      '<div class="card"><h2>Sorties par calibre (cumul)</h2><div class="cbody" style="padding:0"><table><thead><tr><th>Calibre</th><th>Poids</th></tr></thead><tbody>' + calRows + '</tbody></table></div></div></div>' +
+      '<div class="card" style="margin-top:18px"><h2>Sacs de jute</h2><div class="cbody"><div class="metrics" style="margin:0">' +
+        '<div class="metric"><small>Sacs distribués</small><b>' + jDist + '</b></div>' +
+        '<div class="metric"><small>Solde en circulation</small><b>' + jSolde + '</b><span>chez les fournisseurs</span></div>' +
+        '<div class="metric"><small>Fournisseurs suivis</small><b>' + jSup.length + '</b></div>' +
+      '</div></div></div>';
   };
 
   /* ---- AUDIT (slide 15) ------------------------------------------- */
@@ -694,7 +840,8 @@
 
   UI.createReception = function () {
     try {
-      var rec = R.createReception({ camion: val("f_camion"), fournisseur: val("f_fournisseur"), origine: val("f_origine"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref") });
+      var f = R.referentials().fournisseurs[Number(val("f_fournisseur")) || 0] || {};
+      var rec = R.createReception({ camion: val("f_camion"), fournisseur: f.nom || "", lba: f.lba || "", origine: val("f_origine"), site: val("f_site"), arriveeAt: new Date(val("f_arrivee") || Date.now()).toISOString(), poidsAnnonce: val("f_poids"), sacsAnnonce: val("f_sacs"), refDoc: val("f_ref") });
       toast("Réception " + rec.id + " créée.");
       go("qualite/" + rec.id + "/sampling"); route();
     } catch (e) { toast(e.message, true); }
@@ -712,8 +859,25 @@
     catch (e) { toast(e.message, true); }
   };
   UI.saveDechargement = function (id) {
-    try { R.saveDechargement(id, { bordereau: val("d_bord"), ticket: val("d_ticket"), sacs: val("d_sacs"), brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest"), destination: val("d_dest") }); toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route(); }
-    catch (e) { toast(e.message, true); }
+    try {
+      R.saveDechargement(id, {
+        whReceipt: val("d_wh"), ficheCca: val("d_fiche"), binDecharge: val("d_bin"), bordereau: val("d_bord"), ticket: val("d_ticket"),
+        sacsBon: val("d_sacsBon"), sacsHumid: val("d_sacsHum"), sacsDechire: val("d_sacsDech"), sacsRecond: val("d_sacsRec"),
+        brut: val("d_brut"), tare: val("d_tare"), net: val("d_net"), poidsMainDoeuvre: val("d_mo"), prestataire: val("d_prest")
+      });
+      toast("Déchargement enregistré."); go("qualite/" + id + "/finale"); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.createDrying = function () {
+    try {
+      var d = R.createDrying(decodeURIComponent(val("dry_src")), val("dry_target"), {
+        type: val("dry_type"), inputKg: val("dry_inKg"), outputKg: val("dry_outKg"),
+        inputSacs: val("dry_inSacs"), outputSacs: val("dry_outSacs"),
+        inputMoisture: val("dry_inMois"), outputMoisture: val("dry_outMois"),
+        inputNc: val("dry_inNc"), outputNc: val("dry_outNc"), inputKor: val("dry_inKor"), outputKor: val("dry_outKor")
+      });
+      toast(d.id + " · perte " + R.kg(d.lossKg) + " (" + d.lossPct + " %)."); route();
+    } catch (e) { toast(e.message, true); }
   };
   UI.finale = function (id, decision) {
     try {
@@ -733,7 +897,35 @@
     catch (e) { toast(e.message, true); }
   };
   UI.prepareTransfer = function (cycleId) {
-    try { var trf = R.prepareTransfer(decodeURIComponent(cycleId), val("bin_out"), "Calibrage"); toast("Transfert " + trf.id + " préparé."); go("transfert/" + trf.id); route(); }
+    try {
+      var dest = val("bin_dest") || "cal", meta, label;
+      if (dest.indexOf("wh:") === 0) { var site = dest.slice(3); meta = { destinationType: "warehouse", destinationSite: site }; label = "Entrepôt " + site; }
+      else { meta = { destinationType: "calibrage" }; label = "Calibrage · Usine"; }
+      var trf = R.prepareTransfer(decodeURIComponent(cycleId), val("bin_out"), label, meta);
+      toast("Transfert " + trf.id + " préparé."); go("transfert/" + trf.id); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.receiveWh = function (id) {
+    try {
+      var res = R.receiveTransferToWarehouse(id, {
+        net: val("wh_net"), sacs: val("wh_sacs"),
+        kor: val("wh_kor"), humidity: val("wh_hum"), nc: val("wh_nc")
+      });
+      toast("Réceptionné · dossier " + res.rec.id + " (sampling requis)."); go("qualite/" + res.rec.id + "/sampling"); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.juteMove = function () {
+    try {
+      var s = R.juteSuppliers()[Number(val("j_sup")) || 0] || {};
+      R.juteMovement({ supplierNom: s.nom, supplierLba: s.lba, type: val("j_type"), qty: val("j_qty"), ref: val("j_ref"), note: val("j_note") });
+      toast("Mouvement enregistré."); route();
+    } catch (e) { toast(e.message, true); }
+  };
+  UI.closeBin = function (cycleId) {
+    var residu = prompt("Résidu pesé restant (kg) — laisser vide si stock nul :", "");
+    if (residu === null) return;
+    var motif = prompt("Motif / observation de clôture :", "") || "";
+    try { var c = R.closeBinCycle(decodeURIComponent(cycleId), { residuKg: residu, motif: motif }); toast("BIN clôturée · perte " + R.kg(c.perteKg) + "."); route(); }
     catch (e) { toast(e.message, true); }
   };
   UI.qaApprove = function (id) { try { R.qaApproveTransfer(id, true, "Contrôle OK"); toast("QA approuvé."); route(); } catch (e) { toast(e.message, true); } };
@@ -776,6 +968,15 @@
   /* ---------------- Live KOR (sampling & finale) ------------------- */
   document.addEventListener("input", function (ev) {
     var id = ev.target.id;
+    if (id === "dry_inKg" || id === "dry_outKg") {
+      var ink = R.num(val("dry_inKg")), outk = R.num(val("dry_outKg")), box = el("dryLoss");
+      if (box) {
+        if (ink != null && outk != null) {
+          var loss = R.round2(ink - outk), pct = ink ? R.round2(loss / ink * 100) : 0;
+          box.innerHTML = R.kg(ink) + " − " + R.kg(outk) + " = <b>" + R.kg(loss) + "</b> de perte (" + pct + " %)" + (loss < 0 ? '<small style="color:var(--danger)">Perte négative interdite</small>' : "");
+        } else box.innerHTML = "Perte = envoyé − récupéré";
+      }
+    }
     if (["s_gk", "s_imm", "s_sp", "s_browns", "s_voids", "s_oil"].indexOf(id) >= 0) {
       var s = { gk: val("s_gk"), imm: val("s_imm"), spotted: val("s_sp"), browns: val("s_browns"), voids: val("s_voids"), oil: val("s_oil") };
       var kor = R.computeKor(s), td = R.totalDefect(s), tk = R.totalKernels(s);

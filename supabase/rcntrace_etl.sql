@@ -417,6 +417,45 @@ select
     - coalesce((select sum(poids_kg) from rcn_v_cal_pertes  l where l.cal_id = c.id), 0) as ecart_kg
 from rcn_v_calibrages c;
 
+-- Séchage / triage (déplié du payload meta.singleton) ----------------------
+create or replace view rcn_v_sechage as
+select d->>'id' as id, d->>'type' as type, d->>'sourceBinId' as bin_source, d->>'targetBinId' as bin_dest,
+  (d->>'inputKg')::numeric as input_kg, (d->>'outputKg')::numeric as output_kg,
+  (d->>'lossKg')::numeric as loss_kg, (d->>'lossPct')::numeric as loss_pct,
+  (d->>'inputMoisture')::numeric as input_moisture, (d->>'outputMoisture')::numeric as output_moisture,
+  (d->>'inputNc')::numeric as input_nc, (d->>'outputNc')::numeric as output_nc,
+  (d->>'inputKor')::numeric as input_kor, (d->>'outputKor')::numeric as output_kor,
+  (d->>'at')::timestamptz as created_at, d->>'auteur' as auteur
+from (select payload p from rcn_state where kind='meta') m
+cross join lateral jsonb_array_elements(coalesce(p->'dryings','[]'::jsonb)) d;
+
+-- Sacs de jute (déplié du payload meta.singleton) --------------------------
+create or replace view rcn_v_jute as
+select j->>'id' as id, j->>'type' as type, j->>'supplierNom' as supplier_nom, j->>'supplierLba' as supplier_lba,
+  (j->>'qty')::numeric as qty, j->>'ref' as ref, j->>'note' as note,
+  (j->>'at')::timestamptz as created_at, j->>'auteur' as auteur
+from (select payload p from rcn_state where kind='meta') m
+cross join lateral jsonb_array_elements(coalesce(p->'jute','[]'::jsonb)) j;
+
+-- Balance des sacs par fournisseur (solde = dotation − retours − déchirés − rebaging)
+create or replace view rcn_bi_jute_balance as
+select coalesce(nullif(supplier_lba,''), supplier_nom) as supplier_key,
+  max(supplier_nom) as fournisseur, max(supplier_lba) as lba,
+  coalesce(sum(qty) filter (where type='dotation'),0) as dotation,
+  coalesce(sum(qty) filter (where type='retour'),0)   as retour,
+  coalesce(sum(qty) filter (where type='dechire'),0)  as dechire,
+  coalesce(sum(qty) filter (where type='rebaging'),0) as rebaging,
+  coalesce(sum(qty) filter (where type='dotation'),0)
+    - coalesce(sum(qty) filter (where type in ('retour','dechire','rebaging')),0) as solde
+from rcn_v_jute group by 1;
+
+-- Rendement du séchage par BIN source (perte moyenne, cumuls) --------------
+create or replace view rcn_bi_sechage as
+select bin_source, count(*) as nb_operations,
+  sum(input_kg) as input_total_kg, sum(output_kg) as output_total_kg, sum(loss_kg) as perte_total_kg,
+  case when sum(input_kg) > 0 then round(sum(loss_kg)/sum(input_kg)*100, 2) end as perte_pct_moy
+from rcn_v_sechage group by bin_source;
+
 -- ----------------------------------------------------------------------------
 -- D. SÉCURITÉ — vues en security_invoker : la RLS de rcn_state s'applique à
 --    travers chaque vue (sinon une vue s'exécute avec les droits du
@@ -432,7 +471,8 @@ begin
     'rcn_v_transfert_contributeurs','rcn_v_calibrages','rcn_v_cal_sorties','rcn_v_cal_pertes',
     'rcn_v_cal_arrets','rcn_v_cal_alimentations','rcn_v_mouvements','rcn_v_genealogie',
     'rcn_bi_kor','rcn_bi_delais','rcn_bi_stock_bin','rcn_bi_ecart_transfert',
-    'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal'
+    'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal',
+    'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_sechage'
   ]
   loop
     execute format('alter view %I set (security_invoker = on);', v);
