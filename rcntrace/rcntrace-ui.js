@@ -132,30 +132,57 @@
   var PAGES = {};
 
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
+  // Portail : sections regroupées par domaine ; un clic ouvre la section.
+  var PORTAL_GROUPS = [
+    { titre: "Réception & Qualité", items: [
+      { id: "reception", ic: "🚚", t: "Réception", d: "Camions, sampling, décision GM" },
+      { id: "qualite", ic: "🔬", t: "Qualité", d: "Analyses, KOR, libération des lots" },
+      { id: "fournisseurs", ic: "🤝", t: "Fournisseurs", d: "Base LBA & création de fournisseurs" }
+    ] },
+    { titre: "Entrepôt & Stock", items: [
+      { id: "stock", ic: "📦", t: "Stock & BIN", d: "BIN collectives, entrepôts, clôtures" },
+      { id: "sechage", ic: "🌤️", t: "Séchage / triage", d: "Humidité, pertes de séchage" },
+      { id: "sacs", ic: "🧺", t: "Sacs de jute", d: "Dotation, retours, dette fournisseur" }
+    ] },
+    { titre: "Logistique & Usine", items: [
+      { id: "transfert", ic: "🔁", t: "Transfert", d: "Bouaké → Yamoussoukro, finance transit" },
+      { id: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation par calibre à l'usine" }
+    ] },
+    { titre: "Pilotage & Sécurité", items: [
+      { id: "rapports", ic: "📊", t: "Rapports", d: "Stock, qualité, écarts, sacs" },
+      { id: "carte", ic: "🗺️", t: "Cartographie", d: "Qualité & volume par localité/région" },
+      { id: "audit", ic: "🔐", t: "Audit", d: "Journal inaltérable & synchronisation" }
+    ] }
+  ];
+  function portalBadge(id, d) {
+    // Pastille de charge/alerte par section (orange = à traiter, vert = info).
+    if (id === "reception" && d.camionsEnAttente) return { n: d.camionsEnAttente, q: false };
+    if (id === "qualite" && (d.decisionGm + d.lotsBloques)) return { n: d.decisionGm + d.lotsBloques, q: false };
+    if (id === "transfert" && d.transfertsARecevoir) return { n: d.transfertsARecevoir, q: false };
+    if (id === "calibrage" && (d.calEnCours + d.calAValider)) return { n: d.calEnCours + d.calAValider, q: false };
+    if (id === "fournisseurs") return { n: (R.referentials().fournisseurs || []).length, q: true };
+    return null;
+  }
   PAGES.accueil = function () {
     var d = R.dashboard();
     var u = R.db().user;
     var priorities = buildPriorities();
+    var cta = priorities.length
+      ? '<div class="portal-cta"><div><b>' + priorities.length + ' action(s) prioritaire(s)</b><span> — dossiers en attente d\'une intervention.</span></div><button onclick="__rcngo(\'rapports\')">Voir le pilotage →</button></div>'
+      : '<div class="portal-cta"><div><b>Chaîne à jour</b><span> — aucune action prioritaire en attente.</span></div><button onclick="__rcngo(\'reception/new\')">+ Nouvelle réception</button></div>';
+    var groups = PORTAL_GROUPS.map(function (g) {
+      return '<div class="portal-group"><h2>' + esc(g.titre) + '</h2><div class="portal-grid">' +
+        g.items.map(function (it) {
+          var b = portalBadge(it.id, d);
+          return '<button class="sec-card" onclick="__rcngo(\'' + it.id + '\')">' +
+            (b ? '<span class="pill ' + (b.q ? "q" : "") + '">' + b.n + '</span>' : "") +
+            '<span class="ic">' + it.ic + '</span><b>' + esc(it.t) + '</b><span>' + esc(it.d) + '</span></button>';
+        }).join("") + '</div></div>';
+    }).join("");
     return '' +
-      '<div class="pagehead"><h1>Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '</h1>' +
-      '<p>Un écran simple selon le métier — les droits dépendent du rôle, pas de la personne qui tient la tablette.</p></div>' +
-      '<div class="kpis">' +
-        kpi("Camions en attente", d.camionsEnAttente, d.decisionGm + " décision GM requise", d.decisionGm ? "warn" : "") +
-        kpi("Lots bloqués", d.lotsBloques, "Écart KOR à traiter", d.lotsBloques ? "danger" : "") +
-        kpi("Transferts ouverts", d.transfertsOuverts, d.transfertsARecevoir + " à recevoir", "") +
-        kpi("CAL en cours", d.calEnCours, d.calAValider + " à valider", "") +
-      '</div>' +
-      '<div class="grid2">' +
-        '<div class="card"><h2>Actions prioritaires</h2>' + priorityTable(priorities) + '</div>' +
-        '<div><div class="card" style="margin-bottom:16px"><h2>Mes raccourcis</h2><div class="cbody" style="display:grid;gap:10px">' +
-          shortcut("Nouvelle réception", "Créer le dossier temporaire du camion", "reception/new") +
-          shortcut("Sampling en attente", d.camionsEnAttente + " dossier(s) à contrôler", "qualite") +
-          shortcut("Transfert à recevoir", d.transfertsARecevoir + " TRF arrivé(s) au calibrage", "calibrage") +
-          shortcut("Bilan à valider", d.calAValider + " opération(s) CAL à rapprocher", "calibrage") +
-        '</div></div>' +
-        '<div class="rule"><b>Règle métier.</b> Un dossier sans responsable et sans prochaine action est considéré incomplet.</div>' +
-        '</div>' +
-      '</div>';
+      '<div class="pagehead"><h1>Portail RCN TRACE</h1>' +
+      '<p>Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Choisissez une section pour y accéder directement — chaque module a sa page dédiée.</p></div>' +
+      cta + groups;
   };
   function kpi(lbl, val, sub, cls) {
     return '<div class="kpi ' + (cls || "") + '"><small>' + esc(lbl) + '</small><b>' + (typeof val === "number" ? pad2(val) : esc(val)) + '</b><span>' + esc(sub) + '</span></div>';
