@@ -60,6 +60,7 @@
       db.documents = meta.documents || [];
       db.dryings = meta.dryings || [];
       db.jute = meta.jute || [];
+      db.procurement = meta.procurement || db.procurement || { engagements: [], financements: [], arrivages: [] };
     }
     db.audit = (auditRows || []).map(function (a) {
       return { id: a.id, at: a.created_at, objet: a.objet, champ: a.champ, avant: a.avant, apres: a.apres, motif: a.motif, auteur: a.auteur, role: a.role };
@@ -74,7 +75,7 @@
 
   function snapshot() {
     var db = R.db();
-    var rows = [{ kind: "meta", id: "singleton", payload: { seq: db.seq, referentials: db.referentials, user: db.user, seeded: true, movements: db.movements, documents: db.documents, dryings: db.dryings || [], jute: db.jute || [] } }];
+    var rows = [{ kind: "meta", id: "singleton", payload: { seq: db.seq, referentials: db.referentials, user: db.user, seeded: true, movements: db.movements, documents: db.documents, dryings: db.dryings || [], jute: db.jute || [], procurement: db.procurement || { engagements: [], financements: [], arrivages: [] } } }];
     db.receptions.forEach(function (r) { rows.push({ kind: "reception", id: r.id, payload: r }); });
     db.lots.forEach(function (l) { rows.push({ kind: "lot", id: l.id, payload: l }); });
     db.binCycles.forEach(function (c) { rows.push({ kind: "binCycle", id: c.id, payload: c }); });
@@ -111,6 +112,28 @@
       }));
     }
 
+    // Registres Procurement normalisés : l'ordre engagements → financements /
+    // arrivages respecte les clés étrangères et évite les données orphelines.
+    var proc = db.procurement || { engagements: [], financements: [], arrivages: [] };
+    var engRows = (proc.engagements || []).map(function (e) {
+      return { id: e.id, supplier_code: e.supplierLba || null, campagne: e.campagne || "2026", statut: e.statut || "ACTIF", echeance: e.echeance || null, payload: e, updated_at: nowISO() };
+    });
+    var finRows = (proc.financements || []).map(function (f) {
+      return { id: f.id, engagement_id: f.engagementId || null, supplier_code: f.supplierLba || null, statut: f.statut || "À_APPROUVER", echeance: f.echeance || null, montant: Number(f.montant || 0), payload: f, updated_at: nowISO() };
+    });
+    var arrRows = (proc.arrivages || []).map(function (a) {
+      return { id: a.id, engagement_id: a.engagementId || null, supplier_code: a.supplierLba || null, statut: a.statut || "ANNONCÉ", prevu_at: a.prevuAt || null, reception_id: a.recId || null, payload: a, updated_at: nowISO() };
+    });
+    if (engRows.length || finRows.length || arrRows.length) {
+      jobs.push((engRows.length ? sb.from("rcn_proc_engagements").upsert(engRows, { onConflict: "id" }).then(function (res) { if (res.error) throw res.error; }) : Promise.resolve())
+        .then(function () {
+          return Promise.all([
+            finRows.length ? sb.from("rcn_proc_financements").upsert(finRows, { onConflict: "id" }).then(function (res) { if (res.error) throw res.error; }) : Promise.resolve(),
+            arrRows.length ? sb.from("rcn_proc_arrivages").upsert(arrRows, { onConflict: "id" }).then(function (res) { if (res.error) throw res.error; }) : Promise.resolve()
+          ]);
+        }));
+    }
+
     return Promise.all(jobs).then(function () {
       mode = "online"; pending = countDirty(); flushing = false;
       if (reflush) { reflush = false; return doFlush(); }
@@ -135,13 +158,24 @@
 
   /* ---- Hydratation initiale ---------------------------------------- */
   function hydrate() {
-    return sb.from("rcn_state").select("kind,id,payload").then(function (res) {
-      if (res.error) throw res.error;
-      if (!res.data || !res.data.length) return false;
-      return sb.from("rcn_audit").select("*").order("created_at", { ascending: false }).limit(500).then(function (a) {
-        rebuildFromRows(res.data, a.data || []);
-        return true;
-      });
+    return Promise.all([
+      sb.from("rcn_state").select("kind,id,payload"),
+      sb.from("rcn_audit").select("*").order("created_at", { ascending: false }).limit(500),
+      sb.from("rcn_proc_engagements").select("payload").order("created_at", { ascending: false }),
+      sb.from("rcn_proc_financements").select("payload").order("created_at", { ascending: false }),
+      sb.from("rcn_proc_arrivages").select("payload").order("created_at", { ascending: false })
+    ]).then(function (all) {
+      all.forEach(function (res) { if (res.error) throw res.error; });
+      var stateRows = all[0].data || [], auditRows = all[1].data || [];
+      rebuildFromRows(stateRows, auditRows);
+      var db = R.db();
+      db.procurement = {
+        engagements: (all[2].data || []).map(function (x) { return x.payload; }),
+        financements: (all[3].data || []).map(function (x) { return x.payload; }),
+        arrivages: (all[4].data || []).map(function (x) { return x.payload; })
+      };
+      R.save();
+      return !!(stateRows.length || db.procurement.engagements.length || db.procurement.financements.length || db.procurement.arrivages.length);
     });
   }
 
