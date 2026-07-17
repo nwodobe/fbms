@@ -71,18 +71,77 @@
     { code: "dechire", label: "Déchirés", ledger: "interne" }
   ];
 
-  // Référentiels RÉELS extraits des rapports d'exploitation 2026 (configurables).
-  // Fournisseurs = coopératives avec leur code LBA.
+  // Référentiels RÉELS extraits des rapports d'exploitation 2026 (feuille
+  // « LBA VENDOR », base fournisseurs officielle). Code = <PREFIXE>-NNN-XXX :
+  // préfixe (LBA/DIS), numéro séquentiel, abréviation 3 lettres du mot-clé.
   var FOURNISSEURS = [
-    { nom: "RCN SCOOP IMANE", lba: "LBA-006-IMA" },
-    { nom: "RCN CASP-S SCOOPS", lba: "LBA-007-CAS" },
-    { nom: "RCN SCOOPS HERE B", lba: "LBA-003-HER" },
-    { nom: "RCN SCOOPS-SOCOSIDJI", lba: "LBA-001-SOC" },
-    { nom: "RCN COP JAVA SCOOPS", lba: "LBA-005-JAV" },
-    { nom: "RCN SCAAMT COOP CA", lba: "LBA-008-SCA" },
-    { nom: "RCN SCOOPS WEBE", lba: "LBA-010-WEB" },
-    { nom: "DAGNOGO KARIM / SCOPPA", lba: "LBA-013-DAG" }
+    { nom: "SCOOPADA SCOOPS", lba: "DIS-001-SCO" },
+    { nom: "SCOOPS CORISPORT", lba: "DIS-002-COR" },
+    { nom: "SCOOPS DEMBOL", lba: "DIS-003-DEM" },
+    { nom: "ANAGROCI UT-CCA", lba: "DIS-004-ANA" },
+    { nom: "SOVA SCOOPS", lba: "DIS-005-SOV" },
+    { nom: "SCOOPS DIENE", lba: "DIS-006-DIE" },
+    { nom: "SCOOPASS", lba: "DIS-007-SPA" },
+    { nom: "SCOOPS FOUNDARA", lba: "DIS-008-FOU" },
+    { nom: "YAO OUMIAN LAMBERT", lba: "DIS-009-YAO" },
+    { nom: "SCOOP SAHS", lba: "DIS-010-SAH" },
+    { nom: "SOCOSAM", lba: "DIS-011-SAM" },
+    { nom: "GOLDY AGRI MARKET", lba: "DIS-012-GOL" },
+    { nom: "SCOOPS BAOBAB", lba: "DIS-013-BAB" },
+    { nom: "DCARRE DAVID D JOUMAN", lba: "DIS-014-DAV" },
+    { nom: "ESPI SCOOPS", lba: "DIS-015-ESP" },
+    { nom: "SCOOPS IB", lba: "DIS-016-SIB" },
+    { nom: "SCOOPS MASSATIGUI", lba: "DIS-017-MAS" },
+    { nom: "SCOOPS PAPN", lba: "DIS-018-PAP" },
+    { nom: "DECARRE DAVID &DJOUMAN", lba: "DIS-019-DEC" },
+    { nom: "SCOOPS AC SOURCING", lba: "DIS-020-SOU" },
+    { nom: "SCOOPS KOB S", lba: "DIS-021-KOB" },
+    { nom: "SCOOPS COOPRES", lba: "DIS-022-RES" },
+    { nom: "ICFB", lba: "DIS-023-ICF" },
+    { nom: "CADEPO COOP CA", lba: "DIS-024-CAD" },
+    { nom: "SIMAYAT COOP CA", lba: "DIS-025-SIM" },
+    { nom: "SCOOPS MOAYE BKE", lba: "DIS-026-MOA" },
+    { nom: "SCOOPS BAOBAB", lba: "DIS-027-BAO" },
+    { nom: "ALFCOUL GROUP", lba: "DIS-028-ALF" },
+    { nom: "CPAS SCOOPS", lba: "DIS-029-CPA" },
+    { nom: "SCOOPS JPPAGG", lba: "DIS-030-JPP" },
+    { nom: "ADAM IVOIRE", lba: "DIS-031-ADA" },
+    { nom: "SCMB COOP CA", lba: "DIS-032-SCM" },
+    { nom: "SCOOPS AJCB", lba: "DIS-033-AJC" },
+    { nom: "OCEAN NEGOSE", lba: "DIS-034-OCE" },
+    { nom: "SCOOPS SCNB", lba: "DIS-035-SNC" },
+    { nom: "COOPCA TOE SEYDOU", lba: "DIS-036-SEY" },
+    { nom: "SCOOPS PAP", lba: "DIS-037-PAP" },
+    { nom: "SCOOPS AKF", lba: "DIS-038-AKF" },
+    { nom: "SOCOOP ADD COOP CA", lba: "DIS-039-ADD" },
+    { nom: "SOLANDA-CI", lba: "DIS-040-SOL" },
+    { nom: "BROUMA SARL", lba: "DIS-041-BRO" },
+    { nom: "SCOOPS SOCOSIDJI", lba: "LBA-001-SOC" },
+    { nom: "SCAAMT COOP CA", lba: "LBA-002-SCA" },
+    { nom: "SCOOPS HERE B", lba: "LBA-003-HER" },
+    { nom: "SCOOPS WEBE", lba: "LBA-004-WEB" },
+    { nom: "COP JAVA", lba: "LBA-005-JAV" },
+    { nom: "SCOOP IMANE", lba: "LBA-006-IMA" },
+    { nom: "CASP-S SCOOPS", lba: "LBA-007-CAS" },
+    { nom: "SCOOP-CA/COBAN", lba: "LBA-008-COB" },
+    { nom: "SCOPPAS SCOOPS", lba: "LBA-009-SCO" },
+    { nom: "CAPCD-SCOOPS", lba: "LBA-010-CAP" },
+    { nom: "SCOOPS ASER", lba: "LBA-011-ASR" },
+    { nom: "SCOOPS KPESSO", lba: "LBA-012-KPE" },
+    { nom: "ETABLISSEMENT Dagnogo Karime", lba: "LBA-013-DAG" },
+    { nom: "SCOOPS BAY SCOOPS", lba: "LBA-014-BAY" },
+    { nom: "SCOOPS OUMI", lba: "LBA-015-OUM" },
+    { nom: "SCOOPS AH AL NOUR", lba: "LBA-016-NOU" },
+    { nom: "SCOOPS DPVICA", lba: "LBA-017-DPV" },
+    { nom: "SCOOPS COOPRAKA", lba: "LBA-018-COP" },
+    { nom: "SCOOPS FRA PRO", lba: "LBA-019-FRA" },
+    { nom: "SCOOPS SKS", lba: "LBA-020-SKS" },
+    { nom: "SANOGO SINDOU", lba: "LBA-021-SAN" },
+    { nom: "SCOOPS AGRO NEGOCE", lba: "LBA-022-NEG" },
+    { nom: "AGRICAS IVOIRE", lba: "LBA-023-AGR" }
   ];
+  // Mots génériques ignorés pour dériver l'abréviation du code LBA.
+  var LBA_GENERIQUES = ["RCN", "SCOOPS", "SCOOP", "COOPS", "COOP", "COP", "ETABLISSEMENT", "ETS", "ETB", "SARL", "EARL", "GIE", "ENTREPRISE", "ENT", "CA", "SCA-CA"];
   var ORIGINES = ["Dianra", "Mankono", "Niakara", "Bouaké", "Vavoua", "Dabakala", "Kounahiri", "Korhogo", "Séguéla"];
   // Entrepôts par localité (une localité a plusieurs entrepôts).
   // Format d'identifiant BIN dérivé : <ENTREPÔT>-BIN-nn (ex. BKE-002-BIN-017).
@@ -1068,6 +1127,60 @@
     return ent;
   }
 
+  // ---- Base fournisseurs & génération automatique du code LBA --------
+  // Abréviation 3 lettres dérivée du mot-clé identifiant (hors mots génériques).
+  function lbaAbbrev(nom) {
+    var words = String(nom || "").toUpperCase().replace(/[^A-ZÀ-Ÿ0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
+    var sig = words.filter(function (w) { return w.length >= 3 && LBA_GENERIQUES.indexOf(w) < 0; });
+    var base = sig[0] || words.filter(function (w) { return w.length >= 2; })[0] || words[0] || "XXX";
+    var abbr = base.replace(/[^A-Z]/g, "").slice(0, 3);
+    while (abbr.length < 3) abbr += "X";
+    return abbr;
+  }
+  // Prochain numéro séquentiel pour un préfixe (LBA par défaut).
+  function nextLbaNumber(prefix) {
+    var mx = 0;
+    (referentials().fournisseurs || []).forEach(function (f) {
+      var m = /^([A-Z]+)-(\d+)-/.exec(f.lba || "");
+      if (m && (!prefix || m[1] === prefix)) mx = Math.max(mx, parseInt(m[2], 10));
+    });
+    return mx + 1;
+  }
+  // Prévisualise le code qui serait attribué (sans créer).
+  function nextLbaCode(nom, prefix) {
+    prefix = (prefix || "LBA").toUpperCase();
+    return prefix + "-" + pad(nextLbaNumber(prefix), 3) + "-" + lbaAbbrev(nom);
+  }
+  // Crée un fournisseur (LBA) avec code auto-généré selon la structuration.
+  function addFournisseur(nom, prefix) {
+    nom = (nom || "").trim();
+    if (!nom) throw new Error("Nom du fournisseur requis.");
+    var refs = referentials();
+    if (!refs.fournisseurs) refs.fournisseurs = [];
+    if (refs.fournisseurs.filter(function (f) { return (f.nom || "").toLowerCase() === nom.toLowerCase(); }).length)
+      throw new Error("Ce fournisseur existe déjà : " + nom + ".");
+    var code = nextLbaCode(nom, prefix);
+    var f = { nom: nom, lba: code };
+    refs.fournisseurs.push(f);
+    audit(code, "fournisseur", null, nom, "Création fournisseur " + code);
+    saveDb();
+    return f;
+  }
+  // Base fournisseurs enrichie : nb livraisons & volume net acheté par code.
+  function fournisseursBase() {
+    var byNom = {};
+    lots().forEach(function (l) {
+      if (l.fromTransfer) return;
+      var k = l.fournisseur || "—";
+      var g = byNom[k] || (byNom[k] = { livraisons: 0, volume: 0 });
+      g.livraisons += 1; g.volume += (num(l.netInitial) || 0);
+    });
+    return (referentials().fournisseurs || []).map(function (f) {
+      var g = byNom[f.nom] || { livraisons: 0, volume: 0 };
+      return { nom: f.nom, lba: f.lba, livraisons: g.livraisons, volumeKg: round2(g.volume) };
+    });
+  }
+
   // Statistiques qualité & volume par localité et par région (aide à la
   // décision d'achat). Volume = net reçu (kg) ; qualité = KOR moyen pondéré
   // par le volume ; humidité moyenne si disponible.
@@ -1114,12 +1227,112 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* 10ter. Simulation : ingestion des données réelles (RCN_SIM)        */
+  /*   OFFLOADINGS → lots (rangés en BIN par entrepôt) ; BOUAKE TRF →    */
+  /*   transferts. Chemin d'import allégé (pas de re-saisie GK/IMM/SP :  */
+  /*   on dispose déjà du KOR final, du prix, du net et de l'origine).   */
+  /* ------------------------------------------------------------------ */
+  function simData() { return (typeof RCN_SIM !== "undefined") ? RCN_SIM : (typeof window !== "undefined" ? window.RCN_SIM : null); }
+  function whFromSim(d) {
+    var loc = (d.loc || "").toUpperCase();
+    if (/YAKRO|YAMOU|FACTORY/.test(loc)) return "YAKRO-01";
+    var w = (d.wh || "").toUpperCase().replace(/\s+/g, "");
+    return /^BKE-\d/.test(w) ? w : "BKE-002";
+  }
+  // Import allégé d'une ligne d'offloading en lot officiel (ou bloqué).
+  function importLot(d) {
+    var db = loadDb();
+    var net = num(d.net) || 0;
+    var kor = (num(d.fkor) != null && num(d.fkor) > 0) ? num(d.fkor) : num(d.kor);
+    var wh = whFromSim(d);
+    var at = d.arr ? (d.arr + "T08:00:00.000Z") : nowISO();
+    var recId = genId("REC", true);
+    var rec = {
+      id: recId, createdAt: at, arriveeAt: at,
+      camion: d.veh || "", fournisseur: d.sup || "", lba: d.lba || "", origine: d.origin || "",
+      site: wh, warehouse: wh, poidsAnnonce: num(d.gross), sacsAnnonce: num(d.sacs),
+      refDoc: d.fiche != null ? String(d.fiche) : "", source: "fournisseur",
+      etat: d.reject ? ETAT_REC.BLOQUE : ETAT_REC.LIBERE, lotId: null,
+      sampling: { kor: num(d.kor), korDisplay: num(d.kor) != null ? round2(num(d.kor)) : null, nc: num(d.nc), humidity: num(d.mois) },
+      finale: { kor: kor, korDisplay: kor != null ? round2(kor) : null, humidity: num(d.mois), nc: num(d.nc), conforme: true },
+      gm: { autorise: !d.reject }, dechargement: { net: net, sacs: num(d.sacs), sacsBon: num(d.bon), sacsHumid: num(d.humid), sacsDechire: num(d.dech) }, events: []
+    };
+    db.receptions.push(rec);
+    if (d.reject || net <= 0) return { rec: rec, lot: null };
+    var lot = {
+      id: genId("RCN", true), recId: recId, fournisseur: d.sup || "", lba: d.lba || "", origine: d.origin || "",
+      site: wh, warehouse: wh, sacs: num(d.sacs), korFinal: kor, korDisplay: kor != null ? round2(kor) : null,
+      prixUnitaire: num(d.price), netInitial: net, stock: net, ecart: null, etat: ETAT_REC.LIBERE,
+      binId: null, createdAt: at, children: []
+    };
+    rec.lotId = lot.id; db.lots.push(lot);
+    return { rec: rec, lot: lot };
+  }
+  // Range un lot dans une BIN de son entrepôt (remplissage par capacité).
+  function stockLotInBin(lot, capacityKg, openBins) {
+    var wh = lot.warehouse || "BKE-002";
+    var cur = openBins[wh];
+    if (!cur || cur.stock + lot.stock > capacityKg) {
+      var db = loadDb();
+      var n = (openBins[wh] ? openBins[wh].n + 1 : 1);
+      var binId = wh + "-BIN-" + pad(n, 3);
+      var cyc = { id: binId + "/" + (lot.createdAt || nowISO()).slice(0, 10).replace(/-/g, "") + "-01", binId: binId, qualiteAutorisee: "RCN standard", capaciteKg: capacityKg, openedAt: lot.createdAt || nowISO(), closedAt: null, etat: ETAT_BIN.ACTIF, contributors: [], residuKg: null };
+      db.binCycles.push(cyc); db.bins[binId] = cyc.id;
+      cur = openBins[wh] = { cyc: cyc, stock: 0, n: n };
+    }
+    cur.cyc.contributors.push({ lotId: lot.id, entree: lot.stock, sorti: 0, qualite: lot.etat });
+    lot.binId = cur.cyc.binId; cur.stock += lot.stock; lot.stock = 0;
+    lot.children.push({ type: "bin", ref: cur.cyc.id, qty: (loadDb().lots.filter(function(x){return x.id===lot.id;})[0]||{}).netInitial || 0, at: lot.createdAt });
+  }
+  // Import allégé d'un transfert (BOUAKE TRF) en enregistrement de transfert.
+  function importTransfer(t, i) {
+    var db = loadDb();
+    var env = num(t.net) || 0, recu = num(t.warr) != null ? num(t.warr) : env;
+    var ecart = round2(env - recu);
+    var at = t.date ? (t.date + "T10:00:00.000Z") : nowISO();
+    var trf = {
+      id: "TRF-" + pad(i + 1, 4), createdAt: at, cycleId: null, binId: (t.bin || "").toUpperCase(),
+      destinationType: "warehouse", destinationSite: "YAKRO-01", destination: "Entrepôt Yamoussoukro",
+      transporteur: t.transporter || "", voyage: "", chauffeur: t.driver || "", camion: t.truck || "",
+      poidsEnvoye: env, poidsRecu: recu, ecart: ecart, transitLossPct: env ? round2(ecart / env * 100) : null,
+      qualiteDepart: { kor: num(t.kor), humidity: num(t.mois), nc: num(t.nc) },
+      qualiteArrivee: { kor: num(t.kor), humidity: num(t.mois), nc: num(t.nc) },
+      contributors: [], etat: ETAT_TRF.RECU,
+      validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: { at: at } }, voyages: [{ recu: recu, at: at }]
+    };
+    trf.finance = computeTransferFinance(trf);
+    db.transfers.push(trf);
+    return trf;
+  }
+  // Ingestion complète : suppliers manquants, réceptions→lots→BIN, transferts.
+  function importSim() {
+    var sim = simData(); if (!sim) return false;
+    var db = loadDb();
+    // Compléter la base fournisseurs avec tout code présent dans la simulation.
+    var known = {}; (db.referentials.fournisseurs || []).forEach(function (f) { known[f.lba] = 1; });
+    Object.keys(sim.suppliers || {}).forEach(function (code) { if (!known[code]) { db.referentials.fournisseurs.push({ nom: sim.suppliers[code], lba: code }); known[code] = 1; } });
+    // Entrepôts référentiels manquants (BKE-001..003, YAKRO-01 déjà présents).
+    var recs = sim.receptions || [];
+    var openBins = {};
+    recs.forEach(function (d) { var r = importLot(d); if (r.lot) stockLotInBin(r.lot, 90000, openBins); });
+    (sim.transfers || []).forEach(function (t, i) { importTransfer(t, i); });
+    // Séquences (pour que les prochaines créations ne collisionnent pas).
+    db.seq["TRF"] = Math.max(db.seq["TRF"] || 0, (sim.transfers || []).length);
+    audit("SIM", "simulation", null, recs.length + " réceptions · " + (sim.transfers || []).length + " transferts", "Import des données réelles 2026 (OFFLOADINGS + BOUAKE TRF)");
+    db.seeded = true;
+    saveDb();
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 11. Données de démonstration (reprennent les exemples du cahier)   */
   /* ------------------------------------------------------------------ */
   function seedDemo(force) {
     var db = loadDb();
     if (db.seeded && !force) return;
     if (force) { _db = emptyDb(); db = _db; }
+    // Si les données réelles (RCN_SIM) sont chargées : simulation prioritaire.
+    if (simData()) return importSim();
 
     // Fournisseurs réels (coopératives + code LBA), site Bouaké, BIN <WH>-BIN-nn.
     var F = FOURNISSEURS; var SITE = "BKE-002";
@@ -1250,6 +1463,10 @@
     jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
     // géographie / entrepôts / statistiques par zone
     localites: localites, regionsGeo: regionsGeo, localiteInfo: localiteInfo, addEntrepot: addEntrepot, geoStats: geoStats,
+    // base fournisseurs & génération de code LBA
+    addFournisseur: addFournisseur, nextLbaCode: nextLbaCode, lbaAbbrev: lbaAbbrev, fournisseursBase: fournisseursBase,
+    // simulation données réelles
+    importSim: importSim, hasSim: function () { return !!simData(); },
     // dashboard / audit
     dashboard: dashboard, audit: audit
   };

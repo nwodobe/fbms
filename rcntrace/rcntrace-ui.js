@@ -16,7 +16,7 @@
       "brand.sub": "Traçabilité matière", "nav.portal": "Portail ANAGROCI",
       "nav.accueil": "Accueil", "nav.reception": "Réception", "nav.qualite": "Qualité",
       "nav.stock": "Stock & BIN", "nav.sechage": "Séchage", "nav.sacs": "Sacs jute", "nav.transfert": "Transfert", "nav.calibrage": "Calibrage",
-      "nav.rapports": "Rapports", "nav.carte": "Cartographie", "nav.audit": "Audit",
+      "nav.fournisseurs": "Fournisseurs", "nav.rapports": "Rapports", "nav.carte": "Cartographie", "nav.audit": "Audit",
       "net.on": "En ligne", "net.off": "Hors connexion",
       "save": "Enregistrer", "send": "Envoyer", "cancel": "Annuler", "back": "Retour",
     },
@@ -24,7 +24,7 @@
       "brand.sub": "Material traceability", "nav.portal": "ANAGROCI Portal",
       "nav.accueil": "Home", "nav.reception": "Reception", "nav.qualite": "Quality",
       "nav.stock": "Stock & BIN", "nav.sechage": "Drying", "nav.sacs": "Jute bags", "nav.transfert": "Transfer", "nav.calibrage": "Grading",
-      "nav.rapports": "Reports", "nav.carte": "Map", "nav.audit": "Audit",
+      "nav.fournisseurs": "Suppliers", "nav.rapports": "Reports", "nav.carte": "Map", "nav.audit": "Audit",
       "net.on": "Online", "net.off": "Offline",
       "save": "Save", "send": "Send", "cancel": "Cancel", "back": "Back",
     }
@@ -34,7 +34,7 @@
   var NAV = [
     { id: "accueil", ni: "01" }, { id: "reception", ni: "02" }, { id: "qualite", ni: "03" },
     { id: "stock", ni: "04" }, { id: "sechage", ni: "05" }, { id: "sacs", ni: "06" }, { id: "transfert", ni: "07" }, { id: "calibrage", ni: "08" },
-    { id: "rapports", ni: "09" }, { id: "carte", ni: "10" }, { id: "audit", ni: "11" }
+    { id: "fournisseurs", ni: "09" }, { id: "rapports", ni: "10" }, { id: "carte", ni: "11" }, { id: "audit", ni: "12" }
   ];
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -110,7 +110,7 @@
   var EYEBROW = {
     accueil: "Tableau de bord", reception: "Module 1 · Réception", qualite: "Module 1 · Qualité",
     stock: "Module 1 · Stock & BIN", sechage: "Module 1 · Séchage / triage", sacs: "Entrepôt · Sacs de jute", transfert: "Passage entre modules",
-    calibrage: "Module 2 · Calibrage", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
+    calibrage: "Module 2 · Calibrage", fournisseurs: "Procurement · Base fournisseurs", rapports: "Pilotage · Rapports", carte: "Pilotage · Cartographie", audit: "Sécurité · Audit"
   };
   function injectEyebrow(r) {
     var head = el("view") && el("view").querySelector(".pagehead");
@@ -132,30 +132,57 @@
   var PAGES = {};
 
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
+  // Portail : sections regroupées par domaine ; un clic ouvre la section.
+  var PORTAL_GROUPS = [
+    { titre: "Réception & Qualité", items: [
+      { id: "reception", ic: "🚚", t: "Réception", d: "Camions, sampling, décision GM" },
+      { id: "qualite", ic: "🔬", t: "Qualité", d: "Analyses, KOR, libération des lots" },
+      { id: "fournisseurs", ic: "🤝", t: "Fournisseurs", d: "Base LBA & création de fournisseurs" }
+    ] },
+    { titre: "Entrepôt & Stock", items: [
+      { id: "stock", ic: "📦", t: "Stock & BIN", d: "BIN collectives, entrepôts, clôtures" },
+      { id: "sechage", ic: "🌤️", t: "Séchage / triage", d: "Humidité, pertes de séchage" },
+      { id: "sacs", ic: "🧺", t: "Sacs de jute", d: "Dotation, retours, dette fournisseur" }
+    ] },
+    { titre: "Logistique & Usine", items: [
+      { id: "transfert", ic: "🔁", t: "Transfert", d: "Bouaké → Yamoussoukro, finance transit" },
+      { id: "calibrage", ic: "⚙️", t: "Calibrage", d: "Séparation par calibre à l'usine" }
+    ] },
+    { titre: "Pilotage & Sécurité", items: [
+      { id: "rapports", ic: "📊", t: "Rapports", d: "Stock, qualité, écarts, sacs" },
+      { id: "carte", ic: "🗺️", t: "Cartographie", d: "Qualité & volume par localité/région" },
+      { id: "audit", ic: "🔐", t: "Audit", d: "Journal inaltérable & synchronisation" }
+    ] }
+  ];
+  function portalBadge(id, d) {
+    // Pastille de charge/alerte par section (orange = à traiter, vert = info).
+    if (id === "reception" && d.camionsEnAttente) return { n: d.camionsEnAttente, q: false };
+    if (id === "qualite" && (d.decisionGm + d.lotsBloques)) return { n: d.decisionGm + d.lotsBloques, q: false };
+    if (id === "transfert" && d.transfertsARecevoir) return { n: d.transfertsARecevoir, q: false };
+    if (id === "calibrage" && (d.calEnCours + d.calAValider)) return { n: d.calEnCours + d.calAValider, q: false };
+    if (id === "fournisseurs") return { n: (R.referentials().fournisseurs || []).length, q: true };
+    return null;
+  }
   PAGES.accueil = function () {
     var d = R.dashboard();
     var u = R.db().user;
     var priorities = buildPriorities();
+    var cta = priorities.length
+      ? '<div class="portal-cta"><div><b>' + priorities.length + ' action(s) prioritaire(s)</b><span> — dossiers en attente d\'une intervention.</span></div><button onclick="__rcngo(\'rapports\')">Voir le pilotage →</button></div>'
+      : '<div class="portal-cta"><div><b>Chaîne à jour</b><span> — aucune action prioritaire en attente.</span></div><button onclick="__rcngo(\'reception/new\')">+ Nouvelle réception</button></div>';
+    var groups = PORTAL_GROUPS.map(function (g) {
+      return '<div class="portal-group"><h2>' + esc(g.titre) + '</h2><div class="portal-grid">' +
+        g.items.map(function (it) {
+          var b = portalBadge(it.id, d);
+          return '<button class="sec-card" onclick="__rcngo(\'' + it.id + '\')">' +
+            (b ? '<span class="pill ' + (b.q ? "q" : "") + '">' + b.n + '</span>' : "") +
+            '<span class="ic">' + it.ic + '</span><b>' + esc(it.t) + '</b><span>' + esc(it.d) + '</span></button>';
+        }).join("") + '</div></div>';
+    }).join("");
     return '' +
-      '<div class="pagehead"><h1>Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '</h1>' +
-      '<p>Un écran simple selon le métier — les droits dépendent du rôle, pas de la personne qui tient la tablette.</p></div>' +
-      '<div class="kpis">' +
-        kpi("Camions en attente", d.camionsEnAttente, d.decisionGm + " décision GM requise", d.decisionGm ? "warn" : "") +
-        kpi("Lots bloqués", d.lotsBloques, "Écart KOR à traiter", d.lotsBloques ? "danger" : "") +
-        kpi("Transferts ouverts", d.transfertsOuverts, d.transfertsARecevoir + " à recevoir", "") +
-        kpi("CAL en cours", d.calEnCours, d.calAValider + " à valider", "") +
-      '</div>' +
-      '<div class="grid2">' +
-        '<div class="card"><h2>Actions prioritaires</h2>' + priorityTable(priorities) + '</div>' +
-        '<div><div class="card" style="margin-bottom:16px"><h2>Mes raccourcis</h2><div class="cbody" style="display:grid;gap:10px">' +
-          shortcut("Nouvelle réception", "Créer le dossier temporaire du camion", "reception/new") +
-          shortcut("Sampling en attente", d.camionsEnAttente + " dossier(s) à contrôler", "qualite") +
-          shortcut("Transfert à recevoir", d.transfertsARecevoir + " TRF arrivé(s) au calibrage", "calibrage") +
-          shortcut("Bilan à valider", d.calAValider + " opération(s) CAL à rapprocher", "calibrage") +
-        '</div></div>' +
-        '<div class="rule"><b>Règle métier.</b> Un dossier sans responsable et sans prochaine action est considéré incomplet.</div>' +
-        '</div>' +
-      '</div>';
+      '<div class="pagehead"><h1>Portail RCN TRACE</h1>' +
+      '<p>Bienvenue, ' + esc((u.nom || "").split(" ")[0]) + '. Choisissez une section pour y accéder directement — chaque module a sa page dédiée.</p></div>' +
+      cta + groups;
   };
   function kpi(lbl, val, sub, cls) {
     return '<div class="kpi ' + (cls || "") + '"><small>' + esc(lbl) + '</small><b>' + (typeof val === "number" ? pad2(val) : esc(val)) + '</b><span>' + esc(sub) + '</span></div>';
@@ -599,7 +626,9 @@
   // Compte fournisseur — 5 onglets (Profil, Livraisons, Traçabilité, Sacs, Financement).
   function supplierAccount(key, tab) {
     var sups = R.juteSuppliers();
-    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0] || { nom: key, lba: "" };
+    var sup = sups.filter(function (s) { return (s.lba || s.nom) === key; })[0];
+    // Repli sur la base fournisseurs (référentiel) si aucun mouvement jute.
+    if (!sup) { var ref = (R.referentials().fournisseurs || []).filter(function (f) { return f.lba === key || f.nom === key; })[0]; sup = ref ? { nom: ref.nom, lba: ref.lba } : { nom: key, lba: "" }; }
     var nom = sup.nom, lba = sup.lba || "";
     var recs = R.receptions().filter(function (r) { return r.fournisseur === nom; });
     var lots = R.lots().filter(function (l) { return l.fournisseur === nom; });
@@ -919,6 +948,35 @@
       '</div></div></div>';
   };
 
+  /* ---- FOURNISSEURS : base LBA + création à code auto -------------- */
+  PAGES.fournisseurs = function () {
+    var base = R.fournisseursBase();
+    var actifs = base.filter(function (f) { return f.livraisons > 0; }).length;
+    var volTotal = base.reduce(function (a, f) { return a + f.volumeKg; }, 0);
+    var rows = base.slice().sort(function (a, b) { return (a.lba || "").localeCompare(b.lba || ""); }).map(function (f) {
+      return '<tr><td class="mono">' + esc(f.lba) + '</td><td><a href="#sacs/' + encodeURIComponent(f.lba) + '/profil">' + esc(f.nom) + '</a></td>' +
+        '<td class="mono">' + f.livraisons + '</td><td class="mono">' + (f.volumeKg ? R.kg(f.volumeKg) : "—") + '</td></tr>';
+    }).join("");
+    var apercu = R.nextLbaCode("", "LBA");
+    return '<div class="pagehead"><h1>Base fournisseurs (LBA)</h1><p>L\'existant : coopératives et leur code officiel. Les nouveaux fournisseurs reçoivent un code généré automatiquement selon la même structuration.</p></div>' +
+      '<div class="kpis">' +
+        kpi("Fournisseurs", base.length, "codes enregistrés", "") +
+        kpi("Actifs (livraisons)", actifs, "avec au moins un lot", "") +
+        kpi("Volume acheté", R.round2(volTotal), "kg (net)", "") +
+        kpi("Prochain code", esc(apercu.replace(/-\w+$/, "-…")), "préfixe LBA", "") +
+      '</div>' +
+      '<div class="grid2" style="align-items:start"><div class="card"><h2>Base fournisseurs <span class="badge b-neutral">' + base.length + '</span></h2><div class="cbody" style="padding:0">' +
+        '<div class="tablewrap" style="border:0"><table><thead><tr><th>Code</th><th>Nom</th><th>Livraisons</th><th>Volume</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '</div></div>' +
+      '<div class="card"><h2>Nouveau fournisseur</h2><div class="cbody">' +
+        '<label>Nom de la coopérative / du fournisseur</label><input id="fo_nom" placeholder="ex. SCOOPS NOUVELLE ERE" oninput="RCNUI.previewLba()">' +
+        '<label>Préfixe du code</label><select id="fo_prefix" onchange="RCNUI.previewLba()"><option value="LBA">LBA (coopérative)</option><option value="DIS">DIS (distributeur)</option></select>' +
+        '<div class="metric" style="margin:12px 0"><small>Code qui sera attribué</small><b id="fo_preview" style="font-size:18px" class="mono">' + esc(apercu) + '</b><span>numéro séquentiel + abréviation du mot-clé</span></div>' +
+        '<div class="actions"><button class="btn" onclick="RCNUI.addFournisseur()">+ Créer le fournisseur</button></div>' +
+        '<small style="color:var(--n500)">Le code suit la logique <span class="mono">&lt;PRÉFIXE&gt;-NNN-XXX</span> : numéro incrémental et abréviation à 3 lettres du mot identifiant (hors « SCOOP », « COOP »…).</small>' +
+      '</div></div></div>';
+  };
+
   /* ---- CARTOGRAPHIE : qualité & volume par localité / région ------ */
   // Palette qualité (KOR) — du meilleur au plus faible.
   function korColor(kor) {
@@ -1089,6 +1147,14 @@
   };
   UI.addEntrepot = function () {
     try { var e = R.addEntrepot({ code: val("wh_code"), nom: val("wh_nom"), location: val("wh_loc") }); toast("Entrepôt " + e.code + " créé (" + e.location + ")."); route(); }
+    catch (e) { toast(e.message, true); }
+  };
+  UI.previewLba = function () {
+    var box = el("fo_preview"); if (!box) return;
+    box.textContent = R.nextLbaCode(val("fo_nom") || "", val("fo_prefix") || "LBA");
+  };
+  UI.addFournisseur = function () {
+    try { var f = R.addFournisseur(val("fo_nom"), val("fo_prefix") || "LBA"); toast("Fournisseur " + f.lba + " créé."); route(); }
     catch (e) { toast(e.message, true); }
   };
   UI.addToBin = function (binId) {
