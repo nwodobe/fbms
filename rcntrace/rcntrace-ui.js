@@ -119,6 +119,8 @@
 
   function route() {
     var r = currentRoute();
+    // Portail = page d'orientation plein écran : barre latérale masquée.
+    var app = document.querySelector(".app"); if (app) app.classList.toggle("portal", r.page === "accueil");
     renderNav(r.page);
     var cb = CRUMB[r.page] || ["RCN TRACE", ""];
     el("crumb").innerHTML = esc(cb[0]) + "<small>" + esc(cb[1]) + "</small>";

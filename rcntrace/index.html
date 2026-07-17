@@ -237,6 +237,10 @@
     .menu-toggle{display:inline-flex!important}
   }
   .menu-toggle{display:none;border:1px solid var(--n200);background:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:16px}
+  /* Portail plein écran : la barre latérale (liste des modules) est masquée. */
+  .app.portal{grid-template-columns:1fr}
+  .app.portal .side{display:none}
+  .app.portal .menu-toggle{display:none!important}
 </style>
 </head>
 <body>
