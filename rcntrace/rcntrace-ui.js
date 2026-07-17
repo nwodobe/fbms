@@ -388,6 +388,9 @@
           '<div class="metric"><small>Écart absolu</small><b id="ffEc">—</b><span id="ffEcTxt">tolérance : &lt; 1</span></div>' +
         '</div>' +
         '<label>Numéro officiel proposé</label><input readonly value="Généré à la libération (RCN-' + R.today() + '-…)">' +
+        (rec.prixUnitaire != null
+          ? '<label>Prix d\'achat (FCFA/kg)</label><input id="ff_prix" type="number" value="' + rec.prixUnitaire + '"><small style="color:var(--n500)">Hérité du transfert (prix moyen pondéré) — modifiable.</small>'
+          : '<label>Prix d\'achat (FCFA/kg) <span style="color:var(--n500)">— facultatif</span></label><input id="ff_prix" type="number" placeholder="ex. 400">') +
         '<label>BIN de destination (facultatif)</label><select id="ff_bin"><option value="">— Rester en stock lot —</option>' +
           bins.map(function (c) { return '<option value="' + esc(c.binId) + '">' + esc(c.binId) + ' · ' + esc(c.id) + '</option>'; }).join("") + '</select>' +
         '<div class="actions"><button class="btn danger" onclick="RCNUI.finale(\'' + id + '\',\'bloquer\')">Bloquer le dossier</button>' +
@@ -453,6 +456,7 @@
     var dureeH = R.binDurationH(cyc, Date.now());
     var duree = dureeH == null ? "—" : (dureeH >= 48 ? Math.round(dureeH / 24) + " j" : dureeH + " h");
     var closed = cyc.etat === R.ETAT_BIN.CLOS;
+    var prixMoyen = R.binPrixMoyen(cyc);
     var perteCls = cyc.perteNiveau === "rouge" ? "alert" : (cyc.perteNiveau === "orange" ? "" : "okbox");
     var closeBox = closed
       ? '<div class="' + (cyc.perteNiveau === "rouge" ? "alert" : "okbox") + '">🔒 Cycle clos (verrouillé) le ' + R.fmtDateTime(cyc.closedAt || cyc.reouvertAt) + ' · résidu ' + R.kg(cyc.residuKg) + ' · <b>perte ' + R.kg(cyc.perteKg) + (cyc.pertePct != null ? " (" + cyc.pertePct + " %, seuil " + R.seuilPerteBin() + " %)" : "") + '</b> · validé par ' + esc(cyc.confirmeur || "—") + (cyc.justification ? ' · justif. : ' + esc(cyc.justification) : "") + (cyc.reouvertures ? ' · réouvertures : ' + cyc.reouvertures : "") + '<div class="actions" style="margin-top:10px"><button class="btn ghost sm" onclick="RCNUI.reopenBin(\'' + encodeURIComponent(cyc.id) + '\')">Réouvrir (autorisation requise)</button></div></div>'
@@ -464,6 +468,7 @@
         '<div class="metric"><small>Entré / Sorti</small><b style="font-size:17px">' + totals.entree + ' / ' + totals.sorti + '</b><span>kg cumulés</span></div>' +
         '<div class="metric"><small>Durée du cycle</small><b>' + duree + '</b><span>' + (closed ? "clos" : "ouvert") + '</span></div>' +
         '<div class="metric"><small>Contributeurs</small><b>' + pad2(cyc.contributors.length) + '</b><span>' + esc(cyc.qualiteAutorisee || "à valider") + '</span></div>' +
+        '<div class="metric"><small>Prix moyen pondéré</small><b style="font-size:17px">' + (prixMoyen == null ? "—" : R.round2(prixMoyen)) + '</b><span>' + (prixMoyen == null ? "prix lots non saisi" : "FCFA/kg · valeur " + fcfa(stock * prixMoyen)) + '</span></div>' +
       '</div>' +
       '<div class="card" style="margin-bottom:16px"><h2>Composition théorique du cycle</h2><div class="cbody" style="padding:0">' +
         (rows ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Lot officiel</th><th>Fournisseur</th><th>Entrée</th><th>Part</th><th>Disponible</th><th>KOR</th><th>Sacs</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">BIN vide.</div>') +
@@ -596,10 +601,23 @@
         '<div class="metric big"><small>Solde (dette)</small><b>' + b.solde + '</b><span>sacs chez le fournisseur</span></div>' +
       '</div><div class="card"><h2>Mouvements de dette</h2><div class="cbody">' + tl + '</div></div>';
     } else {
-      body = '<div class="rule"><b>Module Procurement (ultérieur).</b> Cet onglet regroupera : limites de financement, avances, volume livré et valeur livrée, pour répondre à « que nous doit-il encore ? ».</div>' +
-        '<div class="metrics" style="margin-top:14px"><div class="metric big"><small>Volume livré</small><b>' + R.round2(volLivre) + '</b><span>kg</span></div>' +
-        '<div class="metric"><small>Valeur livrée</small><b>—</b><span>prix à intégrer</span></div>' +
-        '<div class="metric"><small>Avances</small><b>—</b></div></div>';
+      // Valeur livrée = Σ (net du lot × prix d'achat FCFA/kg). Couverture = part valorisée.
+      var valeur = 0, volValorise = 0;
+      lots.forEach(function (l) { if (l.prixUnitaire != null && l.netInitial) { valeur += l.netInitial * l.prixUnitaire; volValorise += l.netInitial; } });
+      var prixMoy = volValorise > 0 ? R.round2(valeur / volValorise) : null;
+      var couvPct = volLivre > 0 ? Math.round(volValorise / volLivre * 100) : 0;
+      var rowsFin = lots.map(function (l) {
+        var val = (l.prixUnitaire != null && l.netInitial) ? l.netInitial * l.prixUnitaire : null;
+        return '<tr><td class="mono">' + esc(l.id) + '</td><td class="mono">' + (l.netInitial == null ? "—" : R.kg(l.netInitial)) + '</td><td class="mono">' + (l.prixUnitaire == null ? "—" : R.round2(l.prixUnitaire)) + '</td><td class="mono">' + fcfa(val) + '</td></tr>';
+      }).join("");
+      body = '<div class="metrics"><div class="metric big"><small>Valeur livrée</small><b style="font-size:20px">' + fcfa(valeur) + '</b><span>' + (couvPct < 100 ? couvPct + " % du volume valorisé" : "volume entièrement valorisé") + '</span></div>' +
+        '<div class="metric"><small>Volume livré</small><b>' + R.round2(volLivre) + '</b><span>kg (net)</span></div>' +
+        '<div class="metric"><small>Prix moyen d\'achat</small><b>' + (prixMoy == null ? "—" : R.round2(prixMoy)) + '</b><span>FCFA/kg</span></div>' +
+        '<div class="metric"><small>Avances</small><b>—</b><span>module Procurement</span></div></div>' +
+        '<div class="card" style="margin-top:14px"><h2>Valorisation des lots</h2><div class="cbody" style="padding:0">' +
+        (rowsFin ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Lot</th><th>Net</th><th>Prix FCFA/kg</th><th>Valeur</th></tr></thead><tbody>' + rowsFin + '</tbody></table></div>' : '<div class="empty">Aucun lot.</div>') +
+        '</div></div>' +
+        '<div class="rule" style="margin-top:14px"><b>Note.</b> La valeur livrée est calculée au prix d\'achat saisi à la libération du lot (§6). Les avances et limites de financement relèveront du module Procurement.</div>';
     }
     return '<div class="pagehead"><h1>' + esc(nom) + '</h1><p>Compte fournisseur · ' + esc(lba || "—") + '</p></div>' + tabbar + body +
       '<div class="actions" style="margin-top:18px"><button class="btn ghost" onclick="__rcngo(\'sacs\')">← Tous les fournisseurs</button></div>';
@@ -624,6 +642,32 @@
       '<div class="row">' + inp("wh_net", "Poids net reçu (kg)", "", "number") + inp("wh_sacs", "Sacs reçus", "", "number") + '</div>' +
       '<div class="row3">' + inp("wh_kor", "KOR arrivée (info)", "", "number") + inp("wh_hum", "Humidité arrivée (%)", "", "number") + inp("wh_nc", "Nut Count arrivée", "", "number") + '</div>' +
       '<div class="actions"><button class="btn" onclick="RCNUI.receiveWh(\'' + trf.id + '\')">Réceptionner → sampling à l\'arrivée</button></div>';
+  }
+
+  // Montant en FCFA (séparateur de milliers, arrondi entier).
+  function fcfa(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " FCFA"; }
+
+  // Carte « Finance du transfert » (§6) : valorisation au prix moyen pondéré,
+  // tolérance de transit, perte tolérée / pénalisable et pénalité.
+  function financeCard(trf) {
+    var f = trf.finance; if (!f) return "";
+    var noPrice = f.prixMoyen == null;
+    var pen = f.penalite;
+    var penClass = (pen != null && pen > 0) ? "alert" : "okbox";
+    var lignes =
+      '<div class="metrics" style="margin:0 0 6px">' +
+        '<div class="metric"><small>Prix moyen pondéré</small><b style="font-size:16px">' + (noPrice ? "—" : R.round2(f.prixMoyen)) + '</b><span>FCFA/kg' + (f.couvertureKg ? " · " + R.kg(f.couvertureKg) + " valorisés" : "") + '</span></div>' +
+        '<div class="metric"><small>Valeur envoyée</small><b style="font-size:15px">' + fcfa(f.valeurEnvoyee) + '</b><span>' + R.kg(trf.poidsEnvoye) + '</span></div>' +
+        '<div class="metric"><small>Tolérance transit</small><b style="font-size:15px">' + f.tolerancePct + ' %</b><span>' + R.kg(f.toleranceKg) + ' tolérés</span></div>' +
+        (f.pertePenalisable == null ? "" :
+          '<div class="metric"><small>Perte tolérée / pénalisable</small><b style="font-size:15px">' + R.kg(f.perteTolerable) + ' / ' + R.kg(f.pertePenalisable) + '</b><span>sur ' + R.kg(Math.max(0, trf.ecart || 0)) + ' de perte</span></div>') +
+      '</div>';
+    var penBox = (f.pertePenalisable == null) ? '<p style="font-size:12.5px;color:var(--n500);margin:0">Pénalité calculée à la réception.</p>'
+      : (noPrice ? '<div class="alert">Prix des lots non renseigné : pénalité non chiffrable. Saisir le prix d\'achat des lots contributeurs.</div>'
+      : '<div class="' + penClass + '" style="margin:0"><b>Pénalité de transit : ' + fcfa(pen) + '</b> = ' + R.kg(f.pertePenalisable) + ' × ' + R.round2(f.prixMoyen) + ' FCFA/kg' + (pen > 0 ? "" : " (perte dans la tolérance, aucune pénalité)") + '</div>');
+    return '<div class="card"><h2>Finance du transfert</h2><div class="cbody">' + lignes + penBox +
+      '<div class="rule" style="margin-top:12px"><b>Règle (§6).</b> Perte de transit ≤ ' + f.tolerancePct + ' % : tolérée. Au-delà : pénalisable, valorisée au prix moyen pondéré des lots (pénalité = perte pénalisable × prix moyen).</div>' +
+      '</div></div>';
   }
 
   function transfertDetail(id) {
@@ -654,6 +698,7 @@
         '<div class="metric"><small>Reçu</small><b>' + (trf.poidsRecu == null ? "—" : R.round2(trf.poidsRecu)) + '</b><span>kg</span></div>' +
         '<div class="metric"><small>Perte de transit</small><b>' + (trf.transitLossPct == null ? "—" : trf.transitLossPct + " %") + '</b><span>' + (trf.ecart == null ? "envoyé vs reçu" : R.kg(trf.ecart)) + '</span></div>' +
       '</div>' +
+      financeCard(trf) +
       '<div class="grid2"><div class="card"><h2>Contributeurs calculés automatiquement</h2><div class="cbody" style="padding:0">' +
         '<table><thead><tr><th>Lot parent</th><th>Part BIN</th><th>Attribué au TRF</th><th>Qualité</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div><div class="card"><h2>Triple validation</h2><div class="cbody">' + valStep + '<div style="margin-top:14px">' + action + '</div></div></div>' +
@@ -922,7 +967,7 @@
   };
   UI.finale = function (id, decision) {
     try {
-      var res = R.saveFinaleAndRelease(id, { gk: val("ff_gk"), imm: val("ff_imm"), spotted: val("ff_sp"), nc: val("ff_nc"), humidity: val("ff_hum"), browns: val("ff_browns"), voids: val("ff_voids"), oil: val("ff_oil") }, decision, val("ff_bin"));
+      var res = R.saveFinaleAndRelease(id, { gk: val("ff_gk"), imm: val("ff_imm"), spotted: val("ff_sp"), nc: val("ff_nc"), humidity: val("ff_hum"), browns: val("ff_browns"), voids: val("ff_voids"), oil: val("ff_oil"), prixUnitaire: val("ff_prix") }, decision, val("ff_bin"));
       if (res.bloque) { toast("Dossier bloqué qualité (écart KOR ≥ 1).", true); go("reception/" + id); }
       else { toast("Lot officiel " + res.lot.id + " créé & libéré."); go("qualite/" + id + "/fiche"); }
       route();

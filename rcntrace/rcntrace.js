@@ -284,6 +284,7 @@
       origine: data.origine || "", site: data.site || "", warehouse: data.warehouse || data.site || "",
       arriveeAt: data.arriveeAt || nowISO(),
       poidsAnnonce: num(data.poidsAnnonce), sacsAnnonce: num(data.sacsAnnonce),
+      prixUnitaire: num(data.prixUnitaire),            // prix d'achat (FCFA/kg) — base des valorisations (§6)
       refDoc: data.refDoc || "",
       source: data.fromTransfer ? "inter-entrepôt" : "fournisseur",
       fromTransfer: data.fromTransfer || null,         // transfert d'origine (arrivée inter-entrepôt)
@@ -424,6 +425,7 @@
       fournisseur: rec.fournisseur, origine: rec.origine, site: rec.site || "", warehouse: rec.warehouse || rec.site || "",
       sacs: rec.dechargement ? rec.dechargement.sacs : null,   // sacs portés (affichage BIN)
       korSampling: korSampling, korFinal: korFinal, korDisplay: round2(korFinal),
+      prixUnitaire: (num(f.prixUnitaire) != null ? num(f.prixUnitaire) : rec.prixUnitaire),   // prix d'achat FCFA/kg (§6)
       ecart: ec, netInitial: rec.dechargement ? rec.dechargement.net : null,
       stock: rec.dechargement ? rec.dechargement.net : 0,   // solde du lot (kg)
       etat: ETAT_REC.LIBERE, binId: binId || null, createdAt: nowISO(),
@@ -649,6 +651,72 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /*  7ter. Règle de sortie de BIN & valorisation (§4, §6)              */
+  /* ------------------------------------------------------------------ */
+  // §4 · Règle de sortie d'une BIN mélangée : PROPORTIONNEL par défaut
+  // (chaque contributeur cède au prorata de son solde présent dans la BIN,
+  // cf. allocateFromCycle / R-03). Point de configuration pour l'avenir.
+  var REGLE_SORTIE_BIN = "proportionnel";
+  function regleSortieBin() { var r = referentials(); return (r && r.regleSortieBin) ? r.regleSortieBin : REGLE_SORTIE_BIN; }
+
+  // §6 · Tolérance de perte de transit (%). En-deçà : perte tolérée (non
+  // pénalisée) ; au-delà : perte pénalisable valorisée au prix moyen pondéré.
+  var TOLERANCE_TRANSIT = 0.3;
+  function toleranceTransit() { var r = referentials(); return (r && r.toleranceTransitPct != null) ? r.toleranceTransitPct : TOLERANCE_TRANSIT; }
+
+  // Fixe / corrige le prix d'achat d'un lot (FCFA/kg). Tracé au journal.
+  function setLotPrice(lotId, prix, motif) {
+    var lot = getLot(lotId); if (!lot) throw new Error("Lot introuvable");
+    var p = num(prix); if (p === null || p < 0) throw new Error("Prix invalide.");
+    var avant = lot.prixUnitaire == null ? null : lot.prixUnitaire;
+    lot.prixUnitaire = p;
+    audit(lot.id, "prix unitaire", avant, p, motif || "Saisie du prix d'achat");
+    saveDb();
+    return lot;
+  }
+
+  // Prix moyen PONDÉRÉ (FCFA/kg) d'une liste de contributeurs {lotId, qty}.
+  // Ne pondère que les lots dotés d'un prix ; couvertureKg = quantité valorisée.
+  function prixMoyenPondere(contribs) {
+    var pv = 0, pq = 0;
+    (contribs || []).forEach(function (c) {
+      var lot = getLot(c.lotId); var q = num(c.qty);
+      if (!lot || lot.prixUnitaire == null || q == null || q <= 0) return;
+      pv += q * lot.prixUnitaire; pq += q;
+    });
+    return pq > 0 ? { prix: round2(pv / pq), couvertureKg: round2(pq) } : { prix: null, couvertureKg: 0 };
+  }
+  // Prix moyen pondéré courant d'une BIN (sur le stock restant des contributeurs).
+  function binPrixMoyen(cycle) {
+    if (!cycle) return null;
+    var contribs = cycle.contributors.map(function (c) { return { lotId: c.lotId, qty: c.entree - c.sorti }; });
+    return prixMoyenPondere(contribs).prix;
+  }
+  // Finance d'un transfert : valorisation au départ, perte tolérée / pénalisable,
+  // et pénalité = perte pénalisable × prix moyen pondéré (§6).
+  function computeTransferFinance(trf) {
+    var pm = prixMoyenPondere(trf.contributors);
+    var tolPct = toleranceTransit();
+    var toleranceKg = round2(trf.poidsEnvoye * tolPct / 100);
+    var perteKg = (trf.ecart == null) ? null : Math.max(0, trf.ecart);
+    var f = {
+      prixMoyen: pm.prix, couvertureKg: pm.couvertureKg,
+      tolerancePct: tolPct, toleranceKg: toleranceKg,
+      valeurEnvoyee: pm.prix == null ? null : round2(trf.poidsEnvoye * pm.prix),
+      perteTolerable: null, pertePenalisable: null, penalite: null, valeurRecue: null
+    };
+    if (perteKg != null) {
+      f.perteTolerable = round2(Math.min(perteKg, toleranceKg));
+      f.pertePenalisable = round2(Math.max(0, perteKg - toleranceKg));
+      if (pm.prix != null) {
+        f.penalite = round2(f.pertePenalisable * pm.prix);
+        f.valeurRecue = trf.poidsRecu == null ? null : round2(trf.poidsRecu * pm.prix);
+      }
+    }
+    return f;
+  }
+
+  /* ------------------------------------------------------------------ */
   /*  8. Transfert (§8)                                                 */
   /* ------------------------------------------------------------------ */
 
@@ -683,6 +751,7 @@
       validations: { entrepot: { ok: true, at: nowISO(), auteur: (loadDb().user || {}).nom }, qa: null, calibrage: null },
       voyages: []
     };
+    trf.finance = computeTransferFinance(trf);   // valorisation au départ (§6)
     loadDb().transfers.unshift(trf);
     var mov = { id: genId("MOV"), type: "sortie_bin", cycleId: cycle.id, binId: cycle.binId, trfId: trf.id, qty: poids, at: nowISO() };
     loadDb().movements.unshift(mov);
@@ -724,6 +793,7 @@
     trf.ecart = round2(trf.poidsEnvoye - trf.poidsRecu);   // = perte de transit (kg)
     trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
     if (arrivee) trf.qualiteArrivee = { kor: num(arrivee.kor), humidity: num(arrivee.humidity), nc: num(arrivee.nc), at: nowISO() };
+    trf.finance = computeTransferFinance(trf);   // perte tolérée/pénalisable + pénalité (§6)
     trf.validations.calibrage = { at: nowISO(), auteur: (loadDb().user || {}).nom };
     if (partiel) { trf.etat = ETAT_TRF.PARTIEL; }
     else if (Math.abs(trf.ecart) > 0.001) { trf.etat = ETAT_TRF.ECART; }
@@ -760,12 +830,16 @@
     trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
     if (d.kor || d.humidity || d.nc) trf.qualiteArrivee = { kor: num(d.kor), humidity: num(d.humidity), nc: num(d.nc), at: nowISO() };
     trf.etat = d.partiel ? ETAT_TRF.PARTIEL : (Math.abs(trf.ecart) > 0.001 ? ETAT_TRF.ECART : ETAT_TRF.RECU);
+    trf.finance = computeTransferFinance(trf);   // perte tolérée/pénalisable + pénalité (§6)
     // Création de la réception à destination (repasse par sampling + GM).
+    // Le prix moyen pondéré du transfert est hérité par le dossier d'arrivée
+    // (base du prix du lot re-créé à Yamoussoukro), sauf saisie contraire.
     var ratio = trf.poidsEnvoye ? net / trf.poidsEnvoye : 0;
     var rec = createReception({
       camion: trf.camion || trf.voyage || "", fournisseur: "Transfert " + trf.binId,
       origine: "Inter-entrepôt (" + trf.binId + ")", site: trf.destinationSite || d.site || "",
       poidsAnnonce: net, sacsAnnonce: num(d.sacs), refDoc: trf.id,
+      prixUnitaire: (trf.finance ? trf.finance.prixMoyen : null),
       fromTransfer: trf.id, binSuggeree: d.binId,
       parents: (trf.contributors || []).map(function (c) { return { lotId: c.lotId, qty: round2(c.qty * ratio) }; })
     });
@@ -982,21 +1056,21 @@
     gmDecision(rec1.id, true, "Déchargement autorisé", null);
     saveDechargement(rec1.id, { whReceipt: "72515", ficheCca: "0401-0007", binDecharge: "BKE-002-BIN-017", sacsBon: 143, sacsHumid: 0, sacsDechire: 7, brut: 12100, tare: 100, poidsMainDoeuvre: 45, prestataire: "SONEL TRANS", destination: "BKE-002" });
     // Analyse finale §7 slide : KOR final 47.80, écart 0.61 → libéré
-    var r1 = saveFinaleAndRelease(rec1.id, { gk: 262, imm: 0, spotted: 18, nc: 208, humidity: 7.0, browns: 5, voids: 3, oil: 2 }, "liberer", null);
+    var r1 = saveFinaleAndRelease(rec1.id, { gk: 262, imm: 0, spotted: 18, nc: 208, humidity: 7.0, browns: 5, voids: 3, oil: 2, prixUnitaire: 400 }, "liberer", null);
 
     // Deux autres lots pour la BIN collective (60/25/15)
     var rec2 = createReception({ camion: "793LT03", fournisseur: F[1].nom, lba: F[1].lba, origine: "Séguéla", site: SITE, poidsAnnonce: 5000, sacsAnnonce: 62, refDoc: "0429-0040" });
     saveSampling(rec2.id, { gk: 261, imm: 0, spotted: 11, nc: 199, humidity: 6.8, browns: 6, voids: 2, oil: 1 });
     submitToGm(rec2.id); gmDecision(rec2.id, true, "OK", null);
     saveDechargement(rec2.id, { whReceipt: "72533", ficheCca: "0429-0040", binDecharge: "BKE-002-BIN-017", sacsBon: 60, sacsHumid: 0, sacsDechire: 2, brut: 2520, tare: 20, poidsMainDoeuvre: 18, prestataire: "SONEL TRANS", destination: "BKE-002" });
-    var r2 = saveFinaleAndRelease(rec2.id, { gk: 258, imm: 0, spotted: 18, nc: 197, humidity: 6.9, browns: 6, voids: 3, oil: 1 }, "liberer", null);
+    var r2 = saveFinaleAndRelease(rec2.id, { gk: 258, imm: 0, spotted: 18, nc: 197, humidity: 6.9, browns: 6, voids: 3, oil: 1, prixUnitaire: 395 }, "liberer", null);
 
     var rec3 = createReception({ camion: "3334FN01", fournisseur: F[7].nom, lba: F[7].lba, origine: "Mankono", site: SITE, poidsAnnonce: 2000, sacsAnnonce: 25, refDoc: "0525-0068" });
     saveSampling(rec3.id, { gk: 266, imm: 0, spotted: 12, nc: 205, humidity: 7.1, browns: 3, voids: 2, oil: 1 });
     submitToGm(rec3.id); gmDecision(rec3.id, true, "OK", null);
     saveDechargement(rec3.id, { whReceipt: "72534", ficheCca: "0525-0068", binDecharge: "BKE-002-BIN-017", sacsBon: 24, sacsHumid: 0, sacsDechire: 1, brut: 1520, tare: 20, poidsMainDoeuvre: 10, prestataire: "SONEL TRANS", destination: "BKE-002" });
     // Analyse finale proche du sampling (écart < 1) → lot libéré.
-    var r3 = saveFinaleAndRelease(rec3.id, { gk: 265, imm: 0, spotted: 12, nc: 202, humidity: 7.1, browns: 4, voids: 3, oil: 1 }, "liberer", null);
+    var r3 = saveFinaleAndRelease(rec3.id, { gk: 265, imm: 0, spotted: 12, nc: 202, humidity: 7.1, browns: 4, voids: 3, oil: 1, prixUnitaire: 410 }, "liberer", null);
 
     // BIN BKE-002-BIN-017 : compositions (poids ajustés pour 60/25/15 sur 10 000 kg)
     var cycle = openBinCycle("BKE-002-BIN-017", "RCN standard Nord", 12000);
@@ -1035,7 +1109,7 @@
     saveSampling(recy.id, { gk: 264, imm: 0, spotted: 13, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 1 });
     submitToGm(recy.id); gmDecision(recy.id, true, "OK", null);
     saveDechargement(recy.id, { whReceipt: "81001", ficheCca: "YK-0001", binDecharge: "YAKRO-BIN-01", sacsBon: 73, sacsHumid: 0, sacsDechire: 2, brut: 6050, tare: 50, poidsMainDoeuvre: 20, prestataire: "MAGAH TRANS", destination: "YAKRO" });
-    saveFinaleAndRelease(recy.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.0, browns: 5, voids: 3, oil: 2 }, "liberer", "YAKRO-BIN-01");
+    saveFinaleAndRelease(recy.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.0, browns: 5, voids: 3, oil: 2, prixUnitaire: 405 }, "liberer", "YAKRO-BIN-01");
 
     // Séchage à Bouaké : 2 000 kg de BIN-017 (humidité 11 %→9,5 %), perte ~1,7 %.
     createDrying(cycle.id, "BKE-002-BIN-003-DRIED", { type: "sechage", inputKg: 2000, outputKg: 1966, inputSacs: 120, outputSacs: 118, inputMoisture: 11, outputMoisture: 9.5, inputNc: 161, outputNc: 176, inputKor: 47.97, outputKor: 47.26 });
@@ -1094,6 +1168,8 @@
     warehouseOf: warehouseOf, locationOfBin: locationOfBin, calibrageAutorise: calibrageAutorise,
     // transfert
     prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
+    // prix & finance (§4 règle de sortie, §6 valorisation/pénalité)
+    regleSortieBin: regleSortieBin, toleranceTransit: toleranceTransit, setLotPrice: setLotPrice, prixMoyenPondere: prixMoyenPondere, binPrixMoyen: binPrixMoyen, computeTransferFinance: computeTransferFinance,
     // calibrage
     createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
     // sacs jute
