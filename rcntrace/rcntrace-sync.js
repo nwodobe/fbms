@@ -22,6 +22,7 @@
   var synced = {};                    // clé 'kind:id' -> hash du payload déjà poussé
   var auditSynced = {};               // id AUD déjà poussé
   var pending = 0;
+  var supplierCache = null, supplierLoading = null;
   var flushTimer = null, flushing = false, reflush = false;
 
   function hash(o) { try { return JSON.stringify(o); } catch (e) { return Math.random(); } }
@@ -171,9 +172,36 @@
       .catch(function () { /* profil non lisible : on garde le défaut */ });
   }
 
+  /* ---- Base fournisseurs sécurisée --------------------------------- */
+  function loadSuppliers() {
+    if (!hasSession) return Promise.resolve(null);
+    if (supplierCache) return Promise.resolve(supplierCache.slice());
+    if (supplierLoading) return supplierLoading;
+    var client = ensureClient();
+    if (!client) return Promise.resolve(null);
+    supplierLoading = client.from("rcn_fournisseurs")
+      .select("code,nom,categorie,statut,contrat,origines,sites,nb_livraisons,volume_livre_kg,sacs_livres,kor_moyen,humidite_moyenne,nut_count_moyen,premiere_livraison,derniere_livraison")
+      .order("code", { ascending: true })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        supplierCache = res.data || [];
+        if (global.RCNTRACE_RERENDER) global.RCNTRACE_RERENDER();
+        return supplierCache.slice();
+      })
+      .catch(function (err) {
+        console.warn("RCN TRACE : base fournisseurs indisponible", err);
+        supplierCache = [];
+        return [];
+      })
+      .then(function (rows) { supplierLoading = null; return rows; });
+    return supplierLoading;
+  }
+
   /* ---- API publique ------------------------------------------------- */
   var API = {
     status: function () { return { mode: mode, pending: pending, hasSession: hasSession }; },
+    suppliers: function () { return supplierCache ? supplierCache.slice() : null; },
+    loadSuppliers: loadSuppliers,
     flush: function () { return doFlush(); },
     init: function () {
       R = global.RCN;
@@ -190,11 +218,11 @@
         // Ré-hydrater / repousser lors d'une connexion ultérieure (auth-gate).
         client.auth.onAuthStateChange(function (ev, sess) {
           if (ev === "SIGNED_IN" && sess && !hasSession) {
-            hasSession = true;
+            hasSession = true; supplierCache = null;
             applyProfil(sess.user.id).then(hydrate).then(function (had) { if (!had) doFlush(); else { report(); if (global.RCNTRACE_RERENDER) global.RCNTRACE_RERENDER(); } })
               .catch(function () { doFlush(); });
           }
-          if (ev === "SIGNED_OUT") { hasSession = false; mode = "local"; report(); }
+          if (ev === "SIGNED_OUT") { hasSession = false; supplierCache = null; mode = "local"; report(); }
         });
 
         if (hasSession && navigator.onLine) {
