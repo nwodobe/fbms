@@ -71,18 +71,35 @@
     { code: "dechire", label: "Déchirés", ledger: "interne" }
   ];
 
-  // Référentiels RÉELS extraits des rapports d'exploitation 2026 (configurables).
-  // Fournisseurs = coopératives avec leur code LBA.
+  // Référentiels RÉELS extraits des rapports d'exploitation 2026 (feuille
+  // « LBA VENDOR », base fournisseurs officielle). Code = <PREFIXE>-NNN-XXX :
+  // préfixe (LBA/DIS), numéro séquentiel, abréviation 3 lettres du mot-clé.
   var FOURNISSEURS = [
-    { nom: "RCN SCOOP IMANE", lba: "LBA-006-IMA" },
-    { nom: "RCN CASP-S SCOOPS", lba: "LBA-007-CAS" },
-    { nom: "RCN SCOOPS HERE B", lba: "LBA-003-HER" },
-    { nom: "RCN SCOOPS-SOCOSIDJI", lba: "LBA-001-SOC" },
-    { nom: "RCN COP JAVA SCOOPS", lba: "LBA-005-JAV" },
-    { nom: "RCN SCAAMT COOP CA", lba: "LBA-008-SCA" },
-    { nom: "RCN SCOOPS WEBE", lba: "LBA-010-WEB" },
-    { nom: "DAGNOGO KARIM / SCOPPA", lba: "LBA-013-DAG" }
+    { nom: "SCOOPS SOCOSIDJI", lba: "LBA-001-SOC" },
+    { nom: "SCAAMT COOP CA", lba: "LBA-002-SCA" },
+    { nom: "SCOOPS HERE B", lba: "LBA-003-HER" },
+    { nom: "SCOOPS WEBE", lba: "LBA-004-WEB" },
+    { nom: "COP JAVA", lba: "LBA-005-JAV" },
+    { nom: "SCOOP IMANE", lba: "LBA-006-IMA" },
+    { nom: "CASP-S SCOOPS", lba: "LBA-007-CAS" },
+    { nom: "SCOOP-CA/COBAN", lba: "LBA-008-COB" },
+    { nom: "SCOPPAS SCOOPS", lba: "LBA-009-SCO" },
+    { nom: "CAPCD-SCOOPS", lba: "LBA-010-CAP" },
+    { nom: "SCOOPS ASER", lba: "LBA-011-ASR" },
+    { nom: "SCOOPS KPESSO", lba: "LBA-012-KPE" },
+    { nom: "ETABLISSEMENT Dagnogo Karime", lba: "LBA-013-DAG" },
+    { nom: "SCOOPS BAY SCOOPS", lba: "LBA-014-BAY" },
+    { nom: "SCOOPS OUMI", lba: "LBA-015-OUM" },
+    { nom: "SCOOPS AH AL NOUR", lba: "LBA-016-NOU" },
+    { nom: "SCOOPS DPVICA", lba: "LBA-017-DPV" },
+    { nom: "SCOOPS COOPRAKA", lba: "LBA-018-COP" },
+    { nom: "SCOOPS FRA PRO", lba: "LBA-019-FRA" },
+    { nom: "SCOOPS DEMBOL", lba: "LBA-021-DEM" },
+    { nom: "SCOOPS CORISPORT", lba: "DIS-002-COR" },
+    { nom: "SCOOPS DIENE", lba: "DIS-006-DIE" }
   ];
+  // Mots génériques ignorés pour dériver l'abréviation du code LBA.
+  var LBA_GENERIQUES = ["RCN", "SCOOPS", "SCOOP", "COOPS", "COOP", "COP", "ETABLISSEMENT", "ETS", "ETB", "SARL", "EARL", "GIE", "ENTREPRISE", "ENT", "CA", "SCA-CA"];
   var ORIGINES = ["Dianra", "Mankono", "Niakara", "Bouaké", "Vavoua", "Dabakala", "Kounahiri", "Korhogo", "Séguéla"];
   // Entrepôts par localité (une localité a plusieurs entrepôts).
   // Format d'identifiant BIN dérivé : <ENTREPÔT>-BIN-nn (ex. BKE-002-BIN-017).
@@ -1068,6 +1085,60 @@
     return ent;
   }
 
+  // ---- Base fournisseurs & génération automatique du code LBA --------
+  // Abréviation 3 lettres dérivée du mot-clé identifiant (hors mots génériques).
+  function lbaAbbrev(nom) {
+    var words = String(nom || "").toUpperCase().replace(/[^A-ZÀ-Ÿ0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
+    var sig = words.filter(function (w) { return w.length >= 3 && LBA_GENERIQUES.indexOf(w) < 0; });
+    var base = sig[0] || words.filter(function (w) { return w.length >= 2; })[0] || words[0] || "XXX";
+    var abbr = base.replace(/[^A-Z]/g, "").slice(0, 3);
+    while (abbr.length < 3) abbr += "X";
+    return abbr;
+  }
+  // Prochain numéro séquentiel pour un préfixe (LBA par défaut).
+  function nextLbaNumber(prefix) {
+    var mx = 0;
+    (referentials().fournisseurs || []).forEach(function (f) {
+      var m = /^([A-Z]+)-(\d+)-/.exec(f.lba || "");
+      if (m && (!prefix || m[1] === prefix)) mx = Math.max(mx, parseInt(m[2], 10));
+    });
+    return mx + 1;
+  }
+  // Prévisualise le code qui serait attribué (sans créer).
+  function nextLbaCode(nom, prefix) {
+    prefix = (prefix || "LBA").toUpperCase();
+    return prefix + "-" + pad(nextLbaNumber(prefix), 3) + "-" + lbaAbbrev(nom);
+  }
+  // Crée un fournisseur (LBA) avec code auto-généré selon la structuration.
+  function addFournisseur(nom, prefix) {
+    nom = (nom || "").trim();
+    if (!nom) throw new Error("Nom du fournisseur requis.");
+    var refs = referentials();
+    if (!refs.fournisseurs) refs.fournisseurs = [];
+    if (refs.fournisseurs.filter(function (f) { return (f.nom || "").toLowerCase() === nom.toLowerCase(); }).length)
+      throw new Error("Ce fournisseur existe déjà : " + nom + ".");
+    var code = nextLbaCode(nom, prefix);
+    var f = { nom: nom, lba: code };
+    refs.fournisseurs.push(f);
+    audit(code, "fournisseur", null, nom, "Création fournisseur " + code);
+    saveDb();
+    return f;
+  }
+  // Base fournisseurs enrichie : nb livraisons & volume net acheté par code.
+  function fournisseursBase() {
+    var byNom = {};
+    lots().forEach(function (l) {
+      if (l.fromTransfer) return;
+      var k = l.fournisseur || "—";
+      var g = byNom[k] || (byNom[k] = { livraisons: 0, volume: 0 });
+      g.livraisons += 1; g.volume += (num(l.netInitial) || 0);
+    });
+    return (referentials().fournisseurs || []).map(function (f) {
+      var g = byNom[f.nom] || { livraisons: 0, volume: 0 };
+      return { nom: f.nom, lba: f.lba, livraisons: g.livraisons, volumeKg: round2(g.volume) };
+    });
+  }
+
   // Statistiques qualité & volume par localité et par région (aide à la
   // décision d'achat). Volume = net reçu (kg) ; qualité = KOR moyen pondéré
   // par le volume ; humidité moyenne si disponible.
@@ -1250,6 +1321,8 @@
     jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
     // géographie / entrepôts / statistiques par zone
     localites: localites, regionsGeo: regionsGeo, localiteInfo: localiteInfo, addEntrepot: addEntrepot, geoStats: geoStats,
+    // base fournisseurs & génération de code LBA
+    addFournisseur: addFournisseur, nextLbaCode: nextLbaCode, lbaAbbrev: lbaAbbrev, fournisseursBase: fournisseursBase,
     // dashboard / audit
     dashboard: dashboard, audit: audit
   };
