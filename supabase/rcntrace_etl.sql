@@ -429,25 +429,29 @@ select d->>'id' as id, d->>'type' as type, d->>'sourceBinId' as bin_source, d->>
 from (select payload p from rcn_state where kind='meta') m
 cross join lateral jsonb_array_elements(coalesce(p->'dryings','[]'::jsonb)) d;
 
--- Sacs de jute (déplié du payload meta.singleton) --------------------------
+-- Sacs de jute (déplié du payload meta.singleton) — registre fournisseur/interne
 create or replace view rcn_v_jute as
-select j->>'id' as id, j->>'type' as type, j->>'supplierNom' as supplier_nom, j->>'supplierLba' as supplier_lba,
+select j->>'id' as id, j->>'type' as type, coalesce(j->>'ledger','fournisseur') as ledger,
+  j->>'supplierNom' as supplier_nom, j->>'supplierLba' as supplier_lba,
   (j->>'qty')::numeric as qty, j->>'ref' as ref, j->>'note' as note,
   (j->>'at')::timestamptz as created_at, j->>'auteur' as auteur
 from (select payload p from rcn_state where kind='meta') m
 cross join lateral jsonb_array_elements(coalesce(p->'jute','[]'::jsonb)) j;
 
--- Balance des sacs par fournisseur (solde = dotation − retours − déchirés − rebaging)
+-- Balance = DETTE fournisseur : dotation − retours physiques − pertes approuvées.
 create or replace view rcn_bi_jute_balance as
 select coalesce(nullif(supplier_lba,''), supplier_nom) as supplier_key,
   max(supplier_nom) as fournisseur, max(supplier_lba) as lba,
   coalesce(sum(qty) filter (where type='dotation'),0) as dotation,
   coalesce(sum(qty) filter (where type='retour'),0)   as retour,
-  coalesce(sum(qty) filter (where type='dechire'),0)  as dechire,
-  coalesce(sum(qty) filter (where type='rebaging'),0) as rebaging,
+  coalesce(sum(qty) filter (where type='perte_approuvee'),0) as perte_approuvee,
   coalesce(sum(qty) filter (where type='dotation'),0)
-    - coalesce(sum(qty) filter (where type in ('retour','dechire','rebaging')),0) as solde
-from rcn_v_jute group by 1;
+    - coalesce(sum(qty) filter (where type in ('retour','perte_approuvee')),0) as solde
+from rcn_v_jute where ledger='fournisseur' group by 1;
+
+-- Disposition interne des sacs retournés (utilisables, à réparer, rebagging…).
+create or replace view rcn_bi_jute_interne as
+select type as categorie, sum(qty) as sacs from rcn_v_jute where ledger='interne' group by type;
 
 -- Rendement du séchage par BIN source (perte moyenne, cumuls) --------------
 create or replace view rcn_bi_sechage as
@@ -472,7 +476,7 @@ begin
     'rcn_v_cal_arrets','rcn_v_cal_alimentations','rcn_v_mouvements','rcn_v_genealogie',
     'rcn_bi_kor','rcn_bi_delais','rcn_bi_stock_bin','rcn_bi_ecart_transfert',
     'rcn_bi_rendement_calibre','rcn_bi_rendement_calibre_global','rcn_bi_pertes','rcn_bi_bilan_cal',
-    'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_sechage'
+    'rcn_v_sechage','rcn_v_jute','rcn_bi_jute_balance','rcn_bi_jute_interne','rcn_bi_sechage'
   ]
   loop
     execute format('alter view %I set (security_invoker = on);', v);
