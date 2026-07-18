@@ -54,7 +54,7 @@ function submitPurchase(rec,price,priceBm,comment){
  var d=rec.dechargement||{},row={id:"ACH-"+new Date().getFullYear()+"-"+Date.now().toString(36).toUpperCase(),reception_id:rec.id,price_ref:price.id,
   supplier_code:rec.lba,supplier_name:rec.fournisseur,poids_net_kg:Number(d.net||0),refraction_kg:Number(d.refraction||0),poids_paye_kg:Number(d.poidsPaye||0),
   prix_negocie:Number(price.prix_bm||price.prix_propose),prix_soumis_bm:Number(priceBm),montant_soumis:Number(d.poidsPaye||0)*Number(priceBm),
-  kor_sampling:rec.sampling&&rec.sampling.korDisplay,kor_final:rec.finale&&rec.finale.korDisplay,commentaire_bm:comment||"",statut:"SOUMIS_GM"};
+  kor_sampling:rec.sampling&&rec.sampling.korDisplay,kor_final:rec.finale&&rec.finale.korDisplay,humidite_finale:rec.finale&&rec.finale.humidity,commentaire_bm:comment||"",statut:"SOUMIS_GM"};
  return client().from("rcn_proc_validations_achat").insert(row).then(function(r){if(r.error)throw r.error;cache=null;purchases=null;return load();});
 }
 function decidePurchase(id,decision,price,comment){
