@@ -40,7 +40,7 @@
     ] },
     entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
       ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
-      ["stock", "Stock & BIN"], ["sechage", "Séchage / triage"], ["sacs", "Sacs de jute"],
+      ["stock", "Stock & BIN"], ["sechage", "Séchage / triage"],
       ["transfert", "Transferts"],
       ["rapports", "Rapports entrepôt"], ["carte", "Cartographie"], ["audit", "Audit"]
     ] },
