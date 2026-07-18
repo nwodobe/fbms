@@ -66,7 +66,17 @@ var API={
  close:function(id){if(!confirm("Clôturer ce prix approuvé ?"))return;global.RCNPricing.close(id,"EXPIRE","Clôture par le GM").then(function(){toast("Prix clôturé.");render();}).catch(function(e){toast(e.message,true);});},
  refresh:refreshPrice
 };
-function enhance(){setTimeout(function(){injectNav();injectDashboard();priceForForm();render();},30);}
+function injectReceptionPrice(){
+ var h=location.hash.replace("#","").split("/");if(h[0]!=="reception"||!h[1]||h[1]==="new")return;
+ var rec=global.RCN.getRec(decodeURIComponent(h[1]));if(!rec||!rec.prixRef||document.getElementById("recPriceOfficial"))return;
+ var card=document.querySelector("#view .card .cbody");if(!card)return;
+ var paid=rec.dechargement&&rec.dechargement.poidsPaye!=null?Number(rec.dechargement.poidsPaye):null;
+ var amount=paid==null?null:paid*Number(rec.prixApprouve||rec.prixUnitaire||0);
+ var box=document.createElement("div");box.id="recPriceOfficial";box.className="okbox";
+ box.innerHTML="<b>Prix officiel GM : "+Number(rec.prixApprouve||rec.prixUnitaire).toLocaleString("fr-FR")+" FCFA/kg</b><br>"+E(rec.prixRef)+(amount==null?"":"<br><b>Montant d’achat : "+amount.toLocaleString("fr-FR")+" FCFA</b>");
+ card.appendChild(box);
+}
+function enhance(){setTimeout(function(){injectNav();injectDashboard();priceForForm();injectReceptionPrice();render();},30);}
 function wrapReception(){
  if(!global.RCNUI||global.RCNUI.__priceWrapped)return;
  var old=global.RCNUI.createReception;
@@ -76,6 +86,14 @@ function wrapReception(){
   var orig=global.RCN.createReception;
   global.RCN.createReception=function(d){d.prixUnitaire=p.prix_approuve;var r=orig(d);r.prixRef=p.id;r.prixApprouve=Number(p.prix_approuve);r.prixValideDu=p.valide_du;r.prixValideAu=p.valide_au;global.RCN.save();return r;};
   try{return old();}finally{global.RCN.createReception=orig;}
+ };
+ var oldArrival=global.RCNUI.arriveProc;
+ global.RCNUI.arriveProc=function(id){
+  var a=global.RCN.procArrivages().filter(function(x){return x.id===id;})[0],p=a&&global.RCNPricing&&global.RCNPricing.activeFor(a.supplierLba,new Date());
+  if(!p)return toast("Arrivée bloquée : aucun prix approuvé par le GM n’est actif pour ce fournisseur.",true);
+  var orig=global.RCN.receptionFromProcArrivage;
+  global.RCN.receptionFromProcArrivage=function(x){var r=orig(x);r.prixUnitaire=Number(p.prix_approuve);r.prixRef=p.id;r.prixApprouve=Number(p.prix_approuve);r.prixValideDu=p.valide_du;r.prixValideAu=p.valide_au;global.RCN.save();return r;};
+  try{return oldArrival(id);}finally{global.RCN.receptionFromProcArrivage=orig;}
  };
  global.RCNUI.__priceWrapped=true;
 }
