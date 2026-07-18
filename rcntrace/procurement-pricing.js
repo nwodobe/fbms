@@ -62,6 +62,28 @@ function decidePurchase(id,decision,price,comment){
  var d={statut:decision,commentaire_gm:comment||""};if(decision==="APPROUVE")d.prix_approuve_gm=Number(price);
  return client().from("rcn_proc_validations_achat").update(d).eq("id",id).then(function(r){if(r.error)throw r.error;cache=null;purchases=null;return load();});
 }
+function updateDraft(id,d){
+ if(!canDraft())return Promise.reject(new Error("Votre rôle ne peut pas modifier une proposition."));
+ var row=(cache||[]).filter(function(x){return x.id===id;})[0];if(!row)return Promise.reject(new Error("Prix introuvable."));
+ if(["BROUILLON","A_CORRIGER"].indexOf(row.statut)<0)return Promise.reject(new Error("Ce prix est déjà confirmé : créez une version corrigée."));
+ var x={supplier_code:d.supplierCode,supplier_name:d.supplierName,prix_propose:Number(d.prixPropose),volume_kg:d.volumeKg?Number(d.volumeKg):null,kor_min:d.korMin?Number(d.korMin):null,humidite_max:d.humiditeMax?Number(d.humiditeMax):null,site:d.site||null,valide_du:d.valideDu,valide_au:d.valideAu,justification:d.justification||row.justification};
+ return patch(id,x);
+}
+function removePrice(id,comment){
+ var row=(cache||[]).filter(function(x){return x.id===id;})[0];if(!row)return Promise.reject(new Error("Prix introuvable."));
+ if(["BROUILLON","A_CORRIGER"].indexOf(row.statut)>=0){
+  if(!canDraft())return Promise.reject(new Error("Votre rôle ne peut pas supprimer ce brouillon."));
+  return client().from("rcn_proc_prix").delete().eq("id",id).then(function(r){if(r.error)throw r.error;cache=null;return load();});
+ }
+ if(!canSubmit()&&!canDecide())return Promise.reject(new Error("Seul le BM ou le GM peut annuler un prix confirmé."));
+ return patch(id,{statut:"ANNULE",commentaire_gm:comment||"Annulation demandée"});
+}
+function revise(id,d){
+ var row=(cache||[]).filter(function(x){return x.id===id;})[0];if(!row)return Promise.reject(new Error("Prix introuvable."));
+ if(["BROUILLON","A_CORRIGER"].indexOf(row.statut)>=0)return updateDraft(id,d);
+ if(!canSubmit()&&!canDecide())return Promise.reject(new Error("Seul le BM ou le GM peut remplacer un prix confirmé."));
+ return create({supplierCode:d.supplierCode,supplierName:d.supplierName,engagementId:row.engagement_id,prixPropose:d.prixPropose,volumeKg:d.volumeKg,korMin:d.korMin,humiditeMax:d.humiditeMax,site:d.site||row.site,campagne:row.campagne,valideDu:d.valideDu,valideAu:d.valideAu,justification:d.justification,version:Number(row.version||1)+1,previousId:row.id}).then(function(){return patch(id,{statut:"REMPLACE",commentaire_gm:"Remplacé par une version corrigée"});});
+}
 function stats(){var a=cache||[];return {total:a.length,draft:a.filter(function(x){return x.statut==="BROUILLON"||x.statut==="A_CORRIGER";}).length,pending:a.filter(function(x){return x.statut==="SOUMIS_GM";}).length,active:a.filter(function(x){return x.statut==="NEGOCIE_BM"||x.statut==="APPROUVE";}).length};}
-global.RCNPricing={load:load,ensure:ensure,rows:rows,role:role,canDraft:canDraft,canSubmit:canSubmit,canDecide:canDecide,create:create,submit:submit,decide:decide,close:close,activeFor:activeFor,purchaseRows:purchaseRows,purchaseForReception:purchaseForReception,submitPurchase:submitPurchase,decidePurchase:decidePurchase,stats:stats};
+global.RCNPricing={load:load,ensure:ensure,rows:rows,role:role,canDraft:canDraft,canSubmit:canSubmit,canDecide:canDecide,create:create,submit:submit,decide:decide,close:close,activeFor:activeFor,purchaseRows:purchaseRows,purchaseForReception:purchaseForReception,submitPurchase:submitPurchase,decidePurchase:decidePurchase,updateDraft:updateDraft,removePrice:removePrice,revise:revise,stats:stats};
 })(window);
