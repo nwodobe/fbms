@@ -21,7 +21,7 @@ function render(){
  var st=P.stats(),role=P.role();
  var priceRows=prices.map(function(p){var action="—";
   if((p.statut==="BROUILLON"||p.statut==="A_CORRIGER")&&P.canDraft())action='<button class="btn ghost sm" onclick="RCNPriceUI.edit(\''+p.id+'\')">Modifier</button> <button class="btn danger sm" onclick="RCNPriceUI.remove(\''+p.id+'\',true)">Supprimer</button>'+(P.canSubmit()?' <button class="btn sm" onclick="RCNPriceUI.submit(\''+p.id+'\','+Number(p.prix_bm||p.prix_propose)+')">Confirmer</button>':'');
-  if(["NEGOCIE_BM","SOUMIS_GM","APPROUVE"].indexOf(p.statut)>=0&&(P.canSubmit()||P.canDecide()))action='<button class="btn ghost sm" onclick="RCNPriceUI.edit(\''+p.id+'\')">Créer une correction</button> <button class="btn danger sm" onclick="RCNPriceUI.remove(\''+p.id+'\',false)">Annuler</button>';
+  if(["NEGOCIE_BM","SOUMIS_GM","APPROUVE"].indexOf(p.statut)>=0&&(P.canSubmit()||P.canDecide()))action=(P.canSubmit()?'<button class="btn ghost sm" onclick="RCNPriceUI.edit(\''+p.id+'\')">Créer une correction</button> ':'')+'<button class="btn danger sm" onclick="RCNPriceUI.remove(\''+p.id+'\',false)">Annuler</button>';
   return '<tr><td class="mono"><b>'+E(p.id)+'</b><small style="display:block;color:var(--n500)">v'+Number(p.version||1)+'</small></td><td><b>'+E(p.supplier_name)+'</b><small style="display:block;color:var(--n500)">'+E(p.supplier_code)+'</small></td><td class="mono">'+money(p.prix_propose)+'</td><td class="mono"><b>'+money(p.prix_bm)+'</b></td><td>'+E(p.valide_du)+' → '+E(p.valide_au)+'</td><td>'+badge(p.statut)+'</td><td>'+action+'</td></tr>';
  }).join("")||'<tr><td colspan="7" class="empty">Aucune proposition de prix.</td></tr>';
  var buyRows=purchases.map(function(a){var action="—";
