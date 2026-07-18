@@ -202,7 +202,7 @@
     { titre: "Entrepôt & Stock", items: [
       { id: "stock", ic: "📦", t: "Stock & BIN", d: "BIN collectives, entrepôts, clôtures" },
       { id: "sechage", ic: "🌤️", t: "Séchage / triage", d: "Humidité, pertes de séchage" },
-      { id: "sacs", ic: "🧺", t: "Sacs de jute", d: "Dotation, retours, dette fournisseur" },
+
       { id: "transfert", ic: "🔁", t: "Transfert", d: "Bouaké → Yamoussoukro, finance transit" }
     ] },
     { titre: "Pilotage & Sécurité", items: [
