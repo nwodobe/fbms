@@ -36,7 +36,8 @@
   var WS = {
     procurement: { titre: "Procurement", ic: "🤝", nav: [
       ["procurement", "Tableau de bord"], ["proceng", "Engagements"], ["procfin", "Financements LBA"],
-      ["procplan", "Arrivées prévues"], ["procperf", "Performance fournisseurs"], ["fournisseurs", "Base fournisseurs"],\n      ["sacs", "Sacherie · sacs de jute"]
+      ["procplan", "Arrivées prévues"], ["procperf", "Performance fournisseurs"], ["fournisseurs", "Base fournisseurs"],
+      ["sacs", "Sacherie · sacs de jute"]
     ] },
     entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
       ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
