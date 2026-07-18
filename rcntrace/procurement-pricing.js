@@ -15,7 +15,7 @@ function load(){
    c.from("rcn_proc_prix").select("*").order("created_at",{ascending:false}),
    c.from("rcn_proc_validations_achat").select("*").order("submitted_at",{ascending:false})
   ]).then(function(x){if(x[0].error)throw x[0].error;if(x[1].error)throw x[1].error;if(x[2].error)throw x[2].error;profile=x[0].data;cache=x[1].data||[];purchases=x[2].data||[];rerender();return cache.slice();});
- }).catch(function(e){console.warn("Prix d'achat indisponibles",e);cache=[];return [];}).then(function(x){loading=null;return x;});
+ }).catch(function(e){console.warn("Prix d'achat indisponibles",e);cache=[];purchases=[];return [];}).then(function(x){loading=null;return x;});
  return loading;
 }
 function ensure(){return cache===null?load():Promise.resolve(cache.slice());}
