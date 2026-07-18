@@ -12,7 +12,7 @@
       if(opt.campagne && String(new Date(r.arriveeAt||r.createdAt||0).getFullYear())!==String(opt.campagne)) return false;
       return true;
     }), volume=0,accepted=0,value=0;
-    rows.forEach(function(r){var d=r.dechargement||{},net=n(d.net),paid=d.poidsPaye==null?net:n(d.poidsPaye),price=n(r.prixUnitaire);volume+=net;if(r.etat===R().ETAT_REC.LIBERE){accepted+=net;value+=paid*price;}});
+    rows.forEach(function(r){var d=r.dechargement||{},net=n(d.net),ap=global.RCNPricing&&global.RCNPricing.purchaseForReception(r.id);volume+=net;if(r.etat===R().ETAT_REC.LIBERE){accepted+=net;if(ap&&ap.statut==="APPROUVE")value+=n(ap.montant_approuve);}});
     return {livraisons:rows.length,volumeKg:volume,accepteKg:accepted,valeurFcfa:value,receptions:rows};
   }
   function coverage(fin){
@@ -20,14 +20,14 @@
       .slice().sort(function(a,b){return new Date(a.decaisseAt||a.createdAt||0)-new Date(b.decaisseAt||b.createdAt||0);});
     var eng={};fs.forEach(function(f){if(f.engagementId)eng[f.engagementId]=true;});
     var hasEng=Object.keys(eng).length>0;
-    var credit=delivered(fin.supplierLba,fin.supplierNom).receptions.reduce(function(t,r){if(hasEng&&!eng[r.procEngagementId])return t;var d=r.dechargement||{},net=n(d.net),paid=d.poidsPaye==null?net:n(d.poidsPaye);return t+(r.etat===R().ETAT_REC.LIBERE?paid*n(r.prixUnitaire):0);},0);
+    var credit=delivered(fin.supplierLba,fin.supplierNom).receptions.reduce(function(t,r){if(hasEng&&!eng[r.procEngagementId])return t;var ap=global.RCNPricing&&global.RCNPricing.purchaseForReception(r.id);return t+(r.etat===R().ETAT_REC.LIBERE&&ap&&ap.statut==="APPROUVE"?n(ap.montant_approuve):0);},0);
     var rem=credit,cov=0;fs.some(function(f){var p=Math.min(n(f.montant),Math.max(0,rem));rem-=p;if(f.id===fin.id){cov=p;return true;}return false;});
     return {financeFcfa:n(fin.montant),couvertFcfa:cov,expositionFcfa:Math.max(0,n(fin.montant)-cov)};
   }
   function account(lba,nom){
     var lines=[];
     R().procFinancements().filter(function(f){return f.statut==="APPROUVÉ"&&((lba&&f.supplierLba===lba)||(!lba&&f.supplierNom===nom));}).forEach(function(f){lines.push({at:f.decaisseAt||f.createdAt,type:"FINANCEMENT",ref:f.id,debit:n(f.montant),credit:0,engagementId:f.engagementId||null});});
-    delivered(lba,nom).receptions.forEach(function(r){if(r.etat!==R().ETAT_REC.LIBERE)return;var d=r.dechargement||{},net=n(d.net),paid=d.poidsPaye==null?net:n(d.poidsPaye);lines.push({at:r.arriveeAt||r.createdAt,type:"LIVRAISON",ref:r.lotId||r.id,debit:0,credit:paid*n(r.prixUnitaire),engagementId:r.procEngagementId||null});});
+    delivered(lba,nom).receptions.forEach(function(r){if(r.etat!==R().ETAT_REC.LIBERE)return;var ap=global.RCNPricing&&global.RCNPricing.purchaseForReception(r.id);if(!ap||ap.statut!=="APPROUVE")return;lines.push({at:r.arriveeAt||r.createdAt,type:"LIVRAISON_APPROUVEE",ref:r.lotId||r.id,debit:0,credit:n(ap.montant_approuve),engagementId:r.procEngagementId||null});});
     lines.sort(function(a,b){return new Date(a.at||0)-new Date(b.at||0);});var bal=0;lines.forEach(function(l){bal+=l.debit-l.credit;l.solde=bal;});
     return {lignes:lines,soldeFcfa:bal,financeFcfa:lines.reduce(function(t,l){return t+l.debit;},0),livreFcfa:lines.reduce(function(t,l){return t+l.credit;},0)};
   }
