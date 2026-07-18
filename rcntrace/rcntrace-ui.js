@@ -270,7 +270,7 @@
 
   /* ---- PROCUREMENT : avant la réception physique ------------------ */
   function money(v) { return v == null ? "—" : Math.round(v).toLocaleString("fr-FR") + " FCFA"; }
-  function supplierOptions() { return (R.referentials().fournisseurs || []).map(function (f, i) { return '<option value="' + i + '">' + esc(f.lba + " · " + f.nom) + '</option>'; }).join(""); }
+  function supplierOptions() { return (R.referentials().fournisseurs || []).map(function (f) { return '<option value="' + esc(f.lba) + '">' + esc(f.lba + " · " + f.nom) + '</option>'; }).join(""); }
   function engagementOptions() { return '<option value="">— Sans engagement —</option>' + R.procEngagements().filter(function (e) { return e.statut === "ACTIF"; }).map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.id + " · " + e.supplierNom) + '</option>'; }).join(""); }
 
   PAGES.procurement = function () {
@@ -415,7 +415,7 @@
         '<div class="row"><div><label>Entrepôt de réception</label><select id="f_site">' + refs.entrepots.filter(function (e) { return e.code !== "ANAGROCI-01"; }).map(function (e) { return '<option value="' + esc(e.code) + '">' + esc(e.code + " · " + e.nom) + '</option>'; }).join("") + '</select>' +
           '<small style="color:var(--n500)"><a href="#stock" onclick="setTimeout(function(){location.hash=\'stock\'},0)" style="color:var(--forest)">+ Créer un entrepôt</a> (onglet Stock)</small></div>' +
         '<div><label>Provenance / origine (localité CI)</label><select id="f_origine">' + localiteOptions() + '</select></div></div>' +
-        '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f, i) { return '<option value="' + i + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
+        '<label>Fournisseur (coopérative · code LBA)</label><select id="f_fournisseur">' + refs.fournisseurs.map(function (f) { return '<option value="' + esc(f.lba) + '">' + esc(f.nom + " · " + f.lba) + '</option>'; }).join("") + '</select>' +
         '<div class="row3"><div><label>Type d\'achat</label><select id="f_type"><option value="LBA">LBA financé</option><option value="DIS">DIS non financé</option></select></div>' +
         '<div><label>Commande / contrat</label><input id="f_po" placeholder="PO-…"></div><div><label>Réf. document fournisseur</label><input id="f_ref" placeholder="BL-…"></div></div>' +
         '<div class="row3"><div><label>Transporteur</label><input id="f_transporteur" placeholder="Société de transport"></div><div><label>Chauffeur</label><input id="f_chauffeur" placeholder="Nom complet"></div><div><label>Téléphone chauffeur</label><input id="f_phone" inputmode="tel" placeholder="+225 …"></div></div>' +
@@ -1663,7 +1663,7 @@
   UI.toggleLang = function () { LANG = LANG === "fr" ? "en" : "fr"; localStorage.setItem("rcntrace.lang", LANG); route(); };
   UI.confirmReset = function () { if (confirm("Réinitialiser la démonstration ? Les données locales seront effacées et les exemples régénérés.")) { R.reset(); R.seedDemo(true); go("accueil"); route(); toast("Démonstration réinitialisée."); } };
 
-  function pickedSupplier(id) { return (R.referentials().fournisseurs || [])[Number(val(id)) || 0] || {}; }
+  function pickedSupplier(id) { var list=R.referentials().fournisseurs||[],raw=val(id),byCode=list.filter(function(f){return f.lba===raw;})[0];if(byCode)return byCode;var sel=el(id),txt=sel&&sel.options&&sel.selectedIndex>=0?sel.options[sel.selectedIndex].text:"";return list.filter(function(f){return txt.indexOf(f.lba)>=0;})[0]||list[Number(raw)||0]||{}; }
   UI.createProcEngagement = function () {
     try { var f = pickedSupplier("pe_supplier"); R.createProcEngagement({ supplierNom: f.nom, supplierLba: f.lba, campagne: val("pe_campaign"), type: val("pe_type"), volumeKg: val("pe_qty"), prixKg: val("pe_price"), korMin: val("pe_kor"), humiditeMax: val("pe_hum"), site: val("pe_site"), echeance: val("pe_due"), note: val("pe_note") }); toast("Engagement fournisseur créé."); route(); } catch (e) { toast(e.message, true); }
   };
