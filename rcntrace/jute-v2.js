@@ -5,7 +5,7 @@ function c(){if(!sb&&g.supabase)sb=g.supabase.createClient(URL,KEY);return sb;}
 function n(x){return Number(x||0);}
 function id(p){seq++;return p+"-"+Date.now().toString(36).toUpperCase()+"-"+seq.toString(36).toUpperCase();}
 function run(name,args){return c().rpc(name,args).then(function(r){if(r.error)throw r.error;return r.data;});}
-function load(){if(loading)return loading;loading=Promise.all([
+function load(){if(loading)return loading;if(!c())return Promise.resolve(null);/* hors connexion / supabase absent : pas de crash */loading=Promise.all([
  c().from("rcn_jute_settings").select("*").eq("id","DEFAULT").maybeSingle(),
  c().from("rcn_jute_reconciliations").select("*").order("created_at",{ascending:false}),
  c().from("rcn_jute_receipt_lines").select("*").order("received_at",{ascending:false}).limit(500),

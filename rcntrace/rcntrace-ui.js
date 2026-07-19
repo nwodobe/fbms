@@ -36,8 +36,8 @@
   var WS = {
     procurement: { titre: "Procurement", ic: "🤝", nav: [
       ["procurement", "Tableau de bord"], ["proceng", "Engagements"], ["procfin", "Financements LBA"],
-      ["procplan", "Arrivées prévues"], ["procperf", "Performance fournisseurs"], ["fournisseurs", "Base fournisseurs"],
-      ["sacs", "Sacherie · sacs de jute"]
+      ["procprix", "Prix d’achat & validations"], ["procplan", "Arrivées prévues"], ["procperf", "Performance fournisseurs"],
+      ["fournisseurs", "Base fournisseurs"], ["sacscontrole", "Sacs de jute"], ["proccontrol", "Contrôle & paiements"]
     ] },
     entrepot: { titre: "Activité entrepôt", ic: "🏭", nav: [
       ["entrepot", "Tableau de bord"], ["reception", "Réception"], ["qualite", "Qualité"],
@@ -54,6 +54,9 @@
   };
   var PAGE_WS = {};
   Object.keys(WS).forEach(function (k) { WS[k].nav.forEach(function (it) { PAGE_WS[it[0]] = k; }); });
+  // Pages du Procurement hors menu (ancienne page sacs, redirigée) : la barre
+  // latérale doit rester celle du Procurement, jamais retomber sur le portail.
+  PAGE_WS.sacs = "procurement";
   function workspaceOf(page) { return PAGE_WS[page] || null; }
 
   /* ---------------- Helpers DOM ------------------------------------- */
@@ -114,6 +117,9 @@
     procurement: ["Procurement", "Objectifs, engagements et exposition financière"],
     proceng: ["Engagements fournisseurs", "Promesse de volume, prix, qualité et échéance"],
     procfin: ["Financements LBA", "Avances, couverture par livraison et alertes"],
+    procprix: ["Prix d’achat & validations", "Négociation BM avant arrivée · approbation GM"],
+    sacscontrole: ["Sacs de jute", "Sacherie · stock, fournisseurs et mouvements"],
+    proccontrol: ["Contrôle & paiements", "Rapprochements, bons à payer et journal central"],
     procplan: ["Arrivées prévues", "Planning camion relié à la réception"],
     procperf: ["Performance fournisseurs", "Volume, qualité, ponctualité, sacs et financement"],
     entrepot: ["Activité entrepôt", "Réception, qualité, stock, séchage, transferts & sacs"],

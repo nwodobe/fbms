@@ -30,7 +30,7 @@ function render(){if(location.hash.replace("#","").split("/")[0]!=="sacscontrole
  '<div class="card" style="margin-top:18px"><h2>Journal des mouvements</h2><div class="cbody" style="padding:0"><div class="tablewrap"><table><thead><tr><th>Date</th><th>Type</th><th>Fournisseur</th><th>Qté</th><th>Trajet</th><th>État</th><th>Référence</th></tr></thead><tbody>'+moves+'</tbody></table></div></div></div>';
  injectNav();
 }
-function injectNav(){var nav=document.getElementById("nav");if(!nav)return;var a=nav.querySelector('a[href="#sacs"]');if(a){a.href="#sacscontrole";a.textContent="Sacs de jute";}}
+function injectNav(){/* Lien « Sacs de jute » désormais déclaré nativement dans la barre latérale (WS.procurement) — plus d'injection DOM. */}
 var API={
  setup:function(){global.RCNJuteControl.setupLocations().then(function(){toast("Emplacements initialisés.");render();}).catch(function(e){toast(e.message,true);});},
  location:function(){global.RCNJuteControl.addLocation({code:v("jl_code"),site:v("jl_site"),warehouse:v("jl_wh"),name:v("jl_name")}).then(render).catch(function(e){toast(e.message,true);});},
