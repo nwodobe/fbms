@@ -9,6 +9,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import url('./anagroci-ui.css');
 @import url('./alis-premium.css');
+@import url('./geo-premium.css');
 
 :root{
   --green-forest:#053B23; --green-deep:#0A5531; --green-pine:#00712C;
