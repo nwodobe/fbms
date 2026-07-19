@@ -1,0 +1,102 @@
+/* ==========================================================================
+   ANAGROCI Operations Suite - socle UI commun
+   Objectif: harmoniser visuellement les modules sans toucher a la logique metier.
+   ========================================================================== */
+:root{
+  --ag-forest:#053B23;
+  --ag-deep:#0A5531;
+  --ag-pine:#00712C;
+  --ag-emerald:#008F37;
+  --ag-lime:#8DC556;
+  --ag-sprout:#B6DC8E;
+  --ag-pale:#E0F3DE;
+  --ag-mist:#F1F9EF;
+  --ag-ivory:#FBFAF4;
+  --ag-orange:#EE9E00;
+  --ag-orange-soft:#FDEFCE;
+  --ag-red:#C0392B;
+  --ag-ink:#323131;
+  --ag-muted:#7A7878;
+  --ag-line:#E8E7E7;
+  --ag-shadow:0 12px 30px rgba(5,59,35,.08);
+  --ag-shadow-soft:0 6px 18px rgba(5,59,35,.06);
+  --ag-radius:18px;
+  --ag-radius-sm:11px;
+}
+
+html{background:var(--ag-mist)}
+body{background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 55%,#F1F9EF 100%);color:var(--ag-ink)}
+body,button,input,select,textarea{font-family:var(--font-body,'IBM Plex Sans','Segoe UI',Arial,sans-serif)}
+h1,h2,h3,.ag-title,.pjs-display{font-family:var(--font-display,'Archivo','Segoe UI',Arial,sans-serif);letter-spacing:-.02em}
+
+/* Barres hautes communes */
+header,.top,#topbar,#bar{
+  box-shadow:0 8px 26px rgba(0,0,0,.14);
+  border-bottom:3px solid var(--ag-lime)!important;
+}
+header a,.top a,#topbar a,#bar a{transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
+header a:hover,.top a:hover,#topbar a:hover,#bar a:hover{transform:translateY(-1px)}
+
+/* Cartes et blocs */
+.card,.k,.panel,.box,section.card,.module-card,.ag-card{
+  border:1px solid rgba(232,231,231,.95)!important;
+  border-radius:var(--ag-radius)!important;
+  box-shadow:var(--ag-shadow-soft)!important;
+}
+.card:hover,.module-card:hover,.ag-card:hover{box-shadow:var(--ag-shadow)!important}
+.card h2,.panel h2,section.card h2{color:var(--ag-forest)!important}
+.k b,.stat b,.metric b{color:var(--ag-forest)}
+
+/* Boutons */
+.btn,button,.ag-btn{
+  border-radius:11px;
+  transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease;
+}
+.btn:hover,button:hover,.ag-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(5,59,35,.12)}
+.btn:disabled,button:disabled{transform:none;box-shadow:none}
+.btn:not(.ghost),button:not(.ghost):not(.ag-out):not(.ag-cog){background:var(--ag-emerald);color:#fff}
+.btn.ghost,.ghost{background:#fff!important;color:var(--ag-forest)!important;border:1px solid rgba(5,59,35,.12)!important}
+
+/* Formulaires */
+input,select,textarea{
+  border:1px solid var(--ag-line)!important;
+  border-radius:11px!important;
+  background:#fff;
+  transition:border .16s ease,box-shadow .16s ease,background .16s ease;
+}
+input:focus,select:focus,textarea:focus{
+  outline:none;
+  border-color:var(--ag-emerald)!important;
+  box-shadow:0 0 0 4px rgba(0,143,55,.12)!important;
+}
+label{color:var(--ag-muted)}
+
+/* Badges / statuts */
+.badge,.pill,.tag,.bdg,.st,.net{
+  border-radius:999px!important;
+  font-weight:800;
+}
+.ok,.success,.st.sync,.bdg.success,.tag.ok{background:var(--ag-pale)!important;color:var(--ag-pine)!important}
+.warn,.warning,.st.pend,.bdg.warning,.tag.wait{background:var(--ag-orange-soft)!important;color:#8A5B00!important}
+.bad,.danger,.st.blk,.tag.bad{background:#FDECEB!important;color:var(--ag-red)!important}
+
+/* Tableaux */
+table{border-radius:14px;overflow:hidden}
+th{font-family:var(--font-display,'Archivo','Segoe UI',Arial,sans-serif);letter-spacing:.02em}
+tbody tr{transition:background .14s ease}
+tbody tr:hover{background:rgba(224,243,222,.45)}
+
+/* Scrollbars */
+*{scrollbar-width:thin;scrollbar-color:var(--ag-sprout) transparent}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:var(--ag-sprout);border-radius:999px}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* Logo */
+.pjs-chip{box-shadow:0 8px 18px rgba(0,0,0,.12)}
+.pjs-chip img{object-fit:contain}
+
+@media(max-width:820px){
+  .wrap,main{padding-left:12px!important;padding-right:12px!important}
+  .card,.k,.panel,.box,section.card{border-radius:15px!important}
+}
