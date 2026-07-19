@@ -2028,6 +2028,28 @@
     if (global.RCNSync) { global.RCNSync.init().then(start, start); }
     else { R.seedDemo(false); start(); }
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
+  // L'état local (IndexedDB, autoritaire) est adopté AVANT le boot : le moteur
+  // reste synchrone, seule la persistance a changé. Repli localStorage sinon.
+  function bootWithStore() {
+    if (global.RCNStore && global.RCNStore.ready && global.RCNStore.ready.then) {
+      global.RCNStore.ready.then(function (r) {
+        try { if (r && r.state && global.RCN) global.RCN._adoptState(r.state); } catch (e) {}
+        boot();
+      }, boot);
+    } else boot();
+  }
+  // Alerte de stockage : plus jamais d'échec silencieux de sauvegarde locale.
+  global.RCNTRACE_STORAGE_FAIL = function (e) {
+    var box = el("storagewarn");
+    if (!box) {
+      box = document.createElement("div"); box.id = "storagewarn"; box.className = "alert";
+      box.style.cssText = "position:sticky;top:64px;z-index:30;margin:0 0 14px";
+      var view = el("view"); if (view && view.parentNode) view.parentNode.insertBefore(box, view);
+    }
+    box.innerHTML = "⚠️ <b>Sauvegarde locale impossible</b> — vos dernières saisies ne sont pas encore persistées sur cet appareil (" + esc((e && e.message) || "erreur de stockage") + "). Nouvel essai à la prochaine action ; ne fermez pas l'onglet.";
+    box.style.display = "block";
+  };
+  global.RCNTRACE_STORAGE_OK = function () { var box = el("storagewarn"); if (box) box.style.display = "none"; };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootWithStore); else bootWithStore();
 
 })(window);
