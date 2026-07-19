@@ -1,0 +1,8 @@
+/* ============================================================================
+   ANAGROCI - couche design premium geographique
+   Scope volontairement limite aux pages qui contiennent #map et chargent pjs-theme.css.
+   Objectif: harmoniser Hubs / Clusters et Cartographie sans modifier Leaflet ni la logique.
+   ========================================================================== */
+body:has(#map){
+  background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 54%,#F1F9EF 100%)!important;
+  color:#25312
