@@ -1,1 +1,39 @@
-<!doctype html><html lang="fr" translate="no"><head><meta charset="utf-8"><meta name="google" content="notranslate"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FBMS Referentiel</title><script defer src="../shared/auth-gate.js" data-module="fbms"></script><style>html,body{margin:0;height:100%;overflow:hidden;font-family:Arial}#bar{height:44px;background:#053B23;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-sizing:border-box}#bar b{font-size:14px}a{background:white;color:#053B23;text-decoration:none;border-radius:999px;padding:7px 12px;font-weight:800;font-size:12px}iframe{width:100%;height:calc(100vh - 44px);border:0;display:block}</style><link rel="stylesheet" href="../shared/pjs-theme.css"></head><body><div id="bar"><span style="display:flex;align-items:center"><span class="pjs-chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span><b>FBMS Referentiel</b></span><span style="display:flex;align-items:center;gap:12px"><a href="https://nwodobe.github.io/fbms/">← Portail</a><span id="anagroci-userslot"></span></span></div><iframe src="index.html"></iframe></body></html>
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>FBMS Référentiel · ANAGROCI</title>
+<script defer src="../shared/auth-gate.js" data-module="fbms"></script>
+<link rel="stylesheet" href="../shared/pjs-theme.css">
+<style>
+html,body{margin:0;min-height:100%;font-family:'IBM Plex Sans',Arial,sans-serif;background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 60%,#F1F9EF 100%);color:#25312C}
+.shell{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(760px,100%);background:#fff;border:1px solid #E6E8E3;border-radius:28px;box-shadow:0 24px 60px rgba(5,59,35,.12);overflow:hidden}.hero{background:radial-gradient(circle at 20% 0%,rgba(141,197,86,.24),transparent 30%),linear-gradient(135deg,#053B23,#0A5531);color:#fff;padding:28px}.brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}.brand b{font-size:18px}.hero h1{margin:0 0 8px;font-family:'Archivo',Arial,sans-serif;font-size:32px;letter-spacing:-.03em}.hero p{margin:0;color:#D8EAD3;line-height:1.55}.body{padding:22px;display:grid;gap:14px}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:14px;background:#008F37;color:#fff;padding:12px 16px;font-weight:900;text-decoration:none;display:inline-flex;align-items:center;gap:8px}.btn.soft{background:#E0F3DE;color:#053B23}.note{background:#F1F9EF;border:1px solid #CDE8C8;border-radius:16px;padding:13px;color:#24513A;line-height:1.45}.muted{color:#748078;font-size:13px}.spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:640px){.hero h1{font-size:25px}.actions{flex-direction:column}.btn{justify-content:center}}
+</style>
+<script>
+(function(){
+  function go(){ location.replace('index.html'); }
+  document.addEventListener('anagroci:authenticated', function(){ setTimeout(go, 250); });
+  setTimeout(function(){ if(!document.getElementById('anagroci-authgate')) go(); }, 2200);
+})();
+</script>
+</head>
+<body>
+<div class="shell">
+  <section class="card">
+    <div class="hero">
+      <div class="brand"><span class="pjs-chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span><b>ANAGROCI Operations Suite</b></div>
+      <h1>Ouverture du référentiel FBMS</h1>
+      <p>Redirection vers le cœur FBMS sans iframe afin d'éviter la double barre et d'améliorer l'intégration mobile.</p>
+    </div>
+    <div class="body">
+      <div class="note">Le module FBMS est maintenant ouvert directement dans sa page native. Cette passerelle conserve l'ancien lien du portail tout en supprimant l'effet wrapper.</div>
+      <div class="actions"><a class="btn" href="index.html"><span class="spinner"></span> Ouvrir FBMS</a><a class="btn soft" href="../index.html">Retour portail</a><span id="anagroci-userslot"></span></div>
+      <div class="muted">Aucune donnée IndexedDB ou Supabase n'est modifiée par cette page.</div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
