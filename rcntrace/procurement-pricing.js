@@ -7,7 +7,7 @@ var sb=null,cache=null,purchases=null,loading=null,profile=null;
 function client(){if(!sb&&global.supabase)sb=global.supabase.createClient(URL,KEY);return sb;}
 function rerender(){if(global.RCNTRACE_RERENDER)global.RCNTRACE_RERENDER();}
 function load(){
- var c=client();if(!c)return Promise.resolve([]);
+ var c=client();if(!c){cache=cache||[];purchases=purchases||[];return Promise.resolve([]);}/* hors connexion : registre vide plutôt que « Chargement » infini */
  if(loading)return loading;
  loading=c.auth.getSession().then(function(s){var sess=s.data&&s.data.session;if(!sess){cache=[];return [];}
   return Promise.all([

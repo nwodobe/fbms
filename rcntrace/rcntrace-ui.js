@@ -187,6 +187,23 @@
   /* ================================================================== */
   var PAGES = {};
 
+  /* Pages rendues par les modules complémentaires (prix d'achat, sacherie,
+     contrôle & paiements). Le routeur les connaît désormais : il affiche un
+     état d'attente puis délègue leur rendu au module — plus jamais de repli
+     sur le portail, et RCNTRACE_RERENDER re-rend la BONNE page. */
+  function patchDelegate(renderers, titre) {
+    setTimeout(function () {
+      renderers.forEach(function (nm) {
+        try { var o = global[nm]; if (o && typeof o.render === "function") o.render(); }
+        catch (e) { if (global.console) console.error(e); }
+      });
+    }, 0);
+    return '<div class="pagehead"><h1>' + esc(titre) + '</h1><p>Chargement du module…</p></div>';
+  }
+  PAGES.procprix = function () { return patchDelegate(["RCNPriceUI"], "Prix d’achat & validations"); };
+  PAGES.proccontrol = function () { return patchDelegate(["RCNProcControlUI"], "Contrôle & paiements"); };
+  PAGES.sacscontrole = function () { return patchDelegate(["RCNJuteUI", "RCNJuteV2UI"], "Sacs de jute"); };
+
   /* ---- ACCUEIL : bienvenue + raccourcis + tableau de bord (slides 2 & 3) */
   // Chaîne de transformation (portail v2). Étapes réelles + maillons à venir.
   var CHAIN = [

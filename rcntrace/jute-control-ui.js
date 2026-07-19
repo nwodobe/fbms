@@ -51,5 +51,5 @@ var API={
 };
 function wrapReception(){if(!global.RCNUI||global.RCNUI.__juteCentralWrapped)return;var old=global.RCNUI.saveDechargement;global.RCNUI.saveDechargement=function(id){var out=old.apply(this,arguments);setTimeout(function(){var rec=global.RCN.getRec(id);if(rec&&rec.dechargement)global.RCNJuteControl.recordReception(rec).then(function(){toast("Retour et classement des sacs synchronisés.");}).catch(function(e){toast("Déchargement enregistré, mais sacs à synchroniser : "+e.message,true);});},50);return out;};global.RCNUI.__juteCentralWrapped=true;}
 function enhance(){if(location.hash==="#sacs"){location.hash="#sacscontrole";return;}setTimeout(function(){injectNav();render();},30);}
-global.RCNJuteUI=API;global.addEventListener("hashchange",enhance);var timer=setInterval(function(){if(global.RCNJuteControl&&global.RCNUI&&global.RCN){clearInterval(timer);wrapReception();global.RCNJuteControl.ensure().then(enhance);enhance();}},100);
+API.render=render;global.RCNJuteUI=API;global.addEventListener("hashchange",enhance);var timer=setInterval(function(){if(global.RCNJuteControl&&global.RCNUI&&global.RCN){clearInterval(timer);wrapReception();global.RCNJuteControl.ensure().then(enhance);enhance();}},100);
 })(window);
