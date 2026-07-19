@@ -6,7 +6,7 @@ var idSeq=0;
 function id(p){idSeq=(idSeq+1)%46655;return p+"-"+new Date().getFullYear()+"-"+Date.now().toString(36).toUpperCase()+"-"+idSeq.toString(36).toUpperCase();}
 function now(){return new Date().toISOString();}
 function n(x){return Number(x||0);}
-function load(){if(loading)return loading;var q=c();if(!q)return Promise.resolve(null);loading=Promise.all([
+function load(){if(loading)return loading;var q=c();if(!q){data=data||{locations:[],movements:[],balances:[],stock:[],aging:[],losses:[],transfers:[],inventories:[],purchases:[],repairs:[]};return Promise.resolve(data);}/* hors connexion : structure vide plutôt que « Chargement » infini */loading=Promise.all([
  q.from("rcn_jute_locations").select("*").order("code"),
  q.from("rcn_jute_movements").select("*").order("movement_at",{ascending:false}).limit(1000),
  q.from("rcn_jute_v_supplier_balance").select("*"),
