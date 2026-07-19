@@ -234,6 +234,14 @@
     };
   }
 
+  // Valeurs par défaut manquantes (états anciens ou adoptés d'IndexedDB).
+  function applyDbDefaults(db) {
+    if (!db.procurement) db.procurement = { engagements: [], financements: [], arrivages: [] };
+    if (!db.procurement.engagements) db.procurement.engagements = [];
+    if (!db.procurement.financements) db.procurement.financements = [];
+    if (!db.procurement.arrivages) db.procurement.arrivages = [];
+    return db;
+  }
   function loadDb() {
     if (_db) return _db;
     try {
@@ -241,16 +249,30 @@
       _db = raw ? JSON.parse(raw) : emptyDb();
     } catch (e) { _db = emptyDb(); }
     if (!_db.seq) _db = emptyDb();
-    if (!_db.procurement) _db.procurement = { engagements: [], financements: [], arrivages: [] };
-    if (!_db.procurement.engagements) _db.procurement.engagements = [];
-    if (!_db.procurement.financements) _db.procurement.financements = [];
-    if (!_db.procurement.arrivages) _db.procurement.arrivages = [];
+    applyDbDefaults(_db);
     return _db;
   }
   function saveDb() {
+    // Persistance principale : IndexedDB (write-behind, échec REMONTÉ à l'UI).
+    if (global.RCNStore) {
+      global.RCNStore.save(_db).then(
+        function () { if (typeof global.RCNTRACE_STORAGE_OK === "function") global.RCNTRACE_STORAGE_OK(); },
+        function (e) { if (typeof global.RCNTRACE_STORAGE_FAIL === "function") global.RCNTRACE_STORAGE_FAIL(e); else console.error("RCN TRACE : sauvegarde IndexedDB impossible", e); }
+      );
+    }
+    // Miroir localStorage best-effort (petits états, navigateurs sans IndexedDB).
     try { localStorage.setItem(DB_KEY, JSON.stringify(_db)); }
-    catch (e) { console.warn("RCN TRACE : sauvegarde locale impossible", e); }
+    catch (e) {
+      if (!global.RCNStore && typeof global.RCNTRACE_STORAGE_FAIL === "function") global.RCNTRACE_STORAGE_FAIL(e);
+      else console.warn("RCN TRACE : miroir localStorage saturé (IndexedDB reste la référence)", e && e.name);
+    }
     if (typeof global.RCNTRACE_ONSAVE === "function") global.RCNTRACE_ONSAVE();
+  }
+  // Adopte l'état lu d'IndexedDB au démarrage (avant l'hydratation réseau).
+  function adoptState(state) {
+    if (!state || !state.seq) return false;
+    _db = applyDbDefaults(state);
+    return true;
   }
   function resetDb() { _db = emptyDb(); saveDb(); return _db; }
 
@@ -1895,7 +1917,7 @@
     CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC, TYPES_JUTE: TYPES_JUTE, DISPOSITIONS_JUTE: DISPOSITIONS_JUTE,
     ETAT_REC: ETAT_REC, ETAT_BIN: ETAT_BIN, ETAT_TRF: ETAT_TRF, ETAT_CAL: ETAT_CAL,
     // magasin
-    db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo,
+    db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo, _adoptState: adoptState,
     // utilitaires exposés à l'UI
     num: num, kg: kg, pct: pct, round2: round2, fmtDateTime: fmtDateTime, fmtTime: fmtTime, today: today,
     // qualité
