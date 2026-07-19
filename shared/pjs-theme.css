@@ -9,6 +9,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import url('./anagroci-ui.css');
 @import url('./alis-premium.css');
+@import url('./geo-premium.css');
 
 :root{
   --green-forest:#053B23; --green-deep:#0A5531; --green-pine:#00712C;
@@ -23,11 +24,3 @@
 /* Polices de la plateforme */
 body{font-family:var(--font-body)}
 h1,h2,h3,h4,.pjs-display{font-family:var(--font-display)}
-
-/* Filet lime sous les barres d'en-tête des modules */
-header.top,.top,#bar,#topbar{border-bottom:3px solid var(--green-lime)}
-
-/* Médaillon blanc pour le logo PJS dans une barre foncée */
-.pjs-chip{background:#fff;border-radius:8px;padding:4px 7px;display:inline-flex;
-  align-items:center;margin-right:10px;vertical-align:middle;flex:0 0 auto}
-.pjs-chip img{height:26px;display:block}
