@@ -14,6 +14,9 @@
   var SUPABASE_URL = "https://jmbdgpdthzpszfnddwzi.supabase.co";
   var SUPABASE_ANON = "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
   var CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+  window.ANAGROCI_SUPABASE_URL = window.ANAGROCI_SUPABASE_URL || SUPABASE_URL;
+  window.ANAGROCI_SUPABASE_ANON = window.ANAGROCI_SUPABASE_ANON || SUPABASE_ANON;
+  window.ANAGROCI_MODULE = MODULE;
 
   function niveau(role) {
     switch (role) {
@@ -93,15 +96,17 @@
     document.getElementById("ag-out").addEventListener("click", function () { SB.auth.signOut().then(function () { location.reload(); }); });
   }
 
-  function inSub() { return /\/(fbms|logistique|suite|shared|terrain)\//.test(location.pathname); }
+  function inSub() { return /\/(fbms|logistique|suite|shared|terrain|rcntrace)\//.test(location.pathname); }
   function portailHref() { return inSub() ? "../index.html" : "index.html"; }
   function adminHref() { return inSub() ? "../shared/admin.html" : "shared/admin.html"; }
   function sharedHref(file) { return inSub() ? "../shared/" + file : "shared/" + file; }
   function injectI18n() { if (document.getElementById("anagroci-i18n-js")) return; var s = document.createElement("script"); s.id = "anagroci-i18n-js"; s.src = sharedHref("i18n.js") + "?v=132333f"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
+  function injectAudit() { if (document.getElementById("anagroci-audit-js")) return; var s = document.createElement("script"); s.id = "anagroci-audit-js"; s.src = sharedHref("anagroci-audit.js") + "?v=step1b"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
   injectI18n();
+  injectAudit();
 
   function chipHTML(prof) { return '<span class="ag-name">' + esc(prof.nom || prof.role) + ' · <span class="ag-role">' + esc(prof.role) + '</span></span>' + (estBM(prof.role) ? '<a class="ag-cog" href="' + adminHref() + '" title="Administration">⚙</a>' : '') + '<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
-  function wireLogout() { var b = document.getElementById("ag-logout"); b && b.addEventListener("click", function () { SB.auth.signOut().then(function () { location.reload(); }); }); }
+  function wireLogout() { var b = document.getElementById("ag-logout"); b && b.addEventListener("click", function () { if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout", {module: MODULE}); } SB.auth.signOut().then(function () { location.reload(); }); }); }
   function injectChip(prof) { var slot = document.getElementById("anagroci-userslot"); if (slot) { slot.innerHTML = chipHTML(prof); return wireLogout(); } var chip = document.createElement("div"); chip.id = "anagroci-userslot"; chip.className = "ag-floating"; chip.innerHTML = chipHTML(prof); document.body.appendChild(chip); wireLogout(); }
 
   function injectAchatsCard() {
@@ -126,12 +131,13 @@
 
   function reveal(prof) {
     try { injectChip(prof); } catch (e) {}
-    window.ANAGROCI_AUTH = { profile: prof, niveau: niveau(prof.role), estBM: estBM(prof.role), signOut: function () { return SB.auth.signOut().then(function () { location.reload(); }); } };
+    window.ANAGROCI_AUTH = { profile: prof, niveau: niveau(prof.role), estBM: estBM(prof.role), module: MODULE, signOut: function () { return SB.auth.signOut().then(function () { location.reload(); }); } };
     document.dispatchEvent(new CustomEvent("anagroci:authenticated", { detail: window.ANAGROCI_AUTH }));
     overlay.parentNode && overlay.parentNode.removeChild(overlay);
     setTimeout(injectAchatsCard, 0);
     setTimeout(injectAchatsDropdownPatch, 0);
     setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0);
+    setTimeout(function(){ window.ANAGROCI_AUDIT && window.ANAGROCI_AUDIT.log("module_access", {module: MODULE, role: prof.role}); }, 250);
   }
 
   function cacheProfile(uid, prof) { try { localStorage.setItem("anagroci_profile_" + uid, JSON.stringify(prof)); } catch (e) {} }
