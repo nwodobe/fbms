@@ -1,0 +1,16 @@
+/* ============================================================================
+   ANAGROCI ALIS - couche design premium
+   Scope volontairement limite au module ALIS grace aux champs #mode et #contrat.
+   Aucune logique metier n'est modifiee.
+   ========================================================================== */
+body:has(#mode):has(#contrat){
+  background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 52%,#F1F9EF 100%)!important;
+  color:#25312C;
+}
+body:has(#mode):has(#contrat) .top{
+  background:radial-gradient(circle at 18% 0%,rgba(141,197,86,.22),transparent 30%),linear-gradient(135deg,#053B23,#0A5531)!important;
+  min-height:64px;
+  padding:14px 20px!important;
+  box-shadow:0 14px 34px rgba(5,59,35,.22)!important;
+}
+body:has(#mode):has(#contrat) .top b{font-family:var
