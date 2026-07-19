@@ -6,7 +6,7 @@ function id(p){return p+"-"+new Date().getFullYear()+"-"+Date.now().toString(36)
 function n(x){x=Number(x);return isFinite(x)?x:0;}
 function rerender(){if(global.RCNTRACE_RERENDER)global.RCNTRACE_RERENDER();}
 function load(){
- if(loading)return loading;var c=client();if(!c)return Promise.resolve(null);
+ if(loading)return loading;var c=client();if(!c){data=data||{};return Promise.resolve(data);}/* hors connexion : structure vide plutôt que « Chargement » infini */
  loading=c.auth.getSession().then(function(s){var sess=s.data&&s.data.session;if(!sess){data={};return data;}
   return Promise.all([
    c.from("profils").select("nom,role,actif").eq("user_id",sess.user.id).single(),
