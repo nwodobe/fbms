@@ -102,17 +102,20 @@
       ".rcn-flow-path span:not(:last-child):after{content:'->';color:#008F37;font-weight:800;margin-left:2px}";
     var st = document.createElement("style"); st.id = "rcn-flow-clarity-style"; st.textContent = css; document.head.appendChild(st);
   }
-  function loadStep4Locks() {
-    if (document.getElementById("rcn-transfer-locks-loader")) return;
+  function loadScript(id, src) {
+    if (document.getElementById(id)) return;
     var s = document.createElement("script");
-    s.id = "rcn-transfer-locks-loader";
+    s.id = id;
     s.defer = true;
-    s.src = "./transfer-business-locks.js?v=step4-transfer-locks-20260720";
+    s.src = src;
     document.head.appendChild(s);
   }
+  function loadStep4Locks() { loadScript("rcn-transfer-locks-loader", "./transfer-business-locks.js?v=step4-transfer-locks-20260720"); }
+  function loadStep6Guide() { loadScript("rcn-workflow-guide-loader", "./workflow-guide.js?v=step6-pre-recette-20260720"); }
   function render() {
     injectStyles();
     loadStep4Locks();
+    loadStep6Guide();
     var view = document.getElementById("view");
     if (!view) return;
     var old = view.querySelector(".rcn-flow-note"); if (old) old.remove();
