@@ -77,7 +77,11 @@
     return out;
   }
   function pendingMap(queue){ var m={}; (queue||[]).forEach(function(r){ if(r && r.local_id && r._status !== 'synced') m[String(r.local_id)] = Object.assign({}, r); }); return m; }
-  function syncPayload(queue){ return (queue||[]).map(function(r){ var x=Object.assign({}, r||{}); delete x.device_id; delete x.sync_attempts; delete x.last_attempt_at; delete x.last_error; delete x.recovered_at; delete x._error; return x; }); }
+  function syncPayload(queue){
+    return (queue||[]).slice().sort(function(a,b){
+      return String(a.created_at || a.date || '').localeCompare(String(b.created_at || b.date || ''));
+    }).map(function(r){ var x=Object.assign({}, r||{}); delete x.device_id; delete x.sync_attempts; delete x.last_attempt_at; delete x.last_error; delete x.recovered_at; delete x._error; return x; });
+  }
   function mergeSyncResult(originalQueue, syncQueue){ var sm={}; (syncQueue||[]).forEach(function(r){ if(r && r.local_id) sm[String(r.local_id)] = r; }); return normalizeQueue((originalQueue||[]).map(function(r){ if(!r || !r.local_id) return r; var s=sm[String(r.local_id)]||{}; if(s._status==='synced'){ r._status='synced'; delete r._error; r.last_error=null; } else if(s._error){ r._status='failed'; r._error=s._error; r.last_error=s._error; } else if(r._status==='syncing'){ r._status='pending'; } return r; })); }
 
   function validateMovement(){
@@ -135,7 +139,7 @@
     };
     window.syncAll.__anagroci_sacs_guarded = true;
     window.__ANAGROCI_SACS_GUARDS_INSTALLED = true;
-    audit('sacs_sacherie_guards_installed', {module:'sacs'});
+    audit('sacs_sacherie_guards_installed', {module:'sacs', step:'6'});
     return true;
   }
   function start(){ var tries=0; var timer=setInterval(function(){ tries++; if(install() || tries>=24) clearInterval(timer); }, 500); }
