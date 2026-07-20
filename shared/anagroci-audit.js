@@ -86,8 +86,193 @@
     }catch(e){return false;}
   }
 
+  function fbStore(k, def){
+    try{
+      var s = localStorage.getItem(k);
+      return s ? JSON.parse(s) : def;
+    }catch(e){ return def; }
+  }
+
+  function fbSave(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; }
+  }
+
+  function fbKey(s){
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  }
+
+  function fbDeviceId(){
+    var k = 'anagroci_device_id';
+    var id = localStorage.getItem(k);
+    if(!id){
+      try{ id = 'dev-' + crypto.randomUUID(); }
+      catch(e){ id = 'dev-' + Date.now() + '-' + Math.round(Math.random()*1e9); }
+      localStorage.setItem(k, id);
+    }
+    return id;
+  }
+
+  function fbField(id){
+    var e = document.getElementById(id);
+    return e ? String(e.value || '').trim() : '';
+  }
+
+  function fbOptions(id){
+    var d = document.getElementById(id);
+    if(!d) return [];
+    return Array.prototype.slice.call(d.querySelectorAll('option')).map(function(o){return o.value || '';}).filter(Boolean);
+  }
+
+  function fbShowMessage(text, kind){
+    try{
+      if(typeof window.msg === 'function') window.msg(text, kind || 'err');
+      else alert(text);
+    }catch(e){}
+  }
+
+  function fbExistingReceipt(queue, receipt){
+    var r = fbKey(receipt);
+    if(!r) return false;
+    return (queue || []).some(function(x){ return fbKey(x && x.numero_recu) === r; });
+  }
+
+  function fbNormalizeQueue(queue, beforeMap){
+    var deviceId = fbDeviceId();
+    var now = new Date().toISOString();
+    var out = Array.isArray(queue) ? queue.slice() : [];
+    var seen = {};
+    out.forEach(function(r){ if(r && r.local_id) seen[String(r.local_id)] = true; });
+
+    if(beforeMap){
+      Object.keys(beforeMap).forEach(function(id){
+        var old = beforeMap[id];
+        if(!seen[id] && old && old._status !== 'synced'){
+          old._status = old._status || 'pending';
+          old.recovered_at = now;
+          out.push(old);
+        }
+      });
+    }
+
+    out.forEach(function(r){
+      if(!r) return;
+      if(!r.device_id) r.device_id = deviceId;
+      if(r.sync_attempts == null) r.sync_attempts = 0;
+      if(!r._status) r._status = 'pending';
+      if(r._status === 'syncing') r._status = 'failed';
+      if(r._error && !r.last_error) r.last_error = r._error;
+      if(r._status === 'failed' && !r.last_attempt_at) r.last_attempt_at = now;
+    });
+
+    out.sort(function(a,b){ return String(b.created_at || '').localeCompare(String(a.created_at || '')); });
+    return out;
+  }
+
+  function fbPendingMap(queue){
+    var m = {};
+    (queue || []).forEach(function(r){ if(r && r.local_id && r._status !== 'synced') m[String(r.local_id)] = Object.assign({}, r); });
+    return m;
+  }
+
+  function validateFarmerBuyingPurchase(){
+    if(moduleName() !== 'achats') return {ok:true};
+
+    var queue = fbStore('anagroci_achats', []);
+    var village = fbField('f_village');
+    var rt = fbField('f_rt');
+    var cluster = fbField('f_cluster');
+    var receipt = fbField('f_recu');
+    var mode = fbField('f_mode');
+    var date = fbField('f_date');
+    var villages = fbOptions('dl_villages');
+    var rts = fbOptions('dl_rt');
+
+    if(date){
+      var today = new Date(); today.setHours(23,59,59,999);
+      var d = new Date(date + 'T00:00:00');
+      if(d > today) return {ok:false, reason:'date_future', message:'Date future interdite pour un achat terrain.'};
+    }
+
+    if(cluster && villages.length && village && villages.map(fbKey).indexOf(fbKey(village)) === -1){
+      return {ok:false, reason:'village_out_of_cluster', message:'Village hors cluster ou non reconnu. Corrigez le cluster ou choisissez un village du référentiel.'};
+    }
+
+    if(rts.length && rt && rts.map(fbKey).indexOf(fbKey(rt)) === -1){
+      return {ok:false, reason:'rt_out_of_scope', message:'RT hors village/cluster. Choisissez un RT proposé par le référentiel.'};
+    }
+
+    if(receipt && fbExistingReceipt(queue, receipt)){
+      return {ok:false, reason:'duplicate_receipt', message:'Numéro de reçu déjà utilisé sur cet appareil. Vérifiez avant d’enregistrer.'};
+    }
+
+    if(fbKey(mode) === 'VIREMENT'){
+      return {ok:false, reason:'bank_payment_disabled', message:'Paiement bancaire désactivé pour Farmer Buying. Utilisez Mobile Money / Wave.'};
+    }
+
+    return {ok:true};
+  }
+
+  function installFarmerBuyingGuards(){
+    if(window.__ANAGROCI_FB_GUARDS_INSTALLED) return false;
+    if(moduleName() !== 'achats') return false;
+    if(typeof window.save !== 'function' || typeof window.syncAll !== 'function') return false;
+
+    var originalSave = window.save;
+    var originalSync = window.syncAll;
+
+    window.save = function(){
+      var validation = validateFarmerBuyingPurchase();
+      if(!validation.ok){
+        log('achat_blocked_by_farmer_buying_guard', {reason:validation.reason, fields:snapshot(['f_date','f_cluster','f_village','f_rt','f_prod','f_prix','f_sacs','f_mode','f_recu'])});
+        fbShowMessage(validation.message, 'err');
+        return false;
+      }
+
+      var before = fbPendingMap(fbStore('anagroci_achats', []));
+      var result = originalSave.apply(this, arguments);
+      var merged = fbNormalizeQueue(fbStore('anagroci_achats', []), before);
+      fbSave('anagroci_achats', merged);
+      if(typeof window.render === 'function') try{ window.render(); }catch(e){}
+      return result;
+    };
+    window.save.__anagroci_fb_guarded = true;
+
+    window.syncAll = function(){
+      var queue = fbNormalizeQueue(fbStore('anagroci_achats', []));
+      var now = new Date().toISOString();
+      queue.forEach(function(r){
+        if(r && r._status !== 'synced'){
+          r._status = 'syncing';
+          r.sync_attempts = Number(r.sync_attempts || 0) + 1;
+          r.last_attempt_at = now;
+          r.last_error = null;
+        }
+      });
+      fbSave('anagroci_achats', queue);
+
+      var result = originalSync.apply(this, arguments);
+      return after(result, function(){
+        var afterQ = fbNormalizeQueue(fbStore('anagroci_achats', []));
+        afterQ.forEach(function(r){
+          if(r && r._status === 'syncing'){
+            r._status = r._error ? 'failed' : 'pending';
+            if(r._error) r.last_error = r._error;
+          }
+        });
+        fbSave('anagroci_achats', afterQ);
+        if(typeof window.render === 'function') try{ window.render(); }catch(e){}
+      });
+    };
+    window.syncAll.__anagroci_fb_guarded = true;
+
+    window.__ANAGROCI_FB_GUARDS_INSTALLED = true;
+    log('farmer_buying_guards_installed', {module:'achats'});
+    return true;
+  }
+
   function installBusinessHooks(){
     var installed = 0;
+    installed += installFarmerBuyingGuards() ? 1 : 0;
     installed += wrap('save', 'achat_create_attempt', function(){return snapshot(['f_date','f_cluster','f_village','f_rt','f_prod','f_net','f_prix','f_montant','f_sacs','f_mode','f_recu','f_hum','f_kor','f_rejet']);}) ? 1 : 0;
     installed += wrap('saveAvance', 'cash_advance_attempt', function(){return snapshot(['a_date','a_cluster','a_rt','a_source','a_montant','a_motif']);}) ? 1 : 0;
     installed += wrap('saveRecon', 'cash_reconciliation_attempt', function(){return snapshot(['r_rt','r_cluster','r_avance','r_paye','r_cash','r_stock']);}) ? 1 : 0;
@@ -110,7 +295,7 @@
     }, 500);
   }
 
-  window.ANAGROCI_AUDIT = { log: log, installBusinessHooks: installBusinessHooks };
+  window.ANAGROCI_AUDIT = { log: log, installBusinessHooks: installBusinessHooks, installFarmerBuyingGuards: installFarmerBuyingGuards };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startHooking);
   else startHooking();
   document.addEventListener('anagroci:authenticated', function(){ setTimeout(startHooking, 300); });
