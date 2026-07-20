@@ -13,71 +13,94 @@
 <style>
   :root{--green-forest:#053B23;--green-deep:#0A5531;--green-pine:#00712C;--green-emerald:#008F37;--green-lime:#8DC556;--green-sprout:#B6DC8E;--green-pale:#E0F3DE;--green-mist:#F1F9EF;--orange-pjs:#EE9E00;--orange-soft:#F5B229;--orange-tint:#FDEFCE;--ink:#323131;--neutral-700:#4F4E4E;--neutral-500:#7A7878;--neutral-200:#E8E7E7;--neutral-100:#F4F4F3;--white:#fff;--on-dark-mut:#CFE3D3;--font-display:'Archivo','Helvetica Neue',Arial,sans-serif;--font-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;--font-mono:'IBM Plex Mono',ui-monospace,monospace;--max:1120px;--ease:cubic-bezier(.22,1,.36,1)}
   *{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:var(--font-body);color:var(--ink);background:var(--green-mist);-webkit-font-smoothing:antialiased}a{color:var(--green-emerald);text-decoration:none}.wrap{max-width:var(--max);margin:0 auto}
-  header.top{background:var(--green-forest);border-bottom:3px solid var(--green-lime)}header.top .wrap{padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:14px}.brand .chip{background:var(--white);border-radius:8px;padding:5px 8px;display:flex;align-items:center}.brand .chip img{height:30px;display:block}.brand .name{display:flex;flex-direction:column}.brand .name b{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--white);letter-spacing:.01em}.brand .name small{font-size:11px;color:var(--on-dark-mut);letter-spacing:.14em;text-transform:uppercase}.head-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}.status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--on-dark-mut);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 14px}.status .dot{width:7px;height:7px;border-radius:50%;background:var(--green-lime);display:inline-block}
+  header.top{background:var(--green-forest);border-bottom:3px solid var(--green-lime)}header.top .wrap{padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:14px}.brand .chip{background:var(--white);border-radius:8px;padding:5px 8px;display:flex;align-items:center}.brand .chip img{height:30px;display:block}.brand .name{display:flex;flex-direction:column}.brand .name b{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--white);letter-spacing:.01em}.brand .name small{font-size:11px;color:var(--on-dark-mut);letter-spacing:.14em;text-transform:uppercase}.head-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}.status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--on-dark-mut);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 14px}.status .dot{width:7px;height:7px;border-radius:50%;background:var(--green-lime);display:inline-block}
+  /* Filtre « Mon rôle » */
+  .rolefilter{display:inline-flex;align-items:center;gap:8px}
+  .rolefilter label{font-size:12px;color:var(--on-dark-mut);white-space:nowrap}
+  .rolefilter select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:8px;padding:6px 10px;font-family:var(--font-body);font-size:12.5px;font-weight:600;cursor:pointer;outline:none}
+  .rolefilter select option{color:#25312C}
   .hero{background:var(--green-forest);color:var(--white);padding:52px 32px 44px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--green-lime);font-weight:600;margin-bottom:18px}.hero h1{font-family:var(--font-display);font-weight:800;font-size:46px;line-height:1.1;letter-spacing:-.01em;margin:0 0 20px;max-width:720px;text-wrap:pretty}.hero h1 span{color:var(--green-lime)}.hero p{font-size:17px;line-height:1.6;color:var(--on-dark-mut);max-width:640px;margin:0;text-wrap:pretty}
   main{padding:40px 32px 64px}
-  /* Groupes par rôle */
-  .groups{max-width:var(--max);margin:0 auto;display:flex;flex-direction:column;gap:40px}
+  .groups{max-width:var(--max);margin:0 auto;display:flex;flex-direction:column;gap:38px}
   .grouphead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 16px;border-left:4px solid var(--green-lime);padding-left:12px}
   .grouphead h2{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:.12em;text-transform:uppercase;color:var(--green-forest);margin:0}
-  .grouphead .role{font-family:var(--font-mono);font-size:12px;color:var(--neutral-500);letter-spacing:.02em}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
-  .card{display:flex;flex-direction:column;gap:12px;background:var(--white);border:1px solid var(--neutral-200);border-radius:12px;padding:22px;color:var(--ink);box-shadow:0 2px 8px rgba(5,59,35,.06);transition:box-shadow .22s var(--ease),transform .22s var(--ease)}.card:hover{box-shadow:0 8px 24px rgba(5,59,35,.14);transform:translateY(-2px);text-decoration:none;color:var(--ink)}.card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.ic{width:44px;height:44px;border-radius:10px;background:var(--green-pale);color:var(--green-emerald);display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:600;font-size:13px;letter-spacing:.04em;flex:0 0 auto}
-  .badge{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;padding:4px 10px;border-radius:999px;white-space:nowrap}
-  /* Statut — vocabulaire unique à 2 valeurs */
-  .b-live{background:var(--green-pale);color:var(--green-pine);border:1px solid var(--green-sprout)}
-  .b-official{background:var(--green-forest);color:var(--white);border:1px solid var(--green-forest)}
-  .card h2{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.005em;margin:2px 0 0}.card p{font-size:14px;line-height:1.5;color:var(--neutral-500);margin:0;text-wrap:pretty}.open{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;color:var(--green-emerald)}.card:hover .open svg{transform:translateX(3px)}.open svg{transition:transform .22s var(--ease)}
+  .grouphead .sub{font-family:var(--font-mono);font-size:12px;color:var(--neutral-500);letter-spacing:.02em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  /* Carte module (horizontale : sigle coloré + infos) */
+  .mcard{display:flex;gap:12px;align-items:flex-start;background:var(--white);border:1px solid var(--neutral-200);border-radius:13px;padding:14px;color:var(--ink);box-shadow:0 1px 3px rgba(5,59,35,.06);transition:box-shadow .2s var(--ease),transform .2s var(--ease),opacity .2s,border-color .2s}
+  .mcard:hover{box-shadow:0 10px 26px rgba(5,59,35,.14);border-color:var(--green-lime);transform:translateY(-2px);color:var(--ink)}
+  .mcard.dim{opacity:.34}
+  .mchip{flex:none;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#fff}
+  .minfo{min-width:0;flex:1;display:flex;flex-direction:column}
+  .mcard b{font-family:var(--font-display);font-size:14.5px;font-weight:700;color:var(--green-forest)}
+  .mcard .d{font-size:12px;color:var(--neutral-500);margin-top:2px;line-height:1.45;text-wrap:pretty}
+  .mbadges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .rbadge{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.06em;background:var(--green-mist);color:var(--green-pine);border:1px solid #cfe3cf;border-radius:5px;padding:2px 7px}
+  .sbadge{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.06em;background:var(--orange-tint);color:#8a6a12;border:1px solid #f0dfae;border-radius:5px;padding:2px 7px}
   footer{background:var(--green-forest);color:var(--on-dark-mut);padding:22px 32px;margin-top:24px}footer .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}footer b{color:var(--white)}footer .tag{font-size:13px;color:var(--green-lime)}footer span{font-size:13px}
-  /* Palier tablette (768–1024 px) — tablettes de terrain */
   @media(max-width:1024px){header.top .wrap,.hero,main,footer{padding-left:24px;padding-right:24px}.hero{padding-top:44px;padding-bottom:40px}.hero h1{font-size:40px}}
-  @media(max-width:640px){header.top .wrap,.hero,main,footer{padding-left:18px;padding-right:18px}.hero{padding-top:38px;padding-bottom:34px}.hero h1{font-size:32px}main{padding-top:32px}.groups{gap:32px}.status{display:none}.brand .name small{display:none}}
+  @media(max-width:640px){header.top .wrap,.hero,main,footer{padding-left:18px;padding-right:18px}.hero{padding-top:38px;padding-bottom:34px}.hero h1{font-size:32px}main{padding-top:32px}.groups{gap:30px}.status{display:none}.brand .name small{display:none}.rolefilter label{display:none}}
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><div class="brand"><div class="chip"><img src="assets/logo-pjs-mark.png" alt="PJS"></div><div class="name"><b>ANAGROCI</b><small>Operations Suite</small></div></div><div class="head-right"><span id="anagroci-lang-slot"></span><span class="status"><span class="dot"></span> Plateforme en ligne</span><span id="anagroci-userslot"></span></div></div></header>
-<section class="hero"><div class="wrap"><div class="eyebrow">Field Buying Platform</div><h1>Le poste de commande <span>terrain</span> d'ANAGROCI</h1><p>Référentiel maître FBMS, cartographie, audit des distances et logistique ALIS — réunis dans un portail unique, gouverné par une donnée partagée.</p></div></section>
+<header class="top"><div class="wrap"><div class="brand"><div class="chip"><img src="assets/logo-pjs-mark.png" alt="PJS"></div><div class="name"><b>ANAGROCI</b><small>Operations Suite</small></div></div><div class="head-right"><span class="rolefilter"><label for="roleSel">Mon rôle&nbsp;:</label><select id="roleSel" onchange="applyRole(this.value)"><option value="">Tous les rôles</option><option value="bm">Branch Manager</option><option value="chef">Supervisor</option><option value="agent">Agent</option></select></span><span id="anagroci-lang-slot"></span><span class="status"><span class="dot"></span> Plateforme en ligne</span><span id="anagroci-userslot"></span></div></div></header>
+<section class="hero"><div class="wrap"><div class="eyebrow">Field Buying Platform · Campagne RCN 2026</div><h1>Le poste de commande <span>terrain</span> d'ANAGROCI</h1><p>Référentiel maître FBMS, cartographie, audit des distances et logistique ALIS — réunis dans un portail unique, gouverné par une donnée partagée.</p></div></section>
 <main><div class="groups">
 
-  <!-- Groupe 1 · Terrain (agents) -->
+  <!-- Groupe 1 · Opérations terrain -->
   <section class="group">
-    <div class="grouphead"><h2>Terrain</h2><span class="role">Agents de terrain · saisie quotidienne</span></div>
+    <div class="grouphead"><h2>Opérations terrain</h2><span class="sub">Saisie quotidienne pendant la campagne</span></div>
     <div class="grid">
-      <a class="card" href="terrain/achats.html"><div class="card-top"><span class="ic">ACH</span><span class="badge b-live">Actif</span></div><h2>Achats Terrain</h2><p>Saisie journalière des achats RCN, hors-ligne (Producteur → RT).</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="terrain/cash.html"><div class="card-top"><span class="ic">CFA</span><span class="badge b-live">Actif</span></div><h2>Caisse &amp; Avances</h2><p>Avances RT, soldes et réconciliation quotidienne du cash.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="terrain/sacs.html"><div class="card-top"><span class="ic">SAC</span><span class="badge b-live">Actif</span></div><h2>Stock &amp; Sacs</h2><p>Dotation, distribution, enlèvement et soldes de sacs par RT.</p><span class="open">Ouvrir le module →</span></a>
+      <a class="mcard" href="terrain/achats.html" data-roles="agent chef bm"><span class="mchip" style="background:#008F37">ACH</span><span class="minfo"><b>Achats Terrain</b><span class="d">Saisie journalière RCN · Producteur → RT</span><span class="mbadges"><span class="rbadge">AGENT · SUP · BM</span></span></span></a>
+      <a class="mcard" href="terrain/sacs.html" data-roles="agent chef bm"><span class="mchip" style="background:#4B8B2F">SAC</span><span class="minfo"><b>Stock &amp; Sacs</b><span class="d">Traçabilité des sacs et mouvements</span><span class="mbadges"><span class="rbadge">AGENT · SUP · BM</span></span></span></a>
+      <a class="mcard" href="rcntrace/index.html" data-roles="agent chef bm"><span class="mchip" style="background:#053B23">RCN</span><span class="minfo"><b>RCN TRACE</b><span class="d">Traçabilité &amp; bilan matière</span><span class="mbadges"><span class="rbadge">AGENT · SUP · BM</span><span class="sbadge">PILOTE</span></span></span></a>
     </div>
   </section>
 
-  <!-- Groupe 2 · Pilotage (Branch Manager & direction) -->
+  <!-- Groupe 2 · Pilotage & contrôle -->
   <section class="group">
-    <div class="grouphead"><h2>Pilotage</h2><span class="role">Branch Manager &amp; direction · décision</span></div>
+    <div class="grouphead"><h2>Pilotage &amp; contrôle</h2><span class="sub">Vue Branch Manager</span></div>
     <div class="grid">
-      <a class="card" href="terrain/command.html"><div class="card-top"><span class="ic">CMD</span><span class="badge b-live">Actif</span></div><h2>Command Center</h2><p>Volume acheté, cash engagé, sacs et anomalies du jour.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="rcntrace/index.html"><div class="card-top"><span class="ic">RCN</span><span class="badge b-live">Actif</span></div><h2>RCN TRACE</h2><p>Traçabilité &amp; bilan matière : réception, KOR, lots et transferts.</p><span class="open">Ouvrir le module →</span></a>
+      <a class="mcard" href="terrain/command.html" data-roles="bm"><span class="mchip" style="background:#0A5531">CMD</span><span class="minfo"><b>Command Center</b><span class="d">Anomalies, file offline, RT à risque</span><span class="mbadges"><span class="rbadge">BM</span></span></span></a>
+      <a class="mcard" href="terrain/cash.html" data-roles="chef bm"><span class="mchip" style="background:#00712C">CFA</span><span class="minfo"><b>Caisse &amp; Avances</b><span class="d">Cash control RT et avances</span><span class="mbadges"><span class="rbadge">SUP · BM</span></span></span></a>
+      <a class="mcard" href="fbms/audit_distances.html" data-roles="chef bm"><span class="mchip" style="background:#7A5A00">AUD</span><span class="minfo"><b>Audit Distances</b><span class="d">Validation des distances routières</span><span class="mbadges"><span class="rbadge">SUP · BM</span></span></span></a>
     </div>
   </section>
 
   <!-- Groupe 3 · Référentiel & logistique -->
   <section class="group">
-    <div class="grouphead"><h2>Référentiel &amp; logistique</h2><span class="role">Données maîtres &amp; réseau de collecte</span></div>
+    <div class="grouphead"><h2>Référentiel &amp; logistique</h2><span class="sub">Données de fond et outils d'analyse</span></div>
     <div class="grid">
-      <a class="card" href="fbms/index.html"><div class="card-top"><span class="ic">REF</span><span class="badge b-live">Actif</span></div><h2>FBMS Référentiel</h2><p>Zones, clusters, villages, RT et producteurs — le référentiel maître.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="fbms/fbms_hubs.html"><div class="card-top"><span class="ic">HUB</span><span class="badge b-live">Actif</span></div><h2>Hubs / Clusters</h2><p>Positions GPS des hubs et distances hub-usine.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="fbms/fbms_carte.html"><div class="card-top"><span class="ic">MAP</span><span class="badge b-live">Actif</span></div><h2>Cartographie Terrain</h2><p>Villages, hubs et axes routiers sur carte interactive.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="fbms/audit_distances.html"><div class="card-top"><span class="ic">AUD</span><span class="badge b-live">Actif</span></div><h2>Audit Distances</h2><p>Contrôle GPS et validation des distances routières.</p><span class="open">Ouvrir le module →</span></a>
-      <a class="card" href="logistique/alis_fbms.html"><div class="card-top"><span class="ic">LOG</span><span class="badge b-official">Officiel</span></div><h2>ALIS depuis FBMS</h2><p>Coût rendu usine, tarifs et barème collecte courte.</p><span class="open">Ouvrir le module →</span></a>
+      <a class="mcard" href="fbms/index.html" data-roles="agent chef bm"><span class="mchip" style="background:#053B23">REF</span><span class="minfo"><b>FBMS Référentiel</b><span class="d">Zones, villages, RT, producteurs</span><span class="mbadges"><span class="rbadge">AGENT · SUP · BM</span></span></span></a>
+      <a class="mcard" href="fbms/fbms_hubs.html" data-roles="chef bm"><span class="mchip" style="background:#0A5531">HUB</span><span class="minfo"><b>Hubs / Clusters</b><span class="d">GPS hubs &amp; distances usine</span><span class="mbadges"><span class="rbadge">SUP · BM</span></span></span></a>
+      <a class="mcard" href="fbms/fbms_carte.html" data-roles="agent chef bm"><span class="mchip" style="background:#008F37">MAP</span><span class="minfo"><b>Cartographie</b><span class="d">Carte interactive du terrain</span><span class="mbadges"><span class="rbadge">AGENT · SUP · BM</span></span></span></a>
+      <a class="mcard" href="logistique/alis_fbms.html" data-roles="chef bm"><span class="mchip" style="background:#00712C">LOG</span><span class="minfo"><b>ALIS Logistique</b><span class="d">Coût rendu usine et simulation</span><span class="mbadges"><span class="rbadge">SUP · BM</span></span></span></a>
     </div>
   </section>
 
 </div></main>
 <footer><div class="wrap"><span>© <b>ANAGROCI</b> — Operations Suite · Field Buying Platform</span><span class="tag">Une donnée, une identité, une plateforme.</span></div></footer>
 <script>
+/* Filtre « Mon rôle » : estompe les modules qui ne concernent pas le rôle choisi.
+   (Simple mise en avant visuelle — l'accès reste géré par auth-gate.) */
+function applyRole(val){
+  document.querySelectorAll('.mcard').forEach(function(c){
+    var roles=(c.getAttribute('data-roles')||'').split(' ');
+    c.classList.toggle('dim', !!val && roles.indexOf(val)<0);
+  });
+}
+/* Pré-sélection sur le rôle de l'utilisateur connecté, si connu (auth-gate). */
+document.addEventListener('anagroci:authenticated', function(){
+  try{
+    var niv = window.ANAGROCI_AUTH && window.ANAGROCI_AUTH.niveau;
+    var sel = document.getElementById('roleSel');
+    if (sel && (niv==='bm'||niv==='chef'||niv==='agent')){ sel.value = niv; applyRole(niv); }
+  }catch(e){}
+});
+/* Service worker (barre FR/EN + injection i18n). */
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('./i18n-sw.js?v=nocache1').then(function(reg){
-    if(reg.update) reg.update();
-  }).catch(function(){});
+  navigator.serviceWorker.register('./i18n-sw.js?v=nocache1').then(function(reg){ if(reg.update) reg.update(); }).catch(function(){});
 })();
 </script>
 </body>
