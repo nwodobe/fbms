@@ -90,7 +90,7 @@
     }
   };
 
-  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   function currentPage() { return (global.location.hash || "#accueil").replace(/^#/, "").split("/")[0] || "accueil"; }
   function injectStyles() {
     if (document.getElementById("rcn-flow-clarity-style")) return;
@@ -99,11 +99,20 @@
       ".rcn-flow-note p{margin:0;color:#4F4E4E;font-size:12.5px;line-height:1.45;max-width:900px}"+
       ".rcn-flow-path{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}"+
       ".rcn-flow-path span{display:inline-flex;align-items:center;gap:6px;border:1px solid #CFCECE;border-radius:999px;background:#fff;color:#053B23;font-size:11px;font-weight:700;padding:5px 9px}"+
-      ".rcn-flow-path span:not(:last-child):after{content:'→';color:#008F37;font-weight:800;margin-left:2px}";
+      ".rcn-flow-path span:not(:last-child):after{content:'->';color:#008F37;font-weight:800;margin-left:2px}";
     var st = document.createElement("style"); st.id = "rcn-flow-clarity-style"; st.textContent = css; document.head.appendChild(st);
+  }
+  function loadStep4Locks() {
+    if (document.getElementById("rcn-transfer-locks-loader")) return;
+    var s = document.createElement("script");
+    s.id = "rcn-transfer-locks-loader";
+    s.defer = true;
+    s.src = "./transfer-business-locks.js?v=step4-transfer-locks-20260720";
+    document.head.appendChild(s);
   }
   function render() {
     injectStyles();
+    loadStep4Locks();
     var view = document.getElementById("view");
     if (!view) return;
     var old = view.querySelector(".rcn-flow-note"); if (old) old.remove();
