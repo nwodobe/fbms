@@ -1,141 +1,200 @@
 <!doctype html><html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#053B23">
-<title>Caisse & Avances · ANAGROCI</title>
+<title>Caisse &amp; Avances · ANAGROCI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="../shared/auth-gate.js" data-module="cash"></script>
 <style>
-  :root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;
-    --mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;
-    --line:#E8E7E7;--danger:#C0392B;--white:#fff;}
+  :root{
+    --forest:#053B23;--deep:#0A5531;--pine:#00712C;--emerald:#008F37;--lime:#8DC556;
+    --sprout:#B6DC8E;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-soft:#F5B229;
+    --orange-tint:#FDEFCE;--ink:#323131;--n700:#4F4E4E;--muted:#7A7878;--line:#E8E7E7;
+    --bg:#F4F4F3;--white:#fff;--danger:#C0392B;
+    --font-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+    --font-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--mist);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
-  .top{background:var(--forest);color:#eafff2;display:flex;align-items:center;justify-content:space-between;
-    gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:3px solid var(--lime)}
-  .top .b{display:flex;align-items:center;gap:10px}
-  .chip{background:#fff;border-radius:8px;padding:4px 7px;display:inline-flex;align-items:center}
-  .chip img{height:26px;display:block}
-  .top b{font-size:16px}.top small{color:#CFE3D3;font-size:11px}
-  .top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .btn{border:0;border-radius:9px;background:var(--emerald);color:#fff;font-weight:700;padding:10px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-  .btn.ghost{background:#fff;color:var(--forest)}
-  .btn.sm{padding:7px 10px;font-size:12px}
-  .btn:disabled{opacity:.55;cursor:default}
-  .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px;border:1px solid rgba(255,255,255,.25)}
-  .net .d{width:8px;height:8px;border-radius:50%}
-  .on .d{background:var(--lime)} .off .d{background:var(--orange)}
-  .wrap{max-width:1140px;margin:auto;padding:16px}
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-  .k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 2px 8px rgba(5,59,35,.05)}
-  .k small{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-  .k b{font-size:20px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
-  .k.kalert b{color:var(--orange)}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 8px rgba(5,59,35,.05);margin-bottom:16px}
-  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif}
-  .body{padding:14px 16px}
-  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:11px 0 5px}
-  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;font-family:inherit;background:#fff}
-  input[readonly]{background:var(--mist);font-weight:700;color:var(--forest)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+
+  /* ---- Header ---- */
+  .top{background:var(--forest);color:#fff;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 20px;border-bottom:3px solid var(--lime)}
+  .top .b{display:flex;align-items:center;gap:12px;min-width:0}
+  .top .logo{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center}
+  .top .logo img{width:34px;height:34px;object-fit:contain;display:block}
+  .top .ttl b{font-family:var(--font-display);font-weight:700;font-size:17px;line-height:1.2;display:block}
+  .top .ttl small{font-size:12px;color:#CFE3D3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .sp{flex:1}
+  .top .r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:6px 12px}
+  .net .d{width:7px;height:7px;border-radius:50%}
+  .net.on{background:rgba(141,197,86,.18);color:var(--sprout)}.net.on .d{background:var(--lime)}
+  .net.off{background:rgba(238,158,0,.16);color:var(--orange-soft)}.net.off .d{background:var(--orange)}
+  .sync{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:13px;font-weight:600;
+    color:var(--forest);background:var(--lime);border:none;border-radius:999px;padding:8px 16px;cursor:pointer;transition:background .14s var(--ease)}
+  .sync:hover{background:#7DB845}.sync:disabled{opacity:.55;cursor:default}
+  .sync svg{width:14px;height:14px}
+  .portail{font-size:13px;font-weight:600;color:#CFE3D3;padding:8px 6px;text-decoration:none}
+  .portail:hover{color:#fff}
+
+  /* ---- Layout ---- */
+  .wrap{width:100%;max-width:1080px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(5,59,35,.06)}
+  .cardhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .cardhead .sp{flex:1}
+  .sectitle{font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;border-left:4px solid var(--lime);padding-left:12px}
+
+  /* ---- KPI ---- */
+  .kpicard{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:16px 20px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;box-shadow:0 1px 3px rgba(5,59,35,.06)}
+  .stat small{display:block;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+  .stat b{display:block;margin-top:6px;font-size:24px;color:var(--forest);font-family:var(--font-mono);font-weight:600}
+  .stat.kalert b{color:var(--orange)}
+
+  /* ---- Tabs ---- */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{padding:11px 18px;font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--muted);
+    background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;transition:color .14s var(--ease)}
+  .tab:hover{color:var(--pine)}
+  .tab.on{color:var(--forest);border-bottom-color:var(--lime)}
+  .tab .cbadge{font-family:var(--font-mono);font-size:11px;background:var(--orange-tint);color:#9A6600;border-radius:999px;padding:1px 7px;margin-left:6px}
+
+  /* ---- Form ---- */
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .field label{font-size:13px;font-weight:600;color:var(--ink)}
+  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid #D2D0D0;border-radius:6px;padding:10px 12px;
+    font-size:15px;font-family:var(--font-body);color:var(--ink);background:#fff;outline:none;transition:border-color .14s,box-shadow .14s}
+  input:focus,select:focus,textarea:focus{border-color:var(--emerald);box-shadow:0 0 0 3px rgba(0,143,55,.14)}
+  input[readonly]{background:var(--mist);font-weight:700;color:var(--forest);border-color:var(--line)}
   .up{text-transform:uppercase}.up::placeholder{text-transform:none}
   select#a_cluster,select#r_cluster{text-transform:uppercase}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .alert{border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;display:none}
+
+  /* ---- Result box (réconciliation) ---- */
+  .resbox{border-radius:8px;padding:12px 14px;margin-top:16px;font-size:14px;background:var(--mist);border:1px solid var(--line);color:var(--ink);font-family:var(--font-mono)}
+  .resbox b{font-family:var(--font-body)}
+
+  /* ---- Actions ---- */
+  .btn{border:0;border-radius:8px;background:var(--emerald);color:#fff;font-family:var(--font-body);font-weight:600;
+    padding:10px 14px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;transition:background .14s var(--ease)}
+  .btn:hover{background:var(--pine)}
+  .btn.cta{padding:12px 22px;font-size:15px}
+  .btn:disabled{opacity:.55;cursor:default}
+  .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;margin-top:20px}
+
+  /* ---- Alerts ---- */
+  .alert{border-radius:8px;padding:10px 12px;margin-top:12px;font-size:13px;display:none}
   .alert.show{display:block}
   .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
   .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
   .warn{background:var(--orange-tint);border:1px solid var(--orange);color:#8a6a12}
-  table{width:100%;border-collapse:collapse}
-  th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.03em;padding:8px;text-align:left;position:sticky;top:0}
-  td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px}
-  td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
-  .tag{font-size:10px;font-weight:800;text-transform:uppercase;border-radius:999px;padding:3px 8px;white-space:nowrap}
-  .tag.ok{background:var(--pale);color:var(--pine)}
-  .tag.bad{background:#fdeceb;color:var(--danger)}
-  .tag.wait{background:var(--orange-tint);color:#9A6600}
+
+  /* ---- Tables ---- */
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;
+    padding:10px 12px;border-bottom:2px solid var(--emerald);white-space:nowrap;background:none}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--ink)}
+  td.num,th.num{text-align:right;font-family:var(--font-mono);font-weight:600}
   .neg{color:var(--danger);font-weight:700}
-  .scroll{max-height:56vh;overflow:auto}
-  .muted{color:var(--muted);font-size:12.5px}
-  @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+  .muted{color:var(--muted);font-size:13px;line-height:1.5}
+
+  /* ---- Badges ---- */
+  .tag{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap}
+  .tag.ok{background:#E3F5E8;color:#1c7a3f}
+  .tag.bad{background:#FDECE9;color:#B23A2A}
+  .tag.wait{background:var(--orange-tint);color:#8a6a12}
+
+  @media(max-width:640px){.top{padding:10px 14px}.wrap{padding:16px 12px 40px}.card{padding:18px}}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
 </head><body>
 
 <div class="top">
-  <div class="b"><span class="chip"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span>
-    <span><b>Caisse &amp; Avances</b><br><small>Cash Control · avance → paiement → réconciliation</small></span></div>
+  <div class="b">
+    <span class="logo"><img src="../assets/logo-pjs-mark.png" alt="PJS"></span>
+    <div class="ttl"><b>Caisse &amp; Avances</b><small>Cash Control · avance → paiement → réconciliation</small></div>
+  </div>
+  <div class="sp"></div>
   <div class="r">
     <span id="net" class="net off"><span class="d"></span><span id="netTxt">Hors ligne</span></span>
-    <button class="btn sm" id="syncBtn" onclick="syncAll()">Synchroniser <span id="pendBadge"></span></button>
-    <a class="btn ghost sm" href="../index.html">Portail</a>
+    <button class="sync" id="syncBtn" onclick="syncAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
+      Synchroniser <span id="pendBadge"></span>
+    </button>
+    <a class="portail" href="../index.html">Portail</a>
     <span id="anagroci-userslot"></span>
   </div>
 </div>
 
 <main class="wrap">
-  <div class="kpis">
-    <div class="k"><small>Total avancé</small><b id="kAv">0</b></div>
-    <div class="k"><small>Total payé (achats)</small><b id="kPay">0</b></div>
-    <div class="k"><small>Solde global</small><b id="kSolde">0</b></div>
-    <div class="k kalert"><small>RT à contrôler</small><b id="kCtrl">0</b></div>
-  </div>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Nouvelle avance</h2>
-      <div class="body">
-        <div class="row">
-          <div><label>Date</label><input id="a_date" type="date"></div>
-          <div><label>Source</label><select id="a_source"><option>Finance</option><option>Cluster Head</option></select></div>
-        </div>
-        <div class="row">
-          <div><label>Cluster</label><select id="a_cluster" onchange="onACluster()"><option value="">Tous les clusters</option></select></div>
-          <div><label>RT (équipe)</label><input id="a_rt" class="up" list="dl_art" oninput="onARt()" placeholder="Choisir ou saisir"><datalist id="dl_art"></datalist></div>
-        </div>
-        <div class="row">
-          <div><label>Montant (FCFA)</label><input id="a_montant" type="number" min="1" step="500" inputmode="numeric"></div>
-          <div><label>Motif</label><input id="a_motif" class="up" placeholder="Facultatif"></div>
-        </div>
-        <div id="a_bloc" class="alert warn"></div>
-        <p><button class="btn" id="aSave" onclick="saveAvance()">Enregistrer l'avance</button></p>
-        <div id="a_msg" class="alert"></div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Réconciliation</h2>
-      <div class="body">
-        <label>RT à réconcilier</label>
-        <input id="r_rt" class="up" list="dl_rrt" oninput="onRRt()" placeholder="Choisir un RT">
-        <datalist id="dl_rrt"></datalist>
-        <div class="row">
-          <div><label>Avancé</label><input id="r_avance" readonly></div>
-          <div><label>Payé (achats)</label><input id="r_paye" readonly></div>
-        </div>
-        <div class="row">
-          <div><label>Cash restant déclaré</label><input id="r_cash" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
-          <div><label>Valeur stock estimée</label><input id="r_stock" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
-        </div>
-        <input id="r_cluster" type="hidden">
-        <div class="alert show" id="r_res" style="background:var(--mist);border:1px solid var(--line);color:var(--ink)">Écart : — · statut : —</div>
-        <p><button class="btn" id="rSave" onclick="saveRecon()">Enregistrer la réconciliation</button></p>
-        <div id="r_msg" class="alert"></div>
-      </div>
-    </section>
-  </div>
-
-  <section class="card">
-    <h2>Soldes par RT</h2>
-    <div class="body">
-      <div class="scroll">
-        <table>
-          <thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Payé</th><th class="num">Solde</th><th>Réconciliation</th></tr></thead>
-          <tbody id="soldes"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+  <!-- KPI -->
+  <section class="kpicard">
+    <div class="stat"><small>Total avancé</small><b id="kAv">0</b></div>
+    <div class="stat"><small>Total payé (achats)</small><b id="kPay">0</b></div>
+    <div class="stat"><small>Solde global</small><b id="kSolde">0</b></div>
+    <div class="stat kalert"><small>RT à contrôler</small><b id="kCtrl">0</b></div>
   </section>
+
+  <!-- Onglets -->
+  <div class="tabs">
+    <button class="tab on" id="tab_avance" onclick="setTab('avance')">Nouvelle avance</button>
+    <button class="tab" id="tab_recon" onclick="setTab('recon')">Réconciliation</button>
+    <button class="tab" id="tab_soldes" onclick="setTab('soldes')">Soldes par RT <span id="tabCtrl" class="cbadge" style="display:none"></span></button>
+  </div>
+
+  <!-- Onglet : Nouvelle avance -->
+  <section class="card" id="panel_avance">
+    <div class="cardhead"><h2 class="sectitle">Nouvelle avance</h2></div>
+    <div class="grid2">
+      <div class="field"><label>Date</label><input id="a_date" type="date"></div>
+      <div class="field"><label>Source</label><select id="a_source"><option>Finance</option><option>Cluster Head</option></select></div>
+      <div class="field"><label>Cluster</label><select id="a_cluster" onchange="onACluster()"><option value="">Tous les clusters</option></select></div>
+      <div class="field"><label>RT (équipe)</label><input id="a_rt" class="up" list="dl_art" oninput="onARt()" placeholder="Choisir ou saisir"><datalist id="dl_art"></datalist></div>
+      <div class="field"><label>Montant (FCFA)</label><input id="a_montant" type="number" min="1" step="500" inputmode="numeric"></div>
+      <div class="field"><label>Motif</label><input id="a_motif" class="up" placeholder="Facultatif"></div>
+    </div>
+    <div id="a_bloc" class="alert warn"></div>
+    <div class="actions">
+      <button class="btn cta" id="aSave" onclick="saveAvance()">Enregistrer l'avance</button>
+    </div>
+    <div id="a_msg" class="alert"></div>
+  </section>
+
+  <!-- Onglet : Réconciliation -->
+  <section class="card" id="panel_recon" style="display:none">
+    <div class="cardhead"><h2 class="sectitle">Réconciliation</h2></div>
+    <div class="grid2">
+      <div class="field"><label>RT à réconcilier</label><input id="r_rt" class="up" list="dl_rrt" oninput="onRRt()" placeholder="Choisir un RT"><datalist id="dl_rrt"></datalist></div>
+      <div class="field"><label>Avancé</label><input id="r_avance" readonly></div>
+      <div class="field"><label>Payé (achats)</label><input id="r_paye" readonly></div>
+      <div class="field"><label>Cash restant déclaré</label><input id="r_cash" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
+      <div class="field"><label>Valeur stock estimée</label><input id="r_stock" type="number" min="0" step="500" inputmode="numeric" oninput="calcRecon()"></div>
+    </div>
+    <input id="r_cluster" type="hidden">
+    <div class="resbox" id="r_res">Écart : — · statut : —</div>
+    <div class="actions">
+      <button class="btn cta" id="rSave" onclick="saveRecon()">Enregistrer la réconciliation</button>
+    </div>
+    <div id="r_msg" class="alert"></div>
+  </section>
+
+  <!-- Onglet : Soldes par RT -->
+  <section class="card" id="panel_soldes" style="display:none">
+    <div class="cardhead"><h2 class="sectitle">Soldes par RT</h2></div>
+    <div class="tw"><table>
+      <thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Payé</th><th class="num">Solde</th><th>Réconciliation</th></tr></thead>
+      <tbody id="soldes"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+    </table></div>
+  </section>
+
 </main>
 
 <script>
@@ -146,6 +205,7 @@ const QA="anagroci_avances", QR="anagroci_recons", REF="anagroci_ref_cash";
 const $=i=>document.getElementById(i);
 let SB, ME=null, ONLINE=navigator.onLine;
 let D={villages:[],rt:[],paye:{},avServer:[],reServer:[]};
+let TAB="avance";
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
@@ -157,6 +217,9 @@ function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()
 function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
+
+/* ---- Onglets ---- */
+function setTab(t){TAB=t;["avance","recon","soldes"].forEach(x=>{const p=$("panel_"+x);if(p)p.style.display=(x===t)?"":"none";const b=$("tab_"+x);if(b)b.className="tab"+(x===t?" on":"");});}
 
 /* ---- Référentiel ---- */
 function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
@@ -227,6 +290,7 @@ function render(){
   let tAv=0,tPay=0,ctrl=0;
   rows.forEach(r=>{tAv+=r.av;tPay+=r.pay;if(!r.recon||r.recon.statut!=="Réconcilié"){if(r.av>0)ctrl++;}});
   $("kAv").textContent=fmt(tAv);$("kPay").textContent=fmt(tPay);$("kSolde").textContent=fmt(tAv-tPay);$("kCtrl").textContent=ctrl;
+  const tc=$("tabCtrl");if(tc){tc.textContent=ctrl;tc.style.display=ctrl?"":"none";}
   const pend=load(QA,[]).filter(x=>x._status!=="synced").length+load(QR,[]).filter(x=>x._status!=="synced").length;
   $("pendBadge").textContent=pend?("("+pend+")"):"";
   $("soldes").innerHTML=rows.map(r=>{
@@ -333,7 +397,7 @@ document.addEventListener("anagroci:authenticated",e=>{
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   D=load(REF,D);$("a_date").value=today();
-  setNet();renderRef();render();
+  setNet();setTab("avance");renderRef();render();
   loadRef();syncAll();
 });
 </script>
