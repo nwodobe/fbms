@@ -102,8 +102,10 @@
   function sharedHref(file) { return inSub() ? "../shared/" + file : "shared/" + file; }
   function injectI18n() { if (document.getElementById("anagroci-i18n-js")) return; var s = document.createElement("script"); s.id = "anagroci-i18n-js"; s.src = sharedHref("i18n.js") + "?v=132333f"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
   function injectAudit() { if (document.getElementById("anagroci-audit-js")) return; var s = document.createElement("script"); s.id = "anagroci-audit-js"; s.src = sharedHref("anagroci-audit.js") + "?v=step1b"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
+  function injectModuleGuards() { if (MODULE !== "sacs") return; if (document.getElementById("anagroci-sacs-guards-js")) return; var s = document.createElement("script"); s.id = "anagroci-sacs-guards-js"; s.src = sharedHref("anagroci-sacs-guards.js") + "?v=step3c"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
   injectI18n();
   injectAudit();
+  injectModuleGuards();
 
   function chipHTML(prof) { return '<span class="ag-name">' + esc(prof.nom || prof.role) + ' · <span class="ag-role">' + esc(prof.role) + '</span></span>' + (estBM(prof.role) ? '<a class="ag-cog" href="' + adminHref() + '" title="Administration">⚙</a>' : '') + '<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
   function wireLogout() { var b = document.getElementById("ag-logout"); b && b.addEventListener("click", function () { if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout", {module: MODULE}); } SB.auth.signOut().then(function () { location.reload(); }); }); }
@@ -136,6 +138,7 @@
     overlay.parentNode && overlay.parentNode.removeChild(overlay);
     setTimeout(injectAchatsCard, 0);
     setTimeout(injectAchatsDropdownPatch, 0);
+    setTimeout(injectModuleGuards, 0);
     setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); }, 0);
     setTimeout(function(){ window.ANAGROCI_AUDIT && window.ANAGROCI_AUDIT.log("module_access", {module: MODULE, role: prof.role}); }, 250);
   }
