@@ -10,6 +10,7 @@
 @import url('./anagroci-ui.css');
 @import url('./alis-premium.css');
 @import url('./geo-premium.css');
+@import url('./ops-premium.css');
 
 :root{
   --green-forest:#053B23; --green-deep:#0A5531; --green-pine:#00712C;
