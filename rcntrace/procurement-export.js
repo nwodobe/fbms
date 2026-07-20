@@ -65,3 +65,14 @@
   }
   global.RCNProcExport={excel:exportExcel,pdf:exportPdf};
 })(window);
+
+/* RCN TRACE — Step 3 loader.
+   Procurement export is already loaded by index.html, so it also loads the non-destructive flow clarity layer. */
+(function(){
+  if(document.getElementById("rcn-flow-clarity-loader")) return;
+  var s=document.createElement("script");
+  s.id="rcn-flow-clarity-loader";
+  s.defer=true;
+  s.src="./flow-clarity.js?v=step3-flow-clarity-20260720";
+  document.head.appendChild(s);
+})();
