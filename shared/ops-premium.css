@@ -1,174 +1,174 @@
 /* ============================================================================
    ANAGROCI - couche design premium modules operations
-   Scope volontairement limite aux pages portant body.ops-premium.
-   Objectif: harmoniser Achats, Cash, Sacs et Command sans modifier la logique.
+   Scope volontairement limite aux pages qui chargent auth-gate avec data-module
+   achats, cash, sacs ou command. Aucune logique metier n'est modifiee.
    ========================================================================== */
-body.ops-premium{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body{
   background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 48%,#F1F9EF 100%)!important;
   color:#25312C;
 }
-body.ops-premium .top{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top{
   background:radial-gradient(circle at 18% -20%,rgba(141,197,86,.24),transparent 34%),linear-gradient(135deg,#053B23,#0A5531)!important;
   min-height:66px;
   padding:14px 20px!important;
   box-shadow:0 14px 34px rgba(5,59,35,.22)!important;
 }
-body.ops-premium .top b{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top b{
   font-family:var(--font-display)!important;
   letter-spacing:-.02em;
 }
-body.ops-premium .top small{color:#CFEAD6!important;letter-spacing:.02em}
-body.ops-premium .chip,
-body.ops-premium .top .logo{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top small{color:#CFEAD6!important;letter-spacing:.02em}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .chip,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top .logo{
   background:#fff!important;
   border-radius:12px!important;
   padding:5px 8px!important;
   box-shadow:0 8px 18px rgba(0,0,0,.16)!important;
 }
-body.ops-premium .wrap{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .wrap{
   max-width:1180px!important;
   padding:22px 18px 52px!important;
 }
-body.ops-premium .kpis,
-body.ops-premium .kpicard{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .kpis,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .kpicard{
   gap:14px!important;
   margin-bottom:18px!important;
 }
-body.ops-premium .k,
-body.ops-premium .stat,
-body.ops-premium .kpicard{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .kpicard{
   border:1px solid rgba(5,59,35,.10)!important;
   border-radius:18px!important;
   box-shadow:0 16px 38px rgba(5,59,35,.08)!important;
   background:linear-gradient(180deg,#FFFFFF,#FBFCF8)!important;
 }
-body.ops-premium .k,
-body.ops-premium .stat{position:relative;overflow:hidden}
-body.ops-premium .k:before,
-body.ops-premium .stat:before{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat{position:relative;overflow:hidden}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k:before,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat:before{
   content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#8DC556,#008F37);
 }
-body.ops-premium .k small,
-body.ops-premium .stat small{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k small,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat small{
   color:#597068!important;
   font-weight:800!important;
   letter-spacing:.08em!important;
 }
-body.ops-premium .k b,
-body.ops-premium .stat b{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k b,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat b{
   font-family:var(--font-mono)!important;
   color:#053B23!important;
 }
-body.ops-premium .k.kpend b,
-body.ops-premium .k.kalert b,
-body.ops-premium .stat.kalert b{color:#B06A00!important}
-body.ops-premium .grid,
-body.ops-premium .grid2{gap:18px!important}
-body.ops-premium .card{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k.kpend b,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k.kalert b,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat.kalert b{color:#B06A00!important}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .grid,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .grid2{gap:18px!important}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .card{
   border:1px solid rgba(5,59,35,.10)!important;
   border-radius:20px!important;
   box-shadow:0 18px 42px rgba(5,59,35,.08)!important;
   overflow:hidden;
   background:#fff!important;
 }
-body.ops-premium .card h2,
-body.ops-premium .sectitle{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .card h2,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .sectitle{
   font-family:var(--font-display)!important;
   color:#053B23!important;
   font-weight:800!important;
   letter-spacing:-.01em;
 }
-body.ops-premium .card h2{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .card h2{
   padding:16px 18px!important;
   border-bottom:1px solid rgba(5,59,35,.10)!important;
   background:linear-gradient(180deg,#FFFFFF,#F8FBF5)!important;
 }
-body.ops-premium .body{padding:16px 18px!important}
-body.ops-premium label{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .body{padding:16px 18px!important}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body label{
   color:#607169!important;
   font-weight:800!important;
   letter-spacing:.08em!important;
 }
-body.ops-premium input,
-body.ops-premium select,
-body.ops-premium textarea{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body input,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body select,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body textarea{
   border:1px solid #DDE7DC!important;
   border-radius:12px!important;
   min-height:42px;
   background:#fff!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.65)!important;
 }
-body.ops-premium input:focus,
-body.ops-premium select:focus,
-body.ops-premium textarea:focus{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body input:focus,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body select:focus,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body textarea:focus{
   outline:3px solid rgba(0,143,55,.16)!important;
   border-color:#008F37!important;
 }
-body.ops-premium .btn,
-body.ops-premium .sync{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .btn,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .sync{
   border-radius:999px!important;
   font-weight:800!important;
   box-shadow:0 8px 18px rgba(5,59,35,.12)!important;
 }
-body.ops-premium .btn:not(.ghost),
-body.ops-premium .sync{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .btn:not(.ghost),
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .sync{
   background:linear-gradient(135deg,#008F37,#0A5531)!important;
   color:#fff!important;
 }
-body.ops-premium .btn.ghost,
-body.ops-premium .portail{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .btn.ghost,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .portail{
   background:#fff!important;
   color:#053B23!important;
   border:1px solid rgba(255,255,255,.5)!important;
 }
-body.ops-premium .net{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .net{
   background:rgba(255,255,255,.12)!important;
   color:#EAF8EE!important;
   border-color:rgba(255,255,255,.24)!important;
 }
-body.ops-premium .alert,
-body.ops-premium .msg{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .alert,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .msg{
   border-radius:14px!important;
   font-weight:650;
 }
-body.ops-premium .pill,
-body.ops-premium .tag,
-body.ops-premium .st,
-body.ops-premium .flux-pill{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .pill,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .tag,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .st,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .flux-pill{
   border-radius:999px!important;
   font-weight:850!important;
 }
-body.ops-premium table{border-collapse:separate!important;border-spacing:0!important}
-body.ops-premium th{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body table{border-collapse:separate!important;border-spacing:0!important}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body th{
   background:#053B23!important;
   color:#EAF8EE!important;
   padding:10px 9px!important;
 }
-body.ops-premium td{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body td{
   border-top:1px solid #EDF1EA!important;
   padding:10px 9px!important;
 }
-body.ops-premium tbody tr:hover td{background:#F4FAF1!important}
-body.ops-premium .scroll,
-body.ops-premium .list{
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body tbody tr:hover td{background:#F4FAF1!important}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .scroll,
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .list{
   scrollbar-color:#8DC556 #EEF5EA;
 }
-body.ops-premium .todo{
+:is(html:has(script[data-module="command"])) body .todo{
   transition:background .16s ease, transform .16s ease;
 }
-body.ops-premium .todo:hover{
+:is(html:has(script[data-module="command"])) body .todo:hover{
   background:#F4FAF1;
   transform:translateX(2px);
 }
 @media(max-width:820px){
-  body.ops-premium .top{align-items:flex-start!important}
-  body.ops-premium .top .r{width:100%;gap:8px!important}
-  body.ops-premium .wrap{padding:16px 12px 40px!important}
-  body.ops-premium .kpis{grid-template-columns:1fr 1fr!important}
-  body.ops-premium .card{border-radius:16px!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top{align-items:flex-start!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .top .r{width:100%;gap:8px!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .wrap{padding:16px 12px 40px!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .kpis{grid-template-columns:1fr 1fr!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .card{border-radius:16px!important}
 }
 @media(max-width:560px){
-  body.ops-premium .kpis{grid-template-columns:1fr!important}
-  body.ops-premium .btn,
-  body.ops-premium .sync{width:auto;justify-content:center}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .kpis{grid-template-columns:1fr!important}
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .btn,
+  :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .sync{width:auto;justify-content:center}
 }
