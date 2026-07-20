@@ -112,31 +112,62 @@
     '@media(max-width:700px){.asb-nav a{display:none!important}.asb-logo small{display:none}}'
   ].join('');
 
+  /* ---- Navigation contextuelle (sous-applications) --------------------
+     Certains modules sont eux-mêmes des sous-plateformes avec leur propre
+     navigation interne (routes en hash). Quand on est DANS un tel module,
+     l'accès rapide de la barre montre SES espaces internes plutôt que les
+     modules terrain, tout en gardant le retour au portail et le menu
+     « Tous les modules » (échappatoire vers la suite).
+     RCN TRACE : chaîne de transformation cajou (routes #procurement, etc.). */
+  var SUBNAV = {
+    RCN: {
+      home: { label: 'Accueil RCN', hash: 'accueil' },
+      items: [
+        { label: 'Procurement', hash: 'procurement', match: function (p) { return p.indexOf('proc') === 0 || p === 'sacscontrole'; } },
+        { label: 'Entrepôt',    hash: 'entrepot',    match: function (p) { return ['entrepot', 'reception', 'qualite', 'stock', 'sechage', 'sacs', 'transfert'].indexOf(p) !== -1; } },
+        { label: 'Calibrage',   hash: 'calibrage',   match: function (p) { return p.indexOf('cal') === 0; } }
+      ]
+    }
+  };
+
   var built = false;
   function render() {
     var niveau = niveauCourant();
     var visibles = MODULES.filter(function (m) { return !niveau || m.acces.indexOf(niveau) !== -1; });
-    var n = enAttente();
+    var navEl = document.querySelector('#anagroci-suite-bar .asb-nav');
+    var syncEl = document.querySelector('#anagroci-suite-bar .asb-sync');
 
-    // Nav rapide : 5 modules, en garantissant que le module courant y figure
-    // toujours (même s'il n'est pas dans les 5 premiers) pour marquer la page active.
+    // Menu « Tous les modules » = toujours la suite complète (échappatoire).
+    document.getElementById('anagroci-suite-menu').innerHTML = visibles.map(function (m) {
+      return '<a href="' + ROOT + m.url + '"' + (m.code === ACTIF ? ' class="asb-actif"' : '') + '><span class="asb-chip">' + m.code + '</span><span><b>' + m.nom + '</b><span class="asb-d">' + m.desc + '</span></span></a>';
+    }).join('');
+
+    var sub = SUBNAV[ACTIF];
+    if (sub) {
+      // Mode contextuel : accès rapide = espaces internes du module (routes hash).
+      var page = (location.hash || '#accueil').replace(/^#/, '').split('/')[0];
+      navEl.innerHTML =
+        '<a href="#' + sub.home.hash + '"' + (page === sub.home.hash ? ' class="asb-actif"' : '') + '>' + sub.home.label + '</a>' +
+        sub.items.map(function (it) {
+          return '<a href="#' + it.hash + '"' + (it.match(page) ? ' class="asb-actif"' : '') + ' title="' + it.label + '">' + it.label + '</a>';
+        }).join('');
+      syncEl.style.display = 'none'; // la sous-application gère sa propre synchro
+      return;
+    }
+
+    // Mode suite standard : accès rapide = 5 modules, module courant toujours visible.
+    syncEl.style.display = '';
+    var n = enAttente();
     var quick = visibles.slice(0, 5);
     if (ACTIF && !quick.some(function (m) { return m.code === ACTIF; })) {
       var act = visibles.filter(function (m) { return m.code === ACTIF; })[0];
       if (act) { quick = quick.slice(0, 4).concat([act]); }
     }
-    var nav = quick.map(function (m) {
+    navEl.innerHTML = quick.map(function (m) {
       return '<a href="' + ROOT + m.url + '"' + (m.code === ACTIF ? ' class="asb-actif"' : '') + ' title="' + m.desc + '">' + m.nom + '</a>';
     }).join('');
-    document.querySelector('#anagroci-suite-bar .asb-nav').innerHTML = nav;
-
-    var sync = document.querySelector('#anagroci-suite-bar .asb-sync');
-    sync.className = 'asb-sync ' + (n > 0 ? 'asb-wait' : 'asb-ok');
-    sync.innerHTML = '&#9679; ' + (n > 0 ? n + ' en attente' : 'Synchronisé');
-
-    document.getElementById('anagroci-suite-menu').innerHTML = visibles.map(function (m) {
-      return '<a href="' + ROOT + m.url + '"' + (m.code === ACTIF ? ' class="asb-actif"' : '') + '><span class="asb-chip">' + m.code + '</span><span><b>' + m.nom + '</b><span class="asb-d">' + m.desc + '</span></span></a>';
-    }).join('');
+    syncEl.className = 'asb-sync ' + (n > 0 ? 'asb-wait' : 'asb-ok');
+    syncEl.innerHTML = '&#9679; ' + (n > 0 ? n + ' en attente' : 'Synchronisé');
   }
 
   function construire() {
@@ -181,6 +212,8 @@
     // Rafraîchit le compteur de synchro quand la page reprend le focus.
     window.addEventListener('focus', render);
     window.addEventListener('online', render);
+    // Met à jour l'espace actif en mode contextuel (nav interne en hash).
+    window.addEventListener('hashchange', render);
   }
 
   if (document.readyState === 'loading') {
