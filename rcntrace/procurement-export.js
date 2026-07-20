@@ -52,8 +52,7 @@
     X.writeFile(wb,"RCN_TRACE_Procurement_"+stamp+".xlsx",{compression:true});
   }
   function table(headers,rows){
-    return '<table><thead><tr>'+headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join("")+'</tr></thead><tbody>'+
-      rows.map(function(r){return '<tr>'+r.map(function(v){return '<td>'+esc(v)+'</td>';}).join("")+'</tr>';}).join("")+'</tbody></table>';
+    return '<table><thead><tr>'+headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join("")+'</tr></thead><tbody>'+ rows.map(function(r){return '<tr>'+r.map(function(v){return '<td>'+esc(v)+'</td>';}).join("")+'</tr>';}).join("")+'</tbody></table>';
   }
   function exportPdf(){
     if(!requireAuth()){alert("Connexion requise pour exporter les données Procurement.");return;}
@@ -61,15 +60,19 @@
     if(!w){alert("Autorisez les fenêtres contextuelles pour générer le PDF.");return;}
     var engagementRows=d.eng.map(function(e){var x=d.P?d.P.delivered(e.supplierLba,e.supplierNom,{engagementId:e.id,campagne:e.campagne}):{accepteKg:0};return [e.id,e.supplierNom,kg(e.volumeKg),kg(x.accepteKg),kg(Math.max(0,Number(e.volumeKg||0)-Number(x.accepteKg||0))),e.echeance||"—"];});
     var financeRows=d.fin.map(function(f){var x=d.P?d.P.coverage(f):{couvertFcfa:0,expositionFcfa:f.montant};return [f.id,f.supplierNom,money(f.montant),money(x.couvertFcfa),money(x.expositionFcfa),f.statut];});
-    var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport Procurement</title><style>'+
-      '@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#26352d;margin:0}header{background:#053b23;color:white;padding:22px;border-radius:10px}h1{margin:0 0 5px;font-size:25px}header p{margin:0;color:#cfe3d3}.k{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.k div{border:1px solid #dce8df;border-radius:9px;padding:12px}.k small{display:block;color:#6c7d72;text-transform:uppercase;font-size:9px}.k b{display:block;color:#053b23;font-size:18px;margin-top:4px}h2{color:#053b23;font-size:16px;margin:22px 0 8px}table{width:100%;border-collapse:collapse;font-size:9px}th{background:#e8f3eb;text-align:left;color:#053b23}th,td{padding:7px;border:1px solid #dfe7e1}footer{margin-top:16px;color:#77847b;font-size:9px}.no-print{position:fixed;right:15px;top:15px;background:#8dc556;color:#053b23;border:0;border-radius:8px;padding:10px 16px;font-weight:bold;cursor:pointer}@media print{.no-print{display:none}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body>'+
-      '<button class="no-print" onclick="window.print()">Enregistrer en PDF</button><header><h1>RCN TRACE · Rapport Procurement</h1><p>ANAGROCI / PJS Global · Généré le '+esc(d.generated.toLocaleString("fr-FR"))+'</p></header>'+
-      '<div class="k"><div><small>Volume promis</small><b>'+kg(d.s.promisKg)+'</b></div><div><small>Volume livré lié</small><b>'+kg(d.s.livreKg)+'</b></div><div><small>Reste à livrer</small><b>'+kg(d.s.restantKg)+'</b></div>'+
-      '<div><small>Financements approuvés</small><b>'+money(d.s.financeFcfa)+'</b></div><div><small>Valeur couverte</small><b>'+money(d.s.couvertFcfa)+'</b></div><div><small>Exposition</small><b>'+money(d.s.expositionFcfa)+'</b></div></div>'+
-      '<h2>Engagements fournisseurs</h2>'+table(["Réf.","Fournisseur","Promis","Livré lié","Reste","Échéance"],engagementRows)+
-      '<h2>Financements et exposition FIFO</h2>'+table(["Réf.","Fournisseur","Financé","Couvert","Exposition","Statut"],financeRows)+
-      '<footer>Document confidentiel · Les données proviennent de la base sécurisée RCN TRACE.</footer></body></html>';
+    var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport Procurement</title><style>'+ '@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#26352d;margin:0}header{background:#053b23;color:white;padding:22px;border-radius:10px}h1{margin:0 0 5px;font-size:25px}header p{margin:0;color:#cfe3d3}.k{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.k div{border:1px solid #dce8df;border-radius:9px;padding:12px}.k small{display:block;color:#6c7d72;text-transform:uppercase;font-size:9px}.k b{display:block;color:#053b23;font-size:18px;margin-top:4px}h2{color:#053b23;font-size:16px;margin:22px 0 8px}table{width:100%;border-collapse:collapse;font-size:9px}th{background:#e8f3eb;text-align:left;color:#053b23}th,td{padding:7px;border:1px solid #dfe7e1}footer{margin-top:16px;color:#77847b;font-size:9px}.no-print{position:fixed;right:15px;top:15px;background:#8dc556;color:#053b23;border:0;border-radius:8px;padding:10px 16px;font-weight:bold;cursor:pointer}@media print{.no-print{display:none}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body>'+ '<button class="no-print" onclick="window.print()">Enregistrer en PDF</button><header><h1>RCN TRACE · Rapport Procurement</h1><p>ANAGROCI / PJS Global · Généré le '+esc(d.generated.toLocaleString("fr-FR"))+'</p></header>'+ '<div class="k"><div><small>Volume promis</small><b>'+kg(d.s.promisKg)+'</b></div><div><small>Volume livré lié</small><b>'+kg(d.s.livreKg)+'</b></div><div><small>Reste à livrer</small><b>'+kg(d.s.restantKg)+'</b></div>'+ '<div><small>Financements approuvés</small><b>'+money(d.s.financeFcfa)+'</b></div><div><small>Valeur couverte</small><b>'+money(d.s.couvertFcfa)+'</b></div><div><small>Exposition</small><b>'+money(d.s.expositionFcfa)+'</b></div></div>'+ '<h2>Engagements fournisseurs</h2>'+table(["Réf.","Fournisseur","Promis","Livré lié","Reste","Échéance"],engagementRows)+ '<h2>Financements et exposition FIFO</h2>'+table(["Réf.","Fournisseur","Financé","Couvert","Exposition","Statut"],financeRows)+ '<footer>Document confidentiel · Les données proviennent de la base sécurisée RCN TRACE.</footer></body></html>';
     w.document.open();w.document.write(html);w.document.close();w.focus();
   }
   global.RCNProcExport={excel:exportExcel,pdf:exportPdf};
 })(window);
+
+/* RCN TRACE — Step 3 loader.
+   Procurement export is already loaded by index.html, so it also loads the non-destructive flow clarity layer. */
+(function(){
+  if(document.getElementById("rcn-flow-clarity-loader")) return;
+  var s=document.createElement("script");
+  s.id="rcn-flow-clarity-loader";
+  s.defer=true;
+  s.src="./flow-clarity.js?v=step3-flow-clarity-20260720";
+  document.head.appendChild(s);
+})();
