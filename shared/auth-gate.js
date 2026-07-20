@@ -101,7 +101,7 @@
   function adminHref() { return inSub() ? "../shared/admin.html" : "shared/admin.html"; }
   function sharedHref(file) { return inSub() ? "../shared/" + file : "shared/" + file; }
   function injectI18n() { if (document.getElementById("anagroci-i18n-js")) return; var s = document.createElement("script"); s.id = "anagroci-i18n-js"; s.src = sharedHref("i18n.js") + "?v=132333f"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
-  function injectAudit() { if (document.getElementById("anagroci-audit-js")) return; var s = document.createElement("script"); s.id = "anagroci-audit-js"; s.src = sharedHref("anagroci-audit.js") + "?v=step1b"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
+  function injectAudit() { if (document.getElementById("anagroci-audit-js")) return; var s = document.createElement("script"); s.id = "anagroci-audit-js"; s.src = sharedHref("anagroci-audit.js") + "?v=step3e-farmer-buying"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
   function injectModuleGuards() { if (MODULE !== "sacs") return; if (document.getElementById("anagroci-sacs-guards-js")) return; var s = document.createElement("script"); s.id = "anagroci-sacs-guards-js"; s.src = sharedHref("anagroci-sacs-guards.js") + "?v=step3c"; s.defer = true; (document.head || document.documentElement).appendChild(s); }
   injectI18n();
   injectAudit();
