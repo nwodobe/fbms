@@ -87,10 +87,7 @@
   }
 
   function fbStore(k, def){
-    try{
-      var s = localStorage.getItem(k);
-      return s ? JSON.parse(s) : def;
-    }catch(e){ return def; }
+    try{ var s = localStorage.getItem(k); return s ? JSON.parse(s) : def; }catch(e){ return def; }
   }
 
   function fbSave(k, v){
@@ -112,24 +109,15 @@
     return id;
   }
 
-  function fbField(id){
-    var e = document.getElementById(id);
-    return e ? String(e.value || '').trim() : '';
-  }
-
+  function fbField(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
   function fbOptions(id){
     var d = document.getElementById(id);
     if(!d) return [];
     return Array.prototype.slice.call(d.querySelectorAll('option')).map(function(o){return o.value || '';}).filter(Boolean);
   }
-
   function fbShowMessage(text, kind){
-    try{
-      if(typeof window.msg === 'function') window.msg(text, kind || 'err');
-      else alert(text);
-    }catch(e){}
+    try{ if(typeof window.msg === 'function') window.msg(text, kind || 'err'); else alert(text); }catch(e){}
   }
-
   function fbExistingReceipt(queue, receipt){
     var r = fbKey(receipt);
     if(!r) return false;
@@ -168,6 +156,42 @@
     return out;
   }
 
+  function fbSyncPayload(queue){
+    return (queue || []).map(function(r){
+      var x = Object.assign({}, r || {});
+      delete x.device_id;
+      delete x.sync_attempts;
+      delete x.last_attempt_at;
+      delete x.last_error;
+      delete x.recovered_at;
+      delete x._error;
+      return x;
+    });
+  }
+
+  function fbMergeSyncResult(originalQueue, syncQueue){
+    var syncMap = {};
+    (syncQueue || []).forEach(function(r){ if(r && r.local_id) syncMap[String(r.local_id)] = r; });
+    var merged = (originalQueue || []).map(function(r){
+      if(!r || !r.local_id) return r;
+      var s = syncMap[String(r.local_id)] || {};
+      if(s._status === 'synced'){
+        r._status = 'synced';
+        delete r.recu_photo;
+        delete r._error;
+        r.last_error = null;
+      }else if(s._error){
+        r._status = 'failed';
+        r._error = s._error;
+        r.last_error = s._error;
+      }else if(r._status === 'syncing'){
+        r._status = 'pending';
+      }
+      return r;
+    });
+    return fbNormalizeQueue(merged);
+  }
+
   function fbPendingMap(queue){
     var m = {};
     (queue || []).forEach(function(r){ if(r && r.local_id && r._status !== 'synced') m[String(r.local_id)] = Object.assign({}, r); });
@@ -192,23 +216,18 @@
       var d = new Date(date + 'T00:00:00');
       if(d > today) return {ok:false, reason:'date_future', message:'Date future interdite pour un achat terrain.'};
     }
-
     if(cluster && villages.length && village && villages.map(fbKey).indexOf(fbKey(village)) === -1){
       return {ok:false, reason:'village_out_of_cluster', message:'Village hors cluster ou non reconnu. Corrigez le cluster ou choisissez un village du référentiel.'};
     }
-
     if(rts.length && rt && rts.map(fbKey).indexOf(fbKey(rt)) === -1){
       return {ok:false, reason:'rt_out_of_scope', message:'RT hors village/cluster. Choisissez un RT proposé par le référentiel.'};
     }
-
     if(receipt && fbExistingReceipt(queue, receipt)){
       return {ok:false, reason:'duplicate_receipt', message:'Numéro de reçu déjà utilisé sur cet appareil. Vérifiez avant d’enregistrer.'};
     }
-
     if(fbKey(mode) === 'VIREMENT'){
       return {ok:false, reason:'bank_payment_disabled', message:'Paiement bancaire désactivé pour Farmer Buying. Utilisez Mobile Money / Wave.'};
     }
-
     return {ok:true};
   }
 
@@ -227,7 +246,6 @@
         fbShowMessage(validation.message, 'err');
         return false;
       }
-
       var before = fbPendingMap(fbStore('anagroci_achats', []));
       var result = originalSave.apply(this, arguments);
       var merged = fbNormalizeQueue(fbStore('anagroci_achats', []), before);
@@ -238,9 +256,9 @@
     window.save.__anagroci_fb_guarded = true;
 
     window.syncAll = function(){
-      var queue = fbNormalizeQueue(fbStore('anagroci_achats', []));
+      var originalQueue = fbNormalizeQueue(fbStore('anagroci_achats', []));
       var now = new Date().toISOString();
-      queue.forEach(function(r){
+      originalQueue.forEach(function(r){
         if(r && r._status !== 'synced'){
           r._status = 'syncing';
           r.sync_attempts = Number(r.sync_attempts || 0) + 1;
@@ -248,18 +266,12 @@
           r.last_error = null;
         }
       });
-      fbSave('anagroci_achats', queue);
 
+      fbSave('anagroci_achats', fbSyncPayload(originalQueue));
       var result = originalSync.apply(this, arguments);
       return after(result, function(){
-        var afterQ = fbNormalizeQueue(fbStore('anagroci_achats', []));
-        afterQ.forEach(function(r){
-          if(r && r._status === 'syncing'){
-            r._status = r._error ? 'failed' : 'pending';
-            if(r._error) r.last_error = r._error;
-          }
-        });
-        fbSave('anagroci_achats', afterQ);
+        var syncResult = fbStore('anagroci_achats', []);
+        fbSave('anagroci_achats', fbMergeSyncResult(originalQueue, syncResult));
         if(typeof window.render === 'function') try{ window.render(); }catch(e){}
       });
     };
