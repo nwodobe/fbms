@@ -112,10 +112,12 @@
   }
   function loadStep4Locks() { loadScript("rcn-transfer-locks-loader", "./transfer-business-locks.js?v=step4-transfer-locks-20260720"); }
   function loadStep6Guide() { loadScript("rcn-workflow-guide-loader", "./workflow-guide.js?v=step6-pre-recette-20260720"); }
+  function loadStep7Incidents() { loadScript("rcn-field-incident-log-loader", "./field-incident-log.js?v=step7-field-incidents-20260720"); }
   function render() {
     injectStyles();
     loadStep4Locks();
     loadStep6Guide();
+    loadStep7Incidents();
     var view = document.getElementById("view");
     if (!view) return;
     var old = view.querySelector(".rcn-flow-note"); if (old) old.remove();
