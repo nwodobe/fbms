@@ -98,6 +98,11 @@
     return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   }
 
+  function fbNum(x){
+    var v = parseFloat(String(x == null ? '' : x).replace(',','.'));
+    return Number.isFinite(v) ? v : null;
+  }
+
   function fbDeviceId(){
     var k = 'anagroci_device_id';
     var id = localStorage.getItem(k);
@@ -115,13 +120,44 @@
     if(!d) return [];
     return Array.prototype.slice.call(d.querySelectorAll('option')).map(function(o){return o.value || '';}).filter(Boolean);
   }
+
   function fbShowMessage(text, kind){
     try{ if(typeof window.msg === 'function') window.msg(text, kind || 'err'); else alert(text); }catch(e){}
   }
+
+  function cashShowMessage(elId, text, kind){
+    try{
+      var el = document.getElementById(elId);
+      if(typeof window.msg === 'function' && el) window.msg(el, text, kind || 'err');
+      else if(el){ el.className = 'alert show ' + (kind || 'err'); el.textContent = text; }
+      else alert(text);
+    }catch(e){}
+  }
+
   function fbExistingReceipt(queue, receipt){
     var r = fbKey(receipt);
     if(!r) return false;
     return (queue || []).some(function(x){ return fbKey(x && x.numero_recu) === r; });
+  }
+
+  function fbRtLabel(r){ return (r && r.data && (r.data.nom || r.data.rt || r.data.nomComplet)) || (r && r.nom) || (r && r.village_nom ? ('RT ' + r.village_nom) : '') || ''; }
+  function fbRtKeyForName(name){
+    var ref = fbStore('anagroci_ref_cash', {}) || {};
+    var found = (ref.rt || []).find(function(r){ return fbKey(fbRtLabel(r)) === fbKey(name); });
+    return found && found.id ? String(found.id) : fbKey(name);
+  }
+
+  function fbCashBalanceForRt(rtName){
+    var ref = fbStore('anagroci_ref_cash', {}) || {};
+    var rtKey = fbRtKeyForName(rtName);
+    var totalAvance = 0;
+    var totalPaye = 0;
+    function sameRt(x){ return String(x && x.rt_id || '') === rtKey || fbKey(x && x.rt_nom) === fbKey(rtName) || fbKey(x && x.rt_nom) === rtKey; }
+    (ref.avServer || []).forEach(function(a){ if(sameRt(a)) totalAvance += Number(a.montant) || 0; });
+    fbStore('anagroci_avances', []).forEach(function(a){ if(sameRt(a)) totalAvance += Number(a.montant) || 0; });
+    if(ref.paye && ref.paye[rtKey]) totalPaye += Number(ref.paye[rtKey]) || 0;
+    fbStore('anagroci_achats', []).forEach(function(a){ if(a && a._status !== 'synced' && sameRt(a)) totalPaye += Number(a.montant) || 0; });
+    return {rt_key:rtKey, avance:totalAvance, paye:totalPaye, solde:totalAvance-totalPaye, has_data:totalAvance>0 || totalPaye>0};
   }
 
   function fbNormalizeQueue(queue, beforeMap){
@@ -228,6 +264,15 @@
     if(fbKey(mode) === 'VIREMENT'){
       return {ok:false, reason:'bank_payment_disabled', message:'Paiement bancaire désactivé pour Farmer Buying. Utilisez Mobile Money / Wave.'};
     }
+
+    var brut = fbNum(fbField('f_brut')) || 0;
+    var tare = fbNum(fbField('f_tare')) || 0;
+    var prix = fbNum(fbField('f_prix')) || 0;
+    var amount = Math.max(0, brut - tare) * prix;
+    var bal = rt ? fbCashBalanceForRt(rt) : {has_data:false};
+    if(bal.has_data && amount > 0 && bal.solde < amount){
+      return {ok:false, reason:'advance_exceeded', message:'Avance RT insuffisante. Solde disponible : ' + Math.round(bal.solde).toLocaleString('fr-FR') + ' FCFA. Réconciliez ou ajoutez une avance avant achat.'};
+    }
     return {ok:true};
   }
 
@@ -266,7 +311,6 @@
           r.last_error = null;
         }
       });
-
       fbSave('anagroci_achats', fbSyncPayload(originalQueue));
       var result = originalSync.apply(this, arguments);
       return after(result, function(){
@@ -282,9 +326,138 @@
     return true;
   }
 
+  function cashNormalizeQueue(key, beforeMap){
+    return fbNormalizeQueue(fbStore(key, []), beforeMap);
+  }
+
+  function cashSanitizeQueue(queue){
+    return fbSyncPayload(queue);
+  }
+
+  function cashPendingMap(key){
+    return fbPendingMap(fbStore(key, []));
+  }
+
+  function cashRtOpenBalance(rtName){
+    try{
+      if(typeof window.findRtByName === 'function' && typeof window.soldeOf === 'function'){
+        var r = window.findRtByName(rtName);
+        var id = r ? String(r.id || '') : '';
+        var s = window.soldeOf(id, rtName);
+        var needs = typeof window.needsRecon === 'function' ? window.needsRecon(id, rtName) : false;
+        return {avance:Number(s.avance)||0, paye:Number(s.paye)||0, solde:Number(s.solde)||0, needs_recon:!!needs, rt_id:id};
+      }
+    }catch(e){}
+    return fbCashBalanceForRt(rtName);
+  }
+
+  function validateCashAdvance(){
+    if(moduleName() !== 'cash') return {ok:true};
+    var rt = fbField('a_rt');
+    var amount = fbNum(fbField('a_montant'));
+    var date = fbField('a_date');
+    var rts = fbOptions('dl_art');
+    if(date){
+      var today = new Date(); today.setHours(23,59,59,999);
+      var d = new Date(date + 'T00:00:00');
+      if(d > today) return {ok:false, reason:'date_future', message:'Date future interdite pour une avance RT.'};
+    }
+    if(!rt) return {ok:false, reason:'rt_required', message:'RT requis : aucune avance ne peut être créée sans RT.'};
+    if(rts.length && rts.map(fbKey).indexOf(fbKey(rt)) === -1) return {ok:false, reason:'rt_out_of_scope', message:'RT hors référentiel ou hors cluster. Choisissez un RT proposé.'};
+    if(amount == null || amount <= 0) return {ok:false, reason:'amount_invalid', message:'Montant d’avance invalide.'};
+    var bal = cashRtOpenBalance(rt);
+    if(bal.needs_recon && bal.solde > 0){
+      return {ok:false, reason:'open_balance_not_reconciled', message:'Nouvelle avance bloquée : ce RT a un solde ouvert de ' + Math.round(bal.solde).toLocaleString('fr-FR') + ' FCFA non réconcilié.'};
+    }
+    return {ok:true};
+  }
+
+  function validateCashRecon(){
+    if(moduleName() !== 'cash') return {ok:true};
+    var rt = fbField('r_rt');
+    var cash = fbNum(fbField('r_cash'));
+    var stock = fbNum(fbField('r_stock'));
+    if(!rt) return {ok:false, reason:'rt_required', message:'RT requis pour réconciliation.'};
+    if(cash == null && stock == null) return {ok:false, reason:'recon_values_missing', message:'Saisissez le cash restant et/ou la valeur stock.'};
+    if((cash != null && cash < 0) || (stock != null && stock < 0)) return {ok:false, reason:'negative_recon_values', message:'Cash restant et valeur stock ne peuvent pas être négatifs.'};
+    var bal = cashRtOpenBalance(rt);
+    if(!bal.has_data && bal.avance <= 0 && bal.paye <= 0) return {ok:false, reason:'no_cash_activity', message:'Aucune avance ni achat trouvé pour ce RT. Réconciliation non nécessaire.'};
+    return {ok:true};
+  }
+
+  function installCashControlGuards(){
+    if(window.__ANAGROCI_CASH_GUARDS_INSTALLED) return false;
+    if(moduleName() !== 'cash') return false;
+    if(typeof window.saveAvance !== 'function' || typeof window.saveRecon !== 'function' || typeof window.syncAll !== 'function') return false;
+
+    var originalSaveAvance = window.saveAvance;
+    var originalSaveRecon = window.saveRecon;
+    var originalSync = window.syncAll;
+
+    window.saveAvance = function(){
+      var validation = validateCashAdvance();
+      if(!validation.ok){
+        log('cash_advance_blocked_by_guard', {reason:validation.reason, fields:snapshot(['a_date','a_cluster','a_rt','a_source','a_montant','a_motif'])});
+        cashShowMessage('a_msg', validation.message, 'err');
+        return false;
+      }
+      var before = cashPendingMap('anagroci_avances');
+      var result = originalSaveAvance.apply(this, arguments);
+      fbSave('anagroci_avances', cashNormalizeQueue('anagroci_avances', before));
+      if(typeof window.render === 'function') try{ window.render(); }catch(e){}
+      return result;
+    };
+    window.saveAvance.__anagroci_cash_guarded = true;
+
+    window.saveRecon = function(){
+      var validation = validateCashRecon();
+      if(!validation.ok){
+        log('cash_reconciliation_blocked_by_guard', {reason:validation.reason, fields:snapshot(['r_rt','r_cluster','r_avance','r_paye','r_cash','r_stock'])});
+        cashShowMessage('r_msg', validation.message, 'err');
+        return false;
+      }
+      var before = cashPendingMap('anagroci_recons');
+      var result = originalSaveRecon.apply(this, arguments);
+      fbSave('anagroci_recons', cashNormalizeQueue('anagroci_recons', before));
+      if(typeof window.render === 'function') try{ window.render(); }catch(e){}
+      return result;
+    };
+    window.saveRecon.__anagroci_cash_guarded = true;
+
+    window.syncAll = function(){
+      var av = cashNormalizeQueue('anagroci_avances');
+      var rc = cashNormalizeQueue('anagroci_recons');
+      var now = new Date().toISOString();
+      [av, rc].forEach(function(queue){
+        queue.forEach(function(r){
+          if(r && r._status !== 'synced'){
+            r._status = 'syncing';
+            r.sync_attempts = Number(r.sync_attempts || 0) + 1;
+            r.last_attempt_at = now;
+            r.last_error = null;
+          }
+        });
+      });
+      fbSave('anagroci_avances', cashSanitizeQueue(av));
+      fbSave('anagroci_recons', cashSanitizeQueue(rc));
+      var result = originalSync.apply(this, arguments);
+      return after(result, function(){
+        fbSave('anagroci_avances', fbMergeSyncResult(av, fbStore('anagroci_avances', [])));
+        fbSave('anagroci_recons', fbMergeSyncResult(rc, fbStore('anagroci_recons', [])));
+        if(typeof window.render === 'function') try{ window.render(); }catch(e){}
+      });
+    };
+    window.syncAll.__anagroci_cash_guarded = true;
+
+    window.__ANAGROCI_CASH_GUARDS_INSTALLED = true;
+    log('cash_control_guards_installed', {module:'cash'});
+    return true;
+  }
+
   function installBusinessHooks(){
     var installed = 0;
     installed += installFarmerBuyingGuards() ? 1 : 0;
+    installed += installCashControlGuards() ? 1 : 0;
     installed += wrap('save', 'achat_create_attempt', function(){return snapshot(['f_date','f_cluster','f_village','f_rt','f_prod','f_net','f_prix','f_montant','f_sacs','f_mode','f_recu','f_hum','f_kor','f_rejet']);}) ? 1 : 0;
     installed += wrap('saveAvance', 'cash_advance_attempt', function(){return snapshot(['a_date','a_cluster','a_rt','a_source','a_montant','a_motif']);}) ? 1 : 0;
     installed += wrap('saveRecon', 'cash_reconciliation_attempt', function(){return snapshot(['r_rt','r_cluster','r_avance','r_paye','r_cash','r_stock']);}) ? 1 : 0;
@@ -299,6 +472,7 @@
 
   var hookTimer = null;
   function startHooking(){
+    if(hookTimer) clearInterval(hookTimer);
     var tries = 0;
     hookTimer = setInterval(function(){
       tries += 1;
@@ -307,7 +481,12 @@
     }, 500);
   }
 
-  window.ANAGROCI_AUDIT = { log: log, installBusinessHooks: installBusinessHooks, installFarmerBuyingGuards: installFarmerBuyingGuards };
+  window.ANAGROCI_AUDIT = {
+    log: log,
+    installBusinessHooks: installBusinessHooks,
+    installFarmerBuyingGuards: installFarmerBuyingGuards,
+    installCashControlGuards: installCashControlGuards
+  };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startHooking);
   else startHooking();
   document.addEventListener('anagroci:authenticated', function(){ setTimeout(startHooking, 300); });
