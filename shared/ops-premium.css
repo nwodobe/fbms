@@ -43,7 +43,7 @@
   background:linear-gradient(180deg,#FFFFFF,#FBFCF8)!important;
 }
 :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k,
-:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat{position:relative;overflow:hidden}
+:is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat{position:relative;overflow:hidden;padding-left:18px!important}
 :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .k:before,
 :is(html:has(script[data-module="achats"]),html:has(script[data-module="cash"]),html:has(script[data-module="sacs"]),html:has(script[data-module="command"])) body .stat:before{
   content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#8DC556,#008F37);
