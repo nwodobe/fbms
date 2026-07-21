@@ -144,6 +144,12 @@
   .ov .bar .btn.g{background:#ffffff22}.ov .bar .btn.g:hover{background:#ffffff33}
 
   @media(max-width:640px){.top{padding:10px 14px}.wrap{padding:16px 12px 40px}.card{padding:18px}}
+
+  /* États vides actionnables (Étape 4) */
+  .emptystate{padding:32px 16px;text-align:center}
+  .emptystate .eic{width:48px;height:48px;border-radius:13px;background:var(--mist);display:grid;place-items:center;margin:0 auto 10px;font-size:20px}
+  .emptystate b{font-size:14.5px;color:var(--forest);display:block}
+  .emptystate p{margin:6px auto 0;font-size:12.5px;color:var(--muted);max-width:44ch;line-height:1.5}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -517,7 +523,7 @@ function renderHistory(mv){
       +'<td>'+docCell+'</td>'
       +'<td><span class="bdg '+(synced?'success':'warning')+'">'+(synced?'Synchronisé':'En attente')+'</span></td>'
       +'</tr>';
-  }).join("")||'<tr><td colspan="7" class="muted">'+(filtered?"Aucun mouvement pour ce filtre.":"Aucun mouvement.")+'</td></tr>';
+  }).join("")||'<tr><td colspan="7">'+(filtered?'<div class="emptystate"><div class="eic">🔎</div><b>Aucun mouvement pour ce filtre</b><p>Aucun mouvement ne correspond aux critères choisis. Réinitialisez les filtres pour tout revoir.</p></div>':'<div class="emptystate"><div class="eic">📦</div><b>Aucun mouvement de sacs</b><p>Les dotations, distributions et enlèvements apparaîtront ici dès le premier mouvement enregistré.</p></div>')+'</td></tr>';
 }
 
 /* ---- Enregistrement ---- */

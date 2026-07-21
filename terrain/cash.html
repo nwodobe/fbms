@@ -112,6 +112,14 @@
   .tag.wait{background:var(--orange-tint);color:#8a6a12}
 
   @media(max-width:640px){.top{padding:10px 14px}.wrap{padding:16px 12px 40px}.card{padding:18px}}
+
+  /* États vides actionnables (Étape 4) */
+  .emptystate{padding:32px 16px;text-align:center}
+  .emptystate .eic{width:48px;height:48px;border-radius:13px;background:var(--mist);display:grid;place-items:center;margin:0 auto 10px;font-size:20px}
+  .emptystate b{font-size:14.5px;color:var(--forest);display:block}
+  .emptystate p{margin:6px auto 0;font-size:12.5px;color:var(--muted);max-width:44ch;line-height:1.5}
+  @keyframes tShim{0%{background-position:-300px 0}100%{background-position:300px 0}}
+  .skcell{display:inline-block;height:13px;border-radius:5px;background:linear-gradient(90deg,#eef2ec 25%,#e2e9df 50%,#eef2ec 75%);background-size:600px 100%;animation:tShim 1.3s infinite linear;width:70%}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -190,7 +198,7 @@
     <div class="cardhead"><h2 class="sectitle">Soldes par RT</h2></div>
     <div class="tw"><table>
       <thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Payé</th><th class="num">Solde</th><th>Réconciliation</th></tr></thead>
-      <tbody id="soldes"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+      <tbody id="soldes"><tr><td><span class="skcell" style="width:80px"></span></td><td><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td><span class="skcell" style="width:70px"></span></td></tr><tr><td><span class="skcell" style="width:80px"></span></td><td><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td><span class="skcell" style="width:70px"></span></td></tr><tr><td><span class="skcell" style="width:80px"></span></td><td><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td class="num"><span class="skcell" style="width:60px"></span></td><td><span class="skcell" style="width:70px"></span></td></tr></tbody>
     </table></div>
   </section>
 
@@ -298,7 +306,7 @@ function render(){
     return '<tr><td><b>'+esc(r.nom)+'</b></td><td>'+esc(r.cluster||"—")+'</td>'
       +'<td class="num">'+fmt(r.av)+'</td><td class="num">'+fmt(r.pay)+'</td>'
       +'<td class="num'+(r.solde<0?' neg':'')+'">'+fmt(r.solde)+'</td><td>'+rc+'</td></tr>';
-  }).join("")||'<tr><td colspan="6" class="muted">Aucune avance ni achat enregistré.</td></tr>';
+  }).join("")||'<tr><td colspan="6"><div class="emptystate"><div class="eic">💳</div><b>Aucune avance ni achat</b><p>Les soldes par RT s\'afficheront dès la première avance ou le premier achat enregistré.</p></div></td></tr>';
 }
 
 /* ---- Blocage : pas de réconciliation, pas de nouvelle avance ---- */

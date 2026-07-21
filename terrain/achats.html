@@ -120,6 +120,14 @@
   .muted{color:var(--muted);font-size:13px;line-height:1.5}
 
   @media(max-width:640px){.top{padding:10px 14px}.wrap{padding:16px 12px 40px}.card{padding:18px}}
+
+  /* États vides actionnables (Étape 4) */
+  .emptystate{padding:32px 16px;text-align:center}
+  .emptystate .eic{width:48px;height:48px;border-radius:13px;background:var(--mist);display:grid;place-items:center;margin:0 auto 10px;font-size:20px}
+  .emptystate b{font-size:14.5px;color:var(--forest);display:block}
+  .emptystate p{margin:6px auto 0;font-size:12.5px;color:var(--muted);max-width:44ch;line-height:1.5}
+  @keyframes tShim{0%{background-position:-300px 0}100%{background-position:300px 0}}
+  .skcell{display:inline-block;height:13px;border-radius:5px;background:linear-gradient(90deg,#eef2ec 25%,#e2e9df 50%,#eef2ec 75%);background-size:600px 100%;animation:tShim 1.3s infinite linear;width:70%}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -467,7 +475,7 @@ function render(){
       +'<span style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+biz+sync+'</span></div>'
       +'<div class="meta">'+esc(r.date)+' · '+fmt(r.montant)+' FCFA · '+esc(r.rt_nom||"RT ?")
       +' · '+esc(r.producteur_nom||"producteur ?")+(r.numero_recu?(" · reçu "+esc(r.numero_recu)):"")+q+pr+'</div></div>';
-  }).join("")||'<p class="muted">Aucun achat saisi sur cet appareil.</p>';
+  }).join("")||'<div class="emptystate"><div class="eic">📄</div><b>Aucun achat sur cet appareil</b><p>Vos achats saisis apparaîtront ici. Commencez par l\'onglet « Nouvel achat » ; ils se synchronisent automatiquement.</p></div>';
 }
 
 /* ---- État réseau ---- */
