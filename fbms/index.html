@@ -2264,7 +2264,7 @@ function DashboardView(){
   html += '<div class="dash-card">'
     + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">MT · '+t('campagne 2027')+'</span></div>'
     + '<div style="display:flex;flex-direction:column;gap:16px">';
-  if (!regions.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucune donnée.')+'</div>';
+  if (!regions.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucune donnée de recensement — lancez le Recensement pour voir le potentiel par région.')+'</div>';
   regions.forEach(r=>{
     html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
       + '<span class="ff-body" style="font-weight:600;font-size:14px">'+esc(r.name)+' <span style="color:'+T.inkSoft+';font-weight:400;font-size:12.5px">· '+r.villages+' '+t('villages')+'</span></span>'
@@ -2284,7 +2284,7 @@ function DashboardView(){
     + '</div></div>';
 
   html += '<div class="dash-card"><h2 class="dash-h" style="margin-bottom:14px">'+t('Top villages (score)')+'</h2><div style="display:flex;flex-direction:column">';
-  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucun village.')+'</div>';
+  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucun village recensé — commencez par l\'onglet Recensement.')+'</div>';
   topVillages.forEach(({v,score},i)=>{
     html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow">'
       + '<span class="ff-mono" style="font-size:12px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
@@ -2313,7 +2313,7 @@ function DashboardView(){
     + '<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+T.orange+'"></div>'
     + '<h2 class="ff-display" style="font-weight:700;font-size:16px;margin:0 0 16px">'+t('Classement enquêteurs')+'</h2>'
     + '<div style="display:flex;flex-direction:column;gap:4px">';
-  if (!ranking.length) html += '<div class="ff-body" style="color:#CFE3D3;font-size:13px">'+t('Aucun enquêteur.')+'</div>';
+  if (!ranking.length) html += '<div class="ff-body" style="color:#CFE3D3;font-size:13px">'+t('Aucun enquêteur — le classement arrive après les premières fiches.')+'</div>';
   ranking.slice(0,6).forEach(([nom,n],i)=>{
     html += '<div style="display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;background:'+(i===0?'rgba(141,197,86,.16)':'transparent')+'">'
       + '<span class="ff-mono" style="font-size:12px;color:'+T.cashew+';width:14px">'+(i+1)+'</span>'
