@@ -128,6 +128,33 @@
   .emptystate p{margin:6px auto 0;font-size:12.5px;color:var(--muted);max-width:44ch;line-height:1.5}
   @keyframes tShim{0%{background-position:-300px 0}100%{background-position:300px 0}}
   .skcell{display:inline-block;height:13px;border-radius:5px;background:linear-gradient(90deg,#eef2ec 25%,#e2e9df 50%,#eef2ec 75%);background-size:600px 100%;animation:tShim 1.3s infinite linear;width:70%}
+
+  /* ---- Contexte RT (avance + sacs) ---- */
+  .rtctx{border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin:6px 0 2px;background:var(--mist);font-size:13.5px;line-height:1.7}
+  .rtctx .rt-h{font-weight:700;color:var(--forest);font-family:var(--font-display);margin-bottom:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rtctx .row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .rtctx .row span:first-child{color:var(--muted)}
+  .rtctx b.mono{font-family:var(--font-mono)}
+  .rtctx.ok{border-color:#bfe3b6;background:#f3faf1}
+  .rtctx.warn{border-color:var(--orange);background:var(--orange-tint)}
+  .rtctx.unknown{border-color:#D2D0D0;background:#fbfaf6}
+  .rtctx .sbadge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700}
+  .sbadge.g{background:#E3F5E8;color:#1c7a3f}.sbadge.o{background:var(--orange-tint);color:#8a6a12}.sbadge.r{background:#FDECE9;color:#B23A2A}
+  .opt{color:var(--muted);font-size:11px;font-weight:400}.req{color:var(--danger);font-weight:700}
+
+  /* ---- Résumé avant validation ---- */
+  .summary{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;display:none;gap:8px 22px;flex-wrap:wrap;font-size:13.5px}
+  .summary.show{display:flex}
+  .summary div span{color:var(--muted)}.summary div b{font-family:var(--font-mono);color:var(--forest);margin-left:5px}
+  .btn.ghost2{background:#fff;color:var(--forest);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-family:var(--font-body);font-weight:600;font-size:13px;cursor:pointer;transition:background .14s}
+  .btn.ghost2:hover{background:var(--pale)}
+
+  /* ---- Statuts liste étendus ---- */
+  .st.fail{background:#FDECE9;color:#B23A2A}
+  .st.draft{background:#EDEBE6;color:#6b675f}
+  .st.syncing{background:#E9F1FB;color:#2b5f9e}
+  .it .err{margin-top:6px;font-size:12px;color:#8f2d22;background:#FDECE9;border:1px solid #e7b7b0;border-radius:7px;padding:6px 9px;line-height:1.4}
+  .it .actlink{background:none;border:0;color:var(--emerald);font-weight:600;font-size:12px;cursor:pointer;padding:0;margin-right:10px;text-decoration:underline;font-family:var(--font-body)}
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
@@ -175,9 +202,12 @@
       <div class="field"><label>Date</label><input id="f_date" type="date"></div>
       <div class="field"><label>Cluster</label><select id="f_cluster" onchange="onCluster()"><option value="">Tous les clusters</option></select></div>
       <div class="field"><label>Village</label><input id="f_village" class="up" list="dl_villages" oninput="onVillage()" placeholder="Choisir ou saisir"><datalist id="dl_villages"></datalist></div>
-      <div class="field"><label>RT (équipe)</label><input id="f_rt" class="up" list="dl_rt" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
-      <div class="field"><label>Producteur</label><input id="f_prod" class="up" list="dl_prod" placeholder="Nom ou code"><datalist id="dl_prod"></datalist></div>
+      <div class="field"><label>RT (équipe)</label><input id="f_rt" class="up" list="dl_rt" oninput="onRT()" placeholder="Choisir ou saisir"><datalist id="dl_rt"></datalist></div>
+      <div class="field"><label>Producteur</label><input id="f_prod" class="up" list="dl_prod" oninput="onProd()" placeholder="Nom ou code"><datalist id="dl_prod"></datalist></div>
+      <div class="field"><label>Tél. producteur <span class="opt">(si nouveau)</span></label><input id="f_prod_tel" type="tel" inputmode="tel" placeholder="ex. 07 00 00 00 00"></div>
     </div>
+    <!-- Contexte RT : avance disponible + stock sacs, visibles AVANT l'achat -->
+    <div id="rtCtx" class="rtctx" style="display:none"></div>
 
     <div class="subtitle">Pesée &amp; prix</div>
     <div class="grid2">
@@ -186,7 +216,7 @@
       <div class="field"><label>Poids net (kg)</label><input id="f_net" readonly></div>
       <div class="field"><label>Prix / kg (barème 400)</label><input id="f_prix" type="number" min="0" step="1" inputmode="numeric" value="400" oninput="calc()"></div>
       <div class="field"><label>Montant payé</label><input id="f_montant" readonly></div>
-      <div class="field"><label>Nb sacs</label><input id="f_sacs" type="number" min="0" step="1" inputmode="numeric"></div>
+      <div class="field"><label>Nb sacs</label><input id="f_sacs" type="number" min="0" step="1" inputmode="numeric" oninput="calc()"></div>
     </div>
 
     <div class="subtitle">Qualité, paiement &amp; pièces</div>
@@ -194,8 +224,9 @@
       <div class="field"><label>Humidité %</label><input id="f_hum" type="number" min="0" step="0.1" inputmode="decimal" oninput="calc()"></div>
       <div class="field"><label>KOR</label><input id="f_kor" type="number" min="0" step="0.1" inputmode="decimal" placeholder="ex. 48" oninput="calc()"></div>
       <div class="field"><label>Rejet</label><select id="f_rejet" onchange="calc()"><option value="0">Non</option><option value="1">Oui (partiel/total)</option></select></div>
-      <div class="field"><label>Mode de paiement</label><select id="f_mode"><option>Espèces</option><option>Mobile Money</option><option>Virement</option><option>Autre</option></select></div>
-      <div class="field"><label>N° reçu</label><input id="f_recu" class="up" placeholder="Requis pour refinancement"></div>
+      <div class="field"><label>Mode de paiement</label><select id="f_mode"><option>Wave</option><option>Mobile Money</option><option>Espèces exceptionnel</option><option>Autre validé BM</option></select></div>
+      <div class="field"><label>N° reçu <span class="opt">(requis pour valider)</span></label><input id="f_recu" class="up" placeholder="N° du reçu papier"></div>
+      <div class="field" id="motifPrixWrap" style="display:none"><label>Motif prix hors barème <span class="req">*</span></label><input id="f_motif_prix" class="up" placeholder="Justification + validateur BM"></div>
     </div>
     <div class="grid2" style="margin-top:16px">
       <div class="field"><label>Observation</label><textarea id="f_obs" class="up" rows="2" placeholder="Facultatif"></textarea></div>
@@ -210,13 +241,17 @@
     <div class="derived">
       <span class="pill" id="d_com">Commission RT : 0 FCFA</span>
       <span class="pill" id="d_bonus">Bonus différé : 0 FCFA</span>
-      <span class="pill warn" id="d_refi">Sans reçu → non refinançable</span>
+      <span class="pill warn" id="d_refi">Sans reçu → brouillon</span>
       <span class="pill" id="d_qual">Qualité : à contrôler</span>
       <span class="pill" id="d_prix" style="display:none">Prix hors barème → validation BM</span>
+      <span class="pill warn" id="d_prod" style="display:none">Producteur à régulariser</span>
     </div>
 
+    <div id="summary" class="summary"></div>
+
     <div class="actions">
-      <button class="btn cta" id="saveBtn" onclick="save()">Enregistrer l'achat</button>
+      <button class="btn cta" id="saveComplet" onclick="save('complet')">Valider l'achat complet</button>
+      <button class="btn ghost2" id="saveBrouillon" onclick="save('brouillon')">Enregistrer un brouillon</button>
     </div>
     <div id="msg" class="alert"></div>
   </section>
@@ -239,22 +274,39 @@ const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
 const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
 const COMMISSION=10, BONUS=5;               // FCFA/kg (modèle Field Buying)
 const PRIX_CAMPAGNE=400;                     // prix producteur de référence (F/kg)
-const SEUIL_HUM=10;                          // humidité (%) au-delà: à contrôler
-const SEUIL_KOR=45;                          // KOR minimal acceptable (à ajuster selon barème campagne)
+const SEUIL_HUM=10;                          // humidité (%) au-delà: à sécher
+const SEUIL_KOR=45;                          // KOR minimal acceptable
 const Q_KEY="anagroci_achats", REF_KEY="anagroci_ref_achats";
+const AV_LOCAL="anagroci_avances", SAC_LOCAL="anagroci_sacs";
+const MAX_SYNCED=500;                        // plafond de l'historique DÉJÀ synchronisé
 const $=i=>document.getElementById(i);
-let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{}}, ONLINE=navigator.onLine;
-let TAB="saisie";
+let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{},avances:[],achatsServer:[],sacs:[],_ctxLoaded:false}, ONLINE=navigator.onLine;
+let TAB="saisie", PHOTO=null, EXPANDED={};
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
 function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
-function up(s){return String(s==null?"":s).toUpperCase();}          // MAJUSCULES obligatoires (réf. + transaction)
+function up(s){return String(s==null?"":s).toUpperCase();}
 function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
 function load(k,def){try{const s=localStorage.getItem(k);return s?JSON.parse(s):def;}catch(e){return def;}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 function msg(t,k){const m=$("msg");m.className="alert show "+(k||"ok");m.textContent=t;}
+function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+
+/* ---- File locale : ne JAMAIS supprimer un achat non synchronisé ----------
+   On plafonne UNIQUEMENT l'historique déjà « synced » (les plus anciens en
+   trop sont retirés). Tout ce qui est draft / pending / syncing / failed est
+   conservé, quel que soit le volume — pas de perte terrain avant synchro. */
+function persistQueue(all){
+  let seen=0; const out=[];
+  for(const r of all){
+    if(r&&r._status==="synced"){ if(seen<MAX_SYNCED){seen++; out.push(r);} }
+    else if(r) out.push(r);
+  }
+  store(Q_KEY,out); return out;
+}
+function localUnsynced(key){ return load(key,[]).filter(r=>r&&r._status!=="synced"); }
 
 /* ---- Onglets ---- */
 function setTab(t){TAB=t;["saisie","historique"].forEach(x=>{const p=$("panel_"+x);if(p)p.style.display=(x===t)?"":"none";const b=$("tab_"+x);if(b)b.className="tab"+(x===t?" on":"");});}
@@ -266,19 +318,25 @@ function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))|
 function prodLabel(p){return (p.data&&(p.data.nom||p.data.nomComplet||p.data.prenomNom))||p.nom||p.code||"";}
 
 async function loadRef(){
-  if(!ONLINE) return;
+  if(!ONLINE){ renderRef(); updateRTCtx(); return; }
   try{
     let r=await SB.from("villages").select("id,data").eq("deleted",false);
     if(!r.error) REF.villages=(r.data||[]).filter(x=>x.data&&x.data.s1);
     r=await SB.from("rt").select("id,data,village_nom,statut").eq("deleted",false);
     if(!r.error) REF.rt=r.data||[];
+    // Contexte cash + sacs pour vérifier l'avance RT et le stock sacs avant achat.
+    r=await SB.from("avances").select("montant,rt_id,rt_nom,cluster");
+    if(!r.error) REF.avances=r.data||[];
+    r=await SB.from("achats").select("montant,rt_id,rt_nom,date,nb_sacs");
+    if(!r.error) REF.achatsServer=r.data||[];
+    r=await SB.from("sacs_mouvements").select("source,destination,rt_id,rt_nom,quantite");
+    if(!r.error) REF.sacs=r.data||[];
+    REF._ctxLoaded=true;
     store(REF_KEY,REF);
   }catch(e){/* hors ligne : on garde le cache */}
-  renderRef();
+  renderRef(); updateRTCtx();
 }
-function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 function clustersList(){
-  // Dédoublonnage insensible à la casse / accents / espaces (ex. "Diabo" vs "DIABO ").
   const map={};REF.villages.forEach(v=>{const c=(vcluster(v)||"").trim();if(c){const k=keyc(c);if(!map[k])map[k]=c;}});
   return Object.keys(map).map(k=>map[k]).sort((a,b)=>a.localeCompare(b,"fr"));
 }
@@ -287,9 +345,6 @@ function rtClusterName(r){
   const v=REF.villages.find(x=>keyc(vname(x))===keyc(r.village_nom||""));
   return v?vcluster(v):"";
 }
-// Renvoie l'option cluster réellement présente dans la liste qui correspond
-// (en ignorant casse/accents/espaces) à une orthographe donnée. Évite que la
-// case se vide quand un village écrit le cluster autrement (ex. "DIABO " vs "Diabo").
 function canonCluster(raw){
   var k=keyc(raw), opts=$("f_cluster").options;
   for(var i=0;i<opts.length;i++){ if(opts[i].value&&keyc(opts[i].value)===k) return opts[i].value; }
@@ -299,8 +354,8 @@ function fillVillageRT(){
   const c=$("f_cluster").value, vn=$("f_village").value.trim();
   const vs=c?REF.villages.filter(v=>keyc(vcluster(v))===keyc(c)):REF.villages;
   const rts=REF.rt.filter(function(r){
-    if(vn) return keyc(r.village_nom||"")===keyc(vn);   // village précis => seulement ses RT
-    if(c)  return keyc(rtClusterName(r))===keyc(c);      // sinon => RT du cluster
+    if(vn) return keyc(r.village_nom||"")===keyc(vn);
+    if(c)  return keyc(rtClusterName(r))===keyc(c);
     return true;
   });
   $("dl_villages").innerHTML=vs.map(v=>'<option value="'+esc(up(vname(v)))+'">').join("");
@@ -313,17 +368,15 @@ function renderRef(){
   fillVillageRT();
   $("refWarn").className="alert warn"+((REF.villages.length||REF.rt.length)?"":" show");
 }
-// Choix d'un cluster : on filtre villages/RT et on repart proprement.
 function onCluster(){
   $("f_village").value="";$("f_rt").value="";$("f_prod").value="";$("dl_prod").innerHTML="";
-  fillVillageRT();
+  fillVillageRT(); updateRTCtx();
 }
 async function onVillage(){
   const name=$("f_village").value.trim();
-  const v=REF.villages.find(x=>keyc(vname(x))===keyc(name));   // reconnaissance insensible à la casse
-  if(v) $("f_cluster").value=canonCluster(vcluster(v));   // recale sur l'option canonique du cluster
-  fillVillageRT();                          // RT restreints au village (ou au cluster si village non résolu)
-  // producteurs du village (cache puis réseau)
+  const v=REF.villages.find(x=>keyc(vname(x))===keyc(name));
+  if(v) $("f_cluster").value=canonCluster(vcluster(v));
+  fillVillageRT();
   let list=[];
   if(v){
     list=REF.prodByVillage[v.id]||[];
@@ -333,19 +386,91 @@ async function onVillage(){
     }
   }
   $("dl_prod").innerHTML=list.map(p=>'<option value="'+esc(up(prodLabel(p)))+'">').join("");
+  onProd(); updateRTCtx();
+}
+function onRT(){ updateRTCtx(); }
+function currentRTRow(){ const nm=$("f_rt").value.trim(); if(!nm)return null; return REF.rt.find(r=>keyc(rtLabel(r))===keyc(nm))||null; }
+function currentProdRow(){
+  const nm=$("f_prod").value.trim(); if(!nm)return null;
+  const v=REF.villages.find(x=>keyc(vname(x))===keyc($("f_village").value.trim()));
+  const list=(v&&REF.prodByVillage[v.id])||[];
+  return list.find(p=>keyc(prodLabel(p))===keyc(nm))||null;
+}
+
+/* ---- Contexte RT : avance disponible + stock sacs -------------------------
+   Vérité serveur (déjà synchronisé) + opérations locales NON synchronisées
+   (dédoublonnage : les enreg. « synced » locaux sont déjà côté serveur). */
+function rtMatcher(row){
+  return function(x){
+    if(row.id && x.rt_id && String(x.rt_id)===row.id) return true;
+    return keyc(x.rt_nom||"")===row.nk;
+  };
+}
+function computeRT(rtRow, rtName){
+  const row={id: rtRow?String(rtRow.id||""):"", nk:keyc(rtName)};
+  if(!row.id && !row.nk) return null;
+  const m=rtMatcher(row);
+  let avance=0;
+  (REF.avances||[]).forEach(a=>{if(m(a))avance+=Number(a.montant)||0;});
+  localUnsynced(AV_LOCAL).forEach(a=>{if(m(a))avance+=Number(a.montant)||0;});
+  let paidServer=0; (REF.achatsServer||[]).forEach(a=>{if(m(a))paidServer+=Number(a.montant)||0;});
+  let paidLocal=0, sacsToday=0; const t=today();
+  localUnsynced(Q_KEY).forEach(a=>{if(m(a)){paidLocal+=Number(a.montant)||0; if(a.date===t)sacsToday+=Number(a.nb_sacs)||0;}});
+  let sacsMain=0; const applySac=x=>{const q=Number(x.quantite)||0; if(x.destination==="RT")sacsMain+=q; if(x.source==="RT")sacsMain-=q;};
+  (REF.sacs||[]).forEach(x=>{if(m(x))applySac(x);});
+  localUnsynced(SAC_LOCAL).forEach(x=>{if(m(x))applySac(x);});
+  return {avance:avance, paidServer:paidServer, paidLocal:paidLocal, soldeAvance:avance-paidServer-paidLocal,
+          sacsMain:sacsMain, sacsToday:sacsToday, soldeSacs:sacsMain-sacsToday, known:!!REF._ctxLoaded};
+}
+function currentRTContext(){ const nm=$("f_rt").value.trim(); if(!nm)return null; return computeRT(currentRTRow(), nm); }
+function updateRTCtx(){
+  const box=$("rtCtx"); if(!box) return;
+  const nm=$("f_rt").value.trim();
+  if(!nm){ box.style.display="none"; return; }
+  box.style.display="";
+  const c=computeRT(currentRTRow(), nm);
+  if(!c){ box.style.display="none"; return; }
+  if(!c.known){
+    box.className="rtctx unknown";
+    box.innerHTML='<div class="rt-h">RT : '+esc(up(nm))+' <span class="sbadge o">Cache non à jour</span></div>'
+      +'<div style="color:var(--muted)">Solde RT non confirmé — synchronisation recommandée avant achat pour vérifier l\'avance et le stock sacs.</div>';
+    return;
+  }
+  const net=Math.max(0,(n($("f_brut").value)||0)-(n($("f_tare").value)||0));
+  const curMontant=net*(n($("f_prix").value)||0);
+  const curSacs=n($("f_sacs").value)||0;
+  const soldeApres=c.soldeAvance-curMontant;
+  const avStat = soldeApres<0 ? ['r','Insuffisant'] : (c.soldeAvance<=0?['o','Avance épuisée']:['g','OK']);
+  const sacAlert=curSacs>c.soldeSacs && curSacs>0;
+  box.className="rtctx "+(avStat[0]==='r'||sacAlert?'warn':'ok');
+  box.innerHTML='<div class="rt-h">RT : '+esc(up(nm))+' <span class="sbadge '+avStat[0]+'">'+avStat[1]+'</span></div>'
+    +'<div class="row"><span>Avance disponible</span><b class="mono">'+fmt(c.avance)+' FCFA</b></div>'
+    +'<div class="row"><span>Achats (payés + non synchronisés)</span><b class="mono">'+fmt(c.paidServer+c.paidLocal)+' FCFA</b></div>'
+    +'<div class="row"><span>Solde avance estimé</span><b class="mono">'+fmt(c.soldeAvance)+' FCFA</b></div>'
+    +(curMontant>0?'<div class="row"><span>Après cet achat ('+fmt(curMontant)+')</span><b class="mono" style="color:'+(soldeApres<0?'#B23A2A':'#1c7a3f')+'">'+fmt(soldeApres)+' FCFA</b></div>':'')
+    +'<div class="row" style="margin-top:6px;border-top:1px dashed #d9d7d1;padding-top:6px"><span>Sacs en main RT</span><b class="mono">'+fmt(c.sacsMain)+'</b></div>'
+    +'<div class="row"><span>Sacs utilisés aujourd\'hui</span><b class="mono">'+fmt(c.sacsToday)+'</b></div>'
+    +'<div class="row"><span>Solde sacs estimé</span><b class="mono">'+fmt(c.soldeSacs)+'</b></div>'
+    +(sacAlert?'<div class="row" style="margin-top:4px"><span class="sbadge r">Alerte sacs</span><span>nb sacs ('+curSacs+') &gt; stock estimé ('+fmt(c.soldeSacs)+')</span></div>':'');
 }
 
 /* ---- Règles métier ---- */
 function qualiteStatut(){
   const hum=n($("f_hum").value), kor=n($("f_kor").value), rejet=$("f_rejet").value==="1";
-  if(rejet) return "Rejeté";
-  if((hum!=null&&hum>SEUIL_HUM)||(kor!=null&&kor<SEUIL_KOR)) return "À contrôler";
+  if(rejet) return "À rejeter";
+  if(hum!=null&&hum>SEUIL_HUM) return "À sécher";
+  if(kor!=null&&kor<SEUIL_KOR) return "À trier";
   return "OK";
 }
 function prixHorsBareme(){const p=n($("f_prix").value);return p!=null&&p!==PRIX_CAMPAGNE;}
 function estRefinancable(){return $("f_recu").value.trim().length>0 && $("f_rejet").value!=="1";}
+function prodStatut(prodName, prodRow){
+  if(!prodName) return {code:"NONE", label:""};
+  if(prodRow) return {code:"REF", label:"Référencé"};
+  return {code:"PROV", label:"Nouveau producteur provisoire"};
+}
 
-/* ---- Calculs ---- */
+/* ---- Calculs + affichages dérivés ---- */
 function calc(){
   const brut=n($("f_brut").value)||0, tare=n($("f_tare").value)||0, prix=n($("f_prix").value)||0;
   const net=Math.max(0, brut-tare);
@@ -355,126 +480,219 @@ function calc(){
   $("d_bonus").textContent="Bonus différé : "+fmt(net*BONUS)+" FCFA";
   const refi=estRefinancable();
   const d=$("d_refi");
-  d.textContent=refi?"Reçu saisi → refinançable":($("f_rejet").value==="1"?"Lot rejeté → non refinançable":"Sans reçu → non refinançable");
+  d.textContent=refi?"Reçu saisi → complet":($("f_rejet").value==="1"?"Lot rejeté → non refinançable":"Sans reçu → brouillon");
   d.className="pill"+(refi?"":" warn");
   const q=qualiteStatut(),qp=$("d_qual");
   qp.textContent="Qualité : "+q;qp.className="pill"+(q==="OK"?"":" warn");
-  $("d_prix").style.display=prixHorsBareme()?"":"none";
+  const hb=prixHorsBareme();
+  $("d_prix").style.display=hb?"":"none";
+  $("motifPrixWrap").style.display=hb?"":"none";
+  const ps=prodStatut($("f_prod").value.trim(), currentProdRow());
+  const dp=$("d_prod");
+  if(ps.code==="PROV"){ dp.style.display=""; dp.textContent=ps.label; }
+  else dp.style.display="none";
+  updateRTCtx();
+  updateSummary();
 }
+function updateSummary(){
+  const box=$("summary"); if(!box) return;
+  const net=Math.max(0,(n($("f_brut").value)||0)-(n($("f_tare").value)||0));
+  const prix=n($("f_prix").value)||0, sacs=n($("f_sacs").value)||0, recu=$("f_recu").value.trim();
+  if(!(net>0)){ box.className="summary"; box.innerHTML=""; return; }
+  box.className="summary show";
+  const c=currentRTContext();
+  box.innerHTML='<div><span>Poids net</span><b>'+fmt(net)+' kg</b></div>'
+    +'<div><span>Montant</span><b>'+fmt(net*prix)+' F</b></div>'
+    +'<div><span>Sacs</span><b>'+(sacs||0)+'</b></div>'
+    +'<div><span>Reçu</span><b>'+(recu?"oui":"non")+'</b></div>'
+    +'<div><span>Qualité</span><b>'+esc(qualiteStatut())+'</b></div>'
+    +((c&&c.known)?'<div><span>Solde RT après</span><b style="color:'+((c.soldeAvance-net*prix)<0?'#B23A2A':'#1c7a3f')+'">'+fmt(c.soldeAvance-net*prix)+' F</b></div>':'');
+}
+function onProd(){ calc(); }
 
-let PHOTO=null;
 function onPhoto(inp){
   const f=inp.files&&inp.files[0];if(!f){PHOTO=null;$("photoHint").textContent="Aucune photo";return;}
   const img=new Image(),rd=new FileReader();
   rd.onload=()=>{img.onload=()=>{
-    const max=900,sc=Math.min(1,max/Math.max(img.width,img.height));
+    const max=1000,sc=Math.min(1,max/Math.max(img.width,img.height));
     const c=document.createElement("canvas");c.width=img.width*sc;c.height=img.height*sc;
     c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-    PHOTO=c.toDataURL("image/jpeg",0.55);
+    PHOTO=c.toDataURL("image/jpeg",0.6);
     $("photoHint").textContent="Photo prête ✓";
   };img.src=rd.result;};
   rd.readAsDataURL(f);
 }
+function dataURLtoBlob(u){
+  try{var a=u.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"image/jpeg",bin=atob(a[1]),len=bin.length,arr=new Uint8Array(len);
+    for(var i=0;i<len;i++)arr[i]=bin.charCodeAt(i);return new Blob([arr],{type:m});}catch(e){return null;}
+}
+/* Upload best-effort du reçu vers Supabase Storage (bucket « recus »).
+   Si le bucket est absent ou l'upload échoue, on RENVOIE null : la photo
+   reste alors conservée en local (jamais perdue avant preuve serveur). */
+async function uploadRecu(rec){
+  try{
+    if(!(SB&&SB.storage)) return null;
+    const blob=dataURLtoBlob(rec.recu_photo); if(!blob) return null;
+    const path=(rec.rt_nom?keyc(rec.rt_nom):"RT")+"/"+rec.local_id+".jpg";
+    const up=await SB.storage.from("recus").upload(path,blob,{contentType:"image/jpeg",upsert:true});
+    if(up&&up.error) return null;
+    const pub=SB.storage.from("recus").getPublicUrl(path);
+    return (pub&&pub.data&&pub.data.publicUrl)||null;
+  }catch(e){ return null; }
+}
 
-/* ---- Enregistrement ---- */
-function save(){
-  const net=(n($("f_brut").value)||0)-(n($("f_tare").value)||0);
+/* ---- Enregistrement (brouillon / complet) ---- */
+function save(mode){
+  const complet = mode==="complet";
+  const brut=n($("f_brut").value)||0, tare=n($("f_tare").value)||0, net=Math.max(0,brut-tare);
   const prix=n($("f_prix").value);
   const village=$("f_village").value.trim();
   const rtName=$("f_rt").value.trim();
   const sacs=n($("f_sacs").value);
-  // --- Règles bloquantes ---
   if(!village) return msg("Village requis.","err");
   if(!rtName)  return msg("RT requis : un achat doit être rattaché à une équipe RT.","err");
   if(!(net>0)) return msg("Poids net invalide (brut − tare doit être > 0).","err");
   if(prix==null||prix<=0) return msg("Prix / kg invalide.","err");
-  if(!(sacs>0)) return msg("Nombre de sacs requis (au moins 1) pour un achat avec poids.","err");
-
+  if(!(sacs>0)) return msg("Nombre de sacs requis (au moins 1).","err");
+  const horsBareme=prixHorsBareme(), motifPrix=$("f_motif_prix").value.trim();
+  if(horsBareme && !motifPrix) return msg("Prix hors barème : motif + validateur BM obligatoires.","err");
   const v=REF.villages.find(x=>keyc(vname(x))===keyc(village));
   const rtRow=REF.rt.find(r=>keyc(rtLabel(r))===keyc(rtName));
   const prodName=$("f_prod").value.trim();
-  const prodList=(v&&REF.prodByVillage[v.id])||[];
-  const prodRow=prodName?prodList.find(p=>keyc(prodLabel(p))===keyc(prodName)):null;
+  const prodRow=currentProdRow();
+  const prodTel=$("f_prod_tel").value.trim();
+  const ps=prodStatut(prodName,prodRow);
+  if(ps.code==="PROV" && !prodTel) return msg("Producteur non référencé : téléphone obligatoire (+ village) pour un producteur provisoire.","err");
   const recu=$("f_recu").value.trim();
-  const qual=qualiteStatut();
-  const refi=estRefinancable();
-  const statutVal = qual==="Rejeté" ? "Rejeté"
-                  : prixHorsBareme() ? "Validation BM requise"
+  if(complet && !recu) return msg("Reçu requis pour valider l'achat complet. Sans reçu, enregistrez un brouillon.","err");
+  const qual=qualiteStatut(), refi=estRefinancable();
+  const statutVal = qual==="À rejeter" ? "Rejeté"
+                  : horsBareme ? "Validation BM requise"
                   : qual!=="OK" ? "À contrôler"
-                  : "À valider";
-
+                  : complet ? "À valider" : "Brouillon";
   const rec={
     local_id:uid(), date:$("f_date").value||today(),
-    cluster:up($("f_cluster").value.trim())||null,
+    cluster:up($("f_cluster").value.trim())||up(v?vcluster(v):"")||null,
     village_id:v?v.id:null, village_nom:up(village),
     rt_id:rtRow?String(rtRow.id):null, rt_nom:up(rtName),
     producteur_id:prodRow?String(prodRow.code||prodRow.id):null,
     producteur_nom:up(prodName)||null,
-    producteur_ref: prodName? !!prodRow : true,
-    poids_brut:n($("f_brut").value), tare:n($("f_tare").value)||0, poids_net:net,
-    prix_kg:prix, montant:net*prix,
+    producteur_tel: prodTel? prodTel.replace(/\s+/g,"") : null,
+    producteur_ref: (ps.code==="REF"||ps.code==="NONE"),
+    producteur_statut: ps.label||null,
+    poids_brut:brut, tare:tare, poids_net:net,
+    prix_kg:prix, montant:net*prix, prix_hors_bareme:horsBareme, motif_prix: horsBareme?up(motifPrix):null,
     mode_paiement:$("f_mode").value, numero_recu:up(recu)||null,
-    nb_sacs:sacs, humidite:n($("f_hum").value),
-    kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
+    nb_sacs:sacs, humidite:n($("f_hum").value), kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
     observation:up($("f_obs").value.trim())||null,
     recu_photo:PHOTO||null, recu_photo_url:null,
     commission_rt:net*COMMISSION, bonus_diff:net*BONUS,
-    refinancable:refi,
-    qualite_statut:qual, statut_validation:statutVal,
-    stock_statut:"Entrée RT", cash_statut:"Non réconcilié",
-    created_by_nom:(ME&&ME.nom)||null,
-    created_at:new Date().toISOString(),
-    _status:"pending"
+    refinancable:refi, qualite_statut:qual, stock_libere:(qual==="OK"),
+    stock_statut: qual==="OK" ? "Entrée RT" : "Stock non libéré",
+    statut_validation:statutVal, saisie_mode: complet?"Complet":"Brouillon",
+    cash_statut:"Non réconcilié",
+    created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(),
+    _status: complet ? "pending" : "draft"
   };
-  const all=load(Q_KEY,[]);all.unshift(rec);store(Q_KEY,all.slice(0,300));
-  // reset partiel (on garde village/RT/date/prix pour saisies en série)
-  ["f_brut","f_prod","f_recu","f_sacs","f_hum","f_kor","f_obs"].forEach(i=>$(i).value="");
+  const all=load(Q_KEY,[]); all.unshift(rec); persistQueue(all);
+  ["f_brut","f_prod","f_prod_tel","f_recu","f_sacs","f_hum","f_kor","f_obs","f_motif_prix"].forEach(i=>$(i).value="");
   $("f_tare").value="0";$("f_prix").value=PRIX_CAMPAGNE;$("f_rejet").value="0";
   PHOTO=null;$("f_photo").value="";$("photoHint").textContent="Aucune photo";calc();
-  let extra = !rec.producteur_ref ? " Producteur non référencé — à régulariser." : "";
-  if(statutVal!=="À valider") extra += " Statut : "+statutVal+".";
-  msg("Achat enregistré"+(ONLINE?"":" (hors ligne)")+"."+extra, extra?"warn":"ok");
-  render();syncAll();
+  let extra="";
+  if(ps.code==="PROV") extra+=" Producteur provisoire — à valider par le Chef d'Unité.";
+  if(qual!=="OK") extra+=" Qualité : "+qual+" → stock non libéré.";
+  if(horsBareme) extra+=" Prix hors barème → validation BM.";
+  msg((complet?"Achat validé (complet)":"Brouillon enregistré")+(ONLINE?"":" (hors ligne)")+"."+extra, (extra||!complet)?"warn":"ok");
+  render(); if(complet) syncAll();
 }
 
-/* ---- Synchronisation ---- */
+/* ---- Synchronisation (statuts + preuve reçu + drafts jamais poussés) ---- */
+function classifyErr(m){
+  m=String(m||"").toLowerCase();
+  if(/avance|solde|insuffis/.test(m)) return "Bloqué avance RT";
+  if(/re[cç]u|recu|doublon|duplicate|unique|23505/.test(m)) return "Bloqué reçu doublon";
+  if(/sac|stock/.test(m)) return "Bloqué stock sacs";
+  if(/bancaire|virement/.test(m)) return "Paiement bancaire refusé";
+  if(/rls|permission|jwt|denied|policy/.test(m)) return "Accès refusé (RLS)";
+  if(/network|fetch|timeout|réseau|reseau/.test(m)) return "Réseau";
+  return "Échec serveur";
+}
 async function syncAll(){
-  const all=load(Q_KEY,[]);const pend=all.filter(r=>r._status!=="synced");
+  const all=load(Q_KEY,[]);
+  const pend=all.filter(r=>r._status==="pending"||r._status==="failed");
   if(!ONLINE||!SB||!pend.length){render();return;}
   $("syncBtn").disabled=true;
   for(const rec of pend){
-    const payload=Object.assign({},rec);delete payload._status;
+    const payload=Object.assign({},rec);
+    ["_status","_error","_errcat"].forEach(k=>delete payload[k]);
+    delete payload.recu_photo;                       // jamais de base64 dans la table
     try{
+      if(rec.recu_photo && !rec.recu_photo_url){
+        const url=await uploadRecu(rec);
+        if(url){ payload.recu_photo_url=url; }
+      }
       const r=await SB.from("achats").upsert(payload,{onConflict:"local_id",ignoreDuplicates:true});
-      if(!r.error){rec._status="synced";delete rec.recu_photo;}
-      else{rec._error=r.error.message;}
-    }catch(e){rec._error=String(e&&e.message||e);break;}
+      if(!r.error){
+        rec._status="synced"; rec._error=null; rec._errcat=null;
+        if(payload.recu_photo_url){ rec.recu_photo_url=payload.recu_photo_url; delete rec.recu_photo; }
+        // Si pas d'URL de preuve : on GARDE la photo locale (jamais perdue).
+      } else {
+        rec._status="failed"; rec._error=r.error.message; rec._errcat=classifyErr(r.error.message);
+      }
+    }catch(e){
+      rec._status="failed"; rec._error=String(e&&e.message||e); rec._errcat=classifyErr(rec._error);
+    }
   }
-  store(Q_KEY,all);$("syncBtn").disabled=false;render();
+  persistQueue(all);$("syncBtn").disabled=false;render();
+}
+function retry(id){
+  const all=load(Q_KEY,[]); const rec=all.find(r=>r.local_id===id); if(!rec)return;
+  rec._status="pending"; rec._error=null; rec._errcat=null; persistQueue(all); render(); syncAll();
+}
+function showErr(id){ EXPANDED[id]=!EXPANDED[id]; render(); }
+function promoteDraft(id){
+  const all=load(Q_KEY,[]); const rec=all.find(r=>r.local_id===id); if(!rec)return;
+  const recu=prompt("N° du reçu papier pour valider cet achat :", rec.numero_recu||"");
+  if(recu===null) return;
+  if(!recu.trim()){ alert("Reçu requis pour valider (ou laissez en brouillon)."); return; }
+  rec.numero_recu=up(recu.trim()); rec.refinancable=!rec.rejet; rec.saisie_mode="Complet";
+  rec.statut_validation = rec.qualite_statut==="À rejeter" ? "Rejeté"
+                        : rec.prix_hors_bareme ? "Validation BM requise"
+                        : rec.qualite_statut!=="OK" ? "À contrôler" : "À valider";
+  rec._status="pending"; persistQueue(all); render(); syncAll();
 }
 
 /* ---- Rendu ---- */
+const ST={synced:['sync','Synchronisé'],pending:['pend','En attente'],syncing:['syncing','En synchronisation'],draft:['draft','Brouillon']};
 function render(){
-  const all=load(Q_KEY,[]);const t=today();
+  const all=load(Q_KEY,[]); const t=today();
   let vol=0,mt=0,com=0,pend=0;
-  all.forEach(r=>{if(r.date===t){vol+=r.poids_net||0;mt+=r.montant||0;com+=r.commission_rt||0;}
-    if(r._status!=="synced")pend++;});
+  all.forEach(r=>{
+    if(r.date===t && r._status!=="draft"){vol+=r.poids_net||0;mt+=r.montant||0;com+=r.commission_rt||0;}
+    if(r._status==="pending"||r._status==="failed"||r._status==="syncing")pend++;
+  });
   $("kVol").textContent=fmt(vol)+" kg";$("kMt").textContent=fmt(mt);
   $("kCom").textContent=fmt(com);$("kPend").textContent=pend;
   $("pendBadge").textContent=pend?("("+pend+")"):"";
   const tc=$("tabCount");if(tc){tc.textContent=pend;tc.style.display=pend?"":"none";}
   const hc=$("histCount");if(hc)hc.textContent=all.length?(all.length+" achat"+(all.length>1?"s":"")+" sur cet appareil"):"";
-  $("list").innerHTML=all.slice(0,25).map(r=>{
-    const sync=r._status==="synced"?'<span class="st sync">Synchronisé</span>':'<span class="st pend">En attente</span>';
-    let biz="";
-    if(!r.refinancable) biz='<span class="st blk">Non refinançable</span>';
-    else if(r.statut_validation&&r.statut_validation!=="À valider") biz='<span class="st pend">'+esc(r.statut_validation)+'</span>';
-    const q=(r.qualite_statut&&r.qualite_statut!=="OK")?' · qualité '+esc(r.qualite_statut):'';
+  $("list").innerHTML=all.slice(0,40).map(r=>{
+    const st = r._status==="failed" ? ['fail', r._errcat||"Échec serveur"] : (ST[r._status]||ST.pending);
+    let badges='';
+    if(r._status!=="draft" && !r.refinancable) badges+='<span class="st blk">Non refinançable</span>';
+    else if(r._status==="synced" || r._status==="pending"){ if(r.statut_validation&&r.statut_validation!=="À valider"&&r.statut_validation!=="Brouillon") badges+='<span class="st pend">'+esc(r.statut_validation)+'</span>'; }
+    badges+='<span class="st '+st[0]+'">'+esc(st[1])+'</span>';
+    const q=(r.qualite_statut&&r.qualite_statut!=="OK")?' · '+esc(r.qualite_statut):'';
     const pr=(r.producteur_ref===false)?' · producteur à régulariser':'';
+    let acts='';
+    if(r._status==="failed"){ acts+='<button class="actlink" onclick="showErr(\''+r.local_id+'\')">'+(EXPANDED[r.local_id]?"Masquer":"Voir l\'erreur")+'</button><button class="actlink" onclick="retry(\''+r.local_id+'\')">Réessayer</button>'; }
+    if(r._status==="draft"){ acts+='<button class="actlink" onclick="promoteDraft(\''+r.local_id+'\')">Valider (ajouter le reçu)</button>'; }
+    const errBox=(r._status==="failed"&&EXPANDED[r.local_id])?'<div class="err">'+esc(r._error||"Erreur inconnue.")+'</div>':'';
     return '<div class="it"><div class="h"><b>'+esc(r.village_nom||"—")+' · '+fmt(r.poids_net)+' kg</b>'
-      +'<span style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+biz+sync+'</span></div>'
+      +'<span style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+badges+'</span></div>'
       +'<div class="meta">'+esc(r.date)+' · '+fmt(r.montant)+' FCFA · '+esc(r.rt_nom||"RT ?")
-      +' · '+esc(r.producteur_nom||"producteur ?")+(r.numero_recu?(" · reçu "+esc(r.numero_recu)):"")+q+pr+'</div></div>';
+      +' · '+esc(r.producteur_nom||"producteur ?")+(r.numero_recu?(" · reçu "+esc(r.numero_recu)):"")+q+pr+'</div>'
+      +(acts?'<div style="margin-top:6px">'+acts+'</div>':'')+errBox+'</div>';
   }).join("")||'<div class="emptystate"><div class="eic">📄</div><b>Aucun achat sur cet appareil</b><p>Vos achats saisis apparaîtront ici. Commencez par l\'onglet « Nouvel achat » ; ils se synchronisent automatiquement.</p></div>';
 }
 
@@ -488,7 +706,7 @@ window.addEventListener("offline",setNet);
 document.addEventListener("anagroci:authenticated",e=>{
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
-  REF=load(REF_KEY,REF);
+  REF=Object.assign({villages:[],rt:[],prodByVillage:{},avances:[],achatsServer:[],sacs:[],_ctxLoaded:false}, load(REF_KEY,{}));
   $("f_date").value=today();
   setNet();setTab("saisie");renderRef();render();calc();
   $("f_recu").addEventListener("input",calc);
