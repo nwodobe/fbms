@@ -104,7 +104,7 @@
       }).join("");
     } else {
       var w = WS[ws];
-      html = '<a href="#accueil" class="nav-back">← Portail</a><div class="nav-sec">' + w.ic + ' ' + esc(w.titre) + '</div>' +
+      html = '<a href="#accueil" class="nav-back">À propos de RCN TRACE</a><div class="nav-sec">' + w.ic + ' ' + esc(w.titre) + '</div>' +
         w.nav.map(function (it) { return '<a href="#' + it[0] + '" class="' + (it[0] === active ? "on" : "") + '">' + esc(it[1]) + '</a>'; }).join("");
     }
     el("nav").innerHTML = html;
@@ -146,6 +146,9 @@
 
   function route() {
     var r = currentRoute();
+    // Mémorise le dernier espace de travail visité (hors page de présentation)
+    // pour y ramener directement l'utilisateur récurrent à sa prochaine visite.
+    if (r.page && r.page !== "accueil") { try { localStorage.setItem("rcntrace_dernier_espace", location.hash); } catch (e) {} }
     // Portail = page d'orientation plein écran : barre latérale masquée.
     var app = document.querySelector(".app"); if (app) app.classList.toggle("portal", r.page === "accueil");
     renderNav(r.page);
@@ -2017,7 +2020,13 @@
     if (el("whoRole")) el("whoRole").textContent = u.role;
     window.addEventListener("hashchange", route);
     setNet();
-    if (!location.hash) location.hash = "accueil";
+    // Atterrissage : l'utilisateur récurrent revient directement sur son dernier
+    // espace de travail (mémorisé), plutôt que sur la page de présentation.
+    if (!location.hash) {
+      var dernier = null; try { dernier = localStorage.getItem("rcntrace_dernier_espace"); } catch (e) {}
+      dernier = dernier && dernier.replace(/^#/, "");
+      location.hash = (dernier && dernier !== "accueil") ? dernier : "accueil";
+    }
     route();
     if (global.RCNSync) global.RCNTRACE_SYNCSTATUS(global.RCNSync.status());
   }
