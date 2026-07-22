@@ -53,4 +53,20 @@
   // Capture : on normalise avant les gestionnaires de la page (recherche, filtres…).
   document.addEventListener("input", function (e) { upcase(e.target); }, true);
   document.addEventListener("change", function (e) { upcase(e.target); }, true);
+
+  // Hardening FIELD BUYING : injecté seulement sur le référentiel FBMS.
+  // Le chargement reste non destructif et ne touche pas aux autres modules.
+  function loadFieldBuyingHardening(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      if (document.getElementById("fbms-field-hardening-script")) return;
+      var s = document.createElement("script");
+      s.id = "fbms-field-hardening-script";
+      s.defer = true;
+      s.src = "../shared/fbms-field-hardening.js?v=20260721-hardening";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadFieldBuyingHardening);
+  else loadFieldBuyingHardening();
 })();
