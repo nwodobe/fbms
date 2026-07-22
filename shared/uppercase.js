@@ -67,6 +67,25 @@
       document.head.appendChild(s);
     } catch (e) { /* ignorer */ }
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadFieldBuyingHardening);
-  else loadFieldBuyingHardening();
+
+  // Hardening ALIS : injecté seulement sur le module logistique officiel.
+  function loadALISHardening(){
+    try {
+      if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
+      if (document.getElementById("alis-hardening-script")) return;
+      var s = document.createElement("script");
+      s.id = "alis-hardening-script";
+      s.defer = true;
+      s.src = "../shared/alis-hardening.js?v=20260722-hardening";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
+  function loadRuntimeHardening(){
+    loadFieldBuyingHardening();
+    loadALISHardening();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadRuntimeHardening);
+  else loadRuntimeHardening();
 })();
