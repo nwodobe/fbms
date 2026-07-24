@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#04150D">
+<title>PJS Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04150D;--bg-soft:#071F13;--panel:rgba(255,255,255,.035);--panel-2:rgba(255,255,255,.06);
+  --line:rgba(141,197,86,.14);--line-soft:rgba(255,255,255,.08);
+  --green-forest:#053B23;--green-pine:#00712C;--green-emerald:#008F37;--lime:#8DC556;--sprout:#B6DC8E;
+  --orange:#EE9E00;--ink:#EAF4E6;--mut:#9DB8A3;--faint:#6E8A75;
+  --font-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --font-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:var(--lime);text-decoration:none}
+::selection{background:rgba(141,197,86,.3)}
+
+/* ── Layout ─────────────────────────────────────── */
+.shell{display:flex;min-height:100vh}
+aside{width:236px;flex:none;background:var(--bg-soft);border-right:1px solid var(--line-soft);padding:20px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;overflow-y:auto}
+main{flex:1;min-width:0;padding:26px 34px 70px;max-width:1220px}
+
+/* ── Sidebar ────────────────────────────────────── */
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand .mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--green-emerald),var(--green-forest));display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:13px;color:#fff;letter-spacing:.02em;border:1px solid rgba(141,197,86,.35)}
+.brand .t b{display:block;font-family:var(--font-display);font-weight:800;font-size:14.5px;letter-spacing:.01em}
+.brand .t small{font-size:10px;color:var(--faint);letter-spacing:.16em;text-transform:uppercase}
+.nav-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);padding:14px 10px 6px}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;color:var(--mut);font-size:13.5px;font-weight:500;transition:background .15s,color .15s}
+.nav a:hover{background:var(--panel-2);color:var(--ink)}
+.nav a.on{background:rgba(141,197,86,.12);color:var(--sprout)}
+.nav .ico{width:18px;text-align:center;flex:none}
+.side-foot{margin-top:auto;padding:14px 10px 4px;font-family:var(--font-mono);font-size:10.5px;color:var(--faint);line-height:1.7}
+.side-foot b{color:var(--mut)}
+
+/* ── Topbar ─────────────────────────────────────── */
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.hello .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--lime);margin-bottom:6px}
+.hello h1{font-family:var(--font-display);font-weight:800;font-size:30px;margin:0;letter-spacing:-.01em}
+.hello .sub{color:var(--mut);font-size:13.5px;margin-top:5px}
+.top-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.clock{font-family:var(--font-mono);font-size:22px;font-weight:600;color:var(--sprout)}
+.pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--mut)}
+.pill .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ok{background:var(--lime);box-shadow:0 0 8px rgba(141,197,86,.7)}
+.dot.warn{background:var(--orange);box-shadow:0 0 8px rgba(238,158,0,.6)}
+.dot.off{background:#5b6d60}
+
+/* ── Assistant ──────────────────────────────────── */
+.assistant{background:linear-gradient(160deg,rgba(0,143,55,.14),rgba(5,59,35,.10));border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:30px}
+.assistant h2{font-family:var(--font-display);font-size:15px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:9px}
+.assistant .hint{font-size:12.5px;color:var(--mut);margin-bottom:14px}
+.cmdrow{display:flex;gap:10px}
+.cmdrow input{flex:1;background:rgba(0,0,0,.35);border:1px solid var(--line-soft);border-radius:11px;color:var(--ink);font-family:var(--font-body);font-size:14.5px;padding:13px 16px;outline:none;transition:border-color .15s}
+.cmdrow input:focus{border-color:var(--lime)}
+.cmdrow input::placeholder{color:var(--faint)}
+.cmdrow button{background:var(--green-emerald);border:none;border-radius:11px;color:#fff;font-family:var(--font-display);font-weight:700;font-size:13.5px;padding:0 22px;cursor:pointer;transition:background .15s}
+.cmdrow button:hover{background:var(--green-pine)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{font-family:var(--font-mono);font-size:11.5px;color:var(--sprout);background:rgba(141,197,86,.08);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;transition:background .15s}
+.chip:hover{background:rgba(141,197,86,.18)}
+.steps{margin-top:16px;display:none;flex-direction:column;gap:7px}
+.steps.show{display:flex}
+.step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mut);font-family:var(--font-mono)}
+.step .s-ico{width:18px;text-align:center}
+.step.done{color:var(--sprout)}
+.step.run .s-ico{animation:spin 1s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── KPI ────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:34px}
+.kpi{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:16px 18px}
+.kpi .k-label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.kpi .k-val{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--sprout)}
+.kpi .k-sub{font-size:11.5px;color:var(--faint);margin-top:4px}
+
+/* ── Sections & cards ───────────────────────────── */
+section.grp{margin-bottom:36px}
+.grouphead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 14px;border-left:3px solid var(--lime);padding-left:12px}
+.grouphead h2{font-family:var(--font-display);font-weight:700;font-size:14px;letter-spacing:.13em;text-transform:uppercase;margin:0;color:var(--sprout)}
+.grouphead .sub{font-family:var(--font-mono);font-size:11.5px;color:var(--faint)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line-soft);border-radius:13px;padding:14px 15px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease)}
+.card:hover{border-color:var(--line);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.c-head{display:flex;align-items:flex-start;gap:11px}
+.c-chip{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#fff}
+.c-info{min-width:0;flex:1}
+.c-info b{font-family:var(--font-display);font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
+.c-info .d{font-size:11.5px;color:var(--mut);margin-top:2px;line-height:1.45}
+.c-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.c-actions{display:flex;gap:7px}
+.btn{flex:1;text-align:center;font-family:var(--font-display);font-weight:600;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:1px solid var(--line-soft);background:var(--panel-2);color:var(--ink);transition:background .15s,border-color .15s}
+.btn:hover{background:rgba(141,197,86,.14);border-color:var(--line)}
+.btn.primary{background:rgba(0,143,55,.28);border-color:rgba(0,143,55,.5)}
+.btn.primary:hover{background:rgba(0,143,55,.45)}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+
+/* ── Dossiers ───────────────────────────────────── */
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+.folder{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--mut);cursor:pointer;transition:border-color .15s,color .15s}
+.folder:hover{border-color:var(--line);color:var(--ink)}
+.folder .num{font-family:var(--font-mono);font-size:10.5px;color:var(--lime)}
+.note{font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6}
+
+/* ── Toast ──────────────────────────────────────── */
+#toast{position:fixed;bottom:24px;right:24px;background:#0B2B1A;border:1px solid var(--line);border-radius:11px;padding:12px 18px;font-size:13px;color:var(--sprout);box-shadow:0 12px 34px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;max-width:340px}
+#toast.show{opacity:1;transform:none}
+
+@media(max-width:900px){aside{display:none}main{padding:20px 18px 60px}.hello h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside>
+  <div class="brand"><div class="mark">PJS</div><div class="t"><b>Command Center</b><small>ANAGROCI · PJS Global</small></div></div>
+  <nav class="nav">
+    <div class="nav-label">Navigation</div>
+    <a href="#assistant" class="on"><span class="ico">◆</span> Tableau de bord</a>
+    <a href="#sec-ia"><span class="ico">✳</span> IA Hub</a>
+    <a href="#sec-metier"><span class="ico">▣</span> Applications métier</a>
+    <a href="#sec-office"><span class="ico">▤</span> Bureautique</a>
+    <a href="#sec-dev"><span class="ico">⌥</span> Développement</a>
+    <a href="#sec-dossiers"><span class="ico">▦</span> Espace PJS</a>
+  </nav>
+  <div class="side-foot">
+    <b>PJS Command Center</b><br>v1.0 · One Workspace.<br>Every Project. Every AI.
+  </div>
+</aside>
+
+<main>
+  <div class="topbar">
+    <div class="hello">
+      <div class="eyebrow">PJS Command Center</div>
+      <h1 id="greeting">Bonjour</h1>
+      <div class="sub" id="dateline"></div>
+    </div>
+    <div class="top-right">
+      <div class="clock" id="clock">--:--</div>
+      <span class="pill"><span class="dot off" id="bridgeDot"></span><span id="bridgeLabel">Connexion…</span></span>
+    </div>
+  </div>
+
+  <!-- Assistant -->
+  <div class="assistant" id="assistant">
+    <h2>✳ Assistant</h2>
+    <div class="hint">Décrivez une tâche : l'assistant ouvre pour vous la bonne séquence d'outils. L'envoi d'e-mails et les actions sensibles restent soumis à votre validation.</div>
+    <div class="cmdrow">
+      <input id="cmd" type="text" placeholder="Ex. : Analyse les achats d'hier — Prépare le rapport de Bouaké — Corrige RCN Trace…" autocomplete="off">
+      <button onclick="runCommand()">Exécuter</button>
+    </div>
+    <div class="chips">
+      <span class="chip" onclick="fillCmd('Analyse les achats')">Analyse les achats</span>
+      <span class="chip" onclick="fillCmd('Prépare le rapport de Bouaké')">Rapport de Bouaké</span>
+      <span class="chip" onclick="fillCmd('Corrige RCN Trace')">Corrige RCN Trace</span>
+      <span class="chip" onclick="fillCmd('Session IA')">Session IA</span>
+      <span class="chip" onclick="fillCmd('Ouvre Outlook')">Ouvre Outlook</span>
+    </div>
+    <div class="steps" id="steps"></div>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpis">
+    <div class="kpi"><div class="k-label">Campagne</div><div class="k-val">RCN 2027</div><div class="k-sub">Field Buying · préparation</div></div>
+    <div class="kpi"><div class="k-label">Applications détectées</div><div class="k-val" id="kpiApps">—</div><div class="k-sub">sur ce poste (via bridge)</div></div>
+    <div class="kpi"><div class="k-label">Espace de travail</div><div class="k-val" id="kpiWs" style="font-size:16px">—</div><div class="k-sub">dossier racine PJS</div></div>
+    <div class="kpi"><div class="k-label">KPI FBMS</div><div class="k-val">Phase 5</div><div class="k-sub">connexion données à venir</div></div>
+  </div>
+
+  <!-- IA -->
+  <section class="grp" id="sec-ia">
+    <div class="grouphead"><h2>IA Hub</h2><span class="sub">Vos assistants, en un clic</span></div>
+    <div class="grid" id="grid-ia"></div>
+  </section>
+
+  <!-- Métier -->
+  <section class="grp" id="sec-metier">
+    <div class="grouphead"><h2>Applications métier</h2><span class="sub">ANAGROCI Operations Suite</span></div>
+    <div class="grid" id="grid-metier"></div>
+  </section>
+
+  <!-- Bureautique -->
+  <section class="grp" id="sec-office">
+    <div class="grouphead"><h2>Bureautique</h2><span class="sub">Documents, e-mails, présentations</span></div>
+    <div class="grid" id="grid-office"></div>
+  </section>
+
+  <!-- Dev -->
+  <section class="grp" id="sec-dev">
+    <div class="grouphead"><h2>Développement</h2><span class="sub">Code, versionnement, données</span></div>
+    <div class="grid" id="grid-dev"></div>
+  </section>
+
+  <!-- Dossiers -->
+  <section class="grp" id="sec-dossiers">
+    <div class="grouphead"><h2>Espace PJS</h2><span class="sub">C:\PJS · dossiers de travail</span></div>
+    <div class="folders" id="grid-folders"></div>
+    <div class="note" id="foldersNote">L'ouverture des dossiers nécessite le mode bureau (lancement via le raccourci « PJS Command Center » sur votre PC).</div>
+  </section>
+
+</main>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   PJS Command Center · v1
+   Deux modes :
+   - Mode bureau : servi par le bridge local (127.0.0.1) qui lance
+     les applications Windows (liste blanche + jeton de session).
+   - Mode web : hébergé sur le site ; seuls les liens web s'ouvrent.
+   ════════════════════════════════════════════════════════════ */
+
+var QS = new URLSearchParams(location.search);
+var TOKEN = QS.get('token') || '';
+var BRIDGE = (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.origin) && TOKEN) ? location.origin : null;
+
+/* Base du site ANAGROCI (mode web : relatif ; mode bureau : config bridge) */
+var SITE = 'https://nwodobe.github.io/fbms/';
+if (/^https?:/.test(location.protocol) && !BRIDGE) {
+  try { SITE = new URL('..', location.href).href; } catch(e){}
+}
+
+var CONFIG = { userName: 'Monsieur KOUASSI', workspace: 'C:\\PJS',
+               githubRepo: 'https://github.com/nwodobe/fbms',
+               supabaseUrl: 'https://supabase.com/dashboard' };
+
+/* ── Catalogue des applications ─────────────────────────────
+   id       : identifiant partagé avec le bridge (liste blanche)
+   desktop  : true si lançable en application locale via bridge
+   web      : URL de repli (ou fonction retournant l'URL)        */
+var APPS = [
+  /* IA */
+  {id:'chatgpt',  grp:'ia', chip:'GPT', color:'#0A5531', name:'ChatGPT',            d:'Assistant IA · OpenAI',                 desktop:true,  web:'https://chatgpt.com'},
+  {id:'claude',   grp:'ia', chip:'CLD', color:'#8a5a2a', name:'Claude',              d:'Assistant IA · Anthropic',              desktop:true,  web:'https://claude.ai'},
+  {id:'codex',    grp:'ia', chip:'CDX', color:'#053B23', name:'Codex',               d:'Agent de développement OpenAI',         desktop:false, web:'https://chatgpt.com/codex'},
+  {id:'copilot',  grp:'ia', chip:'CPT', color:'#1a4d6e', name:'Microsoft Copilot',   d:'Assistant IA · Microsoft',              desktop:true,  web:'https://copilot.microsoft.com'},
+  /* Métier */
+  {id:'fbms',     grp:'metier', chip:'REF', color:'#053B23', name:'FBMS Référentiel', d:'Zones, villages, RT, producteurs',     desktop:false, web:function(){return SITE+'fbms/index.html'}},
+  {id:'rcntrace', grp:'metier', chip:'RCN', color:'#00712C', name:'RCN Trace',        d:'Traçabilité & bilan matière',          desktop:false, web:function(){return SITE+'rcntrace/index.html'}},
+  {id:'achats',   grp:'metier', chip:'ACH', color:'#008F37', name:'Achats Terrain',   d:'Saisie journalière RCN',               desktop:false, web:function(){return SITE+'terrain/achats.html'}},
+  {id:'cmdbm',    grp:'metier', chip:'CMD', color:'#0A5531', name:'Command Center BM',d:'Anomalies, file offline, RT à risque', desktop:false, web:function(){return SITE+'terrain/command.html'}},
+  {id:'alis',     grp:'metier', chip:'LOG', color:'#4B8B2F', name:'ALIS Logistique',  d:'Coût rendu usine et simulation',       desktop:false, web:function(){return SITE+'logistique/alis_fbms.html'}},
+  {id:'portail',  grp:'metier', chip:'ANA', color:'#7A5A00', name:'Portail ANAGROCI', d:'Operations Suite · accueil',           desktop:false, web:function(){return SITE+'index.html'}},
+  /* Bureautique */
+  {id:'excel',    grp:'office', chip:'XLS', color:'#0e6b3f', name:'Excel',      d:'Classeurs, rapports, KPI',                  desktop:true, web:'https://www.office.com/launch/excel'},
+  {id:'word',     grp:'office', chip:'DOC', color:'#1a4d8f', name:'Word',       d:'Documents, courriers, PV',                  desktop:true, web:'https://www.office.com/launch/word'},
+  {id:'powerpoint',grp:'office',chip:'PPT', color:'#a4491f', name:'PowerPoint', d:'Présentations Direction',                   desktop:true, web:'https://www.office.com/launch/powerpoint'},
+  {id:'outlook',  grp:'office', chip:'OTL', color:'#1b5f9e', name:'Outlook',    d:'E-mails et calendrier',                     desktop:true, web:'https://outlook.office.com/mail/'},
+  {id:'acrobat',  grp:'office', chip:'PDF', color:'#8f1f1f', name:'Adobe Acrobat', d:'Lecture et signature PDF',               desktop:true, web:'https://acrobat.adobe.com'},
+  /* Dev */
+  {id:'vscode',   grp:'dev', chip:'VSC', color:'#1a4d6e', name:'Visual Studio Code', d:'Éditeur de code',                      desktop:true, web:'https://vscode.dev'},
+  {id:'ghdesktop',grp:'dev', chip:'GHD', color:'#3c2a6e', name:'GitHub Desktop',     d:'Commit, push, pull en visuel',         desktop:true, web:function(){return CONFIG.githubRepo}},
+  {id:'github',   grp:'dev', chip:'GIT', color:'#24292f', name:'GitHub Web',         d:'Dépôt fbms · code source',             desktop:false,web:function(){return CONFIG.githubRepo}},
+  {id:'supabase', grp:'dev', chip:'SUP', color:'#0e6b5f', name:'Supabase',           d:'Base de données & authentification',   desktop:false,web:function(){return CONFIG.supabaseUrl}},
+  {id:'gdrive',   grp:'dev', chip:'DRV', color:'#7A5A00', name:'Google Drive',       d:'Stockage et partage de fichiers',      desktop:false,web:'https://drive.google.com'}
+];
+
+/* Dossiers de l'espace C:\PJS (clés = liste blanche du bridge) */
+var FOLDERS = [
+  ['01','Dashboard'],['02','AI'],['03','Projects'],['04','ANAGROCI'],['05','PJS Transport'],
+  ['06','FBMS'],['07','RCN Trace'],['08','GitHub'],['09','Supabase'],['10','Documents'],
+  ['11','Automations'],['12','Templates'],['13','Reports'],['14','Archive'],['15','Secrets']
+];
+
+/* Workflows de l'assistant : suite d'applications à ouvrir */
+var WORKFLOWS = [
+  {match:/achat/i,                title:'Analyse des achats',      apps:['fbms','excel','outlook'],
+   steps:['Ouvrir FBMS Référentiel','Ouvrir Excel pour les calculs','Préparer Outlook pour le compte-rendu']},
+  {match:/rapport|bouak|yamoussoukro|pr[ée]sentation/i, title:'Préparation de rapport', apps:['fbms','excel','powerpoint','outlook'],
+   steps:['Ouvrir FBMS Référentiel','Ouvrir Excel (données & KPI)','Ouvrir PowerPoint (support Direction)','Préparer Outlook (envoi après validation)']},
+  {match:/rcn|trace/i,            title:'Correction RCN Trace',    apps:['rcntrace','github','vscode','claude','chatgpt'],
+   steps:['Ouvrir RCN Trace','Ouvrir le dépôt GitHub','Ouvrir Visual Studio Code','Ouvrir Claude','Ouvrir ChatGPT']},
+  {match:/session ia|\bia\b|assistant/i, title:'Session IA',       apps:['chatgpt','claude','copilot'],
+   steps:['Ouvrir ChatGPT','Ouvrir Claude','Ouvrir Microsoft Copilot']},
+  {match:/mail|e-?mail|outlook/i, title:'Messagerie',              apps:['outlook'], steps:['Ouvrir Outlook']}
+];
+
+/* ── État ───────────────────────────────────────── */
+var STATUS = {};      /* id → true si appli détectée sur le poste */
+var BRIDGE_OK = false;
+
+function $(s){return document.querySelector(s)}
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},3200)}
+
+/* ── API bridge ─────────────────────────────────── */
+function api(path){
+  if(!BRIDGE) return Promise.reject(new Error('no-bridge'));
+  var sep = path.indexOf('?')>=0 ? '&' : '?';
+  return fetch(BRIDGE+'/api/'+path+sep+'token='+encodeURIComponent(TOKEN))
+    .then(function(r){ if(!r.ok) throw new Error('bridge '+r.status); return r.json(); });
+}
+
+/* ── Rendu des cartes ───────────────────────────── */
+function webUrl(app){ return typeof app.web==='function' ? app.web() : app.web }
+
+function render(){
+  var grids={ia:$('#grid-ia'),metier:$('#grid-metier'),office:$('#grid-office'),dev:$('#grid-dev')};
+  APPS.forEach(function(a){
+    var el=document.createElement('div');el.className='card';el.id='card-'+a.id;
+    el.innerHTML =
+      '<div class="c-head"><span class="c-chip" style="background:'+a.color+'">'+a.chip+'</span>'+
+      '<span class="c-info"><b>'+a.name+' <span class="c-dot off" id="dot-'+a.id+'"></span></b>'+
+      '<span class="d">'+a.d+'</span></span></div>'+
+      '<div class="c-actions">'+
+      (a.desktop?'<button class="btn primary" id="lb-'+a.id+'" onclick="launch(\''+a.id+'\')">Lancer</button>':'')+
+      '<button class="btn'+(a.desktop?'':' primary')+'" onclick="openWeb(\''+a.id+'\')">Web</button>'+
+      '</div>';
+    grids[a.grp].appendChild(el);
+  });
+  var gf=$('#grid-folders');
+  FOLDERS.forEach(function(f){
+    var el=document.createElement('div');el.className='folder';
+    el.innerHTML='<span class="num">'+f[0]+'</span> '+f[1];
+    el.onclick=function(){openFolder(f[0])};
+    gf.appendChild(el);
+  });
+}
+
+function paintStatus(){
+  var n=0;
+  APPS.forEach(function(a){
+    var dot=$('#dot-'+a.id), lb=$('#lb-'+a.id);
+    var installed = STATUS[a.id]===true;
+    if(installed) n++;
+    if(dot){
+      dot.className='c-dot dot '+(installed?'ok':(a.desktop?'off':'warn'));
+      dot.title = installed?'Détectée sur ce poste':(a.desktop?'Non détectée':'Application web');
+    }
+    if(lb){ if(!BRIDGE_OK || !installed){ lb.setAttribute('disabled','') } else { lb.removeAttribute('disabled') } }
+  });
+  $('#kpiApps').textContent = BRIDGE_OK ? String(n) : '—';
+}
+
+/* ── Actions ────────────────────────────────────── */
+function launch(id){
+  var app=APPS.find(function(x){return x.id===id});
+  if(BRIDGE_OK && STATUS[id]){
+    api('launch?app='+encodeURIComponent(id))
+      .then(function(r){ toast((app?app.name:id)+' : lancement…') })
+      .catch(function(){ toast('Échec du lancement — ouverture web.'); openWeb(id); });
+  } else { openWeb(id); }
+}
+function openWeb(id){
+  var app=APPS.find(function(x){return x.id===id});
+  if(app) window.open(webUrl(app),'_blank');
+}
+function openFolder(key){
+  if(!BRIDGE_OK){ toast('Mode web : les dossiers s\u2019ouvrent depuis le PC (raccourci Bureau).'); return; }
+  api('open?key='+encodeURIComponent(key))
+    .then(function(){ toast('Dossier ouvert.') })
+    .catch(function(){ toast('Impossible d\u2019ouvrir ce dossier.') });
+}
+
+/* ── Assistant ──────────────────────────────────── */
+function fillCmd(t){ $('#cmd').value=t; runCommand(); }
+function runCommand(){
+  var q=$('#cmd').value.trim();
+  if(!q) return;
+  /* « ouvre X » : correspondance directe avec une application */
+  var m=q.match(/^ouvre[sz]?\s+(.+)$/i);
+  if(m){
+    var target=m[1].toLowerCase();
+    var app=APPS.find(function(a){return a.name.toLowerCase().indexOf(target)>=0 || a.id.indexOf(target)>=0});
+    if(app){ runWorkflow({title:'Ouverture · '+app.name, apps:[app.id], steps:['Ouvrir '+app.name]}); return; }
+  }
+  var wf=WORKFLOWS.find(function(w){return w.match.test(q)});
+  if(wf){ runWorkflow(wf); }
+  else { toast('Commande non reconnue. Essayez : « Analyse les achats », « Corrige RCN Trace », « Ouvre Excel »…'); }
+}
+function runWorkflow(wf){
+  var box=$('#steps'); box.innerHTML=''; box.classList.add('show');
+  var head=document.createElement('div');head.className='step done';
+  head.innerHTML='<span class="s-ico">▶</span> <b>'+wf.title+'</b>';box.appendChild(head);
+  var rows=wf.steps.map(function(s){
+    var r=document.createElement('div');r.className='step';
+    r.innerHTML='<span class="s-ico">○</span> '+s;box.appendChild(r);return r;
+  });
+  wf.apps.forEach(function(id,i){
+    setTimeout(function(){
+      rows[i].classList.add('run');rows[i].querySelector('.s-ico').textContent='◌';
+      launch(id);
+      setTimeout(function(){rows[i].classList.remove('run');rows[i].classList.add('done');rows[i].querySelector('.s-ico').textContent='✓'},600);
+    }, 900*i);
+  });
+}
+
+/* ── Horloge & accueil ──────────────────────────── */
+function tick(){
+  var now=new Date();
+  $('#clock').textContent=now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var h=now.getHours();
+  var hello=h<5?'Bonne nuit':h<12?'Bonjour':h<18?'Bon après-midi':'Bonsoir';
+  $('#greeting').textContent=hello+', '+CONFIG.userName;
+  $('#dateline').textContent=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
+/* ── Statut bridge ──────────────────────────────── */
+function refreshStatus(){
+  if(!BRIDGE){
+    BRIDGE_OK=false;
+    $('#bridgeDot').className='dot warn';
+    $('#bridgeLabel').textContent='Mode web · liens uniquement';
+    paintStatus();
+    return;
+  }
+  api('status').then(function(r){
+    BRIDGE_OK=true; STATUS={};
+    (r.apps||[]).forEach(function(a){ STATUS[a.id]=!!a.installed });
+    if(r.userName) CONFIG.userName=r.userName;
+    if(r.workspace){ CONFIG.workspace=r.workspace; $('#kpiWs').textContent=r.workspace; }
+    if(r.siteUrl)  SITE=r.siteUrl;
+    if(r.githubRepo) CONFIG.githubRepo=r.githubRepo;
+    if(r.supabaseUrl) CONFIG.supabaseUrl=r.supabaseUrl;
+    $('#bridgeDot').className='dot ok';
+    $('#bridgeLabel').textContent='Bridge connecté · mode bureau';
+    $('#foldersNote').style.display='none';
+    paintStatus(); tick();
+  }).catch(function(){
+    BRIDGE_OK=false;
+    $('#bridgeDot').className='dot off';
+    $('#bridgeLabel').textContent='Bridge injoignable';
+    paintStatus();
+  });
+}
+
+/* ── Navigation latérale ────────────────────────── */
+document.addEventListener('click',function(e){
+  var a=e.target.closest('.nav a'); if(!a) return;
+  document.querySelectorAll('.nav a').forEach(function(x){x.classList.remove('on')});
+  a.classList.add('on');
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter' && document.activeElement===$('#cmd')) runCommand();
+});
+
+render(); tick(); setInterval(tick,15000);
+refreshStatus(); setInterval(refreshStatus,20000);
+</script>
+</body>
+</html>
