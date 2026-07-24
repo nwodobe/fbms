@@ -73,6 +73,13 @@ construit une base de données locale par flux :
 |---|---|---|---|
 | RCN Warehouse | `rcn.warehouse1@anagroci.com` | tous les Excel/CSV | `13 Reports\RCN Warehouse` |
 | Consolidated Cashew | `rcn.accounts@anagroci.com` | nom/objet contenant CONSOLIDATED ou CASHEW | `13 Reports\Consolidated Cashew` |
+| WhatsApp Yakro RCN | tout expéditeur | .txt/.zip dont nom/objet contient WhatsApp + Yamoussoukro/Yakro | `13 Reports\WhatsApp Yakro RCN` |
+
+Le flux WhatsApp fonctionne avec l'export manuel du téléphone (WhatsApp ne
+permet aucune extraction automatique ; les robots WhatsApp Web font bannir
+le numéro) : groupe → ⋮ → Plus → Exporter la discussion → envoyer par e-mail
+à sa propre adresse professionnelle. La synchronisation archive ensuite
+l'export automatiquement.
 
 ```
 C:\PJS\13 Reports\<Flux>\

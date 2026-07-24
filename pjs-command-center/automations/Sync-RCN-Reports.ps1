@@ -31,17 +31,25 @@ $ReportsRoot = Join-Path $Workspace '13 Reports'
 $Self = $MyInvocation.MyCommand.Path
 
 # ---- Flux suivis ----------------------------------------------------
-# Senders  : adresses e-mail surveillees (minuscules)
+# Senders  : adresses e-mail surveillees (vide = tout expediteur)
 # NameLike : filtre regex sur le nom de piece jointe OU l'objet
-#            ('' = toutes les pieces jointes Excel/CSV)
+#            ('' = toutes les pieces jointes acceptees)
+# Ext      : extensions acceptees (vide = Excel/CSV par defaut)
 # Folder   : sous-dossier de "13 Reports" qui recoit la base
 $Feeds = @(
   @{ Id = 'warehouse'; Label = 'RCN Warehouse'
      Senders = @('rcn.warehouse1@anagroci.com')
-     NameLike = ''; Folder = 'RCN Warehouse' },
+     NameLike = ''; Ext = @(); Folder = 'RCN Warehouse' },
   @{ Id = 'cashew'; Label = 'Consolidated Cashew'
      Senders = @('rcn.accounts@anagroci.com')
-     NameLike = 'CONSOLIDATED|CASHEW'; Folder = 'Consolidated Cashew' }
+     NameLike = 'CONSOLIDATED|CASHEW'; Ext = @(); Folder = 'Consolidated Cashew' },
+  # Exports WhatsApp du groupe Yamoussoukro RCN warehouse :
+  # depuis le telephone, Exporter la discussion -> s'envoyer le
+  # fichier par e-mail ; la synchronisation l'archive ici.
+  @{ Id = 'whatsapp'; Label = 'WhatsApp Yakro RCN'
+     Senders = @()
+     NameLike = '(?=.*whatsapp)(?=.*(yamoussoukro|yakro))'
+     Ext = @('.txt', '.zip'); Folder = 'WhatsApp Yakro RCN' }
 )
 
 # ---- Option : tache planifiee quotidienne --------------------------
@@ -113,16 +121,18 @@ foreach ($store in @($ns.Stores)) {
       $smtpLow = $smtp.ToLowerInvariant()
 
       foreach ($feed in $Feeds) {
-        if ($feed.SenderSet -notcontains $smtpLow) { continue }
-        $feed.Mails++
+        if ($feed.SenderSet.Count -gt 0 -and $feed.SenderSet -notcontains $smtpLow) { continue }
+        $matched = $false
 
         foreach ($att in @($mail.Attachments)) {
           $fname = [string]$att.FileName
           $e = [IO.Path]::GetExtension($fname)
-          if (-not $e -or ($Extensions -notcontains $e.ToLowerInvariant())) { continue }
+          $allowed = if ($feed.Ext.Count -gt 0) { $feed.Ext } else { $Extensions }
+          if (-not $e -or ($allowed -notcontains $e.ToLowerInvariant())) { continue }
           if ($feed.NameLike -and
               ($fname -notmatch $feed.NameLike) -and
               (([string]$mail.Subject) -notmatch $feed.NameLike)) { continue }
+          $matched = $true
 
           $month = $mail.ReceivedTime.ToString('yyyy-MM')
           $dir = Join-Path $feed.Target $month
@@ -140,6 +150,7 @@ foreach ($store in @($ns.Stores)) {
           Add-Content -Path $feed.Index -Encoding UTF8 -Value (
             $mail.ReceivedTime.ToString('yyyy-MM-dd HH:mm') + ';' + $smtp + ';' + $subject + ';' + $name + ';' + $month)
         }
+        if ($matched) { $feed.Mails++ }
       }
     }
   }

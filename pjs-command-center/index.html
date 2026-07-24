@@ -211,12 +211,14 @@ section.grp{margin-bottom:36px}
         <span class="c-info"><b>Rapports e-mail → Bases de données</b>
         <span class="d">Analyse la boîte Outlook de ce poste (lecture seule, sous-dossiers compris) et archive les rapports par mois avec index CSV dans « 13 Reports » :<br>
         · <b>RCN Warehouse</b> — tous les Excel de <b>rcn.warehouse1@anagroci.com</b><br>
-        · <b>Consolidated Cashew</b> — rapports CONSOLIDATED CASHEW de <b>rcn.accounts@anagroci.com</b></span></span></div>
+        · <b>Consolidated Cashew</b> — rapports CONSOLIDATED CASHEW de <b>rcn.accounts@anagroci.com</b><br>
+        · <b>WhatsApp Yakro RCN</b> — exports de la discussion « Yamoussoukro RCN warehouse » envoyés par e-mail depuis votre téléphone (.txt / .zip)</span></span></div>
         <div class="c-actions">
           <button class="btn primary" id="btnSyncRcn" onclick="syncRcn()">Synchroniser maintenant</button>
           <button class="btn" onclick="syncRcnDaily()">Activer chaque jour (07:45)</button>
-          <button class="btn" onclick="openFolder('rcndb')">Dossier Warehouse</button>
-          <button class="btn" onclick="openFolder('cashewdb')">Dossier Cashew</button>
+          <button class="btn" onclick="openFolder('rcndb')">Warehouse</button>
+          <button class="btn" onclick="openFolder('cashewdb')">Cashew</button>
+          <button class="btn" onclick="openFolder('wadb')">WhatsApp</button>
         </div>
         <div class="note" id="autoRcnStat" style="margin-top:0">Aucune synchronisation effectuée sur ce poste pour l'instant.</div>
       </div>
@@ -430,7 +432,7 @@ function runCommand(){
   var q=$('#cmd').value.trim();
   if(!q) return;
   /* synchronisation des rapports warehouse */
-  if(/warehouse|synchronis/i.test(q)){
+  if(/warehouse|synchronis|whatsapp/i.test(q)){
     document.getElementById('sec-auto').scrollIntoView({behavior:'smooth'});
     syncRcn(); return;
   }
