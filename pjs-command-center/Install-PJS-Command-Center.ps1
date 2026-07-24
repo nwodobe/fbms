@@ -35,6 +35,17 @@ Write-Host "[1/3] Espace de travail cree : $Workspace"
 # ---- 2. Copie de l'application ------------------------------------
 $AppDir = Join-Path $Workspace '01 Dashboard\App'
 if (-not (Test-Path $AppDir)) { New-Item -ItemType Directory -Path $AppDir -Force | Out-Null }
+
+# Arrete un eventuel bridge en cours d'execution afin que la
+# prochaine ouverture utilise la version mise a jour.
+$tokFile = Join-Path $AppDir '.pcc-token'
+if (Test-Path $tokFile) {
+  try {
+    $tok = (Get-Content $tokFile -Raw).Trim()
+    Invoke-WebRequest -Uri "http://localhost:7315/api/shutdown?token=$tok" -UseBasicParsing -TimeoutSec 2 | Out-Null
+    Write-Host '      Ancien bridge arrete (mise a jour).'
+  } catch {}
+}
 Copy-Item (Join-Path $Src 'index.html')    $AppDir -Force
 Copy-Item (Join-Path $Src 'Start-PJS.ps1') $AppDir -Force
 if (Test-Path (Join-Path $Src 'pjs.config.json')) {

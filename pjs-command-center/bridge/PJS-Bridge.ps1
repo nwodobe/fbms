@@ -58,7 +58,8 @@ function Get-AppPathExe([string]$exe) {
 # AppPaths  : nom d'exe inscrit dans le registre Windows (App Paths)
 # Protocol  : URI de protocole Windows (ex. ms-copilot:)
 $Catalog = [ordered]@{
-  chatgpt    = @{ Paths = @("$env:LOCALAPPDATA\Programs\ChatGPT\ChatGPT.exe") }
+  chatgpt    = @{ Paths = @("$env:LOCALAPPDATA\Microsoft\WindowsApps\chatgpt.exe",
+                            "$env:LOCALAPPDATA\Programs\ChatGPT\ChatGPT.exe") }
   claude     = @{ Paths = @("$env:LOCALAPPDATA\AnthropicClaude\claude.exe",
                             "$env:LOCALAPPDATA\Programs\Claude\Claude.exe") }
   copilot    = @{ Protocol = 'ms-copilot:' }
