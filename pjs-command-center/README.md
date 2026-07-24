@@ -63,19 +63,27 @@ arrière-plan et le tableau de bord s'ouvre en fenêtre application.
 
 ## Automatisations
 
-### Rapports RCN Warehouse
+### Rapports e-mail → Bases de données
 
-Le module **Automatisations** du tableau de bord récupère les fichiers Excel
-envoyés par `rcn.warehouse1@anagroci.com` dans la boîte Outlook du poste et
-construit une base de données locale :
+Le module **Automatisations** du tableau de bord analyse la boîte Outlook du
+poste (boîte de réception + sous-dossiers, tous les comptes du profil) et
+construit une base de données locale par flux :
+
+| Flux | Expéditeur | Filtre | Dossier |
+|---|---|---|---|
+| RCN Warehouse | `rcn.warehouse1@anagroci.com` | tous les Excel/CSV | `13 Reports\RCN Warehouse` |
+| Consolidated Cashew | `rcn.accounts@anagroci.com` | nom/objet contenant CONSOLIDATED ou CASHEW | `13 Reports\Consolidated Cashew` |
 
 ```
-C:\PJS\13 Reports\RCN Warehouse\
+C:\PJS\13 Reports\<Flux>\
   _index.csv          ← journal : date;expediteur;objet;fichier;mois
   2026-07\            ← fichiers classés par mois de réception
-    20260722_0812_RAPPORT_WAREHOUSE.xlsx
+    20260722_0812_CONSOLIDATED_CASHEW_REPORT.xlsx
     ...
 ```
+
+Si aucun e-mail ne correspond, le tableau de bord affiche les expéditeurs
+récents de la boîte (diagnostic) pour identifier la bonne adresse.
 
 - **Synchroniser maintenant** : analyse la boîte de réception (tous les
   comptes du profil Outlook, 120 derniers jours) et archive les nouveaux

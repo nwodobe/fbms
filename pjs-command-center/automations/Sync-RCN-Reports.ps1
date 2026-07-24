@@ -1,14 +1,19 @@
 # ============================================================
 #  PJS Command Center - Automatisation
-#  Sync-RCN-Reports : rapports Excel de RCN Warehouse
+#  Sync-RCN-Reports : bases de donnees des rapports e-mail
 #  ------------------------------------------------------------
 #  Parcourt la boite de reception Outlook (tous les comptes du
-#  profil), repere les e-mails des expediteurs autorises et
-#  enregistre leurs pieces jointes Excel/CSV dans :
-#      <Workspace>\13 Reports\RCN Warehouse\<AAAA-MM>\
-#  Un index CSV (_index.csv) journalise chaque fichier archive :
-#  c'est la base de donnees exploitable (date, expediteur,
-#  objet, fichier, mois).
+#  profil, sous-dossiers compris) et archive les pieces jointes
+#  Excel/CSV des flux configures ci-dessous dans :
+#      <Workspace>\13 Reports\<Flux>\<AAAA-MM>\
+#  Chaque flux possede son index CSV (_index.csv) : c'est la
+#  base de donnees exploitable (date, expediteur, objet,
+#  fichier, mois).
+#
+#  Flux suivis :
+#    - RCN Warehouse      : tout Excel de rcn.warehouse1@anagroci.com
+#    - Consolidated Cashew: rapports CONSOLIDATED CASHEW de
+#                           rcn.accounts@anagroci.com
 #
 #  Lecture seule : aucun e-mail n'est modifie, deplace ou envoye.
 #
@@ -17,14 +22,27 @@
 # ============================================================
 param(
   [string]$Workspace = 'C:\PJS',
-  [string[]]$Senders = @('rcn.warehouse1@anagroci.com'),
   [int]$Days = 120,
   [switch]$InstallDaily
 )
 
 $ErrorActionPreference = 'Stop'
-$Target = Join-Path $Workspace '13 Reports\RCN Warehouse'
+$ReportsRoot = Join-Path $Workspace '13 Reports'
 $Self = $MyInvocation.MyCommand.Path
+
+# ---- Flux suivis ----------------------------------------------------
+# Senders  : adresses e-mail surveillees (minuscules)
+# NameLike : filtre regex sur le nom de piece jointe OU l'objet
+#            ('' = toutes les pieces jointes Excel/CSV)
+# Folder   : sous-dossier de "13 Reports" qui recoit la base
+$Feeds = @(
+  @{ Id = 'warehouse'; Label = 'RCN Warehouse'
+     Senders = @('rcn.warehouse1@anagroci.com')
+     NameLike = ''; Folder = 'RCN Warehouse' },
+  @{ Id = 'cashew'; Label = 'Consolidated Cashew'
+     Senders = @('rcn.accounts@anagroci.com')
+     NameLike = 'CONSOLIDATED|CASHEW'; Folder = 'Consolidated Cashew' }
+)
 
 # ---- Option : tache planifiee quotidienne --------------------------
 if ($InstallDaily) {
@@ -36,14 +54,17 @@ if ($InstallDaily) {
 }
 
 # ---- Preparation ----------------------------------------------------
-if (-not (Test-Path $Target)) { New-Item -ItemType Directory -Path $Target -Force | Out-Null }
-$Index = Join-Path $Target '_index.csv'
-if (-not (Test-Path $Index)) {
-  Set-Content -Path $Index -Value 'date_reception;expediteur;objet;fichier;mois' -Encoding UTF8
-}
-
 $Extensions = @('.xls', '.xlsx', '.xlsm', '.xlsb', '.csv')
-$SenderSet = @($Senders | ForEach-Object { $_.ToLowerInvariant() })
+foreach ($feed in $Feeds) {
+  $feed.Target = Join-Path $ReportsRoot $feed.Folder
+  if (-not (Test-Path $feed.Target)) { New-Item -ItemType Directory -Path $feed.Target -Force | Out-Null }
+  $feed.Index = Join-Path $feed.Target '_index.csv'
+  if (-not (Test-Path $feed.Index)) {
+    Set-Content -Path $feed.Index -Value 'date_reception;expediteur;objet;fichier;mois' -Encoding UTF8
+  }
+  $feed.SenderSet = @($feed.Senders | ForEach-Object { $_.ToLowerInvariant() })
+  $feed.Saved = 0; $feed.Skipped = 0; $feed.Mails = 0
+}
 
 # ---- Adresse SMTP reelle de l'expediteur ----------------------------
 # (les comptes Exchange renvoient une adresse interne X500 sinon)
@@ -74,7 +95,6 @@ function Get-MailFolders($root) {
   return $list
 }
 
-$saved = 0; $skipped = 0; $mails = 0
 $inboxes = @()
 
 foreach ($store in @($ns.Stores)) {
@@ -84,44 +104,54 @@ foreach ($store in @($ns.Stores)) {
   $inboxes += $inbox
 
   foreach ($folder in (Get-MailFolders $inbox)) {
-  $items = $null
-  try { $items = $folder.Items.Restrict($filter) } catch { continue }
-  foreach ($mail in @($items)) {
-    if ($mail.Class -ne 43) { continue }                            # 43 = e-mail
-    $smtp = Get-SmtpSender $mail
-    if (-not $smtp) { continue }
-    if ($SenderSet -notcontains $smtp.ToLowerInvariant()) { continue }
-    $mails++
+    $items = $null
+    try { $items = $folder.Items.Restrict($filter) } catch { continue }
+    foreach ($mail in @($items)) {
+      if ($mail.Class -ne 43) { continue }                          # 43 = e-mail
+      $smtp = Get-SmtpSender $mail
+      if (-not $smtp) { continue }
+      $smtpLow = $smtp.ToLowerInvariant()
 
-    foreach ($att in @($mail.Attachments)) {
-      $e = [IO.Path]::GetExtension([string]$att.FileName)
-      if (-not $e -or ($Extensions -notcontains $e.ToLowerInvariant())) { continue }
+      foreach ($feed in $Feeds) {
+        if ($feed.SenderSet -notcontains $smtpLow) { continue }
+        $feed.Mails++
 
-      $month = $mail.ReceivedTime.ToString('yyyy-MM')
-      $dir = Join-Path $Target $month
-      if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        foreach ($att in @($mail.Attachments)) {
+          $fname = [string]$att.FileName
+          $e = [IO.Path]::GetExtension($fname)
+          if (-not $e -or ($Extensions -notcontains $e.ToLowerInvariant())) { continue }
+          if ($feed.NameLike -and
+              ($fname -notmatch $feed.NameLike) -and
+              (([string]$mail.Subject) -notmatch $feed.NameLike)) { continue }
 
-      $name = $mail.ReceivedTime.ToString('yyyyMMdd_HHmm') + '_' + [string]$att.FileName
-      foreach ($c in [IO.Path]::GetInvalidFileNameChars()) { $name = $name.Replace([string]$c, '_') }
+          $month = $mail.ReceivedTime.ToString('yyyy-MM')
+          $dir = Join-Path $feed.Target $month
+          if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
-      $dest = Join-Path $dir $name
-      if (Test-Path $dest) { $skipped++; continue }
+          $name = $mail.ReceivedTime.ToString('yyyyMMdd_HHmm') + '_' + $fname
+          foreach ($c in [IO.Path]::GetInvalidFileNameChars()) { $name = $name.Replace([string]$c, '_') }
 
-      $att.SaveAsFile($dest)
-      $saved++
-      $subject = ([string]$mail.Subject) -replace ';', ','
-      Add-Content -Path $Index -Encoding UTF8 -Value (
-        $mail.ReceivedTime.ToString('yyyy-MM-dd HH:mm') + ';' + $smtp + ';' + $subject + ';' + $name + ';' + $month)
+          $dest = Join-Path $dir $name
+          if (Test-Path $dest) { $feed.Skipped++; continue }
+
+          $att.SaveAsFile($dest)
+          $feed.Saved++
+          $subject = ([string]$mail.Subject) -replace ';', ','
+          Add-Content -Path $feed.Index -Encoding UTF8 -Value (
+            $mail.ReceivedTime.ToString('yyyy-MM-dd HH:mm') + ';' + $smtp + ';' + $subject + ';' + $name + ';' + $month)
+        }
+      }
     }
-  }
   }
 }
 
 # ---- Diagnostic : aucun e-mail correspondant ------------------------
 # On liste les expediteurs recents pour reperer la vraie adresse
 # d'envoi des rapports (affiche dans le tableau de bord).
+$totalMails = 0
+foreach ($feed in $Feeds) { $totalMails += $feed.Mails }
 $hint = ''
-if ($mails -eq 0 -and $inboxes.Count -gt 0) {
+if ($totalMails -eq 0 -and $inboxes.Count -gt 0) {
   $recent = "[ReceivedTime] >= '" + (Get-Date).AddDays(-30).ToString('MM/dd/yyyy hh:mm tt', [Globalization.CultureInfo]::InvariantCulture) + "'"
   $counts = @{}
   foreach ($inbox in $inboxes) {
@@ -140,4 +170,8 @@ if ($mails -eq 0 -and $inboxes.Count -gt 0) {
   if ($top) { $hint = ($top -join ' | ') }
 }
 
-[pscustomobject]@{ ok = $true; saved = $saved; skipped = $skipped; mails = $mails; target = $Target; hint = $hint }
+$result = @()
+foreach ($feed in $Feeds) {
+  $result += @{ id = $feed.Id; label = $feed.Label; saved = $feed.Saved; skipped = $feed.Skipped; mails = $feed.Mails }
+}
+[pscustomobject]@{ ok = $true; feeds = $result; totalMails = $totalMails; hint = $hint; target = $ReportsRoot }

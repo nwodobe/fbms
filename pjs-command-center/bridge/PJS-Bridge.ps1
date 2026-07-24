@@ -83,6 +83,7 @@ $Folders = [ordered]@{
   '10' = '10 Documents';   '11' = '11 Automations';   '12' = '12 Templates'
   '13' = '13 Reports';     '14' = '14 Archive';       '15' = '15 Secrets'
   'rcndb' = '13 Reports\RCN Warehouse'
+  'cashewdb' = '13 Reports\Consolidated Cashew'
 }
 
 # Automatisations autorisees (cle -> script + parametres fixes)

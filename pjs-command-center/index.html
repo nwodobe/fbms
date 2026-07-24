@@ -208,12 +208,15 @@ section.grp{margin-bottom:36px}
     <div class="grid">
       <div class="card" style="grid-column:1/-1">
         <div class="c-head"><span class="c-chip" style="background:#0A5531">SYN</span>
-        <span class="c-info"><b>Rapports RCN Warehouse</b>
-        <span class="d">Récupère les fichiers Excel des e-mails de <b>rcn.warehouse1@anagroci.com</b> (boîte Outlook de ce poste), les classe par mois dans « 13 Reports \ RCN Warehouse » et alimente l'index CSV — votre base de données exploitable. Lecture seule : aucun e-mail n'est modifié.</span></span></div>
+        <span class="c-info"><b>Rapports e-mail → Bases de données</b>
+        <span class="d">Analyse la boîte Outlook de ce poste (lecture seule, sous-dossiers compris) et archive les rapports par mois avec index CSV dans « 13 Reports » :<br>
+        · <b>RCN Warehouse</b> — tous les Excel de <b>rcn.warehouse1@anagroci.com</b><br>
+        · <b>Consolidated Cashew</b> — rapports CONSOLIDATED CASHEW de <b>rcn.accounts@anagroci.com</b></span></span></div>
         <div class="c-actions">
           <button class="btn primary" id="btnSyncRcn" onclick="syncRcn()">Synchroniser maintenant</button>
           <button class="btn" onclick="syncRcnDaily()">Activer chaque jour (07:45)</button>
-          <button class="btn" onclick="openFolder('rcndb')">Ouvrir le dossier</button>
+          <button class="btn" onclick="openFolder('rcndb')">Dossier Warehouse</button>
+          <button class="btn" onclick="openFolder('cashewdb')">Dossier Cashew</button>
         </div>
         <div class="note" id="autoRcnStat" style="margin-top:0">Aucune synchronisation effectuée sur ce poste pour l'instant.</div>
       </div>
@@ -389,14 +392,19 @@ function syncRcn(){
   api('sync?job=rcnreports').then(function(r){
     b.removeAttribute('disabled'); b.textContent='Synchroniser maintenant';
     if(r && r.ok){
-      if(r.mails===0 && r.hint){
-        $('#autoRcnStat').innerHTML='<b>Aucun e-mail de l’expéditeur configuré trouvé.</b><br>'+
+      if(r.totalMails===0 && r.hint){
+        $('#autoRcnStat').innerHTML='<b>Aucun e-mail des expéditeurs configurés trouvé.</b><br>'+
           'Expéditeurs récents détectés dans votre boîte : <span style="color:var(--sprout)">'+r.hint+'</span><br>'+
           'Repérez l’adresse qui envoie les rapports et transmettez-la à Claude (capture d’écran).';
         toast('Aucun e-mail correspondant — voir le diagnostic sous la carte.');
       } else {
-        $('#autoRcnStat').textContent='Dernière synchro : '+r.saved+' nouveau(x) fichier(s), '+r.skipped+' déjà archivé(s) · '+r.mails+' e-mail(s) correspondant(s) analysé(s).';
-        toast(r.saved>0 ? r.saved+' nouveau(x) rapport(s) ajouté(s) à la base.' : 'Base à jour — aucun nouveau rapport.');
+        var total=0;
+        var lines=(r.feeds||[]).map(function(f){
+          total+=f.saved;
+          return '<b>'+f.label+'</b> : '+f.saved+' nouveau(x), '+f.skipped+' déjà archivé(s) ('+f.mails+' e-mail(s))';
+        });
+        $('#autoRcnStat').innerHTML='Dernière synchro — '+lines.join(' · ');
+        toast(total>0 ? total+' nouveau(x) rapport(s) ajouté(s) aux bases.' : 'Bases à jour — aucun nouveau rapport.');
       }
     } else {
       $('#autoRcnStat').textContent='Erreur : '+((r&&r.error)||'inconnue');
