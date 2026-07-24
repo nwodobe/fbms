@@ -389,8 +389,15 @@ function syncRcn(){
   api('sync?job=rcnreports').then(function(r){
     b.removeAttribute('disabled'); b.textContent='Synchroniser maintenant';
     if(r && r.ok){
-      $('#autoRcnStat').textContent='Dernière synchro : '+r.saved+' nouveau(x) fichier(s), '+r.skipped+' déjà archivé(s) · '+r.mails+' e-mail(s) correspondant(s) analysé(s).';
-      toast(r.saved>0 ? r.saved+' nouveau(x) rapport(s) ajouté(s) à la base.' : 'Base à jour — aucun nouveau rapport.');
+      if(r.mails===0 && r.hint){
+        $('#autoRcnStat').innerHTML='<b>Aucun e-mail de l’expéditeur configuré trouvé.</b><br>'+
+          'Expéditeurs récents détectés dans votre boîte : <span style="color:var(--sprout)">'+r.hint+'</span><br>'+
+          'Repérez l’adresse qui envoie les rapports et transmettez-la à Claude (capture d’écran).';
+        toast('Aucun e-mail correspondant — voir le diagnostic sous la carte.');
+      } else {
+        $('#autoRcnStat').textContent='Dernière synchro : '+r.saved+' nouveau(x) fichier(s), '+r.skipped+' déjà archivé(s) · '+r.mails+' e-mail(s) correspondant(s) analysé(s).';
+        toast(r.saved>0 ? r.saved+' nouveau(x) rapport(s) ajouté(s) à la base.' : 'Base à jour — aucun nouveau rapport.');
+      }
     } else {
       $('#autoRcnStat').textContent='Erreur : '+((r&&r.error)||'inconnue');
       toast('Erreur de synchronisation.');

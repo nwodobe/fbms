@@ -67,14 +67,25 @@ $ns = $outlook.GetNamespace('MAPI')
 $since = (Get-Date).AddDays(-$Days)
 $filter = "[ReceivedTime] >= '" + $since.ToString('MM/dd/yyyy hh:mm tt', [Globalization.CultureInfo]::InvariantCulture) + "'"
 
+# Boite de reception + tous ses sous-dossiers (regles de classement)
+function Get-MailFolders($root) {
+  $list = @($root)
+  try { foreach ($f in @($root.Folders)) { $list += Get-MailFolders $f } } catch {}
+  return $list
+}
+
 $saved = 0; $skipped = 0; $mails = 0
+$inboxes = @()
 
 foreach ($store in @($ns.Stores)) {
   $inbox = $null
   try { $inbox = $store.GetDefaultFolder(6) } catch { continue }   # 6 = boite de reception
   if (-not $inbox) { continue }
+  $inboxes += $inbox
 
-  $items = $inbox.Items.Restrict($filter)
+  foreach ($folder in (Get-MailFolders $inbox)) {
+  $items = $null
+  try { $items = $folder.Items.Restrict($filter) } catch { continue }
   foreach ($mail in @($items)) {
     if ($mail.Class -ne 43) { continue }                            # 43 = e-mail
     $smtp = Get-SmtpSender $mail
@@ -103,6 +114,30 @@ foreach ($store in @($ns.Stores)) {
         $mail.ReceivedTime.ToString('yyyy-MM-dd HH:mm') + ';' + $smtp + ';' + $subject + ';' + $name + ';' + $month)
     }
   }
+  }
 }
 
-[pscustomobject]@{ ok = $true; saved = $saved; skipped = $skipped; mails = $mails; target = $Target }
+# ---- Diagnostic : aucun e-mail correspondant ------------------------
+# On liste les expediteurs recents pour reperer la vraie adresse
+# d'envoi des rapports (affiche dans le tableau de bord).
+$hint = ''
+if ($mails -eq 0 -and $inboxes.Count -gt 0) {
+  $recent = "[ReceivedTime] >= '" + (Get-Date).AddDays(-30).ToString('MM/dd/yyyy hh:mm tt', [Globalization.CultureInfo]::InvariantCulture) + "'"
+  $counts = @{}
+  foreach ($inbox in $inboxes) {
+    $items = $null
+    try { $items = $inbox.Items.Restrict($recent); $items.Sort('[ReceivedTime]', $true) } catch { continue }
+    $n = 0
+    foreach ($mail in @($items)) {
+      if ($n -ge 300) { break }
+      if ($mail.Class -ne 43) { continue }
+      $n++
+      $s = (Get-SmtpSender $mail)
+      if ($s) { $s = $s.ToLowerInvariant(); if ($counts.ContainsKey($s)) { $counts[$s]++ } else { $counts[$s] = 1 } }
+    }
+  }
+  $top = $counts.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 8 | ForEach-Object { $_.Key }
+  if ($top) { $hint = ($top -join ' | ') }
+}
+
+[pscustomobject]@{ ok = $true; saved = $saved; skipped = $skipped; mails = $mails; target = $Target; hint = $hint }
