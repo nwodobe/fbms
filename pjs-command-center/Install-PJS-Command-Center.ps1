@@ -57,6 +57,11 @@ if (Test-Path (Join-Path $Src 'pjs.config.json')) {
 $BridgeDir = Join-Path $AppDir 'bridge'
 if (-not (Test-Path $BridgeDir)) { New-Item -ItemType Directory -Path $BridgeDir -Force | Out-Null }
 Copy-Item (Join-Path $Src 'bridge\PJS-Bridge.ps1') $BridgeDir -Force
+$AutoSrc = Join-Path $Src 'automations'
+if (Test-Path $AutoSrc) {
+  Copy-Item (Join-Path $AutoSrc '*.ps1') (Join-Path $Workspace '11 Automations') -Force
+  Get-ChildItem (Join-Path $Workspace '11 Automations') -File | Unblock-File -ErrorAction SilentlyContinue
+}
 Get-ChildItem $AppDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
 Write-Host "[2/3] Application installee : $AppDir"
 

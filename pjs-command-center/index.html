@@ -130,6 +130,7 @@ section.grp{margin-bottom:36px}
     <a href="#sec-metier"><span class="ico">▣</span> Applications métier</a>
     <a href="#sec-office"><span class="ico">▤</span> Bureautique</a>
     <a href="#sec-dev"><span class="ico">⌥</span> Développement</a>
+    <a href="#sec-auto"><span class="ico">⟳</span> Automatisations</a>
     <a href="#sec-dossiers"><span class="ico">▦</span> Espace PJS</a>
   </nav>
   <div class="side-foot">
@@ -162,6 +163,7 @@ section.grp{margin-bottom:36px}
       <span class="chip" onclick="fillCmd('Analyse les achats')">Analyse les achats</span>
       <span class="chip" onclick="fillCmd('Prépare le rapport de Bouaké')">Rapport de Bouaké</span>
       <span class="chip" onclick="fillCmd('Corrige RCN Trace')">Corrige RCN Trace</span>
+      <span class="chip" onclick="fillCmd('Synchronise les rapports warehouse')">Rapports warehouse</span>
       <span class="chip" onclick="fillCmd('Session IA')">Session IA</span>
       <span class="chip" onclick="fillCmd('Ouvre Outlook')">Ouvre Outlook</span>
     </div>
@@ -198,6 +200,24 @@ section.grp{margin-bottom:36px}
   <section class="grp" id="sec-dev">
     <div class="grouphead"><h2>Développement</h2><span class="sub">Code, versionnement, données</span></div>
     <div class="grid" id="grid-dev"></div>
+  </section>
+
+  <!-- Automatisations -->
+  <section class="grp" id="sec-auto">
+    <div class="grouphead"><h2>Automatisations</h2><span class="sub">Tâches exécutées localement · données classées dans C:\PJS</span></div>
+    <div class="grid">
+      <div class="card" style="grid-column:1/-1">
+        <div class="c-head"><span class="c-chip" style="background:#0A5531">SYN</span>
+        <span class="c-info"><b>Rapports RCN Warehouse</b>
+        <span class="d">Récupère les fichiers Excel des e-mails de <b>rcn.warehouse1@anagroci.com</b> (boîte Outlook de ce poste), les classe par mois dans « 13 Reports \ RCN Warehouse » et alimente l'index CSV — votre base de données exploitable. Lecture seule : aucun e-mail n'est modifié.</span></span></div>
+        <div class="c-actions">
+          <button class="btn primary" id="btnSyncRcn" onclick="syncRcn()">Synchroniser maintenant</button>
+          <button class="btn" onclick="syncRcnDaily()">Activer chaque jour (07:45)</button>
+          <button class="btn" onclick="openFolder('rcndb')">Ouvrir le dossier</button>
+        </div>
+        <div class="note" id="autoRcnStat" style="margin-top:0">Aucune synchronisation effectuée sur ce poste pour l'instant.</div>
+      </div>
+    </div>
   </section>
 
   <!-- Dossiers -->
@@ -361,11 +381,44 @@ function openFolder(key){
     .catch(function(){ toast('Impossible d\u2019ouvrir ce dossier.') });
 }
 
+/* ── Synchronisation des rapports RCN Warehouse ── */
+function syncRcn(){
+  if(!BRIDGE_OK){ toast('Disponible uniquement en mode bureau (raccourci PJS Command Center).'); return; }
+  var b=$('#btnSyncRcn'); b.setAttribute('disabled',''); b.textContent='Synchronisation…';
+  $('#autoRcnStat').textContent='Analyse de la boîte Outlook en cours (cela peut prendre une minute)…';
+  api('sync?job=rcnreports').then(function(r){
+    b.removeAttribute('disabled'); b.textContent='Synchroniser maintenant';
+    if(r && r.ok){
+      $('#autoRcnStat').textContent='Dernière synchro : '+r.saved+' nouveau(x) fichier(s), '+r.skipped+' déjà archivé(s) · '+r.mails+' e-mail(s) correspondant(s) analysé(s).';
+      toast(r.saved>0 ? r.saved+' nouveau(x) rapport(s) ajouté(s) à la base.' : 'Base à jour — aucun nouveau rapport.');
+    } else {
+      $('#autoRcnStat').textContent='Erreur : '+((r&&r.error)||'inconnue');
+      toast('Erreur de synchronisation.');
+    }
+  }).catch(function(){
+    b.removeAttribute('disabled'); b.textContent='Synchroniser maintenant';
+    $('#autoRcnStat').textContent='Erreur de communication avec le bridge.';
+    toast('Erreur de synchronisation.');
+  });
+}
+function syncRcnDaily(){
+  if(!BRIDGE_OK){ toast('Disponible uniquement en mode bureau.'); return; }
+  api('sync?job=rcnreports-daily').then(function(r){
+    if(r && r.ok){ toast('Synchronisation automatique activée : chaque jour à '+(r.time||'07:45')+'.'); }
+    else { toast('Erreur : '+((r&&r.error)||'inconnue')); }
+  }).catch(function(){ toast('Erreur de communication avec le bridge.') });
+}
+
 /* ── Assistant ──────────────────────────────────── */
 function fillCmd(t){ $('#cmd').value=t; runCommand(); }
 function runCommand(){
   var q=$('#cmd').value.trim();
   if(!q) return;
+  /* synchronisation des rapports warehouse */
+  if(/warehouse|synchronis/i.test(q)){
+    document.getElementById('sec-auto').scrollIntoView({behavior:'smooth'});
+    syncRcn(); return;
+  }
   /* « ouvre X » : correspondance directe avec une application */
   var m=q.match(/^ouvre[sz]?\s+(.+)$/i);
   if(m){

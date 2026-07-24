@@ -82,6 +82,13 @@ $Folders = [ordered]@{
   '07' = '07 RCN Trace';   '08' = '08 GitHub';        '09' = '09 Supabase'
   '10' = '10 Documents';   '11' = '11 Automations';   '12' = '12 Templates'
   '13' = '13 Reports';     '14' = '14 Archive';       '15' = '15 Secrets'
+  'rcndb' = '13 Reports\RCN Warehouse'
+}
+
+# Automatisations autorisees (cle -> script + parametres fixes)
+$Jobs = @{
+  'rcnreports'       = @{ Script = '11 Automations\Sync-RCN-Reports.ps1'; Daily = $false }
+  'rcnreports-daily' = @{ Script = '11 Automations\Sync-RCN-Reports.ps1'; Daily = $true }
 }
 
 function Resolve-App([string]$id) {
@@ -176,6 +183,25 @@ while ($running -and $listener.IsListening) {
           if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
           Start-Process explorer.exe $dir | Out-Null
           Send-Json $ctx @{ ok = $true; opened = $Folders[$key] }
+        }
+      }
+      '^/api/sync$' {
+        $job = [string]$q['job']
+        if (-not $Jobs.ContainsKey($job)) {
+          Send-Json $ctx @{ ok = $false; error = 'automatisation-inconnue' } 400
+        } else {
+          $script = Join-Path $Config.workspace $Jobs[$job].Script
+          if (-not (Test-Path $script)) {
+            Send-Json $ctx @{ ok = $false; error = 'script-introuvable' } 404
+          } else {
+            try {
+              if ($Jobs[$job].Daily) { $res = & $script -Workspace $Config.workspace -InstallDaily }
+              else { $res = & $script -Workspace $Config.workspace }
+              Send-Json $ctx $res
+            } catch {
+              Send-Json $ctx @{ ok = $false; error = ('sync: ' + $_.Exception.Message) } 500
+            }
+          }
         }
       }
       '^/api/shutdown$' {

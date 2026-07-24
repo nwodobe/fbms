@@ -61,6 +61,32 @@ arrière-plan et le tableau de bord s'ouvre en fenêtre application.
   cliquer une suggestion ; la séquence d'outils s'ouvre étape par étape.
 - **Espace PJS** : ouvre directement les dossiers de `C:\PJS`.
 
+## Automatisations
+
+### Rapports RCN Warehouse
+
+Le module **Automatisations** du tableau de bord récupère les fichiers Excel
+envoyés par `rcn.warehouse1@anagroci.com` dans la boîte Outlook du poste et
+construit une base de données locale :
+
+```
+C:\PJS\13 Reports\RCN Warehouse\
+  _index.csv          ← journal : date;expediteur;objet;fichier;mois
+  2026-07\            ← fichiers classés par mois de réception
+    20260722_0812_RAPPORT_WAREHOUSE.xlsx
+    ...
+```
+
+- **Synchroniser maintenant** : analyse la boîte de réception (tous les
+  comptes du profil Outlook, 120 derniers jours) et archive les nouveaux
+  fichiers ; les doublons sont ignorés.
+- **Activer chaque jour (07:45)** : crée une tâche planifiée Windows qui
+  exécute la synchronisation automatiquement.
+- **Lecture seule** : aucun e-mail n'est modifié, déplacé ni envoyé.
+
+Le script (`automations/Sync-RCN-Reports.ps1`, installé dans
+`C:\PJS\11 Automations`) accepte d'autres expéditeurs via `-Senders`.
+
 ## Configuration
 
 `pjs.config.json` (dans `C:\PJS\01 Dashboard\App`) :
