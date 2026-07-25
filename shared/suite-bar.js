@@ -33,7 +33,6 @@
     { code: 'ACH', nom: 'Achats Terrain',   url: 'terrain/achats.html',       desc: 'Saisie journalière RCN',           acces: ['bm', 'chef', 'agent'] },
     { code: 'CFA', nom: 'Caisse & Avances', url: 'terrain/cash.html',         desc: 'Cash control RT',                  acces: ['bm', 'chef'] },
     { code: 'SAC', nom: 'Stock & Sacs',     url: 'terrain/sacs.html',         desc: 'Traçabilité des sacs',             acces: ['bm', 'chef', 'agent'] },
-    { code: 'EQT', nom: 'Équipes Terrain',  url: 'terrain/equipes.html',      desc: 'Missions, enrôlement, formation',  acces: ['bm', 'chef', 'agent', 'direction'] },
     { code: 'REF', nom: 'FBMS Référentiel', url: 'fbms/index.html',           desc: 'Zones, villages, RT, producteurs', acces: ['bm', 'chef', 'agent'] },
     { code: 'HUB', nom: 'Hubs / Clusters',  url: 'fbms/fbms_hubs.html',       desc: 'GPS hubs & distances usine',       acces: ['bm', 'chef', 'agent', 'direction'] },
     { code: 'MAP', nom: 'Cartographie',     url: 'fbms/fbms_carte.html',      desc: 'Carte interactive terrain',        acces: ['bm', 'chef', 'agent', 'direction'] },
