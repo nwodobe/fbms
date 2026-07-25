@@ -26,7 +26,7 @@
     }
   }
   function estBM(role) { return role === "Branch Manager"; }
-  var ACCESS = { portail:["bm","chef","agent","direction"], fbms:["bm","chef","agent"], achats:["bm","chef","agent"], cash:["bm","chef"], sacs:["bm","chef","agent"], command:["bm","direction"], hubs:["bm","chef","agent","direction"], carte:["bm","chef","agent","direction"], audit:["bm","chef"], logistique:["bm","chef"], rcntrace:["bm","chef","agent","direction"], admin:["bm"] };
+  var ACCESS = { portail:["bm","chef","agent","direction"], fbms:["bm","chef","agent"], achats:["bm","chef","agent"], cash:["bm","chef"], sacs:["bm","chef","agent"], equipes:["bm","chef","agent","direction"], command:["bm","direction"], hubs:["bm","chef","agent","direction"], carte:["bm","chef","agent","direction"], audit:["bm","chef"], logistique:["bm","chef"], rcntrace:["bm","chef","agent","direction"], admin:["bm"] };
 
   var overlay = document.createElement("div");
   overlay.id = "anagroci-authgate";
