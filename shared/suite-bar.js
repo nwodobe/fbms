@@ -38,7 +38,8 @@
     { code: 'MAP', nom: 'Cartographie',     url: 'fbms/fbms_carte.html',      desc: 'Carte interactive terrain',        acces: ['bm', 'chef', 'agent', 'direction'] },
     { code: 'AUD', nom: 'Audit Distances',  url: 'fbms/audit_distances.html', desc: 'Validation distances routières',   acces: ['bm', 'chef'] },
     { code: 'LOG', nom: 'ALIS Logistique',  url: 'logistique/alis_fbms.html', desc: 'Coût rendu usine',                 acces: ['bm', 'chef'] },
-    { code: 'RCN', nom: 'RCN TRACE',        url: 'rcntrace/index.html',       desc: 'Traçabilité & bilan matière',      acces: ['bm', 'chef', 'agent', 'direction'] }
+    { code: 'RCN', nom: 'RCN TRACE',        url: 'rcntrace/index.html',       desc: 'Traçabilité & bilan matière',      acces: ['bm', 'chef', 'agent', 'direction'] },
+    { code: 'SUI', nom: 'Suivi Terrain',    url: 'terrain/suivi.html',        desc: 'Trajets équipes en direct',        acces: ['bm', 'chef', 'agent', 'direction'] }
   ];
 
   /* ---- Niveau courant --------------------------------------------------
