@@ -81,9 +81,23 @@
     } catch (e) { /* ignorer */ }
   }
 
+  // Correctif Audit Distances : sauvegarde GPS hub avec id_hub au lieu de id.
+  function loadAuditDistancesFix(){
+    try {
+      if (!/\/fbms\/audit_distances\.html$/.test(location.pathname)) return;
+      if (document.getElementById("audit-distances-fix-script")) return;
+      var s = document.createElement("script");
+      s.id = "audit-distances-fix-script";
+      s.defer = true;
+      s.src = "../shared/audit-distances-fix.js?v=20260730-id-hub";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
     loadALISHardening();
+    loadAuditDistancesFix();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadRuntimeHardening);
