@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+
+    /* Marque du tenant · surchargée à l'exécution par BrandingProvider.
+       Deux couleurs, deux couleurs de texte calculées. Rien d'autre. */
+    --brand-primary: #1f6f43;
+    --brand-primary-foreground: #ffffff;
+    --brand-secondary: #b45309;
+    --brand-secondary-foreground: #ffffff;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Cibles tactiles : les pisteurs saisissent debout, sur un téléphone, parfois
+     sous la pluie. Une cible de 44 px n'est pas une coquetterie. */
+  @media (pointer: coarse) {
+    button,
+    [role='button'],
+    a.btn,
+    input,
+    select {
+      min-height: 44px;
+    }
+  }
+}
+
+@layer utilities {
+  .bg-brand {
+    background-color: var(--brand-primary);
+    color: var(--brand-primary-foreground);
+  }
+  .text-brand {
+    color: var(--brand-primary);
+  }
+  .border-brand {
+    border-color: var(--brand-primary);
+  }
+  .bg-brand-secondary {
+    background-color: var(--brand-secondary);
+    color: var(--brand-secondary-foreground);
+  }
+}

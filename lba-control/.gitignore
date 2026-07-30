@@ -1,0 +1,26 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+*.local
+
+# Secrets — jamais versionnés
+.env
+.env.*
+!.env.example
+
+# Tests
+playwright-report/
+test-results/
+blob-report/
+
+# Données locales
+/var/tmp/
+pgdata/
+*.log
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

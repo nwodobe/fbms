@@ -1,0 +1,1 @@
+{"root":["./vite.config.ts","./vitest.config.ts","./vitest.db.config.ts","./playwright.config.ts","./tests/setup.ts","./tests/db/business-rules.test.ts","./tests/db/fixtures.ts","./tests/db/helpers.ts","./tests/db/rls.test.ts","./tests/unit/no-secrets.test.ts"],"version":"5.9.3"}
