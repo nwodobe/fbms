@@ -89,7 +89,7 @@
       var s = document.createElement("script");
       s.id = "audit-distances-fix-script";
       s.defer = true;
-      s.src = "../shared/audit-distances-fix.js?v=20260730-id-hub";
+      s.src = "../shared/audit-distances-fix.js?v=20260730-audit-supabase-global";
       document.head.appendChild(s);
     } catch (e) { /* ignorer */ }
   }

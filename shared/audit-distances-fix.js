@@ -22,10 +22,10 @@
   }
 
   async function resolveHubByName(hubName){
-    if(!window.SB) throw new Error('Connexion Supabase indisponible sur cette page.');
+    if(!window.ANAGROCI_AUDIT_SUPABASE) throw new Error('Connexion Supabase indisponible sur cette page.');
     var name = String(hubName||'').trim();
     if(!name) throw new Error('Aucun hub sélectionné.');
-    var res = await window.SB
+    var res = await window.ANAGROCI_AUDIT_SUPABASE
       .from('hubs_clusters')
       .select('id_hub,nom,gps_lat,gps_lng')
       .eq('deleted', false)
@@ -49,7 +49,7 @@
         show('Recherche du hub et enregistrement GPS en cours...', true);
         var hub = await resolveHubByName(hubName);
         var idHub = hub.id_hub;
-        var res = await window.SB
+        var res = await window.ANAGROCI_AUDIT_SUPABASE
           .from('hubs_clusters')
           .update({ gps_lat: la, gps_lng: ln, updated_at: new Date().toISOString() })
           .eq('id_hub', idHub)
