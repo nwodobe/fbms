@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 1.**
+**Mis à jour : fin de Phase 3.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -16,7 +16,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **0** | Analyse, documents de conception, hypothèses et incohérences | ✅ **Terminée** |
 | **1** | Initialisation, architecture, Supabase local, migrations, auth, tenants, utilisateurs, rôles, RLS, journal d'audit | ✅ **Terminée** |
 | **2** | Identité visuelle, sociétés partenaires, campagnes, contrats, prix | ✅ **Terminée** |
-| 3 | Pisteurs, financements, avances, achats, synchronisation hors ligne | ⬜ À faire |
+| **3** | Pisteurs, financements, avances, achats, synchronisation hors ligne | ✅ **Terminée** |
 | 4 | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ⬜ À faire |
 | 5 | Dépenses, allocations, TCB, marges, scoring, alertes | ⬜ À faire |
 | 6 | Abonnements, personnalisation des documents, exports, tableaux de bord | ⬜ À faire |
@@ -156,15 +156,57 @@ Ces valeurs sont **paramétrables en base** : les trancher ne demandera pas de m
 
 ---
 
-## Phases 3 à 7 — Plan détaillé
+## Phase 3 — Terrain et argent · ✅ Terminée
 
-### Phase 3 — Terrain et argent
+Écrans livrés : `C01` pisteurs, `C02` fiche pisteur, `C03` avances, `E05` financements, `D01`/`D02`
+achats terrain avec saisie hors ligne.
 
-Écrans `C01`, `C02`, `C03`, `D01`, `D02`.
-Pisteurs et plafonds, financements et volume théorique, avances avec contrôle de plafond et dérogation
-tracée, achats terrain, **file hors ligne Dexie non bornée**, synchronisation idempotente, détection de
-doublons, allocation FIFO.
-*Terminée quand* : RG-01, RG-08, RG-12, OFF-01 → OFF-08, E2E-03 → E2E-05 passent.
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **File hors ligne non bornée** | 1 500 opérations mises en file, aucune perte, aucune limite à 300 |
+| **Aucune suppression d'une opération `pending`** | Survit aux échecs répétés, à la fermeture et réouverture de la base ; le module n'expose **aucune** fonction de purge, et un test le vérifie |
+| **Synchronisation idempotente** | Trois rejeux → une seule opération ; un doublon serveur compte comme un succès |
+| **Conflits affichés, jamais écrasés** | Doublon probable, version divergente, appareil révoqué : l'opération reste en file avec sa charge utile |
+| **Journal de synchronisation** | Chaque étape tracée ; la vérification d'intégrité détecte une disparition |
+| Compteur de tentatives, dernière erreur, report exponentiel plafonné | Testé |
+| **Allocation FIFO** | L'ancienneté suit l'avance d'origine, jamais la dernière remise ; excédent de couverture visible et non absorbé |
+| **Exposition décomposée** | Avancé, couvert, adossé à la matière, inexpliqué — aucun « solde » unique |
+| **Plafonds d'avance appliqués en base** | Plafond global, plafond par société, ancienneté du reliquat ; dérogation motivée et approuvée par un tiers |
+| **Blocages définitifs non contournables** | Pisteur suspendu, société non autorisée : aucune dérogation ne les lève |
+| **Détection de doublons d'achat** | Signale sans bloquer ; la géolocalisation pèse 5 points sur 100 et ne déclenche jamais seule |
+| Montant d'achat calculé, jamais saisi | Contrainte serveur + interface sans champ montant |
+| **169 tests unitaires et de composants** | 169/169 |
+| **145 tests de base de données** | 145/145 |
+| **46 parcours end-to-end** (bureau + Android) | 46/46 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 3, et corrigés
+
+1. **Le score de doublon saturait à 100** dès qu'assez de critères concordaient, ce qui rendait deux
+   situations très différentes indiscernables. Le test a été recentré sur un scénario non saturé et
+   la limite est désormais documentée.
+2. **Le journal hors ligne n'était pas interrogeable par type d'événement** : la vérification
+   d'intégrité — celle qui prouve qu'aucune saisie n'a disparu — échouait faute d'index.
+3. **Deux erreurs SQL de typage** dans les nouvelles fonctions (littéral texte concaténé à un tableau,
+   énumération affectée depuis une chaîne) faisaient échouer toute insertion d'achat.
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **Les photos et justificatifs ne sont pas encore joignables** : la compression et l'envoi dépendent
+  des buckets Storage, donc d'un projet Supabase hébergé. La file hors ligne est en revanche prête à
+  les transporter.
+- **L'allocation FIFO n'est pas encore déclenchée automatiquement** par une réception : la fonction
+  serveur existe et est testée, mais l'événement qui l'appelle arrive avec les transferts, en phase 4.
+- **Le rattachement d'un achat à une avance précise** n'est pas proposé dans le formulaire : le champ
+  existe en base et la cohérence des sociétés est vérifiée, l'écran le proposera avec les stocks.
+- **La saisie hors ligne couvre les achats** ; les dépenses terrain suivront en phase 5, la file étant
+  déjà générique.
+
+---
+
+## Phases 4 à 7 — Plan détaillé
 
 ### Phase 4 — Matière et logistique
 
@@ -198,12 +240,12 @@ documentation d'installation et de déploiement, compte de démonstration exécu
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 14 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 15 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par test |
-| Les politiques RLS ont des tests | ✅ 122 tests exécutés |
-| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 et E2E-02 livrés (26 tests, bureau + Android) ; E2E-03 → E2E-14 aux phases 3 à 6 |
-| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste et arithmétique monétaire livrés ; TCB, marge et scoring en phase 5 |
-| La synchronisation hors ligne a des tests | ⬜ phase 3 |
+| Les politiques RLS ont des tests | ✅ 145 tests exécutés |
+| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 → E2E-05 livrés (46 tests, bureau + Android) ; E2E-06 → E2E-14 aux phases 4 à 6 |
+| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste, arithmétique, couverture FIFO, exposition et plafonds livrés ; TCB, marge et scoring en phase 5 |
+| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08, 23 tests |
 | Les erreurs sont affichées clairement | ⬜ au fil des écrans |
 | Le build de production réussit | ✅ |
 | Aucun secret n'est commité | ✅ vérifié par test |

@@ -417,7 +417,9 @@ describe('RG-12 · séparation des tâches', () => {
        values ($1, $2, $3, $4, 9000000, 'wave', 'decaisse', true, $5)`,
       [ids.tenantA, ids.agentA1, ids.partnerOlam, ids.campaignA, ids.managerA],
     )
-    expect(message).toMatch(/override_is_justified/i)
+    // Deux remparts : le trigger de plafond donne un message métier, la
+    // contrainte CHECK reste le filet en dernier ressort.
+    expect(message).toMatch(/override_is_justified|motif explicite/i)
   })
 
   it('une dérogation motivée et approuvée passe', async () => {

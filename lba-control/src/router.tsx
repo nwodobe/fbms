@@ -1,7 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
 import { PhasePlaceholder } from '@/components/shared/PhasePlaceholder'
+import { AdvancesPage } from '@/features/advances/AdvancesPage'
+import { AgentDetailPage } from '@/features/agents/AgentDetailPage'
+import { AgentsPage } from '@/features/agents/AgentsPage'
 import { ContractsPage } from '@/features/contracts/ContractsPage'
+import { FundingPage } from '@/features/funding/FundingPage'
+import { PurchasesPage } from '@/features/purchases/PurchasesPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { PartnerDetailPage } from '@/features/partners/PartnerDetailPage'
@@ -32,46 +37,6 @@ const PLANNED = [
     phase: 5,
     summary: 'Alertes filtrées par gravité, société, pisteur et échéance.',
     delivers: ['Les 20 règles d’alerte à seuils configurables', 'Acquittement et résolution tracés'],
-  },
-  {
-    path: 'financements',
-    title: 'Financements reçus',
-    phase: 3,
-    summary: 'Tracer l’argent reçu par société et le volume théorique associé.',
-    delivers: [
-      'Montant, référence, moyen de paiement, justificatif',
-      'Volume théorique financé (indicatif)',
-      'Interdiction de couvrir une société par une autre',
-    ],
-  },
-  {
-    path: 'pisteurs',
-    title: 'Pisteurs',
-    phase: 3,
-    summary: 'Situation opérationnelle et financière de chaque pisteur.',
-    delivers: ['Plafonds global et par société', 'Exposition, ancienneté des fonds', 'Score explicable'],
-  },
-  {
-    path: 'avances',
-    title: 'Avances aux pisteurs',
-    phase: 3,
-    summary: 'Remettre des fonds sans perdre leur origine ni leur ancienneté.',
-    delivers: [
-      'Contrôle du plafond et des avances anciennes non couvertes',
-      'Dérogation motivée et approuvée en cas de dépassement',
-      'Vieillissement FIFO du reliquat',
-    ],
-  },
-  {
-    path: 'achats',
-    title: 'Achats terrain',
-    phase: 3,
-    summary: 'Transformer une avance en stock traçable, y compris hors connexion.',
-    delivers: [
-      'Saisie hors ligne avec identifiant généré sur l’appareil',
-      'Détection des doublons probables',
-      'Contrôle du prix maximal autorisé',
-    ],
   },
   {
     path: 'sacs',
@@ -204,6 +169,13 @@ export function AppRouter() {
         <Route path="societes" element={<PartnersPage />} />
         <Route path="societes/:partnerId" element={<PartnerDetailPage />} />
         <Route path="contrats" element={<ContractsPage />} />
+
+        {/* Écrans livrés en phase 3 */}
+        <Route path="financements" element={<FundingPage />} />
+        <Route path="pisteurs" element={<AgentsPage />} />
+        <Route path="pisteurs/:agentId" element={<AgentDetailPage />} />
+        <Route path="avances" element={<AdvancesPage />} />
+        <Route path="achats" element={<PurchasesPage />} />
 
         {PLANNED.map((screen) => (
           <Route

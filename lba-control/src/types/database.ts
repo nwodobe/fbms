@@ -185,6 +185,137 @@ export type NegotiatedPriceRow = {
   created_at: string
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3 · terrain, financements, avances, achats
+// ---------------------------------------------------------------------------
+
+export type AgentStatus = 'actif' | 'suspendu' | 'cloture'
+export type AdvanceStatus =
+  | 'brouillon' | 'soumis' | 'approuve' | 'decaisse'
+  | 'partiellement_couvert' | 'cloture' | 'annule'
+export type PurchaseStatus = 'brouillon' | 'valide' | 'paye' | 'annule'
+export type SyncStatusEnum = 'pending' | 'syncing' | 'synced' | 'failed'
+
+export type FieldAgentRow = {
+  id: string
+  tenant_id: string
+  user_id: string | null
+  code: string
+  full_name: string
+  phone: string | null
+  zone_id: string | null
+  mobile_money_account: string | null
+  ceiling_amount: number
+  activation_date: string | null
+  status: AgentStatus
+  commission_mode: 'par_kg' | 'pourcentage' | 'forfait' | 'aucune'
+  commission_value: number
+}
+
+export type FundingRow = {
+  id: string
+  tenant_id: string
+  partner_company_id: string
+  contract_id: string | null
+  campaign_id: string
+  amount: number
+  received_at: string
+  reference: string | null
+  payment_method: string
+  reference_price: number | null
+  /** Colonne générée : montant ÷ prix de référence. Non modifiable. */
+  theoretical_volume_kg: number | null
+  coverage_deadline: string | null
+  status: string
+}
+
+export type AdvanceRow = {
+  id: string
+  tenant_id: string
+  field_agent_id: string
+  partner_company_id: string
+  funding_id: string | null
+  campaign_id: string
+  amount: number
+  issued_at: string
+  payment_method: string
+  reference: string | null
+  volume_target_kg: number | null
+  max_purchase_price: number | null
+  justification_deadline: string | null
+  status: AdvanceStatus
+  requires_override: boolean
+  override_reason: string | null
+  override_approved_by: string | null
+  override_approved_at: string | null
+  created_by: string | null
+}
+
+export type PurchaseRow = {
+  id: string
+  tenant_id: string
+  field_agent_id: string
+  partner_company_id: string | null
+  campaign_id: string
+  contract_id: string | null
+  advance_id: string | null
+  supplier_id: string | null
+  supplier_name: string | null
+  village: string | null
+  purchased_at: string
+  net_weight_kg: number
+  price_per_kg: number
+  amount: number
+  bag_count: number | null
+  payment_method: string
+  payment_reference: string | null
+  status: PurchaseStatus
+  sync_status: SyncStatusEnum
+  device_id: string | null
+  created_at_device: string | null
+  is_own_account: boolean
+  gps_lat: number | null
+  gps_lng: number | null
+}
+
+export type PurchaseDuplicateFlagRow = {
+  id: string
+  tenant_id: string
+  purchase_id: string
+  candidate_id: string
+  similarity_score: number
+  matched_criteria: string[]
+  status: 'a_verifier' | 'confirme' | 'ecarte'
+}
+
+export type ExpenseRow = {
+  id: string
+  tenant_id: string
+  category_id: string
+  campaign_id: string
+  expense_date: string
+  amount: number
+  beneficiary: string
+  payment_method: string
+  status: string
+  sync_status: SyncStatusEnum
+}
+
+export type AgentExposureResult = {
+  advanced: number
+  covered: number
+  exposure: number
+  oldest_outstanding_age_days: number
+}
+
+export type AdvanceCapacityResult = {
+  issues: Array<{ reason: string; severity: string; message: string; measured?: number; threshold?: number }>
+  can_proceed: boolean
+  requires_override: boolean
+  has_hard_block: boolean
+  exposure: AgentExposureResult
+}
+
 /**
  * Forme attendue par supabase-js pour une table.
  *
@@ -212,6 +343,12 @@ export interface Database {
       products: Writable<ProductRow>
       contracts: Writable<ContractRow>
       negotiated_prices: Writable<NegotiatedPriceRow>
+      field_agents: Writable<FieldAgentRow>
+      fundings: Writable<FundingRow>
+      advances: Writable<AdvanceRow>
+      purchases: Writable<PurchaseRow>
+      purchase_duplicate_flags: Writable<PurchaseDuplicateFlagRow>
+      expenses: Writable<ExpenseRow>
     }
     Views: Record<string, never>
     Functions: {
@@ -230,6 +367,16 @@ export interface Database {
           p_proof_path?: string | null
         }
         Returns: NegotiatedPriceRow
+      }
+      /** Exposition d'un pisteur, chaque état restant séparé. */
+      agent_exposure: {
+        Args: { p_agent_id: string; p_partner_id?: string | null }
+        Returns: AgentExposureResult
+      }
+      /** Contrôle de capacité avant décaissement d'une avance. */
+      check_advance_capacity: {
+        Args: { p_agent_id: string; p_partner_id: string; p_amount: number }
+        Returns: AdvanceCapacityResult
       }
     }
     Enums: {

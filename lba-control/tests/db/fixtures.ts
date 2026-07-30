@@ -241,6 +241,18 @@ export async function seedFixtures(): Promise<void> {
               ($2, $3, $5, 'PIS-002', 'Pisteur A2', $6, 3000000, 'actif')`,
       [ids.agentA1, ids.agentA2, ids.tenantA, ids.agentUserA1, ids.agentUserA2, ids.zoneA])
 
+    // Autorisations par société : sans elles, le contrôle de capacité oppose un
+    // blocage « société non autorisée » à toute avance.
+    await c.query(
+      `insert into field_agent_partners (tenant_id, field_agent_id, partner_company_id, ceiling_amount)
+       -- Le plafond OLAM du pisteur A1 vaut exactement son avance en cours :
+       -- la fixture est ainsi à la limite, ce qui rend les tests de dépassement
+       -- significatifs sans être bloquée dès l'amorçage.
+       values ($1, $2, $4, 5000000), ($1, $2, $5, 3000000),
+              ($1, $3, $4, 2000000), ($1, $3, $5, 2000000)`,
+      [ids.tenantA, ids.agentA1, ids.agentA2, ids.partnerOlam, ids.partnerDorado],
+    )
+
     // ---- Financements et avances -----------------------------------------
     await c.query(
       `insert into fundings

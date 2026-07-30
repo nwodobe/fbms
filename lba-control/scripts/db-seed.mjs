@@ -275,14 +275,24 @@ const ADVANCES = []
 for (let i = 0; i < 8; i++) {
   const agent = AGENTS[i % AGENTS.length]
   const funding = FUNDINGS[i % FUNDINGS.length]
-  const amount = between(1_500_000, 5_000_000)
+  // Chaque pisteur reçoit deux avances : elles doivent tenir sous son plafond,
+  // sinon le contrôle de capacité serveur refuse le décaissement — ce qui est
+  // exactement son rôle.
+  const amount = between(500_000, Math.floor(agent.ceiling * 0.45))
   const daysAgo = 5 + i * 4
   const id = uuid('advc', i + 1)
   ADVANCES.push({ id, agent, funding, amount, daysAgo })
 
+  // La deuxième avance d'un pisteur intervient alors que la première est encore
+  // non couverte et dépasse le délai de justification : le contrôle serveur la
+  // bloque, et c'est son rôle. Le jeu de démonstration passe donc par une
+  // dérogation motivée et approuvée par un tiers — exactement le parcours réel.
+  const needsOverride = i >= AGENTS.length
+
   add(`insert into advances (id, tenant_id, field_agent_id, partner_company_id, funding_id, contract_id,
                              campaign_id, amount, issued_at, payment_method, reference, zone_id,
                              volume_target_kg, max_purchase_price, justification_deadline, status,
+                             requires_override, override_reason, override_approved_by, override_approved_at,
                              created_by, approved_by, approved_at, disbursed_at)
        values (${q(id)}, ${q(TENANT)}, ${q(agent.id)}, ${q(funding.partner)}, ${q(funding.id)},
                ${q(funding.contract)}, ${q(CAMPAIGN)}, ${amount},
@@ -290,6 +300,10 @@ for (let i = 0; i < 8; i++) {
                ${q(`AV-${String(i + 1).padStart(3, '0')}`)}, ${q(ZONE)},
                ${Math.round(amount / 435)}, 435, current_date + ${7 - Math.min(i, 7)},
                ${q(i < 3 ? 'partiellement_couvert' : 'decaisse')},
+               ${needsOverride},
+               ${needsOverride ? q("Dérogation accordée : campagne en cours, reliquat justifié par le stock détenu (démo)") : 'null'},
+               ${needsOverride ? q(OWNER) : 'null'},
+               ${needsOverride ? 'now()' : 'null'},
                ${q(MANAGER)}, ${q(OWNER)}, now() - interval '${daysAgo} days',
                now() - interval '${daysAgo} days')
        on conflict do nothing;`)
