@@ -15,7 +15,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | --- | --- | --- |
 | **0** | Analyse, documents de conception, hypothèses et incohérences | ✅ **Terminée** |
 | **1** | Initialisation, architecture, Supabase local, migrations, auth, tenants, utilisateurs, rôles, RLS, journal d'audit | ✅ **Terminée** |
-| 2 | Identité visuelle, sociétés partenaires, campagnes, contrats, prix | ⬜ À faire |
+| **2** | Identité visuelle, sociétés partenaires, campagnes, contrats, prix | ✅ **Terminée** |
 | 3 | Pisteurs, financements, avances, achats, synchronisation hors ligne | ⬜ À faire |
 | 4 | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ⬜ À faire |
 | 5 | Dépenses, allocations, TCB, marges, scoring, alertes | ⬜ À faire |
@@ -108,14 +108,55 @@ Ces valeurs sont **paramétrables en base** : les trancher ne demandera pas de m
 
 ---
 
-## Phases 2 à 7 — Plan détaillé
+## Phase 2 — Identité visuelle et référentiel commercial · ✅ Terminée
 
-### Phase 2 — Identité visuelle et référentiel commercial
+Écrans livrés : `H01` marque, `B01` sociétés partenaires, `B02` fiche société, `B03` contrats et prix.
 
-Écrans `H01`, `B01`, `B02`, `B03`, `A01`.
-Marque du tenant (deux couleurs, contraste WCAG vérifié au serveur), sociétés partenaires, campagnes,
-contrats, prix négociés versionnés et non écrasables, instantané de prix sur les opérations.
-*Terminée quand* : RG-06, RG-07, E2E-01, E2E-02 et le test de contraste passent.
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| Marque du tenant : nom, slogan, deux couleurs, coordonnées, pied de page | 7 tests de composant |
+| **Contraste vérifié côté client ET côté serveur** | Migration 1400 : WCAG implémenté en SQL, concordance avec TypeScript vérifiée par test (21.00, 6.15, distances 221 et 2) |
+| Prévisualisation et retour au thème standard | Testé |
+| Sociétés partenaires : liste, création, suspension, fiche | 6 tests de composant + 8 parcours E2E |
+| Contrats : création, activation contrôlée, tolérances en cascade | E2E |
+| **Prix versionnés, jamais écrasés** | `app.revise_price` : clôt la version en cours, en crée une nouvelle, journalise |
+| Refus des révisions rétroactives | Testé dans les deux cas (avant la version en cours, et avant toutes les versions) |
+| Activation d'un contrat sans prix refusée | Testé |
+| **26 parcours end-to-end** (bureau + Android) dans un vrai navigateur | 26/26 |
+| **95 tests unitaires et de composants** | 95/95 |
+| **122 tests de base de données** | 122/122 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 2, et corrigés
+
+1. **Le client Supabase était typé `never` en écriture.** Les lignes étaient déclarées avec
+   `interface` ; or une interface n'a pas de signature d'index implicite et échoue la contrainte
+   `Record<string, unknown>` de postgrest-js, qui retombe silencieusement sur `never`. Toutes les
+   écritures étaient donc impossibles à compiler, avec un message qui ne désignait pas la cause.
+   Corrigé et documenté dans `src/types/database.ts` pour éviter la régression.
+2. **La liste des sociétés tombait** dès qu'une ligne arrivait sans statut connu. Repli explicite
+   ajouté : une valeur inattendue s'affiche telle quelle au lieu de casser l'écran.
+3. **Une révision de prix antérieure à toutes les versions existantes** passait le garde-fou et
+   échouait sur une contrainte d'exclusion brute, illisible pour l'utilisateur. Deuxième contrôle
+   ajouté, avec un message explicite.
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **Les logos ne sont pas encore téléversables** : les champs existent en base et le thème les
+  consomme, mais l'envoi de fichier dépend des buckets Storage, donc d'un projet Supabase hébergé.
+  Le nom, le slogan et les deux couleurs sont eux pleinement opérationnels.
+- **Les parcours E2E s'exécutent contre un Supabase simulé** par interception réseau. C'est un choix
+  assumé et documenté dans `e2e/support/session.ts` : ils vérifient l'interface réelle dans un vrai
+  navigateur, pas les règles serveur — celles-ci sont couvertes par les 122 tests exécutés contre un
+  vrai PostgreSQL. Aucune des deux suites ne remplace l'autre.
+- **La gestion des campagnes n'a pas d'écran dédié** : les campagnes sont sélectionnables dans le
+  formulaire de contrat et l'API de création existe, mais l'écran de gestion reste à faire.
+
+---
+
+## Phases 3 à 7 — Plan détaillé
 
 ### Phase 3 — Terrain et argent
 
@@ -157,11 +198,11 @@ documentation d'installation et de déploiement, compte de démonstration exécu
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 13 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 14 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par test |
-| Les politiques RLS ont des tests | ✅ suite dédiée exécutée |
-| Les parcours P0 ont des tests Playwright | ⬜ phases 3 à 6 |
-| Les calculs financiers ont des tests unitaires | ⬜ phase 5 |
+| Les politiques RLS ont des tests | ✅ 122 tests exécutés |
+| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 et E2E-02 livrés (26 tests, bureau + Android) ; E2E-03 → E2E-14 aux phases 3 à 6 |
+| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste et arithmétique monétaire livrés ; TCB, marge et scoring en phase 5 |
 | La synchronisation hors ligne a des tests | ⬜ phase 3 |
 | Les erreurs sont affichées clairement | ⬜ au fil des écrans |
 | Le build de production réussit | ✅ |

@@ -1,8 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
 import { PhasePlaceholder } from '@/components/shared/PhasePlaceholder'
+import { ContractsPage } from '@/features/contracts/ContractsPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { PartnerDetailPage } from '@/features/partners/PartnerDetailPage'
+import { PartnersPage } from '@/features/partners/PartnersPage'
+import { BrandingPage } from '@/features/settings/BrandingPage'
 import { useSession } from '@/lib/auth/session'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -28,24 +32,6 @@ const PLANNED = [
     phase: 5,
     summary: 'Alertes filtrées par gravité, société, pisteur et échéance.',
     delivers: ['Les 20 règles d’alerte à seuils configurables', 'Acquittement et résolution tracés'],
-  },
-  {
-    path: 'societes',
-    title: 'Sociétés partenaires',
-    phase: 2,
-    summary: 'Gérer plusieurs sociétés sans mélange de données.',
-    delivers: ['Identité et contacts', 'Tolérances par société', 'Désactivation sans perte de données'],
-  },
-  {
-    path: 'contrats',
-    title: 'Contrats et prix négociés',
-    phase: 2,
-    summary: 'Conserver les conditions applicables à chaque période.',
-    delivers: [
-      'Volume, période, KOR minimum, humidité maximale, tolérances',
-      'Historique des prix : une révision crée une version, elle n’écrase jamais',
-      'Instantané du prix appliqué sur chaque opération',
-    ],
   },
   {
     path: 'financements',
@@ -175,17 +161,6 @@ const PLANNED = [
     delivers: ['Sept rôles attribuables', 'Révocation d’appareil', 'Séparation des tâches'],
   },
   {
-    path: 'marque',
-    title: 'Marque de l’entreprise',
-    phase: 2,
-    summary: 'Personnalisation encadrée : nom, logos et deux couleurs.',
-    delivers: [
-      'Contraste WCAG vérifié au serveur : une couleur illisible est refusée avec sa mesure',
-      'Application aux écrans, PDF, bons et exports',
-      'Retour au thème standard',
-    ],
-  },
-  {
     path: 'abonnement',
     title: 'Abonnement',
     phase: 6,
@@ -223,6 +198,13 @@ export function AppRouter() {
         }
       >
         <Route index element={<DashboardPage />} />
+
+        {/* Écrans livrés en phase 2 */}
+        <Route path="marque" element={<BrandingPage />} />
+        <Route path="societes" element={<PartnersPage />} />
+        <Route path="societes/:partnerId" element={<PartnerDetailPage />} />
+        <Route path="contrats" element={<ContractsPage />} />
+
         {PLANNED.map((screen) => (
           <Route
             key={screen.path}

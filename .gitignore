@@ -1,0 +1,3 @@
+
+# Dépendances (le projet LBA Control a son propre .gitignore)
+node_modules/

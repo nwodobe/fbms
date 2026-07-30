@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    /* Les tests de composants sont en TSX ; ceux de base de données utilisent
+       les API Node. Ce projet couvre les deux. */
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] },
+    /* `vite/client` est nécessaire : les tests importent des modules de src/ qui
+       lisent import.meta.env. */
+    "types": ["node", "vitest/globals", "vite/client"]
+  },
+  "include": ["tests", "e2e"]
+}

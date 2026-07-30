@@ -1,4 +1,16 @@
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
+
+/**
+ * Chromium préinstallé.
+ *
+ * L'environnement d'exécution fournit une version de Chromium qui ne correspond
+ * pas forcément à celle attendue par la version de @playwright/test installée.
+ * Plutôt que de retélécharger un navigateur à chaque exécution, on pointe sur
+ * le binaire présent quand il existe, et on laisse Playwright choisir sinon.
+ */
+const PREINSTALLED_CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const executablePath = existsSync(PREINSTALLED_CHROMIUM) ? PREINSTALLED_CHROMIUM : undefined
 
 /**
  * Parcours P0 de bout en bout.
@@ -24,8 +36,14 @@ export default defineConfig({
   },
 
   projects: [
-    { name: 'bureau', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-android', use: { ...devices['Pixel 5'] } },
+    {
+      name: 'bureau',
+      use: { ...devices['Desktop Chrome'], ...(executablePath ? { launchOptions: { executablePath } } : {}) },
+    },
+    {
+      name: 'mobile-android',
+      use: { ...devices['Pixel 5'], ...(executablePath ? { launchOptions: { executablePath } } : {}) },
+    },
   ],
 
   webServer: {

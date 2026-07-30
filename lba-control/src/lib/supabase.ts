@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 /**
@@ -22,7 +22,10 @@ if (!isSupabaseConfigured && import.meta.env.DEV) {
   )
 }
 
-export const supabase: SupabaseClient<Database> = createClient<Database>(
+// Type inféré volontairement : annoter `SupabaseClient<Database>` fige les
+// paramètres génériques avec leurs valeurs par défaut et fait retomber la
+// résolution des tables sur `never` à l'écriture.
+export const supabase = createClient<Database>(
   url ?? 'http://localhost:54321',
   publishableKey ?? 'public-anon-key-absente',
   {

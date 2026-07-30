@@ -16,5 +16,5 @@
     "paths": { "@/*": ["./src/*"] },
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "vitest.db.config.ts", "playwright.config.ts", "tests", "e2e"]
+  "include": ["vite.config.ts", "vitest.config.ts", "vitest.db.config.ts", "playwright.config.ts", "scripts"]
 }
