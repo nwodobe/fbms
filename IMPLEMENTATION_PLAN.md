@@ -689,7 +689,42 @@ deux couleurs ; il leur manquait son logo.
   externes perdra ces ressources. C'est le comportement voulu — un document ne doit pas aller
   chercher une image sur un serveur tiers au moment de sa création.
 
-### 9.3 · Centre de notifications alimenté par les alertes — à faire
+### 9.3 · Centre de notifications alimenté par les alertes — ✅ terminé
+
+Les alertes existaient depuis la phase 5, mais personne n'était prévenu : il fallait ouvrir leur
+écran pour les découvrir. Une alerte « livraison prévue demain » lue le surlendemain n'a servi à rien.
+
+**Ce qui fonctionne (vérifié par exécution)**
+
+- Migration `2600` : `app.notify_from_alerts` engendre les notifications manquantes pour les alertes
+  ouvertes, et l'évaluation planifiée l'appelle dans la foulée. Évaluer sans prévenir aurait laissé
+  le produit exactement où il était.
+- **L'audience est celle de la lecture** : une notification part à qui a déjà le droit de lire
+  l'alerte. Une alerte qui ne nomme aucun pisteur ne va pas aux pisteurs ; une alerte qui en nomme un
+  lui parvient, à lui seul. Inventer un second modèle d'audience à côté de RLS aurait fait diverger
+  les deux — un jour, quelqu'un aurait été prévenu d'une chose qu'il ne peut pas ouvrir.
+- **Une notification par personne et par alerte**, garantie par un index unique et non par une
+  vérification « select puis insert » que deux exécutions concurrentes contourneraient. L'évaluation
+  tourne deux fois par jour sur des alertes qui restent ouvertes plusieurs jours : le conflit est le
+  cas normal.
+- **Lue ≠ résolue.** `mark_notifications_read` ne touche pas au statut de l'alerte, l'écran compte
+  séparément les situations encore ouvertes, et une notification lue dont la situation dure porte
+  la mention « situation non réglée ». Confondre les deux ferait disparaître un problème d'un simple
+  coup d'œil.
+- Cloche avec pastille dans la barre latérale et l'en-tête mobile. La pastille disparaît à zéro —
+  un indicateur permanent finit par ne plus être vu — plafonne à « 99+ » et énonce son nombre pour
+  les lecteurs d'écran.
+- L'ordre d'affichage est celui de l'urgence : non lues d'abord, puis gravité, puis date. Trier par
+  date ferait glisser un blocage hors de l'écran à mesure que des informations arrivent.
+
+**Limites assumées**
+
+- **Le canal reste l'application.** Aucun courriel, SMS ou message WhatsApp n'est envoyé : la
+  colonne `channel` existe et vaut toujours `in_app`. C'est la limite la plus visible pour un pisteur
+  qui n'ouvre pas l'application de la journée.
+- Les notifications ne sont pas expirées ni purgées : la table grossit avec les alertes. Une politique
+  de conservation reste à décider (elle relève de D12).
+
 ### 9.4 · Planification serveur des tâches récurrentes — ✅ terminé
 
 Deux traitements font vivre le produit dans le temps, et rien ne les exécutait. Sans eux, un client
@@ -746,8 +781,8 @@ ne se déclenche jamais — ce sont ceux qui se mesurent en durées, pas en sais
 | --- | --- |
 | Toutes les migrations sont versionnées | ✅ 24 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
-| Les politiques RLS ont des tests | ✅ 292 tests de base, dont 39 d'audit systématique |
-| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-20, 202 tests (bureau + Android) |
+| Les politiques RLS ont des tests | ✅ 315 tests de base, dont 39 d'audit systématique |
+| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-23, 224 tests (bureau + Android) |
 | Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
 | La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-14 (38 tests) + audit du code et endurance (11 tests) |
 | Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |

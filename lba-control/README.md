@@ -102,7 +102,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 303 tests**
+**Base de données — 315 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
@@ -117,9 +117,10 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `bags.test.ts` | 18 | Soldes de sacherie déduits des mouvements, pertes expliquées, réaffectation approuvée |
 | `attachments.test.ts` | 10 | Rattachement d'un justificatif : qui peut écrire quel chemin sur quelle ligne |
 | `scheduled-tasks.test.ts` | 10 | Tâches récurrentes : parcours de tous les clients, isolation des échecs, journal réservé à la plateforme |
+| `notifications.test.ts` | 12 | Audience d'une alerte, absence de doublon, distinction lue / résolue |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 507 tests**, dont :
+**Unitaires et composants — 522 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
@@ -131,7 +132,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 216 tests** (bureau + Android), E2E-01 → E2E-22.
+**Parcours end-to-end — 224 tests** (bureau + Android), E2E-01 → E2E-23.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.
@@ -288,7 +289,7 @@ lba-control/
 │   ├── features/     un dossier par domaine métier
 │   └── types/        types de la base
 ├── supabase/
-│   ├── migrations/   25 migrations versionnées et ordonnées
+│   ├── migrations/   26 migrations versionnées et ordonnées
 │   └── local/        adaptateur PostgreSQL local (jamais appliqué à Supabase)
 ├── scripts/          pilotage de la base locale et jeu de démonstration
 ├── tests/            unitaires, base de données et sécurité

@@ -46,6 +46,10 @@ const PartnerDetailPage = named(() => import('@/features/partners/PartnerDetailP
 const PartnersPage = named(() => import('@/features/partners/PartnersPage'), 'PartnersPage')
 const SubscriptionPage = named(() => import('@/features/subscription/SubscriptionPage'), 'SubscriptionPage')
 const BrandingPage = named(() => import('@/features/settings/BrandingPage'), 'BrandingPage')
+const NotificationsPage = named(
+  () => import('@/features/notifications/NotificationsPage'),
+  'NotificationsPage',
+)
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession()
@@ -100,6 +104,7 @@ export function AppRouter() {
         <Route index element={<DashboardPage />} />
 
         {/* Écrans livrés en phase 2 */}
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="marque" element={<BrandingPage />} />
         <Route path="societes" element={<PartnersPage />} />
         <Route path="societes/:partnerId" element={<PartnerDetailPage />} />

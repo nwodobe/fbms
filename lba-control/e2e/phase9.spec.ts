@@ -572,3 +572,126 @@ test.describe('E2E-22 · tâches planifiées', () => {
     await expect(page.getByTestId('no-task-run')).toContainText(/il ne tourne pas/)
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-23 · Centre de notifications
+// ---------------------------------------------------------------------------
+
+const notification = (over: Record<string, unknown> = {}) => ({
+  id: 'no-1',
+  tenant_id: TENANT,
+  user_id: '00000000-0000-4000-8000-000000000011',
+  title: 'Avance non couverte',
+  body: 'L’avance de 5 000 000 FCFA n’est couverte par aucune livraison depuis 9 jours.',
+  alert_id: 'al-1',
+  read_at: null,
+  created_at: '2026-07-31T06:00:00.000Z',
+  alerts: { severity: 'critique', status: 'ouverte' },
+  ...over,
+})
+
+test.describe('E2E-23 · centre de notifications', () => {
+  test('la cloche porte le nombre de non-lues et mène à l’écran', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ notifications: [notification(), notification({ id: 'no-2' })] }))
+    await stubStorage(page)
+
+    await page.goto('/')
+
+    // Deux cloches existent — l'en-tête étroit et la barre latérale — mais une
+    // seule est visible selon la largeur. C'est celle-là qu'un utilisateur
+    // clique.
+    await expect(page.locator('[data-testid="notification-badge"]:visible')).toHaveText('2')
+    await page.locator('[data-testid="notification-bell"]:visible').click()
+
+    await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible()
+    await expect(page.getByTestId('notification')).toHaveCount(2)
+  })
+
+  test('aucune pastille quand tout est lu', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        notifications: [notification({ read_at: '2026-07-31T07:00:00.000Z' })],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/')
+
+    // Une pastille à zéro attire l'œil pour rien, et un indicateur permanent
+    // finit par ne plus être vu du tout.
+    await expect(page.getByTestId('notification-badge')).toHaveCount(0)
+  })
+
+  test('une notification lue dont la situation dure reste signalée', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        notifications: [
+          notification({
+            read_at: '2026-07-31T07:00:00.000Z',
+            alerts: { severity: 'blocage', status: 'ouverte' },
+          }),
+        ],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/notifications')
+
+    // « Tout marquer comme lu » ne doit pas donner l'illusion d'avoir traité.
+    await expect(page.getByText('1 situation(s) encore ouverte(s)')).toBeVisible()
+    await expect(page.getByText('situation non réglée')).toBeVisible()
+    await expect(page.getByText(/Marquer comme lu range cet écran/)).toBeVisible()
+  })
+
+  test('l’urgent passe devant le récent', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        notifications: [
+          notification({
+            id: 'recent-info',
+            title: 'Livraison prévue demain',
+            created_at: '2026-07-31T09:59:00.000Z',
+            alerts: { severity: 'info', status: 'ouverte' },
+          }),
+          notification({
+            id: 'vieux-blocage',
+            title: 'Écart supérieur à la tolérance',
+            created_at: '2026-07-31T01:00:00.000Z',
+            alerts: { severity: 'blocage', status: 'ouverte' },
+          }),
+        ],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/notifications')
+
+    // Trier par date ferait glisser un blocage hors de l'écran à mesure que des
+    // informations arrivent.
+    const first = page.getByTestId('notification').first()
+    await expect(first).toContainText('Écart supérieur à la tolérance')
+  })
+
+  test('un écran vide dit ce qu’il attend', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ notifications: [] }))
+    await stubStorage(page)
+
+    await page.goto('/notifications')
+
+    await expect(page.getByText('Rien à signaler')).toBeVisible()
+    await expect(page.getByText(/évaluées deux fois par jour/)).toBeVisible()
+  })
+})

@@ -1161,6 +1161,19 @@ export interface Database {
         Args: { p_tenant: string; p_retention_days?: number }
         Returns: { cutoff_date: string; deletion_performed: boolean; note: string }
       }
+      /** Engendre les notifications manquantes pour les alertes ouvertes. */
+      notify_from_alerts: {
+        Args: { p_tenant: string }
+        Returns: number
+      }
+      /**
+       * Marque comme lu. NE TOUCHE PAS au statut de l'alerte : ranger son écran
+       * n'est pas régler la situation.
+       */
+      mark_notifications_read: {
+        Args: { p_ids?: string[] | null }
+        Returns: number
+      }
       /** Historique des tâches planifiées. Réservé à la plateforme. */
       scheduled_task_history: {
         Args: { p_limit?: number }

@@ -1,9 +1,11 @@
-import { LogOut, Menu, X } from 'lucide-react'
+import { Bell, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { LazyScreen } from '@/components/shared/LazyScreen'
 import { useSession } from '@/lib/auth/session'
+import { badgeLabel, unreadCount } from '@/domain/notifications'
+import { useNotifications } from '@/features/notifications/api'
 import { useBranding } from '@/lib/tenant/branding'
 import { useBrandingImage } from '@/lib/tenant/useBrandingImage'
 import type { AppRole } from '@/lib/supabase'
@@ -90,6 +92,9 @@ export function AppShell() {
   // Le menu ne montre que ce qui concerne le rôle. Un pisteur qui verrait
   // « TCB et marges » grisé apprendrait déjà quelque chose qu'il n'a pas à
   // savoir.
+  const { data: notifications } = useNotifications()
+  const unreadBadge = badgeLabel(unreadCount(notifications ?? []))
+
   // Cette barre est celle du bureau : c'est le logo principal qui s'y pose. La
   // version mobile sert l'en-tête étroit, où seul le nom tient.
   const logoUrl = useBrandingImage(branding.logoPath)
@@ -103,14 +108,17 @@ export function AppShell() {
     <div className="flex min-h-dvh flex-col lg:flex-row">
       <header className="flex items-center justify-between border-b bg-brand px-4 py-3 lg:hidden">
         <span className="font-semibold">{branding.commercialName}</span>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          aria-expanded={isMenuOpen}
-        >
-          {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="flex items-center gap-3">
+          <NotificationBell badge={unreadBadge} onNavigate={() => setMenuOpen(false)} />
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={isMenuOpen}
+          >
+            {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </header>
 
       <nav
@@ -135,6 +143,9 @@ export function AppShell() {
             </div>
           )}
           <span className="truncate font-semibold">{branding.commercialName}</span>
+          <div className="ml-auto">
+            <NotificationBell badge={unreadBadge} onNavigate={() => setMenuOpen(false)} />
+          </div>
         </div>
 
         <div className="space-y-4 p-3">
@@ -184,5 +195,43 @@ export function AppShell() {
         </LazyScreen>
       </main>
     </div>
+  )
+}
+
+/**
+ * Cloche de notification.
+ *
+ * La pastille disparaît à zéro plutôt que d'afficher un rond vide : un
+ * indicateur permanent finit par ne plus être vu, et c'est exactement ce qu'on
+ * ne veut pas d'un compteur d'alertes. Le nombre est aussi énoncé pour les
+ * lecteurs d'écran — une pastille colorée ne dit rien à qui ne la voit pas.
+ */
+function NotificationBell({
+  badge,
+  onNavigate,
+}: {
+  badge: string | null
+  onNavigate: () => void
+}) {
+  return (
+    <Link
+      to="/notifications"
+      onClick={onNavigate}
+      className="relative inline-flex items-center rounded-md p-1.5 hover:bg-muted"
+      aria-label={
+        badge === null ? 'Notifications' : `Notifications, ${badge} non lue(s)`
+      }
+      data-testid="notification-bell"
+    >
+      <Bell size={20} />
+      {badge !== null && (
+        <span
+          data-testid="notification-badge"
+          className="absolute -right-1 -top-1 min-w-[1.15rem] rounded-full bg-status-critical px-1 text-center text-[0.65rem] font-semibold leading-[1.15rem] text-white"
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
   )
 }
