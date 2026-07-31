@@ -215,13 +215,62 @@ where n.nspname in ('app', 'public') and d.objid is null
 
 ### 2. Authentification
 
-Dans Supabase Auth :
+Tout le cloisonnement repose sur deux valeurs lues dans le jeton :
+`app_metadata.tenant_id` et `app_metadata.role`. Elles ne se saisissent **jamais** à la main.
+
+**Activez l'auth hook** — Authentication → Hooks → *Customize Access Token*, pointé sur
+`app.custom_access_token` (migration 3200). C'est le seul réglage du tableau de bord dont dépend le
+fonctionnement du produit : sans lui, aucun jeton ne porte de tenant et l'application ne montre rien.
+C'est le bon échec — elle ne montre pas les données d'un autre — mais elle ne montre rien du tout.
+
+Ce que le hook garantit, et qu'une recopie manuelle ne garantissait pas :
+
+- `public.users` reste la **seule** source de vérité. Deux copies de la même information finissent
+  toujours par diverger, et ici la divergence s'appelle « voir l'entreprise d'un autre » ;
+- un rôle changé par `app.set_user_role` prend effet au rafraîchissement du jeton. Avec une valeur
+  recopiée, une rétrogradation ne prenait effet nulle part ;
+- un compte suspendu perd tenant et rôle à la première réémission, sans attendre sa prochaine
+  connexion ;
+- `app_metadata` n'est de toute façon pas modifiable par l'utilisateur, contrairement à
+  `user_metadata` — y placer ces valeurs permettrait à chacun de se déclarer propriétaire.
+
+Le reste, à régler dans Supabase Auth :
 
 - politique de mot de passe : 12 caractères minimum ;
-- MFA activable pour les administrateurs (`users.mfa_enrolled_at` est prévu à cet effet) ;
-- **`tenant_id` et `role` doivent être écrits dans `app_metadata`**, jamais dans `user_metadata` :
-  `user_metadata` est modifiable par l'utilisateur, ce qui lui permettrait de changer d'entreprise ou
-  de se déclarer propriétaire.
+- MFA activable pour les administrateurs (`users.mfa_enrolled_at` est prévu à cet effet).
+
+#### Amorçage : le premier administrateur de plateforme
+
+`app.create_tenant` est réservée aux administrateurs de plateforme, et la table est vide au départ.
+Il faut donc l'amorcer une fois, à la main — c'est le seul geste manuel restant, et il n'a lieu
+qu'une fois dans la vie du projet :
+
+1. créez un compte par Supabase Auth (dashboard → Users → *Add user*, ou l'écran d'inscription) ;
+2. promouvez-le, en remplaçant l'identifiant et l'adresse :
+
+```sql
+insert into platform_admins (user_id, full_name, email)
+values ('<uuid-du-compte-auth>', 'Nom Prénom', 'adresse@exemple.ci');
+```
+
+Ce compte n'appartient à aucune entreprise : son jeton ne porte aucun tenant, et il devra ouvrir une
+session d'assistance motivée pour voir les données d'un client.
+
+#### Le parcours d'un utilisateur invité
+
+`app.create_tenant` et `app.invite_user` créent une invitation à durée limitée (14 jours). Elle
+devient un compte ainsi :
+
+1. la personne s'inscrit dans Supabase Auth **avec l'adresse invitée** ;
+2. `public.invitation_preview(token)` annonce l'entreprise et le rôle proposés — sans divulguer
+   l'adresse, qu'un jeton deviné livrerait sinon en clair ;
+3. `public.accept_invitation(token)` crée la ligne `public.users` et clôt l'invitation. Le jeton
+   ET l'adresse authentifiée doivent correspondre : le jeton seul suffirait à quiconque le lit dans
+   une boîte mail transférée ;
+4. **l'interface doit rafraîchir la session** (`supabase.auth.refreshSession()`) : le jeton en cours
+   a été émis avant que la ligne `users` n'existe, il ne porte donc pas encore le tenant.
+
+L'écran d'acceptation reste à construire — le serveur, lui, est en place et testé.
 
 ### 3. Stockage
 
