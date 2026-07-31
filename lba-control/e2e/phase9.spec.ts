@@ -212,6 +212,121 @@ test.describe('E2E-18 · images de la marque', () => {
 })
 
 // ---------------------------------------------------------------------------
+// E2E-21 · Logo dans les documents exportés
+// ---------------------------------------------------------------------------
+
+const DASHBOARD_FIXTURES = (branding: Record<string, unknown>) => ({
+  tenant_branding: [branding],
+  partner_companies: PARTNERS,
+  campaigns: CAMPAIGNS,
+  purchases: [
+    {
+      id: 'pu-1',
+      tenant_id: TENANT,
+      campaign_id: 'c-2026',
+      partner_company_id: 'p-olam',
+      field_agent_id: 'a-1',
+      net_weight_kg: 8000,
+      amount: 3_526_000,
+      purchased_at: '2026-03-10T08:00:00.000Z',
+      status: 'valide',
+      sync_status: 'synced',
+    },
+  ],
+  transfers: [],
+  advances: [],
+  advance_allocations: [],
+  advance_repayments: [],
+  stock_lots: [],
+  alerts: [],
+  tcb_snapshots: [],
+  delivery_plans: [],
+  incidents: [],
+})
+
+test.describe('E2E-21 · logo dans les documents exportés', () => {
+  test('le document sort même quand le logo est introuvable, et le dit', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      DASHBOARD_FIXTURES({ ...BRANDING_FIXTURE, logo_path: `${TENANT}/logo/absent.png` }),
+    )
+    const storage = await stubStorage(page)
+    storage.offline = true
+
+    const download = page.waitForEvent('download')
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Exporter en PDF' }).click()
+
+    // Le rapport est ce dont l'utilisateur a besoin, pas l'image : refuser
+    // d'exporter parce qu'une image manque serait disproportionné.
+    expect((await download).suggestedFilename()).toMatch(/\.pdf$/)
+    // Mais un document parti sans le logo déposé est une surprise désagréable à
+    // découvrir chez son acheteur : on le dit.
+    await expect(page.getByTestId('logo-notice')).toContainText(/sans logo/)
+  })
+
+  test('aucune alerte quand le client n’a déposé aucun logo', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, DASHBOARD_FIXTURES({ ...BRANDING_FIXTURE, logo_path: null }))
+    await stubStorage(page)
+
+    const download = page.waitForEvent('download')
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Exporter en Excel' }).click()
+
+    expect((await download).suggestedFilename()).toMatch(/\.xlsx$/)
+    // La plupart des clients ne déposent pas de logo : les alerter à chaque
+    // export serait du bruit.
+    await expect(page.getByTestId('logo-notice')).toHaveCount(0)
+  })
+
+  test('le logo du client apparaît dans la barre de navigation', async ({ page }, testInfo) => {
+    // La barre latérale est celle du bureau. Sur un téléphone, l'en-tête est
+    // trop étroit pour un logo et ne porte que le nom : ce n'est pas un défaut,
+    // c'est le choix de mise en page, vérifié par le test suivant.
+    test.skip(testInfo.project.name !== 'bureau', 'Barre latérale masquée sur écran étroit.')
+
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      DASHBOARD_FIXTURES({ ...BRANDING_FIXTURE, logo_path: `${TENANT}/logo/x.png` }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/')
+
+    const logo = page.getByRole('img', { name: 'LBA Démonstration Bouaké' })
+    await expect(logo).toBeVisible()
+    // Le bucket est privé : un chemin de stockage n'est pas une adresse, et le
+    // poser tel quel produirait une image cassée.
+    await expect(logo).toHaveAttribute('src', /token=/)
+  })
+
+  test('sur téléphone, l’en-tête porte le nom sans tenter d’afficher le logo', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile-android', 'Comportement propre à l’écran étroit.')
+
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      DASHBOARD_FIXTURES({ ...BRANDING_FIXTURE, logo_path: `${TENANT}/logo/x.png` }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/')
+
+    await expect(page.getByText('LBA Démonstration Bouaké').first()).toBeVisible()
+    await expect(page.getByRole('img', { name: 'LBA Démonstration Bouaké' })).toBeHidden()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // E2E-19 · Tickets de pesée
 // ---------------------------------------------------------------------------
 

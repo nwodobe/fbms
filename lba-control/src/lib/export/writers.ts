@@ -12,6 +12,7 @@
  * saisir un achat.
  */
 
+import { headerTextOffset, isValidImageDataUrl, SHEET_LOGO_ROWS } from '@/domain/brandmark'
 import {
   fileName,
   formatCell,
@@ -19,6 +20,7 @@ import {
   type Report,
   type ReportValue,
 } from '@/domain/reports'
+import type { ExportLogo } from './brandmark'
 
 export interface BrandingForExport {
   commercialName: string
@@ -26,6 +28,14 @@ export interface BrandingForExport {
   secondaryColor: string
   documentFooter: string | null
   currency: string
+  /**
+   * Logo déjà chargé et mis à l'échelle, ou `null`.
+   *
+   * Les écritures ne vont jamais le chercher elles-mêmes : un document ne doit
+   * pas dépendre d'un aller-retour réseau au moment où on l'écrit. L'appelant
+   * le résout avant, et se passe de lui s'il n'arrive pas.
+   */
+  logo?: ExportLogo | null
 }
 
 /** `#1f6f43` → `[31, 111, 67]`, forme attendue par jsPDF. */
@@ -70,11 +80,35 @@ export async function exportPdf(report: Report, branding: BrandingForExport): Pr
   doc.setFillColor(primary[0], primary[1], primary[2])
   doc.rect(0, 0, width, 26, 'F')
 
+  // Une donnée base64 malformée fige jsPDF au lieu de lever : elle est écartée
+  // avant, pas rattrapée après.
+  const logo =
+    branding.logo && isValidImageDataUrl(branding.logo.dataUrl) ? branding.logo : null
+  if (logo) {
+    // Centré verticalement dans la bande de 26 mm. `addImage` peut échouer sur
+    // une image que la mesure avait pourtant acceptée ; le document sort quand
+    // même, sans logo, plutôt que pas du tout.
+    try {
+      doc.addImage(
+        logo.dataUrl,
+        logo.format,
+        12,
+        (26 - logo.box.height) / 2,
+        logo.box.width,
+        logo.box.height,
+      )
+    } catch {
+      /* logo non posé : le nom commercial suffit à identifier l'émetteur. */
+    }
+  }
+
+  const textLeft = headerTextOffset(logo ? logo.box : null)
+
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(14)
-  doc.text(branding.commercialName, 12, 11)
+  doc.text(branding.commercialName, textLeft, 11)
   doc.setFontSize(10)
-  doc.text(report.meta.title, 12, 18)
+  doc.text(report.meta.title, textLeft, 18)
 
   doc.setTextColor(60, 60, 60)
   doc.setFontSize(8)
@@ -148,6 +182,35 @@ export async function exportExcelBuffer(
 
   const sheet = workbook.addWorksheet(report.meta.title.slice(0, 30))
   const argb = `FF${branding.primaryColor.replace('#', '').toUpperCase()}`
+
+  // Le logo est posé en superposition, au-dessus des premières lignes : dans un
+  // tableur, une image insérée dans une cellule décalerait les colonnes et
+  // casserait les formules du destinataire.
+  if (branding.logo && isValidImageDataUrl(branding.logo.dataUrl)) {
+    try {
+      const imageId = workbook.addImage({
+        base64: branding.logo.dataUrl,
+        extension: branding.logo.format === 'JPEG' ? 'jpeg' : 'png',
+      })
+      const ratio = branding.logo.natural.height / branding.logo.natural.width
+      const height = Math.round(140 * ratio)
+
+      // Une bande vide est réservée EN TÊTE, et l'image posée dessus. L'image
+      // ne rentre pas dans une cellule : elle y décalerait les colonnes et
+      // casserait les formules du destinataire. Le décalage est donc vertical,
+      // d'un nombre de lignes connu et constant.
+      for (let index = 0; index < SHEET_LOGO_ROWS; index += 1) {
+        sheet.addRow([]).height = Math.max(18, height * 0.75)
+      }
+
+      sheet.addImage(imageId, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 140, height },
+      })
+    } catch {
+      /* classeur produit sans logo plutôt que pas de classeur du tout. */
+    }
+  }
 
   for (const line of headerLines(report.meta)) {
     const row = sheet.addRow([line])

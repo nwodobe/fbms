@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBranding } from '@/lib/tenant/branding'
+import { useBrandingImage } from '@/lib/tenant/useBrandingImage'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 /**
@@ -34,6 +35,10 @@ type LoginValues = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const branding = useBranding()
+  // Le bucket de marque est privé : un chemin de stockage n'est pas une adresse
+  // et le poser tel quel dans `src` produirait une image cassée. Avant la
+  // connexion, le tenant n'est de toute façon pas résolu et le lien reste nul.
+  const logoUrl = useBrandingImage(branding.logoPath)
   const navigate = useNavigate()
   const [serverError, setServerError] = useState<string | null>(null)
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
@@ -77,8 +82,8 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          {branding.logoPath ? (
-            <img src={branding.logoPath} alt={branding.commercialName} className="h-14 w-auto" />
+          {logoUrl ? (
+            <img src={logoUrl} alt={branding.commercialName} className="h-14 w-auto" />
           ) : (
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-xl font-bold">
               {branding.commercialName.slice(0, 2).toUpperCase()}

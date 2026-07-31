@@ -14,12 +14,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field } from '@/components/ui/field'
+import { describeLogoFailure } from '@/domain/brandmark'
 import { buildKpis, purchaseSeries, stockBreakdown, type Kpi } from '@/domain/dashboard'
 import { formatMoney, formatWeight } from '@/domain/money'
 import { buildReport, classifyExport, requiresAuditEntry, type ReportColumn } from '@/domain/reports'
 import { useCampaigns } from '@/features/contracts/api'
 import { usePartnerCompanies } from '@/features/partners/api'
 import { useSession } from '@/lib/auth/session'
+import { loadExportLogo } from '@/lib/export/brandmark'
 import { downloadExcel, downloadPdf } from '@/lib/export/writers'
 import { supabase } from '@/lib/supabase'
 import { useBranding } from '@/lib/tenant/branding'
@@ -78,6 +80,9 @@ export function DashboardPage() {
   const [campaignId, setCampaignId] = useState('')
   const [partnerCompanyId, setPartnerCompanyId] = useState('')
   const [exporting, setExporting] = useState(false)
+  // Un document parti sans le logo que le client a déposé est une surprise
+  // désagréable à découvrir chez son acheteur : on le dit, après l'avoir produit.
+  const [logoNotice, setLogoNotice] = useState<string | null>(null)
 
   const { data, isLoading, error } = useDashboard({
     campaignId: campaignId || null,
@@ -147,12 +152,19 @@ export function DashboardPage() {
         })
       }
 
+      // Le logo est résolu avant l'écriture, et son absence n'empêche jamais le
+      // document de sortir : c'est précisément quand le réseau est mauvais qu'on
+      // a le plus besoin de son rapport.
+      const { logo, failure } = await loadExportLogo(branding.logoPath)
+      setLogoNotice(failure ? describeLogoFailure(failure) : null)
+
       const brandingForExport = {
         commercialName: branding.commercialName,
         primaryColor: branding.primaryColor,
         secondaryColor: branding.secondaryColor,
         documentFooter: branding.documentFooter,
         currency: branding.currency,
+        logo,
       }
       if (kind === 'pdf') await downloadPdf(report, brandingForExport)
       else await downloadExcel(report, brandingForExport)
@@ -180,6 +192,12 @@ export function DashboardPage() {
           </Button>
         </div>
       </header>
+
+      {logoNotice && (
+        <p role="status" data-testid="logo-notice" className="rounded-md bg-status-warn/10 px-3 py-2 text-sm">
+          {logoNotice}
+        </p>
+      )}
 
       <Card>
         <CardHeader>

@@ -118,7 +118,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `attachments.test.ts` | 10 | Rattachement d'un justificatif : qui peut écrire quel chemin sur quelle ligne |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 483 tests**, dont :
+**Unitaires et composants — 507 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
@@ -130,7 +130,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 202 tests** (bureau + Android), E2E-01 → E2E-20.
+**Parcours end-to-end — 208 tests** (bureau + Android), E2E-01 → E2E-21.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.

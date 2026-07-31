@@ -185,6 +185,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | E2E-18 | Images de marque : trois emplacements, signature contrôlée, lien temporaire | CDC §23.4 |
 | E2E-19 | Tickets de pesée : départ et réception distincts, réservés aux rôles qui pèsent | RG-09 |
 | E2E-20 | Preuve d'achat hors réseau : fichier conservé, achat annoncé **sans** justificatif | CDC §19 |
+| E2E-21 | Logo dans les exports : document produit même sans lui, absence expliquée | CDC §5 |
 
 ---
 
@@ -211,7 +212,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, RG-25 → RG-32, `subscription.ts`, `reports.ts`, `dashboard.ts`, E2E-12, E2E-13 |
 | 7 — Stabilisation | AUD-01 → AUD-14, E2E-14, suite complète, build de production |
 | 8 — Écrans manquants et fichiers | AUD-15 → AUD-18, `bags.ts`, `uploads.ts`, E2E-15 → E2E-17 |
-| 9 — Justificatifs, marque, notifications, planification | `attachments.ts`, OFF-09 → OFF-14, E2E-18 → E2E-20, rattachements vérifiés en base |
+| 9 — Justificatifs, marque, notifications, planification | `attachments.ts`, `brandmark.ts`, OFF-09 → OFF-14, E2E-18 → E2E-21, rattachements vérifiés en base |
 
 ---
 

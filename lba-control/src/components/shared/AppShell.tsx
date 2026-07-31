@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { LazyScreen } from '@/components/shared/LazyScreen'
 import { useSession } from '@/lib/auth/session'
 import { useBranding } from '@/lib/tenant/branding'
+import { useBrandingImage } from '@/lib/tenant/useBrandingImage'
 import type { AppRole } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
@@ -89,6 +90,10 @@ export function AppShell() {
   // Le menu ne montre que ce qui concerne le rôle. Un pisteur qui verrait
   // « TCB et marges » grisé apprendrait déjà quelque chose qu'il n'a pas à
   // savoir.
+  // Cette barre est celle du bureau : c'est le logo principal qui s'y pose. La
+  // version mobile sert l'en-tête étroit, où seul le nom tient.
+  const logoUrl = useBrandingImage(branding.logoPath)
+
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) => role !== null && item.roles.includes(role)),
@@ -116,9 +121,19 @@ export function AppShell() {
         aria-label="Navigation principale"
       >
         <div className="hidden items-center gap-3 border-b px-4 py-4 lg:flex">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold">
-            {branding.commercialName.slice(0, 2).toUpperCase()}
-          </div>
+          {/* Le logo si le client en a déposé un ; ses initiales sinon. Jamais
+              une image cassée : le bucket est privé, l'adresse est signée. */}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={branding.commercialName}
+              className="h-9 w-auto max-w-[7rem] object-contain"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold">
+              {branding.commercialName.slice(0, 2).toUpperCase()}
+            </div>
+          )}
           <span className="truncate font-semibold">{branding.commercialName}</span>
         </div>
 

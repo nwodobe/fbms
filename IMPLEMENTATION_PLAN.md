@@ -650,7 +650,45 @@ déposer un fichier : les autres exigeaient un chemin saisi à la main, c'est-à
 - **Aucune reprise manuelle** n'est offerte sur un justificatif définitivement en échec : il reste
   visible et conservé, mais c'est un nouveau dépôt qui le remplacera.
 
-### 9.2 · Marque du tenant dans les documents exportés — à faire
+### 9.2 · Marque du tenant dans les documents exportés — ✅ terminé
+
+Un rapport PDF et un export Excel circulent hors de l'entreprise. Ils portaient déjà son nom et ses
+deux couleurs ; il leur manquait son logo.
+
+**Ce qui fonctionne (vérifié par exécution)**
+
+- Le logo est posé dans l'en-tête du PDF, à l'échelle, proportions conservées, et le titre se décale
+  pour ne pas le chevaucher. Une image de 4 000 × 300 pixels ne repousse pas le nom hors de la page.
+- Le classeur Excel porte l'image en superposition d'une bande réservée en tête : posée **dans** une
+  cellule, elle décalerait les colonnes et casserait les formules du destinataire.
+- SVG et WebP — acceptés au dépôt, refusés par jsPDF — sont rastérisés par le canevas avant
+  incorporation.
+- **Le document sort toujours.** Logo absent, illisible, trop lourd, réseau coupé : le document est
+  produit avec le nom commercial, et l'écran dit ensuite pourquoi le logo manque. Sauf quand aucun
+  logo n'a été déposé : ce n'est pas un incident, et le signaler à chaque export serait du bruit.
+- Le logo apparaît aussi dans la barre latérale de l'application, par lien signé.
+
+**Défauts trouvés par les tests, et corrigés**
+
+1. **La page de connexion posait un chemin de stockage dans `src`.** Le bucket `marque` est privé :
+   un chemin n'est pas une adresse. L'image ne se serait jamais affichée — elle aurait rendu une
+   icône cassée. Corrigé par un accès systématique via lien signé (`useBrandingImage`).
+2. **Une donnée base64 malformée fige jsPDF au lieu de lever.** Le test prévu pour vérifier qu'un
+   logo inutilisable n'empêche pas l'export a expiré au lieu d'échouer : sans garde, un logo corrompu
+   rendrait le bouton d'export définitivement muet. Le format est désormais validé avant d'être remis
+   à l'écrivain, et l'invariant est testé.
+3. **Le logo Excel décalait les lignes sans que ce soit voulu** : régler la hauteur de la ligne 1
+   créait une ligne vide avant l'en-tête. La bande est maintenant réservée explicitement, d'une
+   hauteur connue, et le test vérifie que les colonnes ne bougent pas.
+
+**Limites assumées**
+
+- Le logo n'est posé que sur les exports du tableau de bord : ce sont les seuls documents que
+  l'application produit aujourd'hui. Bons de transfert et reçus restent à écrire.
+- La rastérisation SVG passe par le canevas du navigateur : un SVG référençant des ressources
+  externes perdra ces ressources. C'est le comportement voulu — un document ne doit pas aller
+  chercher une image sur un serveur tiers au moment de sa création.
+
 ### 9.3 · Centre de notifications alimenté par les alertes — à faire
 ### 9.4 · Planification serveur des tâches récurrentes — à faire
 
