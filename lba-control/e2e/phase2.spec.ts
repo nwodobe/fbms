@@ -79,13 +79,29 @@ test.describe('E2E-01 · connexion et marque du tenant', () => {
 
   test('le tableau de bord n’affiche aucun chiffre inventé', async ({ page }) => {
     await signIn(page)
-    await stubSupabase(page, { tenant_branding: [BRANDING_FIXTURE] })
+    // Aucune transaction : le tableau de bord réel de la phase 6 doit rester
+    // muet plutôt que d'afficher des zéros qui se somment et se comparent.
+    await stubSupabase(page, {
+      tenant_branding: [BRANDING_FIXTURE],
+      partner_companies: [],
+      campaigns: [],
+      purchases: [],
+      transfers: [],
+      advances: [],
+      advance_allocations: [],
+      advance_repayments: [],
+      stock_lots: [],
+      alerts: [],
+      tcb_snapshots: [],
+      delivery_plans: [],
+      incidents: [],
+    })
     await page.goto('/')
 
-    await expect(page.getByText('Socle livré, indicateurs à venir')).toBeVisible()
-    // Les indicateurs non calculés affichent « — », jamais 0.
-    const placeholders = page.getByLabel('donnée non disponible')
-    expect(await placeholders.count()).toBeGreaterThan(10)
+    await expect(page.getByText('Aucune donnée sur ce périmètre.').first()).toBeVisible()
+    const empty = await page.getByText('Aucune donnée sur ce périmètre.').count()
+    expect(empty).toBeGreaterThan(5)
+    await expect(page.getByText('Aucun achat sur ce périmètre.')).toBeVisible()
   })
 })
 

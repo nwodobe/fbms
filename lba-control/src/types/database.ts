@@ -89,9 +89,90 @@ export type SubscriptionRow = {
   status: SubscriptionStatus
   period_start: string
   period_end: string
+  trial_end: string | null
   grace_days: number
+  readonly_after_days: number
+  grace_started_at: string | null
+  read_only_at: string | null
+  blocked_at: string | null
+  suspension_reason: string | null
   amount: number
   currency: string
+  auto_renew: boolean
+}
+
+export type InvoiceDbRow = {
+  id: string
+  tenant_id: string
+  subscription_id: string
+  number: string
+  amount: number
+  amount_paid: number
+  issued_at: string
+  due_date: string
+  period_start: string
+  period_end: string
+  status: string
+}
+
+export type SubscriptionPaymentDbRow = {
+  id: string
+  tenant_id: string
+  subscription_id: string
+  invoice_id: string | null
+  amount: number
+  method: string
+  reference: string
+  payer: string | null
+  declared_at: string
+  declared_by: string | null
+  proof_path: string | null
+  status: 'declared' | 'confirmed' | 'rejected' | 'partial'
+  confirmed_by: string | null
+  confirmed_at: string | null
+  verifier_note: string | null
+  rejected_reason: string | null
+}
+
+export type SubscriptionEventDbRow = {
+  id: string
+  tenant_id: string
+  subscription_id: string
+  event_type: string
+  old_status: string | null
+  new_status: string | null
+  payment_id: string | null
+  idempotency_key: string | null
+  reason: string | null
+  occurred_at: string
+}
+
+export type SubscriptionCreditDbRow = {
+  id: string
+  tenant_id: string
+  subscription_id: string
+  payment_id: string | null
+  amount: number
+  origin: string
+  reason: string
+  consumed_at: string | null
+  expires_at: string | null
+}
+
+export type SubscriptionPhaseResult = {
+  phase: string
+  expected_status: string
+  access_level: 'full' | 'read_only' | 'blocked'
+  days_to_expiry?: number
+  days_overdue: number
+  /** Toujours vrai : aucune phase du cycle ne supprime de données. */
+  data_retained: boolean
+}
+
+export type ClosureCheckResult = {
+  campaign_id: string
+  can_close: boolean
+  blockers: Array<{ code: string; count: number; amount?: number; message: string }>
 }
 
 // ---------------------------------------------------------------------------
@@ -736,6 +817,10 @@ export interface Database {
       tenant_branding: Writable<TenantBrandingRow>
       users: Writable<UserRow>
       subscriptions: Writable<SubscriptionRow>
+      invoices: Writable<InvoiceDbRow>
+      subscription_payments: Writable<SubscriptionPaymentDbRow>
+      subscription_events: Writable<SubscriptionEventDbRow>
+      subscription_credits: Writable<SubscriptionCreditDbRow>
       partner_companies: Writable<PartnerCompanyRow>
       campaigns: Writable<CampaignRow>
       products: Writable<ProductRow>
@@ -878,6 +963,60 @@ export interface Database {
       evaluate_alerts: {
         Args: { p_tenant: string }
         Returns: number
+      }
+      /**
+       * Déclaration de paiement par le client. Ne modifie NI le statut NI la
+       * période : seule la confirmation par un super-administrateur le fait.
+       */
+      declare_subscription_payment: {
+        Args: {
+          p_amount: number
+          p_method: string
+          p_reference: string
+          p_invoice_id?: string | null
+          p_payer?: string | null
+          p_proof_path?: string | null
+        }
+        Returns: SubscriptionPaymentDbRow
+      }
+      /** Confirmation vérifiée, idempotente, réservée au super-administrateur. */
+      confirm_subscription_payment: {
+        Args: {
+          p_payment_id: string
+          p_verifier_note?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: SubscriptionRow
+      }
+      /** Phase réelle du cycle, calculée à partir des seules dates. */
+      subscription_phase: {
+        Args: { p_subscription_id: string; p_today?: string | null }
+        Returns: SubscriptionPhaseResult
+      }
+      /** Émet les rappels dus et applique la bascule de statut, idempotente. */
+      advance_subscription_lifecycle: {
+        Args: { p_subscription_id: string; p_today?: string | null }
+        Returns: { subscription_id: string; reminders_sent: string[]; status_changed: boolean }
+      }
+      /** Obstacles à la clôture d'une campagne, énumérés plutôt que résumés. */
+      campaign_closure_blockers: {
+        Args: { p_campaign_id: string }
+        Returns: ClosureCheckResult
+      }
+      /** Clôture bloquante par défaut ; forçage possible et tracé (D10). */
+      close_campaign: {
+        Args: { p_campaign_id: string; p_reason?: string | null; p_force?: boolean }
+        Returns: CampaignRow
+      }
+      /** Réouverture motivée, réservée au propriétaire. */
+      reopen_campaign: {
+        Args: { p_campaign_id: string; p_reason: string }
+        Returns: CampaignRow
+      }
+      /** Décrit ce qui dépasse la durée de conservation. Ne supprime rien (D12). */
+      archival_candidates: {
+        Args: { p_tenant: string; p_retention_days?: number }
+        Returns: { cutoff_date: string; deletion_performed: boolean; note: string }
       }
     }
     Enums: {

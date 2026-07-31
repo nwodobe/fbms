@@ -19,6 +19,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { PartnerDetailPage } from '@/features/partners/PartnerDetailPage'
 import { PartnersPage } from '@/features/partners/PartnersPage'
+import { SubscriptionPage } from '@/features/subscription/SubscriptionPage'
 import { BrandingPage } from '@/features/settings/BrandingPage'
 import { useSession } from '@/lib/auth/session'
 
@@ -52,17 +53,6 @@ const PLANNED = [
     phase: 2,
     summary: 'Créer les comptes, attribuer les rôles, révoquer les appareils.',
     delivers: ['Sept rôles attribuables', 'Révocation d’appareil', 'Séparation des tâches'],
-  },
-  {
-    path: 'abonnement',
-    title: 'Abonnement',
-    phase: 6,
-    summary: 'Plan, échéance, factures, paiements et renouvellement.',
-    delivers: [
-      'Rappels J-7, J-3 et jour J',
-      'Grâce, lecture seule à J+5, blocage à J+30, données conservées',
-      'Une déclaration de paiement ne renouvelle jamais seule l’abonnement',
-    ],
   },
   {
     path: 'audit',
@@ -116,6 +106,9 @@ export function AppRouter() {
         <Route path="tcb" element={<TcbPage />} />
         <Route path="scoring" element={<ScoringPage />} />
         <Route path="alertes" element={<AlertsPage />} />
+
+        {/* Écrans livrés en phase 6 */}
+        <Route path="abonnement" element={<SubscriptionPage />} />
 
         {PLANNED.map((screen) => (
           <Route

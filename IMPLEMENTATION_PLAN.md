@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 5.**
+**Mis à jour : fin de Phase 6.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -19,7 +19,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **3** | Pisteurs, financements, avances, achats, synchronisation hors ligne | ✅ **Terminée** |
 | **4** | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ✅ **Terminée** |
 | **5** | Dépenses, allocations, TCB, marges, scoring, alertes | ✅ **Terminée** |
-| 6 | Abonnements, personnalisation des documents, exports, tableaux de bord | ⬜ À faire |
+| **6** | Abonnements, personnalisation des documents, exports, tableaux de bord | ✅ **Terminée** |
 | 7 | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ⬜ À faire |
 
 ---
@@ -329,14 +329,80 @@ réception, `E14` incidents.
 
 ---
 
-## Phases 6 et 7 — Plan détaillé
+## Phase 6 — Commercial et pilotage · ✅ Terminée
 
-### Phase 6 — Commercial et pilotage
+Écrans livrés : `A02` abonnement, `H02`/`H03` tableau de bord dirigeant avec filtres et exports.
 
-Écrans `A02`, `A03`, `H02`, `H03`, `Z01`.
-Abonnements (cycle J-7 / J-3 / J / grâce / lecture seule / blocage), confirmation manuelle de paiement,
-exports PDF et Excel à la marque du tenant, tableaux de bord dirigeant avec filtres.
-*Terminée quand* : RG-13 → RG-15, E2E-12, E2E-13 passent.
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **Une déclaration de paiement ne réactive rien** | `app.declare_subscription_payment` laisse statut et période identiques ; l'événement enregistré porte le même ancien et nouveau statut — la preuve est dans la trace elle-même |
+| **Un client ne peut pas confirmer son propre paiement** | Trigger d'autorité : passer une ligne à `confirmed` hors de la fonction de vérification est refusé, même en écriture directe |
+| **Une même référence ne compte qu'une fois** | Unicité `(tenant, méthode, référence)` testée |
+| **Un même paiement ne prolonge jamais deux fois** | Clé d'idempotence ; deuxième confirmation sans effet sur la période (RG-13) |
+| **Prolongation à partir de la date de fin existante** | Payer six jours avant l'échéance ne fait pas perdre ces six jours ; une période expirée repart du jour du paiement |
+| **Un paiement partiel devient un avoir** | Période inchangée, avoir créé, facture `partially_paid`, paiement `partial` (RG-14) |
+| **Le blocage est graduel et annoncé** | Échéance → grâce (J+1 à J+5, accès complet) → lecture seule (J+6 à J+30) → blocage (J+31). Les sept bascules sont testées jour par jour, en base **et** dans le domaine |
+| **Aucune donnée n'est supprimée** | Test explicite : après bascule en lecture seule puis en blocage, les comptes d'achats, d'avances et de dépenses sont inchangés |
+| **Export et déclaration restent ouverts après blocage** | Retenir les données d'un client en retard serait une prise d'otage ; sans déclaration possible, un client bloqué ne pourrait jamais se débloquer |
+| **Les rappels J-7, J-3 et J ne partent qu'une fois** | Clé rattachée à l'échéance, pas au jour d'envoi ; un rappel manqué est rattrapé, un renouvellement rouvre une série |
+| **La clôture de campagne énumère ses obstacles** | Incidents ouverts, avances non couvertes, transferts en cours, dépenses non statuées — avec compte et montant (D10) |
+| **Une clôture forcée exige 20 caractères de motif** | Les obstacles contournés sont inscrits dans le journal d'audit |
+| **Une campagne clôturée refuse les écritures** | Achats, dépenses et avances bloqués par trigger ; la réouverture motivée les rouvre |
+| **La réouverture reste réservée au propriétaire** | Testé ; motif d'au moins 10 caractères imposé |
+| **Aucune suppression automatique n'existe** | `app.archival_candidates` décrit ce qui dépasse 90 jours et retourne `deletion_performed: false` (D12) |
+| **Exports PDF et Excel à la marque du tenant** | En-tête coloré, pied de page, mention « données de démonstration » vérifiée dans le classeur produit |
+| **Les montants sortent en nombres, pas en texte** | Vérifié en relisant le classeur généré : un tableur qui ne se somme pas force la ressaisie, et la ressaisie déforme |
+| **Aucun indicateur inventé au tableau de bord** | Sur un périmètre vide, tous les indicateurs de mesure valent `null` et affichent « — » ; seuls les compteurs d'événements valent légitimement zéro |
+| **Chaque indicateur porte sa lecture et son compte de sources** | « Ce n'est pas le coût de revient », « n'impute aucune responsabilité » : les phrases sont testées, pas seulement écrites |
+| **Un seul instantané de TCB par périmètre** | Empiler les recalculs successifs compterait le même coût plusieurs fois |
+| **Les jours sans achat sont absents de la courbe** | Une chute à zéro le dimanche ressemble à un effondrement d'activité |
+| **391 tests unitaires et de composants** | 391/391 |
+| **223 tests de base de données** | 223/223 |
+| **146 parcours end-to-end** (bureau + Android) | 146/146 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 6, et corrigés
+
+1. **Une préparation de test silencieusement filtrée par RLS.** Les tables de facturation ne sont pas
+   écrivables par un client ; mes `update` de préparation touchaient zéro ligne sans erreur, et huit
+   tests passaient en vérifiant un état qui n'avait jamais été posé. La préparation vérifie désormais
+   qu'elle a bien écrit une ligne, et échoue bruyamment sinon.
+2. **Un enchaînement client → administrateur testé dans deux transactions séparées**, donc jamais
+   enchaîné : la déclaration était annulée avant que l'administrateur ne la voie. Réécrit avec
+   `switchActor` dans une transaction unique.
+3. **La contrainte `subscription_suspension_is_justified` refusait mes états de test** — elle faisait
+   exactement son travail : une suspension sans motif n'est pas une suspension.
+4. **Deux fixtures end-to-end à un jour de la frontière** (six jours de retard pour tester la grâce
+   de cinq, huit jours avant échéance pour tester la fenêtre de rappel à sept). Les deux testaient
+   donc l'inverse de ce qu'elles annonçaient.
+5. **Le test de tableau de bord de la phase 2 vérifiait l'écran d'attente**, remplacé par le vrai
+   tableau de bord. Réécrit sur l'invariant qu'il protégeait réellement — aucun chiffre inventé —
+   plutôt que supprimé.
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **Le cycle n'avance pas tout seul** : `app.advance_subscription_lifecycle` est idempotente et
+  testée, mais rien ne l'appelle périodiquement. Il faut un `pg_cron` ou une tâche planifiée côté
+  Supabase — hors de ce dépôt.
+- **Aucun courriel n'est envoyé** : les rappels créent des événements, pas des messages. Le
+  branchement des canaux reste à faire.
+- **La console plateforme (`Z01`) n'a pas d'écran dédié** : la confirmation de paiement est offerte au
+  super-administrateur depuis l'écran d'abonnement du tenant, ce qui suffit au MVP mais ne donne pas
+  de vue transverse sur tous les clients.
+- **La clôture et la réouverture de campagne n'ont pas d'écran** : les fonctions serveur, leurs
+  obstacles énumérés et leurs traces sont livrés et testés, l'interface arrive en phase 7.
+- **Le logo du tenant n'apparaît pas dans les exports** : seules les couleurs et le pied de page sont
+  repris. L'image exige le téléversement Storage, toujours différé.
+- **Les exports ne sont pas encore journalisés** : `classifyExport` et `requiresAuditEntry` existent et
+  sont testés, mais aucune entrée `sensitive_export` n'est écrite au moment du téléchargement.
+- **Le tableau de bord charge tout le périmètre en mémoire** : acceptable sur un jeu de campagne,
+  à remplacer par des agrégats serveur au-delà de quelques dizaines de milliers de lignes.
+
+---
+
+## Phase 7 — Plan détaillé
 
 ### Phase 7 — Stabilisation
 

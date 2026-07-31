@@ -167,6 +167,9 @@ arbitrage qui appartient au métier.
 | **H-15** | La **maturité d'un score** exige à la fois un volume et une durée : « en observation » à partir de 3 opérations **et** 7 jours, « provisoire » à 10 et 21, « confirmé » à 25 et 45. Quarante achats en cinq jours restent « non évalué » — c'est une pointe de campagne, pas un historique. Sous le seuil d'observation, **aucune catégorie n'est prononcée**. | Faible — seuils paramétrables. |
 | **H-16** | Une **composante de score sans observation est exclue du calcul**, et le poids des composantes mesurées est renormalisé à 100. La noter zéro punirait le pisteur pour une chose qui n'a pas eu lieu. Les exclusions et le poids redistribué sont affichés. | Moyen si refusé — sinon les nouveaux pisteurs sont structurellement pénalisés. |
 | **H-17** | Les **pertes valorisées du TCB** ne couvrent au MVP que l'**écart physique des transferts réceptionnés**, valorisé au prix historisé du transfert (arbitrage D2). Les pertes de sacherie et de stock hors transfert ne sont pas encore valorisées. | Moyen — sous-estimation du TCB si les pertes hors transport sont significatives. |
+| **H-18** | Le **cycle d'abonnement est calculé deux fois** — dans `src/domain/subscription.ts` et dans `app.subscription_phase` — et les deux implémentations sont **vérifiées l'une contre l'autre** par les tests de base. Un serveur et une interface en désaccord sur le jour du blocage produiraient une réclamation client impossible à trancher. | Moyen si la double implémentation dérive ; le test croisé est la protection. |
+| **H-19** | **L'export reste ouvert en lecture seule ET après blocage**, et la déclaration de paiement aussi. Retenir les données d'un client en retard serait une prise d'otage ; sans déclaration possible, un client bloqué ne pourrait jamais se débloquer. | Faible — choix commercial explicite. |
+| **H-20** | Un **indicateur de tableau de bord sans source vaut `null`**, jamais 0. Seuls les compteurs d'événements (retards, incidents, alertes) valent légitimement zéro : « aucun incident » est une information, « 0 FCFA achetés » sur un périmètre vide n'en est pas une. | Faible. |
 
 ---
 
@@ -183,7 +186,7 @@ arbitrage qui appartient au métier.
 
 ---
 
-## 4. Décisions métier restant ouvertes (bloquantes pour la phase 6)
+## 4. Décisions métier restant ouvertes
 
 Reprises de CDC §27 et DCP §15, avec la position implémentée par défaut. Ces valeurs sont **paramétrables** :
 aucune ne fige le produit.
@@ -199,9 +202,9 @@ aucune ne fige le produit.
 | D7 | Seuil de blocage d'une nouvelle avance ? | Exposition > plafond **ou** reliquat non couvert > 7 j | Phase 3 |
 | D8 | Données visibles par une société partenaire ? | Aucune (portail désactivé) | Post-MVP |
 | D9 | Achats propres du LBA sans financement société ? | Autorisés via `is_own_account` | Phase 3 |
-| D10 | Procédure de clôture et de réouverture de campagne ? | Clôture bloquante + réouverture autorisée et auditée | Phase 6 |
-| D11 | Durée de grâce : 3, 5 ou 7 jours ? | 5 jours | Phase 6 |
-| D12 | Durée de conservation avant archivage ? | 90 j avant archivage, aucune suppression automatique | Phase 6 |
+| ~~D10~~ | Procédure de clôture et de réouverture de campagne ? | **Tranchée en phase 6** : clôture bloquante, obstacles énumérés (incidents, avances non couvertes, transferts en cours, dépenses non statuées), forçage possible avec motif de 20 caractères et obstacles inscrits à l'audit ; réouverture réservée au propriétaire, motivée | ✅ Phase 6 |
+| ~~D11~~ | Durée de grâce : 3, 5 ou 7 jours ? | **Tranchée en phase 6** : 5 jours par défaut, paramétrable par abonnement (`grace_days`). Accès complet pendant la grâce, lecture seule ensuite, blocage à J+31 | ✅ Phase 6 |
+| ~~D12~~ | Durée de conservation avant archivage ? | **Tranchée en phase 6** : 90 jours, et `app.archival_candidates` **décrit** sans supprimer. Le produit n'a aucun chemin de suppression automatique — une purge programmée qui se déclenche pendant un contentieux détruit la preuve dont on a besoin | ✅ Phase 6 |
 
 ---
 

@@ -167,9 +167,19 @@ Aucune n'est réalisable depuis le navigateur avec les droits de l'utilisateur :
 | Recalculer un score | `app.compute_agent_score()` — versionnée ; n'écrit jamais dans `field_agents.ceiling_amount` |
 | Ajuster un score affiché | `app.adjust_agent_score()` — motif d'au moins 10 caractères, auteur et date tracés ; le score brut reste intact |
 | Évaluer les alertes | `app.evaluate_alerts()` — déduplication garantie par index unique partiel, pas par le client |
+| Déclarer un paiement d'abonnement | `app.declare_subscription_payment()` — enregistre et rien d'autre ; un trigger d'autorité refuse tout passage à `confirmed` hors de la fonction de vérification |
+| Faire avancer le cycle d'abonnement | `app.advance_subscription_lifecycle()` — idempotente ; ne supprime aucune donnée à aucune phase |
+| Clôturer ou rouvrir une campagne | `app.close_campaign()` / `app.reopen_campaign()` — obstacles énumérés, forçage motivé et audité, réouverture réservée au propriétaire |
+| Lister ce qui dépasse la conservation | `app.archival_candidates()` — **décrit sans supprimer** ; aucun chemin de suppression automatique n'existe dans le produit |
 
 Toutes fixent `search_path = pg_catalog, app, public` — sans quoi un objet homonyme créé dans un schéma
 utilisateur pourrait détourner l'exécution avec les droits du propriétaire.
+
+**Verrou d'écriture par abonnement.** `app.tenant_can_write()` est évaluée dans les politiques
+`INSERT`/`UPDATE` de toutes les tables métier : un abonnement `suspended_read_only`, `suspended`,
+`expired` ou `cancelled` bloque la saisie. La **lecture, l'export et la déclaration de paiement
+restent ouverts** dans tous les cas — retenir les données d'un client en retard serait une prise
+d'otage, et sans déclaration possible un client bloqué ne pourrait jamais se débloquer.
 
 ---
 

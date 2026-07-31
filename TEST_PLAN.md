@@ -79,6 +79,14 @@ réglages. Une politique qui passe ici passe chez Supabase.
 | RG-22 | Calcul d'un score | `field_agents.ceiling_amount` **inchangé** — la recommandation ne s'applique jamais seule |
 | RG-23 | Ajustement de score sans motif d'au moins 10 caractères | Rejet ; le score brut reste intact après un ajustement valide |
 | RG-24 | Évaluation des alertes rejouée | 0 alerte ouverte, aucune clé de déduplication en double |
+| RG-25 | Client faisant passer son paiement à `confirmed` par une mise à jour de ligne | Rejet — la confirmation est un chemin de code, pas un champ modifiable |
+| RG-26 | Déclaration de paiement sans référence | Rejet — un paiement sans référence est invérifiable |
+| RG-27 | Bascule du cycle vers lecture seule puis blocage | Comptes d'achats, d'avances et de dépenses **inchangés** |
+| RG-28 | Rappels J-7 / J-3 / J rejoués | Aucun second envoi ; un renouvellement rouvre une série |
+| RG-29 | Clôture d'une campagne avec obstacle | Rejet énumérant les obstacles ; forçage exigeant 20 caractères de motif |
+| RG-30 | Écriture d'un achat ou d'une dépense sur une campagne clôturée | Rejet ; la réouverture motivée les rouvre |
+| RG-31 | Réouverture par un rôle autre que propriétaire | Rejet |
+| RG-32 | Appel de la fonction d'archivage | `deletion_performed: false`, aucune ligne supprimée |
 
 ---
 
@@ -94,9 +102,11 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | `margin.ts` | Prix net = négocié + primes − pénalités − retenues ; marge totale ; marge/kg ; **écart de réconciliation** entre les deux (INC-06) ; opération déficitaire détectée |
 | `scoring.ts` | Somme des poids = 100 ; chaque composante explicable ; score brut vs ajusté vs affiché ; événements validés seuls retenus ; composante non mesurée **exclue et non notée zéro**, poids renormalisés ; nouveau pisteur `non_evalue` ; aucune sanction automatique produite |
 | `alerts.ts` | Les 20 règles, seuils configurables, aucune alerte muette ; chaque candidat porte mesure, seuil et clé de déduplication ; aucun message n'impute de responsabilité |
-| `subscription.ts` | Rappels J-7 / J-3 / J ; grâce 5 j ; lecture seule à J+5 ; blocage à J+30 ; prolongation **à partir de la date de fin existante** si encore actif |
+| `subscription.ts` | Rappels J-7 / J-3 / J avec clé d'idempotence rattachée à l'échéance ; grâce 5 j en accès complet ; lecture seule à J+6 ; blocage à J+31 ; **aucune donnée supprimée à aucune phase** ; prolongation **à partir de la date de fin existante** si encore actif, du jour du paiement sinon ; paiement partiel = avoir sans renouvellement ; export et déclaration restent ouverts après blocage |
 | `duplicates.ts` | Doublon probable détecté ; GPS **jamais** preuve unique ; faux positif non bloquant |
 | `money.ts` | Arrondis XOF, absence de dérive de flottant, montants négatifs refusés |
+| `reports.ts` | Valeur absente exportée « — » et jamais 0 ; totaux sur les seules colonnes sommables ; colonne entièrement vide sans total ; mention de démonstration ; nom de fichier stable |
+| `dashboard.ts` | Indicateur sans source à `null` ; un seul instantané de TCB par périmètre ; exposition jamais négative ; jours sans achat omis de la série |
 
 ---
 
@@ -156,7 +166,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 3 — Pisteurs, financements, avances, achats, hors ligne | RG-01, RG-08, RG-12, `coverage.ts`, OFF-01 → OFF-08, E2E-03 → E2E-05 |
 | 4 — Stocks, planning, transferts, réceptions, incidents | RG-02 → RG-05, RG-09, RG-10, `weights.ts`, E2E-06 → E2E-08 |
 | 5 — Dépenses, TCB, marges, scoring, alertes | RG-11, RG-17 → RG-24, `tcb.ts`, `margin.ts`, `scoring.ts`, `alerts.ts`, E2E-09 → E2E-11 |
-| 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, `subscription.ts`, E2E-12, E2E-13 |
+| 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, RG-25 → RG-32, `subscription.ts`, `reports.ts`, `dashboard.ts`, E2E-12, E2E-13 |
 | 7 — Stabilisation | Suite complète, audit RLS, audit hors ligne, build de production |
 
 ---
