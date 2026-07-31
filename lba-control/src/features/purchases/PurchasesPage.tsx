@@ -14,6 +14,8 @@ import {
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ProofUpload } from '@/components/shared/ProofUpload'
+import { describeAttachmentState } from '@/domain/attachments'
 import { formatMoney, formatWeight, multiply } from '@/domain/money'
 import { useSession } from '@/lib/auth/session'
 import { deviceId, useOfflineQueue } from '@/lib/offline/useOfflineQueue'
@@ -49,6 +51,11 @@ export function PurchasesPage() {
   const [isOpen, setOpen] = useState(false)
   const [queuedNotice, setQueuedNotice] = useState<string | null>(null)
   const [form, setForm] = useState({
+    // L'identifiant est tiré à l'ouverture du formulaire, pas à l'envoi : la
+    // preuve d'achat doit pouvoir être photographiée avant que la ligne existe,
+    // et elle a besoin de savoir à quelle ligne elle se rattachera.
+    draftId: crypto.randomUUID(),
+    proofPath: null as string | null,
     fieldAgentId: '',
     partnerCompanyId: '',
     campaignId: '',
@@ -72,9 +79,10 @@ export function PurchasesPage() {
     setQueuedNotice(null)
 
     const result = await record.mutateAsync({
-      // L'identifiant est généré ici, sur l'appareil : c'est lui qui rend la
+      // L'identifiant est généré sur l'appareil : c'est lui qui rend la
       // synchronisation idempotente.
-      id: crypto.randomUUID(),
+      id: form.draftId,
+      proofPath: form.proofPath,
       fieldAgentId: form.fieldAgentId,
       partnerCompanyId: form.partnerCompanyId || null,
       campaignId: form.campaignId,
@@ -100,6 +108,9 @@ export function PurchasesPage() {
       )
     }
     setOpen(false)
+    // Un nouvel identifiant de brouillon : le suivant est un autre achat, et sa
+    // preuve ne doit pas se rattacher à celui qui vient d'être enregistré.
+    setForm({ ...form, draftId: crypto.randomUUID(), proofPath: null })
     await queue.refresh()
   }
 
@@ -135,6 +146,11 @@ export function PurchasesPage() {
                 ? 'Toutes vos saisies sont synchronisées.'
                 : `${queue.pending + queue.failed} opération(s) en attente d’envoi. Aucune n’est perdue : elles partiront au retour du réseau.`}
             </CardDescription>
+            {queue.attachments.pending + queue.attachments.sending + queue.attachments.failed > 0 && (
+              <p data-testid="attachment-status" className="text-sm text-muted-foreground">
+                {describeAttachmentState(queue.attachments)}
+              </p>
+            )}
           </div>
           <Button
             variant="outline"
@@ -355,6 +371,16 @@ export function PurchasesPage() {
               Montant : <strong>{formatMoney(amount)}</strong> — calculé à partir du poids et du prix,
               non modifiable.
             </p>
+
+            <ProofUpload
+              kind="preuve_achat"
+              binding={{ table: 'purchases', column: 'proof_path', rowId: form.draftId }}
+              value={form.proofPath}
+              onChange={(path) => setForm({ ...form, proofPath: path })}
+              // Une photo mise en attente change l'état de la file : l'annoncer
+              // tout de suite évite que le pisteur croie l'avoir déjà envoyée.
+              onQueued={() => void queue.refresh()}
+            />
 
             {!queue.isOnline && (
               <p className="rounded-md bg-status-warn/10 px-3 py-2 text-sm">

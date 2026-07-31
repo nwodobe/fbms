@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 8 — périmètre MVP complet.**
+**Mis à jour : phase 9 en cours — justificatifs branchés sur tous les écrans qui les exigent.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -22,6 +22,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **6** | Abonnements, personnalisation des documents, exports, tableaux de bord | ✅ **Terminée** |
 | **7** | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ✅ **Terminée** |
 | **8** | Écrans manquants (sacherie, clôture de campagne, console plateforme) et téléversement des justificatifs | ✅ **Terminée** |
+| **9** | Justificatifs branchés sur tous les écrans, marque dans les exports, notifications, tâches planifiées | 🟡 **En cours** |
 
 ---
 
@@ -585,16 +586,86 @@ et le dépôt de justificatifs vers Storage.
 
 ---
 
+## Phase 9 — Justificatifs, marque et automatisation · 🟡 En cours
+
+### 9.1 · Justificatifs branchés sur tous les écrans qui les exigent — ✅ terminé
+
+Les règles serveur réclamaient depuis la phase 4 un ticket de pesée pour tout poids « vérifié », et
+depuis la phase 8 un justificatif au-delà d'un seuil de dépense. Seul l'écran des dépenses savait
+déposer un fichier : les autres exigeaient un chemin saisi à la main, c'est-à-dire rien.
+
+**Ce qui fonctionne (vérifié par exécution)**
+
+- **Marque** — trois emplacements distincts, déposés séparément et enregistrés dès le dépôt : logo
+  principal, logo mobile, image de connexion. Trois emplacements plutôt qu'un fichier redimensionné,
+  parce qu'un logo lisible sur un écran de bureau ne l'est pas dans un menu de téléphone.
+- **Transferts** — le ticket du pont-bascule au départ se joint depuis la liste, y compris après le
+  départ du camion ; le ticket de réception se joint dans la boîte de réception et part avec elle.
+  Les deux sont rangés sous des noms distincts : les confondre effacerait la moitié de la preuve
+  d'un écart.
+- **Achats** — la preuve d'achat se joint pendant la saisie, avec le même comportement en ligne et
+  hors ligne.
+- **Hors réseau, le fichier est conservé sur l'appareil** dans une file locale non bornée, et repart
+  seul au retour du réseau — après les opérations, jamais avant : un ticket ne peut pas se rattacher
+  à un achat que le serveur n'a pas encore reçu.
+- **Le chemin n'est écrit dans la ligne métier qu'une fois les octets réellement stockés.** L'ordre
+  inverse serait plus simple et produirait des justificatifs fantômes : `proof_path` renseigné,
+  aucun fichier au bout, une dépense passant le contrôle de seuil sans pièce jointe et un contrôleur
+  ouvrant un lien mort.
+- **Liste blanche des rattachements** — quatre tables, huit colonnes, toutes de type chemin. La file
+  vit sur un appareil que son porteur contrôle entièrement ; sans cette borne, une entrée modifiée à
+  la main deviendrait « écris ce que je veux dans la colonne que je veux ». Vérifiée à la mise en
+  file **et** de nouveau à l'envoi.
+- **Le type est contrôlé par sa signature binaire avant tout envoi**, et la taille aussi : un fichier
+  inutilisable est refusé pendant que le pisteur est encore devant le vendeur.
+
+**Défauts trouvés par les tests, et corrigés**
+
+1. **Les octets des justificatifs disparaissaient de la file locale.** Tant que le tampon vivait dans
+   la ligne de suivi, chaque changement de statut passait par `Table.update` de Dexie — et le tampon
+   n'y survivait pas. La ligne restait, le fichier devenait vide, la file affichait « en attente »
+   pour un contenu inexistant, et le constat n'aurait été fait qu'au moment d'un contrôle. Corrigé
+   par un magasin séparé, écrit une seule fois ; un test d'audit épingle désormais la séparation, et
+   `verifyAttachmentIntegrity` signale toute ligne dont le contenu a disparu.
+2. **Un `Blob` ne survit pas non plus au clonage d'IndexedDB** selon l'implémentation. Les octets
+   sont conservés en tampon brut et le `Blob` reconstruit à l'envoi.
+3. **Le script `npm run typecheck` du dépôt était défectueux** : `tsc -b --noEmit false` entre en
+   conflit avec `allowImportingTsExtensions`, échoue, et sème au passage un fichier `.js` compilé à
+   côté de chaque source. Ramené à `tsc -b`.
+4. **Un dialogue affichait un instantané périmé** : le transfert reçu en argument ne se met pas à
+   jour après l'enregistrement du chemin, et le ticket joint restait invisible.
+5. **Mon test de suppression attendait une erreur** là où RLS filtre silencieusement — une
+   suppression interdite « réussit » en ne touchant aucune ligne. Même leçon qu'en phase 6 : le
+   compte de lignes est la seule vérification qui vaille. C'est d'ailleurs pour cette raison que le
+   moteur de rattachement traite « zéro ligne mise à jour » comme un report, pas comme un succès.
+
+**Ce qui ne fonctionne pas encore / limites assumées**
+
+- **Toujours aucun Storage réel.** Les règles sont testées sans navigateur, les parcours contre un
+  Storage simulé, les politiques de bucket écrites mais jamais appliquées : la base locale n'héberge
+  pas Storage. C'est la partie la moins éprouvée de la livraison.
+- **Les octets en attente ne sont pas chiffrés sur l'appareil.** Une photo de ticket reste lisible
+  par qui accède au stockage du navigateur. Le cloisonnement local relève du verrouillage de
+  l'appareil, pas de l'application.
+- **Aucune reprise manuelle** n'est offerte sur un justificatif définitivement en échec : il reste
+  visible et conservé, mais c'est un nouveau dépôt qui le remplacera.
+
+### 9.2 · Marque du tenant dans les documents exportés — à faire
+### 9.3 · Centre de notifications alimenté par les alertes — à faire
+### 9.4 · Planification serveur des tâches récurrentes — à faire
+
+---
+
 ## Conditions de livraison (commande §27)
 
 | Condition | État |
 | --- | --- |
 | Toutes les migrations sont versionnées | ✅ 24 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
-| Les politiques RLS ont des tests | ✅ 282 tests de base, dont 39 d'audit systématique |
-| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-17, 180 tests (bureau + Android) |
+| Les politiques RLS ont des tests | ✅ 292 tests de base, dont 39 d'audit systématique |
+| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-20, 202 tests (bureau + Android) |
 | Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
-| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08 (23 tests) + audit du code et endurance (8 tests) |
+| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-14 (38 tests) + audit du code et endurance (11 tests) |
 | Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |
 | Le build de production réussit | ✅ |
 | Aucun secret n'est commité | ✅ vérifié par test |

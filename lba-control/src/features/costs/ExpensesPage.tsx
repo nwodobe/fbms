@@ -472,8 +472,7 @@ export function ExpensesPage() {
 
             <ProofUpload
               kind="justificatif_depense"
-              tenantId={tenantId}
-              entityId={form.draftId}
+              binding={{ table: 'expenses', column: 'proof_path', rowId: form.draftId }}
               value={form.proofPath}
               onChange={(path) => setForm({ ...form, proofPath: path })}
             />

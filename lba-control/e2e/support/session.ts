@@ -166,6 +166,58 @@ export async function stubSupabase(page: Page, fixtures: TableFixtures): Promise
   return data
 }
 
+export interface StorageStub {
+  /** Chemins réellement déposés, dans l'ordre. */
+  uploads: string[]
+  /** Bascule : `true` fait échouer les dépôts comme le ferait une coupure réseau. */
+  offline: boolean
+}
+
+/**
+ * Intercepte Supabase Storage.
+ *
+ * Deux comportements sont nécessaires aux tests de justificatifs : le dépôt qui
+ * réussit, et celui qui échoue comme sous une couverture 2G défaillante — c'est
+ * ce second cas qui doit conserver le fichier sur l'appareil au lieu de le
+ * perdre.
+ */
+export async function stubStorage(page: Page): Promise<StorageStub> {
+  const state: StorageStub = { uploads: [], offline: false }
+
+  await page.route('**/storage/v1/**', async (route: Route) => {
+    const url = new URL(route.request().url())
+    const cors = { 'access-control-allow-origin': '*' }
+
+    if (state.offline) {
+      await route.abort('connectionfailed')
+      return
+    }
+
+    // Lien de consultation : `/object/sign/<bucket>/<chemin>`
+    if (url.pathname.includes('/object/sign/')) {
+      const path = url.pathname.split('/object/sign/')[1] ?? ''
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: cors,
+        body: JSON.stringify({ signedURL: `/storage/v1/object/sign/${path}?token=jeton-de-test` }),
+      })
+      return
+    }
+
+    const path = url.pathname.split('/object/')[1] ?? url.pathname
+    state.uploads.push(path)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: cors,
+      body: JSON.stringify({ Key: path }),
+    })
+  })
+
+  return state
+}
+
 /**
  * Ouvre la navigation.
  *

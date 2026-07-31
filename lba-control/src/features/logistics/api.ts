@@ -53,6 +53,7 @@ export interface TransferRow {
   paid_kg: number | null
   weight_source: 'verified' | 'estimated_bags' | 'declared'
   weighing_ticket_path: string | null
+  reception_ticket_path: string | null
   ecart_physique_kg: number | null
   ecart_physique_pct: number | null
   ecart_acceptation_kg: number | null
@@ -235,6 +236,30 @@ export function useTransfers() {
   })
 }
 
+/**
+ * Ticket de pesée du départ.
+ *
+ * Enregistré dès son dépôt, sans attendre la réception : la règle serveur
+ * refuse un poids déclaré « vérifié » sans ticket, et une alerte se déclenche
+ * sur un transfert parti sans lui. Les deux supposent qu'il puisse être joint
+ * pendant que le camion roule.
+ */
+export function useSaveWeighingTicket() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (args: { transferId: string; path: string | null }) => {
+      const { error } = await supabase
+        .from('transfers')
+        .update({ weighing_ticket_path: args.path })
+        .eq('id', args.transferId)
+
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TRANSFERS }),
+  })
+}
+
 export interface ReceptionResult {
   transfer_id: string
   ecart_physique_kg: number | null
@@ -270,6 +295,7 @@ export function useRecordReception() {
       humidityReception: number | null
       rejectionReason: string | null
       receiverName: string | null
+      receptionTicketPath: string | null
     }): Promise<ReceptionResult> => {
       const { data, error } = await supabase.rpc('record_transfer_reception', {
         p_transfer_id: args.transferId,
@@ -283,7 +309,7 @@ export function useRecordReception() {
         p_rejected_kg: null,
         p_rejection_reason: args.rejectionReason,
         p_receiver_name: args.receiverName,
-        p_reception_ticket_path: null,
+        p_reception_ticket_path: args.receptionTicketPath,
       })
 
       if (error) throw new Error(describeError(error))

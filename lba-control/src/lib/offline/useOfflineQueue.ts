@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
+import { keyColumnFor, type AttachmentCounts } from '@/domain/attachments'
+import { storeBytes } from '@/lib/storage/upload'
 import { supabase } from '@/lib/supabase'
+import { entityIdFor } from '@/lib/storage/attach'
+import {
+  attachmentBlob,
+  attachmentCounts,
+  flushAttachments,
+  type BindPath,
+  type UploadBytes,
+} from './attachments'
 import { conflicts, countByStatus, pendingOperations } from './queue'
 import { synchronize, type PushFunction, type SyncReport } from './sync'
 import type { QueuedOperation } from './db'
@@ -17,11 +27,41 @@ export interface OfflineQueueState {
   synced: number
   failed: number
   conflicts: QueuedOperation[]
+  /** Justificatifs photographiés hors réseau, encore sur l'appareil. */
+  attachments: AttachmentCounts
   isOnline: boolean
   isSyncing: boolean
   lastReport: SyncReport | null
   refresh: () => Promise<void>
   sync: () => Promise<void>
+}
+
+/** Range les octets d'un justificatif en attente dans son bucket. */
+export const uploadAttachmentBytes: UploadBytes = (row, content) =>
+  storeBytes({
+    blob: attachmentBlob(row, content),
+    mimeType: row.mimeType,
+    kind: row.kind,
+    tenantId: row.tenantId,
+    entityId: entityIdFor(row.binding),
+  })
+
+/**
+ * Écrit le chemin dans la ligne métier et renvoie le nombre de lignes touchées.
+ *
+ * Zéro ligne n'est pas traité comme un succès : cela signifie que l'opération à
+ * laquelle le justificatif se rapporte n'est pas encore arrivée au serveur. Le
+ * fichier reste alors en attente et repartira au tour suivant.
+ */
+export const bindAttachmentPath: BindPath = async (row, path) => {
+  const { data, error } = await supabase
+    .from(row.binding.table)
+    .update({ [row.binding.column]: path } as never)
+    .eq(keyColumnFor(row.binding.table), row.binding.rowId)
+    .select('*')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).length
 }
 
 /** Envoi réel vers Supabase, avec traduction des refus en issues typées. */
@@ -55,6 +95,12 @@ export const pushToSupabase: PushFunction = async (operation) => {
 export function useOfflineQueue(autoSync = true): OfflineQueueState {
   const [counts, setCounts] = useState({ pending: 0, syncing: 0, synced: 0, failed: 0 })
   const [conflicted, setConflicted] = useState<QueuedOperation[]>([])
+  const [attachments, setAttachments] = useState<AttachmentCounts>({
+    pending: 0,
+    sending: 0,
+    sent: 0,
+    failed: 0,
+  })
   const [isOnline, setOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,
   )
@@ -64,6 +110,7 @@ export function useOfflineQueue(autoSync = true): OfflineQueueState {
   const refresh = useCallback(async () => {
     setCounts(await countByStatus())
     setConflicted(await conflicts())
+    setAttachments(await attachmentCounts())
   }, [])
 
   const sync = useCallback(async () => {
@@ -72,6 +119,9 @@ export function useOfflineQueue(autoSync = true): OfflineQueueState {
     try {
       const report = await synchronize(pushToSupabase)
       setLastReport(report)
+      // Les justificatifs partent APRÈS les opérations : un ticket ne peut pas
+      // se rattacher à un achat que le serveur n'a pas encore reçu.
+      await flushAttachments(uploadAttachmentBytes, bindAttachmentPath)
     } finally {
       setSyncing(false)
       await refresh()
@@ -100,6 +150,7 @@ export function useOfflineQueue(autoSync = true): OfflineQueueState {
   return {
     ...counts,
     conflicts: conflicted,
+    attachments,
     isOnline,
     isSyncing,
     lastReport,

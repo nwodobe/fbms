@@ -16,6 +16,7 @@ import { renderWithProviders } from './test-utils'
 // erreur de zone morte temporelle.
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
+  saveImage: vi.fn(),
   branding: {
     tenant_id: 'tenant-1',
     commercial_name: 'LBA Démonstration Bouaké',
@@ -51,6 +52,7 @@ vi.mock('@/lib/auth/session', () => ({
 vi.mock('@/features/settings/api', () => ({
   useTenantBranding: () => ({ data: mocks.branding, isLoading: false }),
   useSaveBranding: () => ({ mutateAsync: mocks.save, isPending: false, error: null }),
+  useSaveBrandingImage: () => ({ mutate: mocks.saveImage, isPending: false, error: null }),
 }))
 
 beforeEach(() => {

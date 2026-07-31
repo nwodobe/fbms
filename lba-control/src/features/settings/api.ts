@@ -23,6 +23,38 @@ export function useTenantBranding(tenantId: string | null) {
   })
 }
 
+/** Colonnes d'image de la marque, nommées ici pour rester alignées sur la liste blanche. */
+export type BrandingImageColumn = 'logo_path' | 'logo_mobile_path' | 'login_image_path'
+
+/**
+ * Enregistre une image de marque dès son dépôt.
+ *
+ * Séparé du formulaire : les octets sont déjà partis dans le bucket au moment
+ * où le chemin est connu. Attendre le bouton « Enregistrer » laisserait un
+ * fichier orphelin dans le bucket si l'utilisateur ferme l'écran entre-temps.
+ */
+export function useSaveBrandingImage(tenantId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (args: { column: BrandingImageColumn; path: string | null }) => {
+      if (!tenantId) throw new Error('Entreprise non résolue : reconnectez-vous.')
+
+      // Clé calculée : le cast nomme le type attendu, la colonne étant issue
+      // d'une union fermée et non d'une chaîne quelconque.
+      const patch = { [args.column]: args.path } as Partial<TenantBrandingRow>
+
+      const { error } = await supabase
+        .from('tenant_branding')
+        .update(patch)
+        .eq('tenant_id', tenantId)
+
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
 export function useSaveBranding(tenantId: string | null) {
   const queryClient = useQueryClient()
 

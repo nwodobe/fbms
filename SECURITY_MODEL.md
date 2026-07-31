@@ -227,13 +227,46 @@ d'otage, et sans déclaration possible un client bloqué ne pourrait jamais se d
 
 | Contrôle | Valeur |
 | --- | --- |
-| Buckets | **Privés**, un par usage (`proofs`, `tickets`, `branding`) |
-| Accès | URLs signées de courte durée uniquement — aucune URL publique |
-| Types autorisés | `image/jpeg`, `image/png`, `image/webp`, `application/pdf` (contrôle MIME **et** extension) |
-| Taille | 5 Mo par fichier (2 Mo après compression pour les photos terrain) |
-| Compression | Redimensionnement et recompression côté client avant mise en file hors ligne |
-| Chemins | Préfixés par `tenant_id/` ; politiques Storage alignées sur les politiques RLS |
+| Buckets | **Privés** : `preuves` (tickets, justificatifs, preuves d'achat) et `marque` (logos, image de connexion) |
+| Accès | URLs signées de 5 minutes, régénérées à chaque consultation — aucune URL publique, aucune URL stockée |
+| Types autorisés | Décidés **par la signature binaire du fichier**, jamais par son extension ni par le type annoncé par le navigateur |
+| Taille | 8 Mo (tickets et justificatifs), 4 Mo (preuve d'achat, saisie sur forfait terrain), 1 Mo (marque) |
+| Compression | Redimensionnement et recompression côté client **avant** l'envoi ou la mise en file |
+| Chemins | Préfixés par `tenant_id/` ; les politiques Storage comparent le premier segment au tenant du jeton |
+| Suppression | Refusée (`using (false)`) : un justificatif effacé après coup est précisément celui qu'un contrôleur voudra voir |
 | Journalisation | Tout export sensible génère une entrée `audit_log` (`sensitive_export`) |
+
+### File locale des justificatifs
+
+Une photo prise hors réseau attend sur l'appareil. Cette file traverse une frontière de confiance —
+son porteur contrôle entièrement le stockage du navigateur — et deux bornes l'encadrent.
+
+**Liste blanche des rattachements.** La file ne peut écrire que dans quatre tables et huit colonnes,
+toutes de type chemin de fichier :
+
+| Table | Colonnes | Ligne identifiée par |
+| --- | --- | --- |
+| `purchases` | `proof_path` | `id` |
+| `expenses` | `proof_path` | `id` |
+| `advances` | `proof_path` | `id` |
+| `transfers` | `weighing_ticket_path`, `reception_ticket_path` | `id` |
+| `tenant_branding` | `logo_path`, `logo_mobile_path`, `login_image_path` | `tenant_id` |
+
+Sans cette borne, une entrée de file modifiée à la main deviendrait « écris ce que je veux dans la
+colonne que je veux ». Elle est vérifiée à la mise en file **et** de nouveau à l'envoi, l'entrée
+ayant séjourné entre-temps dans une base que l'application ne contrôle pas. RLS reste évidemment la
+dernière ligne : un pisteur ne peut renseigner que ses propres achats, un comptable aucun ticket de
+pesée — vérifié en base.
+
+**Ordre d'écriture : les octets, puis le chemin.** Le chemin n'est inscrit dans la ligne métier
+qu'une fois les octets réellement stockés. L'ordre inverse serait plus simple et produirait des
+justificatifs fantômes : `proof_path` renseigné, aucun fichier au bout, une dépense franchissant le
+contrôle de `requires_receipt_above` sans pièce jointe, un contrôleur ouvrant un lien mort. Tant que
+les octets ne sont pas partis, l'interface annonce l'opération **sans** justificatif.
+
+**Ce qui n'est pas protégé** : les octets en attente ne sont pas chiffrés sur l'appareil. Une photo
+de ticket reste lisible par qui accède au stockage du navigateur ; la protection relève ici du
+verrouillage de l'appareil.
 
 ---
 

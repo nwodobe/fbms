@@ -15,6 +15,12 @@ import 'fake-indexeddb/auto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+  attachmentContent,
+  flushAttachments,
+  queueAttachment,
+  verifyAttachmentIntegrity,
+} from '@/lib/offline/attachments'
 import { OfflineDatabase } from '@/lib/offline/db'
 import { countByStatus, enqueue, fullJournal, pendingOperations } from '@/lib/offline/queue'
 import { synchronize, verifyQueueIntegrity, type PushOutcome } from '@/lib/offline/sync'
@@ -115,6 +121,69 @@ describe('AUDIT · le code ne peut pas perdre une opération', () => {
     expect(report.dropped).toBe(0)
     // Les 35 autres restent en file, intactes et visibles.
     expect((await countByStatus(db)).pending).toBe(35)
+  })
+})
+
+describe('AUDIT · le code ne peut pas perdre un justificatif', () => {
+  it('aucun module hors ligne n’efface la file des justificatifs', async () => {
+    const offenders: string[] = []
+
+    for (const { file, code } of offlineSources()) {
+      const dangerous = [
+        /attachments\s*\.\s*(delete|clear|bulkDelete)\s*\(/,
+        /attachmentContent\s*\.\s*(delete|clear|bulkDelete)\s*\(/,
+      ]
+      if (dangerous.some((pattern) => pattern.test(code))) offenders.push(file)
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it('aucune constante ne plafonne la file des justificatifs', async () => {
+    const offenders: string[] = []
+
+    for (const { file, code } of offlineSources()) {
+      const patterns = [/MAX_(ATTACHMENTS|FILES|PROOFS)/i, /attachments[^\n]*\.limit\s*\(/]
+      if (patterns.some((pattern) => pattern.test(code))) offenders.push(file)
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it('les octets ne vivent pas dans la ligne mise à jour à chaque tentative', async () => {
+    // Défaut réellement rencontré : tant que le tampon était rangé dans la ligne
+    // de suivi, chaque `Table.update` le détruisait. La ligne restait, le
+    // fichier devenait vide, et rien ne le signalait. Ce test épingle la
+    // séparation qui corrige cela.
+    const row = await queueAttachment(
+      {
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        deviceId: 'device-1',
+        kind: 'preuve_achat',
+        binding: { table: 'purchases', column: 'proof_path', rowId: 'purchase-1' },
+        content: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x2a]).buffer,
+        mimeType: 'image/jpeg',
+      },
+      db,
+    )
+
+    expect(Object.keys(row)).not.toContain('content')
+
+    // Quinze passages, donc quinze mises à jour de statut.
+    for (let round = 0; round < 15; round += 1) {
+      await flushAttachments(
+        async () => {
+          throw new Error('Hors couverture')
+        },
+        async () => 1,
+        { db, maxAttempts: 100 },
+      )
+    }
+
+    const bytes = await attachmentContent(row.id, db)
+    expect(new Uint8Array(bytes!)).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x2a]))
+    expect((await verifyAttachmentIntegrity(db)).intact).toBe(true)
   })
 })
 

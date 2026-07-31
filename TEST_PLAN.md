@@ -151,6 +151,12 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | OFF-06 | Compteur de tentatives et dernière erreur | Renseignés après échec |
 | OFF-07 | Journal de synchronisation | Prouve qu'aucune opération n'a disparu |
 | OFF-08 | Appareil révoqué | Synchronisation refusée |
+| OFF-09 | Un justificatif n'est jamais jeté | Présent après échecs répétés et après refus définitif |
+| OFF-10 | Octets d'abord, chemin ensuite | Aucun `proof_path` écrit tant que les octets ne sont pas stockés |
+| OFF-11 | Photo arrivée avant son opération | « 0 ligne mise à jour » ⇒ report, pas abandon |
+| OFF-12 | Un emplacement, un fichier | Re-photographier remplace et journalise ; départ ≠ réception |
+| OFF-13 | Intégrité de la file des fichiers | Ligne présente au contenu vide ⇒ signalée, envoi refusé |
+| OFF-14 | File des justificatifs **non bornée** | 320 fichiers conservés ; `batchSize` ne borne que l'envoi |
 
 ---
 
@@ -176,6 +182,9 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | E2E-12 | Exports PDF/Excel à la marque du tenant, sans données concurrentes | CA-12 |
 | E2E-13 | Échéance d'abonnement → lecture seule → réactivation après confirmation | DMQ E18 |
 | E2E-14 | Annulation d'une opération clôturée par écriture inverse | CA-13, aucune suppression |
+| E2E-18 | Images de marque : trois emplacements, signature contrôlée, lien temporaire | CDC §23.4 |
+| E2E-19 | Tickets de pesée : départ et réception distincts, réservés aux rôles qui pèsent | RG-09 |
+| E2E-20 | Preuve d'achat hors réseau : fichier conservé, achat annoncé **sans** justificatif | CDC §19 |
 
 ---
 
@@ -202,6 +211,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, RG-25 → RG-32, `subscription.ts`, `reports.ts`, `dashboard.ts`, E2E-12, E2E-13 |
 | 7 — Stabilisation | AUD-01 → AUD-14, E2E-14, suite complète, build de production |
 | 8 — Écrans manquants et fichiers | AUD-15 → AUD-18, `bags.ts`, `uploads.ts`, E2E-15 → E2E-17 |
+| 9 — Justificatifs, marque, notifications, planification | `attachments.ts`, OFF-09 → OFF-14, E2E-18 → E2E-20, rattachements vérifiés en base |
 
 ---
 

@@ -102,33 +102,35 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 282 tests**
+**Base de données — 292 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
 | `rls.test.ts` | 59 | Isolation multi-tenant, cloisonnement pisteur, auditeur en lecture seule, immuabilité de l'audit, verrou d'abonnement, assistance super-admin auditée |
 | `business-rules.test.ts` | 45 | Mélange de financements, double réservation, historisation des prix, quatre poids et cinq écarts, incidents bloquants, séparation des tâches |
-| `security-audit.test.ts` | 31 | **Audit piloté par le catalogue** : chaque table, chaque politique, chaque fonction privilégiée, sans liste écrite à la main |
+| `security-audit.test.ts` | 39 | **Audit piloté par le catalogue** : chaque table, chaque politique, chaque fonction privilégiée, sans liste écrite à la main |
 | `tcb-scoring-alerts.test.ts` | 29 | Anti double comptage, répartition indirecte, TCB, marges, scoring, vingt alertes |
 | `subscription-closure.test.ts` | 29 | Cycle d'abonnement jour par jour, paiements, clôture et réouverture de campagne, conservation |
 | `advances-purchases.test.ts` | 23 | Plafonds, couverture FIFO, doublons d'achat |
 | `reception-incidents.test.ts` | 20 | Tolérance en cascade, écarts, incidents ouverts sans imputation |
 | `branding-prices.test.ts` | 18 | Contraste imposé côté serveur, révision de prix versionnée |
 | `bags.test.ts` | 18 | Soldes de sacherie déduits des mouvements, pertes expliquées, réaffectation approuvée |
+| `attachments.test.ts` | 10 | Rattachement d'un justificatif : qui peut écrire quel chemin sur quelle ligne |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 450 tests**, dont :
+**Unitaires et composants — 483 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
 | `src/domain/*.test.ts` | Contraste, arithmétique, prix, couverture, avances, doublons, poids, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
 | `tests/unit/offline-queue.test.ts` | OFF-01 → OFF-08 : file non bornée, aucune perte, idempotence, conflits visibles |
-| `tests/unit/offline-audit.test.ts` | **Audit du code** : aucun appel de suppression, aucune borne de file, endurance sur 500 opérations |
+| `tests/unit/offline-attachments.test.ts` | OFF-09 → OFF-14 : justificatifs conservés, octets avant chemin, remplacement journalisé |
+| `tests/unit/offline-audit.test.ts` | **Audit du code** : aucun appel de suppression, aucune borne de file, endurance sur 500 opérations, octets préservés à travers les mises à jour |
 | `tests/unit/bundle-budget.test.ts` | Budget de chargement initial sur mobile |
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 180 tests** (bureau + Android), E2E-01 → E2E-17.
+**Parcours end-to-end — 202 tests** (bureau + Android), E2E-01 → E2E-20.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.

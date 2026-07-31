@@ -53,6 +53,15 @@ export interface PurchaseInput {
   isOwnAccount: boolean
   gpsLat: number | null
   gpsLng: number | null
+  /**
+   * Chemin de la preuve d'achat, s'il est déjà connu.
+   *
+   * Il ne l'est que si les octets sont réellement partis. Une photo mise en
+   * attente sur l'appareil laisse ce champ à `null` et rattachera son chemin
+   * elle-même après l'envoi : inscrire le chemin d'avance produirait une preuve
+   * qui n'existe pas.
+   */
+  proofPath: string | null
 }
 
 const KEY = ['purchases'] as const
@@ -107,6 +116,7 @@ function toRow(input: PurchaseInput, tenantId: string, deviceId: string) {
     bag_count: input.bagCount,
     payment_method: input.paymentMethod,
     payment_reference: input.paymentReference,
+    proof_path: input.proofPath,
     is_own_account: input.isOwnAccount,
     gps_lat: input.gpsLat,
     gps_lng: input.gpsLng,

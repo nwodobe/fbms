@@ -14,11 +14,18 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { ProofUpload } from '@/components/shared/ProofUpload'
 import { formatWeight } from '@/domain/money'
 import { checkWeightConsistency, computeVariances } from '@/domain/weights'
 import { useSession } from '@/lib/auth/session'
 import { usePartnerCompanies } from '@/features/partners/api'
-import { useRecordReception, useTransfers, type ReceptionResult, type TransferRow } from './api'
+import {
+  useRecordReception,
+  useSaveWeighingTicket,
+  useTransfers,
+  type ReceptionResult,
+  type TransferRow,
+} from './api'
 
 const WEIGHT_SOURCE_LABELS: Record<TransferRow['weight_source'], string> = {
   verified: 'Pesé et vérifié',
@@ -38,6 +45,7 @@ export function TransfersPage() {
   const { data: transfers, isLoading } = useTransfers()
   const { data: partners } = usePartnerCompanies()
   const [receiving, setReceiving] = useState<TransferRow | null>(null)
+  const [ticketing, setTicketing] = useState<TransferRow | null>(null)
 
   const canWriteWeights =
     role === 'proprietaire' || role === 'gestionnaire' || role === 'responsable_terrain'
@@ -78,6 +86,7 @@ export function TransfersPage() {
                   <TableHead>Accepté</TableHead>
                   <TableHead>Payé</TableHead>
                   <TableHead>Écart</TableHead>
+                  <TableHead>Ticket départ</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead />
                 </TableRow>
@@ -107,6 +116,17 @@ export function TransfersPage() {
                         )}
                       </TableCell>
                       <TableCell>
+                        {transfer.weighing_ticket_path ? (
+                          <Badge variant="ok">joint</Badge>
+                        ) : canWriteWeights ? (
+                          <Button variant="link" size="sm" onClick={() => setTicketing(transfer)}>
+                            Joindre
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={transfer.status === 'cloture' ? 'ok' : 'neutral'}>
                           {transfer.status}
                         </Badge>
@@ -128,7 +148,81 @@ export function TransfersPage() {
       </Card>
 
       {receiving && <ReceptionDialog transfer={receiving} onClose={() => setReceiving(null)} />}
+      {ticketing && (
+        <WeighingTicketDialog transfer={ticketing} onClose={() => setTicketing(null)} />
+      )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Ticket de pesée du départ
+// ---------------------------------------------------------------------------
+
+/**
+ * Le ticket du pont-bascule au départ.
+ *
+ * Il se joint après le départ du camion, et c'est délibéré : la règle serveur
+ * refuse un poids déclaré « vérifié » sans ticket, mais elle ne doit pas
+ * empêcher d'enregistrer un chargement dont le ticket est resté chez le peseur.
+ * Le transfert existe alors avec un poids estimé, et l'alerte « parti sans
+ * ticket » rappelle qu'il manque quelque chose.
+ */
+function WeighingTicketDialog({
+  transfer,
+  onClose,
+}: {
+  transfer: TransferRow
+  onClose: () => void
+}) {
+  const save = useSaveWeighingTicket()
+  const [queued, setQueued] = useState<string | null>(null)
+  // Le transfert reçu en argument est un instantané de la liste : il ne se met
+  // pas à jour tout seul après l'enregistrement du chemin.
+  const [path, setPath] = useState<string | null>(transfer.weighing_ticket_path)
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ticket de pesée — {transfer.transfer_number}</DialogTitle>
+          <DialogDescription>
+            Poids chargé : <strong>{formatWeight(transfer.net_loaded_kg)}</strong> (
+            {WEIGHT_SOURCE_LABELS[transfer.weight_source]}). Sans ticket, un poids ne peut pas être
+            déclaré vérifié.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ProofUpload
+          kind="ticket_pesee"
+          label="Ticket du pont-bascule (départ)"
+          binding={{ table: 'transfers', column: 'weighing_ticket_path', rowId: transfer.id }}
+          value={path}
+          onChange={(next) => {
+            setPath(next)
+            save.mutate({ transferId: transfer.id, path: next })
+          }}
+          onQueued={setQueued}
+        />
+
+        {queued && (
+          <p role="status" className="rounded-md bg-status-warn/10 px-3 py-2 text-sm">
+            Le transfert reste sans ticket tant que le fichier n’est pas parti : le poids ne peut pas
+            encore être déclaré vérifié.
+          </p>
+        )}
+
+        {save.error && (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {save.error.message}
+          </p>
+        )}
+
+        <DialogFooter>
+          <Button onClick={onClose}>Fermer</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -139,6 +233,10 @@ export function TransfersPage() {
 function ReceptionDialog({ transfer, onClose }: { transfer: TransferRow; onClose: () => void }) {
   const record = useRecordReception()
   const [result, setResult] = useState<ReceptionResult | null>(null)
+  const [ticketPath, setTicketPath] = useState<string | null>(
+    transfer.reception_ticket_path ?? null,
+  )
+  const [ticketQueued, setTicketQueued] = useState<string | null>(null)
   const [form, setForm] = useState({
     netUnloadedKg: '',
     acceptedKg: '',
@@ -174,6 +272,7 @@ function ReceptionDialog({ transfer, onClose }: { transfer: TransferRow; onClose
       humidityReception: form.humidityReception ? Number(form.humidityReception) : null,
       rejectionReason: form.rejectionReason || null,
       receiverName: form.receiverName || null,
+      receptionTicketPath: ticketPath,
     })
     setResult(outcome)
   }
@@ -323,6 +422,26 @@ function ReceptionDialog({ transfer, onClose }: { transfer: TransferRow; onClose
                 onChange={(e) => setForm({ ...form, receiverName: e.target.value })}
               />
             </Field>
+
+            <ProofUpload
+              kind="ticket_pesee"
+              label="Ticket de pesée (réception)"
+              binding={{
+                table: 'transfers',
+                column: 'reception_ticket_path',
+                rowId: transfer.id,
+              }}
+              value={ticketPath}
+              onChange={setTicketPath}
+              onQueued={setTicketQueued}
+            />
+
+            {ticketQueued && (
+              <p role="status" className="rounded-md bg-status-warn/10 px-3 py-2 text-sm">
+                La réception peut être enregistrée sans attendre : le ticket la rejoindra au retour du
+                réseau. Elle sera enregistrée sans ticket d’ici là.
+              </p>
+            )}
 
             {weights.acceptedKg !== null &&
               weights.netUnloadedKg !== null &&

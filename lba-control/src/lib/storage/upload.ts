@@ -80,6 +80,76 @@ async function compressImage(file: File, kind: UploadKind): Promise<Blob> {
   }
 }
 
+export interface PreparedUpload {
+  blob: Blob
+  mimeType: string
+  savedBytes: number
+}
+
+/**
+ * Contrôle et compresse un fichier, sans réseau.
+ *
+ * Séparé de l'envoi parce que les deux ne se produisent pas toujours au même
+ * moment : un justificatif photographié hors réseau est contrôlé et compressé
+ * tout de suite — c'est ce qui permet de refuser un fichier inutilisable pendant
+ * que le pisteur est encore devant le vendeur — puis attend dans la file locale.
+ */
+export async function prepareUpload(file: File, kind: UploadKind): Promise<PreparedUpload> {
+  const check = checkUpload(
+    {
+      name: file.name,
+      declaredType: file.type,
+      size: file.size,
+      head: await readHead(file),
+    },
+    kind,
+  )
+
+  if (!check.accepted || check.detectedMimeType === null) {
+    throw new Error(check.message)
+  }
+
+  const compressed = await compressImage(file, kind)
+
+  return {
+    blob: compressed,
+    // La compression produit du JPEG ; le type réel change donc avec elle.
+    mimeType: compressed === file ? check.detectedMimeType : 'image/jpeg',
+    savedBytes: Math.max(0, file.size - compressed.size),
+  }
+}
+
+/** Range des octets déjà contrôlés dans le bucket et renvoie leur chemin. */
+export async function storeBytes(args: {
+  blob: Blob
+  mimeType: string
+  kind: UploadKind
+  tenantId: string
+  entityId: string
+}): Promise<string> {
+  const policy = UPLOAD_POLICIES[args.kind]
+
+  const path = storagePath({
+    tenantId: args.tenantId,
+    kind: args.kind,
+    entityId: args.entityId,
+    mimeType: args.mimeType,
+  })
+
+  const { error } = await supabase.storage.from(policy.bucket).upload(path, args.blob, {
+    contentType: args.mimeType,
+    // Un même justificatif re-téléversé remplace le précédent plutôt que
+    // d'accumuler des variantes dont personne ne saura laquelle fait foi.
+    upsert: true,
+  })
+
+  if (error) {
+    throw new Error(`Le téléversement a échoué : ${error.message}`)
+  }
+
+  return path
+}
+
 /**
  * Contrôle, compresse et téléverse un justificatif.
  *
@@ -93,49 +163,22 @@ export async function uploadProof(args: {
   entityId: string
 }): Promise<UploadResult> {
   const policy = UPLOAD_POLICIES[args.kind]
+  const prepared = await prepareUpload(args.file, args.kind)
 
-  const check = checkUpload(
-    {
-      name: args.file.name,
-      declaredType: args.file.type,
-      size: args.file.size,
-      head: await readHead(args.file),
-    },
-    args.kind,
-  )
-
-  if (!check.accepted || check.detectedMimeType === null) {
-    throw new Error(check.message)
-  }
-
-  const compressed = await compressImage(args.file, args.kind)
-  // La compression produit du JPEG ; le type réel change donc avec elle.
-  const mimeType = compressed === args.file ? check.detectedMimeType : 'image/jpeg'
-
-  const path = storagePath({
-    tenantId: args.tenantId,
+  const path = await storeBytes({
+    blob: prepared.blob,
+    mimeType: prepared.mimeType,
     kind: args.kind,
+    tenantId: args.tenantId,
     entityId: args.entityId,
-    mimeType,
   })
-
-  const { error } = await supabase.storage.from(policy.bucket).upload(path, compressed, {
-    contentType: mimeType,
-    // Un même justificatif re-téléversé remplace le précédent plutôt que
-    // d'accumuler des variantes dont personne ne saura laquelle fait foi.
-    upsert: true,
-  })
-
-  if (error) {
-    throw new Error(`Le téléversement a échoué : ${error.message}`)
-  }
 
   return {
     path,
     bucket: policy.bucket,
-    mimeType,
-    bytes: compressed.size,
-    savedBytes: Math.max(0, args.file.size - compressed.size),
+    mimeType: prepared.mimeType,
+    bytes: prepared.blob.size,
+    savedBytes: prepared.savedBytes,
   }
 }
 

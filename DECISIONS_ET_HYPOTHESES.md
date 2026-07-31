@@ -174,6 +174,8 @@ arbitrage qui appartient au métier.
 | **H-22** | Les **sacs appartiennent à une société**. Les déplacer d'un tiers vers un autre est un transfert de valeur : approbation nominative, motif écrit et entrée `partner_change` au journal. La réaffectation s'écrit en **deux mouvements** (une sortie, une entrée), `partner_company_id` étant une colonne unique. | Moyen si contesté — c'est une question commerciale, pas technique. |
 | **H-23** | Le **type d'un fichier est établi par sa signature binaire**, jamais par son extension ni par le type annoncé par le navigateur : les deux viennent du client. Les limites de taille diffèrent selon l'usage — 8 Mo au bureau, 4 Mo pour une preuve envoyée du terrain, parce que le pisteur paie son forfait. | Faible. |
 | **H-24** | Le seuil `expense_categories.requires_receipt_above` s'applique **à la validation, pas à la saisie**. Un pisteur doit pouvoir enregistrer une dépense réelle depuis le terrain ; la pièce est jointe au bureau. | Faible. |
+| **H-25** | Une opération enregistrée hors réseau part **sans** justificatif et le reçoit plus tard, quand les octets arrivent. Elle n'est jamais annoncée comme justifiée d'avance. Conséquence assumée : entre les deux, un contrôle voit une opération sans pièce — ce qui est la vérité. | Moyen : demande que le métier accepte cet intervalle plutôt qu'un `proof_path` optimiste. |
+| **H-26** | Re-photographier un même emplacement **remplace** le fichier en attente au lieu d'en accumuler deux. Le remplacement est journalisé. Hypothèse : deux photos du même ticket sont une correction, pas deux preuves. | Faible. |
 
 ---
 

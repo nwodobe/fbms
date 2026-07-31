@@ -6,11 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { ProofUpload } from '@/components/shared/ProofUpload'
 import { checkBrandColors } from '@/domain/contrast'
 import { brandingSchema, type BrandingInput } from '@/domain/schemas'
 import { useSession } from '@/lib/auth/session'
 import { DEFAULT_BRANDING } from '@/lib/tenant/branding'
-import { useSaveBranding, useTenantBranding } from './api'
+import {
+  useSaveBranding,
+  useSaveBrandingImage,
+  useTenantBranding,
+  type BrandingImageColumn,
+} from './api'
+
+/**
+ * Les trois images de la marque.
+ *
+ * Trois emplacements distincts, jamais un seul fichier redimensionné : un logo
+ * lisible sur un écran de bureau devient illisible dans un menu de téléphone, et
+ * l'image de connexion est un visuel de fond, pas un logo.
+ */
+const BRAND_IMAGES: Array<{ column: BrandingImageColumn; label: string; hint: string }> = [
+  { column: 'logo_path', label: 'Logo principal', hint: 'Menu, tableau de bord et en-tête des documents exportés.' },
+  { column: 'logo_mobile_path', label: 'Logo mobile', hint: 'Version compacte, utilisée sur les écrans étroits.' },
+  { column: 'login_image_path', label: 'Image de connexion', hint: 'Visuel de la page de connexion.' },
+]
 
 /**
  * Écran H01 — marque de l'entreprise.
@@ -27,6 +46,7 @@ export function BrandingPage() {
   const { tenantId } = useSession()
   const { data, isLoading } = useTenantBranding(tenantId)
   const save = useSaveBranding(tenantId)
+  const saveImage = useSaveBrandingImage(tenantId)
   const [saved, setSaved] = useState(false)
 
   const {
@@ -127,6 +147,39 @@ export function BrandingPage() {
             <Field id="slogan" label="Slogan" className="sm:col-span-2" error={errors.slogan?.message}>
               <Input id="slogan" {...register('slogan')} />
             </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Images</CardTitle>
+            <CardDescription>
+              Fichiers rangés dans un espace privé de l’entreprise. Aucun n’a d’adresse publique :
+              l’affichage passe par un lien temporaire régénéré à chaque consultation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 sm:grid-cols-3">
+            {BRAND_IMAGES.map((image) => (
+              <div key={image.column} className="space-y-1">
+                <ProofUpload
+                  kind="logo"
+                  label={image.label}
+                  binding={{
+                    table: 'tenant_branding',
+                    column: image.column,
+                    rowId: tenantId ?? '',
+                  }}
+                  value={data?.[image.column] ?? null}
+                  onChange={(path) => saveImage.mutate({ column: image.column, path })}
+                />
+                <p className="text-xs text-muted-foreground">{image.hint}</p>
+              </div>
+            ))}
+            {saveImage.error && (
+              <p role="alert" className="text-sm text-destructive sm:col-span-3">
+                {saveImage.error.message}
+              </p>
+            )}
           </CardContent>
         </Card>
 

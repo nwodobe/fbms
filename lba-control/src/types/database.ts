@@ -350,6 +350,7 @@ export type PurchaseRow = {
   bag_count: number | null
   payment_method: string
   payment_reference: string | null
+  proof_path: string | null
   status: PurchaseStatus
   sync_status: SyncStatusEnum
   device_id: string | null
@@ -776,6 +777,7 @@ export type TransferDbRow = {
   humidity_reception: number | null
   rejected_kg: number | null
   rejection_reason: string | null
+  reception_ticket_path: string | null
   receiver_name: string | null
   applied_price_id: string | null
   applied_price_value: number | null
