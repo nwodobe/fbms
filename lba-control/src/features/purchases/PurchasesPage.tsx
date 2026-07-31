@@ -16,13 +16,16 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ProofUpload } from '@/components/shared/ProofUpload'
 import { describeAttachmentState } from '@/domain/attachments'
+import { buildPurchaseDocument } from '@/domain/documents'
+import { downloadDocument } from '@/lib/export/documents'
+import { useDocumentBranding } from '@/lib/export/useDocumentBranding'
 import { formatMoney, formatWeight, multiply } from '@/domain/money'
 import { useSession } from '@/lib/auth/session'
 import { deviceId, useOfflineQueue } from '@/lib/offline/useOfflineQueue'
 import { useFieldAgents } from '@/features/agents/api'
 import { useCampaigns } from '@/features/contracts/api'
 import { usePartnerCompanies } from '@/features/partners/api'
-import { useDuplicateFlags, usePurchases, useRecordPurchase } from './api'
+import { useDuplicateFlags, usePurchases, useRecordPurchase, type Purchase } from './api'
 
 /**
  * Écrans D01 et D02 — achats terrain.
@@ -68,7 +71,31 @@ export function PurchasesPage() {
     paymentMethod: 'cash',
   })
 
+  const documentBranding = useDocumentBranding()
   const canRecord = role !== 'auditeur'
+
+  /** Reçu remis au vendeur. Le calcul y est écrit en toutes lettres. */
+  function printReceipt(purchase: Purchase) {
+    void downloadDocument(
+      buildPurchaseDocument(
+        {
+          id: purchase.id,
+          supplierName: purchase.supplier_name,
+          village: purchase.village,
+          agentName: agentName(purchase.field_agent_id),
+          purchasedAt: purchase.purchased_at,
+          netWeightKg: Number(purchase.net_weight_kg),
+          pricePerKg: Number(purchase.price_per_kg),
+          amount: Number(purchase.amount),
+          currency: 'FCFA',
+          bagCount: purchase.bag_count,
+          paymentMethod: purchase.payment_method,
+        },
+        new Date().toISOString(),
+      ),
+      documentBranding,
+    )
+  }
   const agentName = (id: string) => agents?.find((a) => a.id === id)?.full_name ?? '—'
   const flaggedIds = new Set((flags ?? []).map((flag) => flag.purchase_id))
 
@@ -208,6 +235,7 @@ export function PurchasesPage() {
                   <TableHead>Prix/kg</TableHead>
                   <TableHead>Montant</TableHead>
                   <TableHead>Synchro</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -232,6 +260,11 @@ export function PurchasesPage() {
                       <Badge variant={purchase.sync_status === 'synced' ? 'ok' : 'warn'}>
                         {purchase.sync_status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="link" size="sm" onClick={() => printReceipt(purchase)}>
+                        Reçu
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

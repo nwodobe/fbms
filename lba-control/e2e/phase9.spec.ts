@@ -775,3 +775,70 @@ test.describe('E2E-24 · par où vous joindre', () => {
     await expect(page.getByText('Numéro invalide')).toBeVisible()
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-25 · Documents opérationnels
+// ---------------------------------------------------------------------------
+
+test.describe('E2E-25 · documents opérationnels', () => {
+  test('le bon de transfert se télécharge depuis la liste', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures())
+    await stubStorage(page)
+
+    await page.goto('/transferts')
+
+    const download = page.waitForEvent('download')
+    await page.getByRole('row', { name: /TR-0001/ }).getByRole('button', { name: 'Bon de transfert' }).click()
+
+    // Le numéro de pièce est dans le nom du fichier, pour le classement.
+    expect((await download).suggestedFilename()).toMatch(/^BT-\d{4}-\w+-bon_transfert\.pdf$/)
+  })
+
+  test('le reçu d’achat se télécharge depuis la liste', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        purchases: [
+          {
+            id: 'pu-1', tenant_id: TENANT, field_agent_id: 'a-1', campaign_id: 'c-2026',
+            partner_company_id: 'p-olam', supplier_name: 'YAO Kouadio', village: 'Brobo',
+            purchased_at: '2026-03-10T08:12:00.000Z', net_weight_kg: 8200, price_per_kg: 430,
+            amount: 3_526_000, bag_count: 102, payment_method: 'cash', status: 'valide',
+            sync_status: 'synced', is_own_account: false, device_id: null, proof_path: null,
+          },
+        ],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/achats')
+
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Reçu' }).first().click()
+
+    expect((await download).suggestedFilename()).toMatch(/^RA-\d{4}-\w+-recu_achat\.pdf$/)
+  })
+
+  test('le même bon réimprimé porte le même numéro', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures())
+    await stubStorage(page)
+
+    await page.goto('/transferts')
+    const bouton = page.getByRole('row', { name: /TR-0001/ }).getByRole('button', { name: 'Bon de transfert' })
+
+    const premier = page.waitForEvent('download')
+    await bouton.click()
+    const second = page.waitForEvent('download')
+    await bouton.click()
+
+    // Un compteur incrémental produirait deux bons pour une seule opération,
+    // donc potentiellement deux retraits d'argent sur un bon d'avance.
+    expect((await premier).suggestedFilename()).toBe((await second).suggestedFilename())
+  })
+})

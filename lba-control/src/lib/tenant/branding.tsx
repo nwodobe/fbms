@@ -12,6 +12,9 @@ export interface Branding {
   primaryColor: string
   secondaryColor: string
   documentFooter: string | null
+  /** Coordonnées reprises en tête des documents opérationnels. */
+  phone: string | null
+  address: string | null
   currency: string
 }
 
@@ -24,6 +27,8 @@ export const DEFAULT_BRANDING: Branding = {
   primaryColor: '#1f6f43',
   secondaryColor: '#b45309',
   documentFooter: null,
+  phone: null,
+  address: null,
   currency: 'FCFA',
 }
 
@@ -39,6 +44,8 @@ function toBranding(row: TenantBrandingRow | null): Branding {
     primaryColor: row.primary_color,
     secondaryColor: row.secondary_color,
     documentFooter: row.document_footer,
+    phone: row.phone,
+    address: row.address,
     currency: row.currency,
   }
 }

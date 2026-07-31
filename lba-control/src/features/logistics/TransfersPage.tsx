@@ -15,6 +15,9 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { ProofUpload } from '@/components/shared/ProofUpload'
+import { buildTransferDocument } from '@/domain/documents'
+import { downloadDocument } from '@/lib/export/documents'
+import { useDocumentBranding } from '@/lib/export/useDocumentBranding'
 import { formatWeight } from '@/domain/money'
 import { checkWeightConsistency, computeVariances } from '@/domain/weights'
 import { useSession } from '@/lib/auth/session'
@@ -46,6 +49,34 @@ export function TransfersPage() {
   const { data: partners } = usePartnerCompanies()
   const [receiving, setReceiving] = useState<TransferRow | null>(null)
   const [ticketing, setTicketing] = useState<TransferRow | null>(null)
+  const documentBranding = useDocumentBranding()
+
+  /** Bon remis au chauffeur. Volontairement muet sur l'argent. */
+  function printTransfer(transfer: TransferRow) {
+    void downloadDocument(
+      buildTransferDocument(
+        {
+          id: transfer.id,
+          transferNumber: transfer.transfer_number,
+          partnerName: partnerName(transfer.partner_company_id),
+          originSite: null,
+          destinationSite: null,
+          driverName: transfer.driver_name,
+          driverPhone: null,
+          tractorPlate: transfer.tractor_plate,
+          trailerPlate: null,
+          netLoadedKg: transfer.net_loaded_kg === null ? null : Number(transfer.net_loaded_kg),
+          bagCount: null,
+          weightSource: transfer.weight_source,
+          weighingTicketPath: transfer.weighing_ticket_path,
+          dispatchedAt: transfer.dispatched_at,
+          campaignName: null,
+        },
+        new Date().toISOString(),
+      ),
+      documentBranding,
+    )
+  }
 
   const canWriteWeights =
     role === 'proprietaire' || role === 'gestionnaire' || role === 'responsable_terrain'
@@ -131,7 +162,10 @@ export function TransfersPage() {
                           {transfer.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="space-x-2 text-right">
+                        <Button variant="link" size="sm" onClick={() => printTransfer(transfer)}>
+                          Bon de transfert
+                        </Button>
                         {canWriteWeights && transfer.net_unloaded_kg === null && (
                           <Button variant="link" size="sm" onClick={() => setReceiving(transfer)}>
                             Réceptionner
