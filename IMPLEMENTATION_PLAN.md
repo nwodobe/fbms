@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 3.**
+**Mis à jour : fin de Phase 4.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -17,7 +17,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **1** | Initialisation, architecture, Supabase local, migrations, auth, tenants, utilisateurs, rôles, RLS, journal d'audit | ✅ **Terminée** |
 | **2** | Identité visuelle, sociétés partenaires, campagnes, contrats, prix | ✅ **Terminée** |
 | **3** | Pisteurs, financements, avances, achats, synchronisation hors ligne | ✅ **Terminée** |
-| 4 | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ⬜ À faire |
+| **4** | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ✅ **Terminée** |
 | 5 | Dépenses, allocations, TCB, marges, scoring, alertes | ⬜ À faire |
 | 6 | Abonnements, personnalisation des documents, exports, tableaux de bord | ⬜ À faire |
 | 7 | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ⬜ À faire |
@@ -206,14 +206,57 @@ achats terrain avec saisie hors ligne.
 
 ---
 
-## Phases 4 à 7 — Plan détaillé
+## Phase 4 — Matière et logistique · ✅ Terminée
 
-### Phase 4 — Matière et logistique
+Écrans livrés : `D03` stocks et réservations, `E01` planning, `E02`/`E03` transferts, pesées et
+réception, `E14` incidents.
 
-Écrans `D03`, `E01`, `E02`, `E03`, `E14`.
-Lots, mouvements, réservation transactionnelle, planning, transferts avec **quatre poids distincts**,
-réception, cinq écarts calculés, incidents bloquant la clôture.
-*Terminée quand* : RG-02 → RG-05, RG-09, RG-10, E2E-06 → E2E-08 passent.
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **Quantité disponible ≠ quantité du lot** | La colonne « disponible » retire les réservations actives ; afficher la quantité brute est précisément ce qui produit les doubles promesses |
+| **Double réservation impossible** | Fonction transactionnelle avec verrou de ligne + trigger de capacité, testés |
+| Un lot affecté à une société n'est pas promettable à une autre | Testé au niveau réservation **et** au chargement |
+| **Tolérance résolue en cascade** contrat → société → entreprise | L'origine du seuil est conservée et affichée : « supérieur à la tolérance » sans dire laquelle est ininterprétable |
+| **Les cinq écarts** calculés par la base | Les deux formulations divergentes des documents sources sont conservées (INC-01) |
+| **Quatre poids distincts** | Aucune colonne ni colonne d'affichage « livré » ; chaîne décroissante vérifiée des deux côtés |
+| **Incident automatique au-delà du seuil** | Ouvert avec la mesure, la tolérance et son origine ; bloque la clôture |
+| **Aucune imputation automatique** | Responsable présumé « inconnu », causes techniques énumérées avant toute conclusion — vérifié par test |
+| Pas d'incident formel sur un poids estimé | Accuser sur la foi d'un poids non pesé serait indéfendable |
+| Réception transactionnelle | Poids, écarts, incident et mouvement de stock en une seule transaction |
+| **Couverture FIFO déclenchée par la réception acceptée** | Arbitrage D1 branché, valorisation au prix historisé du transfert |
+| Départ refusé sans poids chargé ni ticket de pesée « vérifié » | Testé |
+| **236 tests unitaires et de composants** | 236/236 |
+| **165 tests de base de données** | 165/165 |
+| **70 parcours end-to-end** (bureau + Android) | 70/70 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 4, et corrigés
+
+1. **Deux erreurs de typage SQL** (énumération `incident_severity` affectée depuis une chaîne) qui
+   faisaient échouer toute réception dépassant la tolérance — c'est-à-dire précisément le cas que la
+   fonction existe pour traiter.
+2. **Les seuils s'affichaient « 0.5000 % »**, suggérant une précision qui n'existe pas. Les zéros non
+   significatifs sont désormais supprimés dans les messages.
+3. Deux assertions end-to-end ambiguës de ma part (« Chargé » correspondait aussi à « Déchargé »).
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **La création d'un transfert et la pesée au chargement ne sont pas encore un écran** : la réception
+  l'est, les règles de départ sont en base et testées, mais le formulaire de chargement reste à faire.
+  Les transferts existants sont réceptionnables.
+- **Le planning ne se crée pas depuis l'interface** : la liste, les contrôles avant confirmation et la
+  confirmation fonctionnent ; le formulaire de création arrive avec la sacherie.
+- **La sacherie (`E11`) n'est pas traitée** : les tables et les mouvements existent depuis la phase 1,
+  l'écran est reporté — il dépend des dotations aux pisteurs, plus proches du terrain que de la
+  logistique.
+- **Les tickets de pesée ne sont pas téléversables** (Storage), mais leur présence est déjà exigée pour
+  déclarer un poids « vérifié ».
+
+---
+
+## Phases 5 à 7 — Plan détaillé
 
 ### Phase 5 — Rentabilité
 
@@ -240,11 +283,11 @@ documentation d'installation et de déploiement, compte de démonstration exécu
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 15 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 16 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par test |
-| Les politiques RLS ont des tests | ✅ 145 tests exécutés |
-| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 → E2E-05 livrés (46 tests, bureau + Android) ; E2E-06 → E2E-14 aux phases 4 à 6 |
-| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste, arithmétique, couverture FIFO, exposition et plafonds livrés ; TCB, marge et scoring en phase 5 |
+| Les politiques RLS ont des tests | ✅ 165 tests exécutés |
+| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 → E2E-08 livrés (70 tests, bureau + Android) ; E2E-09 → E2E-14 aux phases 5 et 6 |
+| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock et planning livrés ; TCB, marge et scoring en phase 5 |
 | La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08, 23 tests |
 | Les erreurs sont affichées clairement | ⬜ au fil des écrans |
 | Le build de production réussit | ✅ |

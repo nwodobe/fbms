@@ -6,6 +6,10 @@ import { AgentDetailPage } from '@/features/agents/AgentDetailPage'
 import { AgentsPage } from '@/features/agents/AgentsPage'
 import { ContractsPage } from '@/features/contracts/ContractsPage'
 import { FundingPage } from '@/features/funding/FundingPage'
+import { IncidentsPage } from '@/features/logistics/IncidentsPage'
+import { PlanningPage } from '@/features/logistics/PlanningPage'
+import { StockPage } from '@/features/logistics/StockPage'
+import { TransfersPage } from '@/features/logistics/TransfersPage'
 import { PurchasesPage } from '@/features/purchases/PurchasesPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { LoginPage } from '@/features/auth/LoginPage'
@@ -44,46 +48,6 @@ const PLANNED = [
     phase: 4,
     summary: 'Dotations, retours et pertes de sacs, par société.',
     delivers: ['Solde par détenteur et par société', 'Réaffectation inter-sociétés approuvée'],
-  },
-  {
-    path: 'stocks',
-    title: 'Stocks et réservations',
-    phase: 4,
-    summary: 'Distinguer stock en main, disponible, réservé, chargé et litigieux.',
-    delivers: [
-      'Réservation transactionnelle : aucune double réservation possible',
-      'Interdiction du stock négatif',
-      'Réaffectation de société par workflow approuvé',
-    ],
-  },
-  {
-    path: 'planning',
-    title: 'Planning de livraison',
-    phase: 4,
-    summary: 'Promettre un volume réaliste et suivre les retards.',
-    delivers: ['Vérification du stock disponible avant confirmation', 'Capacité véhicule et documents obligatoires'],
-  },
-  {
-    path: 'transferts',
-    title: 'Transferts et pesées',
-    phase: 4,
-    summary: 'Rapprocher la matière sans confondre les quatre poids.',
-    delivers: [
-      'Poids chargé, déchargé, accepté et payé conservés séparément',
-      'Cinq écarts calculés automatiquement',
-      'Incident et blocage de clôture au-delà de la tolérance',
-    ],
-  },
-  {
-    path: 'incidents',
-    title: 'Incidents et litiges',
-    phase: 4,
-    summary: 'Documenter les anomalies avant toute imputation de responsabilité.',
-    delivers: [
-      'Type, gravité, montant exposé, preuves',
-      'Distinction perte naturelle, technique, qualité et inexpliquée',
-      'Aucune imputation automatique au pisteur',
-    ],
   },
   {
     path: 'depenses',
@@ -176,6 +140,12 @@ export function AppRouter() {
         <Route path="pisteurs/:agentId" element={<AgentDetailPage />} />
         <Route path="avances" element={<AdvancesPage />} />
         <Route path="achats" element={<PurchasesPage />} />
+
+        {/* Écrans livrés en phase 4 */}
+        <Route path="stocks" element={<StockPage />} />
+        <Route path="planning" element={<PlanningPage />} />
+        <Route path="transferts" element={<TransfersPage />} />
+        <Route path="incidents" element={<IncidentsPage />} />
 
         {PLANNED.map((screen) => (
           <Route

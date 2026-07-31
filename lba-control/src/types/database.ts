@@ -316,6 +316,164 @@ export type AdvanceCapacityResult = {
   exposure: AgentExposureResult
 }
 
+// ---------------------------------------------------------------------------
+// Phase 4 · stocks, planning, transferts, incidents
+// ---------------------------------------------------------------------------
+
+export type StockStatusEnum =
+  | 'disponible' | 'reserve' | 'charge' | 'en_transit' | 'receptionne'
+  | 'rejete' | 'bloque' | 'en_litige' | 'cloture'
+export type HolderTypeEnum = 'field_agent' | 'warehouse' | 'in_transit' | 'partner_site'
+export type WeightSourceEnum = 'verified' | 'estimated_bags' | 'declared'
+export type DeliveryPlanStatus =
+  | 'brouillon' | 'planifie' | 'confirme' | 'en_preparation' | 'chargement'
+  | 'en_transit' | 'arrive' | 'decharge' | 'receptionne' | 'cloture' | 'reporte' | 'annule'
+
+export type StockLotDbRow = {
+  id: string
+  tenant_id: string
+  code: string
+  campaign_id: string
+  partner_company_id: string | null
+  contract_id: string | null
+  field_agent_id: string | null
+  product_id: string
+  site_id: string | null
+  holder_type: HolderTypeEnum
+  holder_id: string | null
+  quantity_kg: number
+  bag_count: number | null
+  kor: number | null
+  humidity: number | null
+  status: StockStatusEnum
+  is_own_account: boolean
+}
+
+export type StockReservationDbRow = {
+  id: string
+  tenant_id: string
+  stock_lot_id: string
+  delivery_plan_id: string | null
+  partner_company_id: string
+  quantity_kg: number
+  status: 'active' | 'liberee' | 'consommee' | 'annulee'
+  released_at: string | null
+  release_reason: string | null
+}
+
+export type DeliveryPlanDbRow = {
+  id: string
+  tenant_id: string
+  reference: string
+  partner_company_id: string
+  contract_id: string | null
+  campaign_id: string
+  planned_date: string
+  planned_volume_kg: number
+  origin_site_id: string | null
+  destination_site_id: string | null
+  field_agent_id: string | null
+  vehicle_id: string | null
+  transporter_id: string | null
+  priority: string
+  status: DeliveryPlanStatus
+  confirmed_at: string | null
+  postponed_at: string | null
+  postpone_reason: string | null
+}
+
+/** Les cinq écarts sont des colonnes GÉNÉRÉES : elles ne sont jamais écrites. */
+export type TransferDbRow = {
+  id: string
+  tenant_id: string
+  transfer_number: string
+  partner_company_id: string
+  contract_id: string | null
+  campaign_id: string
+  delivery_plan_id: string | null
+  origin_site_id: string | null
+  destination_site_id: string | null
+  dispatched_at: string | null
+  driver_name: string | null
+  tractor_plate: string | null
+  trailer_plate: string | null
+  gross_weight_kg: number | null
+  tare_kg: number | null
+  net_loaded_kg: number | null
+  bag_count_loaded: number | null
+  kor_departure: number | null
+  humidity_departure: number | null
+  weighing_ticket_path: string | null
+  weight_source: WeightSourceEnum
+  arrived_at: string | null
+  unloaded_at: string | null
+  gross_weight_reception_kg: number | null
+  tare_reception_kg: number | null
+  net_unloaded_kg: number | null
+  accepted_kg: number | null
+  paid_kg: number | null
+  kor_reception: number | null
+  humidity_reception: number | null
+  rejected_kg: number | null
+  rejection_reason: string | null
+  receiver_name: string | null
+  applied_price_id: string | null
+  applied_price_value: number | null
+  status: string
+  readonly ecart_physique_kg: number | null
+  readonly ecart_physique_pct: number | null
+  readonly ecart_acceptation_kg: number | null
+  readonly ecart_paiement_kg: number | null
+  readonly ecart_total_acceptation_kg: number | null
+  readonly ecart_financier_total_kg: number | null
+  readonly tare_variation_kg: number | null
+}
+
+export type TransferLotDbRow = {
+  tenant_id: string
+  transfer_id: string
+  stock_lot_id: string
+  quantity_kg: number
+  bag_count: number | null
+}
+
+export type IncidentDbRow = {
+  id: string
+  tenant_id: string
+  reference: string
+  type: string
+  severity: string
+  campaign_id: string | null
+  partner_company_id: string | null
+  field_agent_id: string | null
+  transfer_id: string | null
+  description: string
+  exposed_quantity_kg: number | null
+  exposed_amount: number | null
+  suspected_responsible_type: string | null
+  suspected_responsible_id: string | null
+  status: string
+  decision: string | null
+  decision_cause: string | null
+  validated_by: string | null
+  validated_at: string | null
+  blocks_closure: boolean
+  opened_at: string
+}
+
+export type ReceptionOutcome = {
+  transfer_id: string
+  ecart_physique_kg: number | null
+  ecart_physique_pct: number | null
+  ecart_acceptation_kg: number | null
+  ecart_paiement_kg: number | null
+  ecart_total_acceptation_kg: number | null
+  ecart_financier_total_kg: number | null
+  tolerance: { value: number; source: string }
+  exceeds_tolerance: boolean
+  incident_id: string | null
+}
+
 /**
  * Forme attendue par supabase-js pour une table.
  *
@@ -349,6 +507,12 @@ export interface Database {
       purchases: Writable<PurchaseRow>
       purchase_duplicate_flags: Writable<PurchaseDuplicateFlagRow>
       expenses: Writable<ExpenseRow>
+      stock_lots: Writable<StockLotDbRow>
+      stock_reservations: Writable<StockReservationDbRow>
+      delivery_plans: Writable<DeliveryPlanDbRow>
+      transfers: Writable<TransferDbRow>
+      transfer_lots: Writable<TransferLotDbRow>
+      incidents: Writable<IncidentDbRow>
     }
     Views: Record<string, never>
     Functions: {
@@ -377,6 +541,39 @@ export interface Database {
       check_advance_capacity: {
         Args: { p_agent_id: string; p_partner_id: string; p_amount: number }
         Returns: AdvanceCapacityResult
+      }
+      /** Réservation transactionnelle : empêche la double promesse de stock. */
+      reserve_stock: {
+        Args: { p_lot_id: string; p_plan_id: string | null; p_quantity: number; p_partner: string }
+        Returns: string
+      }
+      /** Tolérance applicable, avec l'origine du seuil retenu. */
+      resolve_weight_tolerance: {
+        Args: { p_transfer_id: string }
+        Returns: { value: number; source: string }
+      }
+      /** Réception : poids, écarts, incident et mouvement de stock en une transaction. */
+      record_transfer_reception: {
+        Args: {
+          p_transfer_id: string
+          p_net_unloaded_kg: number
+          p_accepted_kg: number
+          p_paid_kg?: number | null
+          p_gross_reception_kg?: number | null
+          p_tare_reception_kg?: number | null
+          p_kor_reception?: number | null
+          p_humidity_reception?: number | null
+          p_rejected_kg?: number | null
+          p_rejection_reason?: string | null
+          p_receiver_name?: string | null
+          p_reception_ticket_path?: string | null
+        }
+        Returns: ReceptionOutcome
+      }
+      /** Couverture FIFO des avances par une réception acceptée (arbitrage D1). */
+      cover_advances_from_reception: {
+        Args: { p_transfer_id: string }
+        Returns: number
       }
     }
     Enums: {
