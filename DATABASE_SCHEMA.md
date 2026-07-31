@@ -326,14 +326,45 @@ marge_totale         = chiffre_affaires_net − TCB_total
 marge_par_kg         = prix_vente_net − TCB_par_kg_accepte
 ```
 
+**Ce qui entre, ce qui n'entre pas** (implémenté par `app.compute_tcb`, migration `1700`) :
+
+| Source | Traitement |
+| --- | --- |
+| `purchases` en statut `valide` ou `paye` | Entre comme `purchase_value` |
+| Dépense `validee`, `payee` ou `partiellement_payee`, nature `direct` | Entre pour son **montant engagé**, pas pour la part décaissée |
+| Dépense de catégorie `achat_produit` | **Écartée** — la valeur d'achat vient des achats (INC-05) |
+| Dépense `indirect` | Écartée en montant total ; n'entre que par `expense_allocations` |
+| Dépense `brouillon`, `soumise`, `rejetee`, `annulee` | N'entre pas |
+| **Avance décaissée** | **N'entre jamais** — une remise de fonds n'est pas un coût (RG-21) |
+| Écart physique d'un transfert réceptionné | Valorisé au prix historisé du transfert (H-17) |
+
+`app.allocate_indirect_expense` **refuse** de répartir quand la clé vaut zéro sur le périmètre :
+imputer des quotes-parts nulles ferait disparaître la charge du TCB sans trace. Le reliquat d'arrondi
+va à la plus grosse part, de sorte que la somme des quotes-parts rende exactement le montant réparti.
+
 ---
 
 ## 11. Scoring des pisteurs
 
 ### `agent_scores`
-`field_agent_id`, `computed_at`, `period_start/end`, `raw_score`, `adjusted_score`, `category`
+`field_agent_id`, `computed_at`, `period_start/end`, `category`
 (`excellent | fiable | sous_surveillance | risque | critique | non_evalue`),
 `maturity` (`non_evalue | en_observation | provisoire | confirme`), `rule_version`.
+
+**Trois scores coexistent et restent distinguables** (colonne `event_adjusted_score` ajoutée en
+phase 5 par la migration `1700`) :
+
+| Colonne | Contenu |
+| --- | --- |
+| `raw_score` | Moyenne pondérée des composantes mesurées, sans aucune correction |
+| `event_adjusted_score` | Après neutralisation des seules observations couvertes par un **événement externe validé** |
+| `adjusted_score` | Score **affiché** : ajusté aux événements puis aux ajustements humains motivés, borné à [0, 100] |
+
+Les confondre effacerait qui a corrigé quoi. `recommended_ceiling` est une **recommandation** :
+aucune fonction n'écrit jamais dans `field_agents.ceiling_amount` (vérifié par test).
+
+**Une composante sans observation n'est pas écrite** — elle n'est donc pas notée zéro. Les poids des
+composantes présentes sont renormalisés à 100 (H-16).
 
 ### `agent_score_components`
 Une ligne par composante, avec son **poids**, sa **valeur**, les **données sources** (`jsonb`) et les

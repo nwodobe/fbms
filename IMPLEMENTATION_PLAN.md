@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 4.**
+**Mis à jour : fin de Phase 5.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -18,7 +18,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **2** | Identité visuelle, sociétés partenaires, campagnes, contrats, prix | ✅ **Terminée** |
 | **3** | Pisteurs, financements, avances, achats, synchronisation hors ligne | ✅ **Terminée** |
 | **4** | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ✅ **Terminée** |
-| 5 | Dépenses, allocations, TCB, marges, scoring, alertes | ⬜ À faire |
+| **5** | Dépenses, allocations, TCB, marges, scoring, alertes | ✅ **Terminée** |
 | 6 | Abonnements, personnalisation des documents, exports, tableaux de bord | ⬜ À faire |
 | 7 | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ⬜ À faire |
 
@@ -256,14 +256,80 @@ réception, `E14` incidents.
 
 ---
 
-## Phases 5 à 7 — Plan détaillé
+## Phase 5 — Rentabilité · ✅ Terminée
 
-### Phase 5 — Rentabilité
+Écrans livrés : `F01`/`F02` dépenses, validation et répartition, `F03` TCB et marges, `G02` scoring,
+`A03` centre d'alertes.
 
-Écrans `F01`, `F02`, `F03`, `G01`, `G02`.
-Dépenses et validations, allocations indirectes par six clés, TCB prévisionnel et réel, prix net, marges et
-**écart de réconciliation**, score explicable sur 100, alertes.
-*Terminée quand* : RG-11 et les tests unitaires de `tcb.ts`, `margin.ts`, `scoring.ts`, `alerts.ts` passent.
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **La valeur d'achat n'est jamais comptée deux fois** | La catégorie `achat_produit` est refusée en saisie, écartée du calcul du TCB avec son motif affiché, et absente de la liste déroulante — vérifié aux trois niveaux (INC-05) |
+| **Une avance n'entre jamais au TCB** | Test de base : décaisser 1 500 000 FCFA ne change pas d'un franc le TCB du périmètre |
+| **Validée mais non payée compte ; rejetée ou annulée ne compte pas** | Testé en domaine et en base ; l'écran affiche « compté » / « non compté » par ligne |
+| **Une charge indirecte n'entre que par sa quote-part** | Son montant total est explicitement écarté, avec le motif |
+| **Répartition refusée plutôt que nulle** | Quand la clé vaut zéro sur le périmètre, la fonction serveur lève une erreur nommée : des quotes-parts nulles feraient disparaître la charge du TCB sans que personne ne le voie |
+| **La somme des quotes-parts rend exactement le montant** | Reliquat d'arrondi attribué à la plus grosse part ; testé en domaine et en base |
+| **Une nouvelle répartition remplace l'ancienne** | Testé : deux appels successifs laissent une seule ligne et le montant exact |
+| **La clé manuelle n'est jamais calculée** | Refusée côté domaine, côté serveur, et absente de la liste déroulante de répartition |
+| **TCB/kg `NULL` et non zéro sans poids accepté** | Testé en domaine, en base et à l'écran (« — », jamais « 0 FCFA/kg ») |
+| **La décomposition reconstitue le total** | Vérifié par test en domaine, en base et à l'écran (3 526 000 + 250 000 + 100 000 + 54 000 = 3 930 000) |
+| **Les deux marges coexistent avec leur écart** | `marge_totale`, `marge_par_kg` et `margin_reconciliation_gap` calculés séparément ; aucune n'est dérivée de l'autre (INC-06) |
+| **Neuf composantes, somme des poids = 100** | Vérifié par test sur les valeurs imposées |
+| **Une composante non mesurée est exclue, pas notée zéro** | Poids renormalisés sur les composantes observées ; l'écran liste les exclusions et leur poids redistribué |
+| **Aucune catégorie sans maturité suffisante** | Un pisteur à 38/100 sur trois semaines reste « non évalué » — vérifié en base et à l'écran |
+| **Aucune sanction automatique** | `recommended_ceiling` est une proposition ; test de base : le calcul ne modifie pas `field_agents.ceiling_amount` |
+| **Score brut, ajusté aux événements et affiché restent distincts** | Colonne `event_adjusted_score` ajoutée ; un ajustement humain ne touche ni le brut ni les composantes |
+| **Un ajustement exige un motif de 10 caractères** | Refusé en base, bouton désactivé à l'écran |
+| **Les vingt alertes, à seuils configurables** | Référentiel complet, chaque seuil porte un libellé ; testé règle par règle |
+| **Chaque alerte porte sa mesure ET son seuil** | Vérifié en base et à l'écran : sans les deux, on ne peut qu'obéir ou ignorer |
+| **Aucune alerte ne désigne un coupable** | Test explicite : le message d'exposition constate, il n'emploie ni « détourne », ni « vole », ni « retient » |
+| **Une condition déjà signalée ne rouvre pas d'alerte** | Deuxième évaluation : 0 alerte ouverte, aucune clé dupliquée |
+| **317 tests unitaires et de composants** | 317/317 |
+| **194 tests de base de données** | 194/194 |
+| **108 parcours end-to-end** (bureau + Android) | 108/108 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 5, et corrigés
+
+1. **`advances.covered_amount` n'existe pas** : trois calculs de la migration s'appuyaient sur une
+   colonne imaginaire. La couverture se lit dans `advance_allocations` + `advance_repayments`. Extrait
+   dans `app.advance_covered()` plutôt que recopié trois fois — deux chiffres de couverture divergents
+   dans le même écran auraient détruit la crédibilité des deux.
+2. **Une condition toujours vraie** dans la composante « respect des délais »
+   (`dp.planned_date >= dp.planned_date`) rendait la mesure sans effet. Remplacée par le ratio
+   plannings honorés / plannings de la période.
+3. **Cinq de mes propres tests de base heurtaient la règle de plafond d'avance de la phase 3** : le
+   pisteur du jeu d'essai est déjà à son plafond. C'est la règle qui fonctionne ; les tests ont été
+   déplacés sur un pisteur disposant de capacité.
+4. **Un motif de test de dix caractères exactement** passait le seuil que le test prétendait
+   éprouver — l'assertion vérifiait donc le contraire de ce qu'elle annonçait.
+5. Deux assertions end-to-end ambiguës de ma part (« Marge totale » correspondait à la fois à un
+   en-tête de colonne et à une étiquette de définition).
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **Le TCB prévisionnel n'est pas alimenté** : la colonne `is_forecast` et le paramètre existent, mais
+  aucun écran ne produit encore de prévisionnel. Seul le réel est calculé.
+- **Les pertes valorisées ne couvrent que l'écart physique** des transferts réceptionnés, au prix
+  historisé du transfert. Les pertes de sacherie et les pertes de stock hors transfert ne sont pas
+  encore valorisées — elles dépendent de l'écran de sacherie, toujours reporté.
+- **La répartition manuelle n'a pas d'écran** : la validation existe et est testée
+  (`validateManualAllocation`), mais la saisie des quotes-parts approuvées reste à faire.
+- **L'ajustement du score par événement externe est grossier côté serveur** : un événement validé
+  neutralise la pénalité de « respect des délais » en bloc, alors que le domaine sait raisonner
+  observation par observation. Affiner exige de rattacher chaque planning à l'événement qui l'explique.
+- **Les alertes ne sont évaluées que sur demande** : `app.evaluate_alerts` est appelée depuis l'écran.
+  Sa planification périodique arrive avec la phase 6.
+- **Aucune notification n'est envoyée** : la table `notifications` existe, les canaux courriel, SMS et
+  WhatsApp restent à brancher.
+- **Le seuil de dépense sans justificatif est global**, alors que `expense_categories.requires_receipt_above`
+  permettrait un seuil par catégorie. Le champ est renseigné, il n'est pas encore lu par la règle.
+
+---
+
+## Phases 6 et 7 — Plan détaillé
 
 ### Phase 6 — Commercial et pilotage
 

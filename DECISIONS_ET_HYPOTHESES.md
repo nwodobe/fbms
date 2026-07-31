@@ -164,6 +164,9 @@ arbitrage qui appartient au métier.
 | **H-12** | Le tenant est résolu par **code entreprise / sous-chemin d'URL** (`app.lbacontrol.ci/<slug>`), pas par sous-domaine ; les domaines personnalisés sont hors MVP (CDC §20.2). | Faible. |
 | **H-13** | Les fichiers (justificatifs, tickets) vont dans des **buckets Supabase privés** avec URLs signées de courte durée ; les images sont **compressées côté client avant upload**. | Faible. |
 | **H-14** | Le projet est créé dans le sous-répertoire **`lba-control/`** pour ne pas casser l'application FBMS statique existante hébergée à la racine du dépôt. | Faible. |
+| **H-15** | La **maturité d'un score** exige à la fois un volume et une durée : « en observation » à partir de 3 opérations **et** 7 jours, « provisoire » à 10 et 21, « confirmé » à 25 et 45. Quarante achats en cinq jours restent « non évalué » — c'est une pointe de campagne, pas un historique. Sous le seuil d'observation, **aucune catégorie n'est prononcée**. | Faible — seuils paramétrables. |
+| **H-16** | Une **composante de score sans observation est exclue du calcul**, et le poids des composantes mesurées est renormalisé à 100. La noter zéro punirait le pisteur pour une chose qui n'a pas eu lieu. Les exclusions et le poids redistribué sont affichés. | Moyen si refusé — sinon les nouveaux pisteurs sont structurellement pénalisés. |
+| **H-17** | Les **pertes valorisées du TCB** ne couvrent au MVP que l'**écart physique des transferts réceptionnés**, valorisé au prix historisé du transfert (arbitrage D2). Les pertes de sacherie et de stock hors transfert ne sont pas encore valorisées. | Moyen — sous-estimation du TCB si les pertes hors transport sont significatives. |
 
 ---
 
@@ -180,19 +183,19 @@ arbitrage qui appartient au métier.
 
 ---
 
-## 4. Décisions métier restant ouvertes (bloquantes pour les phases 5–6)
+## 4. Décisions métier restant ouvertes (bloquantes pour la phase 6)
 
 Reprises de CDC §27 et DCP §15, avec la position implémentée par défaut. Ces valeurs sont **paramétrables** :
 aucune ne fige le produit.
 
 | ID | Question | Défaut implémenté | Phase où l'arbitrage devient bloquant |
 | --- | --- | --- | --- |
-| D1 | Quel événement couvre une avance ? | `reception_accepted` | Phase 5 |
-| D2 | Quel prix valorise couverture et écarts ? | Prix net reconnu | Phase 5 |
+| ~~D1~~ | Quel événement couvre une avance ? | **Tranchée en phase 4** : `reception_accepted`, branché sur `app.cover_advances_from_reception` | ✅ Phase 4 |
+| ~~D2~~ | Quel prix valorise couverture et écarts ? | **Tranchée en phase 5** : prix net reconnu, lu dans `transfers.applied_price_value` (prix historisé du transfert) | ✅ Phase 5 |
 | D3 | Tolérances par société ? | Cascade contrat → société → tenant, défaut 0,5 % | Phase 4 |
 | D4 | FIFO ou allocation manuelle ? | FIFO + correction validée et auditée | Phase 3 |
-| D5 | Quelles dépenses au TCB, quelles clés indirectes ? | 23 catégories, clé par défaut = poids accepté | Phase 5 |
-| D6 | Coûts contrôlables par le pisteur ? | Commission, collecte, sacherie, communication | Phase 5 |
+| ~~D5~~ | Quelles dépenses au TCB, quelles clés indirectes ? | **Tranchée en phase 5** : les 23 catégories, statuts `validee`/`payee`/`partiellement_payee` retenus, `achat_produit` écartée, six clés dont `manuel` non calculable | ✅ Phase 5 |
+| ~~D6~~ | Coûts contrôlables par le pisteur ? | **Tranchée en phase 5** : porté par `expense_categories.is_controllable_by_agent` — commission, collecte, chargement, carburant, sacherie, communication. Seuls ces coûts entrent dans la composante « maîtrise du TCB » | ✅ Phase 5 |
 | D7 | Seuil de blocage d'une nouvelle avance ? | Exposition > plafond **ou** reliquat non couvert > 7 j | Phase 3 |
 | D8 | Données visibles par une société partenaire ? | Aucune (portail désactivé) | Post-MVP |
 | D9 | Achats propres du LBA sans financement société ? | Autorisés via `is_own_account` | Phase 3 |

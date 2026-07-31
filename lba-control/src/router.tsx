@@ -5,6 +5,10 @@ import { AdvancesPage } from '@/features/advances/AdvancesPage'
 import { AgentDetailPage } from '@/features/agents/AgentDetailPage'
 import { AgentsPage } from '@/features/agents/AgentsPage'
 import { ContractsPage } from '@/features/contracts/ContractsPage'
+import { AlertsPage } from '@/features/costs/AlertsPage'
+import { ExpensesPage } from '@/features/costs/ExpensesPage'
+import { ScoringPage } from '@/features/costs/ScoringPage'
+import { TcbPage } from '@/features/costs/TcbPage'
 import { FundingPage } from '@/features/funding/FundingPage'
 import { IncidentsPage } from '@/features/logistics/IncidentsPage'
 import { PlanningPage } from '@/features/logistics/PlanningPage'
@@ -36,51 +40,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 /** Écrans planifiés, déclarés ici pour que la navigation soit complète dès la phase 1. */
 const PLANNED = [
   {
-    path: 'alertes',
-    title: 'Centre d’alertes',
-    phase: 5,
-    summary: 'Alertes filtrées par gravité, société, pisteur et échéance.',
-    delivers: ['Les 20 règles d’alerte à seuils configurables', 'Acquittement et résolution tracés'],
-  },
-  {
     path: 'sacs',
     title: 'Sacherie',
     phase: 4,
     summary: 'Dotations, retours et pertes de sacs, par société.',
     delivers: ['Solde par détenteur et par société', 'Réaffectation inter-sociétés approuvée'],
-  },
-  {
-    path: 'depenses',
-    title: 'Dépenses',
-    phase: 5,
-    summary: 'Enregistrer les coûts sans doubler les avances ni les achats.',
-    delivers: [
-      'Les 23 catégories et leurs familles',
-      'Validation, rejet et détection de doublons',
-      'Clés de répartition des dépenses indirectes',
-    ],
-  },
-  {
-    path: 'tcb',
-    title: 'TCB et marges',
-    phase: 5,
-    summary: 'Comprendre le coût réel par kg et la source de destruction de marge.',
-    delivers: [
-      'TCB prévisionnel et réel affichés séparément',
-      'Décomposition par composante, jusqu’à la transaction',
-      'Marge totale, marge par kg et écart de réconciliation',
-    ],
-  },
-  {
-    path: 'scoring',
-    title: 'Scoring des pisteurs',
-    phase: 5,
-    summary: 'Évaluer automatiquement sans créer une boîte noire.',
-    delivers: [
-      'Neuf composantes pondérées, données sources visibles',
-      'Score brut et score ajusté par événements externes validés',
-      'Aucune sanction automatique',
-    ],
   },
   {
     path: 'utilisateurs',
@@ -146,6 +110,12 @@ export function AppRouter() {
         <Route path="planning" element={<PlanningPage />} />
         <Route path="transferts" element={<TransfersPage />} />
         <Route path="incidents" element={<IncidentsPage />} />
+
+        {/* Écrans livrés en phase 5 */}
+        <Route path="depenses" element={<ExpensesPage />} />
+        <Route path="tcb" element={<TcbPage />} />
+        <Route path="scoring" element={<ScoringPage />} />
+        <Route path="alertes" element={<AlertsPage />} />
 
         {PLANNED.map((screen) => (
           <Route

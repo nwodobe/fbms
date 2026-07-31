@@ -292,13 +292,253 @@ export type ExpenseRow = {
   id: string
   tenant_id: string
   category_id: string
+  partner_company_id: string | null
   campaign_id: string
+  contract_id: string | null
+  field_agent_id: string | null
+  transfer_id: string | null
+  stock_lot_id: string | null
   expense_date: string
   amount: number
   beneficiary: string
+  beneficiary_user_id: string | null
   payment_method: string
+  reference: string | null
+  proof_path: string | null
+  nature: 'direct' | 'indirect'
+  allocation_key: AllocationKeyEnum | null
   status: string
+  submitted_by: string | null
+  submitted_at: string | null
+  validated_by: string | null
+  validated_at: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  rejection_reason: string | null
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  is_system_generated: boolean
+  created_by: string | null
   sync_status: SyncStatusEnum
+}
+
+export type AllocationKeyEnum =
+  | 'poids_accepte'
+  | 'valeur_achat'
+  | 'nb_livraisons'
+  | 'nb_sacs'
+  | 'jours_stockage'
+  | 'manuel'
+
+export type AllocationTargetEnum =
+  | 'partner'
+  | 'campaign'
+  | 'contract'
+  | 'field_agent'
+  | 'lot'
+  | 'transfer'
+
+export type ExpenseCategoryRow = {
+  id: string
+  tenant_id: string
+  code: string
+  label: string
+  family: string
+  is_direct: boolean
+  default_allocation_key: AllocationKeyEnum
+  requires_receipt_above: number | null
+  cap_amount: number | null
+  is_system_reserved: boolean
+  is_controllable_by_agent: boolean
+  is_active: boolean
+}
+
+export type ExpenseDuplicateFlagRow = {
+  id: string
+  tenant_id: string
+  expense_id: string
+  candidate_id: string
+  similarity_score: number
+  matched_criteria: string[]
+  status: 'a_verifier' | 'confirme' | 'ecarte'
+  reviewed_by: string | null
+  reviewed_at: string | null
+}
+
+export type ExpenseAllocationRow = {
+  id: string
+  tenant_id: string
+  expense_id: string
+  target_type: AllocationTargetEnum
+  target_id: string
+  allocation_key: AllocationKeyEnum
+  base_value: number
+  total_base_value: number
+  share_ratio: number
+  allocated_amount: number
+  is_manual: boolean
+  approved_by: string | null
+  reason: string | null
+  computed_at: string
+}
+
+export type TcbSnapshotRow = {
+  id: string
+  tenant_id: string
+  scope_type: AllocationTargetEnum
+  scope_id: string
+  campaign_id: string | null
+  is_forecast: boolean
+  computed_at: string
+  accepted_weight_kg: number | null
+  loaded_weight_kg: number | null
+  unloaded_weight_kg: number | null
+  paid_weight_kg: number | null
+  purchase_value: number
+  direct_expenses: number
+  indirect_allocated: number
+  valued_losses: number
+  tcb_total: number
+  /** `null` — jamais 0 — quand aucun kilo n'est accepté (H-04). */
+  tcb_per_accepted_kg: number | null
+  net_sale_price: number | null
+  net_revenue: number | null
+  margin_total: number | null
+  margin_per_kg: number | null
+  /** Écart assumé entre les deux définitions de marge (INC-06). */
+  margin_reconciliation_gap: number | null
+  is_deficit: boolean | null
+  inputs: Record<string, unknown>
+}
+
+export type TcbSnapshotComponentRow = {
+  id: string
+  tenant_id: string
+  snapshot_id: string
+  component: string
+  amount: number
+  amount_per_kg: number | null
+  source_count: number | null
+}
+
+export type ScoreComponentCodeEnum =
+  | 'couverture_avances'
+  | 'respect_delais'
+  | 'ecarts_poids'
+  | 'respect_prix'
+  | 'qualite'
+  | 'fiabilite_justificatifs'
+  | 'gestion_sacs'
+  | 'regularite'
+  | 'maitrise_tcb'
+
+export type AgentScoreRow = {
+  id: string
+  tenant_id: string
+  field_agent_id: string
+  campaign_id: string | null
+  period_start: string | null
+  period_end: string | null
+  computed_at: string
+  raw_score: number | null
+  /** Score après neutralisation des seuls événements externes validés. */
+  event_adjusted_score: number | null
+  /** Score affiché : ajusté aux événements puis aux corrections humaines motivées. */
+  adjusted_score: number | null
+  category: string
+  maturity: 'non_evalue' | 'en_observation' | 'provisoire' | 'confirme'
+  /** RECOMMANDATION. Le plafond réel du pisteur n'est jamais modifié par le score. */
+  recommended_ceiling: number | null
+  excluded_events: Array<{ id: string; type: string }>
+}
+
+export type AgentScoreComponentRow = {
+  id: string
+  tenant_id: string
+  score_id: string
+  component: ScoreComponentCodeEnum
+  weight: number
+  value: number
+  weighted_value: number
+  source_data: Record<string, unknown>
+  explanation: string | null
+}
+
+export type AgentScoreAdjustmentRow = {
+  id: string
+  tenant_id: string
+  score_id: string
+  delta: number
+  reason: string
+  adjusted_by: string
+  adjusted_at: string
+}
+
+export type ExternalEventRow = {
+  id: string
+  tenant_id: string
+  field_agent_id: string | null
+  transfer_id: string | null
+  event_type: string
+  description: string
+  occurred_from: string
+  occurred_to: string | null
+  validated_by: string | null
+  validated_at: string | null
+  proof_path: string | null
+}
+
+export type AlertRuleRow = {
+  id: string
+  tenant_id: string
+  alert_type: string
+  severity: 'info' | 'surveillance' | 'critique' | 'blocage'
+  threshold: Record<string, number>
+  is_active: boolean
+}
+
+export type AlertRow = {
+  id: string
+  tenant_id: string
+  alert_type: string
+  severity: 'info' | 'surveillance' | 'critique' | 'blocage'
+  title: string
+  message: string
+  campaign_id: string | null
+  partner_company_id: string | null
+  field_agent_id: string | null
+  related_table: string | null
+  related_id: string | null
+  measured_value: number | null
+  threshold_value: number | null
+  status: 'ouverte' | 'acquittee' | 'resolue' | 'ignoree'
+  raised_at: string
+  acknowledged_by: string | null
+  acknowledged_at: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+  dedupe_key: string | null
+}
+
+export type MarginResultRow = {
+  margin_total: number | null
+  margin_per_kg: number | null
+  implied_margin: number | null
+  margin_reconciliation_gap: number | null
+  is_deficit: boolean | null
+}
+
+export type AllocationResultRow = {
+  expense_id: string
+  allocation_key: AllocationKeyEnum
+  total_base_value: number
+  allocated_total: number
+  lines: Array<{
+    target_id: string
+    base_value: number
+    share_ratio: number
+    allocated_amount: number
+  }>
 }
 
 export type AgentExposureResult = {
@@ -507,6 +747,17 @@ export interface Database {
       purchases: Writable<PurchaseRow>
       purchase_duplicate_flags: Writable<PurchaseDuplicateFlagRow>
       expenses: Writable<ExpenseRow>
+      expense_categories: Writable<ExpenseCategoryRow>
+      expense_duplicate_flags: Writable<ExpenseDuplicateFlagRow>
+      expense_allocations: Writable<ExpenseAllocationRow>
+      tcb_snapshots: Writable<TcbSnapshotRow>
+      tcb_snapshot_components: Writable<TcbSnapshotComponentRow>
+      agent_scores: Writable<AgentScoreRow>
+      agent_score_components: Writable<AgentScoreComponentRow>
+      agent_score_adjustments: Writable<AgentScoreAdjustmentRow>
+      external_events: Writable<ExternalEventRow>
+      alert_rules: Writable<AlertRuleRow>
+      alerts: Writable<AlertRow>
       stock_lots: Writable<StockLotDbRow>
       stock_reservations: Writable<StockReservationDbRow>
       delivery_plans: Writable<DeliveryPlanDbRow>
@@ -573,6 +824,59 @@ export interface Database {
       /** Couverture FIFO des avances par une réception acceptée (arbitrage D1). */
       cover_advances_from_reception: {
         Args: { p_transfer_id: string }
+        Returns: number
+      }
+      /**
+       * Répartition d'une charge indirecte. Refuse plutôt que d'imputer zéro
+       * quand la clé ne porte aucune valeur sur le périmètre.
+       */
+      allocate_indirect_expense: {
+        Args: {
+          p_expense_id: string
+          p_key: AllocationKeyEnum
+          p_target_type: AllocationTargetEnum
+          p_target_ids: string[]
+        }
+        Returns: AllocationResultRow
+      }
+      /** Instantané de TCB et sa décomposition, calculés côté serveur. */
+      compute_tcb: {
+        Args: {
+          p_scope_type: AllocationTargetEnum
+          p_scope_id: string
+          p_campaign_id?: string | null
+          p_is_forecast?: boolean
+        }
+        Returns: string
+      }
+      /** Marges d'un instantané, écart de réconciliation compris (INC-06). */
+      record_margin: {
+        Args: { p_snapshot_id: string; p_net_revenue: number; p_net_sale_price_kg: number }
+        Returns: MarginResultRow
+      }
+      /** Score d'un pisteur : composantes mesurées seulement, poids renormalisés. */
+      compute_agent_score: {
+        Args: {
+          p_agent_id: string
+          p_campaign_id?: string | null
+          p_period_start?: string | null
+          p_period_end?: string | null
+        }
+        Returns: string
+      }
+      /** Ajustement humain motivé du score affiché. Le score brut reste intact. */
+      adjust_agent_score: {
+        Args: { p_score_id: string; p_delta: number; p_reason: string }
+        Returns: number
+      }
+      /** Installe les vingt règles d'alerte avec leurs seuils par défaut. */
+      seed_alert_rules: {
+        Args: { p_tenant: string }
+        Returns: number
+      }
+      /** Évalue les vingt règles et ouvre les alertes non encore ouvertes. */
+      evaluate_alerts: {
+        Args: { p_tenant: string }
         Returns: number
       }
     }

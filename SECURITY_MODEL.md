@@ -161,7 +161,12 @@ Aucune n'est réalisable depuis le navigateur avec les droits de l'utilisateur :
 | Suspendre / réactiver un tenant | `SECURITY DEFINER` + audit obligatoire |
 | Ouvrir une session d'assistance | `SECURITY DEFINER`, motif obligatoire, expiration obligatoire |
 | Réserver du stock | `app.reserve_stock()` — transactionnelle, verrou de ligne |
-| Recalculer un score | Fonction serveur versionnée |
+| Répartir une charge indirecte | `app.allocate_indirect_expense()` — lit les bases et écrit les quotes-parts dans une seule transaction ; le faire depuis le navigateur laisserait la somme des parts diverger du montant dès qu'une réception arrive entre les deux appels |
+| Calculer un TCB et ses composantes | `app.compute_tcb()` — le périmètre détermine le tenant, jamais le client |
+| Enregistrer les marges d'un instantané | `app.record_margin()` |
+| Recalculer un score | `app.compute_agent_score()` — versionnée ; n'écrit jamais dans `field_agents.ceiling_amount` |
+| Ajuster un score affiché | `app.adjust_agent_score()` — motif d'au moins 10 caractères, auteur et date tracés ; le score brut reste intact |
+| Évaluer les alertes | `app.evaluate_alerts()` — déduplication garantie par index unique partiel, pas par le client |
 
 Toutes fixent `search_path = pg_catalog, app, public` — sans quoi un objet homonyme créé dans un schéma
 utilisateur pourrait détourner l'exécution avec les droits du propriétaire.
