@@ -21,6 +21,10 @@ const executablePath = existsSync(PREINSTALLED_CHROMIUM) ? PREINSTALLED_CHROMIUM
  */
 export default defineConfig({
   testDir: './e2e',
+  // `capture.spec.ts` ne vérifie rien : il photographie l'application pour
+  // montrer son état d'avancement. Il n'a pas sa place dans une suite dont
+  // l'échec doit signifier « une règle est cassée ».
+  testIgnore: 'capture.spec.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

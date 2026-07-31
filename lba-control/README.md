@@ -134,6 +134,16 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 **Parcours end-to-end — 224 tests** (bureau + Android), E2E-01 → E2E-23.
 
+**Copies d'écran de démonstration**
+
+```bash
+CAPTURE_DIR=/chemin/de/sortie npx playwright test e2e/capture.spec.ts
+```
+
+Fait tourner l'application réelle sur un jeu de données fictif et enregistre 22 écrans — bureau et
+téléphone. Exclu de `npm run test:e2e` : il ne vérifie rien, il photographie. Le service worker y est
+neutralisé, sans quoi il relaie lui-même les appels réseau et l'interception ne les voit plus.
+
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.
 
