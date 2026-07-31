@@ -1,7 +1,10 @@
 import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
+import { ActivationPage } from '@/features/auth/ActivationPage'
+import { InvitationPage } from '@/features/auth/InvitationPage'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { PasswordPage } from '@/features/auth/PasswordPage'
 import { useSession } from '@/lib/auth/session'
 
 /**
@@ -57,7 +60,7 @@ const UsersPage = named(() => import('@/features/admin/UsersPage'), 'UsersPage')
 const AuditPage = named(() => import('@/features/admin/AuditPage'), 'AuditPage')
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, isLoading } = useSession()
+  const { session, isLoading, tenantId, role } = useSession()
 
   if (isLoading) {
     return (
@@ -68,6 +71,21 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!session) return <Navigate to="/connexion" replace />
+
+  /*
+   * Connecté, mais le jeton ne porte aucune entreprise.
+   *
+   * Sans cette redirection, l'application s'ouvre normalement et chaque écran
+   * est vide : RLS ne renvoie rien, ce qui est correct mais illisible. La cause
+   * est unique — invitation non acceptée, compte suspendu, ou déclencheur
+   * « Customize Access Token » non activé — et l'écran de diagnostic la nomme
+   * au lieu de laisser chercher.
+   *
+   * Le super-administrateur passe : il n'a légitimement aucune entreprise, et sa
+   * console est précisément l'écran qu'il doit pouvoir atteindre.
+   */
+  if (!tenantId && role !== 'super_admin') return <Navigate to="/activation" replace />
+
   return <>{children}</>
 }
 
@@ -83,7 +101,23 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export function AppRouter() {
   return (
     <Routes>
+      {/*
+        * Écrans publics du parcours d'activation. Ils précèdent l'entrée dans
+        * l'application et ne peuvent donc pas vivre sous `RequireAuth` :
+        * l'invitation s'ouvre sans compte, et le lien de réinitialisation
+        * arrive sur un navigateur déconnecté.
+        */}
       <Route path="/connexion" element={<LoginPage />} />
+      {/*
+        * Deux formes pour la même page. `/invitation/<jeton>` est ce que la
+        * console met dans le lien transmis au propriétaire ; `/invitation` seul
+        * sert quand le lien a été tronqué par un client de messagerie et qu'il
+        * faut recoller le code à la main.
+        */}
+      <Route path="/invitation" element={<InvitationPage />} />
+      <Route path="/invitation/:jeton" element={<InvitationPage />} />
+      <Route path="/mot-de-passe" element={<PasswordPage />} />
+      <Route path="/activation" element={<ActivationPage />} />
 
       <Route
         path="/"

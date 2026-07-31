@@ -15,7 +15,8 @@
     "db:start": "node scripts/db-local.mjs start",
     "db:stop": "node scripts/db-local.mjs stop",
     "db:reset": "node scripts/db-local.mjs reset",
-    "db:seed": "node scripts/db-seed.mjs"
+    "db:seed": "node scripts/db-seed.mjs",
+    "bootstrap:admin": "node scripts/bootstrap-platform-admin.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

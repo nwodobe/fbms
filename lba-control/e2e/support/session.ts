@@ -25,26 +25,45 @@ const base64url = (value: object): string =>
 
 export interface FakeUser {
   userId?: string
-  tenantId?: string
-  role?: string
+  /** `null` — et non `undefined` — pour un jeton SANS entreprise. */
+  tenantId?: string | null
+  /** `null` pour un jeton SANS rôle : l'état d'un compte non encore rattaché. */
+  role?: string | null
   email?: string
 }
 
+/**
+ * `undefined` prend la valeur par défaut, `null` signifie « absent ».
+ *
+ * La distinction compte depuis que le parcours d'activation existe : un compte
+ * fraîchement inscrit porte un jeton sans entreprise ni rôle, et c'est
+ * exactement l'état qu'il faut pouvoir simuler. Un simple `?? défaut` rendait
+ * cet état inatteignable et faisait passer les tests de diagnostic pour de
+ * mauvaises raisons.
+ */
+const DEFAULT_TENANT = '00000000-0000-4000-8000-000000000001'
+const DEFAULT_ROLE = 'proprietaire'
+
+function buildAppMetadata(user: FakeUser): Record<string, string> {
+  const tenantId = user.tenantId === null ? undefined : (user.tenantId ?? DEFAULT_TENANT)
+  const role = user.role === null ? undefined : (user.role ?? DEFAULT_ROLE)
+
+  return {
+    ...(tenantId ? { tenant_id: tenantId } : {}),
+    ...(role ? { role } : {}),
+  }
+}
+
 /** Jeton non signé : supabase-js décode le JWT côté client, il ne le vérifie pas. */
-export function buildAccessToken({
-  userId = '00000000-0000-4000-8000-000000000011',
-  tenantId = '00000000-0000-4000-8000-000000000001',
-  role = 'proprietaire',
-  email = 'proprietaire@demo.test',
-}: FakeUser = {}): string {
+export function buildAccessToken(user: FakeUser = {}): string {
   const header = base64url({ alg: 'HS256', typ: 'JWT' })
   const payload = base64url({
-    sub: userId,
-    email,
+    sub: user.userId ?? '00000000-0000-4000-8000-000000000011',
+    email: user.email ?? 'proprietaire@demo.test',
     role: 'authenticated',
     aud: 'authenticated',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    app_metadata: { tenant_id: tenantId, role },
+    app_metadata: buildAppMetadata(user),
     user_metadata: {},
   })
   return `${header}.${payload}.signature-non-verifiee`
@@ -64,10 +83,7 @@ export async function signIn(page: Page, user: FakeUser = {}): Promise<void> {
       aud: 'authenticated',
       role: 'authenticated',
       email: user.email ?? 'proprietaire@demo.test',
-      app_metadata: {
-        tenant_id: user.tenantId ?? '00000000-0000-4000-8000-000000000001',
-        role: user.role ?? 'proprietaire',
-      },
+      app_metadata: buildAppMetadata(user),
       user_metadata: {},
       created_at: new Date().toISOString(),
     },

@@ -102,7 +102,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 372 tests**
+**Base de données — 387 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
@@ -120,14 +120,15 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `notifications.test.ts` | 12 | Audience d'une alerte, absence de doublon, distinction lue / résolue |
 | `outgoing-messages.test.ts` | 22 | File d'envoi, consentement par canal, heures calmes, réclamation concurrente |
 | `user-administration.test.ts` | 19 | Changement de rôle motivé, quatre refus délibérés, révocation d'appareil, journal filtré |
-| `tenant-provisioning.test.ts` | 16 | Ouverture d'une entreprise en une transaction, invitations, révocation |
+| `tenant-provisioning.test.ts` | 19 | Ouverture d'une entreprise en une transaction, invitations, révocation |
+| `auth-claims.test.ts` | 12 | Le jeton comme projection de `public.users`, acceptation d'invitation et ses cinq refus |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 587 tests**, dont :
+**Unitaires et composants — 602 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
-| `src/domain/*.test.ts` | Contraste, arithmétique, prix, couverture, avances, doublons, poids, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
+| `src/domain/*.test.ts` | Contraste, arithmétique, prix, couverture, avances, doublons, poids, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord, activation |
 | `tests/unit/offline-queue.test.ts` | OFF-01 → OFF-08 : file non bornée, aucune perte, idempotence, conflits visibles |
 | `tests/unit/offline-attachments.test.ts` | OFF-09 → OFF-14 : justificatifs conservés, octets avant chemin, remplacement journalisé |
 | `tests/unit/offline-audit.test.ts` | **Audit du code** : aucun appel de suppression, aucune borne de file, endurance sur 500 opérations, octets préservés à travers les mises à jour |
@@ -135,7 +136,12 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 262 tests** (bureau + Android), E2E-01 → E2E-27.
+**Parcours end-to-end — 288 tests** (bureau + Android), E2E-01 → E2E-28.
+
+E2E-28 est le parcours d'activation, et c'est le seul dont l'échec rend tous les autres
+inatteignables : administrateur plateforme → ouverture d'une entreprise → invitation → mot de passe
+→ acceptation → connexion → tableau de bord, plus les quatre refus qui font la différence entre
+« un lien qui marche » et « un lien qui ne marche que pour la bonne personne ».
 
 **Copies d'écran de démonstration**
 
@@ -241,36 +247,73 @@ Le reste, à régler dans Supabase Auth :
 
 #### Amorçage : le premier administrateur de plateforme
 
-`app.create_tenant` est réservée aux administrateurs de plateforme, et la table est vide au départ.
-Il faut donc l'amorcer une fois, à la main — c'est le seul geste manuel restant, et il n'a lieu
-qu'une fois dans la vie du projet :
+`app.create_tenant` est réservée aux administrateurs de plateforme, et la table est vide sur un
+projet neuf. Il faut donc l'amorcer une fois — c'est le seul geste d'installation qui n'a pas
+d'écran, et il n'a lieu qu'une fois dans la vie du projet.
 
-1. créez un compte par Supabase Auth (dashboard → Users → *Add user*, ou l'écran d'inscription) ;
-2. promouvez-le, en remplaçant l'identifiant et l'adresse :
+1. Créez le compte dans Supabase Auth : tableau de bord → Authentication → Users → *Add user*.
+   Le script ne crée aucun compte et n'invente aucun mot de passe : l'identité vient de Supabase.
+2. Promouvez-le :
 
-```sql
-insert into platform_admins (user_id, full_name, email)
-values ('<uuid-du-compte-auth>', 'Nom Prénom', 'adresse@exemple.ci');
+```bash
+SUPABASE_URL=https://<ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<clé service_role> \
+npm run bootstrap:admin -- --email vous@exemple.ci --nom "NOM Prénom"
 ```
+
+Sans `--confirmer`, le script **montre** le compte visé et s'arrête. Vérifiez l'adresse, puis
+relancez la même commande avec `--confirmer`. Ce compte pourra ouvrir, suspendre et assister tous
+les clients.
+
+Trois refus délibérés : il s'arrête si la table contient déjà un administrateur (promouvoir un
+second est une décision de gouvernance, elle passe par la console et laisse une trace) ; il s'arrête
+si l'adresse n'existe pas dans Supabase Auth ; et il n'écrit jamais la clé `service_role` sur le
+disque — elle est lue dans l'environnement, le temps d'un appel. Cette clé contourne RLS : posée
+dans un fichier, elle finit un jour dans un dépôt.
 
 Ce compte n'appartient à aucune entreprise : son jeton ne porte aucun tenant, et il devra ouvrir une
 session d'assistance motivée pour voir les données d'un client.
 
 #### Le parcours d'un utilisateur invité
 
-`app.create_tenant` et `app.invite_user` créent une invitation à durée limitée (14 jours). Elle
-devient un compte ainsi :
+`app.create_tenant` et `app.invite_user` créent une invitation à durée limitée (14 jours). La console
+affiche alors un lien `/invitation/<jeton>` — **une seule fois**, car le jeton n'est jamais relu
+depuis la table. Transmettez-le au propriétaire ; s'il est perdu, réinvitez.
 
-1. la personne s'inscrit dans Supabase Auth **avec l'adresse invitée** ;
-2. `public.invitation_preview(token)` annonce l'entreprise et le rôle proposés — sans divulguer
-   l'adresse, qu'un jeton deviné livrerait sinon en clair ;
-3. `public.accept_invitation(token)` crée la ligne `public.users` et clôt l'invitation. Le jeton
-   ET l'adresse authentifiée doivent correspondre : le jeton seul suffirait à quiconque le lit dans
-   une boîte mail transférée ;
-4. **l'interface doit rafraîchir la session** (`supabase.auth.refreshSession()`) : le jeton en cours
-   a été émis avant que la ligne `users` n'existe, il ne porte donc pas encore le tenant.
+Le parcours est entièrement à l'écran, et il n'y a rien à recopier :
 
-L'écran d'acceptation reste à construire — le serveur, lui, est en place et testé.
+1. la personne ouvre le lien. L'écran annonce l'entreprise et le rôle proposés **avant** toute
+   création de compte — accepter à l'aveugle une invitation dont on ignore l'émetteur n'est pas un
+   consentement. L'adresse invitée, elle, n'est jamais affichée : un jeton deviné livrerait sinon
+   une adresse valide ;
+2. elle crée son mot de passe avec l'adresse invitée. Le jeton la suit d'écran en écran, si bien
+   qu'elle revient d'elle-même à son invitation ;
+3. elle accepte. Le serveur vérifie le jeton **et** l'adresse authentifiée : le jeton seul suffirait
+   à quiconque le lit dans une boîte mail transférée ;
+4. la session est rafraîchie automatiquement — le jeton en cours avait été émis avant que la ligne
+   `users` n'existe, il ne portait donc pas encore l'entreprise.
+
+Un utilisateur déjà pourvu d'un mot de passe passe directement par « J'ai déjà un mot de passe ».
+Le lien « Mot de passe oublié » de l'écran de connexion envoie un lien de réinitialisation, et
+répond la même chose que l'adresse existe ou non : distinguer les deux permettrait d'énumérer les
+comptes d'un client.
+
+#### Quand quelque chose manque, l'application le dit
+
+Un compte connecté dont le jeton ne porte aucune entreprise ne voit rien : RLS ne renvoie aucune
+ligne, ce qui est correct et parfaitement illisible. Plutôt que d'ouvrir une application vide,
+l'utilisateur est dirigé vers `/activation`, qui nomme la cause :
+
+| Ce que dit l'écran | Cause | Qui agit |
+| --- | --- | --- |
+| Compte pas encore rattaché | aucune ligne `users` : l'invitation n'a jamais été acceptée | l'utilisateur, avec son code |
+| Compte suspendu | un administrateur a retiré l'accès ; les données sont conservées | son administrateur |
+| Configuration du serveur incomplète | le compte est rattaché et actif, mais le jeton ne porte rien | **l'exploitant : le hook n'est pas activé** |
+| Administration de la plateforme | aucun tenant, et c'est normal | personne |
+
+Le troisième cas est une déduction, pas une supposition : si la base dit « ce compte appartient à
+l'entreprise X et il est actif » pendant que le jeton ne porte aucune entreprise, c'est que rien ne
+recopie l'une dans l'autre. L'écran affiche alors le chemin exact du réglage manquant.
 
 ### 3. Stockage
 
@@ -299,7 +342,40 @@ X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
-### 5. Vérification après déploiement
+### 5. Les gestes manuels, dans l'ordre
+
+Tout le reste du produit est du code versionné et rejoué à l'identique. Ces cinq gestes ne le sont
+pas : ils vivent dans le tableau de bord Supabase ou dans une commande lancée une fois. Ils sont
+rassemblés ici pour qu'aucun ne soit découvert au moment d'une démonstration.
+
+| # | Où | Quoi | Si vous l'oubliez |
+| --- | --- | --- | --- |
+| 1 | SQL Editor, ou `supabase db push` | Appliquer les migrations | Rien ne fonctionne |
+| 2 | Authentication → Hooks | *Customize Access Token* → `app.custom_access_token`, activé | **Aucun jeton ne porte d'entreprise : chaque écran est vide.** L'écran `/activation` le nomme |
+| 3 | Authentication → Providers → Email | Mot de passe : 12 caractères minimum | Le formulaire annonce 12, le serveur en accepte 6 — l'écart se voit un jour |
+| 4 | Authentication → Users | Créer votre compte | `npm run bootstrap:admin` refusera : il ne crée pas de compte |
+| 5 | Terminal | `npm run bootstrap:admin -- --email … --nom …` puis `--confirmer` | `create_tenant` reste inaccessible : aucun client ne peut être ouvert |
+
+Détails des deux réglages d'authentification :
+
+**2. Le hook.** Authentication → Hooks → *Customize Access Token* → activer, schéma `app`, fonction
+`custom_access_token`. La fonction existe depuis la migration 3200 et n'est appelable que par
+`supabase_auth_admin`. C'est le seul réglage du tableau de bord dont dépend le fonctionnement du
+produit. Reconnectez-vous après l'avoir activé : un jeton déjà émis n'est pas réécrit.
+
+**3. La politique de mot de passe.** Authentication → Providers → Email → *Minimum password length* à
+12. La même valeur est en dur dans `src/domain/activation.ts`, à dessein : un seuil configurable
+côté client serait un seuil contournable. Les deux doivent donc rester égaux, et c'est le serveur
+qui tranche.
+
+**Décision à prendre : la confirmation d'adresse.** Si *Confirm email* est activé, une personne
+invitée doit confirmer son adresse avant d'obtenir une session, donc avant de pouvoir accepter son
+invitation. L'écran le dit et l'invite à rouvrir son lien après confirmation — mais cela ajoute une
+étape et un courriel à ne pas rater. Pour ce parcours, désactiver la confirmation est plus simple :
+l'adresse est de toute façon vérifiée deux fois, une fois par l'invitation qui la nomme, une fois
+par le serveur qui refuse toute autre adresse.
+
+### 6. Vérification après déploiement
 
 - [ ] Un utilisateur du client A ne voit aucune donnée du client B, y compris par URL directe
 - [ ] Un pisteur ne voit ni la marge du LBA ni les opérations d'un collègue
@@ -309,12 +385,14 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Aucune clé `service_role` n'est présente dans le bundle (`grep -r service_role dist/`)
 - [ ] Le rôle `anon` n'atteint pas le schéma interne : `select has_schema_privilege('anon','app','usage')` renvoie `false`
 - [ ] Le rôle `anon` n'atteint aucune fonction du produit : la troisième requête du §1 renvoie 0 ligne
+- [ ] Un compte fraîchement créé, connecté sans invitation acceptée, arrive sur `/activation` et non sur une application vide
+- [ ] Le hook activé : un propriétaire connecté voit son entreprise dès la première connexion
 - [ ] Une suppression d'achat, d'avance, de dépense ou de prix renvoie 0 ligne affectée
 - [ ] Les buckets `preuves` et `marque` existent et sont **privés**
 - [ ] Un objet déposé sous le tenant A n'est pas listable par le tenant B
 - [ ] Un fichier de plus de 8 Mo est refusé par le bucket lui-même, pas seulement par l'interface
 
-### 6. Messages sortants
+### 7. Messages sortants
 
 Les alertes critiques et bloquantes partent par WhatsApp et SMS. Rien ne sort sans consentement
 explicite de la personne, donné depuis l'écran **Par où vous joindre**.
@@ -345,7 +423,7 @@ l'application ; un blocage sort par tous les canaux consentis ; entre 21 h et 6 
 passent, le reste est reporté au matin ; une même alerte ne produit qu'un message par personne et par
 canal ; un désabonnement annule aussi ce qui était déjà en file.
 
-### 7. Tâches planifiées
+### 8. Tâches planifiées
 
 Deux traitements font vivre le produit dans le temps. Sans eux, un client impayé garde un accès
 complet, un client à jour reste bloqué, et la moitié des vingt types d'alerte ne se déclenche
@@ -388,7 +466,7 @@ autrement trop tard : le jour où un client se plaint de ne pas avoir été pré
 Un client en erreur n'interrompt pas les autres : son échec est consigné dans le détail de
 l'exécution, et la boucle continue.
 
-### 8. Ouvrir le premier client
+### 9. Ouvrir le premier client
 
 Le produit s'administre depuis l'écran *Plateforme*, réservé au rôle `super_admin`. Ce rôle ne
 s'attribue pas depuis l'application — `app.set_user_role()` le refuse délibérément, pour qu'une

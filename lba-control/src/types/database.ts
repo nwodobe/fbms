@@ -727,6 +727,21 @@ export type AllocationResultRow = {
   }>
 }
 
+/**
+ * Aperçu d'une invitation. L'adresse invitée n'y figure pas : un jeton deviné
+ * livrerait sinon une adresse électronique valide. Le serveur dit seulement si
+ * celle du compte connecté correspond.
+ */
+export type InvitationPreviewResult = {
+  found: boolean
+  commercial_name?: string
+  role?: string
+  full_name?: string
+  email_matches?: boolean
+  status?: 'pending' | 'accepted' | 'expired' | 'revoked'
+  expired?: boolean
+}
+
 export type AgentExposureResult = {
   advanced: number
   covered: number
@@ -1071,6 +1086,28 @@ export interface Database {
       seed_alert_rules: {
         Args: { p_tenant: string }
         Returns: number
+      }
+      /** Installe les 23 catégories de dépenses imposées. Idempotente. */
+      seed_expense_categories: {
+        Args: { p_tenant: string }
+        Returns: number
+      }
+      /**
+       * Annonce l'entreprise et le rôle d'une invitation sans divulguer
+       * l'adresse invitée : un jeton deviné livrerait sinon une adresse valide.
+       */
+      invitation_preview: {
+        Args: { p_token: string }
+        Returns: InvitationPreviewResult
+      }
+      /**
+       * Transforme une invitation en compte. Vérifie le jeton ET l'adresse
+       * authentifiée. Le jeton d'accès en cours ne porte pas encore le tenant :
+       * l'appelant doit rafraîchir sa session.
+       */
+      accept_invitation: {
+        Args: { p_token: string }
+        Returns: Database['public']['Tables']['users']['Row']
       }
       /** Évalue les vingt règles et ouvre les alertes non encore ouvertes. */
       evaluate_alerts: {
