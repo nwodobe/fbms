@@ -304,6 +304,9 @@ describe('AUDIT · verrou d’abonnement', () => {
         // la politique vaut déjà `false`. Y ajouter `tenant_can_write` ne
         // fermerait rien de plus.
         'message_outbox',
+        // Invitations : même cas. Tout passe par des fonctions qui contrôlent
+        // le rôle invité ; la politique d'écriture vaut `false`.
+        'tenant_invitations',
       ]],
     )
     // Chaque exclusion est nommée et motivée ci-dessus, et redite en commentaire

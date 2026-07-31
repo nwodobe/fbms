@@ -156,7 +156,9 @@ Aucune n'est réalisable depuis le navigateur avec les droits de l'utilisateur :
 
 | Opération | Mécanisme |
 | --- | --- |
-| Créer un tenant, inviter son administrateur | Edge Function + `SECURITY DEFINER` |
+| Créer un tenant, inviter son propriétaire | `app.create_tenant()` — plateforme uniquement ; tenant, marque, abonnement d'essai et invitation dans une seule transaction. Aucun mot de passe n'est fixé : l'identité reste à Supabase Auth |
+| Inviter un membre dans une entreprise | `app.invite_user()` — refuse le rôle de plateforme et tout rôle non attribuable, exactement comme le changement de rôle |
+| Révoquer une invitation | `app.revoke_invitation()` — marque, n'efface jamais |
 | Confirmer un paiement d'abonnement | `app.confirm_subscription_payment()` — super-admin uniquement, idempotente |
 | Suspendre / réactiver un tenant | `SECURITY DEFINER` + audit obligatoire |
 | Ouvrir une session d'assistance | `SECURITY DEFINER`, motif obligatoire, expiration obligatoire |

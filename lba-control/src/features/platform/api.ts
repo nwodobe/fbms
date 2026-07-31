@@ -3,6 +3,7 @@ import { describeError } from '@/lib/api/errors'
 import { supabase } from '@/lib/supabase'
 
 const OVERVIEW = ['platform-overview'] as const
+const INVITATIONS = ['platform-invitations'] as const
 
 export interface PlatformTenant {
   id: string
@@ -124,6 +125,101 @@ export function useRevokeSupportSession() {
       if (error) throw new Error(describeError(error))
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: OVERVIEW }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Ouverture d'un client
+// ---------------------------------------------------------------------------
+
+export interface CreatedTenant {
+  tenant_id: string
+  slug: string
+  invitation_id: string
+  invitation_token: string
+  invitation_expires_at: string
+  plan: string
+  trial_end: string
+}
+
+export interface NewTenantInput {
+  slug: string
+  commercialName: string
+  legalName: string
+  ownerEmail: string
+  ownerName: string
+  trialDays: number
+}
+
+/**
+ * Ouvre une entreprise.
+ *
+ * Un seul appel : tenant, marque, abonnement d'essai et invitation du
+ * propriétaire naissent dans la même transaction serveur. Enchaîner quatre
+ * appels depuis le navigateur laisserait, au premier échec réseau, une
+ * entreprise à moitié née que personne ne saurait réparer.
+ */
+export function useCreateTenant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: NewTenantInput): Promise<CreatedTenant> => {
+      const { data, error } = await supabase.rpc('create_tenant', {
+        p_slug: input.slug,
+        p_commercial_name: input.commercialName,
+        p_legal_name: input.legalName,
+        p_owner_email: input.ownerEmail,
+        p_owner_name: input.ownerName,
+        p_trial_days: input.trialDays,
+      })
+
+      if (error) throw new Error(describeError(error))
+      return data as unknown as CreatedTenant
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: OVERVIEW })
+      void queryClient.invalidateQueries({ queryKey: INVITATIONS })
+    },
+  })
+}
+
+export interface PlatformInvitation {
+  id: string
+  tenant_id: string
+  email: string
+  full_name: string
+  role: string
+  status: 'pending' | 'accepted' | 'expired' | 'revoked'
+  expires_at: string
+  invited_at: string
+}
+
+/** Invitations de tous les clients : qui a été invité et n'a jamais ouvert son compte. */
+export function usePlatformInvitations(enabled: boolean) {
+  return useQuery({
+    queryKey: INVITATIONS,
+    enabled,
+    queryFn: async (): Promise<PlatformInvitation[]> => {
+      const { data, error } = await supabase
+        .from('tenant_invitations')
+        .select('id, tenant_id, email, full_name, role, status, expires_at, invited_at')
+        .order('invited_at', { ascending: false })
+
+      if (error) throw new Error(describeError(error))
+      return (data ?? []) as PlatformInvitation[]
+    },
+  })
+}
+
+export function useRevokePlatformInvitation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { error } = await supabase.rpc('revoke_invitation', { p_invitation_id: invitationId })
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INVITATIONS }),
   })
 }
 

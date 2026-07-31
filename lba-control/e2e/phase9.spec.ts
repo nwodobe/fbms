@@ -953,3 +953,186 @@ test.describe('E2E-26 · utilisateurs et journal', () => {
     await expect(page.getByText(/livré en phase/i)).toHaveCount(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-27 · Ouverture d'un client et invitations
+// ---------------------------------------------------------------------------
+
+const CREATED_TENANT = {
+  tenant_id: '00000000-0000-4000-8000-0000000000a1',
+  slug: 'lba-seguela',
+  invitation_id: 'inv-1',
+  invitation_token: 'a'.repeat(48),
+  invitation_expires_at: '2026-08-14T10:00:00.000Z',
+  plan: 'Standard',
+  trial_end: '2026-08-30',
+}
+
+/** Invitation dont la date est passée, alors que `status` vaut toujours `pending`. */
+const INVITATION_PERIMEE = {
+  id: 'inv-vieille',
+  tenant_id: TENANT,
+  email: 'oublie@demo.test',
+  full_name: 'KOFFI Oublié',
+  role: 'comptable',
+  status: 'pending',
+  expires_at: '2026-01-01T00:00:00.000Z',
+  invited_at: '2025-12-18T00:00:00.000Z',
+}
+
+test.describe('E2E-27 · ouverture d’un client', () => {
+  test('l’identifiant est proposé à partir du nom, sans accent', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures({ tenant_invitations: [] }))
+    await stubPlatform(page, [])
+
+    await page.goto('/plateforme')
+    await page.getByRole('button', { name: 'Ouvrir un client' }).click()
+    await page.getByLabel('Nom commercial').fill('LBA Séguéla')
+
+    // « lba-séguéla » percenté dans une URL ne se dicte pas au téléphone.
+    await expect(page.getByLabel('Identifiant')).toHaveValue('lba-seguela')
+  })
+
+  test('un identifiant mal formé est expliqué et bloque l’envoi', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures({ tenant_invitations: [] }))
+    await stubPlatform(page, [])
+
+    await page.goto('/plateforme')
+    await page.getByRole('button', { name: 'Ouvrir un client' }).click()
+    await page.getByLabel('Nom commercial').fill('LBA Séguéla')
+    await page.getByLabel('Nom du propriétaire').fill('TRAORE Bakary')
+    await page.getByLabel('Adresse du propriétaire').fill('proprietaire@lba-seguela.ci')
+
+    await expect(page.getByRole('button', { name: 'Ouvrir le client' })).toBeEnabled()
+
+    // L'identifiant ne se change plus ensuite : le dire avant vaut mieux que
+    // laisser le serveur refuser après coup.
+    await page.getByLabel('Identifiant').fill('LBA Séguéla!')
+    await expect(page.getByText('Lettres non accentuées, chiffres et tirets uniquement.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Ouvrir le client' })).toBeDisabled()
+  })
+
+  test('le lien d’invitation est montré une fois, puis n’est plus récupérable', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures({ tenant_invitations: [] }))
+    await stubPlatform(page, [])
+    await page.route('**/rest/v1/rpc/create_tenant', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify(CREATED_TENANT),
+      }),
+    )
+
+    await page.goto('/plateforme')
+    await page.getByRole('button', { name: 'Ouvrir un client' }).click()
+    await page.getByLabel('Nom commercial').fill('LBA Séguéla')
+    await page.getByLabel('Nom du propriétaire').fill('TRAORE Bakary')
+    await page.getByLabel('Adresse du propriétaire').fill('proprietaire@lba-seguela.ci')
+    await page.getByRole('button', { name: 'Ouvrir le client' }).click()
+
+    const lien = page.getByTestId('lien-invitation')
+    await expect(lien).toContainText(`/invitation/${CREATED_TENANT.invitation_token}`)
+
+    // Le jeton n'est jamais relu depuis la table : une fois le message fermé,
+    // il faut réinviter. L'écran doit donc le dire avant qu'on le ferme.
+    await expect(page.getByTestId('tenant-cree')).toContainText(/ne sera plus affiché/)
+    await page.getByRole('button', { name: 'J’ai transmis le lien' }).click()
+    await expect(page.getByTestId('lien-invitation')).toHaveCount(0)
+  })
+
+  test('une invitation périmée n’est plus annoncée « en attente »', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures({ tenant_invitations: [INVITATION_PERIMEE] }))
+    await stubPlatform(page, [])
+
+    await page.goto('/plateforme')
+
+    // Rien ne repasse sur la table pour fermer une invitation à sa date :
+    // afficher « en attente » ferait attendre en vain quelqu'un à réinviter.
+    const ligne = page.getByRole('row', { name: /KOFFI Oublié/ })
+    await expect(ligne).toContainText('périmée')
+    await expect(ligne).toContainText('à renvoyer')
+  })
+})
+
+test.describe('E2E-27 · invitation d’un membre', () => {
+  test('n’offre pas un rôle que le changement de rôle interdit', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        users: USERS_FIXTURE,
+        assignable_roles: ROLES_FIXTURE,
+        user_devices: [],
+        tenant_invitations: [],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+    await page.getByRole('button', { name: 'Inviter quelqu’un' }).click()
+
+    // Inviter quelqu'un comme magasinier donnerait un compte dont personne ne
+    // sait ce qu'il peut faire, exactement comme l'attribution directe.
+    const options = await page.locator('#invite-role option').allTextContents()
+    expect(options.join(' ')).not.toContain('Magasinier')
+    expect(options.join(' ')).toContain('Comptable')
+  })
+
+  test('refuse une adresse invalide avant l’envoi', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        users: USERS_FIXTURE,
+        assignable_roles: ROLES_FIXTURE,
+        user_devices: [],
+        tenant_invitations: [],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+    await page.getByRole('button', { name: 'Inviter quelqu’un' }).click()
+    await page.getByLabel('Nom complet').fill('YAO Comptable')
+    await page.getByLabel('Adresse électronique').fill('pas-une-adresse')
+    await page.locator('#invite-role').selectOption('comptable')
+
+    await expect(page.getByText('Adresse électronique invalide.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Inviter' })).toBeDisabled()
+
+    await page.getByLabel('Adresse électronique').fill('compta@demo.test')
+    await expect(page.getByRole('button', { name: 'Inviter' })).toBeEnabled()
+  })
+
+  test('une invitation en attente peut être renvoyée ou révoquée, jamais effacée', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        users: USERS_FIXTURE,
+        assignable_roles: ROLES_FIXTURE,
+        user_devices: [],
+        tenant_invitations: [INVITATION_PERIMEE],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+
+    const ligne = page.getByRole('row', { name: /KOFFI Oublié/ })
+    await expect(ligne.getByRole('button', { name: 'Renvoyer' })).toBeVisible()
+    await expect(ligne.getByRole('button', { name: 'Révoquer' })).toBeVisible()
+  })
+})

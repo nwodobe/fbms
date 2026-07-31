@@ -89,6 +89,23 @@ export type AssignableRoleRow = {
   note: string | null
 }
 
+export type InvitationStatusEnum = 'pending' | 'accepted' | 'expired' | 'revoked'
+
+export type TenantInvitationRow = {
+  id: string
+  tenant_id: string
+  email: string
+  full_name: string
+  role: UserRole
+  status: InvitationStatusEnum
+  token: string
+  expires_at: string
+  invited_by: string | null
+  invited_at: string
+  accepted_at: string | null
+  accepted_user_id: string | null
+}
+
 export type UserMessageChannelRow = {
   id: string
   tenant_id: string
@@ -906,6 +923,7 @@ export interface Database {
       tenant_branding: Writable<TenantBrandingRow>
       user_devices: Writable<UserDeviceRow>
       assignable_roles: Writable<AssignableRoleRow>
+      tenant_invitations: Writable<TenantInvitationRow>
       user_message_channels: Writable<UserMessageChannelRow>
       message_outbox: Writable<MessageOutboxRow>
       users: Writable<UserRow>
@@ -1264,6 +1282,40 @@ export interface Database {
         }
         Returns: { total: number; entries: Array<Record<string, unknown>> }
       }
+      /**
+       * Ouvre une entreprise complète — tenant, marque, abonnement d'essai et
+       * invitation du propriétaire — dans une seule transaction serveur.
+       */
+      create_tenant: {
+        Args: {
+          p_slug: string
+          p_commercial_name: string
+          p_legal_name: string
+          p_owner_email: string
+          p_owner_name: string
+          p_plan_id?: string | null
+          p_trial_days?: number
+        }
+        Returns: {
+          tenant_id: string
+          slug: string
+          invitation_id: string
+          invitation_token: string
+          invitation_expires_at: string
+          plan: string
+          trial_end: string
+        }
+      }
+      /** Invite quelqu'un dans l'entreprise courante. Réinviter renouvelle le délai. */
+      invite_user: {
+        Args: { p_email: string; p_full_name: string; p_role: UserRole }
+        Returns: TenantInvitationRow
+      }
+      /** Marque une invitation comme révoquée. Ne l'efface jamais. */
+      revoke_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: TenantInvitationRow
+      }
       /** Historique des tâches planifiées. Réservé à la plateforme. */
       scheduled_task_history: {
         Args: { p_limit?: number }
@@ -1289,6 +1341,7 @@ export interface Database {
       contract_status: ContractStatus
       campaign_status: CampaignStatus
       price_type: PriceTypeEnum
+      invitation_status: InvitationStatusEnum
     }
   }
 }

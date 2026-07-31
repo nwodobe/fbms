@@ -15,14 +15,28 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { formatMoney } from '@/domain/money'
+import {
+  describeInvitation,
+  emailIssue,
+  invitationLink,
+  invitationState,
+  INVITATION_LABELS,
+  slugFromName,
+  slugIssue,
+  sortInvitations,
+} from '@/domain/tenants'
 import { useConfirmPayment } from '@/features/subscription/api'
 import { useSession } from '@/lib/auth/session'
 import {
+  useCreateTenant,
   useOpenSupportSession,
+  usePlatformInvitations,
   usePlatformOverview,
+  useRevokePlatformInvitation,
   useScheduledTaskHistory,
   useRevokeSupportSession,
   useSetTenantStatus,
+  type CreatedTenant,
   type PlatformTenant,
 } from './api'
 
@@ -61,16 +75,77 @@ export function PlatformPage() {
 
   const { data, isLoading, error } = usePlatformOverview(isPlatformAdmin)
   const { data: taskRuns } = useScheduledTaskHistory(isPlatformAdmin)
+  const { data: invitations } = usePlatformInvitations(isPlatformAdmin)
   const openSession = useOpenSupportSession()
   const revokeSession = useRevokeSupportSession()
   const setStatus = useSetTenantStatus()
   const confirmPayment = useConfirmPayment()
+  const createTenant = useCreateTenant()
+  const revokeInvitation = useRevokePlatformInvitation()
 
   const [supportTarget, setSupportTarget] = useState<PlatformTenant | null>(null)
   const [statusTarget, setStatusTarget] = useState<PlatformTenant | null>(null)
   const [supportForm, setSupportForm] = useState({ reason: '', durationMins: '60' })
   const [statusForm, setStatusForm] = useState({ status: 'suspended', reason: '' })
   const [note, setNote] = useState('')
+
+  const [openingTenant, setOpeningTenant] = useState(false)
+  const [tenantForm, setTenantForm] = useState({
+    commercialName: '',
+    legalName: '',
+    slug: '',
+    slugTouched: false,
+    ownerName: '',
+    ownerEmail: '',
+    trialDays: '30',
+  })
+  // Le jeton n'est lisible qu'une fois, à la création. Il est donc gardé ici,
+  // hors de la liste : la relecture depuis la table ne le renverra jamais.
+  const [created, setCreated] = useState<CreatedTenant | null>(null)
+
+  const now = new Date()
+  const tenantName = (id: string) =>
+    (data?.tenants ?? []).find((t) => t.id === id)?.commercial_name ?? '—'
+
+  const slugPropose = tenantForm.slugTouched
+    ? tenantForm.slug
+    : slugFromName(tenantForm.commercialName)
+  const slugProbleme = slugPropose.length > 0 ? slugIssue(slugPropose) : null
+  const emailProbleme = tenantForm.ownerEmail.length > 0 ? emailIssue(tenantForm.ownerEmail) : null
+  const tenantFormPret =
+    tenantForm.commercialName.trim().length >= 2 &&
+    slugPropose.length > 0 &&
+    slugProbleme === null &&
+    tenantForm.ownerName.trim().length >= 2 &&
+    tenantForm.ownerEmail.length > 0 &&
+    emailProbleme === null
+
+  function resetTenantForm() {
+    setTenantForm({
+      commercialName: '',
+      legalName: '',
+      slug: '',
+      slugTouched: false,
+      ownerName: '',
+      ownerEmail: '',
+      trialDays: '30',
+    })
+  }
+
+  async function submitTenant(event: React.FormEvent) {
+    event.preventDefault()
+    const resultat = await createTenant.mutateAsync({
+      slug: slugPropose,
+      commercialName: tenantForm.commercialName.trim(),
+      legalName: tenantForm.legalName.trim() || tenantForm.commercialName.trim(),
+      ownerEmail: tenantForm.ownerEmail.trim(),
+      ownerName: tenantForm.ownerName.trim(),
+      trialDays: Number(tenantForm.trialDays) || 30,
+    })
+    setCreated(resultat)
+    setOpeningTenant(false)
+    resetTenantForm()
+  }
 
   if (!isPlatformAdmin) {
     return (
@@ -85,12 +160,55 @@ export function PlatformPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Console plateforme</h1>
-        <p className="text-muted-foreground">
-          Abonnements, paiements à vérifier et sessions d’assistance.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Console plateforme</h1>
+          <p className="text-muted-foreground">
+            Ouverture des clients, abonnements, paiements à vérifier et sessions d’assistance.
+          </p>
+        </div>
+        <Button onClick={() => setOpeningTenant(true)}>Ouvrir un client</Button>
       </header>
+
+      {/* Le jeton n'apparaît qu'ici, une seule fois : la table ne le renvoie
+          jamais en relecture. Le dire évite de refermer la fenêtre et de devoir
+          réinviter. */}
+      {created && (
+        <Card data-testid="tenant-cree" className="border-status-ok/40 bg-status-ok/5">
+          <CardHeader>
+            <CardTitle>{created.slug} est ouvert</CardTitle>
+            <CardDescription>
+              Plan « {created.plan} », essai jusqu’au {created.trial_end}. Le lien ci-dessous est le
+              seul moyen pour le propriétaire de créer son compte, et il ne sera plus affiché après
+              la fermeture de ce message.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p
+              data-testid="lien-invitation"
+              className="break-all rounded-md border bg-background px-3 py-2 font-mono text-xs"
+            >
+              {invitationLink(window.location.origin, created.invitation_token)}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void navigator.clipboard?.writeText(
+                    invitationLink(window.location.origin, created.invitation_token),
+                  )
+                }
+              >
+                Copier le lien
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setCreated(null)}>
+                J’ai transmis le lien
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-status-warn/40 bg-status-warn/5">
         <CardHeader>
@@ -110,7 +228,13 @@ export function PlatformPage() {
         </p>
       )}
 
-      {[openSession.error, revokeSession.error, setStatus.error, confirmPayment.error]
+      {[
+        openSession.error,
+        revokeSession.error,
+        setStatus.error,
+        confirmPayment.error,
+        revokeInvitation.error,
+      ]
         .filter((item): item is Error => Boolean(item))
         .map((item) => (
           <p
@@ -261,6 +385,74 @@ export function PlatformPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Invitations</CardTitle>
+          <CardDescription>
+            Une entreprise ouverte dont personne n’a jamais créé le compte propriétaire est une
+            vente perdue en silence. Les invitations périmées passent en tête : ce sont les seules à
+            traiter.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(invitations ?? []).length === 0 ? (
+            <p className="text-muted-foreground">Aucune invitation en cours.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Invité</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>État</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortInvitations(invitations ?? [], now).map((invitation) => {
+                  const state = invitationState(invitation, now)
+                  return (
+                    <TableRow key={invitation.id}>
+                      <TableCell>{tenantName(invitation.tenant_id)}</TableCell>
+                      <TableCell>
+                        <p>{invitation.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{invitation.email}</p>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {invitation.role.replace(/_/g, ' ')}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            state === 'accepted' ? 'ok' : state === 'expired' ? 'warn' : 'neutral'
+                          }
+                        >
+                          {INVITATION_LABELS[state]}
+                        </Badge>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {describeInvitation(invitation, now)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {invitation.status === 'pending' && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            onClick={() => revokeInvitation.mutate(invitation.id)}
+                          >
+                            Révoquer
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Tâches planifiées</CardTitle>
           <CardDescription>
             Deux traitements font vivre le produit dans le temps : la bascule des abonnements et
@@ -379,6 +571,124 @@ export function PlatformPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Ouverture d'un client ---------------------------------------------- */}
+      <Dialog open={openingTenant} onOpenChange={(open) => !open && setOpeningTenant(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ouvrir un client</DialogTitle>
+            <DialogDescription>
+              L’entreprise, sa marque, son abonnement d’essai et l’invitation de son propriétaire
+              sont créés ensemble. Aucun mot de passe n’est fixé ici : le propriétaire crée son
+              compte lui-même depuis le lien d’invitation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={submitTenant} className="space-y-4">
+            <Field id="tenant-name" label="Nom commercial" required>
+              <Input
+                id="tenant-name"
+                required
+                value={tenantForm.commercialName}
+                onChange={(event) =>
+                  setTenantForm({ ...tenantForm, commercialName: event.target.value })
+                }
+                placeholder="LBA Séguéla"
+              />
+            </Field>
+
+            <Field
+              id="tenant-legal"
+              label="Raison sociale"
+              hint="Celle qui figurera sur les documents. À défaut, le nom commercial est repris."
+            >
+              <Input
+                id="tenant-legal"
+                value={tenantForm.legalName}
+                onChange={(event) => setTenantForm({ ...tenantForm, legalName: event.target.value })}
+                placeholder="LBA Séguéla SARL"
+              />
+            </Field>
+
+            {/* L'identifiant apparaît dans les adresses et ne se change plus
+                ensuite : le proposer bien formé vaut mieux que le corriger. */}
+            <Field
+              id="tenant-slug"
+              label="Identifiant"
+              required
+              hint="Minuscules, chiffres et tirets. Il apparaît dans les adresses et ne se change pas ensuite."
+              error={slugProbleme ?? undefined}
+            >
+              <Input
+                id="tenant-slug"
+                required
+                value={slugPropose}
+                onChange={(event) =>
+                  setTenantForm({ ...tenantForm, slug: event.target.value, slugTouched: true })
+                }
+              />
+            </Field>
+
+            <Field id="owner-name" label="Nom du propriétaire" required>
+              <Input
+                id="owner-name"
+                required
+                value={tenantForm.ownerName}
+                onChange={(event) => setTenantForm({ ...tenantForm, ownerName: event.target.value })}
+                placeholder="TRAORE Bakary"
+              />
+            </Field>
+
+            <Field
+              id="owner-email"
+              label="Adresse du propriétaire"
+              required
+              hint="C’est à cette adresse que part le lien d’invitation."
+              error={emailProbleme ?? undefined}
+            >
+              <Input
+                id="owner-email"
+                type="email"
+                required
+                value={tenantForm.ownerEmail}
+                onChange={(event) =>
+                  setTenantForm({ ...tenantForm, ownerEmail: event.target.value })
+                }
+              />
+            </Field>
+
+            <Field id="trial-days" label="Durée d’essai (jours)" required>
+              <Input
+                id="trial-days"
+                type="number"
+                min="1"
+                max="180"
+                required
+                value={tenantForm.trialDays}
+                onChange={(event) => setTenantForm({ ...tenantForm, trialDays: event.target.value })}
+              />
+            </Field>
+
+            {createTenant.error && (
+              <p
+                role="alert"
+                className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {createTenant.error.message}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpeningTenant(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={createTenant.isPending || !tenantFormPret}>
+                {createTenant.isPending ? 'Ouverture…' : 'Ouvrir le client'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Session d'assistance ----------------------------------------------- */}
       <Dialog open={supportTarget !== null} onOpenChange={(open) => !open && setSupportTarget(null)}>

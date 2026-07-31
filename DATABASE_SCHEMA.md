@@ -436,6 +436,30 @@ Règles appliquées en base :
 
 ---
 
+## 14 bis. Ouverture d'un client et invitations
+
+| Table | Contenu |
+| --- | --- |
+| `tenant_invitations` | `tenant_id`, `email`, `full_name`, `role`, `status` (`pending | accepted | expired | revoked`), `token` (48 caractères, unique), `expires_at` (défaut +14 jours), `invited_by`, `invited_at`, `accepted_at`, `accepted_user_id` |
+
+Une invitation n'est pas un compte : c'est une **promesse de compte, avec une date de péremption**.
+Un lien sans expiration oublié dans une boîte mail reste une porte ouverte des années durant.
+
+Règles appliquées en base :
+
+- Les trois politiques d'écriture valent `false`. Toute invitation passe par `app.invite_user()`, qui
+  refuse le rôle de plateforme et tout rôle non attribuable — sinon l'invitation contournerait ce que
+  le changement de rôle interdit.
+- Un index unique partiel sur `(tenant_id, lower(email)) where status = 'pending'` fait de la
+  réinvitation un renouvellement de délai et de jeton, au lieu d'un échec. C'est le geste normal
+  quand un courriel s'est perdu.
+- `app.revoke_invitation()` **marque** l'invitation ; rien ne l'efface. Savoir qu'une personne a été
+  invitée puis écartée fait partie de l'histoire de l'entreprise.
+- L'expiration n'est pas repassée en base : une invitation reste `pending` après sa date. C'est
+  l'affichage qui la présente comme périmée, à partir de `expires_at`.
+
+---
+
 ## 15. Fonctions internes (schéma `app`)
 
 | Fonction | Rôle |
@@ -449,6 +473,9 @@ Règles appliquées en base :
 | `app.reserve_stock(...)` | Réservation transactionnelle, empêche la double réservation |
 | `app.confirm_subscription_payment(...)` | Confirmation manuelle idempotente, réservée au super-admin |
 | `app.audit_trigger()` | Trigger générique d'audit avec anciennes/nouvelles valeurs |
+| `app.create_tenant(...)` | Ouvre une entreprise complète — tenant, marque, abonnement d'essai, invitation du propriétaire — dans une seule transaction |
+| `app.invite_user(...)` | Invite un membre ; même liste de rôles attribuables que le changement de rôle |
+| `app.revoke_invitation(...)` | Marque une invitation comme révoquée, sans jamais l'effacer |
 
 Toutes les fonctions `SECURITY DEFINER` fixent `search_path = pg_catalog, app, public` pour éviter tout
 détournement par table de même nom.

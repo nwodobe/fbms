@@ -215,6 +215,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 7 — Stabilisation | AUD-01 → AUD-14, E2E-14, suite complète, build de production |
 | 8 — Écrans manquants et fichiers | AUD-15 → AUD-18, `bags.ts`, `uploads.ts`, E2E-15 → E2E-17 |
 | 9 — Justificatifs, marque, notifications, planification | `attachments.ts`, `brandmark.ts`, `notifications.ts`, OFF-09 → OFF-14, E2E-18 → E2E-23, rattachements vérifiés en base |
+| Clôture — messages sortants, documents, administration, ouverture d'un client | `messaging.ts`, `documents.ts`, `tenants.ts`, E2E-24 → E2E-27, suites `outgoing-messages`, `user-administration` et `tenant-provisioning` en base |
 
 ---
 

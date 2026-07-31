@@ -11,15 +11,26 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  describeInvitation,
+  emailIssue,
+  invitationState,
+  INVITATION_LABELS,
+  sortInvitations,
+} from '@/domain/tenants'
 import { useSession } from '@/lib/auth/session'
 import type { UserRole } from '@/types/database'
 import {
   useAssignableRoles,
+  useInviteUser,
   useRevokeDevice,
+  useRevokeInvitation,
   useSetUserRole,
   useSetUserStatus,
+  useTenantInvitations,
   useTenantUsers,
   useUserDevices,
   type TenantUser,
@@ -62,17 +73,28 @@ export function UsersPage() {
   const { data: users, isLoading } = useTenantUsers()
   const { data: roles } = useAssignableRoles()
   const { data: devices } = useUserDevices()
+  const { data: invitations } = useTenantInvitations()
 
   const setRole = useSetUserRole()
   const setStatus = useSetUserStatus()
   const revokeDevice = useRevokeDevice()
+  const inviteUser = useInviteUser()
+  const revokeInvitation = useRevokeInvitation()
 
   const [editing, setEditing] = useState<TenantUser | null>(null)
   const [form, setForm] = useState({ role: '' as UserRole | '', reason: '' })
+  const [inviting, setInviting] = useState(false)
+  const [inviteForm, setInviteForm] = useState({
+    email: '',
+    fullName: '',
+    role: '' as UserRole | '',
+  })
 
   const assignable = (roles ?? []).filter((row) => row.is_assignable && row.role !== 'super_admin')
   const blocked = (roles ?? []).filter((row) => !row.is_assignable)
   const userName = (id: string) => users?.find((u) => u.id === id)?.full_name ?? '—'
+  const now = new Date()
+  const emailProbleme = inviteForm.email.length > 0 ? emailIssue(inviteForm.email) : null
 
   async function submitRole(event: React.FormEvent) {
     event.preventDefault()
@@ -82,14 +104,29 @@ export function UsersPage() {
     setForm({ role: '', reason: '' })
   }
 
+  async function submitInvite(event: React.FormEvent) {
+    event.preventDefault()
+    if (!inviteForm.role) return
+    await inviteUser.mutateAsync({
+      email: inviteForm.email.trim(),
+      fullName: inviteForm.fullName.trim(),
+      role: inviteForm.role,
+    })
+    setInviting(false)
+    setInviteForm({ email: '', fullName: '', role: '' })
+  }
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Utilisateurs et rôles</h1>
-        <p className="text-muted-foreground">
-          Sept rôles attribuables, la séparation des tâches, et la révocation d’appareil. Aucun
-          compte ne se supprime.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Utilisateurs et rôles</h1>
+          <p className="text-muted-foreground">
+            Sept rôles attribuables, la séparation des tâches, et la révocation d’appareil. Aucun
+            compte ne se supprime.
+          </p>
+        </div>
+        <Button onClick={() => setInviting(true)}>Inviter quelqu’un</Button>
       </header>
 
       <Card>
@@ -210,6 +247,103 @@ export function UsersPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Invitations</CardTitle>
+          <CardDescription>
+            Une invitation n’est pas un compte : c’est une promesse de compte, avec une date de
+            péremption. Un lien sans expiration oublié dans une boîte mail reste une porte ouverte
+            des années durant.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(invitations ?? []).length === 0 ? (
+            <p className="text-muted-foreground">Aucune invitation en cours.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invité</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>Invité le</TableHead>
+                  <TableHead>État</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortInvitations(invitations ?? [], now).map((invitation) => {
+                  const state = invitationState(invitation, now)
+                  return (
+                    <TableRow key={invitation.id}>
+                      <TableCell>
+                        <p className="font-medium">{invitation.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{invitation.email}</p>
+                      </TableCell>
+                      <TableCell>{ROLE_LABELS[invitation.role] ?? invitation.role}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {invitation.invited_at.slice(0, 10)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            state === 'accepted' ? 'ok' : state === 'expired' ? 'warn' : 'neutral'
+                          }
+                        >
+                          {INVITATION_LABELS[state]}
+                        </Badge>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {describeInvitation(invitation, now)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="space-x-2 text-right">
+                        {invitation.status === 'pending' && (
+                          <>
+                            {/* Réinviter renouvelle le délai et remplace le jeton :
+                                c'est le geste normal quand un courriel s'est perdu. */}
+                            <Button
+                              variant="link"
+                              size="sm"
+                              onClick={() =>
+                                inviteUser.mutate({
+                                  email: invitation.email,
+                                  fullName: invitation.full_name,
+                                  role: invitation.role,
+                                })
+                              }
+                            >
+                              Renvoyer
+                            </Button>
+                            <Button
+                              variant="link"
+                              size="sm"
+                              onClick={() => revokeInvitation.mutate(invitation.id)}
+                            >
+                              Révoquer
+                            </Button>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+
+          {[inviteUser.error, revokeInvitation.error]
+            .filter((item): item is Error => Boolean(item))
+            .map((item) => (
+              <p
+                key={item.message}
+                role="alert"
+                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {item.message}
+              </p>
+            ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Appareils</CardTitle>
           <CardDescription>
             Un appareil révoqué ne synchronise plus. Il reste listé : savoir qu’un téléphone a été
@@ -269,6 +403,93 @@ export function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={inviting} onOpenChange={(open) => !open && setInviting(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inviter quelqu’un</DialogTitle>
+            <DialogDescription>
+              Aucun mot de passe n’est fixé ici : la personne invitée crée son compte elle-même
+              depuis le lien reçu. L’invitation expire au bout de quatorze jours.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={submitInvite} className="space-y-4">
+            <Field id="invite-name" label="Nom complet" required>
+              <Input
+                id="invite-name"
+                required
+                value={inviteForm.fullName}
+                onChange={(event) => setInviteForm({ ...inviteForm, fullName: event.target.value })}
+                placeholder="YAO Comptable"
+              />
+            </Field>
+
+            <Field
+              id="invite-email"
+              label="Adresse électronique"
+              required
+              error={emailProbleme ?? undefined}
+            >
+              <Input
+                id="invite-email"
+                type="email"
+                required
+                value={inviteForm.email}
+                onChange={(event) => setInviteForm({ ...inviteForm, email: event.target.value })}
+              />
+            </Field>
+
+            {/* Même liste que le changement de rôle : inviter quelqu'un ne doit
+                pas contourner ce que changer un rôle interdit. */}
+            <Field id="invite-role" label="Rôle" required>
+              <select
+                id="invite-role"
+                required
+                className={SELECT_CLASS}
+                value={inviteForm.role}
+                onChange={(event) =>
+                  setInviteForm({ ...inviteForm, role: event.target.value as UserRole })
+                }
+              >
+                <option value="">Sélectionner…</option>
+                {assignable.map((row) => (
+                  <option key={row.role} value={row.role}>
+                    {ROLE_LABELS[row.role] ?? row.role}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {inviteUser.error && (
+              <p
+                role="alert"
+                className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {inviteUser.error.message}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setInviting(false)}>
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  inviteUser.isPending ||
+                  !inviteForm.role ||
+                  emailProbleme !== null ||
+                  inviteForm.email.length === 0 ||
+                  inviteForm.fullName.trim().length < 2
+                }
+              >
+                {inviteUser.isPending ? 'Envoi…' : 'Inviter'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>

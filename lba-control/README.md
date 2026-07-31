@@ -102,7 +102,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 315 tests**
+**Base de données — 372 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
@@ -118,9 +118,12 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `attachments.test.ts` | 10 | Rattachement d'un justificatif : qui peut écrire quel chemin sur quelle ligne |
 | `scheduled-tasks.test.ts` | 10 | Tâches récurrentes : parcours de tous les clients, isolation des échecs, journal réservé à la plateforme |
 | `notifications.test.ts` | 12 | Audience d'une alerte, absence de doublon, distinction lue / résolue |
+| `outgoing-messages.test.ts` | 22 | File d'envoi, consentement par canal, heures calmes, réclamation concurrente |
+| `user-administration.test.ts` | 19 | Changement de rôle motivé, quatre refus délibérés, révocation d'appareil, journal filtré |
+| `tenant-provisioning.test.ts` | 16 | Ouverture d'une entreprise en une transaction, invitations, révocation |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 522 tests**, dont :
+**Unitaires et composants — 587 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
@@ -132,7 +135,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 224 tests** (bureau + Android), E2E-01 → E2E-23.
+**Parcours end-to-end — 262 tests** (bureau + Android), E2E-01 → E2E-27.
 
 **Copies d'écran de démonstration**
 
@@ -205,8 +208,9 @@ Dans Supabase Auth :
 
 ### 3. Stockage
 
-Créez trois buckets **privés** : `proofs`, `tickets`, `branding`. Aucun bucket public. Les chemins
-sont préfixés par `tenant_id/` et l'accès passe par des URL signées de courte durée.
+Créez deux buckets **privés** : `preuves` et `marque`. Aucun bucket public. Les chemins sont
+préfixés par `tenant_id/` et l'accès passe par des URL signées de cinq minutes, régénérées à chaque
+affichage.
 
 ### 4. Application
 
@@ -316,6 +320,35 @@ autrement trop tard : le jour où un client se plaint de ne pas avoir été pré
 
 Un client en erreur n'interrompt pas les autres : son échec est consigné dans le détail de
 l'exécution, et la boucle continue.
+
+### 8. Ouvrir le premier client
+
+Le produit s'administre depuis l'écran *Plateforme*, réservé au rôle `super_admin`. Ce rôle ne
+s'attribue pas depuis l'application — `app.set_user_role()` le refuse délibérément, pour qu'une
+entreprise ne puisse pas se fabriquer un accès à la console. Le tout premier compte de plateforme
+se crée donc une seule fois, à la main, dans Supabase Auth :
+
+1. créez l'utilisateur, puis écrivez dans son `app_metadata` — **jamais `user_metadata`** :
+
+   ```json
+   { "role": "super_admin", "tenant_id": null }
+   ```
+
+2. connectez-vous et ouvrez *Plateforme* → **Ouvrir un client**.
+
+Un seul appel serveur crée alors l'entreprise, sa marque, son abonnement d'essai et l'invitation de
+son propriétaire. Aucun mot de passe n'est fixé : le propriétaire crée son compte lui-même depuis le
+lien d'invitation.
+
+**Le lien n'est affiché qu'une fois.** Le jeton n'est jamais relu depuis la table — une invitation
+ancienne ne doit pas rester une clé d'entrée consultable en permanence. Transmettez-le avant de
+fermer le message ; sinon, réinvitez, ce qui renouvelle le jeton et le délai.
+
+⚠ **L'écran d'acceptation d'invitation n'existe pas encore** : il dépend du raccordement à Supabase
+Auth. En attendant, le jeton se transmet à la main et le compte se crée dans le tableau de bord
+Supabase, avec le même `app_metadata` (`tenant_id` de l'entreprise, `role` `proprietaire`).
+
+---
 
 ---
 

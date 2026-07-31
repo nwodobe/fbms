@@ -7,6 +7,7 @@ const USERS = ['tenant-users'] as const
 const DEVICES = ['user-devices'] as const
 const ROLES = ['assignable-roles'] as const
 const AUDIT = ['audit-trail'] as const
+const INVITATIONS = ['tenant-invitations'] as const
 
 export interface TenantUser {
   id: string
@@ -137,6 +138,83 @@ export function useRevokeDevice() {
       if (error) throw new Error(describeError(error))
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: DEVICES }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Invitations
+// ---------------------------------------------------------------------------
+
+/**
+ * Le jeton n'est délibérément pas lu ici.
+ *
+ * Il n'a d'intérêt qu'au moment où il est créé, et l'afficher dans une liste
+ * consultable en permanence transformerait chaque invitation ancienne en clé
+ * d'entrée toujours valable.
+ */
+export interface TenantInvitation {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  status: 'pending' | 'accepted' | 'expired' | 'revoked'
+  expires_at: string
+  invited_at: string
+}
+
+export function useTenantInvitations() {
+  return useQuery({
+    queryKey: INVITATIONS,
+    queryFn: async (): Promise<TenantInvitation[]> => {
+      const { data, error } = await supabase
+        .from('tenant_invitations')
+        .select('id, email, full_name, role, status, expires_at, invited_at')
+        .order('invited_at', { ascending: false })
+
+      if (error) throw new Error(describeError(error))
+      return (data ?? []) as TenantInvitation[]
+    },
+  })
+}
+
+/**
+ * Invite quelqu'un dans l'équipe.
+ *
+ * Le rôle passe par la même liste d'attribuables que le changement de rôle :
+ * inviter quelqu'un comme magasinier donnerait un compte dont personne ne sait
+ * ce qu'il peut faire, exactement comme l'attribution directe.
+ */
+export function useInviteUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (args: {
+      email: string
+      fullName: string
+      role: UserRole
+    }): Promise<TenantInvitation> => {
+      const { data, error } = await supabase.rpc('invite_user', {
+        p_email: args.email,
+        p_full_name: args.fullName,
+        p_role: args.role,
+      })
+
+      if (error) throw new Error(describeError(error))
+      return data as unknown as TenantInvitation
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INVITATIONS }),
+  })
+}
+
+export function useRevokeInvitation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { error } = await supabase.rpc('revoke_invitation', { p_invitation_id: invitationId })
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INVITATIONS }),
   })
 }
 

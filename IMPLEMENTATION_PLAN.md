@@ -23,6 +23,8 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **7** | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ✅ **Terminée** |
 | **8** | Écrans manquants (sacherie, clôture de campagne, console plateforme) et téléversement des justificatifs | ✅ **Terminée** |
 | **9** | Justificatifs branchés sur tous les écrans, marque dans les exports, notifications, tâches planifiées | ✅ **Terminée** |
+| **Clôture** | Messages sortants, documents opérationnels, écrans utilisateurs et journal, ouverture d'un client depuis la console | ✅ **Terminée** (4 étapes sur 5) |
+| **Raccordement** | Projet Supabase hébergé : Auth, Storage, `pg_cron`, fonction d'envoi | ⛔ **Bloquée** — limite de projets gratuits du compte |
 
 ---
 
@@ -800,11 +802,98 @@ correction disparaissait.
 | Manque | Portée |
 | --- | --- |
 | **Aucun raccordement à un projet Supabase hébergé** | Storage, Auth, `pg_cron` et les politiques de bucket n'ont jamais tourné en conditions réelles. C'est la réserve principale de la livraison, inchangée depuis la phase 7. |
-| **Aucun message sortant** | Ni courriel, ni SMS, ni WhatsApp. Le canal `in_app` est le seul alimenté ; un pisteur qui n'ouvre pas l'application n'est pas prévenu. |
 | **Les octets en attente ne sont pas chiffrés sur l'appareil** | Une photo de ticket reste lisible par qui accède au stockage du navigateur. |
-| **La console plateforme ne crée pas de tenant** | Elle administre l'existant ; créer un client et inviter son administrateur reste manuel. |
 | **Pas de politique de conservation des notifications** | La table grossit avec les alertes (relève de D12). |
-| **Le logo ne figure que sur les exports du tableau de bord** | Bons de transfert et reçus restent à écrire. |
+| **TCB prévisionnel non alimenté**, **pertes valorisées limitées à l'écart physique de transfert** (H-17), **ajustement de score par événement externe grossier**, **tableau de bord chargé en mémoire** | Limites héritées des phases 5 à 7, inchangées. |
+
+---
+
+## Étapes de clôture · 🟡 4 sur 5
+
+Après la phase 9, cinq manques séparaient encore le produit d'un service vendable sans intervention
+technique. Quatre sont comblés ; le cinquième — le raccordement à un projet Supabase hébergé — est
+bloqué par une limite de compte, pas par le code.
+
+### Étape 1 — raccordement à un projet Supabase hébergé · ⛔ Bloquée
+
+`create_project` refuse : le compte a atteint sa limite de projets gratuits, et cette limite est
+**par utilisateur**, pas par organisation. Créer une organisation supplémentaire ne la contourne
+donc pas. Trois sorties existent : libérer un projet existant (mise en pause ou suppression),
+passer l'organisation en Pro, ou utiliser un autre compte — ce dernier compliquant la propriété et
+la facturation par la suite. Le choix appartient au commanditaire ; rien n'a été appliqué à un
+projet appartenant à un autre produit.
+
+Tout ce qui suit le raccordement est écrit et attend : 29 migrations ordonnées, deux buckets privés,
+les deux tâches `pg_cron`, la fonction d'envoi des messages et le parcours de démonstration.
+
+### Étape 2 — messages sortants · ✅ Terminée
+
+Migration `2700`. Une alerte ne créait qu'une notification dans l'application ; celui qui a le plus
+besoin d'être prévenu — le pisteur en brousse — ne l'était pas.
+
+- File d'attente `message_outbox` : aucun appel réseau dans une transaction. L'envoi est réclamé par
+  un travailleur avec `for update skip locked`, ce qui laisse plusieurs exécutions cohabiter.
+- Consentement par canal et par personne (`user_message_channels`), révocable. Un désabonnement est
+  respecté même quand le message est déjà en file.
+- Heures calmes 21 h – 6 h (Abidjan) : seuls les blocages passent. Un SMS à deux heures du matin
+  pour une information sans urgence détruit la confiance dans tous les suivants.
+- Échelle de canaux délibérément avare : `info` et `surveillance` restent dans l'application,
+  `critique` ajoute WhatsApp, `blocage` ajoute le SMS.
+
+**Défaut trouvé par les tests** : les trois étapes du traitement quotidien partageaient un seul bloc
+d'exception plpgsql. Un échec de la mise en file effaçait les alertes et les notifications créées
+juste avant — c'est-à-dire que l'indisponibilité d'un fournisseur de SMS aurait fait disparaître
+l'alerte elle-même.
+
+### Étape 3 — documents opérationnels · ✅ Terminée
+
+Le logo du client ne figurait que sur les exports du tableau de bord. Bon de transfert, reçu d'avance
+et reçu d'achat sont désormais rendus en A5 à la marque du client, avec un numéro dérivé de
+l'identifiant de l'objet — jamais d'un compteur, qui donnerait deux fois le même numéro à deux
+postes hors ligne.
+
+### Étape 4 — écrans utilisateurs et journal d'audit · ✅ Terminée
+
+Migration `2800`. Les deux derniers écrans annoncés dans la navigation depuis la phase 1. Les règles
+vivaient déjà en base et étaient testées ; il manquait le moyen de s'en servir sans outil technique.
+Quatre refus délibérés protègent l'entreprise d'elle-même, dont le retrait du dernier propriétaire
+actif.
+
+### Étape 5 — ouverture d'un client depuis la console · ✅ Terminée
+
+Migration `2900`. Ouvrir une entreprise était une manipulation faite à la main dans la base : on ne
+peut pas vendre un abonnement dont la mise en service demande un développeur.
+
+- `app.create_tenant()` crée l'entreprise, sa marque, son abonnement d'essai et l'invitation de son
+  propriétaire **dans une seule transaction**. Une entreprise à moitié née coûte plus cher à réparer
+  qu'à recommencer.
+- Aucun mot de passe n'est fixé côté base : la fonction prépare une invitation, l'identité reste à
+  Supabase Auth. Un produit qui gère lui-même les mots de passe en gère mal.
+- Un identifiant déjà pris arrête la création avec un message clair, plutôt que de rattacher le
+  nouveau client aux données de l'ancien.
+- `tenant_invitations` a des politiques d'écriture à `false` : tout passe par des fonctions qui
+  contrôlent le rôle invité. Inviter quelqu'un comme magasinier est refusé exactement comme
+  l'attribution directe du rôle — sinon l'invitation contournerait ce que le changement de rôle
+  interdit.
+- Une invitation révoquée est marquée, jamais effacée : savoir qu'une personne a été invitée puis
+  écartée fait partie de l'histoire de l'entreprise.
+- Le jeton n'est lisible qu'à la création. L'écran le dit avant qu'on referme la fenêtre, et la liste
+  ne le relit jamais — une invitation ancienne ne doit pas rester une clé d'entrée consultable.
+
+**Défaut trouvé par les tests** : `slugIssue` répondait « minuscules uniquement » pour
+« LBA Séguéla! », qui est aussi hors alphabet. L'utilisateur aurait baissé la casse et le champ
+serait resté refusé, sans plus d'explication. Le test end-to-end l'a montré ; l'ordre des contrôles
+est corrigé et épinglé.
+
+**Ce qui reste ouvert après les étapes de clôture**
+
+| Manque | Portée |
+| --- | --- |
+| **Aucun raccordement à un projet Supabase hébergé** | Réserve principale, inchangée depuis la phase 7. Voir l'étape 1 ci-dessus. |
+| **Aucun travailleur d'envoi déployé** | La file `message_outbox` se remplit et se réclame correctement ; la fonction qui appelle réellement les fournisseurs SMS et WhatsApp reste à déployer et dépend de l'étape 1. |
+| **L'acceptation d'une invitation n'a pas d'écran** | Le jeton est produit et transmis à la main. L'écran qui l'échange contre un compte dépend d'Auth, donc de l'étape 1. |
+| **Les octets en attente ne sont pas chiffrés sur l'appareil** | Une photo de ticket reste lisible par qui accède au stockage du navigateur. |
+| **Pas de politique de conservation des notifications ni des messages** | Les deux tables grossissent avec les alertes (relève de D12). |
 | **TCB prévisionnel non alimenté**, **pertes valorisées limitées à l'écart physique de transfert** (H-17), **ajustement de score par événement externe grossier**, **tableau de bord chargé en mémoire** | Limites héritées des phases 5 à 7, inchangées. |
 
 ---
@@ -815,10 +904,10 @@ correction disparaissait.
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 26 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 29 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
-| Les politiques RLS ont des tests | ✅ 315 tests de base, dont 40 d’audit systématique |
-| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-23, 224 tests (bureau + Android) |
+| Les politiques RLS ont des tests | ✅ 372 tests de base, dont 40 d’audit systématique |
+| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-27, 262 tests (bureau + Android) |
 | Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
 | La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-14 (38 tests) + audit du code et endurance (11 tests, dont la préservation des octets à travers les mises à jour) |
 | Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |
