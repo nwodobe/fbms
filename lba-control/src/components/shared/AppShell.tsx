@@ -39,6 +39,7 @@ const NAV_SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { to: '/societes', label: 'Sociétés', roles: ALL_STAFF, phase: 2 },
       { to: '/contrats', label: 'Contrats et prix', roles: ALL_STAFF, phase: 2 },
+      { to: '/campagnes', label: 'Campagnes', roles: ['proprietaire', 'gestionnaire', 'auditeur'], phase: 8 },
       { to: '/financements', label: 'Financements', roles: ['proprietaire', 'gestionnaire', 'comptable', 'auditeur'], phase: 3 },
     ],
   },
@@ -75,6 +76,7 @@ const NAV_SECTIONS: Array<{ title: string; items: NavItem[] }> = [
       { to: '/marque', label: 'Marque', roles: ['proprietaire', 'gestionnaire'], phase: 2 },
       { to: '/abonnement', label: 'Abonnement', roles: ['proprietaire', 'comptable'], phase: 6 },
       { to: '/audit', label: "Journal d'audit", roles: ['proprietaire', 'gestionnaire', 'comptable', 'auditeur'], phase: 1 },
+      { to: '/plateforme', label: 'Console plateforme', roles: ['super_admin'], phase: 8 },
     ],
   },
 ]

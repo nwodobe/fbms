@@ -170,6 +170,26 @@ arbitrage qui appartient au métier.
 | **H-18** | Le **cycle d'abonnement est calculé deux fois** — dans `src/domain/subscription.ts` et dans `app.subscription_phase` — et les deux implémentations sont **vérifiées l'une contre l'autre** par les tests de base. Un serveur et une interface en désaccord sur le jour du blocage produiraient une réclamation client impossible à trancher. | Moyen si la double implémentation dérive ; le test croisé est la protection. |
 | **H-19** | **L'export reste ouvert en lecture seule ET après blocage**, et la déclaration de paiement aussi. Retenir les données d'un client en retard serait une prise d'otage ; sans déclaration possible, un client bloqué ne pourrait jamais se débloquer. | Faible — choix commercial explicite. |
 | **H-20** | Un **indicateur de tableau de bord sans source vaut `null`**, jamais 0. Seuls les compteurs d'événements (retards, incidents, alertes) valent légitimement zéro : « aucun incident » est une information, « 0 FCFA achetés » sur un périmètre vide n'en est pas une. | Faible. |
+| **H-21** | Le **solde de sacs n'est jamais saisi** : `bag_stocks` est un cache tenu par trigger, reconstructible par `app.rebuild_bag_stocks`. La source de vérité reste `bag_movements`. Un solde corrigeable à la main est un solde auquel on ne peut pas se fier. | Faible. |
+| **H-22** | Les **sacs appartiennent à une société**. Les déplacer d'un tiers vers un autre est un transfert de valeur : approbation nominative, motif écrit et entrée `partner_change` au journal. La réaffectation s'écrit en **deux mouvements** (une sortie, une entrée), `partner_company_id` étant une colonne unique. | Moyen si contesté — c'est une question commerciale, pas technique. |
+| **H-23** | Le **type d'un fichier est établi par sa signature binaire**, jamais par son extension ni par le type annoncé par le navigateur : les deux viennent du client. Les limites de taille diffèrent selon l'usage — 8 Mo au bureau, 4 Mo pour une preuve envoyée du terrain, parce que le pisteur paie son forfait. | Faible. |
+| **H-24** | Le seuil `expense_categories.requires_receipt_above` s'applique **à la validation, pas à la saisie**. Un pisteur doit pouvoir enregistrer une dépense réelle depuis le terrain ; la pièce est jointe au bureau. | Faible. |
+
+---
+
+### Correction apportée en phase 8 à une affirmation de la phase 7
+
+La migration `1900` et `SECURITY_MODEL.md` affirmaient que des **privilèges par défaut** suffiraient à
+maintenir fermée la surface d'exécution des fonctions. C'était **inexact** :
+`ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE … FROM PUBLIC` n'annule que ce qu'un `GRANT` par défaut
+avait ajouté et laisse intact le droit intégré de PostgreSQL, qui accorde `EXECUTE` à `PUBLIC` sur
+toute fonction créée.
+
+L'audit du catalogue l'a démontré dès l'apparition de seize nouvelles fonctions en phase 8. La
+révocation explicite vit désormais dans la migration `2400`, qui **doit rester la dernière**, et les
+deux documents ont été rectifiés. C'est l'exemple le plus net, dans ce projet, de l'utilité d'un audit
+qui affirme des invariants plutôt que de vérifier une liste : la régression était invisible à la
+lecture du code.
 
 ---
 

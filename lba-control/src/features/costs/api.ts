@@ -88,6 +88,9 @@ export function useExpenseAllocations() {
 }
 
 export interface ExpenseInput {
+  /** Généré côté client : le justificatif se dépose avant que la ligne n'existe. */
+  id: string
+  proofPath: string | null
   categoryId: string
   partnerCompanyId: string | null
   campaignId: string
@@ -117,8 +120,9 @@ export function useCreateExpense(tenantId: string | null, currentUserId: string 
       const { data, error } = await supabase
         .from('expenses')
         .insert({
-          id: crypto.randomUUID(),
+          id: input.id,
           tenant_id: tenantId,
+          proof_path: input.proofPath,
           category_id: input.categoryId,
           partner_company_id: input.partnerCompanyId,
           campaign_id: input.campaignId,

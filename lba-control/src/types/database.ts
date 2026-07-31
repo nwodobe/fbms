@@ -403,6 +403,45 @@ export type ExpenseRow = {
   sync_status: SyncStatusEnum
 }
 
+export type BagMovementTypeEnum =
+  | 'reception_societe'
+  | 'dotation_pisteur'
+  | 'utilisation_achat'
+  | 'retour_vide'
+  | 'retour_plein'
+  | 'perte'
+  | 'reaffectation'
+
+export type BagMovementDbRow = {
+  id: string
+  tenant_id: string
+  partner_company_id: string | null
+  type: BagMovementTypeEnum
+  quantity: number
+  from_holder_type: HolderTypeEnum | null
+  from_holder_id: string | null
+  to_holder_type: HolderTypeEnum | null
+  to_holder_id: string | null
+  field_agent_id: string | null
+  purchase_id: string | null
+  transfer_id: string | null
+  occurred_at: string
+  reason: string | null
+  approved_by: string | null
+  created_by: string | null
+}
+
+/** Cache tenu par trigger. Jamais écrit par le client. */
+export type BagStockDbRow = {
+  id: string
+  tenant_id: string
+  partner_company_id: string | null
+  holder_type: HolderTypeEnum
+  holder_id: string | null
+  bag_count: number
+  updated_at: string
+}
+
 export type AllocationKeyEnum =
   | 'poids_accepte'
   | 'valeur_achat'
@@ -843,6 +882,8 @@ export interface Database {
       external_events: Writable<ExternalEventRow>
       alert_rules: Writable<AlertRuleRow>
       alerts: Writable<AlertRow>
+      bag_movements: Writable<BagMovementDbRow>
+      bag_stocks: Writable<BagStockDbRow>
       stock_lots: Writable<StockLotDbRow>
       stock_reservations: Writable<StockReservationDbRow>
       delivery_plans: Writable<DeliveryPlanDbRow>
@@ -1012,6 +1053,96 @@ export interface Database {
       reopen_campaign: {
         Args: { p_campaign_id: string; p_reason: string }
         Returns: CampaignRow
+      }
+      /**
+       * État commercial des clients, vu de la plateforme. Aucune donnée métier :
+       * le super-administrateur administre des abonnements, pas des campagnes.
+       */
+      platform_overview: {
+        Args: Record<string, never>
+        Returns: {
+          tenants: Array<{
+            id: string
+            slug: string
+            commercial_name: string
+            tenant_status: string
+            subscription_id: string | null
+            subscription_status: string | null
+            period_end: string | null
+            amount: number | null
+            days_to_expiry: number | null
+            plan_name: string | null
+            active_users: number
+            active_agents: number
+            pending_payments: number
+          }>
+          pending_payments: Array<{
+            id: string
+            tenant_id: string
+            commercial_name: string
+            amount: number
+            method: string
+            reference: string
+            payer: string | null
+            declared_at: string
+          }>
+          support_sessions: Array<{
+            id: string
+            tenant_id: string
+            commercial_name: string
+            reason: string
+            granted_at: string
+            expires_at: string
+            revoked_at: string | null
+            is_active: boolean
+          }>
+        }
+      }
+      /** Accès motivé et limité dans le temps aux données d'un client. */
+      open_support_session: {
+        Args: { p_tenant_id: string; p_reason: string; p_duration_mins?: number }
+        Returns: { id: string; tenant_id: string; expires_at: string }
+      }
+      /** Coupe un accès ouvert par erreur sans attendre son expiration. */
+      revoke_support_session: {
+        Args: { p_session_id: string }
+        Returns: { id: string; revoked_at: string | null }
+      }
+      /** Suspend ou réactive un client. Ne supprime rien. */
+      set_tenant_status: {
+        Args: { p_tenant_id: string; p_status: string; p_reason: string }
+        Returns: TenantRow
+      }
+      /** Rapprochement de sacherie d'une société. Taux de perte `null` si rien n'a été distribué. */
+      bag_reconciliation: {
+        Args: { p_tenant: string; p_partner: string }
+        Returns: {
+          received: number
+          distributed: number
+          returned: number
+          used_for_purchases: number
+          declared_losses: number
+          held_by_agents: number
+          expected_in_warehouse: number
+          loss_rate_pct: number | null
+        }
+      }
+      /** Réaffectation de sacs entre deux sociétés : deux mouvements, une transaction. */
+      reassign_bags: {
+        Args: {
+          p_from_partner: string
+          p_to_partner: string
+          p_holder_type: HolderTypeEnum
+          p_holder_id: string | null
+          p_quantity: number
+          p_reason: string
+        }
+        Returns: { out_movement_id: string; in_movement_id: string; quantity: number }
+      }
+      /** Reconstruit les soldes depuis les mouvements : la source de vérité. */
+      rebuild_bag_stocks: {
+        Args: { p_tenant: string }
+        Returns: number
       }
       /** Journalise un export sensible. Les exports sans montant ni nom ne le sont pas. */
       log_export: {

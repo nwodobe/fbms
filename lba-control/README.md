@@ -102,7 +102,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 256 tests**
+**Base de données — 282 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
@@ -114,9 +114,10 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `advances-purchases.test.ts` | 23 | Plafonds, couverture FIFO, doublons d'achat |
 | `reception-incidents.test.ts` | 20 | Tolérance en cascade, écarts, incidents ouverts sans imputation |
 | `branding-prices.test.ts` | 18 | Contraste imposé côté serveur, révision de prix versionnée |
+| `bags.test.ts` | 18 | Soldes de sacherie déduits des mouvements, pertes expliquées, réaffectation approuvée |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
-**Unitaires et composants — 408 tests**, dont :
+**Unitaires et composants — 450 tests**, dont :
 
 | Suite | Couvre |
 | --- | --- |
@@ -127,7 +128,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 146 tests** (bureau + Android), E2E-01 → E2E-13.
+**Parcours end-to-end — 180 tests** (bureau + Android), E2E-01 → E2E-17.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.
@@ -224,6 +225,9 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Aucune clé `service_role` n'est présente dans le bundle (`grep -r service_role dist/`)
 - [ ] Le rôle `anon` n'atteint aucune fonction : `select has_schema_privilege('anon','app','usage')` renvoie `false`
 - [ ] Une suppression d'achat, d'avance, de dépense ou de prix renvoie 0 ligne affectée
+- [ ] Les buckets `preuves` et `marque` existent et sont **privés**
+- [ ] Un objet déposé sous le tenant A n'est pas listable par le tenant B
+- [ ] Un fichier de plus de 8 Mo est refusé par le bucket lui-même, pas seulement par l'interface
 
 ### 6. Tâche planifiée à installer
 
@@ -257,7 +261,7 @@ lba-control/
 │   ├── features/     un dossier par domaine métier
 │   └── types/        types de la base
 ├── supabase/
-│   ├── migrations/   20 migrations versionnées et ordonnées
+│   ├── migrations/   24 migrations versionnées et ordonnées
 │   └── local/        adaptateur PostgreSQL local (jamais appliqué à Supabase)
 ├── scripts/          pilotage de la base locale et jeu de démonstration
 ├── tests/            unitaires, base de données et sécurité

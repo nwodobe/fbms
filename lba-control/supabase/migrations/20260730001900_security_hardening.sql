@@ -153,10 +153,16 @@ grant execute on all functions in schema public to authenticated, service_role;
 -- pouvoir atteindre la fonction `app` qu'elles appellent.
 grant execute on all functions in schema app to authenticated, service_role;
 
--- Les fonctions créées plus tard héritent du même régime, sans quoi l'écart
--- se rouvrirait à la première migration suivante.
-alter default privileges in schema public revoke execute on functions from public;
-alter default privileges in schema app    revoke execute on functions from public;
+-- Privilèges par défaut : ils accordent aux deux rôles applicatifs les
+-- fonctions créées plus tard.
+--
+-- ⚠ Ils NE suffisent PAS à fermer l'accès de PUBLIC. `ALTER DEFAULT PRIVILEGES
+-- … REVOKE EXECUTE … FROM PUBLIC` ne retire pas le droit intégré de
+-- PostgreSQL, qui accorde EXECUTE à PUBLIC sur toute fonction créée : la forme
+-- REVOKE n'annule que ce qu'un GRANT par défaut avait ajouté. Une révocation
+-- explicite reste donc nécessaire APRÈS la création de la dernière fonction —
+-- c'est l'objet de la migration 2400, et l'audit du catalogue échoue si elle
+-- manque.
 alter default privileges in schema public grant execute on functions to authenticated, service_role;
 alter default privileges in schema app    grant execute on functions to authenticated, service_role;
 

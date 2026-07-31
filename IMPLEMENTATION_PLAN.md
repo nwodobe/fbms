@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 7 — MVP complet.**
+**Mis à jour : fin de Phase 8 — périmètre MVP complet.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -21,6 +21,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **5** | Dépenses, allocations, TCB, marges, scoring, alertes | ✅ **Terminée** |
 | **6** | Abonnements, personnalisation des documents, exports, tableaux de bord | ✅ **Terminée** |
 | **7** | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ✅ **Terminée** |
+| **8** | Écrans manquants (sacherie, clôture de campagne, console plateforme) et téléversement des justificatifs | ✅ **Terminée** |
 
 ---
 
@@ -516,14 +517,82 @@ Ces points sont réels et documentés plutôt que masqués.
 
 ---
 
+## Phase 8 — Écrans manquants et téléversement · ✅ Terminée
+
+Cette phase ferme les manques que la phase 7 avait documentés plutôt que masqués.
+Écrans livrés : `E11` sacherie, clôture et réouverture de campagne, `Z01` console plateforme,
+et le dépôt de justificatifs vers Storage.
+
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **Le solde de sacs ne se saisit pas** | Il se déduit des mouvements par trigger ; `app.rebuild_bag_stocks` le reconstruit depuis les seuls mouvements. Test : on abîme volontairement le cache, la reconstruction rétablit la vérité |
+| **Un mouvement mal formé est refusé avant de fausser deux stocks** | Origine et destination exigées selon le type ; quantité toujours positive, le sens venant des deux bouts |
+| **Les sacs de deux sociétés ne se mélangent pas** chez le même détenteur | Testé en domaine et en base |
+| **Une perte s'explique** | Refusée sans motif, en base comme à l'écran |
+| **Une réaffectation entre sociétés est approuvée et tracée** | Deux mouvements en une transaction, entrée `partner_change` au journal d'audit, réservée au propriétaire et au gestionnaire |
+| **Le taux de perte reste vide** quand rien n'a été distribué | 0 % sur une dotation inexistante se lirait comme un excellent résultat |
+| **La clôture énumère ses obstacles** | Compte et montant par obstacle ; le forçage exige 20 caractères et inscrit les obstacles contournés à l'audit |
+| **La console plateforme ne montre aucune donnée métier** | Test qui inspecte les clés renvoyées : aucune ne porte d'achat, de prix, de marge ni de nom de pisteur |
+| **Suspendre un client n'efface rien** | Test comparant les compteurs avant et après ; motif de 20 caractères exigé, décision tracée |
+| **Une session d'assistance se révoque avant expiration** | Attendre l'expiration serait une mauvaise réponse à un incident |
+| **Le type de fichier est vérifié par sa signature** | Un exécutable renommé `ticket.jpg` est refusé ; un fichier dont le contenu contredit le type annoncé aussi |
+| **Les limites diffèrent selon l'usage** | 8 Mo au bureau, 4 Mo pour une preuve envoyée du terrain — le pisteur paie son forfait |
+| **Les images sont réduites avant l'envoi**, et l'économie est annoncée | 4 032 px ramenés à 1 600 ; « 4,2 Mo économisés » explique la rapidité |
+| **Les buckets sont privés et cloisonnés par chemin** | Premier segment = tenant ; suppression refusée, comme pour les transactions |
+| **Le seuil de justificatif est appliqué à la validation, pas à la saisie** | Un pisteur doit pouvoir enregistrer une dépense réelle depuis le terrain |
+| **450 tests unitaires et de composants** | 450/450 |
+| **282 tests de base de données** | 282/282 |
+| **180 parcours end-to-end** (bureau + Android) | 180/180 |
+| Build de production | Réussi |
+
+### Défauts trouvés par les tests pendant la phase 8, et corrigés
+
+1. **Une affirmation fausse de la phase 7, démontrée par l'audit.** La migration `1900` prétendait que
+   des privilèges par défaut fermeraient la surface d'exécution « à la prochaine migration ». C'était
+   inexact : `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE … FROM PUBLIC` **ne retire pas** le droit
+   intégré de PostgreSQL, qui accorde `EXECUTE` à `PUBLIC` sur toute fonction créée — cette forme
+   n'annule que ce qu'un `GRANT` par défaut avait ajouté. Seize nouvelles fonctions sont donc devenues
+   appelables par `anon` dès la phase 8, et l'audit du catalogue a échoué à la première exécution.
+   Corrigé par une migration `2400` dont le seul objet est la révocation explicite, et qui **doit
+   rester la dernière** ; la migration `1900` et `SECURITY_MODEL.md` ont été rectifiés.
+2. **Ma propre règle de forme contredisait ma propre implémentation.** Le garde-fou exigeait qu'une
+   réaffectation ait une origine *et* une destination, alors que `reassign_bags` l'écrit en deux
+   pattes — `partner_company_id` étant une colonne unique, une seule ligne ne peut pas exprimer
+   « d'OLAM vers DORADO ». La réaffectation était donc impossible à enregistrer.
+3. **Une colonne ambiguë** (`commercial_name` sélectionnée deux fois) et **un `case` non casté** vers
+   `audit_action` faisaient échouer la console plateforme à l'exécution.
+4. **Une comparaison d'énumération à la chaîne vide** (`coalesce(old.status, '')`) faisait échouer
+   toute validation de dépense.
+5. Le super-administrateur ne peut pas lire le journal d'un client hors session d'assistance — la
+   règle de la phase 1 s'applique aussi à lui. Mon test l'avait oublié.
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+- **Le téléversement n'a jamais été exercé contre un vrai Storage.** Les règles — signature, taille,
+  compression, chemin — sont testées sans navigateur ; les politiques de bucket sont écrites mais la
+  base locale n'héberge pas Storage, et la migration `2300` s'y ignore d'elle-même. C'est la partie
+  la moins éprouvée de la livraison.
+- **Le logo du tenant n'apparaît toujours pas dans les exports** : le composant de dépôt existe, il
+  reste à le brancher sur l'écran de marque et à lire l'image au moment de l'export.
+- **Les tickets de pesée et preuves d'achat ne sont pas encore reliés au composant de dépôt** : seul
+  l'écran des dépenses l'utilise. Les autres écrans conservent la saisie du chemin.
+- **La console plateforme ne crée pas de tenant** : elle administre l'existant. La création d'un
+  client et l'invitation de son administrateur restent une opération manuelle.
+- **Deux tâches planifiées** (cycle d'abonnement, évaluation des alertes) restent à installer.
+- **Aucun message n'est envoyé**, et **aucun déploiement réel n'a été fait**.
+
+---
+
 ## Conditions de livraison (commande §27)
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 20 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 24 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
-| Les politiques RLS ont des tests | ✅ 256 tests de base, dont 31 d'audit systématique |
-| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-13, 146 tests (bureau + Android) |
+| Les politiques RLS ont des tests | ✅ 282 tests de base, dont 39 d'audit systématique |
+| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-17, 180 tests (bureau + Android) |
 | Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
 | La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08 (23 tests) + audit du code et endurance (8 tests) |
 | Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |

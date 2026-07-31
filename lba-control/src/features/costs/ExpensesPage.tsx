@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { ProofUpload } from '@/components/shared/ProofUpload'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -91,6 +92,10 @@ export function ExpensesPage() {
     reference: '',
     nature: 'direct' as 'direct' | 'indirect',
     allocationKey: 'poids_accepte' as AllocationKeyEnum,
+    proofPath: null as string | null,
+    // L'identifiant est tiré dès l'ouverture du formulaire : le justificatif
+    // doit pouvoir être déposé avant que la ligne n'existe.
+    draftId: crypto.randomUUID(),
   })
 
   const canManage = role === 'proprietaire' || role === 'gestionnaire' || role === 'comptable'
@@ -123,8 +128,11 @@ export function ExpensesPage() {
       reference: form.reference,
       nature: form.nature,
       allocationKey: form.allocationKey,
+      proofPath: form.proofPath,
+      id: form.draftId,
     })
     setOpen(false)
+    setForm({ ...form, amount: '', beneficiary: '', reference: '', proofPath: null, draftId: crypto.randomUUID() })
   }
 
   async function runAllocation() {
@@ -461,6 +469,14 @@ export function ExpensesPage() {
                 </select>
               </Field>
             )}
+
+            <ProofUpload
+              kind="justificatif_depense"
+              tenantId={tenantId}
+              entityId={form.draftId}
+              value={form.proofPath}
+              onChange={(path) => setForm({ ...form, proofPath: path })}
+            />
 
             {create.error && (
               <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

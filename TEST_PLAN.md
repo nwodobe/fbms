@@ -110,6 +110,10 @@ périmètre contrôlé.
 | AUD-12 | 500 opérations, échecs, conflits, réouverture | Zéro perte, intégrité vérifiée |
 | AUD-13 | Point d'entrée et préchargement sous budget | < 460 kB et < 1 100 kB |
 | AUD-14 | Tout écran qui écrit affiche ses échecs | Liste vide |
+| AUD-15 | La console plateforme ne renvoie aucune clé métier | Aucun `purchase`, `price`, `margin`, `agent_name` |
+| AUD-16 | Suspendre un client ne supprime rien | Compteurs identiques avant et après |
+| AUD-17 | Solde de sacs reconstruit depuis les seuls mouvements | Cache abîmé volontairement, vérité rétablie |
+| AUD-18 | Justificatif exigé à la validation, pas à la saisie | Saisie acceptée sans pièce, validation refusée |
 
 ---
 
@@ -128,6 +132,8 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | `subscription.ts` | Rappels J-7 / J-3 / J avec clé d'idempotence rattachée à l'échéance ; grâce 5 j en accès complet ; lecture seule à J+6 ; blocage à J+31 ; **aucune donnée supprimée à aucune phase** ; prolongation **à partir de la date de fin existante** si encore actif, du jour du paiement sinon ; paiement partiel = avoir sans renouvellement ; export et déclaration restent ouverts après blocage |
 | `duplicates.ts` | Doublon probable détecté ; GPS **jamais** preuve unique ; faux positif non bloquant |
 | `money.ts` | Arrondis XOF, absence de dérive de flottant, montants négatifs refusés |
+| `bags.ts` | Soldes déduits des deux bouts de chaque mouvement ; sacs de deux sociétés non mélangés ; perte et réaffectation justifiées ; taux de perte `null` si rien n'a été distribué |
+| `uploads.ts` | Type vérifié par signature ; exécutable renommé refusé ; limites par usage ; chemin portant le tenant et écartant le nom d'origine ; dimensions cibles |
 | `reports.ts` | Valeur absente exportée « — » et jamais 0 ; totaux sur les seules colonnes sommables ; colonne entièrement vide sans total ; mention de démonstration ; nom de fichier stable |
 | `dashboard.ts` | Indicateur sans source à `null` ; un seul instantané de TCB par périmètre ; exposition jamais négative ; jours sans achat omis de la série |
 
@@ -164,6 +170,9 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | E2E-10 | Marge sur prix net reconnu | CA-08 |
 | E2E-11 | Score pisteur expliqué composante par composante | CA-10 |
 | E2E-14 | **Parcours complet** : financement → avance → achat → transfert → réception → dépense → TCB → marge → alerte → clôture | CA-01 → CA-11 |
+| E2E-15 | Sacherie : soldes déduits, perte expliquée, réaffectation approuvée | CA-11 |
+| E2E-16 | Clôture de campagne : obstacles énumérés, forçage motivé, réouverture réservée | D10 |
+| E2E-17 | Console plateforme : aucune donnée métier, assistance motivée | CMD §4 |
 | E2E-12 | Exports PDF/Excel à la marque du tenant, sans données concurrentes | CA-12 |
 | E2E-13 | Échéance d'abonnement → lecture seule → réactivation après confirmation | DMQ E18 |
 | E2E-14 | Annulation d'une opération clôturée par écriture inverse | CA-13, aucune suppression |
@@ -192,6 +201,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 5 — Dépenses, TCB, marges, scoring, alertes | RG-11, RG-17 → RG-24, `tcb.ts`, `margin.ts`, `scoring.ts`, `alerts.ts`, E2E-09 → E2E-11 |
 | 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, RG-25 → RG-32, `subscription.ts`, `reports.ts`, `dashboard.ts`, E2E-12, E2E-13 |
 | 7 — Stabilisation | AUD-01 → AUD-14, E2E-14, suite complète, build de production |
+| 8 — Écrans manquants et fichiers | AUD-15 → AUD-18, `bags.ts`, `uploads.ts`, E2E-15 → E2E-17 |
 
 ---
 

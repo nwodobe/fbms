@@ -176,12 +176,26 @@ Aucune n'est réalisable depuis le navigateur avec les droits de l'utilisateur :
 Toutes fixent `search_path = pg_catalog, app, public` — sans quoi un objet homonyme créé dans un schéma
 utilisateur pourrait détourner l'exécution avec les droits du propriétaire.
 
-**Surface d'exécution fermée par défaut.** PostgreSQL accorde `EXECUTE` à `PUBLIC` sur toute fonction
-créée. La migration `1900` révoque ce droit sur les schémas `public` et `app`, le réaccorde aux seuls
-rôles `authenticated` et `service_role`, et pose des **privilèges par défaut** pour que toute fonction
-créée plus tard hérite du même régime. Le rôle `anon` n'a ni `USAGE` sur `app` ni `EXECUTE` nulle
-part. Un audit du catalogue le vérifie à chaque exécution des tests : « la fonction refuse » et « la
-fonction est inatteignable » ne sont pas la même garantie.
+**Surface d'exécution fermée explicitement.** PostgreSQL accorde `EXECUTE` à `PUBLIC` sur toute
+fonction créée. Ce droit est révoqué sur les schémas `public` et `app`, puis réaccordé aux seuls rôles
+`authenticated` et `service_role`. Le rôle `anon` n'a ni `USAGE` sur `app` ni `EXECUTE` nulle part.
+
+⚠ **Cette révocation doit être la dernière migration.** `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE …
+FROM PUBLIC` ne suffit pas : cette forme n'annule que ce qu'un `GRANT` par défaut avait ajouté, et
+laisse intact le droit intégré de PostgreSQL. La phase 7 affirmait le contraire ; la phase 8 l'a
+démontré, seize nouvelles fonctions étant devenues appelables par `anon` dès leur création. La
+migration `2400` porte donc la révocation, et l'audit du catalogue échoue si une migration ultérieure
+crée une fonction sans la rejouer.
+
+« La fonction refuse » et « la fonction est inatteignable » ne sont pas la même garantie : la première
+dépend de chaque implémentation, la seconde du droit d'accès.
+
+**Fichiers.** Deux buckets privés, `preuves` et `marque`. Le cloisonnement repose sur le **chemin** :
+chaque objet est rangé sous `<tenant_id>/…` et la politique compare ce premier segment au tenant du
+jeton. Le type est vérifié par **signature binaire**, pas par extension ni par le type annoncé — les
+deux viennent du client et se falsifient. La suppression est refusée, comme pour les transactions : un
+justificatif effacé après coup est précisément celui qu'un contrôleur voudra voir. La lecture passe
+par un lien signé de cinq minutes, régénéré à chaque affichage.
 
 **Aucune suppression physique d'entité à statut terminal.** Au-delà des transactions métier — déjà
 protégées depuis la phase 1 — toute table portant un état de fin de vie (`annule`, `cloture`,

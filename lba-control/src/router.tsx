@@ -30,6 +30,9 @@ const AgentDetailPage = named(() => import('@/features/agents/AgentDetailPage'),
 const AgentsPage = named(() => import('@/features/agents/AgentsPage'), 'AgentsPage')
 const ContractsPage = named(() => import('@/features/contracts/ContractsPage'), 'ContractsPage')
 const AlertsPage = named(() => import('@/features/costs/AlertsPage'), 'AlertsPage')
+const BagsPage = named(() => import('@/features/bags/BagsPage'), 'BagsPage')
+const CampaignsPage = named(() => import('@/features/campaigns/CampaignsPage'), 'CampaignsPage')
+const PlatformPage = named(() => import('@/features/platform/PlatformPage'), 'PlatformPage')
 const ExpensesPage = named(() => import('@/features/costs/ExpensesPage'), 'ExpensesPage')
 const ScoringPage = named(() => import('@/features/costs/ScoringPage'), 'ScoringPage')
 const TcbPage = named(() => import('@/features/costs/TcbPage'), 'TcbPage')
@@ -61,13 +64,6 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 /** Écrans planifiés, déclarés ici pour que la navigation soit complète dès la phase 1. */
 const PLANNED = [
-  {
-    path: 'sacs',
-    title: 'Sacherie',
-    phase: 4,
-    summary: 'Dotations, retours et pertes de sacs, par société.',
-    delivers: ['Solde par détenteur et par société', 'Réaffectation inter-sociétés approuvée'],
-  },
   {
     path: 'utilisateurs',
     title: 'Utilisateurs et rôles',
@@ -130,6 +126,9 @@ export function AppRouter() {
 
         {/* Écrans livrés en phase 6 */}
         <Route path="abonnement" element={<SubscriptionPage />} />
+        <Route path="sacs" element={<BagsPage />} />
+        <Route path="campagnes" element={<CampaignsPage />} />
+        <Route path="plateforme" element={<PlatformPage />} />
 
         {PLANNED.map((screen) => (
           <Route

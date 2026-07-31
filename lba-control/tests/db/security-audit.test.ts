@@ -12,7 +12,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { actors, ids, seedFixtures } from './fixtures'
-import { asOwner, countVisible, pool, withUser } from './helpers'
+import { asOwner, asOwnerWithin, countVisible, pool, withUser } from './helpers'
 
 beforeAll(async () => {
   await seedFixtures()
@@ -324,5 +324,178 @@ describe('AUDIT · cloisonnement du pisteur', () => {
       return result.rowCount ?? 0
     })
     expect(written).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Console plateforme
+// ---------------------------------------------------------------------------
+
+describe('AUDIT · console plateforme', () => {
+  it('n’expose aucune donnée métier, seulement des compteurs', async () => {
+    const { rows } = await withUser(actors.superAdmin, (c) =>
+      c.query(`select app.platform_overview() as o`),
+    )
+    const overview = rows[0].o as {
+      tenants: Array<Record<string, unknown>>
+      pending_payments: unknown[]
+      support_sessions: unknown[]
+    }
+
+    expect(overview.tenants.length).toBeGreaterThan(0)
+
+    // Le super-administrateur administre des abonnements, pas des campagnes :
+    // aucune clé ne doit porter d'achat, de prix, de marge ni de nom de pisteur.
+    const keys = Object.keys(overview.tenants[0]!)
+    for (const forbidden of ['purchase', 'price', 'margin', 'agent_name', 'amount_purchased']) {
+      expect(keys.some((key) => key.includes(forbidden))).toBe(false)
+    }
+    expect(keys).toEqual(
+      expect.arrayContaining(['commercial_name', 'subscription_status', 'active_users']),
+    )
+  })
+
+  it('reste fermée à un propriétaire de tenant', async () => {
+    await withUser(actors.ownerA, async (c) => {
+      await expect(c.query(`select app.platform_overview()`)).rejects.toThrow(
+        /administrateurs de la plateforme/i,
+      )
+    })
+  })
+
+  it('exige un motif substantiel pour suspendre un client', async () => {
+    await withUser(actors.superAdmin, async (c) => {
+      await expect(
+        c.query(`select app.set_tenant_status($1, 'suspended', 'trop court')`, [ids.tenantA]),
+      ).rejects.toThrow(/20 caractères/i)
+    })
+  })
+
+  it('suspend sans rien supprimer, et trace la décision', async () => {
+    await withUser(actors.superAdmin, async (c) => {
+      const before = await c.query(`select count(*)::int as n from public.purchases where tenant_id = $1`, [
+        ids.tenantA,
+      ])
+
+      await c.query(
+        `select app.set_tenant_status($1, 'suspended', $2)`,
+        [ids.tenantA, 'Impayé constaté après trois relances et un appel téléphonique.'],
+      )
+
+      const after = await c.query(`select count(*)::int as n from public.purchases where tenant_id = $1`, [
+        ids.tenantA,
+      ])
+      // Suspendre coupe l'accès, jamais les données.
+      expect(after.rows[0].n).toBe(before.rows[0].n)
+
+      // Le super-administrateur n'a pas accès au journal du client hors session
+      // d'assistance : la règle de la phase 1 s'applique aussi à lui. On relit
+      // donc la trace avec les droits du propriétaire de la base.
+      const audit = await asOwnerWithin(c, actors.superAdmin, (owner) =>
+        owner.query(
+          `select action, justification from audit_log
+            where tenant_id = $1 and table_name = 'tenants' order by occurred_at desc limit 1`,
+          [ids.tenantA],
+        ),
+      )
+      expect(audit.rows[0].action).toBe('suspend')
+      expect(audit.rows[0].justification).toContain('relances')
+    })
+  })
+
+  it('révoque une session d’assistance avant son expiration', async () => {
+    await withUser(actors.superAdmin, async (c) => {
+      const opened = await c.query(
+        `select (app.open_support_session($1, $2, 60)).id as id`,
+        [ids.tenantA, 'Analyse d’un écart de poids signalé par le client'],
+      )
+
+      await c.query(`select app.revoke_support_session($1)`, [opened.rows[0].id])
+
+      const { rows } = await c.query(
+        `select revoked_at from platform_support_sessions where id = $1`,
+        [opened.rows[0].id],
+      )
+      // Attendre l'expiration pour couper un accès ouvert par erreur serait une
+      // mauvaise réponse à un incident.
+      expect(rows[0].revoked_at).not.toBeNull()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Justificatifs
+// ---------------------------------------------------------------------------
+
+describe('AUDIT · exigence de justificatif', () => {
+  it('refuse la validation d’une dépense au-dessus du seuil sans pièce', async () => {
+    await withUser(actors.managerA, async (c) => {
+      await c.query(
+        `update expense_categories set requires_receipt_above = 50000 where id = $1`,
+        [ids.categoryTransport],
+      )
+
+      const id = '00000000-0000-4000-8000-000000000801'
+      await c.query(
+        `insert into expenses
+           (id, tenant_id, category_id, campaign_id, expense_date, amount,
+            beneficiary, payment_method, status, submitted_by)
+         values ($1, $2, $3, $4, current_date, 300000, 'Transporteur', 'cash', 'soumise', $5)`,
+        [id, ids.tenantA, ids.categoryTransport, ids.campaignA, ids.accountantA],
+      )
+
+      await expect(
+        c.query(`update expenses set status = 'validee', validated_by = $2 where id = $1`, [
+          id,
+          ids.managerA,
+        ]),
+      ).rejects.toThrow(/exige un justificatif/i)
+    })
+  })
+
+  it('laisse la saisie possible sans pièce : elle se joint au bureau', async () => {
+    await withUser(actors.managerA, async (c) => {
+      await c.query(
+        `update expense_categories set requires_receipt_above = 50000 where id = $1`,
+        [ids.categoryTransport],
+      )
+
+      // Un pisteur doit pouvoir enregistrer une dépense réelle depuis le
+      // terrain ; exiger la pièce dès la saisie l'en empêcherait.
+      await c.query(
+        `insert into expenses
+           (id, tenant_id, category_id, campaign_id, expense_date, amount,
+            beneficiary, payment_method, status)
+         values (gen_random_uuid(), $1, $2, $3, current_date, 300000, 'Transporteur', 'cash', 'soumise')`,
+        [ids.tenantA, ids.categoryTransport, ids.campaignA],
+      )
+    })
+  })
+
+  it('accepte la validation dès que la pièce est jointe', async () => {
+    await withUser(actors.managerA, async (c) => {
+      await c.query(
+        `update expense_categories set requires_receipt_above = 50000 where id = $1`,
+        [ids.categoryTransport],
+      )
+
+      const id = '00000000-0000-4000-8000-000000000802'
+      await c.query(
+        `insert into expenses
+           (id, tenant_id, category_id, campaign_id, expense_date, amount, beneficiary,
+            payment_method, proof_path, status, submitted_by)
+         values ($1, $2, $3, $4, current_date, 300000, 'Transporteur', 'cash',
+                 'tenant/justificatif_depense/2026-03-31/x.jpg', 'soumise', $5)`,
+        [id, ids.tenantA, ids.categoryTransport, ids.campaignA, ids.accountantA],
+      )
+
+      await c.query(`update expenses set status = 'validee', validated_by = $2 where id = $1`, [
+        id,
+        ids.managerA,
+      ])
+
+      const { rows } = await c.query(`select status from expenses where id = $1`, [id])
+      expect(rows[0].status).toBe('validee')
+    })
   })
 })
