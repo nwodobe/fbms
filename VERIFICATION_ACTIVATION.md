@@ -112,3 +112,61 @@ select app.custom_access_token(jsonb_build_object(
 
 Si le résultat porte le tenant et le rôle mais que l'application n'en voit rien, le hook n'est pas
 branché — la fonction est juste, personne ne l'appelle.
+
+
+---
+
+## Suite — 31 juillet, 15h30 : le jeton réellement émis
+
+Question posée : *« vérifie les logs Auth et le jeton réellement émis »*.
+
+**Aucun jeton n'a jamais été émis sur ce projet.** Les journaux d'authentification, sur 24 heures,
+ne contiennent **aucune** requête `/token`. Le seul événement concernant le compte est :
+
+```
+15:07:29  POST /admin/users   actor: service_role   referer: http://localhost:3000
+          auth_event: user_signedup — kouassinwodobe@gmail.com
+```
+
+C'est la **création** du compte depuis le tableau de bord (bouton *Add user*), pas une connexion.
+La base le confirme : `last_sign_in_at` est nul et `auth.sessions` est vide.
+
+Il n'y avait donc rien à décoder. Le diagnostic demandé — déclencheur inactif, compte non amorcé,
+ou session à renouveler — ne s'appliquait à aucun des trois : **la connexion n'a pas eu lieu sur ce
+projet**. Se connecter au tableau de bord Supabase n'ouvre pas de session applicative ; le compte
+créé là est une identité, pas une session.
+
+Deux observations utiles au passage :
+
+- deux rechargements de configuration d'authentification à **15:02:06** et **15:03:48**
+  (`reloading api with new configuration`) : des réglages ont bien été modifiés dans cet intervalle.
+  Leur contenu n'apparaît pas dans les journaux, et le schéma `auth` ne contient aucune table de
+  hooks — la configuration vit hors base et reste invisible d'ici ;
+- le compte n'était **pas amorcé** comme administrateur de plateforme. Il l'est désormais : la ligne
+  `platform_admins` a été créée pour `34df9315-…`, ce qui était bloqué jusque-là faute de compte.
+
+`app.custom_access_token` rend maintenant `{"role":"super_admin","tenant_id":null}` pour ce compte.
+C'est ce que le prochain jeton **devrait** porter.
+
+### Ce qui a été ajouté pour que la question se tranche seule
+
+L'écran `/activation` affiche désormais, sous « Ce que porte votre jeton d'accès », les
+revendications lues **dans le jeton signé** — et non dans l'objet utilisateur rendu par la
+bibliothèque cliente, qui peut différer. Trois lignes : entreprise, rôle, et ce que dit la base.
+Le jeton lui-même n'est jamais affiché.
+
+C'est l'observation qui tranche :
+
+| Ce que montre l'écran | Conclusion |
+| --- | --- |
+| `super_admin` / `—` | Le déclencheur fonctionne. Le compte est administrateur de plateforme |
+| `—` / `—` **et** base : `aucune ligne` | Normal pour un compte non rattaché — mais si la base connaît le compte, le déclencheur n'est pas activé |
+| `—` / `—` **et** base : `proprietaire · active` | Le déclencheur n'est pas activé, ou la session date d'avant le rattachement |
+
+### Ce qu'il reste à faire, dans l'ordre
+
+1. ouvrir **l'application** (pas le tableau de bord Supabase) et se connecter avec
+   `kouassinwodobe@gmail.com` ;
+2. si le mot de passe n'a pas été défini à la création du compte, passer par « Mot de passe oublié » ;
+3. la console plateforme doit s'ouvrir. Sinon, `/activation` dira laquelle des trois causes
+   s'applique.

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { describeDiagnosis, diagnoseActivation } from '@/domain/activation'
+import { describeDiagnosis, diagnoseActivation, readTokenClaims } from '@/domain/activation'
 import { useSession } from '@/lib/auth/session'
 import { AuthLayout } from './AuthLayout'
 import { useOwnAccount } from './api'
@@ -52,6 +52,11 @@ export function ActivationPage() {
 
   const message = describeDiagnosis(diagnosis)
 
+  // Ce que porte le jeton RÉELLEMENT signé, et non ce que la bibliothèque
+  // cliente en rapporte. C'est la seule observation qui tranche entre « le
+  // déclencheur n'est pas activé » et « la session date d'avant le rattachement ».
+  const jeton = readTokenClaims(session.access_token)
+
   return (
     <AuthLayout>
       <Card>
@@ -88,6 +93,36 @@ export function ActivationPage() {
               L’état de votre compte n’a pas pu être lu. Vérifiez votre connexion, puis rechargez.
             </p>
           )}
+
+          <details className="rounded-md border px-3 py-2 text-sm" data-testid="detail-jeton">
+            <summary className="cursor-pointer text-muted-foreground">
+              Ce que porte votre jeton d’accès
+            </summary>
+            <dl className="mt-2 space-y-1 font-mono text-xs">
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">entreprise</dt>
+                <dd>{jeton?.claims.tenantId ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">rôle</dt>
+                <dd>{jeton?.claims.role ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">selon la base</dt>
+                <dd>
+                  {account.data
+                    ? `${account.data.role ?? '—'} · ${account.data.status}`
+                    : 'aucune ligne'}
+                </dd>
+              </div>
+            </dl>
+            {jeton && !jeton.carriesMetadata && (
+              <p className="mt-2 text-muted-foreground">
+                Un jeton vide de ces deux valeurs signifie que rien ne les y écrit : soit le
+                déclencheur n’est pas activé, soit votre compte n’est rattaché à rien.
+              </p>
+            )}
+          </details>
 
           <Button
             type="button"

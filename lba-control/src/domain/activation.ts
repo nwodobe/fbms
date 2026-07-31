@@ -191,3 +191,51 @@ export function describeDiagnosis(diagnosis: ActivationDiagnosis): DiagnosisMess
       }
   }
 }
+
+// -----------------------------------------------------------------------------
+// Ce que le jeton signé porte réellement
+// -----------------------------------------------------------------------------
+/*
+ * Lire les revendications DANS le jeton, et non dans l'objet utilisateur rendu
+ * par la bibliothèque cliente.
+ *
+ * La distinction décide de tout ici. `session.user.app_metadata` vient de la
+ * réponse JSON du service d'authentification ; le jeton, lui, est ce que
+ * PostgREST recevra et ce sur quoi RLS statuera. Quand le déclencheur
+ * « Customize Access Token » n'est pas activé, c'est le jeton qui reste muet —
+ * regarder ailleurs donnerait une réponse rassurante et fausse.
+ *
+ * Aucune signature n'est vérifiée : ce n'est pas le rôle du navigateur, et le
+ * serveur le fait à chaque requête. On ne fait que lire.
+ */
+export interface TokenPayload {
+  claims: TokenClaims
+  /** Le jeton porte-t-il une section `app_metadata` non vide ? */
+  carriesMetadata: boolean
+}
+
+export function readTokenClaims(accessToken: string | null | undefined): TokenPayload | null {
+  const part = accessToken?.split('.')[1]
+  if (!part) return null
+
+  try {
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))) as {
+      app_metadata?: { tenant_id?: unknown; role?: unknown }
+    }
+    const metadata = payload.app_metadata ?? {}
+
+    return {
+      claims: {
+        tenantId: typeof metadata.tenant_id === 'string' ? metadata.tenant_id : null,
+        role: typeof metadata.role === 'string' ? metadata.role : null,
+      },
+      // Un jeton émis sans le déclencheur ne porte ni l'un ni l'autre.
+      carriesMetadata: Boolean(metadata.tenant_id ?? metadata.role),
+    }
+  } catch {
+    // Un jeton illisible n'est pas un jeton sans revendications : le dire
+    // autrement ferait accuser le déclencheur à tort.
+    return null
+  }
+}

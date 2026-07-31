@@ -4,8 +4,20 @@ import {
   assessPassword,
   describeDiagnosis,
   diagnoseActivation,
+  readTokenClaims,
   type AccountRow,
 } from './activation'
+
+/** Fabrique un jeton non signé : seule la charge utile compte pour la lecture. */
+const jeton = (payload: object): string => {
+  const base64url = (value: object) =>
+    Buffer.from(JSON.stringify(value))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+  return `${base64url({ alg: 'HS256' })}.${base64url(payload)}.signature`
+}
 
 describe('force du mot de passe', () => {
   it('refuse en dessous de la longueur du serveur', () => {
@@ -124,5 +136,39 @@ describe('messages du diagnostic', () => {
     const message = describeDiagnosis({ kind: 'platform_admin' })
     expect(message.body).toContain('session')
     expect(message.action).toBe('Ouvrir la console plateforme')
+  })
+})
+
+describe('lecture du jeton signé', () => {
+  it('lit le tenant et le rôle portés par le jeton', () => {
+    // C'est le jeton qui compte, et non l'objet utilisateur rendu par la
+    // bibliothèque : le premier est ce que RLS recevra.
+    const lu = readTokenClaims(
+      jeton({ sub: 'u1', app_metadata: { tenant_id: 'tenant-a', role: 'proprietaire' } }),
+    )
+
+    expect(lu?.claims).toEqual({ tenantId: 'tenant-a', role: 'proprietaire' })
+    expect(lu?.carriesMetadata).toBe(true)
+  })
+
+  it('signale un jeton émis sans le déclencheur', () => {
+    // Le cas exact d'un projet dont le hook n'est pas activé : le jeton est
+    // valide, il ne porte simplement rien.
+    const lu = readTokenClaims(jeton({ sub: 'u1', app_metadata: {} }))
+
+    expect(lu?.claims).toEqual({ tenantId: null, role: null })
+    expect(lu?.carriesMetadata).toBe(false)
+  })
+
+  it('distingue un jeton illisible d’un jeton sans revendications', () => {
+    // Les confondre ferait accuser le déclencheur à tort.
+    expect(readTokenClaims('pas-un-jeton')).toBeNull()
+    expect(readTokenClaims(null)).toBeNull()
+    expect(readTokenClaims('a.charge-utile-invalide.c')).toBeNull()
+  })
+
+  it('ignore un tenant qui ne serait pas une chaîne', () => {
+    const lu = readTokenClaims(jeton({ app_metadata: { tenant_id: 42, role: null } }))
+    expect(lu?.claims).toEqual({ tenantId: null, role: null })
   })
 })
