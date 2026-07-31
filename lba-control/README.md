@@ -26,6 +26,7 @@ Ils sont à la racine du dépôt et font foi :
 | `../SECURITY_MODEL.md` | Rôles, RLS, séparation des tâches, audit, stockage, secrets |
 | `../TEST_PLAN.md` | Ce qui doit être vérifié, comment, et à quelle phase |
 | `../DECISIONS_ET_HYPOTHESES.md` | **8 incohérences** relevées entre documents sources, 14 hypothèses, 12 arbitrages ouverts |
+| `../VERIFICATION_ACTIVATION.md` | Parcours d'activation vérifié sur le projet hébergé : 10 points, résultats et limites |
 
 ---
 
@@ -102,7 +103,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 387 tests**
+**Base de données — 390 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
@@ -121,7 +122,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `outgoing-messages.test.ts` | 22 | File d'envoi, consentement par canal, heures calmes, réclamation concurrente |
 | `user-administration.test.ts` | 19 | Changement de rôle motivé, quatre refus délibérés, révocation d'appareil, journal filtré |
 | `tenant-provisioning.test.ts` | 19 | Ouverture d'une entreprise en une transaction, invitations, révocation |
-| `auth-claims.test.ts` | 12 | Le jeton comme projection de `public.users`, acceptation d'invitation et ses cinq refus |
+| `auth-claims.test.ts` | 15 | Le jeton comme projection de `public.users`, acceptation d'invitation et ses cinq refus |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
 **Unitaires et composants — 602 tests**, dont :

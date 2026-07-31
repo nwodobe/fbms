@@ -8,7 +8,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { actors, ids, seedFixtures } from './fixtures'
-import { asOwner, pool, withUser } from './helpers'
+import { asOwner, pool, switchActor, withUser } from './helpers'
 import type { PoolClient } from 'pg'
 
 beforeAll(async () => {
@@ -184,9 +184,13 @@ describe('acceptation d’une invitation', () => {
     ).rejects.toThrow(/introuvable, déjà utilisée ou révoquée/)
   })
 
-  it('refuse une invitation expirée et la marque comme telle', async () => {
-    // Laissée « pending », une invitation périmée bloquerait toute réinvitation
-    // de la même adresse.
+  it('refuse une invitation expirée sans prétendre l’avoir marquée', async () => {
+    // Le nom de ce test affirmait autrefois « et la marque comme telle », alors
+    // qu'il ne vérifiait que le refus. La fonction faisait bien un `update`
+    // avant de lever — mais `raise exception` annule la transaction, donc
+    // l'écriture qui le précède. Le statut restait « pending » pour toujours.
+    // Le défaut a survécu à la suite locale et n'est apparu qu'en vérifiant le
+    // parcours sur le projet hébergé.
     await expect(
       withUser(actors.superAdmin, async (c) => {
         const { rows } = await c.query(
@@ -203,6 +207,107 @@ describe('acceptation d’une invitation', () => {
         return c.query(`select public.accept_invitation($1)`, [cree.invitation_token])
       }),
     ).rejects.toThrow(/a expiré/)
+  })
+
+  it('le balayage marque les invitations périmées, le refus ne le fait pas', async () => {
+    const etat = await withUser(actors.superAdmin, async (c) => {
+      const { rows } = await c.query(
+        `select public.create_tenant($1, $2, $3, $4, $5) as r`,
+        Object.values(entreprise('lba-daloa')),
+      )
+      const cree = rows[0]!.r as Record<string, string>
+
+      await c.query('reset role')
+      await c.query(
+        `update tenant_invitations set expires_at = now() - interval '1 day' where id = $1`,
+        [cree.invitation_id],
+      )
+
+      // Un refus d'acceptation ne marque rien : l'exception annulerait l'écriture.
+      // Le point de reprise est nécessaire — une exception avorte la
+      // transaction du test, et c'est justement cette propriété de PostgreSQL
+      // qui rendait le marquage inopérant dans la fonction.
+      await devenirNouvelArrivant(c, NOUVEAU_ID, 'proprietaire@lba-man.ci')
+      await c.query('savepoint avant_refus')
+      await c
+        .query(`select public.accept_invitation($1)`, [cree.invitation_token])
+        .catch(() => undefined)
+      await c.query('rollback to savepoint avant_refus')
+
+      await c.query('reset role')
+      const apresRefus = await c.query(`select status from tenant_invitations where id = $1`, [
+        cree.invitation_id,
+      ])
+
+      // Le balayage, lui, écrit vraiment.
+      await switchActor(c, actors.superAdmin)
+      const balaye = await c.query(`select app.expire_stale_invitations() as n`)
+
+      await c.query('reset role')
+      const apresBalayage = await c.query(`select status from tenant_invitations where id = $1`, [
+        cree.invitation_id,
+      ])
+
+      return {
+        apresRefus: apresRefus.rows[0]!.status as string,
+        marquees: balaye.rows[0]!.n as number,
+        apresBalayage: apresBalayage.rows[0]!.status as string,
+      }
+    })
+
+    expect(etat.apresRefus).toBe('pending')
+    expect(etat.marquees).toBeGreaterThanOrEqual(1)
+    expect(etat.apresBalayage).toBe('expired')
+  })
+
+  it('réserve le balayage à la plateforme', async () => {
+    // La fonction traverse tous les clients : un client n'a rien à balayer chez
+    // les autres.
+    await expect(
+      withUser(actors.ownerA, (c) => c.query(`select app.expire_stale_invitations()`)),
+    ).rejects.toThrow(/Réservé aux administrateurs/)
+  })
+
+  it('le propriétaire fraîchement accepté ne lit rien d’une autre entreprise', async () => {
+    // Le cloisonnement ne doit pas dépendre du chemin par lequel le compte est
+    // né : un compte créé par acceptation d'invitation est soumis aux mêmes
+    // politiques qu'un compte créé autrement.
+    const vu = await withUser(actors.superAdmin, async (c) => {
+      const { rows } = await c.query(
+        `select public.create_tenant($1, $2, $3, $4, $5) as r`,
+        Object.values(entreprise('lba-odienne')),
+      )
+      const cree = rows[0]!.r as Record<string, string>
+
+      await devenirNouvelArrivant(c, NOUVEAU_ID, 'proprietaire@lba-man.ci')
+      await c.query(`select public.accept_invitation($1)`, [cree.invitation_token])
+
+      // Le jeton réémis porte SA seule entreprise.
+      await c.query('reset role')
+      await c.query('select set_config($1, $2, true)', [
+        'request.jwt.claims',
+        JSON.stringify({
+          sub: NOUVEAU_ID,
+          role: 'authenticated',
+          email: 'proprietaire@lba-man.ci',
+          app_metadata: { tenant_id: cree.tenant_id, role: 'proprietaire' },
+        }),
+      ])
+      await c.query('set local role authenticated')
+
+      const autres = await c.query(
+        `select count(*)::int as n from partner_companies where tenant_id = $1`,
+        [ids.tenantA],
+      )
+      const entreprises = await c.query(`select count(*)::int as n from tenants`)
+
+      return { autres: autres.rows[0]!.n as number, entreprises: entreprises.rows[0]!.n as number }
+    })
+
+    expect(vu.autres).toBe(0)
+    // Il ne voit que la sienne : la liste des clients de la plateforme n'est
+    // jamais exposée à un client.
+    expect(vu.entreprises).toBe(1)
   })
 
   it('refuse de rattacher une identité déjà employée ailleurs', async () => {
