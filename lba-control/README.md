@@ -194,7 +194,24 @@ join pg_namespace n on n.oid = c.relnamespace
 left join pg_policy p on p.polrelid = c.oid
 where n.nspname = 'public' and c.relkind = 'r'
 group by c.relname having count(distinct p.polcmd) < 4;
+
+-- Aucune ligne attendue : aucune fonction du produit ne doit être atteignable
+-- sans être connecté. Les fonctions apportées par les extensions sont exclues :
+-- elles n'exposent aucune donnée du produit et appartiennent à Supabase.
+select p.oid::regprocedure from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+left join pg_depend d on d.objid = p.oid
+  and d.classid = 'pg_proc'::regclass and d.deptype = 'e'
+where n.nspname in ('app', 'public') and d.objid is null
+  and has_function_privilege('anon', p.oid, 'execute');
 ```
+
+> **Hébergé ≠ local.** Un projet Supabase hébergé pose un privilège par défaut que la base de test
+> locale n'a pas : `alter default privileges in schema public grant all on functions to anon, …`.
+> Chaque fonction créée dans `public` reçoit donc un droit **nominatif** à `anon`, que la révocation
+> de `PUBLIC` (migrations 1900 à 2900) ne retire pas. La migration 3000 ferme cet écart, sur
+> l'existant comme sur le privilège par défaut. C'est la raison pour laquelle la requête ci-dessus
+> fait partie de la vérification : elle est la seule à distinguer les deux environnements.
 
 ### 2. Authentification
 
@@ -241,7 +258,8 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Un abonnement suspendu bloque l'écriture mais autorise lecture et export
 - [ ] L'application s'installe comme PWA sur Android
 - [ ] Aucune clé `service_role` n'est présente dans le bundle (`grep -r service_role dist/`)
-- [ ] Le rôle `anon` n'atteint aucune fonction : `select has_schema_privilege('anon','app','usage')` renvoie `false`
+- [ ] Le rôle `anon` n'atteint pas le schéma interne : `select has_schema_privilege('anon','app','usage')` renvoie `false`
+- [ ] Le rôle `anon` n'atteint aucune fonction du produit : la troisième requête du §1 renvoie 0 ligne
 - [ ] Une suppression d'achat, d'avance, de dépense ou de prix renvoie 0 ligne affectée
 - [ ] Les buckets `preuves` et `marque` existent et sont **privés**
 - [ ] Un objet déposé sous le tenant A n'est pas listable par le tenant B
