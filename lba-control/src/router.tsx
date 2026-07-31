@@ -1,7 +1,6 @@
 import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
-import { PhasePlaceholder } from '@/components/shared/PhasePlaceholder'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { useSession } from '@/lib/auth/session'
 
@@ -54,6 +53,8 @@ const MessageChannelsPage = named(
   () => import('@/features/notifications/MessageChannelsPage'),
   'MessageChannelsPage',
 )
+const UsersPage = named(() => import('@/features/admin/UsersPage'), 'UsersPage')
+const AuditPage = named(() => import('@/features/admin/AuditPage'), 'AuditPage')
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession()
@@ -70,27 +71,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-/** Écrans planifiés, déclarés ici pour que la navigation soit complète dès la phase 1. */
-const PLANNED = [
-  {
-    path: 'utilisateurs',
-    title: 'Utilisateurs et rôles',
-    phase: 2,
-    summary: 'Créer les comptes, attribuer les rôles, révoquer les appareils.',
-    delivers: ['Sept rôles attribuables', 'Révocation d’appareil', 'Séparation des tâches'],
-  },
-  {
-    path: 'audit',
-    title: 'Journal d’audit',
-    phase: 1,
-    summary: 'Historique non modifiable des opérations sensibles.',
-    delivers: [
-      'Auteur, appareil, date serveur, ancienne et nouvelle valeur, motif',
-      'Entrées dédiées pour les changements de poids, de prix, de montant et de société',
-      'Consultation réservée aux profils autorisés',
-    ],
-  },
-] as const
+/*
+ * Plus aucun écran annoncé et non construit.
+ *
+ * La phase 1 déclarait la navigation complète avec des pages « à venir », pour
+ * que personne ne découvre un menu qui s'allonge. Le dernier de ces écrans —
+ * utilisateurs et journal d'audit — est livré : le mécanisme de substitution et
+ * `PhasePlaceholder` n'ont plus d'objet.
+ */
 
 export function AppRouter() {
   return (
@@ -110,6 +98,8 @@ export function AppRouter() {
         {/* Écrans livrés en phase 2 */}
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="canaux" element={<MessageChannelsPage />} />
+        <Route path="utilisateurs" element={<UsersPage />} />
+        <Route path="audit" element={<AuditPage />} />
         <Route path="marque" element={<BrandingPage />} />
         <Route path="societes" element={<PartnersPage />} />
         <Route path="societes/:partnerId" element={<PartnerDetailPage />} />
@@ -140,20 +130,6 @@ export function AppRouter() {
         <Route path="campagnes" element={<CampaignsPage />} />
         <Route path="plateforme" element={<PlatformPage />} />
 
-        {PLANNED.map((screen) => (
-          <Route
-            key={screen.path}
-            path={screen.path}
-            element={
-              <PhasePlaceholder
-                title={screen.title}
-                phase={screen.phase}
-                summary={screen.summary}
-                delivers={[...screen.delivers]}
-              />
-            }
-          />
-        ))}
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -842,3 +842,114 @@ test.describe('E2E-25 · documents opérationnels', () => {
     expect((await premier).suggestedFilename()).toBe((await second).suggestedFilename())
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-26 · Utilisateurs et journal d'audit
+// ---------------------------------------------------------------------------
+
+const USERS_FIXTURE = [
+  { id: '00000000-0000-4000-8000-000000000011', tenant_id: TENANT, full_name: 'KOUASSI Innocent', email: 'proprietaire@demo.test', phone: null, role: 'proprietaire', status: 'active', last_login_at: '2026-07-31T06:00:00.000Z' },
+  { id: '00000000-0000-4000-8000-000000000012', tenant_id: TENANT, full_name: 'DIALLO Aminata', email: 'gestion@demo.test', phone: null, role: 'gestionnaire', status: 'active', last_login_at: null },
+]
+
+const ROLES_FIXTURE = [
+  { role: 'proprietaire', is_assignable: true, note: null },
+  { role: 'gestionnaire', is_assignable: true, note: null },
+  { role: 'comptable', is_assignable: true, note: null },
+  { role: 'magasinier', is_assignable: false, note: 'Politiques écrites, activation post-MVP' },
+]
+
+test.describe('E2E-26 · utilisateurs et journal', () => {
+  test('aucune action n’est proposée sur son propre compte', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ users: USERS_FIXTURE, assignable_roles: ROLES_FIXTURE, user_devices: [] }))
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+
+    // Le serveur refuse : proposer un bouton qui échoue toujours est une
+    // promesse non tenue.
+    const moi = page.getByRole('row', { name: /KOUASSI Innocent/ })
+    await expect(moi).toContainText('(vous)')
+    await expect(moi.getByRole('button', { name: 'Changer le rôle' })).toHaveCount(0)
+    await expect(moi.getByRole('button', { name: 'Suspendre' })).toHaveCount(0)
+  })
+
+  test('les rôles non activés sont expliqués plutôt que masqués', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ users: USERS_FIXTURE, assignable_roles: ROLES_FIXTURE, user_devices: [] }))
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+
+    // Un rôle qui disparaît sans raison se redemande tous les six mois.
+    await expect(page.getByText('Rôles non encore activés')).toBeVisible()
+    await expect(page.getByText('Politiques écrites, activation post-MVP')).toBeVisible()
+
+    // Et il n'est pas proposé dans le formulaire.
+    await page.getByRole('row', { name: /DIALLO Aminata/ }).getByRole('button', { name: 'Changer le rôle' }).click()
+    const options = await page.getByLabel('Nouveau rôle').locator('option').allTextContents()
+    expect(options.join(' ')).not.toContain('Magasinier')
+  })
+
+  test('un changement de rôle exige un motif', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ users: USERS_FIXTURE, assignable_roles: ROLES_FIXTURE, user_devices: [] }))
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+    await page.getByRole('row', { name: /DIALLO Aminata/ }).getByRole('button', { name: 'Changer le rôle' }).click()
+
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    await page.getByLabel('Motif').fill('Passage au contrôle interne')
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeEnabled()
+  })
+
+  test('le journal montre le motif et pagine', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ users: USERS_FIXTURE }))
+    await stubStorage(page)
+
+    await page.route('**/rest/v1/rpc/audit_trail', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({
+          total: 214,
+          entries: [
+            {
+              id: 1, occurred_at: '2026-07-31T06:00:00.000Z', action: 'cancel',
+              table_name: 'purchases', record_id: 'pu-1',
+              user_id: USERS_FIXTURE[0]!.id, user_name: 'KOUASSI Innocent',
+              user_role: 'proprietaire', justification: 'Double saisie du même achat, corrigée.',
+              changed_fields: ['status'], device_id: null,
+            },
+          ],
+        }),
+      }),
+    )
+
+    await page.goto('/audit')
+
+    await expect(page.getByTestId('audit-total')).toContainText('214 entrée(s) · page 1 sur 5')
+    // Le motif distingue une annulation légitime d'un effacement déguisé.
+    await expect(page.getByText('Double saisie du même achat, corrigée.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Précédente' })).toBeDisabled()
+  })
+
+  test('plus aucun écran n’annonce une phase à venir', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ users: USERS_FIXTURE, assignable_roles: ROLES_FIXTURE, user_devices: [] }))
+    await stubStorage(page)
+
+    await page.goto('/utilisateurs')
+    await expect(page.getByRole('heading', { name: 'Utilisateurs et rôles' })).toBeVisible()
+    await expect(page.getByText(/livré en phase/i)).toHaveCount(0)
+  })
+})

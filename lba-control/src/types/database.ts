@@ -71,6 +71,24 @@ export type TenantBrandingRow = {
   language: string
 }
 
+export type UserDeviceRow = {
+  id: string
+  tenant_id: string
+  user_id: string
+  device_id: string
+  label: string | null
+  platform: string | null
+  first_seen_at: string
+  last_seen_at: string
+  revoked_at: string | null
+}
+
+export type AssignableRoleRow = {
+  role: UserRole
+  is_assignable: boolean
+  note: string | null
+}
+
 export type UserMessageChannelRow = {
   id: string
   tenant_id: string
@@ -886,6 +904,8 @@ export interface Database {
     Tables: {
       tenants: Writable<TenantRow>
       tenant_branding: Writable<TenantBrandingRow>
+      user_devices: Writable<UserDeviceRow>
+      assignable_roles: Writable<AssignableRoleRow>
       user_message_channels: Writable<UserMessageChannelRow>
       message_outbox: Writable<MessageOutboxRow>
       users: Writable<UserRow>
@@ -1215,6 +1235,34 @@ export interface Database {
       mark_notifications_read: {
         Args: { p_ids?: string[] | null }
         Returns: number
+      }
+      /** Change le rôle d'un utilisateur, avec motif et garde du dernier propriétaire. */
+      set_user_role: {
+        Args: { p_user_id: string; p_role: UserRole; p_reason: string }
+        Returns: UserRow
+      }
+      /** Suspend ou réactive un compte. Ne supprime jamais. */
+      set_user_status: {
+        Args: { p_user_id: string; p_status: string; p_reason: string }
+        Returns: UserRow
+      }
+      /** Révoque un appareil sans l'effacer. */
+      revoke_device: {
+        Args: { p_device_row_id: string; p_reason: string }
+        Returns: UserDeviceRow
+      }
+      /** Journal d'audit filtré et borné. */
+      audit_trail: {
+        Args: {
+          p_action?: string | null
+          p_table?: string | null
+          p_user_id?: string | null
+          p_from?: string | null
+          p_to?: string | null
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: { total: number; entries: Array<Record<string, unknown>> }
       }
       /** Historique des tâches planifiées. Réservé à la plateforme. */
       scheduled_task_history: {
