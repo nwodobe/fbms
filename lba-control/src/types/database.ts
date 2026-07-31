@@ -1161,6 +1161,22 @@ export interface Database {
         Args: { p_tenant: string; p_retention_days?: number }
         Returns: { cutoff_date: string; deletion_performed: boolean; note: string }
       }
+      /** Historique des tâches planifiées. Réservé à la plateforme. */
+      scheduled_task_history: {
+        Args: { p_limit?: number }
+        Returns: Array<{
+          id: string
+          task: string
+          started_at: string
+          finished_at: string | null
+          status: string
+          tenants_seen: number
+          changes: number
+          detail_count: number
+          error_count: number
+          error: string | null
+        }>
+      }
     }
     Enums: {
       user_role: UserRole

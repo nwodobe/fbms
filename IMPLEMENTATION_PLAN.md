@@ -690,7 +690,53 @@ deux couleurs ; il leur manquait son logo.
   chercher une image sur un serveur tiers au moment de sa création.
 
 ### 9.3 · Centre de notifications alimenté par les alertes — à faire
-### 9.4 · Planification serveur des tâches récurrentes — à faire
+### 9.4 · Planification serveur des tâches récurrentes — ✅ terminé
+
+Deux traitements font vivre le produit dans le temps, et rien ne les exécutait. Sans eux, un client
+impayé garde un accès complet, un client à jour reste bloqué, et la moitié des vingt types d'alerte
+ne se déclenche jamais — ce sont ceux qui se mesurent en durées, pas en saisies.
+
+**Ce qui fonctionne (vérifié par exécution)**
+
+- Migration `2500` : `app.run_subscription_lifecycle()` et `app.run_alert_evaluation()` parcourent
+  tous les clients, et `pg_cron` les planifie **si l'extension est présente**, avec la même garde que
+  les buckets. Sans elle, la migration s'applique sans bruit et le README indique comment appeler les
+  deux fonctions depuis un ordonnanceur externe.
+- **Un client en erreur n'interrompt pas les autres.** Une boucle qui s'arrête au premier client
+  fautif donne l'illusion de fonctionner : le journal dit « exécuté » et quarante clients n'ont rien
+  reçu. Chaque échec est consigné avec son identifiant, et la boucle continue.
+- Journal `scheduled_task_runs` : tâche, durée, clients parcourus, changements, anomalies. Lisible par
+  la seule plateforme — son contenu révélerait le nombre et l'activité des autres clients.
+- L'écran *Plateforme* affiche les vingt dernières exécutions, et **dit explicitement qu'aucune n'a
+  eu lieu** quand le tableau est vide : « si l'ordonnanceur est censé tourner, il ne tourne pas ».
+  Un tableau vide se lit sinon « tout va bien ».
+- L'évaluation des alertes se place sur chaque client au lieu d'emprunter un chemin privilégié : les
+  mêmes règles s'appliquent qu'à un appel ordinaire, et le contexte est rendu ensuite.
+
+**Défauts trouvés par les tests, et corrigés**
+
+1. **Une table créée après la migration `1200` est inaccessible.** Le `grant … on all tables` de la
+   `1200` ne porte que sur les tables existant alors ; `scheduled_task_runs` a été la première créée
+   ensuite, et renvoyait « permission denied » — RLS n'avait même pas l'occasion de s'appliquer, et le
+   message ne disait rien du cloisonnement. Corrigé, et un audit du catalogue vérifie désormais
+   qu'aucune table n'est privée de droit.
+2. **L'audit de sécurité a signalé trois invariants** sur la nouvelle table (pas de `tenant_id`,
+   politique de lecture sans filtre de tenant, écriture sans `tenant_can_write`). Ce sont des
+   exclusions légitimes — une exécution planifiée n'appartient à aucun client — mais elles sont
+   maintenant nommées et motivées, pas silencieuses.
+3. **Le harnais E2E inventait une ligne pour toute fonction non simulée**, ce qui faisait planter les
+   écrans sur un enregistrement aux champs manquants, loin de la cause. Une fonction inconnue ne
+   renvoie plus rien.
+4. Deux préparations de test violaient la contrainte d'ordre des périodes d'abonnement : c'est la
+   contrainte qui faisait son travail, pas la règle testée.
+
+**Limites assumées**
+
+- **`pg_cron` n'a jamais été exercé** : la base locale ne l'héberge pas. Les fonctions, elles, sont
+  testées ; c'est la planification elle-même qui reste à vérifier sur le projet hébergé.
+- Aucune tâche ne relance automatiquement un client tombé en erreur : l'anomalie est visible dans la
+  console, sa reprise est une décision humaine.
+
 
 ---
 

@@ -481,3 +481,94 @@ test.describe('E2E-20 · preuve d’achat', () => {
     expect(storage.uploads).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-22 · Tâches planifiées, vues de la console plateforme
+// ---------------------------------------------------------------------------
+
+const PLATFORM_ADMIN = { userId: '00000000-0000-4000-8000-000000000010', role: 'super_admin' }
+
+const EMPTY_OVERVIEW = { tenants: [], pending_payments: [], support_sessions: [] }
+
+async function stubPlatform(
+  page: Page,
+  runs: Array<Record<string, unknown>>,
+): Promise<void> {
+  const json = (body: unknown) => ({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify(body),
+  })
+
+  await page.route('**/rest/v1/rpc/platform_overview', (route) => route.fulfill(json(EMPTY_OVERVIEW)))
+  await page.route('**/rest/v1/rpc/scheduled_task_history', (route) => route.fulfill(json(runs)))
+}
+
+test.describe('E2E-22 · tâches planifiées', () => {
+  test('une exécution réussie est présentée avec ce qu’elle a changé', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures())
+    await stubPlatform(page, [
+      {
+        id: 'run-1',
+        task: 'subscription_lifecycle',
+        started_at: '2026-07-31T02:10:00.000Z',
+        finished_at: '2026-07-31T02:10:04.000Z',
+        status: 'succeeded',
+        tenants_seen: 42,
+        changes: 3,
+        detail_count: 3,
+        error_count: 0,
+        error: null,
+      },
+    ])
+
+    await page.goto('/plateforme')
+
+    const row = page.getByRole('row', { name: /Cycle d’abonnement/ })
+    await expect(row).toContainText('42')
+    await expect(row).toContainText('terminée')
+  })
+
+  test('des anomalies sont comptées, jamais noyées dans un « terminée »', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures())
+    await stubPlatform(page, [
+      {
+        id: 'run-2',
+        task: 'alert_evaluation',
+        started_at: '2026-07-31T04:30:00.000Z',
+        finished_at: '2026-07-31T04:30:09.000Z',
+        status: 'succeeded',
+        tenants_seen: 42,
+        changes: 17,
+        detail_count: 19,
+        error_count: 2,
+        error: null,
+      },
+    ])
+
+    await page.goto('/plateforme')
+
+    // Une exécution qui a laissé deux clients de côté n'est pas « terminée »
+    // tout court : le nombre d'anomalies doit sauter aux yeux.
+    const row = page.getByRole('row', { name: /Évaluation des alertes/ })
+    await expect(row).toContainText('2')
+  })
+
+  test('l’absence d’exécution est dite, pas laissée à deviner', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page, PLATFORM_ADMIN)
+    await stubSupabase(page, fixtures())
+    await stubPlatform(page, [])
+
+    await page.goto('/plateforme')
+
+    // Un tableau vide se lit « tout va bien ». Une tâche absente se remarque
+    // tard : le jour où un client se plaint de ne pas avoir été prévenu.
+    await expect(page.getByTestId('no-task-run')).toContainText(/il ne tourne pas/)
+  })
+})

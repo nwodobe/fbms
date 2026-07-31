@@ -67,6 +67,38 @@ export function usePlatformOverview(enabled: boolean) {
   })
 }
 
+export interface ScheduledTaskRun {
+  id: string
+  task: 'subscription_lifecycle' | 'alert_evaluation'
+  started_at: string
+  finished_at: string | null
+  status: 'running' | 'succeeded' | 'failed'
+  tenants_seen: number
+  changes: number
+  detail_count: number
+  error_count: number
+  error: string | null
+}
+
+/**
+ * Historique des tâches planifiées.
+ *
+ * Sans cet écran, deux traitements quotidiens tourneraient — ou ne tourneraient
+ * pas — sans que personne puisse le constater. Une tâche absente se remarque
+ * tard : le jour où un client se plaint de ne pas avoir été prévenu.
+ */
+export function useScheduledTaskHistory(enabled: boolean) {
+  return useQuery({
+    queryKey: ['scheduled-task-history'],
+    enabled,
+    queryFn: async (): Promise<ScheduledTaskRun[]> => {
+      const { data, error } = await supabase.rpc('scheduled_task_history', { p_limit: 20 })
+      if (error) throw new Error(describeError(error))
+      return (data ?? []) as ScheduledTaskRun[]
+    },
+  })
+}
+
 export function useOpenSupportSession() {
   const queryClient = useQueryClient()
 

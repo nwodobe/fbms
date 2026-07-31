@@ -133,6 +133,16 @@ export async function stubSupabase(page: Page, fixtures: TableFixtures): Promise
     }
 
     if (request.method() === 'POST') {
+      // Un appel de fonction n'est pas une insertion. Sans cette distinction,
+      // un `rpc/x` non simulé se voyait répondre « ligne créée », et l'écran
+      // recevait un enregistrement inventé aux champs manquants — ce qui casse
+      // au premier accès, loin de la cause. Une fonction inconnue ne renvoie
+      // rien, ce qu'un écran doit de toute façon savoir gérer.
+      if (table.startsWith('rpc/')) {
+        await respond(route, [])
+        return
+      }
+
       const payload = request.postDataJSON() as Record<string, unknown>
       const created = { id: `generated-${rows.length + 1}`, ...payload }
       data[table] = [...rows, created]

@@ -22,8 +22,22 @@ afterAll(async () => {
   await pool.end()
 })
 
-/** Tables sans `tenant_id` : plateforme et référentiel global, par construction. */
-const GLOBAL_TABLES = ['tenants', 'platform_admins', 'subscription_plans', 'assignable_roles']
+/**
+ * Tables sans `tenant_id` : plateforme et référentiel global, par construction.
+ *
+ * `scheduled_task_runs` en fait partie : une exécution planifiée parcourt TOUS
+ * les clients, elle n'appartient à aucun. Lui coller un `tenant_id` serait
+ * mentir sur ce qu'elle est ; sa politique de lecture est donc réservée aux
+ * administrateurs de la plateforme, et le détail par client reste dans le
+ * journal d'audit de chaque client.
+ */
+const GLOBAL_TABLES = [
+  'tenants',
+  'platform_admins',
+  'subscription_plans',
+  'assignable_roles',
+  'scheduled_task_runs',
+]
 
 async function tableNames(sql: string, params: unknown[] = []): Promise<string[]> {
   const { rows } = await asOwner((c) => c.query(sql, params))
@@ -112,6 +126,22 @@ describe('AUDIT · cloisonnement multi-tenant', () => {
       if (visible > 0) leaking.push(table)
     }
     expect(leaking).toEqual([])
+  })
+
+  it('aucune table n’est inaccessible au rôle authentifié faute de droit', async () => {
+    // Le `grant … on all tables` de la migration 1200 ne porte que sur les
+    // tables existant alors. Une table créée plus tard sans son propre `grant`
+    // renvoie « permission denied » : RLS n'a même pas l'occasion de
+    // s'appliquer, et le message ne dit rien du cloisonnement. Le défaut s'est
+    // produit à la première table ajoutée après la 1200.
+    const ungranted = await tableNames(
+      `select c.relname
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind = 'r'
+          and not has_table_privilege('authenticated', c.oid, 'select')
+        order by 1`,
+    )
+    expect(ungranted).toEqual([])
   })
 
   it('le rôle anonyme ne reçoit aucun droit sur le schéma public', async () => {

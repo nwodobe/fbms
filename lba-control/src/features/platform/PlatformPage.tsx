@@ -20,6 +20,7 @@ import { useSession } from '@/lib/auth/session'
 import {
   useOpenSupportSession,
   usePlatformOverview,
+  useScheduledTaskHistory,
   useRevokeSupportSession,
   useSetTenantStatus,
   type PlatformTenant,
@@ -35,6 +36,11 @@ const SUBSCRIPTION_VARIANT: Record<string, 'ok' | 'warn' | 'critical' | 'neutral
   suspended: 'critical',
   cancelled: 'neutral',
   expired: 'neutral',
+}
+
+const TASK_LABELS: Record<string, string> = {
+  subscription_lifecycle: 'Cycle d’abonnement',
+  alert_evaluation: 'Évaluation des alertes',
 }
 
 /**
@@ -54,6 +60,7 @@ export function PlatformPage() {
   const isPlatformAdmin = role === 'super_admin'
 
   const { data, isLoading, error } = usePlatformOverview(isPlatformAdmin)
+  const { data: taskRuns } = useScheduledTaskHistory(isPlatformAdmin)
   const openSession = useOpenSupportSession()
   const revokeSession = useRevokeSupportSession()
   const setStatus = useSetTenantStatus()
@@ -243,6 +250,69 @@ export function PlatformPage() {
                       <Button variant="link" size="sm" onClick={() => setStatusTarget(tenant)}>
                         {tenant.tenant_status === 'active' ? 'Suspendre' : 'Réactiver'}
                       </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tâches planifiées</CardTitle>
+          <CardDescription>
+            Deux traitements font vivre le produit dans le temps : la bascule des abonnements et
+            l’évaluation des alertes. Sans exécution, un client impayé garderait un accès complet et
+            la moitié des alertes ne partirait jamais. Leur absence doit donc se constater ici.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(taskRuns ?? []).length === 0 ? (
+            <p data-testid="no-task-run" className="rounded-md bg-status-warn/10 px-3 py-2 text-sm">
+              Aucune exécution enregistrée. Si l’ordonnanceur est censé tourner, il ne tourne pas.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tâche</TableHead>
+                  <TableHead>Lancée le</TableHead>
+                  <TableHead>Clients</TableHead>
+                  <TableHead>Changements</TableHead>
+                  <TableHead>Anomalies</TableHead>
+                  <TableHead>État</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(taskRuns ?? []).map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>{TASK_LABELS[run.task] ?? run.task}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {run.started_at.slice(0, 16).replace('T', ' ')}
+                    </TableCell>
+                    <TableCell>{run.tenants_seen}</TableCell>
+                    <TableCell>{run.changes}</TableCell>
+                    <TableCell>
+                      {run.error_count > 0 ? (
+                        <span className="font-medium text-status-critical">{run.error_count}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          run.status === 'succeeded' && run.error_count === 0
+                            ? 'ok'
+                            : run.status === 'failed'
+                              ? 'critical'
+                              : 'warn'
+                        }
+                      >
+                        {run.status === 'succeeded' ? 'terminée' : run.status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}

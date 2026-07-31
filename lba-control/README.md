@@ -102,13 +102,13 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 
 État actuel, mesuré et non déclaratif.
 
-**Base de données — 292 tests**
+**Base de données — 303 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
 | `rls.test.ts` | 59 | Isolation multi-tenant, cloisonnement pisteur, auditeur en lecture seule, immuabilité de l'audit, verrou d'abonnement, assistance super-admin auditée |
 | `business-rules.test.ts` | 45 | Mélange de financements, double réservation, historisation des prix, quatre poids et cinq écarts, incidents bloquants, séparation des tâches |
-| `security-audit.test.ts` | 39 | **Audit piloté par le catalogue** : chaque table, chaque politique, chaque fonction privilégiée, sans liste écrite à la main |
+| `security-audit.test.ts` | 40 | **Audit piloté par le catalogue** : chaque table, chaque politique, chaque fonction privilégiée, sans liste écrite à la main |
 | `tcb-scoring-alerts.test.ts` | 29 | Anti double comptage, répartition indirecte, TCB, marges, scoring, vingt alertes |
 | `subscription-closure.test.ts` | 29 | Cycle d'abonnement jour par jour, paiements, clôture et réouverture de campagne, conservation |
 | `advances-purchases.test.ts` | 23 | Plafonds, couverture FIFO, doublons d'achat |
@@ -116,6 +116,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `branding-prices.test.ts` | 18 | Contraste imposé côté serveur, révision de prix versionnée |
 | `bags.test.ts` | 18 | Soldes de sacherie déduits des mouvements, pertes expliquées, réaffectation approuvée |
 | `attachments.test.ts` | 10 | Rattachement d'un justificatif : qui peut écrire quel chemin sur quelle ligne |
+| `scheduled-tasks.test.ts` | 10 | Tâches récurrentes : parcours de tous les clients, isolation des échecs, journal réservé à la plateforme |
 | `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
 
 **Unitaires et composants — 507 tests**, dont :
@@ -130,7 +131,7 @@ npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 �
 | `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
 | `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
 
-**Parcours end-to-end — 208 tests** (bureau + Android), E2E-01 → E2E-21.
+**Parcours end-to-end — 216 tests** (bureau + Android), E2E-01 → E2E-22.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
 `tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.
@@ -231,24 +232,48 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Un objet déposé sous le tenant A n'est pas listable par le tenant B
 - [ ] Un fichier de plus de 8 Mo est refusé par le bucket lui-même, pas seulement par l'interface
 
-### 6. Tâche planifiée à installer
+### 6. Tâches planifiées
 
-Le cycle d'abonnement ne s'avance pas tout seul. Une tâche doit appeler, une fois par jour :
+Deux traitements font vivre le produit dans le temps. Sans eux, un client impayé garde un accès
+complet, un client à jour reste bloqué, et la moitié des vingt types d'alerte ne se déclenche
+jamais — ce sont ceux qui se mesurent en durées, pas en saisies.
+
+La migration `2500` les installe **automatiquement si `pg_cron` est disponible** :
+
+| Tâche | Fréquence | Fonction |
+| --- | --- | --- |
+| `lba-subscription-lifecycle` | tous les jours à 02h10 UTC | `app.run_subscription_lifecycle()` |
+| `lba-alert-evaluation` | tous les jours à 04h30 et 13h30 UTC | `app.run_alert_evaluation()` |
+
+Activer l'extension au préalable, sur le projet Supabase :
 
 ```sql
-select app.advance_subscription_lifecycle(id) from public.subscriptions
- where status not in ('cancelled', 'expired');
+create extension if not exists pg_cron;
 ```
 
-La fonction est idempotente : la rejouer n'envoie pas un second rappel et ne rebascule pas un statut
-déjà atteint. Sans elle, les rappels J-7 / J-3 / J ne partent pas et les bascules n'ont lieu qu'au
-prochain appel manuel.
+Puis rejouer la migration `2500` — elle est écrite pour être rejouable et remplace les tâches
+existantes plutôt que de les dupliquer.
 
-L'évaluation des alertes suit la même logique :
+**Si `pg_cron` n'est pas disponible** (certains plans le restreignent), la migration s'applique sans
+rien planifier, en le disant dans un `notice`. Appelez alors les deux fonctions depuis un
+ordonnanceur externe — GitHub Actions, cron système, ou tout planificateur capable d'ouvrir une
+connexion PostgreSQL avec un rôle privilégié :
 
 ```sql
-select app.evaluate_alerts(id) from public.tenants where status = 'active';
+select app.run_subscription_lifecycle();
+select app.run_alert_evaluation();
 ```
+
+Les deux sont **idempotentes** : les rejouer ne renvoie pas un second rappel, ne rebascule pas un
+statut déjà atteint et n'ouvre pas deux fois la même alerte.
+
+**Vérification.** L'écran *Plateforme* affiche les vingt dernières exécutions : tâche, date, nombre
+de clients parcourus, changements produits et anomalies. Un tableau vide y est signalé explicitement
+— « si l'ordonnanceur est censé tourner, il ne tourne pas » — parce qu'une tâche absente se remarque
+autrement trop tard : le jour où un client se plaint de ne pas avoir été prévenu.
+
+Un client en erreur n'interrompt pas les autres : son échec est consigné dans le détail de
+l'exécution, et la boucle continue.
 
 ---
 
@@ -263,7 +288,7 @@ lba-control/
 │   ├── features/     un dossier par domaine métier
 │   └── types/        types de la base
 ├── supabase/
-│   ├── migrations/   24 migrations versionnées et ordonnées
+│   ├── migrations/   25 migrations versionnées et ordonnées
 │   └── local/        adaptateur PostgreSQL local (jamais appliqué à Supabase)
 ├── scripts/          pilotage de la base locale et jeu de démonstration
 ├── tests/            unitaires, base de données et sécurité
