@@ -244,6 +244,10 @@ test.describe('E2E-05 · achats terrain et file hors ligne', () => {
 
   test('hors connexion, l’achat est conservé sur l’appareil', async ({ page, context }) => {
     await page.goto('/achats')
+    // L'écran est chargé à la demande : on attend qu'il soit là avant de
+    // couper le réseau, comme un pisteur qui ouvre son écran puis entre dans
+    // une zone sans couverture.
+    await page.getByRole('button', { name: 'Nouvel achat' }).waitFor()
 
     await context.setOffline(true)
     await page.evaluate(() => window.dispatchEvent(new Event('offline')))

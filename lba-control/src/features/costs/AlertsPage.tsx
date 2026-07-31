@@ -90,6 +90,18 @@ export function AlertsPage() {
         )}
       </header>
 
+      {[evaluate.error, seed.error, saveRule.error, acknowledge.error]
+        .filter((error): error is Error => Boolean(error))
+        .map((error) => (
+          <p
+            key={error.message}
+            role="alert"
+            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {error.message}
+          </p>
+        ))}
+
       {evaluate.isSuccess && (
         <p className="rounded-md bg-muted px-3 py-2 text-sm" role="status">
           {evaluate.data} alerte(s) ouverte(s) par cette évaluation. Une condition déjà signalée ne

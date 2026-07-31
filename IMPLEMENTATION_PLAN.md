@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : fin de Phase 6.**
+**Mis à jour : fin de Phase 7 — MVP complet.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -20,7 +20,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **4** | Stocks, réservations, planning, transferts, réceptions, écarts, incidents | ✅ **Terminée** |
 | **5** | Dépenses, allocations, TCB, marges, scoring, alertes | ✅ **Terminée** |
 | **6** | Abonnements, personnalisation des documents, exports, tableaux de bord | ✅ **Terminée** |
-| 7 | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ⬜ À faire |
+| **7** | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ✅ **Terminée** |
 
 ---
 
@@ -402,12 +402,117 @@ réception, `E14` incidents.
 
 ---
 
-## Phase 7 — Plan détaillé
+## Phase 7 — Stabilisation · ✅ Terminée
 
-### Phase 7 — Stabilisation
+Aucune fonctionnalité livrée. Quatre audits, cinq défauts trouvés, cinq corrigés.
 
-Suite de tests complète, audit RLS, audit hors ligne, optimisation mobile Android en réseau faible,
-documentation d'installation et de déploiement, compte de démonstration exécutant le parcours complet.
+### Les audits, et ce qu'ils ont trouvé
+
+**Audit de sécurité piloté par le catalogue** (`tests/db/security-audit.test.ts`, 31 tests). Il ne cite
+aucune table par son nom : il interroge `pg_class`, `pg_policy` et `pg_proc` et affirme des invariants.
+Une liste écrite à la main vieillit mal — la table ajoutée dans six mois y échapperait sans que
+personne ne le voie, et un audit qui ne couvre plus tout est pire qu'un audit absent : il rassure.
+
+Quatre écarts trouvés, tous du même profil — rien de cassé, une porte laissée ouverte par défaut
+plutôt que fermée par décision :
+
+1. **Cinq tables à statut terminal restaient supprimables** : `contracts`, `campaigns`,
+   `partner_companies`, `field_agents` et surtout `negotiated_prices`. Toute la phase 2 avait été
+   construite pour qu'un prix soit versionné et jamais écrasé ; pouvoir supprimer une version close
+   annulait ce travail par la porte de service. Corrigé : politique `DELETE using (false)`.
+2. **Le rôle `anon` atteignait toutes les fonctions.** PostgreSQL accorde `EXECUTE` à `PUBLIC` par
+   défaut. Aucune n'aurait rendu de donnée — elles résolvent d'abord le tenant — mais « la fonction
+   refuse » et « la fonction est inatteignable » ne sont pas la même garantie. Révocation générale,
+   plus des privilèges par défaut pour que l'écart ne se rouvre pas à la prochaine migration.
+3. **`sensitive_export` n'était jamais écrit.** L'action existait dans l'énumération d'audit depuis la
+   phase 1, rien ne l'utilisait. `app.log_export` la remplit désormais, et seulement pour les exports
+   contenant des montants ou des noms : un journal qui enregistre tout n'est plus relu.
+4. **Quatre exclusions du verrou d'abonnement n'étaient nulle part écrites.** Elles sont légitimes —
+   un appareil doit pouvoir enregistrer ses échecs de synchronisation, un client suspendu doit pouvoir
+   se connecter et recevoir les messages qui lui expliquent comment se débloquer — mais la raison
+   vivait dans la tête de l'auteur. Elle est maintenant dans le schéma.
+
+**Audit de la file hors ligne** (`tests/unit/offline-audit.test.ts`, 8 tests). Il vérifie des
+propriétés du **code**, pas seulement des comportements : aucun module n'appelle de suppression sur la
+file, aucune constante ne la plafonne. Ces garanties ne se cassent pas par un bug de logique mais par
+une bonne intention — quelqu'un ajoutera un « nettoyage des anciennes opérations » pour libérer de la
+place. S'y ajoute une épreuve d'endurance : 500 opérations, un tiers d'échecs, un dixième de conflits,
+quatre passages de synchronisation, fermeture et réouverture de la base. Zéro perte.
+
+**Parcours complet** (`tests/db/demo-walkthrough.test.ts`). Financement → avance → achats → transfert →
+réception avec écart → couverture → dépense → TCB → marge → alerte → clôture, en une transaction, avec
+changement d'acteur à chaque étape. Il a trouvé le seul défaut fonctionnel de la phase, et il ne
+pouvait être trouvé que là :
+
+5. **Une réception sans planning ne couvrait aucune avance.**
+   `app.cover_advances_from_reception` remontait au pisteur par `delivery_plans.field_agent_id`. Or
+   `transfers.delivery_plan_id` est nullable : un chargement direct, décidé le matin parce qu'un
+   camion passait, produit un transfert sans planning. Silencieusement, la fonction retournait zéro.
+   Le pisteur avait livré, l'argent restait compté comme étant chez lui, l'alerte « argent chez le
+   pisteur depuis N jours » se déclenchait à tort, et la composante « couverture des avances » de son
+   score le sanctionnait pour une livraison qu'il avait faite. Chaque règle était juste isolément ;
+   c'est la jonction qui ne l'était pas. Corrigé : remontée par les lots réellement chargés, au
+   prorata quand plusieurs pisteurs ont alimenté le même camion.
+
+**Budget de chargement** (`tests/unit/bundle-budget.test.ts`) et **affichage des erreurs**
+(`tests/unit/error-surfacing.test.ts`). Le premier échoue si le chargement initial dépasse le budget ;
+le second, si un écran qui écrit en base n'affiche pas ses échecs.
+
+### Optimisation mobile
+
+| Mesure | Avant | Après |
+| --- | --- | --- |
+| Point d'entrée (non compressé) | 719 kB | **407 kB** |
+| Préchargement du service worker | 2 950 kB | **895 kB** |
+| Recharts au premier chargement | oui | non |
+| ExcelJS et jsPDF au premier chargement | non | non |
+
+Le pisteur est la raison de ce découpage. Il travaille sur un Android d'entrée de gamme, en 2G,
+parfois en payant son forfait au mégaoctet. Lui faire télécharger la bibliothèque de graphiques du
+tableau de bord dirigeant pour saisir un achat est un coût qu'il paie réellement, en argent et en
+attente.
+
+Le découpage a produit deux régressions, corrigées :
+
+- **L'attente emportait la navigation.** Placée autour de l'ensemble des routes, elle faisait
+  disparaître le menu pendant le chargement d'un écran. Elle est descendue autour du seul contenu.
+- **Un morceau non téléchargé donnait une page blanche définitive.** Un `ScreenErrorBoundary`
+  explique désormais ce qui s'est passé, précise que les saisies déjà enregistrées sur l'appareil ne
+  sont pas affectées, et propose de réessayer.
+
+### Ce qui fonctionne (vérifié par exécution)
+
+| Élément | Vérification |
+| --- | --- |
+| **408 tests unitaires et de composants** | 408/408 |
+| **256 tests de base de données** | 256/256 |
+| **146 parcours end-to-end** (bureau + Android) | 146/146 |
+| Build de production | Réussi |
+| Aucun secret versionné | Vérifié par test, fichiers suivis **et** non ignorés |
+
+### Ce qui ne fonctionne pas encore / limites assumées
+
+Ces points sont réels et documentés plutôt que masqués.
+
+- **Deux tâches planifiées restent à installer** côté Supabase : l'avancement du cycle d'abonnement et
+  l'évaluation des alertes. Les deux fonctions sont idempotentes et testées, le README donne les
+  requêtes exactes. Sans elles, rappels et bascules n'ont lieu qu'à l'appel manuel.
+- **Aucun message n'est envoyé** : courriel, SMS et WhatsApp restent à brancher.
+- **Trois écrans n'existent pas** : console plateforme (`Z01`), sacherie (`E11`), clôture de campagne.
+  Les règles serveur des deux derniers sont livrées et testées ; il manque l'interface.
+- **Le téléversement de fichiers n'est pas branché** (Storage) : les tickets de pesée et justificatifs
+  sont exigés par les règles mais leur chemin est saisi, pas déposé. Le logo du tenant n'apparaît donc
+  pas non plus dans les exports.
+- **Le tableau de bord charge son périmètre en mémoire** : acceptable sur une campagne, à remplacer
+  par des agrégats serveur au-delà de quelques dizaines de milliers de lignes.
+- **Le TCB prévisionnel n'est pas alimenté**, et les pertes valorisées ne couvrent que l'écart
+  physique des transferts (H-17).
+- **L'ajustement du score par événement externe est grossier côté serveur** : un événement validé
+  neutralise « respect des délais » en bloc, là où le domaine sait raisonner observation par
+  observation.
+- **Aucun déploiement réel n'a été fait** : le produit n'a jamais tourné contre un projet Supabase
+  hébergé. Tout est vérifié contre un PostgreSQL local exécutant les migrations réelles et contre un
+  PostgREST simulé. C'est la limite la plus importante de cette livraison.
 
 ---
 
@@ -415,15 +520,20 @@ documentation d'installation et de déploiement, compte de démonstration exécu
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 16 migrations ordonnées |
-| Toutes les tables exposées ont RLS activée | ✅ vérifié par test |
-| Les politiques RLS ont des tests | ✅ 165 tests exécutés |
-| Les parcours P0 ont des tests Playwright | 🟡 E2E-01 → E2E-08 livrés (70 tests, bureau + Android) ; E2E-09 → E2E-14 aux phases 5 et 6 |
-| Les calculs financiers ont des tests unitaires | 🟡 prix, contraste, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock et planning livrés ; TCB, marge et scoring en phase 5 |
-| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08, 23 tests |
-| Les erreurs sont affichées clairement | ⬜ au fil des écrans |
+| Toutes les migrations sont versionnées | ✅ 20 migrations ordonnées |
+| Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
+| Les politiques RLS ont des tests | ✅ 256 tests de base, dont 31 d'audit systématique |
+| Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-13, 146 tests (bureau + Android) |
+| Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
+| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-08 (23 tests) + audit du code et endurance (8 tests) |
+| Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |
 | Le build de production réussit | ✅ |
 | Aucun secret n'est commité | ✅ vérifié par test |
 | Le README explique l'installation | ✅ |
-| Le README explique le déploiement | ✅ |
-| Un compte de démonstration exécute le parcours complet | ⬜ phase 7 |
+| Le README explique le déploiement | ✅ dont les deux tâches planifiées à installer |
+| Un compte de démonstration exécute le parcours complet | 🟡 le parcours complet est **exécuté et vérifié en base** (E2E-14) ; `npm run db:seed` prépare le jeu de démonstration. Il n'a jamais été rejoué contre un projet Supabase hébergé |
+
+**La dernière ligne est la seule réserve de cette livraison, et elle est réelle** : le produit n'a
+jamais tourné contre une instance Supabase. Toutes les règles serveur sont vérifiées contre un
+PostgreSQL exécutant les migrations réelles, et tous les parcours contre un PostgREST simulé. Le
+raccordement au projet hébergé reste à faire, et c'est là que se logeront les surprises éventuelles.

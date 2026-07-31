@@ -100,16 +100,37 @@ npm run test:rls     # sécurité et règles métier, contre un PostgreSQL réel
 npm run test:e2e     # parcours P0 (Playwright) — implémentés aux phases 2 à 6
 ```
 
-État actuel, mesuré et non déclaratif :
+État actuel, mesuré et non déclaratif.
+
+**Base de données — 256 tests**
 
 | Suite | Tests | Couvre |
 | --- | --- | --- |
-| `tests/db/rls.test.ts` | 59 | Isolation multi-tenant, cloisonnement pisteur, auditeur en lecture seule, suppression physique impossible, immuabilité de l'audit, verrou d'abonnement, assistance super-admin auditée |
-| `tests/db/business-rules.test.ts` | 45 | Mélange de financements, double réservation, historisation des prix, quatre poids et cinq écarts, incidents bloquants, séparation des tâches, idempotence des paiements |
-| `src/domain/*.test.ts` | 32 | Contraste des couleurs de marque, arithmétique monétaire et répartition |
-| `tests/unit/no-secrets.test.ts` | 5 | Aucun secret dans les fichiers versionnés |
+| `rls.test.ts` | 59 | Isolation multi-tenant, cloisonnement pisteur, auditeur en lecture seule, immuabilité de l'audit, verrou d'abonnement, assistance super-admin auditée |
+| `business-rules.test.ts` | 45 | Mélange de financements, double réservation, historisation des prix, quatre poids et cinq écarts, incidents bloquants, séparation des tâches |
+| `security-audit.test.ts` | 31 | **Audit piloté par le catalogue** : chaque table, chaque politique, chaque fonction privilégiée, sans liste écrite à la main |
+| `tcb-scoring-alerts.test.ts` | 29 | Anti double comptage, répartition indirecte, TCB, marges, scoring, vingt alertes |
+| `subscription-closure.test.ts` | 29 | Cycle d'abonnement jour par jour, paiements, clôture et réouverture de campagne, conservation |
+| `advances-purchases.test.ts` | 23 | Plafonds, couverture FIFO, doublons d'achat |
+| `reception-incidents.test.ts` | 20 | Tolérance en cascade, écarts, incidents ouverts sans imputation |
+| `branding-prices.test.ts` | 18 | Contraste imposé côté serveur, révision de prix versionnée |
+| `demo-walkthrough.test.ts` | 2 | **Parcours complet** : financement → achat → réception → TCB → alerte → clôture |
+
+**Unitaires et composants — 408 tests**, dont :
+
+| Suite | Couvre |
+| --- | --- |
+| `src/domain/*.test.ts` | Contraste, arithmétique, prix, couverture, avances, doublons, poids, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
+| `tests/unit/offline-queue.test.ts` | OFF-01 → OFF-08 : file non bornée, aucune perte, idempotence, conflits visibles |
+| `tests/unit/offline-audit.test.ts` | **Audit du code** : aucun appel de suppression, aucune borne de file, endurance sur 500 opérations |
+| `tests/unit/bundle-budget.test.ts` | Budget de chargement initial sur mobile |
+| `tests/unit/error-surfacing.test.ts` | Tout écran qui écrit affiche ses échecs |
+| `tests/unit/no-secrets.test.ts` | Aucun secret dans les fichiers versionnés |
+
+**Parcours end-to-end — 146 tests** (bureau + Android), E2E-01 → E2E-13.
 
 `npm run test:rls` exige une base locale démarrée (`npm run db:start`).
+`tests/unit/bundle-budget.test.ts` exige un `npm run build` préalable ; sans `dist/`, il se saute.
 
 ---
 
@@ -201,6 +222,27 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Un abonnement suspendu bloque l'écriture mais autorise lecture et export
 - [ ] L'application s'installe comme PWA sur Android
 - [ ] Aucune clé `service_role` n'est présente dans le bundle (`grep -r service_role dist/`)
+- [ ] Le rôle `anon` n'atteint aucune fonction : `select has_schema_privilege('anon','app','usage')` renvoie `false`
+- [ ] Une suppression d'achat, d'avance, de dépense ou de prix renvoie 0 ligne affectée
+
+### 6. Tâche planifiée à installer
+
+Le cycle d'abonnement ne s'avance pas tout seul. Une tâche doit appeler, une fois par jour :
+
+```sql
+select app.advance_subscription_lifecycle(id) from public.subscriptions
+ where status not in ('cancelled', 'expired');
+```
+
+La fonction est idempotente : la rejouer n'envoie pas un second rappel et ne rebascule pas un statut
+déjà atteint. Sans elle, les rappels J-7 / J-3 / J ne partent pas et les bascules n'ont lieu qu'au
+prochain appel manuel.
+
+L'évaluation des alertes suit la même logique :
+
+```sql
+select app.evaluate_alerts(id) from public.tenants where status = 'active';
+```
 
 ---
 
@@ -215,7 +257,7 @@ lba-control/
 │   ├── features/     un dossier par domaine métier
 │   └── types/        types de la base
 ├── supabase/
-│   ├── migrations/   13 migrations versionnées et ordonnées
+│   ├── migrations/   20 migrations versionnées et ordonnées
 │   └── local/        adaptateur PostgreSQL local (jamais appliqué à Supabase)
 ├── scripts/          pilotage de la base locale et jeu de démonstration
 ├── tests/            unitaires, base de données et sécurité

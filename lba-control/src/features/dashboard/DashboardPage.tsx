@@ -16,11 +16,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field } from '@/components/ui/field'
 import { buildKpis, purchaseSeries, stockBreakdown, type Kpi } from '@/domain/dashboard'
 import { formatMoney, formatWeight } from '@/domain/money'
-import { buildReport, type ReportColumn } from '@/domain/reports'
+import { buildReport, classifyExport, requiresAuditEntry, type ReportColumn } from '@/domain/reports'
 import { useCampaigns } from '@/features/contracts/api'
 import { usePartnerCompanies } from '@/features/partners/api'
 import { useSession } from '@/lib/auth/session'
 import { downloadExcel, downloadPdf } from '@/lib/export/writers'
+import { supabase } from '@/lib/supabase'
 import { useBranding } from '@/lib/tenant/branding'
 import { useDashboard } from './api'
 
@@ -131,6 +132,21 @@ export function DashboardPage() {
     setExporting(true)
     try {
       const report = buildExport()
+
+      // Un export de montants qui ne laisse aucune trace ne peut pas être
+      // retracé après une fuite — et c'est là qu'on en a besoin. L'échec de la
+      // journalisation n'empêche pas l'export : refuser de livrer ses propres
+      // données parce qu'un journal est indisponible serait disproportionné.
+      const scope = classifyExport(EXPORT_COLUMNS)
+      if (requiresAuditEntry(scope)) {
+        await supabase.rpc('log_export', {
+          p_scope: scope,
+          p_document: report.meta.title,
+          p_rows: report.rowCount,
+          p_filters: { campaign_id: campaignId || null, partner_company_id: partnerCompanyId || null },
+        })
+      }
+
       const brandingForExport = {
         commercialName: branding.commercialName,
         primaryColor: branding.primaryColor,

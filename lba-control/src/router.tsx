@@ -1,27 +1,48 @@
+import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
 import { PhasePlaceholder } from '@/components/shared/PhasePlaceholder'
-import { AdvancesPage } from '@/features/advances/AdvancesPage'
-import { AgentDetailPage } from '@/features/agents/AgentDetailPage'
-import { AgentsPage } from '@/features/agents/AgentsPage'
-import { ContractsPage } from '@/features/contracts/ContractsPage'
-import { AlertsPage } from '@/features/costs/AlertsPage'
-import { ExpensesPage } from '@/features/costs/ExpensesPage'
-import { ScoringPage } from '@/features/costs/ScoringPage'
-import { TcbPage } from '@/features/costs/TcbPage'
-import { FundingPage } from '@/features/funding/FundingPage'
-import { IncidentsPage } from '@/features/logistics/IncidentsPage'
-import { PlanningPage } from '@/features/logistics/PlanningPage'
-import { StockPage } from '@/features/logistics/StockPage'
-import { TransfersPage } from '@/features/logistics/TransfersPage'
-import { PurchasesPage } from '@/features/purchases/PurchasesPage'
-import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { LoginPage } from '@/features/auth/LoginPage'
-import { PartnerDetailPage } from '@/features/partners/PartnerDetailPage'
-import { PartnersPage } from '@/features/partners/PartnersPage'
-import { SubscriptionPage } from '@/features/subscription/SubscriptionPage'
-import { BrandingPage } from '@/features/settings/BrandingPage'
 import { useSession } from '@/lib/auth/session'
+
+/**
+ * Écrans chargés à la demande.
+ *
+ * Le pisteur est la raison de ce découpage. Il travaille sur un téléphone
+ * Android d'entrée de gamme, en 2G, parfois en payant son forfait au mégaoctet.
+ * Lui faire télécharger la bibliothèque de graphiques du tableau de bord
+ * dirigeant pour saisir un achat est un coût qu'il paie réellement, en argent
+ * et en attente.
+ *
+ * `lazy` sur chaque route découpe le bundle par écran : la connexion et la
+ * coquille restent dans le chargement initial, tout le reste arrive quand on y
+ * va. Les écrans les plus lourds — tableau de bord et TCB — ne pèsent plus rien
+ * pour qui ne les ouvre jamais.
+ */
+const named = <T extends string>(
+  loader: () => Promise<Record<T, ComponentType>>,
+  name: T,
+) => lazy(() => loader().then((module) => ({ default: module[name] })))
+
+const DashboardPage = named(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage')
+const AdvancesPage = named(() => import('@/features/advances/AdvancesPage'), 'AdvancesPage')
+const AgentDetailPage = named(() => import('@/features/agents/AgentDetailPage'), 'AgentDetailPage')
+const AgentsPage = named(() => import('@/features/agents/AgentsPage'), 'AgentsPage')
+const ContractsPage = named(() => import('@/features/contracts/ContractsPage'), 'ContractsPage')
+const AlertsPage = named(() => import('@/features/costs/AlertsPage'), 'AlertsPage')
+const ExpensesPage = named(() => import('@/features/costs/ExpensesPage'), 'ExpensesPage')
+const ScoringPage = named(() => import('@/features/costs/ScoringPage'), 'ScoringPage')
+const TcbPage = named(() => import('@/features/costs/TcbPage'), 'TcbPage')
+const FundingPage = named(() => import('@/features/funding/FundingPage'), 'FundingPage')
+const IncidentsPage = named(() => import('@/features/logistics/IncidentsPage'), 'IncidentsPage')
+const PlanningPage = named(() => import('@/features/logistics/PlanningPage'), 'PlanningPage')
+const StockPage = named(() => import('@/features/logistics/StockPage'), 'StockPage')
+const TransfersPage = named(() => import('@/features/logistics/TransfersPage'), 'TransfersPage')
+const PurchasesPage = named(() => import('@/features/purchases/PurchasesPage'), 'PurchasesPage')
+const PartnerDetailPage = named(() => import('@/features/partners/PartnerDetailPage'), 'PartnerDetailPage')
+const PartnersPage = named(() => import('@/features/partners/PartnersPage'), 'PartnersPage')
+const SubscriptionPage = named(() => import('@/features/subscription/SubscriptionPage'), 'SubscriptionPage')
+const BrandingPage = named(() => import('@/features/settings/BrandingPage'), 'BrandingPage')
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession()

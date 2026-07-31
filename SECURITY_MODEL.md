@@ -171,9 +171,23 @@ Aucune n'est réalisable depuis le navigateur avec les droits de l'utilisateur :
 | Faire avancer le cycle d'abonnement | `app.advance_subscription_lifecycle()` — idempotente ; ne supprime aucune donnée à aucune phase |
 | Clôturer ou rouvrir une campagne | `app.close_campaign()` / `app.reopen_campaign()` — obstacles énumérés, forçage motivé et audité, réouverture réservée au propriétaire |
 | Lister ce qui dépasse la conservation | `app.archival_candidates()` — **décrit sans supprimer** ; aucun chemin de suppression automatique n'existe dans le produit |
+| Journaliser un export sensible | `app.log_export()` — écrit une entrée `sensitive_export` pour les exports contenant des montants ou des noms, et seulement pour ceux-là |
 
 Toutes fixent `search_path = pg_catalog, app, public` — sans quoi un objet homonyme créé dans un schéma
 utilisateur pourrait détourner l'exécution avec les droits du propriétaire.
+
+**Surface d'exécution fermée par défaut.** PostgreSQL accorde `EXECUTE` à `PUBLIC` sur toute fonction
+créée. La migration `1900` révoque ce droit sur les schémas `public` et `app`, le réaccorde aux seuls
+rôles `authenticated` et `service_role`, et pose des **privilèges par défaut** pour que toute fonction
+créée plus tard hérite du même régime. Le rôle `anon` n'a ni `USAGE` sur `app` ni `EXECUTE` nulle
+part. Un audit du catalogue le vérifie à chaque exécution des tests : « la fonction refuse » et « la
+fonction est inatteignable » ne sont pas la même garantie.
+
+**Aucune suppression physique d'entité à statut terminal.** Au-delà des transactions métier — déjà
+protégées depuis la phase 1 — toute table portant un état de fin de vie (`annule`, `cloture`,
+`closed`, `superseded_by`) refuse le `DELETE` : contrats, campagnes, sociétés partenaires, pisteurs et
+**versions de prix**. Sans cela, le statut serait décoratif et une annulation motivée deviendrait un
+`delete` déguisé.
 
 **Verrou d'écriture par abonnement.** `app.tenant_can_write()` est évaluée dans les politiques
 `INSERT`/`UPDATE` de toutes les tables métier : un abonnement `suspended_read_only`, `suspended`,

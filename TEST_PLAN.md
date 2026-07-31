@@ -88,6 +88,29 @@ réglages. Une politique qui passe ici passe chez Supabase.
 | RG-31 | Réouverture par un rôle autre que propriétaire | Rejet |
 | RG-32 | Appel de la fonction d'archivage | `deletion_performed: false`, aucune ligne supprimée |
 
+### Audits systématiques (phase 7)
+
+Ces tests n'énumèrent aucune table à la main : ils interrogent le catalogue et affirment des
+invariants, de sorte qu'une table ou une fonction ajoutée plus tard entre automatiquement dans le
+périmètre contrôlé.
+
+| ID | Invariant | Attendu |
+| --- | --- | --- |
+| AUD-01 | Toute table métier porte un `tenant_id NOT NULL` | Seules `audit_log` et `users` l'acceptent nul, et c'est motivé |
+| AUD-02 | Aucune table du schéma public n'échappe à RLS | Liste vide |
+| AUD-03 | Chaque table porte les quatre politiques | Liste vide |
+| AUD-04 | Chaque politique de lecture filtre sur le tenant | Liste vide |
+| AUD-05 | Le tenant B ne voit rien du tenant A, sur **toutes** les tables (> 50) | Liste vide |
+| AUD-06 | Toute table à statut terminal refuse la suppression physique | Politique présente **et** `false` |
+| AUD-07 | Toute fonction `SECURITY DEFINER` verrouille son `search_path` | Liste vide |
+| AUD-08 | Le rôle `anon` n'atteint aucune fonction ni le schéma `app` | Liste vide |
+| AUD-09 | Chaque politique d'écriture vérifie le verrou d'abonnement | Exclusions nommées et motivées |
+| AUD-10 | Aucun module hors ligne n'appelle de suppression sur la file | Liste vide |
+| AUD-11 | Aucune constante ne plafonne la file | Liste vide |
+| AUD-12 | 500 opérations, échecs, conflits, réouverture | Zéro perte, intégrité vérifiée |
+| AUD-13 | Point d'entrée et préchargement sous budget | < 460 kB et < 1 100 kB |
+| AUD-14 | Tout écran qui écrit affiche ses échecs | Liste vide |
+
 ---
 
 ## 4. Tests unitaires des calculs financiers (P0)
@@ -140,6 +163,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | E2E-09 | Dépenses directes et indirectes → TCB/kg accepté | CA-07 |
 | E2E-10 | Marge sur prix net reconnu | CA-08 |
 | E2E-11 | Score pisteur expliqué composante par composante | CA-10 |
+| E2E-14 | **Parcours complet** : financement → avance → achat → transfert → réception → dépense → TCB → marge → alerte → clôture | CA-01 → CA-11 |
 | E2E-12 | Exports PDF/Excel à la marque du tenant, sans données concurrentes | CA-12 |
 | E2E-13 | Échéance d'abonnement → lecture seule → réactivation après confirmation | DMQ E18 |
 | E2E-14 | Annulation d'une opération clôturée par écriture inverse | CA-13, aucune suppression |
@@ -167,7 +191,7 @@ Fonctions pures de `src/domain/`, sans réseau ni base, horloge injectée.
 | 4 — Stocks, planning, transferts, réceptions, incidents | RG-02 → RG-05, RG-09, RG-10, `weights.ts`, E2E-06 → E2E-08 |
 | 5 — Dépenses, TCB, marges, scoring, alertes | RG-11, RG-17 → RG-24, `tcb.ts`, `margin.ts`, `scoring.ts`, `alerts.ts`, E2E-09 → E2E-11 |
 | 6 — Abonnements, documents, exports, tableaux de bord | RG-13 → RG-15, RG-25 → RG-32, `subscription.ts`, `reports.ts`, `dashboard.ts`, E2E-12, E2E-13 |
-| 7 — Stabilisation | Suite complète, audit RLS, audit hors ligne, build de production |
+| 7 — Stabilisation | AUD-01 → AUD-14, E2E-14, suite complète, build de production |
 
 ---
 

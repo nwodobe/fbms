@@ -1013,6 +1013,16 @@ export interface Database {
         Args: { p_campaign_id: string; p_reason: string }
         Returns: CampaignRow
       }
+      /** Journalise un export sensible. Les exports sans montant ni nom ne le sont pas. */
+      log_export: {
+        Args: {
+          p_scope: string
+          p_document: string
+          p_rows: number
+          p_filters?: Record<string, unknown>
+        }
+        Returns: void
+      }
       /** Décrit ce qui dépasse la durée de conservation. Ne supprime rien (D12). */
       archival_candidates: {
         Args: { p_tenant: string; p_retention_days?: number }

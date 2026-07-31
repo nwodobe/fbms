@@ -32,12 +32,24 @@ export default defineConfig({
         // de synchronisation — un cache HTTP silencieux masquerait des écritures
         // non synchronisées.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Les gros morceaux différés sont exclus du préchargement : les
+        // précharger annulerait le découpage, et ferait payer au pisteur, dès
+        // l'installation, les bibliothèques d'export et de graphiques qu'il
+        // n'ouvrira jamais. Ils sont mis en cache au premier usage réel.
+        globIgnores: ['**/exports-*.js', '**/charts-*.js', '**/html2canvas*.js', '**/purify*.js'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/rest/v1/'),
             handler: 'NetworkOnly',
+          },
+          {
+            // Morceaux différés : mis en cache au premier usage, puis servis
+            // hors ligne comme le reste du shell.
+            urlPattern: /\/assets\/(exports|charts|html2canvas|purify)[^/]*\.js$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'lba-lazy-chunks', expiration: { maxEntries: 12 } },
           },
         ],
       },

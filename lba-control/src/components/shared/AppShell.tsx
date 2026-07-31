@@ -2,6 +2,7 @@ import { LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { LazyScreen } from '@/components/shared/LazyScreen'
 import { useSession } from '@/lib/auth/session'
 import { useBranding } from '@/lib/tenant/branding'
 import type { AppRole } from '@/lib/supabase'
@@ -159,7 +160,11 @@ export function AppShell() {
       </nav>
 
       <main className="flex-1 overflow-x-hidden p-4 lg:p-8">
-        <Outlet />
+        {/* L'attente est ici, et pas plus haut : le menu doit rester
+            atteignable pendant qu'un écran se télécharge. */}
+        <LazyScreen>
+          <Outlet />
+        </LazyScreen>
       </main>
     </div>
   )
