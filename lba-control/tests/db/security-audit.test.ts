@@ -296,6 +296,14 @@ describe('AUDIT · verrou d’abonnement', () => {
         // connecter en lecture et de recevoir ce qui lui explique comment se
         // débloquer.
         'user_devices', 'notifications',
+        // Réglage des canaux de notification : un client suspendu doit pouvoir
+        // continuer à recevoir les messages qui lui disent comment se
+        // débloquer, donc à régler par où il les reçoit.
+        'user_message_channels',
+        // File des messages sortants : aucune écriture depuis un navigateur,
+        // la politique vaut déjà `false`. Y ajouter `tenant_can_write` ne
+        // fermerait rien de plus.
+        'message_outbox',
       ]],
     )
     // Chaque exclusion est nommée et motivée ci-dessus, et redite en commentaire

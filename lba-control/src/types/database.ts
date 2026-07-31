@@ -71,6 +71,36 @@ export type TenantBrandingRow = {
   language: string
 }
 
+export type UserMessageChannelRow = {
+  id: string
+  tenant_id: string
+  user_id: string
+  channel: 'sms' | 'whatsapp' | 'email'
+  destination: string
+  consented_at: string
+  revoked_at: string | null
+}
+
+export type MessageOutboxRow = {
+  id: string
+  tenant_id: string
+  user_id: string | null
+  alert_id: string | null
+  channel: 'sms' | 'whatsapp' | 'email'
+  destination: string
+  subject: string | null
+  body: string
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled'
+  not_before: string
+  attempts: number
+  last_error: string | null
+  sent_at: string | null
+  provider: string | null
+  provider_ref: string | null
+  segments: number | null
+  created_at: string
+}
+
 export type UserRow = {
   id: string
   tenant_id: string | null
@@ -856,6 +886,8 @@ export interface Database {
     Tables: {
       tenants: Writable<TenantRow>
       tenant_branding: Writable<TenantBrandingRow>
+      user_message_channels: Writable<UserMessageChannelRow>
+      message_outbox: Writable<MessageOutboxRow>
       users: Writable<UserRow>
       subscriptions: Writable<SubscriptionRow>
       invoices: Writable<InvoiceDbRow>
@@ -1160,6 +1192,16 @@ export interface Database {
       archival_candidates: {
         Args: { p_tenant: string; p_retention_days?: number }
         Returns: { cutoff_date: string; deletion_performed: boolean; note: string }
+      }
+      /** Règle un canal de message et enregistre le consentement. */
+      set_message_channel: {
+        Args: { p_channel: string; p_destination: string; p_user_id?: string | null }
+        Returns: UserMessageChannelRow
+      }
+      /** Retire un consentement et annule ce qui était déjà en file. */
+      revoke_message_channel: {
+        Args: { p_channel: string; p_user_id?: string | null }
+        Returns: number
       }
       /** Engendre les notifications manquantes pour les alertes ouvertes. */
       notify_from_alerts: {

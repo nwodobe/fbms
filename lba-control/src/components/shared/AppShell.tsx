@@ -35,6 +35,7 @@ const NAV_SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { to: '/', label: 'Tableau de bord', roles: [...ALL_STAFF, 'pisteur'], phase: 6 },
       { to: '/alertes', label: 'Alertes', roles: [...ALL_STAFF, 'pisteur'], phase: 5 },
+      { to: '/canaux', label: 'Par où vous joindre', roles: [...ALL_STAFF, 'pisteur'], phase: 10 },
     ],
   },
   {

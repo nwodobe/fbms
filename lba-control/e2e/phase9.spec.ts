@@ -695,3 +695,83 @@ test.describe('E2E-23 · centre de notifications', () => {
     await expect(page.getByText(/évaluées deux fois par jour/)).toBeVisible()
   })
 })
+
+// ---------------------------------------------------------------------------
+// E2E-24 · Canaux de message
+// ---------------------------------------------------------------------------
+
+test.describe('E2E-24 · par où vous joindre', () => {
+  test('un numéro à huit chiffres est refusé plutôt que deviné', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    const data = await stubSupabase(page, fixtures({ user_message_channels: [], message_outbox: [] }))
+    await stubStorage(page)
+
+    await page.goto('/canaux')
+    await page.getByLabel('Coordonnée').first().fill('07000001')
+    await page.getByRole('button', { name: 'Accepter ce canal' }).first().click()
+
+    // Un numéro mal formé part chez un inconnu, avec des montants dedans.
+    await expect(page.getByRole('alert')).toContainText(/dix chiffres depuis 2021/)
+    expect(data.user_message_channels).toEqual([])
+  })
+
+  test('l’échelle de déclenchement est affichée, pas devinée', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ user_message_channels: [], message_outbox: [] }))
+    await stubStorage(page)
+
+    await page.goto('/canaux')
+
+    // Sans elle, un utilisateur qui accepte les SMS ne sait pas s'il en recevra
+    // un par jour ou un par mois.
+    await expect(page.getByText('Ce qui déclenche quoi')).toBeVisible()
+    await expect(page.getByText(/seuls les blocages sortent/)).toBeVisible()
+  })
+
+  test('un canal non accepté est annoncé comme tel', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(page, fixtures({ user_message_channels: [], message_outbox: [] }))
+    await stubStorage(page)
+
+    await page.goto('/canaux')
+
+    // Un numéro renseigné dans une fiche n'est pas un consentement.
+    await expect(page.getByText('non accepté')).toHaveCount(3)
+  })
+
+  test('le journal annonce les échecs avant les succès', async ({ page }) => {
+    await clearLocalQueue(page)
+    await signIn(page)
+    await stubSupabase(
+      page,
+      fixtures({
+        user_message_channels: [],
+        message_outbox: [
+          {
+            id: 'm-1', tenant_id: TENANT, channel: 'sms', destination: '+2250700000001',
+            body: 'Transfert bloqué', status: 'failed', attempts: 2,
+            last_error: 'Numéro invalide', sent_at: null, segments: null,
+            created_at: '2026-07-31T06:00:00.000Z',
+          },
+          {
+            id: 'm-2', tenant_id: TENANT, channel: 'whatsapp', destination: '+2250700000001',
+            body: 'Avance non couverte', status: 'sent', attempts: 1,
+            last_error: null, sent_at: '2026-07-31T06:01:00.000Z', segments: 1,
+            created_at: '2026-07-31T06:00:00.000Z',
+          },
+        ],
+      }),
+    )
+    await stubStorage(page)
+
+    await page.goto('/canaux')
+
+    // « 1 délivré » laisserait croire que tout va bien alors que celui qui a
+    // échoué est peut-être le seul qui comptait.
+    await expect(page.getByTestId('outbox-summary')).toContainText('1 message(s) non délivré(s)')
+    await expect(page.getByText('Numéro invalide')).toBeVisible()
+  })
+})

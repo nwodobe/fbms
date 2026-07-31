@@ -73,3 +73,100 @@ export function useMarkNotificationsRead() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   })
 }
+
+// ---------------------------------------------------------------------------
+// Canaux de message
+// ---------------------------------------------------------------------------
+
+const CHANNELS = ['message-channels'] as const
+const OUTBOX = ['message-outbox'] as const
+
+export interface MessageChannelRow {
+  id: string
+  channel: 'sms' | 'whatsapp' | 'email'
+  destination: string
+  consented_at: string
+  revoked_at: string | null
+}
+
+/** Canaux par lesquels l'utilisateur a accepté d'être joint hors application. */
+export function useMessageChannels() {
+  return useQuery({
+    queryKey: CHANNELS,
+    queryFn: async (): Promise<MessageChannelRow[]> => {
+      const { data, error } = await supabase
+        .from('user_message_channels')
+        .select('id, channel, destination, consented_at, revoked_at')
+        .order('channel')
+
+      if (error) throw new Error(describeError(error))
+      return (data ?? []) as MessageChannelRow[]
+    },
+  })
+}
+
+/**
+ * Accepte un canal, ou change sa coordonnée.
+ *
+ * Changer de numéro redemande un consentement côté serveur : accepter des SMS
+ * sur un numéro n'est pas les accepter sur le suivant.
+ */
+export function useSetMessageChannel() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (args: { channel: 'sms' | 'whatsapp' | 'email'; destination: string }) => {
+      const { error } = await supabase.rpc('set_message_channel', {
+        p_channel: args.channel,
+        p_destination: args.destination,
+      })
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHANNELS }),
+  })
+}
+
+export function useRevokeMessageChannel() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (channel: 'sms' | 'whatsapp' | 'email') => {
+      const { error } = await supabase.rpc('revoke_message_channel', { p_channel: channel })
+      if (error) throw new Error(describeError(error))
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CHANNELS })
+      void queryClient.invalidateQueries({ queryKey: OUTBOX })
+    },
+  })
+}
+
+export interface OutboxRow {
+  id: string
+  channel: 'sms' | 'whatsapp' | 'email'
+  destination: string
+  body: string
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled'
+  attempts: number
+  last_error: string | null
+  sent_at: string | null
+  segments: number | null
+  created_at: string
+}
+
+/** Journal des messages sortants : ce qui est parti, ce qui a échoué, et pourquoi. */
+export function useMessageOutbox() {
+  return useQuery({
+    queryKey: OUTBOX,
+    queryFn: async (): Promise<OutboxRow[]> => {
+      const { data, error } = await supabase
+        .from('message_outbox')
+        .select('id, channel, destination, body, status, attempts, last_error, sent_at, segments, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw new Error(describeError(error))
+      return (data ?? []) as OutboxRow[]
+    },
+  })
+}

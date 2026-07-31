@@ -243,7 +243,38 @@ Referrer-Policy: strict-origin-when-cross-origin
 - [ ] Un objet déposé sous le tenant A n'est pas listable par le tenant B
 - [ ] Un fichier de plus de 8 Mo est refusé par le bucket lui-même, pas seulement par l'interface
 
-### 6. Tâches planifiées
+### 6. Messages sortants
+
+Les alertes critiques et bloquantes partent par WhatsApp et SMS. Rien ne sort sans consentement
+explicite de la personne, donné depuis l'écran **Par où vous joindre**.
+
+Déployer la fonction d'envoi et ses secrets — **jamais dans le dépôt** :
+
+```bash
+supabase functions deploy send-messages
+supabase secrets set TWILIO_ACCOUNT_SID=… TWILIO_AUTH_TOKEN=… TWILIO_SMS_FROM=…
+supabase secrets set WHATSAPP_TOKEN=… WHATSAPP_PHONE_ID=…
+supabase secrets set RESEND_API_KEY=… RESEND_FROM=…
+```
+
+Puis la déclencher régulièrement (toutes les cinq minutes suffisent) depuis `pg_cron` ou un
+ordonnanceur externe :
+
+```sql
+select net.http_post(
+  url := 'https://<projet>.supabase.co/functions/v1/send-messages',
+  headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.service_key')));
+```
+
+Un fournisseur non configuré ne fait pas échouer l'exécution : le message concerné est marqué comme
+sans route, avec le nom des variables manquantes. Les autres partent.
+
+**Ce que le serveur garantit**, indépendamment de l'interface : une information ne sort jamais de
+l'application ; un blocage sort par tous les canaux consentis ; entre 21 h et 6 h seuls les blocages
+passent, le reste est reporté au matin ; une même alerte ne produit qu'un message par personne et par
+canal ; un désabonnement annule aussi ce qui était déjà en file.
+
+### 7. Tâches planifiées
 
 Deux traitements font vivre le produit dans le temps. Sans eux, un client impayé garde un accès
 complet, un client à jour reste bloqué, et la moitié des vingt types d'alerte ne se déclenche

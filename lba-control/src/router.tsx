@@ -50,6 +50,10 @@ const NotificationsPage = named(
   () => import('@/features/notifications/NotificationsPage'),
   'NotificationsPage',
 )
+const MessageChannelsPage = named(
+  () => import('@/features/notifications/MessageChannelsPage'),
+  'MessageChannelsPage',
+)
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession()
@@ -105,6 +109,7 @@ export function AppRouter() {
 
         {/* Écrans livrés en phase 2 */}
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="canaux" element={<MessageChannelsPage />} />
         <Route path="marque" element={<BrandingPage />} />
         <Route path="societes" element={<PartnersPage />} />
         <Route path="societes/:partnerId" element={<PartnerDetailPage />} />
