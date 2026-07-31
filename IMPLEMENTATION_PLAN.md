@@ -1,6 +1,6 @@
 # LBA Control — Plan d'implémentation
 
-**Mis à jour : phase 9 en cours — justificatifs branchés sur tous les écrans qui les exigent.**
+**Mis à jour : fin de Phase 9 — justificatifs, marque, notifications et automatisation.**
 Ce fichier est le journal de bord du projet. Il est mis à jour à la fin de chaque phase, avec ce qui
 fonctionne, ce qui ne fonctionne pas et les décisions encore ouvertes. Rien n'y est coché par anticipation.
 
@@ -22,7 +22,7 @@ Documents liés : `ARCHITECTURE.md` · `DATABASE_SCHEMA.md` · `SECURITY_MODEL.m
 | **6** | Abonnements, personnalisation des documents, exports, tableaux de bord | ✅ **Terminée** |
 | **7** | Tests complets, audit RLS, audit hors ligne, optimisation mobile, documentation, déploiement | ✅ **Terminée** |
 | **8** | Écrans manquants (sacherie, clôture de campagne, console plateforme) et téléversement des justificatifs | ✅ **Terminée** |
-| **9** | Justificatifs branchés sur tous les écrans, marque dans les exports, notifications, tâches planifiées | 🟡 **En cours** |
+| **9** | Justificatifs branchés sur tous les écrans, marque dans les exports, notifications, tâches planifiées | ✅ **Terminée** |
 
 ---
 
@@ -586,7 +586,7 @@ et le dépôt de justificatifs vers Storage.
 
 ---
 
-## Phase 9 — Justificatifs, marque et automatisation · 🟡 En cours
+## Phase 9 — Justificatifs, marque et automatisation · ✅ Terminée
 
 ### 9.1 · Justificatifs branchés sur tous les écrans qui les exigent — ✅ terminé
 
@@ -773,23 +773,59 @@ ne se déclenche jamais — ce sont ceux qui se mesurent en durées, pas en sais
   console, sa reprise est une décision humaine.
 
 
+### 9.5 · Bilan de la phase 9
+
+**Ce que la phase a réellement changé.** Les quatre manques que la phase 8 avait elle-même
+documentés sont comblés : les justificatifs se déposent depuis tous les écrans qui les exigent, le
+logo du client figure dans ses documents, les alertes préviennent quelqu'un, et deux traitements
+quotidiens font vivre le produit dans le temps.
+
+**Ce que les tests ont trouvé, et qui n'aurait pas été trouvé autrement.** Trois défauts de cette
+phase étaient invisibles à la lecture :
+
+1. **Les octets des justificatifs disparaissaient de la file locale** à chaque changement de statut.
+   La ligne restait, le fichier devenait vide, l'interface annonçait « en attente ». Le constat
+   n'aurait été fait qu'au moment d'un contrôle, quand la preuve manque.
+2. **Une donnée base64 malformée fige jsPDF au lieu de lever.** Le test écrit pour vérifier qu'un
+   logo inutilisable n'empêche pas l'export a **expiré** au lieu d'échouer — un logo corrompu aurait
+   rendu le bouton d'export définitivement muet.
+3. **Une table créée après la migration `1200` est inaccessible**, faute de `grant`. RLS n'a même pas
+   l'occasion de s'appliquer, et le message ne dit rien du cloisonnement.
+
+Les trois sont corrigés, et les trois sont désormais épinglés par un test qui échouerait si la
+correction disparaissait.
+
+**Ce qui reste ouvert à la fin de la phase 9**
+
+| Manque | Portée |
+| --- | --- |
+| **Aucun raccordement à un projet Supabase hébergé** | Storage, Auth, `pg_cron` et les politiques de bucket n'ont jamais tourné en conditions réelles. C'est la réserve principale de la livraison, inchangée depuis la phase 7. |
+| **Aucun message sortant** | Ni courriel, ni SMS, ni WhatsApp. Le canal `in_app` est le seul alimenté ; un pisteur qui n'ouvre pas l'application n'est pas prévenu. |
+| **Les octets en attente ne sont pas chiffrés sur l'appareil** | Une photo de ticket reste lisible par qui accède au stockage du navigateur. |
+| **La console plateforme ne crée pas de tenant** | Elle administre l'existant ; créer un client et inviter son administrateur reste manuel. |
+| **Pas de politique de conservation des notifications** | La table grossit avec les alertes (relève de D12). |
+| **Le logo ne figure que sur les exports du tableau de bord** | Bons de transfert et reçus restent à écrire. |
+| **TCB prévisionnel non alimenté**, **pertes valorisées limitées à l'écart physique de transfert** (H-17), **ajustement de score par événement externe grossier**, **tableau de bord chargé en mémoire** | Limites héritées des phases 5 à 7, inchangées. |
+
+---
+
 ---
 
 ## Conditions de livraison (commande §27)
 
 | Condition | État |
 | --- | --- |
-| Toutes les migrations sont versionnées | ✅ 24 migrations ordonnées |
+| Toutes les migrations sont versionnées | ✅ 26 migrations ordonnées |
 | Toutes les tables exposées ont RLS activée | ✅ vérifié par un audit du catalogue, pas par une liste |
-| Les politiques RLS ont des tests | ✅ 315 tests de base, dont 39 d'audit systématique |
+| Les politiques RLS ont des tests | ✅ 315 tests de base, dont 40 d’audit systématique |
 | Les parcours P0 ont des tests Playwright | ✅ E2E-01 → E2E-23, 224 tests (bureau + Android) |
 | Les calculs financiers ont des tests unitaires | ✅ prix, arithmétique, FIFO, exposition, plafonds, poids, écarts, stock, planning, TCB, marges, scoring, alertes, abonnement, rapports, tableau de bord |
-| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-14 (38 tests) + audit du code et endurance (11 tests) |
+| La synchronisation hors ligne a des tests | ✅ OFF-01 → OFF-14 (38 tests) + audit du code et endurance (11 tests, dont la préservation des octets à travers les mises à jour) |
 | Les erreurs sont affichées clairement | ✅ vérifié par test : tout écran qui écrit affiche ses échecs |
 | Le build de production réussit | ✅ |
 | Aucun secret n'est commité | ✅ vérifié par test |
 | Le README explique l'installation | ✅ |
-| Le README explique le déploiement | ✅ dont les deux tâches planifiées à installer |
+| Le README explique le déploiement | ✅ dont les deux tâches planifiées, installées par `pg_cron` ou par un ordonnanceur externe |
 | Un compte de démonstration exécute le parcours complet | 🟡 le parcours complet est **exécuté et vérifié en base** (E2E-14) ; `npm run db:seed` prépare le jeu de démonstration. Il n'a jamais été rejoué contre un projet Supabase hébergé |
 
 **La dernière ligne est la seule réserve de cette livraison, et elle est réelle** : le produit n'a

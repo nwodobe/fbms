@@ -148,7 +148,7 @@ CMD §27).
 
 | Couche | Responsabilité | Ce qu'elle ne fait **jamais** |
 | --- | --- | --- |
-| `domain/` | Formules TCB, marge, écarts, FIFO, score, alertes, abonnement | Aucun accès réseau, aucun état React, aucune date implicite (l'horloge est injectée) |
+| `domain/` | Formules TCB, marge, écarts, FIFO, score, alertes, abonnement, règles de justificatifs, de logo et de notification | Aucun accès réseau, aucun état React, aucune date implicite (l'horloge est injectée) |
 | `lib/` | Accès Supabase, cache, session, file hors ligne, exports | Aucune règle métier de calcul |
 | `features/` | Écrans, formulaires (RHF + Zod), orchestration | Aucun calcul financier en ligne |
 | `components/ui` | Primitives visuelles | Aucune connaissance métier |
@@ -251,7 +251,7 @@ la confirmation du super-administrateur (ou, plus tard, un webhook serveur sign�
 
 | Niveau | Outil | Cible |
 | --- | --- | --- |
-| Unitaire | Vitest | `src/domain/*` — TCB, marge, écarts, FIFO, score, alertes, abonnement |
+| Unitaire | Vitest | `src/domain/*` — TCB, marge, écarts, FIFO, score, alertes, abonnement, rattachements, logo, notifications |
 | Composant | Vitest + React Testing Library | Formulaires, gardes de permission, états d'erreur |
 | Base / RLS | Vitest (runner `node`) + `pg` sur PostgreSQL réel | Isolation tenant, cloisonnement pisteur, immuabilité de l'audit, blocage en suspension |
 | Hors ligne | Vitest + `fake-indexeddb` | Non-suppression des `pending`, idempotence, file non bornée |

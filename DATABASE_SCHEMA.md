@@ -29,6 +29,7 @@ Ce document explique le **pourquoi** ; les migrations portent le **comment**.
 | `platform_admins` | Super-administrateurs | `user_id` unique. Aucun `tenant_id`. |
 | `subscription_plans` | Plans commerciaux | Prix, périodicité, limites (`max_users`, `max_field_agents`, `max_partner_companies`, `storage_mb`, modules). Semés : *Standard* 50 000 FCFA/mois + installation 300 000 FCFA. |
 | `platform_support_sessions` | **Mode d'assistance audité** | `tenant_id`, `granted_by`, `reason` (obligatoire), `expires_at`, `revoked_at`. Sans session active, un super-admin ne lit **aucune** donnée métier (CMD §4). |
+| `scheduled_task_runs` | Journal des tâches récurrentes | `task`, `started_at`, `finished_at`, `status`, `tenants_seen`, `changes`, `details` (par client). Sans `tenant_id` : une exécution parcourt tous les clients. Lisible par la seule plateforme — son contenu révélerait le nombre et l'activité des autres. |
 
 ---
 
