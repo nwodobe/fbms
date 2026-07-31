@@ -55,6 +55,85 @@ describe('ouverture d’une entreprise', () => {
     expect(etat.created.invitation_token).toHaveLength(48)
   })
 
+  it('installe le référentiel des dépenses et les règles d’alerte', async () => {
+    const etat = await withUser(actors.superAdmin, async (c) => {
+      const { rows } = await c.query(
+        `select public.create_tenant($1, $2, $3, $4, $5) as r`,
+        Object.values(nouveau('lba-korhogo')),
+      )
+      const created = rows[0].r as Record<string, string | number>
+
+      const check = await asOwnerWithin(c, actors.superAdmin, async () => {
+        const result = await c.query(
+          `select
+             (select count(*) from expense_categories where tenant_id = $1)::int as categories,
+             (select count(*) from expense_categories
+               where tenant_id = $1 and is_system_reserved)::int                 as reservees,
+             (select count(*) from expense_categories
+               where tenant_id = $1 and not is_direct)::int                      as indirectes,
+             (select count(*) from alert_rules where tenant_id = $1)::int        as regles`,
+          [created.tenant_id],
+        )
+        return result.rows[0] as Record<string, number>
+      })
+
+      return { created, check }
+    })
+
+    // Sans catégories, aucune dépense n'est saisissable : expenses.category_id
+    // est NOT NULL et le référentiel est rangé par tenant.
+    expect(etat.check.categories).toBe(23)
+
+    // achat_produit et commission_pisteur : présentes au référentiel, refusées
+    // en saisie manuelle. Les compter aussi en dépense doublerait le TCB.
+    expect(etat.check.reservees).toBe(2)
+
+    // Intérêts, gardiennage, stockage, administration : elles se répartissent
+    // par clé, elles ne se rattachent pas directement à un périmètre.
+    expect(etat.check.indirectes).toBe(4)
+
+    // Sans règles, app.raise_alert renvoie null pour chaque type : les vingt
+    // alertes ne se déclencheraient jamais, et rien ne le signalerait.
+    expect(etat.check.regles).toBe(20)
+
+    expect(etat.created.expense_categories).toBe(23)
+    expect(etat.created.alert_rules).toBe(20)
+  })
+
+  it('ne laisse pas un client installer des référentiels chez un autre', async () => {
+    // Les deux fonctions sont `security definer` et relayées dans `public` :
+    // sans garde, un identifiant de tenant passé à la main suffisait à écrire
+    // chez un tiers.
+    await expect(
+      withUser(actors.ownerA, (c) => c.query(`select public.seed_alert_rules($1)`, [ids.tenantB])),
+    ).rejects.toThrow(/Réservé à l/)
+
+    await expect(
+      withUser(actors.ownerA, (c) =>
+        c.query(`select public.seed_expense_categories($1)`, [ids.tenantB]),
+      ),
+    ).rejects.toThrow(/Réservé à l/)
+  })
+
+  it('rejouer le référentiel ne duplique rien', async () => {
+    // La fonction sert aussi à réparer un client ouvert avant la migration
+    // 3100 : elle doit pouvoir être relancée sans risque.
+    const rejoue = await withUser(actors.superAdmin, async (c) => {
+      const { rows } = await c.query(
+        `select public.create_tenant($1, $2, $3, $4, $5) as r`,
+        Object.values(nouveau('lba-man')),
+      )
+      const tenantId = (rows[0].r as Record<string, string>).tenant_id
+
+      const categories = await c.query(`select public.seed_expense_categories($1) as n`, [tenantId])
+      const regles = await c.query(`select public.seed_alert_rules($1) as n`, [tenantId])
+
+      return { categories: categories.rows[0].n as number, regles: regles.rows[0].n as number }
+    })
+
+    expect(rejoue).toEqual({ categories: 0, regles: 0 })
+  })
+
   it('refuse un identifiant déjà pris plutôt que de rattacher', async () => {
     // Réutiliser un slug relierait le nouveau client aux données de l'ancien.
     await expect(
