@@ -1,0 +1,10 @@
+# Cloudflare Pages — réécriture SPA.
+#
+# Toute route inconnue rend index.html : le routage est côté navigateur, et
+# sans cette ligne un lien d'invitation ouvert directement — /invitation/<jeton>,
+# précisément le cas qui compte — renverrait une 404 avant que l'application
+# n'ait la moindre chance de s'exécuter.
+#
+# Les fichiers réellement présents dans dist/ sont servis en priorité : cette
+# règle ne s'applique qu'à ce qui n'existe pas sur le disque.
+/*    /index.html   200

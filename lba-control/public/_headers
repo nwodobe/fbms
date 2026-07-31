@@ -1,0 +1,21 @@
+# Cloudflare Pages — en-têtes de sécurité et de cache.
+#
+# Miroir de vercel.json : les deux hébergeurs doivent produire le même
+# comportement, sans quoi un défaut ne se reproduirait que sur l'un des deux.
+
+/*
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
+
+# Le service worker ne doit jamais être servi depuis un cache : une version
+# figée continuerait de relayer les requêtes de l'ancienne application.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Les fichiers d'assets portent une empreinte dans leur nom : ils ne changent
+# jamais sous la même adresse.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

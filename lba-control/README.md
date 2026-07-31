@@ -324,6 +324,9 @@ affichage.
 
 ### 4. Application
 
+**`DEPLOIEMENT.md` donne les valeurs exactes à saisir chez l'hébergeur**, y compris le répertoire
+racine, la branche de production et les trois URL de retour Supabase. Ce qui suit en est le résumé.
+
 ```bash
 npm run build        # produit dist/
 ```
