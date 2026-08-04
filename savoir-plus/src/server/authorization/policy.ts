@@ -84,20 +84,14 @@ export function requireActiveParentLink(
   }
 }
 
-export function requirePublishedContent(
-  principal: SessionPrincipal,
-  status: ContentStatus,
-): void {
+export function requirePublishedContent(principal: SessionPrincipal, status: ContentStatus): void {
   requireActiveAccount(principal);
   if (principal.role !== 'admin' && status !== 'published') {
     throw new AuthorizationError(404, 'RESOURCE_NOT_FOUND');
   }
 }
 
-export function requireSolutionUnlocked(
-  principal: SessionPrincipal,
-  attempt: AttemptAccess,
-): void {
+export function requireSolutionUnlocked(principal: SessionPrincipal, attempt: AttemptAccess): void {
   requireRole(principal, 'student');
   requireOwnership(principal, attempt.ownerUserId);
   if (attempt.attemptNumber < 3 && !attempt.abandoned) {
@@ -135,12 +129,7 @@ export function sanitizeClientIdentity<T extends Record<string, unknown>>(
 }
 
 export function assertExercisePayloadSafe(payload: Record<string, unknown>): void {
-  const forbidden = [
-    'correct_answer',
-    'correctAnswer',
-    'solution_markdown',
-    'solutionMarkdown',
-  ];
+  const forbidden = ['correct_answer', 'correctAnswer', 'solution_markdown', 'solutionMarkdown'];
   if (forbidden.some((key) => Object.hasOwn(payload, key))) {
     throw new Error('SECRET_EXERCISE_FIELD_EXPOSED');
   }
