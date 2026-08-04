@@ -7,6 +7,74 @@
 
 ## [Non publié]
 
+### 0.2.0 — 2026-08-04 — Phase 2 (partielle) : fondations, schéma, domaine pur
+
+**Portée :** outillage, schéma de données et domaine pur. **Aucune page, aucun écran, aucun contenu pédagogique.**
+
+#### Décidé
+
+- **OQ-01 tranchée de fait.** L'accès de la session est limité au dépôt `nwodobe/fbms` : l'option A (dépôt dédié) n'est pas exécutable. Retenu : **option B**, répertoire isolé `savoir-plus/`, qui préserve intégralement le déploiement GitHub Pages de FBMS. ADR-001 mis à jour en conséquence.
+
+#### Ajouté — Lot 0, fondations
+
+| Élément | Détail |
+|---|---|
+| `.gitignore` **(F-01)** | créé **avant** toute installation de dépendance. Couvre `.env*`, `node_modules/`, `.next/`, artefacts. |
+| `savoir-plus/package.json` **(F-02)** | Next.js 16, React 19, Drizzle, Zod, Vitest. Script `verify` = typage + lint + tests. |
+| `tsconfig.json` | TypeScript **strict**, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`. |
+| `eslint.config.mjs` **(F-04)** | **frontières de modules appliquées mécaniquement** : domaine pur sans dépendance, UI sans accès base ni scoring, repositories sans remontée vers les services. |
+| `vitest.config.mts` **(F-05)** | seuil de couverture **100 % des branches** sur `lib/{scoring,mastery,revision}`. |
+| `.github/workflows/savoir-plus-ci.yml` **(F-06)** | CI filtrée par chemin (FBMS ne la déclenche pas) : typage → lint → format → couverture → audit → secrets → **dérive de migration** → **refus de migration destructive**. |
+| `.env.example` | 10 variables documentées. Une seule `NEXT_PUBLIC_`. |
+
+#### Ajouté — Lot 1, base de données
+
+- **Schéma Drizzle complet : 37 tables**, 22 types énumérés, réparties en 5 modules (`auth`, `pedagogy`, `diagnostic`, `progress`, `technical`).
+- **Migration initiale générée** : `drizzle/migrations/0000_initial_schema.sql` — 641 lignes, 60 index, 54 clés étrangères, 32 contraintes `CHECK`, **0 instruction destructive**.
+- Les garanties du modèle sont portées **par la base**, pas seulement par le code :
+  - `student_skill_levels_mastery_requires_two_measures_ck` — une compétence mesurée moins de 2 fois ne peut jamais être `mastered` ;
+  - `error_logs_recurrent_threshold_ck` — seuil strict de 3 occurrences ;
+  - `exercise_attempts_unique_try_uq` — anti-doublon structurel de la synchronisation ;
+  - `revision_plans_one_active_uq` (index partiel) — aucune duplication de révision ;
+  - `diagnostic_answers_attempt_question_uq` — sauvegarde progressive idempotente ;
+  - `parent_student_links_parent_active_idx` (index partiel) — requête d'autorisation parent.
+- **Garde-fou de connexion** (`connection-guard.ts`, ADR-008) : l'application refuse une `DATABASE_URL` non poolée, les migrations refusent une URL poolée, et un garde refuse d'opérer sur la production.
+
+#### Ajouté — domaine pur
+
+| Module | Contenu |
+|---|---|
+| `lib/scoring` | score de tentative, score partiel pondéré, **verrouillage de la solution et des indices** |
+| `lib/mastery` | seuils 80/50, fenêtre glissante de 10 mesures, recalcul intégral reconstructible |
+| `lib/revision` | calendrier J+1/3/7/14/30, progression et régression, composition de séance plafonnée |
+
+#### Tests exécutés
+
+```
+Test Files  5 passed (5)
+     Tests  163 passed (163)
+
+Couverture du domaine pur :
+  Statements 100 % · Branches 100 % · Functions 100 % · Lines 100 %
+```
+
+Dont **22 tests des frontières d'architecture** : ils lintent des extraits qui doivent être refusés, et testent donc les règles elles-mêmes.
+
+#### Corrigé
+
+- **Régression réelle détectée par ces tests** : le motif ESLint `@/lib/scoring/*` ne couvrait pas l'import du module racine `@/lib/scoring`, laissant passer une violation de l'ADR-005 (scoring appelé depuis l'UI). Les trois frontières ont été corrigées pour couvrir la forme racine **et** les sous-modules, et la vérification est devenue un test permanent.
+- **4 vulnérabilités de gravité haute ou critique** dans les versions initialement retenues, dont **une injection SQL dans `drizzle-orm` < 0.45.2** (GHSA-gpj5-g38j-94v9) — directement liée au risque R-S08. Versions relevées : `drizzle-orm` 0.45.2, `next` 16.3.0, `vitest` 4.1.10, `eslint` 10. **Zéro vulnérabilité haute ou critique restante.**
+
+#### Non fait — volontairement
+
+Aucune page, aucun composant, aucun écran · aucun contenu pédagogique (bloqué par **OQ-02** et **OQ-03**) · aucun seed · aucune Server Action · aucun service · aucune migration exécutée contre une base réelle (aucun projet Neon n'existe — voir OQ-06).
+
+#### Reste bloquant
+
+**OQ-02** (validation du programme ivoirien) et **OQ-03** (production des 45 exercices) — tous deux hors du champ du code.
+
+---
+
 ### 0.1.0 — 2026-08-03 — Phase 0 : inspection et cadrage documentaire
 
 **Portée :** documentation uniquement. **Aucun code applicatif, aucune migration, aucune dépendance n'a été ajoutée.**

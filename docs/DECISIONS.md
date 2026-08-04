@@ -25,8 +25,18 @@ Le dépôt `nwodobe/fbms` héberge l'application ANAGROCI FBMS : site statique s
 | **B** | Sous-répertoire `savoir-plus/` dans `fbms` | aucune action externe · FBMS intact | deux produits, deux stacks, deux bases dans un dépôt · CI complexe · confusion durable · conflit de portée du service worker (INC-04) |
 | **C** | Next.js à la racine | structure §9 littérale | **casse le déploiement GitHub Pages de FBMS** — inacceptable |
 
-### Décision proposée
-**Option A**, dépôt dédié. À défaut, **option B** comme solution transitoire. **L'option C est écartée.**
+### Décision — **ARRÊTÉE le 2026-08-04 : option B**
+
+L'accès de la session de développement est limité au dépôt `nwodobe/fbms` et à la branche désignée : **l'option A n'est pas exécutable dans ce cadre**. Le code vit donc dans `savoir-plus/`, avec la structure du §9 appliquée à l'intérieur de ce répertoire.
+
+Mesures prises pour contenir les inconvénients de l'option B :
+- la CI (`.github/workflows/savoir-plus-ci.yml`) est **filtrée par chemin** — une modification de FBMS ne la déclenche pas, et inversement ;
+- `.gitignore` couvre les deux produits sans interférence ;
+- le déploiement GitHub Pages de FBMS reste intact : aucun fichier n'a été ajouté à la racine hors `.gitignore` et `.github/`.
+
+**Reste à traiter avant la PWA (Lot 3) :** le conflit de portée du service worker (INC-04). Le service worker FBMS occupe la portée racine `./` ; celui de Savoir+ devra être enregistré sur `/savoir-plus/`.
+
+Le passage ultérieur à l'option A reste souhaitable et peu coûteux : le répertoire `savoir-plus/` est autonome et se déplace tel quel.
 
 ### Conséquences
 - A : la structure du §9 s'applique à la racine du nouveau dépôt, sans adaptation.

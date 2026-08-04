@@ -1,0 +1,96 @@
+# ============================================================================
+# Savoir+ — Intégration continue
+#
+# Ordre imposé par docs/TEST_STRATEGY.md §11 : du plus rapide au plus lent,
+# arrêt au premier échec. Aucune fusion si une étape échoue.
+#
+# Le filtre de chemins est indispensable : ce dépôt héberge AUSSI le site
+# statique ANAGROCI FBMS, qui ne doit pas déclencher cette CI.
+# ============================================================================
+name: Savoir+ CI
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'savoir-plus/**'
+      - '.github/workflows/savoir-plus-ci.yml'
+  pull_request:
+    paths:
+      - 'savoir-plus/**'
+      - '.github/workflows/savoir-plus-ci.yml'
+
+defaults:
+  run:
+    working-directory: savoir-plus
+
+jobs:
+  quality:
+    name: Qualité et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: savoir-plus/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # --- 1. Typage strict ------------------------------------------------
+      - name: Typage TypeScript strict
+        run: npm run typecheck
+
+      # --- 2. Lint (dont FRONTIÈRES D'ARCHITECTURE) ------------------------
+      - name: Lint et frontières de modules
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      # --- 3. Tests unitaires + couverture du domaine pur ------------------
+      # Seuil 100 % des branches sur scoring / mastery / revision : une erreur
+      # de scoring corrompt silencieusement la progression (RISKS.md R-T03).
+      - name: Tests unitaires et couverture
+        run: npm run test:coverage
+
+      # --- 4. Sécurité : aucune vulnérabilité haute ou critique ------------
+      - name: Audit des dépendances
+        run: npm audit --audit-level=high
+
+      # --- 5. Aucun secret dans le dépôt -----------------------------------
+      - name: Vérifier l'absence de fichier d'environnement committé
+        working-directory: .
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example'; then
+            echo "::error::Un fichier .env est suivi par git."
+            exit 1
+          fi
+          echo "OK : aucun fichier .env suivi."
+
+      # --- 6. Migrations : le schéma et les migrations sont synchronisés ---
+      # Si un schéma Drizzle change sans migration générée, la CI le dit.
+      - name: Vérifier que les migrations sont à jour
+        run: |
+          npx drizzle-kit generate --name=ci_drift_check
+          if git diff --quiet --exit-code drizzle/migrations; then
+            echo "OK : aucune dérive entre le schéma et les migrations."
+          else
+            echo "::error::Le schéma Drizzle a changé sans migration générée. Lancer 'npm run db:generate'."
+            git diff --stat drizzle/migrations
+            exit 1
+          fi
+
+      # --- 7. Aucune migration destructive non signalée --------------------
+      - name: Refuser une migration destructive non documentée
+        run: |
+          if grep -rlE '\b(DROP TABLE|DROP COLUMN|TRUNCATE)\b' drizzle/migrations/; then
+            echo "::error::Migration destructive détectée. Elle exige un plan explicite documenté dans docs/DECISIONS.md (DATA_MODEL.md §12)."
+            exit 1
+          fi
+          echo "OK : aucune migration destructive."
