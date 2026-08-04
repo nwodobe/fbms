@@ -41,7 +41,9 @@ const MIGRATIONS_FOLDER = './drizzle/migrations';
  */
 neonConfig.webSocketConstructor = ws;
 
-async function migrateOverWebSocket(connectionString: string): Promise<void> {
+async function migrateOverWebSocket(
+  connectionString: string,
+): Promise<void> {
   const pool = new Pool({ connectionString });
   try {
     await migrateWs(drizzleWs(pool), { migrationsFolder: MIGRATIONS_FOLDER });
@@ -61,7 +63,9 @@ async function migrateOverHttp(connectionString: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const connectionString = assertDirectConnection(process.env['DATABASE_URL_UNPOOLED']);
+  const connectionString = assertDirectConnection(
+    process.env['DATABASE_URL_UNPOOLED'],
+  );
 
   // Garde-fou : refuse la production hors intention explicite.
   if (process.env['ALLOW_PRODUCTION_MIGRATION'] !== 'yes') {
