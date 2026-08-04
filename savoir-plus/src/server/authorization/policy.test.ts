@@ -159,11 +159,7 @@ describe('matrice d’autorisation bloquante', () => {
   });
 
   it('T-14 — un élève ne lit pas un contenu draft', () => {
-    expectAuthError(
-      () => requirePublishedContent(principal(), 'draft'),
-      404,
-      'RESOURCE_NOT_FOUND',
-    );
+    expectAuthError(() => requirePublishedContent(principal(), 'draft'), 404, 'RESOURCE_NOT_FOUND');
   });
 
   it('T-15 — une session expirée reçoit 401', () => {
@@ -179,7 +175,9 @@ describe('matrice d’autorisation bloquante', () => {
   });
 
   it('T-17 — seule une identité admin active peut atteindre une mutation de rôle', () => {
-    expect(requireRole(principal({ userId: 'admin-a', role: 'admin' }), 'admin').role).toBe('admin');
+    expect(requireRole(principal({ userId: 'admin-a', role: 'admin' }), 'admin').role).toBe(
+      'admin',
+    );
   });
 
   it('T-18 — un asset appartenant à un autre utilisateur retourne 404', () => {
