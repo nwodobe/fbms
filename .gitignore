@@ -1,0 +1,58 @@
+# ============================================================================
+# Dépôt nwodobe/fbms
+# Contient DEUX produits :
+#   · à la racine : ANAGROCI FBMS (site statique, GitHub Pages)
+#   · savoir-plus/ : Savoir+ (Next.js + Neon + Drizzle)
+# ============================================================================
+
+# --- Secrets — JAMAIS committés -------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+
+# --- Dépendances -----------------------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# --- Build Next.js ---------------------------------------------------------
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+
+# --- Tests et couverture ---------------------------------------------------
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# --- Outils ----------------------------------------------------------------
+.turbo/
+.vercel/
+*.tsbuildinfo
+.eslintcache
+
+# --- Système ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# --- Éditeurs --------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Base de données locale ------------------------------------------------
+*.sqlite
+*.sqlite3
+pgdata/
