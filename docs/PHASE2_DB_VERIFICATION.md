@@ -1,109 +1,166 @@
 # Savoir+ — Vérification réelle de la base Neon
 
-**Date :** 2026-08-04  
-**Projet Neon :** `savoir-plus`  
-**Project ID :** `autumn-heart-85786511`  
-**Branche vérifiée :** `preview/initial-schema`  
-**Branch ID :** `br-super-sun-a6lrxz4f`
+> Agents : **Neon Database Architect**, QA Engineer, DevOps Engineer
+> Date : 2026-08-04
+> Statut : **RÉSULTATS RÉELS** — chaque ligne de ce document est la sortie d'une exécution, pas une intention.
+
+| | |
+|---|---|
+| Projet Neon | `savoir-plus` — `autumn-heart-85786511` |
+| Branche par défaut | `main` — `br-old-dawn-a6idlnjt` |
+| Branche vérifiée | `preview/initial-schema` — `br-super-sun-a6lrxz4f` |
+| Base | `neondb` |
+| Migration appliquée | `0000_initial_schema.sql` (173 instructions) |
+
+---
 
 ## 1. Objectif
 
-Vérifier que la migration initiale Drizzle de Savoir+ est réellement applicable sur Neon et que les garanties structurelles annoncées par le schéma sont effectivement imposées par PostgreSQL.
+Vérifier que la migration initiale Drizzle est réellement applicable sur Neon, et que les garanties structurelles annoncées par le schéma sont **effectivement imposées par PostgreSQL** — pas seulement par la discipline du code applicatif.
 
-Cette vérification a été réalisée sur une branche de prévisualisation isolée. La branche Neon `main` n’a pas été modifiée.
+La vérification a été menée sur une branche de prévisualisation isolée. **La branche Neon `main` n'a pas été modifiée**, conformément à `ARCHITECTURE.md` §6.4.
 
-## 2. Limitation d’infrastructure rencontrée
+---
 
-L’environnement d’exécution utilisé pendant la session bloquait les connexions directes vers `*.neon.tech` ainsi que le transport WebSocket. La migration n’a donc pas pu être exécutée par le script local `npm run db:migrate` depuis ce bac à sable.
+## 2. Limitation d'infrastructure rencontrée
 
-La migration a été appliquée par le connecteur Neon sur une branche de prévisualisation. Cette limitation ne remet pas en cause le SQL produit, mais elle signifie que le script local de migration doit encore être exécuté dans un environnement autorisant une connexion directe à Neon avant une mise en production.
+Le proxy sortant du bac à sable de développement **refuse toute connexion vers `*.neon.tech`** (403 sur le tunnel `CONNECT`), quel que soit le transport :
 
-## 3. Résultat structurel observé
+```
+curl https://ep-…-pooler.us-west-2.aws.neon.tech/sql  → CONNECT tunnel failed, response 403
+WebSocket (pilote Neon)                               → Unexpected server response: 403
+```
 
-La branche `preview/initial-schema` contient :
+Conséquences et traitement :
 
-| Élément | Résultat observé |
-|---|---:|
-| Tables publiques | 37 |
-| Types énumérés | 22 |
-| Clés étrangères | 54 |
-| Contraintes CHECK | 32 |
-| Index publics | 96 |
-| Index partiels | 5 |
-| Entrées du journal Drizzle | 1 |
+1. **Le script `npm run db:migrate` n'a pas pu s'exécuter depuis ce bac à sable.** Ce n'est pas un défaut du code : le script échoue au bon endroit, avec un message explicite.
+2. La migration a donc été appliquée **via le connecteur Neon**, instruction par instruction, en lots transactionnels.
+3. Un **transport HTTP de repli** a été ajouté au script (`NEON_MIGRATION_TRANSPORT=http`) pour les environnements dont le réseau interdit la mise à niveau WebSocket. Il est documenté comme **dégradé** : sans session PostgreSQL, il n'y a pas de transaction englobante, donc un échec à mi-parcours laisse un schéma partiellement migré. Il ne doit pas être le mode par défaut en production.
+4. Le journal Drizzle (`drizzle.__drizzle_migrations`) a été renseigné avec le hash réel du fichier de migration, afin que la branche soit dans un état cohérent : un `npm run db:migrate` ultérieur la verra comme déjà migrée et ne rejouera rien.
 
-Les 96 index incluent les index explicites ainsi que ceux créés automatiquement par PostgreSQL pour les clés primaires et contraintes d’unicité.
+Cette limitation ne remet pas en cause le SQL produit. Elle signifie que le script de migration du dépôt doit encore être exécuté dans un environnement autorisant une connexion à Neon avant toute mise en production.
 
-## 4. Garanties métier vérifiées
+---
 
-Les contrôles suivants ont été exécutés directement contre PostgreSQL sur la branche de prévisualisation.
+## 3. Garde-fou de connexion (ADR-008) — vérifié sur de vraies chaînes Neon
 
-### IT-01 — Rejeu hors ligne
+```
+DATABASE_URL poolée ?            true
+DATABASE_URL_UNPOOLED poolée ?   false
+✓ garde application accepte l’URL poolée
+✓ garde migration accepte l’URL directe
+✓ garde migration REFUSE l’URL poolée
+✓ garde application REFUSE l’URL directe
+```
 
-La contrainte d’unicité sur les tentatives refuse la réinsertion d’une même tentative logique. Le mécanisme anti-doublon est donc porté par la base et ne dépend pas uniquement du code applicatif.
+Les quatre cas se comportent comme spécifié. Le garde-fou n'est pas théorique : il refuse effectivement les **deux** inversions possibles.
 
-### Maîtrise d’une compétence
+---
 
-La base refuse qu’une compétence soit déclarée `mastered` lorsqu’elle possède moins de deux mesures. La règle `mastery_requires_two_measures_ck` est effective.
+## 4. Conformité du schéma déployé
 
-### Seuil d’erreur récurrente
+Requête d'inventaire exécutée sur le catalogue PostgreSQL après migration :
 
-Le statut récurrent exige le seuil structurel défini par `error_logs_recurrent_threshold_ck`.
+| Objet | Attendu | **Constaté** | |
+|---|---:|---:|:--:|
+| Tables publiques | 37 | **37** | ✅ |
+| Types énumérés | 22 | **22** | ✅ |
+| Clés étrangères | 54 | **54** | ✅ |
+| Contraintes `CHECK` | 32 | **32** | ✅ |
+| Index publics (dont implicites PK/unique) | — | **96** | ✅ |
+| **Index partiels** | 5 | **5** | ✅ |
+| Entrées du journal Drizzle | 1 | **1** | ✅ |
 
-### Unicité d’e-mail insensible à la casse
+Les 96 index incluent les index explicites et ceux créés automatiquement par PostgreSQL pour les clés primaires et les contraintes d'unicité.
 
-Deux utilisateurs ne peuvent pas contourner l’unicité en modifiant uniquement la casse de leur adresse électronique.
+Les 5 index partiels sont ceux qui portent les garanties d'unicité conditionnelle : lien parent actif, diagnostic en cours, erreurs à réviser, révision active, révisions dues.
 
-### Plan de révision actif unique
+---
 
-L’index partiel `revision_plans_one_active_uq` empêche la création de deux plans actifs équivalents, y compris lorsque `error_log_id` est nul.
+## 5. Garanties métier vérifiées
 
-Le contrôle complémentaire confirme qu’un plan terminé ne bloque pas la création d’un nouveau plan. L’index n’est donc pas excessivement restrictif.
+Chaque test insère une donnée qui **doit** être refusée. Un test « réussi » signifie que **PostgreSQL a rejeté l'écriture**.
 
-### Publication d’un exercice
+| # | Règle métier | Écriture tentée | Résultat |
+|---|---|---|---|
+| **IT-01** | Anti-doublon de synchronisation | 2ᵉ tentative n°1 sur le même exercice, même élève | ❌ rejeté — `exercise_attempts_unique_try_uq` ✅ |
+| **IT-02** | Maîtrise impossible sous 2 mesures | `status='mastered'` avec `evaluated_count=1` | ❌ rejeté — `student_skill_levels_mastery_requires_two_measures_ck` ✅ |
+| **IT-03** | Seuil strict de récurrence | `status='recurrent'` avec `occurrence_count=2` | ❌ rejeté — `error_logs_recurrent_threshold_ck` ✅ |
+| **IT-04** | Unicité d'e-mail insensible à la casse | `ANDERSON@Example.CI` après `anderson@example.ci` | ❌ rejeté — `users_email_lower_uq` ✅ |
+| **IT-05** | Une seule révision active par cible | 2ᵉ plan `scheduled`, même élève/compétence, `error_log_id` **NULL** | ❌ rejeté — `revision_plans_one_active_uq` ✅ |
+| **IT-06** | Auto-lien parent-enfant impossible | lien où parent = élève | ❌ rejeté — `parent_student_links_distinct_ck` ✅ |
+| **IT-07** | Contenu publié = 2 indices minimum (CQ-02) | version publiée avec 1 seul indice | ❌ rejeté — `exercise_versions_hints_ck` ✅ |
 
-Un exercice publié ne peut pas être associé à moins de deux indices. La contrainte de qualité de contenu est imposée par la base.
+Le mécanisme anti-doublon (IT-01) est donc porté par la base et ne dépend pas uniquement du code applicatif — c'est ce qui protège la synchronisation hors ligne d'un rejeu déformé, lorsque la clé d'idempotence a été perdue.
 
-## 5. Données de test résiduelles
+### Test complémentaire — l'index partiel n'est pas trop strict
 
-La branche de prévisualisation contient quelques enregistrements créés pour les tests de contraintes, notamment dans :
+Une révision passée à `done` ne bloque **pas** la programmation de la suivante :
 
-- `users` ;
-- `subjects` ;
-- `chapters` ;
-- `skills` ;
-- `exercises` ;
-- `exercise_versions` ;
-- `exercise_attempts` ;
-- `revision_plans`.
+```
+status     | n
+-----------+---
+scheduled  | 1
+done       | 1
+```
 
-Ces données ne doivent pas être promues vers la branche principale. Elles sont acceptables sur la branche de validation, mais devront être supprimées ou la branche devra être recréée avant toute utilisation comme environnement de démonstration.
+C'est le point qui compte : l'index doit interdire le doublon **sans** casser le cycle de répétition espacée. Les deux comportements sont vérifiés.
 
-## 6. État de la branche principale
+### Le point non trivial d'IT-05
 
-Au moment de cette vérification, la branche Neon `main` ne contient aucune table applicative Savoir+. Elle reste volontairement vierge jusqu’à validation du code et de la Pull Request GitHub correspondante.
+Avec un index unique ordinaire, deux lignes portant `error_log_id = NULL` seraient **toutes deux acceptées** — PostgreSQL ne considère pas deux `NULL` comme égaux. La garantie « aucune duplication » de la Phase 9 aurait été silencieusement inopérante sur tous les plans de révision non rattachés à une erreur, c'est-à-dire la majorité.
 
-## 7. Écart entre preuve et dépôt
+Le `coalesce(error_log_id, '00000000-…'::uuid)` dans l'index règle ce cas, et le test le prouve.
 
-La migration SQL est appliquée et vérifiée sur Neon preview. En revanche :
+---
 
-- le script de migration du dépôt n’a pas été exécuté depuis cet environnement en raison du blocage réseau ;
-- aucune migration n’a encore été appliquée à Neon `main` ;
-- aucun contenu pédagogique de référence n’a été chargé ;
-- aucune authentification Auth.js n’est encore opérationnelle.
+## 6. Données de test résiduelles
 
-## 8. Verdict
+La branche de prévisualisation contient les enregistrements créés pour ces tests, dans : `users`, `subjects`, `chapters`, `skills`, `exercises`, `exercise_versions`, `exercise_attempts`, `revision_plans`.
 
-**Phase 2, couche base de données : validée sur branche de prévisualisation.**
+**Ce ne sont pas des données de démonstration** au sens de `seed:demo` : ce sont des fixtures de test. Elles ne doivent pas être promues vers la branche principale. La branche devra être purgée ou recréée avant toute utilisation comme environnement de démonstration.
+
+---
+
+## 7. État de la branche principale
+
+Au moment de cette vérification, la branche Neon `main` ne contient **aucune table applicative Savoir+**. Elle reste volontairement vierge jusqu'à validation du code.
+
+---
+
+## 8. Ce qui n'a PAS été vérifié
+
+Énoncé explicitement, pour ne rien laisser croire de plus que ce qui a été fait.
+
+| # | Point | Raison |
+|---|---|---|
+| 1 | **`main` n'est pas migrée** | La validation en preview est terminée ; la promotion reste à faire. |
+| 2 | **Le script `migrate.ts` de bout en bout** | Bloqué par la limitation réseau du §2. À exécuter depuis un poste de développement ou la CI. |
+| 3 | **ADR-014** — la suppression d'un exercice ne détruit pas les tentatives d'un élève | Vérifier cela exige un `DELETE`. Je n'exécute pas de SQL destructif de ma propre initiative. La clé étrangère `ON DELETE restrict` est présente dans le schéma déployé (comptage des 54 FK), mais elle n'a pas été éprouvée par une suppression réelle. |
+| 4 | Performances des requêtes chaudes (PF-05, IT-16) | Aucune donnée réaliste en base ; un `EXPLAIN` sur des tables vides n'apprend rien. |
+| 5 | Contenu pédagogique de référence | Non chargé — bloqué par OQ-02 et OQ-03. |
+| 6 | Authentification Auth.js | Non implémentée — c'est l'objet du Lot 2. |
+
+---
+
+## 9. Verdict
+
+**Phase 2, couche base de données : VALIDÉE sur branche de prévisualisation.**
+
+Le schéma s'exécute réellement sur Neon. Les sept garanties structurelles du modèle de données sont vérifiées : elles ne dépendent pas de la discipline du code applicatif, elles sont portées par PostgreSQL.
 
 La promotion vers Neon `main` reste conditionnée à :
 
-1. la validation de la Pull Request GitHub ;
+1. la validation de la revue de code ;
 2. une CI verte ;
-3. l’exécution de la migration depuis un environnement autorisé ou par un canal Neon contrôlé ;
+3. l'exécution de la migration depuis un environnement autorisé, ou par un canal Neon contrôlé ;
 4. une vérification post-migration sur `main` ;
-5. l’absence de données de test.
+5. l'absence de données de test.
 
-## 9. Prochaine étape
+---
 
-Démarrer le Lot 2 uniquement après fusion de la Phase 2 : Auth.js avec sessions en base, gardes serveur, test générique interdisant les actions non protégées et 18 tests d’autorisation bloquants.
+## 10. Prochaine étape
+
+**Lot 2 — authentification et autorisation** : Auth.js avec sessions en base, les 9 gardes serveur, le test générique interdisant toute action non protégée, et les **18 tests d'autorisation bloquants**.
+
+Ce lot précède tout développement fonctionnel : sans filet RLS sur Neon, une garde ajoutée après coup est une garde oubliée.

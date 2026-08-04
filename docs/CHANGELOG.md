@@ -69,6 +69,25 @@ Dont **22 tests des frontières d'architecture** : ils lintent des extraits qui 
 
 Aucune page, aucun composant, aucun écran · aucun contenu pédagogique (bloqué par **OQ-02** et **OQ-03**) · aucun seed · aucune Server Action · aucun service · aucune migration exécutée contre une base réelle (aucun projet Neon n'existe — voir OQ-06).
 
+#### Vérifié contre une base Neon réelle
+
+Voir `docs/PHASE2_DB_VERIFICATION.md` pour le détail.
+
+- Projet Neon `autumn-heart-85786511` créé ; migration appliquée sur la branche **`preview/initial-schema`**, jamais directement sur `main` (règle `ARCHITECTURE.md` §6.4).
+- **Inventaire du schéma déployé conforme** : 37 tables, 22 enums, 54 clés étrangères, 32 contraintes `CHECK`, 5 index partiels.
+- **7 contraintes métier éprouvées par des écritures réellement refusées** : anti-doublon de synchronisation · maîtrise impossible sous 2 mesures · seuil strict de récurrence à 3 · unicité d'e-mail insensible à la casse · unicité de révision active (y compris avec `error_log_id` à `NULL`) · auto-lien parent-enfant impossible · minimum de 2 indices sur un contenu publié.
+- Vérification complémentaire : une révision `done` **ne bloque pas** la programmation de la suivante — l'index partiel interdit le doublon sans casser le cycle de répétition espacée.
+- Garde-fou ADR-008 éprouvé sur de vraies chaînes Neon : les quatre cas (accepter/refuser, poolée/directe) se comportent comme spécifié.
+
+#### Ajouté — transport de migration de repli
+
+Le proxy sortant du bac à sable refuse toute connexion vers `*.neon.tech` (403 sur le tunnel `CONNECT`), WebSocket comme HTTPS. `scripts/maintenance/migrate.ts` accepte désormais `NEON_MIGRATION_TRANSPORT=http|websocket`. Le mode HTTP est documenté comme **dégradé** : sans session PostgreSQL il n'y a pas de transaction englobante, donc un échec à mi-parcours laisse un schéma partiellement migré. WebSocket reste le défaut.
+
+#### Reste à faire
+
+- **`main` n'est pas migrée.** Seule la branche de preview porte le schéma. À promouvoir par `npm run db:migrate` depuis un environnement disposant d'un accès réseau à Neon.
+- **ADR-014 non éprouvé** : la clé étrangère `ON DELETE restrict` protégeant les tentatives d'élève est présente dans le schéma déployé, mais n'a pas été testée par une suppression réelle — cela exigerait un `DELETE`, que je n'exécute pas de ma propre initiative.
+
 #### Reste bloquant
 
 **OQ-02** (validation du programme ivoirien) et **OQ-03** (production des 45 exercices) — tous deux hors du champ du code.
