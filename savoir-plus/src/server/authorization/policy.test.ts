@@ -17,9 +17,7 @@ import {
 
 const now = new Date('2026-08-04T08:00:00.000Z');
 
-function principal(
-  overrides: Partial<SessionPrincipal> = {},
-): SessionPrincipal {
+function principal(overrides: Partial<SessionPrincipal> = {}): SessionPrincipal {
   return {
     userId: 'student-a',
     role: 'student',
