@@ -1,6 +1,6 @@
 {
   "name": "savoir-plus",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Savoir+ — Comprendre, pratiquer, progresser.",
   "engines": {
@@ -25,9 +25,12 @@
     "verify": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^0.10.4",
+    "argon2": "^0.41.1",
     "drizzle-orm": "^0.45.2",
     "next": "^16.3.0",
+    "next-auth": "5.0.0-beta.32",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^3.24.1"
