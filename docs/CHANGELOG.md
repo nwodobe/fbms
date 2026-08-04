@@ -7,6 +7,51 @@
 
 ## [Non publié]
 
+### 0.3.0 — 2026-08-04 — Phase 3 (partielle) : autorisation
+
+**Portée :** couche d'autorisation et validation. **Aucun écran, aucun flux d'authentification complet** (bloqué par OQ-08, fournisseur d'e-mails).
+
+#### Ajouté — Lot 2, autorisation
+
+| Élément | Détail |
+|---|---|
+| `server/authorization/errors.ts` | 8 erreurs typées portant leur statut HTTP. **Règle de non-divulgation appliquée** : une ressource d'autrui renvoie 404, jamais 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants d'autres élèves. |
+| `server/authorization/policy.ts` **(A-06)** | La matrice de `AUTHORIZATION_MATRIX.md` §4 traduite en **donnée** : 40 actions × 3 rôles, avec périmètre (`own`/`linked`/`any`) et marquage d'audit. Une action absente est interdite à tous — le défaut est le refus. |
+| `server/authorization/guards.ts` **(A-06)** | Les 9 gardes, **conçues par injection de dépendances** : elles ne lisent ni la base, ni les cookies, ni `process.env`. Conséquence directe — les tests d'autorisation s'exécutent sans base, en millisecondes. |
+| `src/tests/every-action-is-guarded.test.ts` **(A-07)** | Analyse statique de `server/actions/` et `app/api/` : tout fichier exportant une fonction sans appel de garde fait **échouer la CI**. Échappatoire possible mais explicite et justifiée. |
+| `lib/validation/auth.ts` | Schémas Zod : inscription, connexion, réinitialisation, onboarding, code d'invitation. |
+
+#### Tests exécutés
+
+```
+Test Files  8 passed (8)
+     Tests  261 passed (261)
+```
+
+Dont :
+- **les 18 tests d'autorisation bloquants** (T-01 → T-18) de `AUTHORIZATION_MATRIX.md` §9, plus 7 invariants transverses de la matrice ;
+- 26 tests de validation couvrant les critères d'acceptation US-AUTH-01 et US-AUTH-04.
+
+#### Vérifié, pas seulement écrit
+
+- **Le détecteur A-07 a été éprouvé** : une action sans garde a été créée volontairement, la CI l'a refusée en la nommant, puis elle a été retirée. Un test qui ne peut pas échouer ne prouve rien.
+- **404 et non 403** : un test compare les deux erreurs champ à champ — statut, code et message doivent être identiques entre « ressource inexistante » et « ressource d'autrui ».
+- **Ordre des contrôles** : un anonyme sur une action d'administration reçoit 401, pas 403 — sinon on apprend quelles actions existent avant même d'être connecté. Un compte suspendu reçoit 403 avant tout contrôle de rôle.
+- **Verrouillage de la solution** : consommer des indices ne déverrouille pas la solution ; seuls le 3ᵉ essai ou un abandon explicite le font.
+- **Lot de synchronisation hétérogène** : rejet **intégral**, pas partiel, et marquage comme incident de sécurité.
+
+#### Décisions de conception notables
+
+- **Les gardes ne touchent pas la base.** L'alternative — des gardes lisant directement la session en base — aurait rendu les 18 tests dépendants d'un PostgreSQL disponible, donc lents, fragiles et probablement contournés. Une garde difficile à tester est une garde qu'on ne teste pas.
+- **La matrice est une donnée, pas du code dispersé.** `requirePermission(source, 'attempt.submit')` est vérifiable contre le document ; `requireRole(source, 'student')` disséminé dans 40 fichiers ne l'est pas.
+- **Aucune règle de complexité arbitraire sur les mots de passe.** Elle produit `Password1!` chez tout le monde. Longueur minimale de 10, plafond contre le déni de service sur le hachage, et refus des mots de passe notoirement courants.
+
+#### Non fait — volontairement
+
+Aucun écran · aucun flux d'inscription/vérification/récupération opérationnel (**OQ-08** : fournisseur d'e-mails non tranché) · Auth.js non câblé à l'adaptateur Drizzle (exige une base accessible) · limitation de débit (A-11) · service d'audit (A-12) — la matrice déclare les actions auditées, l'écriture reste à implémenter.
+
+---
+
 ### 0.2.0 — 2026-08-04 — Phase 2 (partielle) : fondations, schéma, domaine pur
 
 **Portée :** outillage, schéma de données et domaine pur. **Aucune page, aucun écran, aucun contenu pédagogique.**
