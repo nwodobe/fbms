@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">Logo ANAGROCI</title>
+  <desc id="desc">Symbole orange et vert inspiré du logo officiel fourni</desc>
+  <defs>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb21c"/>
+      <stop offset="1" stop-color="#ee8f00"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#19a84c"/>
+      <stop offset="1" stop-color="#087533"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#012d1b" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M120 27A93 93 0 0 0 120 213Z" fill="url(#orange)" stroke="#fff" stroke-width="7"/>
+    <path d="M121 213C120 114 157 57 214 48v52c-43 8-70 45-93 113Z" fill="url(#green)" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M121 213c18-63 53-99 93-110v48c-36 9-65 31-93 62Z" fill="#12923f" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M121 213c24-35 56-55 93-60v60Z" fill="#0b7d36" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+  </g>
+</svg>
