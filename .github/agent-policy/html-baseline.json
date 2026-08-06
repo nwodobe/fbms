@@ -1,0 +1,15 @@
+{
+  "_comment": [
+    "Écarts de structure HTML présents sur main au moment de l'installation des",
+    "agents IA (commit 12a7b36). Ils sont réels et devront être corrigés : ils",
+    "figurent ici pour que la porte qualité distingue une régression nouvelle",
+    "d'un défaut hérité, pas pour les excuser.",
+    "Les trois relèvent de `human-review` : ils vivent dans des pages HTML, que",
+    "la politique de ce dépôt exclut de l'auto-correction."
+  ],
+  "accepted": [
+    "fbms/fbms_carte.html|lang",
+    "logistique/alis_fbms.html|lang",
+    "fbms/index.html|img-alt"
+  ]
+}

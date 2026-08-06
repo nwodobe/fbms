@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "Fichiers JavaScript qui n'analysent pas, présents sur main au commit 12a7b36.",
+    "",
+    "shared/alis-hardening.js : accolade fermante en trop à la ligne 39, qui",
+    "referme l'IIFE avant sa parenthèse. Le fichier entier échoue à l'analyse —",
+    "vérifié par `node --check` ET par Chromium (« Unexpected token 'function' »).",
+    "",
+    "Il EST chargé en production : shared/uppercase.js l'injecte dynamiquement",
+    "(ligne 79) sur logistique/alis_fbms.html. Une recherche textuelle dans le",
+    "HTML ne le voit pas — seule l'exécution de la page le révèle.",
+    "",
+    "Conséquence : les contrôles que ce fichier porte ne s'exécutent JAMAIS —",
+    "blocage d'une décision sans distance officielle, vérification",
+    "d'accessibilité camion, enregistrement de simulation, bon de mission.",
+    "L'écran fonctionne, mais sans ses garde-fous, et rien ne le signale.",
+    "",
+    "Classé human-review : JavaScript métier, exclu de l'auto-correction."
+  ],
+  "accepted": ["shared/alis-hardening.js"]
+}

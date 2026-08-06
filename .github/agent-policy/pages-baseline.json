@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "Problèmes d'exécution présents sur main au commit 12a7b36, relevés par",
+    "l'union de trois passages successifs pour absorber l'ordre de chargement.",
+    "Clé : page|règle.",
+    "",
+    "Les défauts réels derrière ces entrées :",
+    "  · anagroci-ui.css demandé en chemin relatif par fbms/, logistique/ et",
+    "    terrain/ alors que la feuille vit dans shared/ — trois 404 en production ;",
+    "  · shared/alis-hardening.js n'analyse pas (accolade en trop) et est pourtant",
+    "    injecté par shared/uppercase.js sur logistique/alis_fbms.html : ses",
+    "    garde-fous ne s'exécutent jamais.",
+    "",
+    "Ils sont datés, pas absous. Tous relèvent de human-review : HTML et",
+    "JavaScript métier sont exclus de l'auto-correction dans ce dépôt."
+  ],
+  "accepted": [
+    "fbms/app.html|erreur-console",
+    "fbms/app.html|requete-interne-echouee",
+    "fbms/audit_distances.html|erreur-console",
+    "fbms/audit_distances.html|requete-interne-echouee",
+    "fbms/fbms_carte.html|erreur-console",
+    "fbms/fbms_carte.html|erreur-js",
+    "fbms/fbms_carte.html|requete-interne-echouee",
+    "fbms/fbms_hubs.html|erreur-console",
+    "fbms/fbms_hubs.html|requete-interne-echouee",
+    "fbms/index.html|erreur-console",
+    "fbms/index.html|requete-interne-echouee",
+    "logistique/alis_fbms.html|erreur-console",
+    "logistique/alis_fbms.html|erreur-js",
+    "logistique/alis_fbms.html|requete-interne-echouee",
+    "terrain/achats.html|erreur-console",
+    "terrain/achats.html|requete-interne-echouee",
+    "terrain/cash.html|erreur-console",
+    "terrain/cash.html|requete-interne-echouee",
+    "terrain/command.html|erreur-console",
+    "terrain/command.html|requete-interne-echouee",
+    "terrain/sacs.html|erreur-console",
+    "terrain/sacs.html|requete-interne-echouee"
+  ]
+}

@@ -1,86 +1,165 @@
-# ============================================================================
-# FBMS — Politique de l'équipe d'agents IA (Claude Code + GitHub Actions)
-# ----------------------------------------------------------------------------
-# Source de vérité lisible par les humains ET référencée par les workflows.
-# Les listes de chemins font foi dans .github/agent-policy/*.txt.
-# ============================================================================
+# =============================================================================
+# ANAGROCI Operations Suite (FBMS) — politique des agents IA
+# =============================================================================
+# Ce fichier décrit le dépôt TEL QU'IL EST, pas tel qu'un gabarit voudrait qu'il
+# soit. Deux constats déterminent tout le reste :
+#
+#  1. FBMS est un site STATIQUE. Aucun `package.json` à la racine, aucun build,
+#     aucun bundler : GitHub Pages sert les fichiers tels quels (`.nojekyll`).
+#     Un agent qui proposerait `npm run build` proposerait une commande qui
+#     n'existe pas.
+#
+#  2. Le dépôt héberge AUSSI `savoir-plus/`, une application Next.js avec son
+#     propre `package.json` et sa propre intégration continue
+#     (`.github/workflows/savoir-plus-ci.yml`, filtrée par chemins). Les agents
+#     installés ici ne la touchent pas : elle a déjà ses contrôles.
+#
+# Troisième constat, qui pèse sur la politique de correction : ce site n'est pas
+# une vitrine. `shared/auth-gate.js` authentifie contre Supabase et attribue des
+# rôles métier ; `supabase/` porte les politiques RLS et une fonction
+# d'administration. Les pages HTML embarquent leur logique. Rien de tout cela
+# n'est « faible risque ».
 version: 1
 
-application:
-  name: ANAGROCI FBMS
-  type: site statique (HTML/CSS/JS), sans build, servi par GitHub Pages
-  root: "."                      # le site FBMS est à la racine du dépôt
+project:
+  name: ANAGROCI Operations Suite
+  short_name: FBMS
+  owner: Monsieur KOUASSI
+  repository: nwodobe/fbms
+  default_branch: main
   production_url: https://nwodobe.github.io/fbms/index.html
-  backend: Supabase (auth + données) — clé anon publique par conception
-  note: >-
-    Le dépôt héberge AUSSI savoir-plus/ (Next.js/Neon), HORS périmètre de ces
-    agents : il possède sa propre CI (savoir-plus-ci.yml).
+  hosting: github-pages
+  backend: supabase
+  build_system: none          # site statique servi tel quel
+  package_manager: none       # à la racine ; savoir-plus/ a le sien
 
-scope:
-  includes:
-    - "index.html"
-    - "terrain/**"
-    - "fbms/**"
-    - "logistique/**"
-    - "rcntrace/**"
-    - "suite/**"
-    - "shared/**"          # lecture ; écriture restreinte (voir denylist)
-    - "assets/**"
-    - "docs/**"
-  excludes:
-    - "savoir-plus/**"     # produit distinct, pipeline propre
-    - ".github/**"
-    - ".claude/**"
-    - "supabase/**"
+# Ce que contient réellement le dépôt, module par module.
+surface:
+  static_site:
+    entry: index.html
+    modules:
+      - fbms/          # cartographie, hubs, audit des distances
+      - logistique/    # planification et suivi logistique
+      - rcntrace/      # traçabilité RCN, jute, achats, incidents
+      - terrain/       # achats terrain, caisse, sacherie, commandement
+      - suite/         # portail de la suite
+      - shared/        # thèmes, i18n, portail d'authentification, console admin
+    styles:
+      - "**/*.css"
+    assets: assets/
+  separate_application:
+    path: savoir-plus/
+    stack: next.js, typescript, vitest, drizzle
+    ci: .github/workflows/savoir-plus-ci.yml
+    note: hors du périmètre des agents installés ici
+  backend:
+    path: supabase/
+    contents: politiques RLS, vues, fonctions, edge function admin-create-user
 
-flags:                     # Variables GitHub Actions (Settings → Variables)
-  AI_AGENTS_ENABLED:
-    default: "false"
-    role: interrupteur maître ; sans lui, les jobs d'agents se terminent (skip)
-  AGENT_AUTO_MERGE_ENABLED:
-    default: "false"
-    role: n'autorise l'auto-fusion qu'après canari réussi + validation humaine
-  PRODUCTION_URL:
-    default: "https://nwodobe.github.io/fbms/index.html"
+users:
+  - Branch Manager
+  - Assistant Branch Manager
+  - Head of Field
+  - Procurement Officer
+  - Supervisor
+  - Agent Recenseur
+  - Consultation uniquement
 
-labels:
-  autofix: agent-autofix       # déclenche Agent Auto Fix sur une issue
-  human_review: human-review   # impose une revue humaine (zone sensible)
+ux:
+  language: fr
+  mobile_first: true
+  target_viewports: [390x844, 768x1024, 1440x900]
+  minimum_touch_target_px: 44
+  require_visible_focus: true
+  require_keyboard_navigation: true
+  maximum_console_errors: 0
 
-agents:
-  app-orchestrator:   { writes: false, role: coordination }
-  ui-design-agent:    { writes: presentation_only, rule: "corrige seulement après reproduction" }
-  ux-navigation-agent: { writes: false, role: rapport }
-  qa-continuous-agent: { writes: tests_only }
-  app-audit-agent:    { writes: false, role: audit indépendant }
-  auto-fix-agent:     { writes: allowlist_only, never_merges_self: true }
-  release-guardian-agent: { writes: false, verdicts: [GO, NO_GO, HUMAN_REVIEW] }
+# Contrôles réellement exécutables sur ce dépôt. Aucune commande inventée.
+quality_gates:
+  available:
+    - html-structure          # .github/scripts/verifier-html.mjs
+    - internal-links          # .github/scripts/verifier-liens.mjs
+    - javascript-syntax       # node --check sur les .js du site
+    - playwright-pages        # .github/scripts/verifier-pages.mjs, serveur statique local
+    - console-errors          # relevé par verifier-pages.mjs
+    - accessibility           # axe-core, injecté par verifier-pages.mjs
+    - path-policy-consistency # .github/agent-tests/politique-chemins.mjs
+    - production-smoke        # .github/scripts/smoke-production.mjs
+    - production-audit        # .github/scripts/auditer-production.mjs
+  unavailable_and_why:
+    - name: build
+      reason: site statique, aucun build à exécuter
+    - name: unit-tests
+      reason: aucun harnais de tests unitaires à la racine
+    - name: dependency-audit
+      reason: aucun package.json à la racine ; savoir-plus/ est audité par sa propre CI
+  maximum_critical_findings: 0
+  maximum_high_findings: 0
 
-auto_fix:
-  enabled_by: AI_AGENTS_ENABLED
-  allowlist_file: .github/agent-policy/auto-merge-allowlist.txt
-  denylist_file: .github/agent-policy/auto-merge-denylist.txt
-  denylist_precedence: true
-  required_conditions:               # TOUTES obligatoires
-    - reproduced_with_evidence
-    - low_risk
-    - path_allowlisted
-    - regression_test_added
-    - smallest_possible_patch
-  never_merge_self: true
+# Ce qu'un agent peut corriger seul, et ce qui exige un humain.
+risk_policy:
+  automatic_fix_allowed:
+    - presentation-stylesheet     # **/*.css
+    - documentation               # docs/**
+    - agent-test-harness          # .github/agent-tests/**
+  human_review_required:
+    - html-pages
+    - authentication-and-roles
+    - supabase-schema-rls-or-function
+    - business-logic-javascript
+    - service-worker-or-manifest
+    - github-pages-configuration
+    - github-workflow-or-agent-definition
+    - dependency-or-lockfile
+    - brand-assets
+    - savoir-plus-application
+  forbidden:
+    - direct-push-to-main
+    - disabling-or-skipping-tests
+    - reducing-quality-thresholds
+    - hardcoded-secrets
+    - committing-personal-or-business-data
+    - modifying-a-hosted-supabase-project
 
-auto_merge:
-  enabled_by: AGENT_AUTO_MERGE_ENABLED
-  default: false
-  activation: "après canari GO + validation humaine explicite"
+# Pourquoi le HTML n'est pas auto-corrigeable ici, contrairement à l'usage.
+# Dans ce dépôt, chaque page embarque ses styles ET sa logique métier dans le
+# même fichier ; `shared/admin.html` est une console d'administration. « HTML de
+# présentation » ne décrit aucun fichier existant. Les feuilles de style, elles,
+# sont réellement séparées : ce sont elles qui portent l'auto-correction.
+deviations:
+  # Les deux écarts assumés par rapport à la politique d'installation demandée.
+  # Ils sont écrits ici pour être discutés, pas pour être découverts.
+  - rule: html-not-auto-fixable
+    demande: autoriser la correction automatique du « HTML de présentation »
+    applique: aucun fichier .html n'est auto-corrigeable
+    reason: >-
+      Sur FBMS, le HTML de présentation n'existe pas comme catégorie séparée.
+      fbms/index.html contient la mise en page ET les appels Supabase ; aucune
+      règle de chemin ne peut distinguer les deux. Autoriser *.html reviendrait
+      à autoriser la correction automatique de la logique métier.
+    levee_possible_si: les feuilles de style et le script sont extraits des pages
 
-concurrency:
-  file_locking: true     # app-orchestrator sérialise les écritures par fichier
-  rule: "un seul agent écrit un fichier donné à la fois"
+  - rule: github-denylist-narrowed
+    demande: interdire l'auto-correction de `.github/**` en bloc
+    applique: >-
+      `.github/*`, `.github/workflows/**`, `.github/scripts/**`,
+      `.github/agent-policy/**`, `.github/vendor/**`, `.github/actions/**` et
+      `.github/ISSUE_TEMPLATE/**` sont interdits ; `.github/agent-tests/**` ne
+      l'est pas.
+    reason: >-
+      La même politique impose à auto-fix-agent d'accompagner chaque correctif
+      d'un contrôle de non-régression, et ouvre les « tests » à l'auto-
+      correction. Avec `.github/**` en bloc, la denylist primant toujours,
+      l'entrée `.github/agent-tests/**` de l'allowlist devenait lettre morte :
+      l'agent n'aurait eu aucun endroit où écrire le test exigé de lui.
+      Ce qu'il faut verrouiller, c'est la CI et la politique — pas le harnais
+      de test, dont l'échec ne casse rien en production.
+    verifie_par: .github/agent-tests/politique-chemins.mjs
 
-secrets:                 # jamais affichés, jamais commités
-  - ANTHROPIC_API_KEY    # ou App GitHub (APP_ID + APP_PRIVATE_KEY)
-  - APP_ID
-  - APP_PRIVATE_KEY
-
-permissions_principle: moindre privilège (voir chaque workflow)
+deployment:
+  provider: github-pages
+  source: branche main, racine du dépôt
+  automatic: oui, à chaque fusion sur main
+  smoke_command: node .github/scripts/smoke-production.mjs
+  rollback: revert du commit fusionné puis nouvelle publication Pages
+  rollback_automatic: non
