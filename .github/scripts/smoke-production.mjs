@@ -115,7 +115,11 @@ for (const c of constats) {
 }
 
 const echecs = constats.filter((c) => !c.ok)
-process.stdout.write(
-  `\n${URL_CIBLE}\n${constats.length - echecs.length}/${constats.length} controle(s) au vert\n`,
+process.stdout.write(  `\n${URL_CIBLE}\n${constats.length - echecs.length}/${constats.length} controle(s) au vert\n`,
 )
+
+// Un smoke test qui ne fait jamais echouer le job ne protege personne :
+// un vrai ECHEC (ressource du site en erreur, erreur JS, page injoignable)
+// doit faire echouer la CI, sinon la porte reste un faux vert.
+process.exitCode = echecs.length > 0 ? 1 : 0
 process.exit(echecs.length > 0 ? 1 : 0)
