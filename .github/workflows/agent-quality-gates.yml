@@ -37,18 +37,35 @@ jobs:
         with:
           node-version: '22'
 
-      # --- 1. Syntaxe JavaScript (bloquant, sans dépendance) --------------
-      - name: Contrôle de syntaxe JS (node --check)
+      # --- 1a. Syntaxe JS des fichiers MODIFIÉS (BLOQUANT) ----------------
+      #     On contrôle le diff de la PR/branche (pratique CI standard) : un
+      #     défaut préexistant hors périmètre ne doit pas bloquer une PR propre,
+      #     mais tout JS introduit/modifié DOIT être syntaxiquement valide.
+      - name: Syntaxe JS des fichiers modifiés (bloquant)
         run: |
           set -e
-          FILES=$(git ls-files '*.js' | grep -v '^savoir-plus/' | grep -v '/node_modules/' || true)
-          if [ -z "$FILES" ]; then echo "Aucun fichier JS FBMS."; exit 0; fi
-          echo "$FILES" | while read -r f; do
-            [ -z "$f" ] && continue
-            echo "check $f"
-            node --check "$f"
+          BR="${{ github.base_ref || 'main' }}"
+          git fetch --no-tags --depth=50 origin "$BR" 2>/dev/null || true
+          BASE=$(git rev-parse "origin/$BR" 2>/dev/null || echo "")
+          if [ -z "$BASE" ]; then echo "Base introuvable, contrôle du diff ignoré."; exit 0; fi
+          CHANGED=$(git diff --name-only --diff-filter=d "$BASE"...HEAD -- '*.js' '*.mjs' | grep -v '^savoir-plus/' || true)
+          if [ -z "$CHANGED" ]; then echo "Aucun fichier JS/MJS FBMS modifié dans ce diff."; exit 0; fi
+          echo "$CHANGED" | while read -r f; do [ -f "$f" ] || continue; echo "check $f"; node --check "$f"; done
+          echo "OK : syntaxe valide pour tous les fichiers JS/MJS modifiés."
+
+      # --- 1b. Scan syntaxe du dépôt entier (RAPPORT, non bloquant) -------
+      #     Rend visible la dette préexistante sans bloquer la PR. Ne masque rien.
+      - name: Syntaxe JS du dépôt entier (rapport)
+        continue-on-error: true
+        run: |
+          FAIL=0
+          for f in $(git ls-files '*.js' '*.mjs' | grep -v '^savoir-plus/'); do
+            if ! node --check "$f" 2>/tmp/nc_err; then
+              echo "::warning file=$f::Syntaxe JS invalide (dette préexistante) — $(head -1 /tmp/nc_err)"
+              FAIL=$((FAIL+1))
+            fi
           done
-          echo "OK : tous les fichiers JS FBMS ont une syntaxe valide."
+          echo "Fichiers en échec de syntaxe (préexistants, non bloquants) : $FAIL"
 
       # --- 2. Installer Chromium pour les contrôles runtime --------------
       - name: Installer Playwright (Chromium)

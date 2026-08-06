@@ -12,7 +12,11 @@ name: Agent Conditional Auto Merge
 
 on:
   workflow_dispatch:
-  pull_request_target:
+  # `pull_request` (et NON `pull_request_target`) : évite d'exécuter avec
+  # des privilèges élevés sur un événement non fiable. Les PR d'agents sont
+  # dans le même dépôt ; les PR de forks n'obtiennent qu'un jeton en
+  # lecture seule, donc ne peuvent pas fusionner.
+  pull_request:
     types: [labeled]
 
 permissions:
@@ -47,10 +51,15 @@ jobs:
           && !contains(github.event.pull_request.labels.*.name, 'human-review') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Un secret ne peut PAS être référencé dans un `if:` (contexte
+    # `secrets` indisponible). On expose UNIQUEMENT un booléen de
+    # présence — jamais la valeur du secret — testé ensuite dans l'étape.
+    env:
+      HAS_APP_ID: ${{ secrets.APP_ID != '' }}
     steps:
       - name: Jeton App GitHub
         id: app
-        if: ${{ secrets.APP_ID != '' }}
+        if: ${{ env.HAS_APP_ID == 'true' }}
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}

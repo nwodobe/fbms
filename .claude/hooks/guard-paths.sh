@@ -37,7 +37,7 @@ deny_hit() {
   python3 - "$REL" "$DENY" <<'PY'
 import sys, fnmatch, os
 rel, deny = sys.argv[1], sys.argv[2]
-rel = rel.lstrip("./")
+rel = rel[2:] if rel.startswith("./") else rel  # ne PAS lstrip("./") : cela mangeait le point de .github / .claude
 pats = []
 if os.path.exists(deny):
     for line in open(deny, encoding="utf-8"):

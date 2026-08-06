@@ -27,13 +27,18 @@ jobs:
     if: ${{ vars.AI_AGENTS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Un secret ne peut PAS être référencé dans un `if:` (contexte
+    # `secrets` indisponible). On expose UNIQUEMENT un booléen de
+    # présence — jamais la valeur du secret — testé ensuite dans l'étape.
+    env:
+      HAS_APP_ID: ${{ secrets.APP_ID != '' }}
     steps:
       - uses: actions/checkout@v4
 
       # Jeton d'App GitHub (privilèges limités) pour créer l'issue, si configuré.
       - name: Jeton App GitHub (optionnel)
         id: app
-        if: ${{ secrets.APP_ID != '' }}
+        if: ${{ env.HAS_APP_ID == 'true' }}
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}
