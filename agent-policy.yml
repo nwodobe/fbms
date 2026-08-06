@@ -1,0 +1,86 @@
+# ============================================================================
+# FBMS — Politique de l'équipe d'agents IA (Claude Code + GitHub Actions)
+# ----------------------------------------------------------------------------
+# Source de vérité lisible par les humains ET référencée par les workflows.
+# Les listes de chemins font foi dans .github/agent-policy/*.txt.
+# ============================================================================
+version: 1
+
+application:
+  name: ANAGROCI FBMS
+  type: site statique (HTML/CSS/JS), sans build, servi par GitHub Pages
+  root: "."                      # le site FBMS est à la racine du dépôt
+  production_url: https://nwodobe.github.io/fbms/index.html
+  backend: Supabase (auth + données) — clé anon publique par conception
+  note: >-
+    Le dépôt héberge AUSSI savoir-plus/ (Next.js/Neon), HORS périmètre de ces
+    agents : il possède sa propre CI (savoir-plus-ci.yml).
+
+scope:
+  includes:
+    - "index.html"
+    - "terrain/**"
+    - "fbms/**"
+    - "logistique/**"
+    - "rcntrace/**"
+    - "suite/**"
+    - "shared/**"          # lecture ; écriture restreinte (voir denylist)
+    - "assets/**"
+    - "docs/**"
+  excludes:
+    - "savoir-plus/**"     # produit distinct, pipeline propre
+    - ".github/**"
+    - ".claude/**"
+    - "supabase/**"
+
+flags:                     # Variables GitHub Actions (Settings → Variables)
+  AI_AGENTS_ENABLED:
+    default: "false"
+    role: interrupteur maître ; sans lui, les jobs d'agents se terminent (skip)
+  AGENT_AUTO_MERGE_ENABLED:
+    default: "false"
+    role: n'autorise l'auto-fusion qu'après canari réussi + validation humaine
+  PRODUCTION_URL:
+    default: "https://nwodobe.github.io/fbms/index.html"
+
+labels:
+  autofix: agent-autofix       # déclenche Agent Auto Fix sur une issue
+  human_review: human-review   # impose une revue humaine (zone sensible)
+
+agents:
+  app-orchestrator:   { writes: false, role: coordination }
+  ui-design-agent:    { writes: presentation_only, rule: "corrige seulement après reproduction" }
+  ux-navigation-agent: { writes: false, role: rapport }
+  qa-continuous-agent: { writes: tests_only }
+  app-audit-agent:    { writes: false, role: audit indépendant }
+  auto-fix-agent:     { writes: allowlist_only, never_merges_self: true }
+  release-guardian-agent: { writes: false, verdicts: [GO, NO_GO, HUMAN_REVIEW] }
+
+auto_fix:
+  enabled_by: AI_AGENTS_ENABLED
+  allowlist_file: .github/agent-policy/auto-merge-allowlist.txt
+  denylist_file: .github/agent-policy/auto-merge-denylist.txt
+  denylist_precedence: true
+  required_conditions:               # TOUTES obligatoires
+    - reproduced_with_evidence
+    - low_risk
+    - path_allowlisted
+    - regression_test_added
+    - smallest_possible_patch
+  never_merge_self: true
+
+auto_merge:
+  enabled_by: AGENT_AUTO_MERGE_ENABLED
+  default: false
+  activation: "après canari GO + validation humaine explicite"
+
+concurrency:
+  file_locking: true     # app-orchestrator sérialise les écritures par fichier
+  rule: "un seul agent écrit un fichier donné à la fois"
+
+secrets:                 # jamais affichés, jamais commités
+  - ANTHROPIC_API_KEY    # ou App GitHub (APP_ID + APP_PRIVATE_KEY)
+  - APP_ID
+  - APP_PRIVATE_KEY
+
+permissions_principle: moindre privilège (voir chaque workflow)

@@ -1,0 +1,30 @@
+# ============================================================================
+# FBMS — Chemins AUTORISÉS à l'auto-correction faible risque
+# ----------------------------------------------------------------------------
+# Un fichier n'est éligible à un correctif automatique QUE s'il correspond à une
+# entrée de cette liste ET à AUCUNE entrée de auto-merge-denylist.txt.
+# La denylist a TOUJOURS priorité. Un glob par ligne. '#' = commentaire.
+#
+# Portée : présentation du site statique FBMS (racine du dépôt). Jamais
+# savoir-plus/ (pipeline propre), jamais l'authentification, l'API ou la config.
+# ============================================================================
+
+# --- HTML de présentation (portail + modules) ------------------------------
+index.html
+terrain/*.html
+fbms/*.html
+logistique/*.html
+rcntrace/*.html
+suite/*.html
+
+# --- CSS (thème et habillage) ----------------------------------------------
+**/*.css
+
+# --- Accessibilité et contenu documentaire ---------------------------------
+docs/**
+
+# --- Images locales NON sensibles ------------------------------------------
+assets/img/**
+
+# --- Tests et scripts de test (maintenance QA) -----------------------------
+.github/agent-scripts/**

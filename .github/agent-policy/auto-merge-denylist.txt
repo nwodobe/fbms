@@ -1,0 +1,47 @@
+# ============================================================================
+# FBMS — Chemins INTERDITS à l'auto-correction (priorité absolue)
+# ----------------------------------------------------------------------------
+# Toute modification touchant un de ces chemins DOIT porter le label
+# `human-review` et ne peut jamais être auto-corrigée ni auto-fusionnée.
+# Un glob par ligne. '#' = commentaire. Cette liste prime sur l'allowlist.
+# ============================================================================
+
+# --- Infrastructure d'agents et CI -----------------------------------------
+.github/**
+.claude/**
+agent-policy.yml
+
+# --- Authentification / sécurité / accès -----------------------------------
+shared/auth-gate.js
+shared/anagroci-config.js
+shared/anagroci-audit.js
+shared/anagroci-sacs-guards.js
+shared/*-guards.js
+shared/i18n.js
+shared/i18n-extra.js
+i18n-sw.js
+sw.js
+
+# --- Secrets, clés, variables d'environnement ------------------------------
+**/.env
+**/.env.*
+*.pem
+*.key
+secrets.json
+
+# --- Backend / API / base de données / données métier ----------------------
+supabase/**
+
+# --- Déploiement / configuration application -------------------------------
+manifest.webmanifest
+.nojekyll
+CNAME
+
+# --- Dépendances et verrouillage -------------------------------------------
+**/package.json
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
+
+# --- Second produit du dépôt : périmètre séparé (CI propre) -----------------
+savoir-plus/**

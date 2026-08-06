@@ -1,0 +1,48 @@
+# ============================================================================
+# Production Smoke Test — vérifie le site FBMS réellement en ligne (Pages).
+# Sans session : contrôle l'écran d'accès ANAGROCI (point d'entrée légitime).
+# Moindre privilège : lecture seule.
+# ============================================================================
+name: Production Smoke Test
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'savoir-plus/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'savoir-plus/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'   # lundi 06:17 UTC (hebdomadaire, minute décalée)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke test GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Installer Playwright (Chromium)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm i --no-save playwright@1.48.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test production
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL || 'https://nwodobe.github.io/fbms/index.html' }}
+        run: node .github/agent-scripts/smoke-prod.mjs "$PRODUCTION_URL"

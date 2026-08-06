@@ -1,0 +1,67 @@
+# ============================================================================
+# Agent Conditional Auto Merge — INSTALLÉ MAIS DÉSACTIVÉ.
+# Ne fusionne une PR d'agent QUE si AGENT_AUTO_MERGE_ENABLED == 'true' (défaut
+# false). Ne pourra être activé qu'après un canari réussi ET une validation
+# humaine explicite. Par défaut, ce workflow ne fait rien.
+#
+# Même activé, il n'active QUE l'auto-fusion native de GitHub (--auto), qui
+# reste soumise aux Quality Gates et à l'éventuelle protection de branche : il
+# ne force jamais une fusion.
+# ============================================================================
+name: Agent Conditional Auto Merge
+
+on:
+  workflow_dispatch:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Vérifier le verrou d'auto-fusion
+    runs-on: ubuntu-latest
+    steps:
+      - name: État du drapeau
+        run: |
+          echo "AGENT_AUTO_MERGE_ENABLED = '${{ vars.AGENT_AUTO_MERGE_ENABLED }}'"
+          echo "AI_AGENTS_ENABLED        = '${{ vars.AI_AGENTS_ENABLED }}'"
+          echo "Ce workflow est volontairement inerte tant que l'auto-fusion"
+          echo "n'a pas été activée manuellement après canari + revue humaine."
+
+  auto-merge:
+    name: Auto-fusion conditionnelle (désactivée par défaut)
+    needs: guard
+    # Double condition : drapeau d'auto-fusion ET agents activés. Défaut : false.
+    if: >-
+      ${{ vars.AGENT_AUTO_MERGE_ENABLED == 'true'
+          && vars.AI_AGENTS_ENABLED == 'true'
+          && github.event.pull_request != null
+          && contains(github.event.pull_request.labels.*.name, 'guardian-go')
+          && !contains(github.event.pull_request.labels.*.name, 'human-review') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Jeton App GitHub
+        id: app
+        if: ${{ secrets.APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Activer l'auto-fusion native (soumise aux gates)
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Activation de l'auto-fusion GitHub pour la PR #$PR (squash)."
+          echo "Elle ne se déclenchera qu'après réussite de tous les checks requis."
+          gh pr merge "$PR" --repo "$REPO" --squash --auto

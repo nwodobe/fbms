@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Edit(.github/**)",
+      "Write(.github/**)",
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Edit(agent-policy.yml)",
+      "Write(agent-policy.yml)",
+      "Edit(savoir-plus/**)",
+      "Write(savoir-plus/**)",
+      "Edit(supabase/**)",
+      "Write(supabase/**)",
+      "Edit(shared/auth-gate.js)",
+      "Write(shared/auth-gate.js)",
+      "Edit(shared/anagroci-config.js)",
+      "Edit(shared/anagroci-audit.js)",
+      "Edit(shared/anagroci-sacs-guards.js)",
+      "Edit(shared/i18n.js)",
+      "Edit(sw.js)",
+      "Edit(i18n-sw.js)",
+      "Edit(manifest.webmanifest)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/secrets.json)"
+    ],
+    "ask": [
+      "Edit(index.html)",
+      "Edit(shared/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-paths.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+# ============================================================================
+# Scheduled Agent Audit — audit indépendant hebdomadaire de FBMS par
+# app-audit-agent (Claude Code). Inerte tant que AI_AGENTS_ENABLED != true.
+# Crée une issue uniquement si des anomalies CONFIRMÉES sont trouvées.
+# ============================================================================
+name: Scheduled Agent Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'   # lundi 05:23 UTC (hebdomadaire, minute décalée)
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+concurrency:
+  group: scheduled-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit indépendant FBMS
+    # Interrupteur maître : sans le flag, le job ne s'exécute pas (pas skipped
+    # silencieusement — la condition est explicite et visible dans les logs).
+    if: ${{ vars.AI_AGENTS_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Jeton d'App GitHub (privilèges limités) pour créer l'issue, si configuré.
+      - name: Jeton App GitHub (optionnel)
+        id: app
+        if: ${{ secrets.APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Audit (app-audit-agent)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          # app-audit-agent est en LECTURE SEULE ; il ne peut qu'auditer et,
+          # via gh, ouvrir une issue documentée. Aucune écriture de code.
+          claude_args: >-
+            --agents app-audit-agent
+            --allowedTools "Read,Grep,Glob,Bash,WebFetch"
+          prompt: |
+            Tu es app-audit-agent (voir .claude/agents/app-audit-agent.md).
+            Réalise un audit INDÉPENDANT et EN LECTURE SEULE du site FBMS.
+            URL de production : ${{ vars.PRODUCTION_URL }}
+            Axes : fonctionnel, UX, accessibilité, qualité du code, sécurité,
+            performance, dépendances externes, erreurs silencieuses, cas limites.
+            Ne modifie AUCUN fichier. Pour chaque anomalie, exige une preuve.
+            Seulement si des anomalies sont CONFIRMÉES avec preuve, ouvre UNE
+            issue (via `gh issue create`) intitulée « [audit] … », listant les
+            constats hiérarchisés par sévérité. Si rien de confirmé, n'ouvre
+            aucune issue et écris « Aucune anomalie confirmée ».

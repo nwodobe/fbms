@@ -1,0 +1,93 @@
+# ============================================================================
+# Agent Quality Gates — contrôles qualité du site statique FBMS.
+# N'utilise QUE des commandes réellement applicables (pas de build : le site
+# n'en a pas). Périmètre FBMS uniquement ; savoir-plus/ a sa propre CI.
+# Moindre privilège : lecture seule.
+# ============================================================================
+name: Agent Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'savoir-plus/**'
+  push:
+    branches:
+      - 'agent/**'
+    paths-ignore:
+      - 'savoir-plus/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: Contrôles qualité FBMS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # --- 1. Syntaxe JavaScript (bloquant, sans dépendance) --------------
+      - name: Contrôle de syntaxe JS (node --check)
+        run: |
+          set -e
+          FILES=$(git ls-files '*.js' | grep -v '^savoir-plus/' | grep -v '/node_modules/' || true)
+          if [ -z "$FILES" ]; then echo "Aucun fichier JS FBMS."; exit 0; fi
+          echo "$FILES" | while read -r f; do
+            [ -z "$f" ] && continue
+            echo "check $f"
+            node --check "$f"
+          done
+          echo "OK : tous les fichiers JS FBMS ont une syntaxe valide."
+
+      # --- 2. Installer Chromium pour les contrôles runtime --------------
+      - name: Installer Playwright (Chromium)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm i --no-save playwright@1.48.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium
+
+      # --- 3. Servir le site localement ----------------------------------
+      - name: Servir le site
+        run: |
+          npx --yes http-server -p 8080 -c-1 . >/tmp/http.log 2>&1 &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:8080/index.html >/dev/null && break || sleep 1
+          done
+          curl -sf http://localhost:8080/index.html >/dev/null
+
+      # --- 4. Liens internes (bloquant) ----------------------------------
+      - name: Vérifier les liens internes
+        run: node .github/agent-scripts/link-check.mjs http://localhost:8080/index.html
+
+      # --- 5. Erreurs JS console + a11y de base (bloquant sur exception) --
+      - name: Contrôles runtime (3 viewports)
+        run: node .github/agent-scripts/checks.mjs http://localhost:8080/index.html
+
+      # --- 6. Validation HTML (signalée, non bloquante) ------------------
+      - name: Validation HTML (rapport)
+        continue-on-error: true
+        run: |
+          FILES=$(git ls-files '*.html' | grep -v '^savoir-plus/' || true)
+          [ -z "$FILES" ] && { echo "Aucun HTML FBMS."; exit 0; }
+          npx --yes html-validate $FILES || echo "::warning::Rapport html-validate ci-dessus (non bloquant)."
+
+      # --- 7. Audit dépendances : seulement s'il existe un manifeste ------
+      #     Le site FBMS (racine) n'a pas de package.json : rien à auditer.
+      - name: Audit des dépendances (si applicable)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm audit --audit-level=high
+          else
+            echo "Pas de gestionnaire de paquets à la racine FBMS : audit non applicable."
+          fi
