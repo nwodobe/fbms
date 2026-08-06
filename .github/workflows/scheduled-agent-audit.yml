@@ -1,0 +1,166 @@
+# =============================================================================
+# FBMS — audit planifié de l'application publiée
+# =============================================================================
+# Ce workflow audite le SITE EN LIGNE, pas le dépôt : les portes qualité
+# (`agent-quality-gates.yml`) contrôlent déjà le code source à chaque pull
+# request. Ici on ouvre réellement les pages publiées sur GitHub Pages, à trois
+# largeurs, et on ouvre une issue quand — et seulement quand — une anomalie est
+# CONFIRMÉE par une observation.
+#
+# Deux garde-fous existent parce que sans eux le workflow mentirait :
+#   1. Sans `AI_AGENTS_ENABLED=true`, il ne fait rien et le dit. Un dépôt où les
+#      agents ne sont pas activés ne doit pas voir passer des exécutions vertes
+#      qui laissent croire qu'une surveillance est en place.
+#   2. Sans `PRODUCTION_URL`, il ÉCHOUE au lieu de deviner une URL. Auditer une
+#      adresse supposée reviendrait à publier un rapport sur un site qui n'est
+#      peut-être pas le vôtre.
+name: Audit planifié des agents
+
+on:
+  workflow_dispatch:
+    inputs:
+      ouvrir_issue:
+        description: "Ouvrir une issue si des anomalies sont confirmées"
+        type: boolean
+        default: true
+  schedule:
+    # Tous les lundis à 06:00 UTC. Hebdomadaire et non quotidien : un site
+    # statique change au rythme des pull requests, pas des heures.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-planifie
+  cancel-in-progress: false
+
+jobs:
+  conditions:
+    name: Conditions d'exécution
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      autorise: ${{ steps.verdict.outputs.autorise }}
+    steps:
+      - name: Vérifier l'activation et la cible
+        id: verdict
+        env:
+          AI_AGENTS_ENABLED: ${{ vars.AI_AGENTS_ENABLED }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          if [ "${AI_AGENTS_ENABLED}" != "true" ]; then
+            echo "AI_AGENTS_ENABLED n'est pas à 'true' : audit non exécuté." >> "$GITHUB_STEP_SUMMARY"
+            echo "Ce n'est pas une panne. Renseignez la variable de dépôt pour activer les agents." >> "$GITHUB_STEP_SUMMARY"
+            echo "autorise=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "${PRODUCTION_URL}" ]; then
+            echo "AI_AGENTS_ENABLED=true mais PRODUCTION_URL est absente." >> "$GITHUB_STEP_SUMMARY"
+            echo "Refus de deviner une URL : un audit doit savoir ce qu'il audite." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "autorise=true" >> "$GITHUB_OUTPUT"
+
+  audit:
+    name: Auditer les pages publiées
+    needs: conditions
+    if: needs.conditions.outputs.autorise == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # `issues: write` est le seul privilège d'écriture accordé, et il est
+    # accordé ici plutôt qu'au niveau du workflow pour que les autres jobs
+    # restent en lecture seule.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Installer Playwright (éphémère, version épinglée)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      # `app-audit-agent` (`.claude/agents/app-audit-agent.md`) décrit la
+      # méthode ; ce script en est l'exécution reproductible. Un agent dont les
+      # constats ne sont pas rejouables n'est pas auditable.
+      - name: Audit des pages publiées (3 largeurs)
+        id: audit
+        continue-on-error: true
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          node .github/scripts/auditer-production.mjs \
+            --json rapport-audit.json --markdown rapport-audit.md
+
+      - name: Conserver le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-audit-production
+          path: |
+            rapport-audit.json
+            rapport-audit.md
+          if-no-files-found: warn
+
+      - name: Publier le rapport dans le résumé d'exécution
+        if: always()
+        run: |
+          if [ -f rapport-audit.md ]; then cat rapport-audit.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # L'issue n'est ouverte que si des anomalies BLOQUANTES sont confirmées.
+      # Ouvrir une issue « tout va bien » chaque semaine est le meilleur moyen
+      # de faire ignorer celles qui comptent.
+      #
+      # Et s'il en existe déjà une ouverte, on y ajoute un commentaire plutôt
+      # que d'en créer une seconde : un défaut persistant produirait sinon une
+      # issue par semaine, et la file deviendrait illisible en un mois.
+      - name: Signaler les anomalies confirmées
+        if: >-
+          always()
+          && steps.audit.outcome == 'failure'
+          && (github.event_name == 'schedule' || inputs.ouvrir_issue)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPOT: ${{ github.repository }}
+          EXECUTION: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ ! -f rapport-audit.md ]; then
+            {
+              echo "L'audit a échoué sans produire de rapport : rien de vérifiable à signaler."
+              echo "Aucune issue ouverte — un rapport sans preuve n'en mérite pas."
+              echo "Consultez les journaux de l'exécution."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            cat rapport-audit.md
+            printf '\n---\n\nExécution : %s\n' "$EXECUTION"
+            printf '\nOuvert par `scheduled-agent-audit.yml` selon la méthode de `.claude/agents/app-audit-agent.md`.\n'
+          } > corps-issue.md
+
+          # Le libellé peut ne pas exister sur un dépôt neuf : on le crée sans
+          # faire échouer l'étape s'il est déjà là.
+          gh label create agent-audit --repo "$DEPOT" \
+            --color B60205 --description "Anomalie de production constatée par un agent" \
+            >/dev/null 2>&1 || true
+
+          EXISTANTE=$(gh issue list --repo "$DEPOT" --label agent-audit --state open \
+            --limit 1 --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTANTE" ]; then
+            gh issue comment "$EXISTANTE" --repo "$DEPOT" --body-file corps-issue.md
+            echo "Anomalies ajoutées à l'issue #$EXISTANTE." >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --repo "$DEPOT" --label agent-audit \
+              --title "[AGENT][AUDIT] Anomalies confirmées sur la production — $(date -u +%Y-%m-%d)" \
+              --body-file corps-issue.md
+          fi

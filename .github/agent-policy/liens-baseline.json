@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Liens internes cassés présents sur main au moment de l'installation (12a7b36).",
+    "Deux d'entre eux sont de vraies 404 en production : fbms/index.html demande",
+    "son manifeste et son icône en chemin relatif, alors qu'ils vivent à la racine.",
+    "Les deux autres appartiennent au fichier de sauvegarde « FBMS · Sauvegarde",
+    "Master.html », artefact d'un enregistrement de page dont le dossier _files",
+    "n'a jamais été versionné.",
+    "Ils sont listés pour distinguer une régression d'un défaut hérité, pas pour",
+    "les absoudre : les deux premiers méritent une correction (human-review, ce",
+    "sont des fichiers HTML)."
+  ],
+  "accepted": [
+    "fbms/index.html|./manifest.webmanifest",
+    "fbms/index.html|./icon-192.png",
+    "FBMS · Sauvegarde Master.html|./FBMS · Sauvegarde Master_files/supabase.min.js.télécharger",
+    "FBMS · Sauvegarde Master.html|./FBMS · Sauvegarde Master_files/xlsx.full.min.js.télécharger"
+  ]
+}

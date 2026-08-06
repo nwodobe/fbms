@@ -1,0 +1,87 @@
+# Chemins interdits à toute correction automatique, quelle qu'en soit la taille.
+# Une entrée ici l'emporte TOUJOURS sur l'allowlist.
+# Un glob par ligne. « # » commence un commentaire.
+#
+# Toute modification touchant un de ces chemins doit porter le label
+# `human-review` et être relue par un humain.
+
+# --- Orchestration des agents : un agent ne réécrit pas ses propres règles ---
+# Ces entrées sont volontairement énumérées au lieu d'un seul `.github/**`.
+# Avec `.github/**`, l'entrée `.github/agent-tests/**` de l'allowlist devenait
+# lettre morte : la denylist prime, donc `auto-fix-agent` n'aurait jamais pu
+# ajouter le test de non-régression que la politique lui IMPOSE de fournir.
+# Ce qu'il faut interdire, c'est la CI et la politique — pas le harnais de test.
+.github/*
+.github/workflows/**
+.github/scripts/**
+.github/agent-policy/**
+.github/vendor/**
+.github/ISSUE_TEMPLATE/**
+.github/actions/**
+.claude/**
+agent-policy.yml
+CLAUDE.md
+
+# --- Authentification, rôles, console d'administration ----------------------
+shared/auth-gate.js
+shared/admin.html
+shared/anagroci-config.js
+shared/anagroci-audit.js
+shared/anagroci-sacs-guards.js
+shared/*-guards.js
+shared/alis-hardening.js
+
+# --- Internationalisation : un libellé faux se lit comme une consigne fausse -
+shared/i18n.js
+shared/i18n-extra.js
+
+# --- Backend : schéma, RLS, fonctions, edge functions -----------------------
+supabase/**
+
+# --- Application Next.js indépendante, avec sa propre intégration continue ---
+savoir-plus/**
+
+# --- Déploiement, PWA et configuration GitHub Pages -------------------------
+# Un service worker fautif survit au correctif dans le cache des utilisateurs :
+# son retour arrière ne dépend plus de nous.
+sw.js
+i18n-sw.js
+manifest.webmanifest
+.nojekyll
+CNAME
+
+# --- Pages applicatives ------------------------------------------------------
+# Sur FBMS, présentation et logique métier vivent dans le MÊME fichier : aucune
+# règle de chemin ne peut les distinguer. Voir `deviations` d'agent-policy.yml.
+*.html
+**/*.html
+
+# --- Logique métier côté client ---------------------------------------------
+shared/*.js
+fbms/*.js
+terrain/**
+rcntrace/**
+logistique/**
+suite/**
+
+# --- Marque et ressources ----------------------------------------------------
+assets/**
+icon-*.png
+
+# --- Secrets, environnement, dépendances ------------------------------------
+# Les variantes racine sont listées séparément : « **/ » exige un séparateur,
+# donc « **/.env » ne couvre PAS « .env » à la racine du dépôt.
+.env
+.env.*
+**/.env
+**/.env.*
+**/.env*
+*.pem
+*.key
+**/*secret*
+**/*credential*
+secrets.json
+**/package.json
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock

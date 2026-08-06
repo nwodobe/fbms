@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(.github/scripts/**)",
+      "Write(.github/scripts/**)",
+      "Edit(.github/agent-policy/**)",
+      "Write(.github/agent-policy/**)",
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Edit(agent-policy.yml)",
+      "Write(agent-policy.yml)",
+      "Edit(supabase/**)",
+      "Write(supabase/**)",
+      "Edit(savoir-plus/**)",
+      "Write(savoir-plus/**)",
+      "Edit(shared/auth-gate.js)",
+      "Write(shared/auth-gate.js)",
+      "Edit(shared/admin.html)",
+      "Write(shared/admin.html)",
+      "Edit(shared/anagroci-config.js)",
+      "Edit(shared/anagroci-audit.js)",
+      "Edit(shared/anagroci-sacs-guards.js)",
+      "Edit(shared/i18n.js)",
+      "Edit(shared/i18n-extra.js)",
+      "Edit(sw.js)",
+      "Write(sw.js)",
+      "Edit(i18n-sw.js)",
+      "Write(i18n-sw.js)",
+      "Edit(manifest.webmanifest)",
+      "Write(manifest.webmanifest)",
+      "Edit(.nojekyll)",
+      "Write(.nojekyll)",
+      "Edit(CNAME)",
+      "Write(CNAME)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/secrets.json)"
+    ],
+    "ask": [
+      "Edit(index.html)",
+      "Edit(shared/**)",
+      "Write(shared/**)",
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh workflow run:*)"
+    ],
+    "allow": [
+      "Bash(node .github/scripts/*)",
+      "Bash(node .github/agent-tests/*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git checkout -b:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-paths.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "_lisez_moi": [
+    "Trois garde-fous se superposent ici, et ils ne protègent pas des mêmes",
+    "choses :",
+    "",
+    "  1. `permissions` — déclaratif, propre à Claude Code. Il refuse l'appel",
+    "     d'outil avant qu'il ne parte.",
+    "  2. `hooks.PreToolUse` — `.claude/hooks/guard-paths.sh` relit la denylist",
+    "     du dépôt à chaque écriture. Il attrape ce que les motifs ci-dessus",
+    "     n'anticipent pas, parce qu'il lit LA liste, pas une copie.",
+    "  3. `.github/agent-policy/` — côté dépôt, vérifié en intégration continue.",
+    "     C'est le seul des trois qu'on ne contourne pas en changeant d'outil.",
+    "",
+    "`.github/agent-tests/**` n'est refusé nulle part : `auto-fix-agent` doit",
+    "pouvoir y écrire le contrôle de non-régression que la politique lui impose.",
+    "",
+    "Note honnête sur les motifs `Bash(git push:*)` : un motif de commande",
+    "attrape la faute d'inattention, pas le contournement délibéré. La seule",
+    "protection réelle contre une écriture sur `main` est la règle de protection",
+    "de branche, côté GitHub. Voir docs/AI_AGENT_OPERATIONS.md §6."
+  ]
+}

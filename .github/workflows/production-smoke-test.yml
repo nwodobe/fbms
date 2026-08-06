@@ -1,0 +1,97 @@
+# =============================================================================
+# FBMS — smoke test de la production
+# =============================================================================
+# Après une publication GitHub Pages, la seule question qui compte est : « le
+# site est-il utilisable ? ». Un `curl` répondant 200 ne le dit pas — une
+# coquille HTML dont le JavaScript ne démarre pas répond 200 et affiche un
+# écran vide. Ce workflow ouvre donc réellement la page dans Chromium, sur
+# mobile et sur ordinateur.
+#
+# Il attend délibérément avant de mesurer : la publication Pages n'est pas
+# instantanée, et contrôler trop tôt reviendrait à mesurer la version
+# précédente puis à la déclarer bonne.
+name: Smoke test de la production
+
+on:
+  workflow_dispatch:
+  # Se déclenche à la fin de la publication Pages, quel qu'en soit l'auteur.
+  page_build:
+  schedule:
+    # Tous les jours à 07:00 UTC : une publication peut casser sans que
+    # personne ne pousse, et un site cassé qui le reste une semaine est pire
+    # qu'un site cassé une journée.
+    - cron: '0 7 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-production
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: La production est-elle utilisable ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Déterminer la cible
+        id: cible
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          if [ -z "${PRODUCTION_URL}" ]; then
+            {
+              echo "### Cible absente"
+              echo
+              echo "La variable de dépôt \`PRODUCTION_URL\` n'est pas renseignée."
+              echo "Ce workflow refuse de deviner une adresse : il vérifierait un site"
+              echo "qui n'est peut-être pas le vôtre, et son verdict ne voudrait rien dire."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "url=${PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Installer Playwright (éphémère, version épinglée)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      # La publication Pages met quelques dizaines de secondes à se propager.
+      # Sans cette attente, un smoke test déclenché par `page_build` mesure
+      # régulièrement la version précédente.
+      - name: Laisser la publication se propager
+        if: github.event_name == 'page_build'
+        run: sleep 45
+
+      - name: Ouvrir la production sur mobile et sur ordinateur
+        id: smoke
+        env:
+          PRODUCTION_URL: ${{ steps.cible.outputs.url }}
+        run: node .github/scripts/smoke-production.mjs | tee resultat-smoke.txt
+
+      - name: Publier le résultat
+        if: always()
+        run: |
+          {
+            echo "### Smoke test — ${{ steps.cible.outputs.url }}"
+            echo
+            echo '```'
+            cat resultat-smoke.txt 2>/dev/null || echo "(aucune sortie : le navigateur n'a pas démarré)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Conserver le résultat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultat-smoke
+          path: resultat-smoke.txt
+          if-no-files-found: ignore

@@ -1,0 +1,116 @@
+# =============================================================================
+# FBMS — portes qualité des agents
+# =============================================================================
+# N'exécute QUE des contrôles qui existent réellement sur ce dépôt. FBMS est un
+# site statique : il n'y a ni build, ni suite de tests unitaires, ni gestionnaire
+# de paquets à la racine. Inventer `npm test` ici produirait une porte verte qui
+# ne mesure rien — le plus sûr moyen de rendre l'intégration continue inutile.
+#
+# `savoir-plus/` est exclu : cette application Next.js a sa propre CI
+# (`savoir-plus-ci.yml`), filtrée par chemins.
+name: Agent Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'savoir-plus/**'
+  push:
+    branches:
+      - 'agent/**'
+      - 'audit/**'
+    paths-ignore:
+      - 'savoir-plus/**'
+  workflow_dispatch:
+
+# Moindre privilège : ces portes lisent, elles n'écrivent rien.
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  statique:
+    name: Structure, liens et syntaxe
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Structure des pages HTML
+        run: node .github/scripts/verifier-html.mjs
+
+      - name: Liens internes et ressources
+        run: node .github/scripts/verifier-liens.mjs
+
+      - name: Syntaxe JavaScript
+        run: node .github/scripts/verifier-js.mjs
+
+      # Le hook d'écriture et la porte d'éligibilité appliquent la MÊME denylist
+      # par deux chemins de code différents. S'ils divergent, la politique dit
+      # deux choses selon l'endroit où on la lit, et c'est la lecture la plus
+      # permissive qui gagne en pratique.
+      - name: Cohérence de la politique de chemins
+        run: node .github/agent-tests/politique-chemins.mjs
+
+  pages:
+    name: Exécution des pages, console et accessibilité
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Playwright n'est pas une dépendance du dépôt : ce site n'en a aucune.
+      # On l'installe pour la durée du job, avec une version épinglée pour que
+      # deux exécutions comparent bien la même chose.
+      - name: Installer Playwright (éphémère, version épinglée)
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Pages, erreurs console et accessibilité
+        run: node .github/scripts/verifier-pages.mjs --json observations-pages.json
+
+      - name: Conserver les observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observations-pages
+          path: observations-pages.json
+          if-no-files-found: ignore
+
+  eligibilite:
+    name: Éligibilité à la correction automatique
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Informative sur une pull request ordinaire : elle ne bloque que
+    # l'auto-fusion, jamais une contribution humaine.
+    continue-on-error: true
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Comparer le diff aux listes de la branche de base
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          node .github/scripts/verifier-eligibilite-autofix.mjs \
+            "origin/${{ github.base_ref }}" "${{ github.event.pull_request.head.sha }}"

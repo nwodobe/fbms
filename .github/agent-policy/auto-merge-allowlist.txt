@@ -1,0 +1,28 @@
+# Chemins réellement éligibles à une correction automatique dans ce dépôt.
+# Un fichier n'est éligible QUE s'il correspond à une entrée d'ici ET à AUCUNE
+# entrée de `auto-merge-denylist.txt`, qui a toujours priorité.
+# Un glob par ligne. « # » commence un commentaire.
+#
+# La liste est courte, et c'est voulu : elle ne contient que des fichiers dont
+# une modification ne peut ni changer un droit, ni fausser une donnée, ni casser
+# un déploiement.
+#
+# Elle est notablement plus courte que ce que la politique d'installation
+# envisageait, et la raison tient en une phrase : sur FBMS, le « HTML de
+# présentation » n'existe pas. `fbms/index.html` contient la mise en page ET les
+# appels Supabase. Autoriser `*.html` reviendrait à autoriser la correction
+# automatique de la logique métier. Voir `deviations` dans `agent-policy.yml`.
+
+# --- Feuilles de style ------------------------------------------------------
+# Les seuls fichiers de présentation réellement séparés de la logique.
+**/*.css
+
+# --- Documentation ----------------------------------------------------------
+docs/**
+
+# --- Harnais de test des agents ---------------------------------------------
+# `auto-fix-agent` doit accompagner chaque correctif d'un contrôle de non-
+# régression. Il lui faut donc un endroit où l'écrire. C'est le seul chemin
+# exécutable qui lui est ouvert, et il est sûr : un test qui échoue ne casse
+# rien en production.
+.github/agent-tests/**
