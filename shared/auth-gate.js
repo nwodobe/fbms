@@ -59,7 +59,8 @@
     setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); },0);
     document.getElementById("ag-form").addEventListener("submit",function(e){ e.preventDefault(); var email=document.getElementById("ag-email").value.trim().toLowerCase(); var pass=document.getElementById("ag-pass").value; var btn=document.getElementById("ag-btn"); btn.disabled=true; btn.textContent="Connexion…"; SB.auth.signInWithPassword({email:email,password:pass}).then(function(r){ if(r.error){ btn.disabled=false; btn.textContent="Se connecter"; return showLogin("Email ou mot de passe incorrect.","err"); } location.reload(); }); });
   }
-  function inSub(){ return /\/(fbms|logistique|suite|shared|terrain|rcntrace)\//.test(location.pathname); }
+var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catch(e){ return null; } })();
+     function inSub(){ if(SITE_ROOT){ try { return new URL(".", location.href).href !== SITE_ROOT; } catch(e){} } return /\/(fbms|logistique|suite|shared|terrain|rcntrace)\//.test(location.pathname); }
   function portailHref(){ return inSub() ? "../index.html" : "index.html"; }
   function adminHref(){ return inSub() ? "../shared/admin.html" : "shared/admin.html"; }
   function sharedHref(file){ return inSub() ? "../shared/" + file : "shared/" + file; }
