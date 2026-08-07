@@ -388,6 +388,8 @@ const I18N_EN = {
   "Pas de conflit communautaire majeur":"No major community conflict",
   // SWOT + fiche village
   "Forces":"Strengths", "Faiblesses":"Weaknesses", "Opportunités":"Opportunities", "Menaces":"Threats",
+  "Atouts":"Strengths", "Points de vigilance":"Watch points", "Analyse automatique":"Automatic analysis",
+  "Analyse indisponible — complétez la fiche.":"Analysis unavailable — complete the form.",
   "Analyse SWOT automatique":"Automatic SWOT analysis", "Autorités locales":"Local authorities",
   "Infrastructure & paiement":"Infrastructure & payment", "Photos":"Photos",
   // Boutons et libellés communs
@@ -748,6 +750,24 @@ function swotFor(v, score){
     : tier.key==="approfondir" ? "Compléter le dossier (RT, infrastructure) avant toute décision d'investissement."
     : "Ne pas engager de ressources sur ce village dans l'état actuel du dossier.";
   return { forces, faiblesses, opportunites, menaces, recommandation, tier };
+}
+
+/* Analyse fusionnée en deux listes (audit Base de données) : Atouts =
+   forces + opportunités ; Points de vigilance = faiblesses + menaces.
+   Remplace le SWOT à 4 quadrants dont deux souvent vides. */
+function analyseListsHTML(swot){
+  const atouts = swot.forces.concat(swot.opportunites);
+  const vigilance = swot.faiblesses.concat(swot.menaces);
+  const list = (items,color) => items.length
+    ? '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px">'
+      + items.map(it=>'<li style="display:flex;gap:10px;font-size:13px;line-height:1.5;color:'+T.ink+'"><span style="width:3px;flex:none;border-radius:2px;background:'+color+'"></span><span>'+it+'</span></li>').join('')
+      + '</ul>'
+    : '<p style="font-size:12px;color:'+T.inkSoft+';margin:0">—</p>';
+  let h='';
+  if (atouts.length) h += '<div style="margin-bottom:16px"><h4 style="margin:0 0 8px;font-size:13px;font-weight:600;color:'+T.forest700+'">'+t('Atouts')+'</h4>'+list(atouts,T.emerald)+'</div>';
+  if (vigilance.length) h += '<div><h4 style="margin:0 0 8px;font-size:13px;font-weight:600;color:'+T.cashewDeep+'">'+t('Points de vigilance')+'</h4>'+list(vigilance,T.orange)+'</div>';
+  if (!atouts.length && !vigilance.length) h = '<p style="font-size:12px;color:'+T.inkSoft+';margin:0">'+t('Analyse indisponible — complétez la fiche.')+'</p>';
+  return h;
 }
 
 /* ============================================================================
@@ -4447,9 +4467,8 @@ function openVillageReport(id){
     + flag(v.s8.pasConflitFoncier,'Pas de conflit foncier majeur') + flag(v.s8.pasConflitCommunautaire,'Pas de conflit communautaire majeur')
     + '</div></div>';
   // SWOT
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
-    + swotBloc('Forces', swot.forces, T.emerald) + swotBloc('Faiblesses', swot.faiblesses, T.red)
-    + swotBloc('Opportunités', swot.opportunites, T.cashewDeep) + swotBloc('Menaces', swot.menaces, T.orange) + '</div>';
+  html += '<div style="margin-bottom:14px"><div class="ff-body" style="font-size:11px;font-weight:700;color:'+T.ink+';margin-bottom:8px">'+t('Analyse automatique')+'</div>'
+    + analyseListsHTML(swot) + '</div>';
   html += '<div style="background:'+T.forestDark+';border-radius:8px;padding:10px 14px;margin-bottom:14px">'
     + '<div class="ff-body" style="font-size:9px;font-weight:700;color:'+T.cashew+';letter-spacing:.08em">'+t('RECOMMANDATION')+'</div>'
     + '<div class="ff-body" style="font-size:11px;color:#fff">'+swot.recommandation+'</div></div>';
@@ -4524,12 +4543,9 @@ function renderDrawer(){
     + '<div><div class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+t('RT IDENTIFIÉS')+'</div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+v.s7.candidats.filter(c=>c.nom).length+'/3</div></div>'
     + '</div></div>';
 
-  html += '<div><h3 class="ff-body text-sm font-bold mb-2" style="color:'+T.ink+'">'+t('Analyse SWOT automatique')+'</h3><div class="grid grid-cols-2 gap-2">'
-    + swotColHTML("Forces", swot.forces, T.emerald, "trending-up")
-    + swotColHTML("Faiblesses", swot.faiblesses, T.red, "trending-down")
-    + swotColHTML("Opportunités", swot.opportunites, T.cashewDeep, "star")
-    + swotColHTML("Menaces", swot.menaces, T.orange, "shield-alert")
-    + '</div><div class="rounded-lg p-3 mt-2" style="background-color:'+T.forestDark+'"><div class="ff-body text-[11px] font-semibold mb-1" style="color:'+T.cashew+'">'+t('RECOMMANDATION')+'</div>'
+  html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-bold mb-3" style="color:'+T.ink+'">'+t('Analyse automatique')+'</h3>'
+    + analyseListsHTML(swot)
+    + '<div class="rounded-lg p-3 mt-4" style="background-color:'+T.forestDark+'"><div class="ff-body text-[11px] font-semibold mb-1" style="color:'+T.cashew+'">'+t('RECOMMANDATION')+'</div>'
     + '<p class="ff-body text-sm" style="color:#fff">'+swot.recommandation+'</p></div></div>';
 
   html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-bold mb-2" style="color:'+T.ink+'">'+t('Autorités locales')+'</h3>'
