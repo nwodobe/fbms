@@ -345,6 +345,13 @@ const I18N_EN = {
   "Section 7 · Identification RT":"Section 7 · RT identification",
   "Section 8 · Conformité":"Section 8 · Compliance",
   "Section 9 · Évaluation enquêteur":"Section 9 · Surveyor assessment",
+  "Non évalué":"Not evaluated", "critères notés":"criteria rated",
+  "Renseignez les 5 critères pour obtenir le classement.":"Rate all 5 criteria to get the ranking.",
+  "Score global (/100) · classement automatique":"Overall score (/100) · automatic ranking",
+  "À activer en premier sur la campagne.":"Activate first in the campaign.",
+  "Éligible, à planifier après les villages prioritaires.":"Eligible, to schedule after priority villages.",
+  "Seconde visite recommandée avant décision.":"Second visit recommended before decision.",
+  "Sous le seuil d'activation. Justifiez la décision.":"Below the activation threshold. Justify the decision.",
   "Photos obligatoires":"Required photos",
   // Champs du formulaire
   "Région":"Region", "Département":"Department", "Sous-préfecture":"Sub-prefecture",
@@ -2157,7 +2164,7 @@ function collectFormData(baseRecord){
     const path = el.dataset.path;
     let val;
     if (el.type==="checkbox") val = el.checked;
-    else if (el.type==="number" || el.type==="range") val = el.value==="" ? "" : Number(el.value);
+    else if (el.type==="number" || el.type==="range" || el.dataset.num) val = el.value==="" ? "" : Number(el.value);
     else val = el.value;
     setPath(draft, path, val);
   });
@@ -3796,6 +3803,64 @@ function noteSlider(id, path, value, max){
     + '<input type="range" min="0" max="'+max+'" value="'+value+'" id="'+id+'" data-path="'+path+'" oninput="document.getElementById(\''+id+'_val\').textContent=this.value+\'/'+max+'\'; updateLiveScore();" class="flex-1"/>'
     + '<span id="'+id+'_val" class="ff-mono text-sm font-semibold" style="color:'+T.forest700+';min-width:44px;text-align:right">'+value+'/'+max+'</span></div>';
 }
+/* ============================================================================
+   NOTATION SECTION 9 — paliers explicites 0/5/10/15/20 (audit)
+   Une fiche dont les 5 critères ne sont pas tous notés est « Non évaluée »
+   et non « Rejet » : un formulaire vierge n'est pas un rejet. Le modèle de
+   données (s9.*) et les seuils métier (TIERS) sont inchangés.
+   ========================================================================== */
+const S9_STEPS = [0,5,10,15,20];
+const S9_IDS = ["note_potentiel","note_route","note_rt","note_conc","note_pay"];
+let S9_RATED = {};
+const NOTE_STEP_OFF = "padding:9px 0;flex:1;border-radius:8px;border:1px solid "+T.line+";background:#fff;color:"+T.inkSoft+";font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:600;cursor:pointer;transition:.14s";
+const NOTE_STEP_ON  = "padding:9px 0;flex:1;border-radius:8px;border:1px solid "+T.emerald+";background:"+T.emerald+";color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:600;cursor:pointer;transition:.14s";
+function noteStepStyle(on){ return on ? NOTE_STEP_ON : NOTE_STEP_OFF; }
+function s9RatedCount(d){ return ["potentiel20","route20","dispoRT20","risqueConcurrentiel20","faisabilitePaiement20"].filter(k=>Number(d.s9[k])>0).length; }
+function tierNote(score){
+  const k = tierFor(score).key;
+  return ({ prioritaire:"À activer en premier sur la campagne.",
+            secondaire:"Éligible, à planifier après les villages prioritaires.",
+            approfondir:"Seconde visite recommandée avant décision.",
+            rejet:"Sous le seuil d'activation. Justifiez la décision." })[k] || "";
+}
+function scoreUnratedSVG(size){
+  size = size || 56; const r = (size-8)/2, c = 2*Math.PI*r;
+  return '<div class="relative flex-shrink-0" style="width:'+size+'px;height:'+size+'px">'
+    + '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+T.cream100+'" stroke-width="5"/></svg>'
+    + '<div class="absolute inset-0 flex items-center justify-center"><span class="ff-mono font-semibold" style="font-size:'+(size*0.28)+'px;color:'+T.inkSoft+'">&mdash;</span></div></div>';
+}
+function notEvaluatedPillHTML(){
+  return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:'+T.cream+';color:'+T.inkSoft+'">'
+    + '<span class="w-1.5 h-1.5 rounded-full" style="background-color:'+T.inkSoft+'"></span>'+t('Non évalué')+'</span>';
+}
+function noteSteps(id, path, value){
+  const rated = Number(value)>0; S9_RATED[id] = rated;
+  const btns = S9_STEPS.map(v=>{
+    const on = rated && Number(value)===v;
+    return '<button type="button" data-val="'+v+'" aria-pressed="'+(on?'true':'false')+'" onclick="setNote(\''+id+'\',\''+path+'\','+v+',this)" style="'+noteStepStyle(on)+'">'+v+'</button>';
+  }).join('');
+  return '<div class="flex items-center gap-3">'
+    + '<div class="flex gap-1.5" style="flex:1" role="group">'+btns+'</div>'
+    + '<span id="'+id+'_val" class="ff-mono text-sm font-semibold" style="min-width:52px;text-align:right;color:'+(rated?T.forest700:T.inkSoft)+'">'+(rated?(value+'/20'):'—')+'</span>'
+    + '<input type="hidden" id="'+id+'" data-path="'+path+'" data-num="1" value="'+(Number(value)||0)+'"></div>';
+}
+function setNote(id, path, val, btn){
+  const hidden = document.getElementById(id), group = btn.parentElement;
+  const cur = Number(hidden.value), wasRated = !!S9_RATED[id];
+  if (wasRated && cur===val){ S9_RATED[id]=false; hidden.value=0; }
+  else { S9_RATED[id]=true; hidden.value=val; }
+  const nowRated = !!S9_RATED[id];
+  group.querySelectorAll('button').forEach(b=>{
+    const on = nowRated && Number(b.dataset.val)===Number(hidden.value);
+    b.setAttribute('aria-pressed', on?'true':'false');
+    b.style.cssText = noteStepStyle(on);
+  });
+  const out = document.getElementById(id+'_val');
+  out.textContent = nowRated ? (hidden.value+'/20') : '—';
+  out.style.color = nowRated ? T.forest700 : T.inkSoft;
+  updateLiveScore();
+  if (typeof flashAutoSave === 'function') flashAutoSave();
+}
 function sectionWrap(id, title, iconName, open, innerHTML){
   return '<details id="'+id+'" '+(open?'open':'')+' class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff">'
     + '<summary class="w-full flex items-center justify-between px-4 py-3" style="background-color:'+T.cream+'">'
@@ -3965,11 +4030,14 @@ function calcPotentiel(){
 }
 
 function updateLiveScore(){
-  const ids = ["note_potentiel","note_route","note_rt","note_conc","note_pay"];
-  const score = ids.reduce((sum,id)=>{ const el=document.getElementById(id); return sum + (el?Number(el.value):0); },0);
-  const gauge = document.getElementById("liveScoreGauge"); if (gauge) gauge.innerHTML = scoreCompassSVG(score,64);
-  const gaugeTop = document.getElementById("scoreBadgeTop"); if (gaugeTop) gaugeTop.innerHTML = scoreCompassSVG(score,48);
-  const pill = document.getElementById("liveTierPill"); if (pill) pill.innerHTML = tierPillHTML(score);
+  const rated = S9_IDS.filter(id=>S9_RATED[id]).length;
+  const complete = rated === S9_IDS.length;
+  const score = S9_IDS.reduce((sum,id)=>{ const el=document.getElementById(id); return sum + (el?Number(el.value):0); },0);
+  const gauge = document.getElementById("liveScoreGauge"); if (gauge) gauge.innerHTML = complete ? scoreCompassSVG(score,64) : scoreUnratedSVG(64);
+  const gaugeTop = document.getElementById("scoreBadgeTop"); if (gaugeTop) gaugeTop.innerHTML = complete ? scoreCompassSVG(score,48) : scoreUnratedSVG(48);
+  const pill = document.getElementById("liveTierPill"); if (pill) pill.innerHTML = complete ? tierPillHTML(score) : notEvaluatedPillHTML();
+  const lbl = document.getElementById("s9RatedLabel"); if (lbl) lbl.textContent = rated + ' / 5 ' + t('critères notés');
+  const note = document.getElementById("s9VerdictNote"); if (note) note.textContent = complete ? t(tierNote(score)) : t('Renseignez les 5 critères pour obtenir le classement.');
 }
 
 let autoSaveTimer = null;
@@ -4040,7 +4108,7 @@ function FormView(id){
     + '<p id="autoSaveFlash" class="ff-body text-sm" style="color:'+(draftRestored ? T.orange : T.inkSoft)+'">'
     + (draftRestored ? '⚠ Brouillon non enregistré restauré — cliquez « Enregistrer la fiche » pour le conserver.' : t('Un formulaire par village, conforme au FORMULAIRE_VILLAGE.xlsx'))
     + '</p></div>'
-    + '<div id="scoreBadgeTop" class="flex-shrink-0">'+scoreCompassSVG(score,48)+'</div></div>';
+    + '<div id="scoreBadgeTop" class="flex-shrink-0">'+(s9RatedCount(draft)===5 ? scoreCompassSVG(score,48) : scoreUnratedSVG(48))+'</div></div>';
 
   // v0.9 : statut de la fiche — options selon le rôle, revérifié côté serveur.
   const stAllowed = statutsAutorises();
@@ -4193,19 +4261,22 @@ function FormView(id){
     + toggleField("s8.pasConflitCommunautaire","Pas de conflit communautaire majeur", draft.s8.pasConflitCommunautaire)
     + '</div>');
 
-  // Section 9
+  // Section 9 — notation par paliers (audit) : 0/5/10/15/20, état « Non évalué »
+  const s9rated = s9RatedCount(draft), s9complete = s9rated === 5;
   html += sectionWrap("sec9","Section 9 · Évaluation enquêteur","award",true,
-    '<div class="space-y-3">'
-    + fieldWrap("Potentiel Village (/20)", noteSlider("note_potentiel","s9.potentiel20",draft.s9.potentiel20,20))
-    + fieldWrap("Qualité Route (/20)", noteSlider("note_route","s9.route20",draft.s9.route20,20))
-    + fieldWrap("Disponibilité RT (/20)", noteSlider("note_rt","s9.dispoRT20",draft.s9.dispoRT20,20))
-    + fieldWrap("Risque Concurrentiel (/20)", noteSlider("note_conc","s9.risqueConcurrentiel20",draft.s9.risqueConcurrentiel20,20))
-    + fieldWrap("Faisabilité Paiement (/20)", noteSlider("note_pay","s9.faisabilitePaiement20",draft.s9.faisabilitePaiement20,20))
+    '<div id="s9RatedLabel" class="ff-mono text-[11px] mb-3" style="color:'+T.inkSoft+'">'+s9rated+' / 5 '+t('critères notés')+'</div>'
+    + '<div class="space-y-3">'
+    + fieldWrap("Potentiel Village (/20)", noteSteps("note_potentiel","s9.potentiel20",draft.s9.potentiel20), "Volume RCN estimé")
+    + fieldWrap("Qualité Route (/20)", noteSteps("note_route","s9.route20",draft.s9.route20), "Praticabilité 10T")
+    + fieldWrap("Disponibilité RT (/20)", noteSteps("note_rt","s9.dispoRT20",draft.s9.dispoRT20), "Relais identifiés")
+    + fieldWrap("Risque Concurrentiel (/20)", noteSteps("note_conc","s9.risqueConcurrentiel20",draft.s9.risqueConcurrentiel20), "20 = risque faible")
+    + fieldWrap("Faisabilité Paiement (/20)", noteSteps("note_pay","s9.faisabilitePaiement20",draft.s9.faisabilitePaiement20), "Cash et mobile money")
     + '</div>'
-    + '<div class="flex items-center justify-between rounded-lg px-4 py-3 mt-4" style="background-color:'+T.cream+'">'
-    + '<div><div class="ff-body text-xs font-medium" style="color:'+T.inkSoft+'">SCORE GLOBAL (/100) · Classement automatique</div>'
-    + '<div id="liveTierPill">'+tierPillHTML(score)+'</div></div>'
-    + '<div id="liveScoreGauge">'+scoreCompassSVG(score,48)+'</div></div>'
+    + '<div class="flex items-center justify-between rounded-lg px-4 py-3 mt-4" style="background-color:'+T.cream+';border:1px solid '+T.cream100+'">'
+    + '<div style="min-width:0"><div class="ff-body text-xs font-medium" style="color:'+T.inkSoft+'">'+t('Score global (/100) · classement automatique')+'</div>'
+    + '<div class="flex items-center gap-2 mt-1.5 flex-wrap"><div id="liveTierPill">'+(s9complete?tierPillHTML(score):notEvaluatedPillHTML())+'</div>'
+    + '<span id="s9VerdictNote" class="ff-body text-[11px]" style="color:'+T.inkSoft+'">'+(s9complete?t(tierNote(score)):t('Renseignez les 5 critères pour obtenir le classement.'))+'</span></div></div>'
+    + '<div id="liveScoreGauge">'+(s9complete?scoreCompassSVG(score,64):scoreUnratedSVG(64))+'</div></div>'
     + fieldWrap("Décision (manuelle)", textInput("s9.decision", draft.s9.decision, "Ex : engager la campagne, seconde visite requise…")));
 
   // Photos
