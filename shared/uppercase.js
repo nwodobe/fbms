@@ -35,7 +35,7 @@
     if (ac.indexOf("password") >= 0 || ac === "username" || ac === "email" || ac === "one-time-code") return true;
     var idn = ((el.id || "") + " " + (el.name || ""));
     if (SENSITIVE.test(idn)) return true;
-    if ((el.value || "").indexOf("@") >= 0) return true;   // ressemble à un email
+    if ((el.value || "").indexOf("@") >= 0) return true;
     return false;
   }
 
@@ -50,12 +50,9 @@
     try { if (a != null) el.setSelectionRange(a, b); } catch (e) { /* selection non supportée */ }
   }
 
-  // Capture : on normalise avant les gestionnaires de la page (recherche, filtres…).
   document.addEventListener("input", function (e) { upcase(e.target); }, true);
   document.addEventListener("change", function (e) { upcase(e.target); }, true);
 
-  // Hardening FIELD BUYING : injecté seulement sur le référentiel FBMS.
-  // Le chargement reste non destructif et ne touche pas aux autres modules.
   function loadFieldBuyingHardening(){
     try {
       if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
@@ -68,7 +65,18 @@
     } catch (e) { /* ignorer */ }
   }
 
-  // Hardening ALIS : injecté seulement sur le module logistique officiel.
+  function loadFieldBuyingDashboardAudit(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      if (document.getElementById("fbms-dashboard-audit-script")) return;
+      var s = document.createElement("script");
+      s.id = "fbms-dashboard-audit-script";
+      s.defer = true;
+      s.src = "../shared/fbms-dashboard-audit.js?v=20260807-audit";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadALISHardening(){
     try {
       if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
@@ -81,7 +89,6 @@
     } catch (e) { /* ignorer */ }
   }
 
-  // Correctif Audit Distances : sauvegarde GPS hub avec id_hub au lieu de id.
   function loadAuditDistancesFix(){
     try {
       if (!/\/fbms\/audit_distances\.html$/.test(location.pathname)) return;
@@ -96,6 +103,7 @@
 
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
+    loadFieldBuyingDashboardAudit();
     loadALISHardening();
     loadAuditDistancesFix();
   }
