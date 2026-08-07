@@ -313,6 +313,7 @@ const I18N_EN = {
   "Vue consolidée de la campagne de recensement villages — Field Buying 2027.":"Consolidated view of the village census campaign — Field Buying 2027.",
   // Graphiques
   "Potentiel (MT) par région":"Potential (MT) by region", "Top villages (score)":"Top villages (score)",
+  "trié par score":"sorted by score", "Village · sous-préfecture":"Village · sub-prefecture",
   "Évolution des recensements":"Census progress", "Classement enquêteurs":"Surveyor ranking",
   "Répartition par classement":"Breakdown by rating", "Villages par département":"Villages by department",
   // KPI
@@ -2264,19 +2265,16 @@ function DashboardView(){
   // ---- Rangee 1 : Potentiel par region + Top villages ----
   html += '<div class="dash-row">';
   html += '<div class="dash-card">'
-    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">MT · '+t('campagne 2027')+'</span></div>'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><div class="ff-body" style="display:flex;align-items:center;gap:16px;font-size:11.5px;color:'+T.inkSoft+'"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+T.emerald+';margin-right:5px;vertical-align:middle"></span>'+t('Sécurisé')+'</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+T.cream100+';margin-right:5px;vertical-align:middle"></span>'+t('Reste à sécuriser')+'</span></div></div>'
     + '<div style="display:flex;flex-direction:column;gap:16px">';
   if (!regions.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucune donnée de recensement — lancez le Recensement pour voir le potentiel par région.')+'</div>';
   regions.forEach(r=>{
-    html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
+    const trackW=(r.mt/maxRegMt*100), fillW=r.mt>0?(r.sec/r.mt*100):0;
+    html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">'
       + '<span class="ff-body" style="font-weight:600;font-size:14px">'+esc(r.name)+' <span style="color:'+T.inkSoft+';font-weight:400;font-size:12.5px">· '+r.villages+' '+t('villages')+'</span></span>'
-      + '<span class="ff-mono" style="font-size:14px;color:'+T.forestDark+';font-weight:600">'+fmtN(r.mt)+' MT</span></div>'
-      + '<div style="height:24px;background:'+T.cream+';border-radius:7px;overflow:hidden;position:relative">'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.mt/maxRegMt*100)+'%;background:'+T.emerald+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div>'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.sec/maxRegMt*100)+'%;background:'+T.cashew+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div>'
-      + '<div style="display:flex;gap:16px;margin-top:5px;font-size:11.5px;color:'+T.inkSoft+'" class="ff-body">'
-      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.emerald+';margin-right:5px"></span>'+t('Potentiel')+'</span>'
-      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.cashew+';margin-right:5px"></span>'+t('Sécurisé')+' · <span class="ff-mono">'+fmtN(r.sec)+' MT</span></span></div></div>';
+      + '<span class="ff-mono" style="font-size:13px;color:'+T.inkSoft+'"><b style="color:'+T.forestDark+'">'+fmtN(r.sec)+'</b> / '+fmtN(r.mt)+' MT</span></div>'
+      + '<div style="height:22px;background:'+T.cream100+';border-radius:4px;overflow:hidden;width:'+trackW+'%;min-width:10px">'
+      + '<div style="height:100%;width:'+fillW+'%;background:'+T.emerald+';border-radius:4px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div></div>';
   });
   html += '</div>'
     + '<div style="margin-top:20px;padding-top:16px;border-top:1px solid '+T.line+';display:flex;gap:28px;flex-wrap:wrap">'
@@ -2285,22 +2283,28 @@ function DashboardView(){
     + '<div><div class="ff-body" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:'+T.inkSoft+'">'+t('Reste à sécuriser')+'</div><div class="ff-mono" style="font-size:18px;font-weight:600;color:'+T.orange+';margin-top:3px">'+fmtN(reste)+' MT</div></div>'
     + '</div></div>';
 
-  html += '<div class="dash-card"><h2 class="dash-h" style="margin-bottom:14px">'+t('Top villages (score)')+'</h2><div style="display:flex;flex-direction:column">';
-  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucun village recensé — commencez par l\'onglet Recensement.')+'</div>';
+  html += '<div class="dash-card" style="padding:0;overflow:hidden">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;padding:22px 22px 14px"><h2 class="dash-h">'+t('Top villages (score)')+'</h2><span class="ff-body" style="font-size:12px;color:'+T.inkSoft+'">'+t('trié par score')+'</span></div>'
+    + '<div style="display:flex;align-items:center;gap:14px;padding:8px 22px;background:'+T.cream+';border-top:1px solid '+T.line+';border-bottom:1px solid '+T.line+';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:'+T.inkSoft+';font-weight:600" class="ff-body">'
+    + '<span style="width:16px">#</span><span style="flex:1">'+t('Village · sous-préfecture')+'</span><span>'+t('Score')+'</span></div>';
+  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px;padding:16px 22px">'+t('Aucun village recensé — commencez par l\'onglet Recensement.')+'</div>';
   topVillages.forEach(({v,score},i)=>{
-    html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow">'
-      + '<span class="ff-mono" style="font-size:12px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
-      + '<div style="min-width:0;flex:1"><div class="ff-body" style="font-weight:600;font-size:13.5px;color:'+T.ink+'">'+esc(v.s1.village||"Sans nom")+'</div>'
-      + '<div class="ff-body" style="font-size:11.5px;color:'+T.inkSoft+'">'+esc(v.s1.departement||v.s1.cluster||"")+'</div></div>'
-      + '<div style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><div style="width:30px;height:30px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center" class="ff-mono"><span style="font-size:12px;font-weight:600;color:'+T.forestDark+'">'+Math.round(score)+'</span></div></div></button>';
+    const p1=score>=80;
+    html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow" style="padding:13px 22px">'
+      + '<span class="ff-mono" style="font-size:13px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
+      + '<div style="min-width:0;flex:1"><div class="ff-body" style="font-weight:600;font-size:15px;color:'+T.ink+'">'+esc(v.s1.village||"Sans nom")+'</div>'
+      + '<div class="ff-body" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;color:#565555;margin-top:3px">'+esc(v.s1.departement||v.s1.cluster||"—")+'</div></div>'
+      + '<div style="display:flex;align-items:center;gap:10px;flex:0 0 auto">'
+      + '<span class="ff-mono" style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.06em;background:'+(p1?T.cream100:'#F4F4F3')+';color:'+(p1?T.forest700:T.inkSoft)+'">'+(p1?'P1':'P2')+'</span>'
+      + '<span class="ff-mono" style="font-size:20px;font-weight:600;color:'+T.forestDark+';width:30px;text-align:right">'+Math.round(score)+'</span></div></button>';
   });
-  html += '</div></div></div>';
+  html += '</div></div>';
 
   // ---- Rangee 2 : Progression census + Classement enqueteurs ----
   html += '<div class="dash-row">';
   html += '<div class="dash-card">'
     + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Progression du census')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">'+villages.length+' '+t('villages')+'</span></div>'
-    + '<div style="display:flex;align-items:flex-end;gap:14px;height:130px">';
+    + '<div style="display:flex;align-items:flex-end;gap:14px;height:130px;border-bottom:1px solid '+T.line+';padding-bottom:2px">';
   weeks.forEach((w,i)=>{
     const h = Math.max(4, Math.round(w.n/maxN*96));
     const last = i===weeks.length-1;
