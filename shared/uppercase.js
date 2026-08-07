@@ -77,6 +77,18 @@
     } catch (e) { /* ignorer */ }
   }
 
+  function loadFieldBuyingRecensementAudit(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      if (document.getElementById("fbms-recensement-audit-script")) return;
+      var s = document.createElement("script");
+      s.id = "fbms-recensement-audit-script";
+      s.defer = true;
+      s.src = "../shared/fbms-recensement-audit.js?v=20260807-audit-v2";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadALISHardening(){
     try {
       if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
@@ -104,6 +116,7 @@
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
     loadFieldBuyingDashboardAudit();
+    loadFieldBuyingRecensementAudit();
     loadALISHardening();
     loadAuditDistancesFix();
   }
