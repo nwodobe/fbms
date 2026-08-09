@@ -562,7 +562,7 @@ function save(mode){
   const prodRow=currentProdRow();
   const prodTel=$("f_prod_tel").value.trim();
   const ps=prodStatut(prodName,prodRow);
-  if(ps.code==="PROV" && !prodTel) return msg("Producteur non référencé : téléphone obligatoire (+ village) pour un producteur provisoire.","err");
+  if(ps.code==="PROV" && !prodTel) return msg("Producteur non référencé : téléphone obligatoire (+ village) pour un producteur provisoire.","err"); if(prodTel && !/^0\d{9}$/.test(prodTel.replace(/\s+/g,""))) return msg("Tel producteur invalide: 10 chiffres, doit commencer par 0.","err"); const humVal=n($("f_hum").value); if($("f_hum").value.trim()!=="" && (isNaN(humVal)||humVal<0||humVal>20)) return msg("Humidite invalide: doit etre entre 0 et 20%.","err"); const korVal=n($("f_kor").value); if($("f_kor").value.trim()!=="" && (isNaN(korVal)||korVal<0||korVal>100)) return msg("KOR invalide: doit etre entre 0 et 100%.","err");
   const recu=$("f_recu").value.trim();
   if(complet && !recu) return msg("Reçu requis pour valider l'achat complet. Sans reçu, enregistrez un brouillon.","err");
   const qual=qualiteStatut(), refi=estRefinancable();
