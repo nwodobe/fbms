@@ -631,7 +631,7 @@ const PHOTO_SLOTS = [["entree","Entrée du village"],["chef","Chef du village"],
 function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function pick(arr){ return arr[rand(0,arr.length-1)]; }
 function bool(p=0.5){ return Math.random()<p; }
-function esc(s){ return (s===undefined||s===null) ? "" : String(s).replace(/"/g,"&quot;"); }
+function esc(s){ return (s===undefined||s===null) ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 
 /**
  * v0.11.3 : coordonnée GPS robuste. Accepte les saisies terrain françaises :
@@ -2805,8 +2805,8 @@ function renderProdModal(){
   const rtOpts = '<option value="">—</option>' + STATE.rt
     .filter(r=>!r.villageId || r.villageId===p.villageId || r.id===p.rtId)
     .map(r=>'<option value="'+r.id+'" '+(p.rtId===r.id?'selected':'')+'>'+esc(r.nom)+(r.villageNom?' ('+esc(r.villageNom)+')':'')+'</option>').join('');
-  const inp = (id, label, value, type, ph) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
-    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
+  const inp = (id, label, value, type, ph, attrs) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
+    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" '+(attrs||"")+' class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
   // v0.14 : l'affichage est traduit mais la VALEUR enregistrée reste française
   // (compatibilité avec les validations du backend et les données existantes).
   const sel = (id, label, value, options, withEmpty) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
@@ -2826,15 +2826,15 @@ function renderProdModal(){
     + '<div class="grid grid-cols-2 gap-2.5 mb-3">'
     + inp("pNom","Nom et prénoms *", p.nom)
     + sel("pSexe","Sexe *", p.sexe, ["Homme","Femme"], true)
-    + inp("pAnnee","Année de naissance *", p.anneeNaissance, "number", "ex : 1975")
-    + inp("pTel","Téléphone *", p.telephone, "tel")
+    + inp("pAnnee","Année de naissance *", p.anneeNaissance, "number", "ex : 1975", 'min="1930" max="'+(new Date().getFullYear()-16)+'" step="1"')
+    + inp("pTel","Téléphone *", p.telephone, "tel", "10 chiffres — ex : 0700000000", 'inputmode="tel" maxlength="17"')
     + inp("pTelTit","Titulaire du téléphone", p.telTitulaire, "text", "Propre / nom du proche")
     + inp("pCampement","Campement / hameau *", p.campement)
     + '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t('RT référent')+'</span>'
     + '<select id="pRT" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'">'+rtOpts+'</select></label>'
     + inp("pCoop","Coopérative", p.cooperative, "text", "Aucune si néant")
-    + inp("pSuperficie","Superficie anacarde (ha) *", p.superficieHa, "number")
-    + inp("pProdPrec","Production précédente (kg) *", p.prodPrecKg, "number")
+    + inp("pSuperficie","Superficie anacarde (ha) *", p.superficieHa, "number", "0 – 100", 'min="0" max="100" step="0.1"')
+    + inp("pProdPrec","Production précédente (kg) *", p.prodPrecKg, "number", "en kg", 'min="0" max="1000000" step="1"')
     + '</div>'
 
     + '<div class="ff-body text-xs font-semibold mb-1.5" style="color:'+T.forest700+'">'+t('Enrichissement (optionnel)')+'</div>'
@@ -2862,6 +2862,15 @@ function renderProdModal(){
     + '</div></div></div>';
 }
 
+/** Normalise un numéro ivoirien : renvoie 10 chiffres, ou null si invalide.
+ *  Tolère espaces, points, tirets et le préfixe international +225. */
+function normalizePhoneCI(raw){
+  if (raw === undefined || raw === null) return null;
+  let d = String(raw).replace(/[^0-9]/g, "");
+  if (d.length === 13 && d.slice(0,3) === "225") d = d.slice(3);
+  return d.length === 10 ? d : null;
+}
+
 /** Enregistre l'enrôlement : validations noyau, local d'abord, puis Sheets. */
 async function saveProducteur(){
   captureProdModalFields();
@@ -2876,6 +2885,28 @@ async function saveProducteur(){
   if (!p.prodPrecKg) manquants.push("production précédente");
   if (manquants.length){ alert("Champs obligatoires manquants : " + manquants.join(", ") + "."); return; }
   if (!p.villageId){ alert("Aucun village sélectionné."); return; }
+
+  // v0.17 : validations de plage, de format et de doublon (audit sécurité/qualité).
+  const anneeMax = new Date().getFullYear() - 16;
+  const errs = [];
+  const sup = Number(p.superficieHa);
+  if (!Number.isFinite(sup) || sup <= 0 || sup > 100)
+    errs.push("Superficie anacarde : nombre attendu entre 0 (exclu) et 100 ha.");
+  const prod = Number(p.prodPrecKg);
+  if (!Number.isFinite(prod) || prod < 0 || prod > 1000000)
+    errs.push("Production précédente : nombre attendu entre 0 et 1 000 000 kg.");
+  const annee = Number(p.anneeNaissance);
+  if (!Number.isInteger(annee) || annee < 1930 || annee > anneeMax)
+    errs.push("Année de naissance : entier attendu entre 1930 et " + anneeMax + ".");
+  const telNorm = normalizePhoneCI(p.telephone);
+  if (!telNorm)
+    errs.push("Téléphone : numéro ivoirien à 10 chiffres attendu (ex : 0700000000).");
+  if (p.mobileMoneyNum && !normalizePhoneCI(p.mobileMoneyNum))
+    errs.push("N° Mobile Money : 10 chiffres attendus.");
+  if (errs.length){ alert("Corrigez avant d'enregistrer :\n\n• " + errs.join("\n• ")); return; }
+  // Doublon de téléphone dans le même village : avertissement (non bloquant).
+  const doublon = STATE.producteurs.find(x => x.id !== p.id && x.villageId === p.villageId && normalizePhoneCI(x.telephone) === telNorm);
+  if (doublon && !confirm("Ce numéro est déjà enregistré pour « " + (doublon.nom || doublon.code || "un autre producteur") + " » dans ce village.\n\nEnregistrer quand même ?")) return;
   p.updatedAt = new Date().toISOString();
   if (AUTH.isConnected()){
     if (!p.createdBy) p.createdBy = AUTH.session.email;
@@ -3117,8 +3148,8 @@ function renderRTModal(){
         + '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+new Date(h.date).toLocaleString("fr-FR")+' · '+esc(h.type)+(h.par ? ' · '+esc(h.par) : '')+'</span>'
         + '<div class="ff-body text-xs" style="color:'+T.ink+'">'+esc(h.note)+'</div></div>').join('')
     : '<span class="ff-body text-xs" style="color:'+T.inkSoft+'">Aucun évènement.</span>';
-  const inp = (id, label, value, type, ph) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
-    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
+  const inp = (id, label, value, type, ph, attrs) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
+    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" '+(attrs||"")+' class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
 
   const root = document.getElementById("modal-root");
   root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:65;background-color:#00000066" onclick="closeRTModal()">'
