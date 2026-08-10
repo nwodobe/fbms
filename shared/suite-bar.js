@@ -38,7 +38,8 @@
     { code: 'MAP', nom: 'Cartographie',     url: 'fbms/fbms_carte.html',      desc: 'Carte interactive terrain',        acces: ['bm', 'chef', 'agent', 'direction'] },
     { code: 'AUD', nom: 'Audit Distances',  url: 'fbms/audit_distances.html', desc: 'Validation distances routières',   acces: ['bm', 'chef'] },
     { code: 'LOG', nom: 'ALIS Logistique',  url: 'logistique/alis_fbms.html', desc: 'Coût rendu usine',                 acces: ['bm', 'chef'] },
-    { code: 'RCN', nom: 'RCN TRACE',        url: 'rcntrace/index.html',       desc: 'Traçabilité & bilan matière',      acces: ['bm', 'chef', 'agent', 'direction'] }
+    { code: 'RCN', nom: 'RCN TRACE',        url: 'rcntrace/index.html',       desc: 'Traçabilité & bilan matière',      acces: ['bm', 'chef', 'agent', 'direction'] },
+    { code: 'TRN', nom: 'Tournées Terrain', url: 'terrain/tournees.html',     desc: 'Visites agents & couverture',      acces: ['bm', 'direction'] }
   ];
 
   /* ---- Niveau courant --------------------------------------------------
@@ -70,7 +71,8 @@
      files locales réelles des modules terrain. */
   function enAttente() {
     var total = 0;
-    ['anagroci_achats', 'anagroci_avances', 'anagroci_recons', 'anagroci_sacs'].forEach(function (k) {
+    ['anagroci_achats', 'anagroci_avances', 'anagroci_recons', 'anagroci_sacs',
+     'anagroci_visites'].forEach(function (k) {
       try {
         var q = JSON.parse(localStorage.getItem(k) || '[]');
         if (Array.isArray(q)) total += q.filter(function (r) { return r && r._status !== 'synced'; }).length;

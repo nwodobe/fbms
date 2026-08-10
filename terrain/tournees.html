@@ -1,0 +1,895 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Tournées Terrain · ANAGROCI</title>
+<meta name="description" content="Suivi des tournées des agents : visites village par village, couverture par cluster, villages non couverts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Contrôle d'accès : la matrice ACCESS de shared/auth-gate.js n'expose pas de
+     clé « tournees », et ce fichier est interdit à toute modification par un
+     agent (CLAUDE.md §3). On réutilise donc la classe d'accès « command »
+     (Branch Manager, Assistant BM, Head of Field, Procurement Officer, plus
+     « Consultation uniquement » en lecture) : c'est exactement le public visé
+     par cette page de pilotage. L'écriture est refermée côté page pour le
+     niveau « direction » — voir estLecteurSeul(). -->
+<script defer src="../shared/auth-gate.js" data-module="command"></script>
+<script defer src="../shared/suite-bar.js" data-module="TRN"></script>
+<style>
+  :root{
+    --forest:#053B23;--deep:#0A5531;--pine:#00712C;--emerald:#008F37;--lime:#8DC556;
+    --sprout:#B6DC8E;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-soft:#F5B229;
+    --orange-tint:#FDEFCE;--ink:#323131;--n700:#4F4E4E;--muted:#6B6969;--line:#E8E7E7;
+    --bg:#F4F4F3;--white:#fff;--danger:#B23A2A;
+    --font-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+    --font-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+
+  /* ---- Bandeau de page ---- */
+  .top{background:var(--forest);color:#fff;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 20px;border-bottom:3px solid var(--lime)}
+  .top .ttl h1{font-family:var(--font-display);font-weight:700;font-size:17px;line-height:1.2;margin:0}
+  .top .ttl small{font-size:12px;color:#CFE3D3;display:block;margin-top:2px}
+  .top .sp{flex:1}
+  .top .r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:8px 14px;min-height:34px}
+  .net .d{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+  .net.on{background:rgba(141,197,86,.18);color:var(--sprout)}.net.on .d{background:var(--lime)}
+  .net.off{background:rgba(238,158,0,.18);color:var(--orange-soft)}.net.off .d{background:var(--orange)}
+  .sync{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:13px;font-weight:600;
+    color:var(--forest);background:var(--lime);border:none;border-radius:999px;padding:11px 18px;min-height:44px;cursor:pointer}
+  .sync:disabled{opacity:.55;cursor:default}
+  .sync svg{width:14px;height:14px;flex:0 0 auto}
+
+  /* ---- Ossature ---- */
+  .wrap{width:100%;max-width:1240px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+  .card,.kpicard{background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(5,59,35,.06)}
+  .card{padding:24px}
+  .cardhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .cardhead .sp{flex:1}
+  .sectitle{font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;border-left:4px solid var(--lime);padding-left:12px}
+
+  /* ---- Chiffres clés ---- */
+  .kpicard{padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
+  .stat small{display:block;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+  .stat b{display:block;margin-top:6px;font-size:24px;color:var(--forest);font-family:var(--font-mono);font-weight:600}
+  .stat .sub{display:block;margin-top:3px;font-size:11.5px;color:var(--muted)}
+  .stat.kalert b{color:#8a5200}
+
+  /* ---- Filtres ---- */
+  .filters{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+  .filters .field{min-width:180px;flex:1 1 180px}
+  .filters .reset{flex:0 0 auto}
+
+  /* ---- Onglets ---- */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{padding:14px 18px;min-height:44px;font-size:14px;font-weight:600;color:var(--n700);background:none;border:0;
+    border-bottom:2px solid transparent;cursor:pointer;font-family:inherit}
+  .tab[aria-selected="true"]{color:var(--forest);border-bottom-color:var(--lime)}
+  .tab .cbadge{font-family:var(--font-mono);font-size:11px;background:var(--orange-tint);color:#8a5200;border-radius:999px;padding:1px 7px;margin-left:6px}
+
+  /* ---- Formulaire ---- */
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .field label{font-size:13px;font-weight:600;color:var(--ink)}
+  input,select,textarea{width:100%;min-height:44px;border:1px solid #C9C7C7;border-radius:6px;padding:10px 12px;
+    font-size:15px;font-family:var(--font-body);color:var(--ink);background:#fff;outline:none}
+  input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{border-color:var(--emerald);
+    box-shadow:0 0 0 3px rgba(0,143,55,.22);outline:2px solid transparent}
+  .up{text-transform:uppercase}.up::placeholder{text-transform:none}
+  textarea{resize:vertical;min-height:64px}
+  .ctxbox{border-radius:8px;padding:12px 14px;margin:8px 0 16px;font-size:13px;background:var(--mist);
+    border:1px solid var(--line);line-height:1.55}
+  .ctxbox.ok{border-color:#a9d69c;background:#f3faf1}
+  .ctxbox.warn{border-color:var(--orange);background:var(--orange-tint)}
+  .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px}
+  .btn{border:0;border-radius:8px;background:var(--emerald);color:#fff;font-weight:600;padding:12px 16px;min-height:44px;
+    cursor:pointer;font-size:13.5px;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+  .btn.cta{padding:13px 24px;font-size:15px}
+  .btn.sm{background:#fff;color:var(--forest);border:1px solid #C9C7C7}
+  .btn:disabled{opacity:.55;cursor:default}
+  .alert{border-radius:8px;padding:11px 13px;margin-top:12px;font-size:13px;display:none;line-height:1.5}
+  .alert.show{display:block}
+  .ok{background:var(--mist);border:1px solid #a9d69c;color:#1c4b30}
+  .err{background:#fff1f1;border:1px solid #dda79e;color:#8f2d22}
+  .warn{background:var(--orange-tint);border:1px solid var(--orange);color:#7a5c0f}
+
+  /* ---- Tableaux ---- */
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  caption{text-align:left;font-size:12.5px;color:var(--muted);padding:0 0 10px;line-height:1.5}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--n700);font-weight:700;
+    padding:10px 12px;border-bottom:2px solid var(--emerald);white-space:nowrap}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--ink);vertical-align:top}
+  td.num,th.num{text-align:right;font-family:var(--font-mono);font-weight:600}
+  .muted{color:var(--muted);font-size:13px;line-height:1.5}
+  .bdg{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap}
+  .brand{background:var(--pale);color:var(--pine)}
+  .success{background:#E3F5E8;color:#1c6f3b}
+  .neutral{background:#EDECEA;color:#4F4E4E}
+  .danger{background:#FDECE9;color:#A43426}
+  .warning{background:var(--orange-tint);color:#7a5c0f}
+  .info{background:#E9F1FB;color:#28598f}
+  .actlink{background:none;border:0;color:var(--pine);font-weight:700;font-size:12.5px;cursor:pointer;
+    padding:8px 4px;min-height:44px;text-decoration:underline;font-family:inherit}
+  .errline{margin-top:6px;font-size:12px;color:#8f2d22;background:#FDECE9;border:1px solid #dda79e;border-radius:7px;padding:6px 9px}
+
+  /* ---- Barre de couverture ---- */
+  .jauge{display:block;width:110px;height:8px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:5px}
+  .jauge i{display:block;height:100%;background:var(--emerald)}
+  .jauge.bas i{background:var(--orange)}
+  .jauge.critique i{background:var(--danger)}
+
+  @media(max-width:640px){
+    .top{padding:10px 14px}
+    .wrap{padding:16px 12px 40px}
+    .card{padding:18px}
+    .kpicard{padding:14px 16px}
+  }
+</style>
+<!-- Feuilles partagées liées EXPLICITEMENT, sans passer par shared/pjs-theme.css.
+     Celui-ci tire anagroci-ui / alis-premium / geo-premium / ops-premium par des
+     @import relatifs dont la résolution part, selon l'ordre de chargement, du
+     document et non de la feuille : d'où les 404 « /terrain/anagroci-ui.css »
+     relevées sur les autres pages du module (CLAUDE.md §6). Un lien direct n'a
+     pas cette ambiguïté. ops-premium.css s'applique bien ici via
+     data-module="command" ; alis-premium (#mode + #contrat) et geo-premium (#map)
+     ne ciblent pas cette page. Les règles propres à pjs-theme.css (police des
+     titres, filet lime sous .top) sont déjà portées par le <style> ci-dessus. -->
+<link rel="stylesheet" href="../shared/anagroci-ui.css">
+<link rel="stylesheet" href="../shared/ops-premium.css">
+<script defer src="../shared/uppercase.js"></script>
+</head><body>
+
+<div class="top">
+  <div class="ttl">
+    <h1>Tournées Terrain</h1>
+    <small>Visites agents · couverture des villages · villages non couverts</small>
+  </div>
+  <div class="sp"></div>
+  <div class="r">
+    <span id="net" class="net off"><span class="d"></span><span id="netTxt">Hors ligne</span></span>
+    <button type="button" class="sync" id="syncBtn" onclick="syncAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
+      Synchroniser <span id="pendBadge"></span>
+    </button>
+    <span id="anagroci-userslot"></span>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <div id="tableMsg" class="alert warn" role="status"></div>
+
+  <section class="kpicard" aria-label="Chiffres clés des tournées">
+    <div class="stat"><small>Visites sur la période</small><b id="kVisites">0</b><span class="sub" id="kVisitesSub">—</span></div>
+    <div class="stat"><small>Villages couverts</small><b id="kVillages">0</b><span class="sub" id="kVillagesSub">—</span></div>
+    <div class="stat"><small>Agents en tournée</small><b id="kAgents">0</b><span class="sub" id="kAgentsSub">—</span></div>
+    <div class="stat kalert"><small>Villages non couverts</small><b id="kNonCouv">0</b><span class="sub" id="kNonCouvSub">—</span></div>
+  </section>
+
+  <section class="card" aria-label="Filtres">
+    <div class="filters">
+      <div class="field">
+        <label for="f_periode">Période</label>
+        <select id="f_periode" onchange="render()">
+          <option value="7">7 derniers jours</option>
+          <option value="30" selected>30 derniers jours</option>
+          <option value="90">90 derniers jours</option>
+          <option value="0">Toute la campagne</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_cluster">Cluster</label>
+        <select id="f_cluster" onchange="render()"><option value="">Tous les clusters</option></select>
+      </div>
+      <div class="field">
+        <label for="f_agent">Agent</label>
+        <select id="f_agent" onchange="render()"><option value="">Tous les agents</option></select>
+      </div>
+      <div class="field reset">
+        <label for="resetBtn">Filtres</label>
+        <button type="button" class="btn sm" id="resetBtn" onclick="resetFiltres()">Réinitialiser</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="Vues des tournées">
+    <button type="button" class="tab" role="tab" id="tab_couverture" aria-selected="true" aria-controls="panel_couverture" onclick="setTab('couverture')">Couverture par cluster</button>
+    <button type="button" class="tab" role="tab" id="tab_agents" aria-selected="false" aria-controls="panel_agents" onclick="setTab('agents')">Activité par agent</button>
+    <button type="button" class="tab" role="tab" id="tab_noncouverts" aria-selected="false" aria-controls="panel_noncouverts" onclick="setTab('noncouverts')">Villages non couverts</button>
+    <button type="button" class="tab" role="tab" id="tab_journal" aria-selected="false" aria-controls="panel_journal" onclick="setTab('journal')">Journal <span id="tabPend" class="cbadge" style="display:none"></span></button>
+    <button type="button" class="tab" role="tab" id="tab_visite" aria-selected="false" aria-controls="panel_visite" onclick="setTab('visite')">Nouvelle visite</button>
+  </div>
+
+  <!-- ---- Couverture par cluster ---- -->
+  <section class="card" id="panel_couverture" role="tabpanel" aria-labelledby="tab_couverture">
+    <div class="cardhead"><h2 class="sectitle">Couverture par cluster</h2><div class="sp"></div><span id="couvResume" class="muted">—</span></div>
+    <div class="tw" tabindex="0">
+      <table>
+        <caption>Un village est « couvert » dès qu'une visite y a été enregistrée sur la période retenue. Les clusters les moins couverts apparaissent en premier.</caption>
+        <thead><tr><th scope="col">Cluster</th><th scope="col" class="num">Villages</th><th scope="col" class="num">Couverts</th><th scope="col">Couverture</th><th scope="col" class="num">Visites</th><th scope="col" class="num">Agents</th><th scope="col">Dernière visite</th></tr></thead>
+        <tbody id="couvBody"><tr><td colspan="7" class="muted">—</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---- Activité par agent ---- -->
+  <section class="card" id="panel_agents" role="tabpanel" aria-labelledby="tab_agents" hidden>
+    <div class="cardhead"><h2 class="sectitle">Activité par agent</h2><div class="sp"></div><span id="agentsResume" class="muted">—</span></div>
+    <div class="tw" tabindex="0">
+      <table>
+        <caption>Visites enregistrées sur la période, par agent. « Villages » compte les villages distincts, pas les passages.</caption>
+        <thead><tr><th scope="col">Agent</th><th scope="col" class="num">Visites</th><th scope="col" class="num">Villages</th><th scope="col" class="num">Clusters</th><th scope="col">Dernière visite</th><th scope="col">Objet dominant</th></tr></thead>
+        <tbody id="agentsBody"><tr><td colspan="6" class="muted">—</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---- Villages non couverts ---- -->
+  <section class="card" id="panel_noncouverts" role="tabpanel" aria-labelledby="tab_noncouverts" hidden>
+    <div class="cardhead"><h2 class="sectitle">Villages non couverts</h2><div class="sp"></div><span id="ncResume" class="muted">—</span></div>
+    <div class="tw" tabindex="0">
+      <table>
+        <caption>Villages du référentiel FBMS sans aucune visite sur la période. Triés par potentiel décroissant : ce sont les tournées à programmer en premier.</caption>
+        <thead><tr><th scope="col">Village</th><th scope="col">Cluster</th><th scope="col" class="num">Potentiel (MT)</th><th scope="col">Dernière visite connue</th><th scope="col">Ancienneté</th></tr></thead>
+        <tbody id="ncBody"><tr><td colspan="5" class="muted">—</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---- Journal ---- -->
+  <section class="card" id="panel_journal" role="tabpanel" aria-labelledby="tab_journal" hidden>
+    <div class="cardhead"><h2 class="sectitle">Journal des visites</h2><div class="sp"></div><span id="histCount" class="muted">0 visite</span></div>
+    <div class="tw" tabindex="0">
+      <table>
+        <caption>120 visites les plus récentes de la sélection. Une visite reste en file locale tant qu'elle n'a pas été acceptée par le serveur.</caption>
+        <thead><tr><th scope="col">Date</th><th scope="col">Agent</th><th scope="col">Village</th><th scope="col">Objet</th><th scope="col">Position</th><th scope="col">Observation</th><th scope="col">État</th><th scope="col">Action</th></tr></thead>
+        <tbody id="histBody"><tr><td colspan="8" class="muted">Aucune visite.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---- Saisie ---- -->
+  <section class="card" id="panel_visite" role="tabpanel" aria-labelledby="tab_visite" hidden>
+    <div class="cardhead"><h2 class="sectitle">Enregistrer une visite</h2><div class="sp"></div><span id="v_auteur" class="bdg brand">Agent : —</span></div>
+    <div id="v_lecture" class="ctxbox warn" style="display:none">
+      Votre rôle donne un accès en <b>consultation</b> : la saisie de visites est désactivée.
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="v_date">Date de la visite</label>
+        <input id="v_date" type="date">
+      </div>
+      <div class="field">
+        <label for="v_objet">Objet de la visite</label>
+        <select id="v_objet"></select>
+      </div>
+      <div class="field">
+        <label for="v_cluster">Cluster</label>
+        <select id="v_cluster" onchange="onClusterSaisie()"><option value="">Choisir un cluster</option></select>
+      </div>
+      <div class="field">
+        <label for="v_village">Village visité</label>
+        <input id="v_village" class="up" list="dl_village" oninput="onVillageSaisie()" placeholder="Choisir ou saisir" autocomplete="off">
+        <datalist id="dl_village"></datalist>
+      </div>
+      <div class="field">
+        <label for="v_rt">RT rencontré (facultatif)</label>
+        <input id="v_rt" class="up" list="dl_rt" placeholder="Nom du RT" autocomplete="off">
+        <datalist id="dl_rt"></datalist>
+      </div>
+      <div class="field">
+        <label for="v_gpsBtn">Position GPS</label>
+        <button type="button" class="btn sm" id="v_gpsBtn" onclick="releverPosition()">Relever la position</button>
+      </div>
+    </div>
+    <div id="v_gpsBox" class="ctxbox">Aucune position relevée. Le relevé est facultatif, mais c'est la seule preuve que la visite a bien eu lieu sur place.</div>
+    <div class="grid2">
+      <div class="field" style="grid-column:1/-1">
+        <label for="v_obs">Observation</label>
+        <textarea id="v_obs" class="up" placeholder="Ce qui a été constaté, décidé, ou reste à traiter"></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn cta" id="vSave" onclick="saveVisite()">Enregistrer la visite</button>
+      <span class="muted">Enregistrement hors ligne possible : la visite part à la synchronisation suivante.</span>
+    </div>
+    <div id="v_msg" class="alert" role="status"></div>
+  </section>
+
+</main>
+
+<script>
+"use strict";
+/* ============================================================================
+   ANAGROCI — TOURNÉES TERRAIN (terrain/tournees.html)
+   ----------------------------------------------------------------------------
+   Suivi des tournées des agents : qui est allé où, quand, pour quoi, avec
+   quelle position relevée. La page est d'abord un outil de pilotage Branch
+   Manager / Head of Field — d'où l'entrée par la couverture des clusters et
+   non par le journal.
+
+   Deux dépendances de données :
+     · `villages` et `rt` (référentiel maître FBMS) — lecture seule, en place ;
+     · `visites` — table PROPOSÉE, NON CRÉÉE. Le SQL et la RLS attendus sont
+       dans docs/proposition-table-visites.sql. Tant que la table n'existe pas,
+       la saisie fonctionne et reste en file locale : la synchronisation
+       signale « Table absente » au lieu d'échouer en boucle.
+   ========================================================================== */
+
+var SUPABASE_URL = "https://jmbdgpdthzpszfnddwzi.supabase.co";
+var SUPABASE_ANON = "sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
+var Q = "anagroci_visites";        // file locale des visites saisies
+var REF = "anagroci_ref_tournees"; // cache du référentiel (mode hors ligne)
+var MAX_SYNCED = 500;              // on ne garde pas indéfiniment le synchronisé
+
+var OBJETS = [
+  "Enrôlement producteurs",
+  "Suivi RT",
+  "Contrôle qualité",
+  "Dotation / récupération sacs",
+  "Recouvrement avance",
+  "Sensibilisation producteurs",
+  "Prospection village",
+  "Litige / réclamation",
+  "Autre"
+];
+
+var $ = function (id) { return document.getElementById(id); };
+var SB = null, ME = null, NIVEAU = null;
+var ONLINE = navigator.onLine;
+var D = { villages: [], rt: [], server: [] };
+var GPS = null;
+
+/* ---- Utilitaires -------------------------------------------------------- */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+  });
+}
+function up(s) { return String(s == null ? "" : s).toUpperCase(); }
+function keyc(s) {
+  return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+function nb(x) { var v = parseFloat(String(x == null ? "" : x).replace(",", ".")); return isFinite(v) ? v : 0; }
+function fmt(x) { return Math.round(nb(x)).toLocaleString("fr-FR"); }
+function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : 0; }
+function today() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function jours(dateStr) {
+  if (!dateStr) return null;
+  var t = Date.parse(String(dateStr).slice(0, 10) + "T00:00:00");
+  if (!isFinite(t)) return null;
+  var t0 = Date.parse(today() + "T00:00:00");
+  return Math.round((t0 - t) / 86400000);
+}
+function anciennete(dateStr) {
+  var j = jours(dateStr);
+  if (j == null) return "—";
+  if (j <= 0) return "aujourd'hui";
+  if (j === 1) return "hier";
+  return j + " jours";
+}
+function uid() {
+  try { return crypto.randomUUID(); }
+  catch (e) { return "loc-" + Date.now() + "-" + Math.round(Math.random() * 1e9); }
+}
+function load(k, d) { try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } }
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* quota : sans effet */ } }
+function msg(el, t, kind) { el.className = "alert show " + (kind || "ok"); el.textContent = t; }
+function estLecteurSeul() { return NIVEAU === "direction"; }
+
+/* ---- File locale -------------------------------------------------------- */
+function persist(rows) {
+  var synced = 0, out = [];
+  (rows || []).forEach(function (r) {
+    if (!r) return;
+    if (r._status === "synced") { if (synced < MAX_SYNCED) { synced++; out.push(r); } }
+    else out.push(r);
+  });
+  store(Q, out);
+  return out;
+}
+function unsynced() { return load(Q, []).filter(function (r) { return r && r._status !== "synced"; }); }
+
+/* ---- Lecture du référentiel et du serveur ------------------------------- */
+function villageNom(v) { return (v.data && v.data.s1 && v.data.s1.village) || v.village || ""; }
+function villageCluster(v) { return ((v.data && v.data.s1 && v.data.s1.cluster) || v.cluster || "").trim(); }
+function villagePotentiel(v) { return nb(v.data && v.data.s3 && v.data.s3.potentielMT); }
+function rtNom(r) { return (r.data && (r.data.nom || r.data.rt || r.data.nomComplet)) || r.nom || ""; }
+
+function estTableAbsente(m) {
+  m = String(m || "").toLowerCase();
+  return /42p01|does not exist|could not find the table|schema cache/.test(m);
+}
+function signalerTable(message) {
+  if (!estTableAbsente(message)) return;
+  D.server = [];
+  var el = $("tableMsg");
+  el.className = "alert show warn";
+  el.textContent = "La table « visites » n'existe pas encore côté Supabase. Les visites saisies restent en file locale sur cet appareil et ne sont pas partagées. Voir docs/proposition-table-visites.sql.";
+}
+async function loadRef() {
+  if (ONLINE && SB) {
+    try {
+      var rv = await SB.from("villages").select("id,data").eq("deleted", false);
+      if (!rv.error) D.villages = (rv.data || []).filter(function (x) { return x.data && x.data.s1; });
+      var rr = await SB.from("rt").select("id,data,village_nom").eq("deleted", false);
+      if (!rr.error) D.rt = rr.data || [];
+      var rs = await SB.from("visites").select("*");
+      if (rs.error) signalerTable(rs.error.message);
+      else D.server = rs.data || [];
+      store(REF, D);
+    } catch (e) { /* hors ligne ou réseau instable : on garde le cache */ }
+  }
+  renderRef();
+  render();
+}
+
+/* ---- Agrégat des visites (file locale + serveur) ------------------------ */
+function allVisites() {
+  var vus = {}, out = [];
+  load(Q, []).forEach(function (v) {
+    var k = v.local_id || ("q" + out.length);
+    if (!vus[k]) { vus[k] = 1; out.push(v); }
+  });
+  (D.server || []).forEach(function (v) {
+    var k = v.local_id || ("s" + out.length);
+    if (!vus[k]) { vus[k] = 1; out.push(v); }
+  });
+  return out;
+}
+function periode() { return parseInt($("f_periode").value, 10) || 0; }
+function dansPeriode(v) {
+  var p = periode();
+  if (!p) return true;
+  var j = jours(v.date);
+  return j != null && j >= 0 && j < p;
+}
+function visitesFiltrees() {
+  var c = $("f_cluster").value, a = $("f_agent").value;
+  return allVisites().filter(function (v) {
+    if (!dansPeriode(v)) return false;
+    if (c && keyc(v.cluster) !== keyc(c)) return false;
+    if (a && keyc(v.agent_nom) !== keyc(a)) return false;
+    return true;
+  });
+}
+function villagesFiltres() {
+  var c = $("f_cluster").value;
+  return D.villages.filter(function (v) { return !c || keyc(villageCluster(v)) === keyc(c); });
+}
+
+/* ---- Listes de référence ------------------------------------------------ */
+function clustersList() {
+  var m = {};
+  D.villages.forEach(function (v) { var c = villageCluster(v); if (c) m[keyc(c)] = up(c); });
+  allVisites().forEach(function (v) { if (v.cluster) m[keyc(v.cluster)] = up(v.cluster); });
+  return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return a.localeCompare(b, "fr"); });
+}
+function agentsList() {
+  var m = {};
+  allVisites().forEach(function (v) { if (v.agent_nom) m[keyc(v.agent_nom)] = up(v.agent_nom); });
+  return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return a.localeCompare(b, "fr"); });
+}
+function optionsSelect(el, valeurs, libelleVide) {
+  var courant = el.value;
+  el.innerHTML = '<option value="">' + esc(libelleVide) + "</option>" +
+    valeurs.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("");
+  if (valeurs.indexOf(courant) >= 0) el.value = courant;
+}
+function renderRef() {
+  optionsSelect($("f_cluster"), clustersList(), "Tous les clusters");
+  optionsSelect($("f_agent"), agentsList(), "Tous les agents");
+  $("v_objet").innerHTML = OBJETS.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + "</option>"; }).join("");
+  optionsSelect($("v_cluster"), clustersList(), "Choisir un cluster");
+  remplirVillagesRT();
+}
+function remplirVillagesRT() {
+  var c = $("v_cluster").value;
+  var vs = c ? D.villages.filter(function (v) { return keyc(villageCluster(v)) === keyc(c); }) : D.villages;
+  $("dl_village").innerHTML = vs.map(function (v) { return '<option value="' + esc(up(villageNom(v))) + '"></option>'; }).join("");
+  var vn = $("v_village").value.trim();
+  var rts = D.rt.filter(function (r) {
+    if (vn) return keyc(r.village_nom || "") === keyc(vn);
+    if (!c) return true;
+    var v = D.villages.find(function (x) { return keyc(villageNom(x)) === keyc(r.village_nom || ""); });
+    return v ? keyc(villageCluster(v)) === keyc(c) : false;
+  });
+  $("dl_rt").innerHTML = rts.map(function (r) { return '<option value="' + esc(up(rtNom(r))) + '"></option>'; }).join("");
+}
+function onClusterSaisie() { $("v_village").value = ""; $("v_rt").value = ""; remplirVillagesRT(); }
+function onVillageSaisie() {
+  var v = D.villages.find(function (x) { return keyc(villageNom(x)) === keyc($("v_village").value.trim()); });
+  if (v && villageCluster(v)) $("v_cluster").value = up(villageCluster(v));
+  remplirVillagesRT();
+}
+
+/* ---- Onglets ------------------------------------------------------------ */
+var PANNEAUX = ["couverture", "agents", "noncouverts", "journal", "visite"];
+function setTab(t) {
+  PANNEAUX.forEach(function (x) {
+    var p = $("panel_" + x); if (p) p.hidden = (x !== t);
+    var b = $("tab_" + x); if (b) b.setAttribute("aria-selected", x === t ? "true" : "false");
+  });
+  render();
+}
+
+/* ---- Position GPS ------------------------------------------------------- */
+function releverPosition() {
+  var box = $("v_gpsBox");
+  if (!navigator.geolocation) {
+    box.className = "ctxbox warn";
+    box.textContent = "Cet appareil ne fournit pas de position GPS. Enregistrez la visite sans position.";
+    return;
+  }
+  box.className = "ctxbox";
+  box.textContent = "Relevé en cours…";
+  $("v_gpsBtn").disabled = true;
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    GPS = {
+      latitude: Number(pos.coords.latitude.toFixed(6)),
+      longitude: Number(pos.coords.longitude.toFixed(6)),
+      precision_m: pos.coords.accuracy == null ? null : Math.round(pos.coords.accuracy)
+    };
+    $("v_gpsBtn").disabled = false;
+    renderGps();
+  }, function (err) {
+    GPS = null;
+    $("v_gpsBtn").disabled = false;
+    box.className = "ctxbox warn";
+    box.textContent = "Position non obtenue (" + (err && err.code === 1 ? "autorisation refusée" : "signal indisponible") +
+      "). La visite peut être enregistrée sans position.";
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+function renderGps() {
+  var box = $("v_gpsBox");
+  if (!GPS) {
+    box.className = "ctxbox";
+    box.textContent = "Aucune position relevée. Le relevé est facultatif, mais c'est la seule preuve que la visite a bien eu lieu sur place.";
+    return;
+  }
+  var fiable = GPS.precision_m == null || GPS.precision_m <= 50;
+  box.className = "ctxbox " + (fiable ? "ok" : "warn");
+  box.innerHTML = "<b>Position relevée</b> — " + esc(GPS.latitude.toFixed(5)) + " / " + esc(GPS.longitude.toFixed(5)) +
+    (GPS.precision_m == null ? "" : " · précision " + esc(String(GPS.precision_m)) + " m") +
+    (fiable ? "" : '<br><span class="bdg warning">Précision faible</span> Relevez à nouveau à ciel ouvert si possible.');
+}
+
+/* ---- Saisie ------------------------------------------------------------- */
+function validerVisite() {
+  if (estLecteurSeul()) return "Votre rôle ne permet pas d'enregistrer une visite.";
+  if (!$("v_date").value) return "Date de la visite requise.";
+  if (jours($("v_date").value) < 0) return "La date de la visite ne peut pas être dans le futur.";
+  if (!$("v_village").value.trim()) return "Village visité requis.";
+  if (!$("v_objet").value) return "Objet de la visite requis.";
+  if ($("v_objet").value === "Autre" && !$("v_obs").value.trim()) return "Objet « Autre » : l'observation devient obligatoire.";
+  return "";
+}
+function saveVisite() {
+  var err = validerVisite();
+  if (err) return msg($("v_msg"), err, "err");
+  var nomVillage = $("v_village").value.trim();
+  var v = D.villages.find(function (x) { return keyc(villageNom(x)) === keyc(nomVillage); });
+  var rec = {
+    local_id: uid(),
+    date: $("v_date").value,
+    objet: $("v_objet").value,
+    cluster: up($("v_cluster").value.trim()) || up(v ? villageCluster(v) : "") || null,
+    village_id: v ? v.id : null,
+    village_nom: up(nomVillage),
+    rt_nom: up($("v_rt").value.trim()) || null,
+    latitude: GPS ? GPS.latitude : null,
+    longitude: GPS ? GPS.longitude : null,
+    precision_m: GPS ? GPS.precision_m : null,
+    observation: up($("v_obs").value.trim()) || null,
+    agent_nom: (ME && ME.nom) || null,
+    agent_role: (ME && ME.role) || null,
+    created_at: new Date().toISOString(),
+    _status: "pending",
+    _tentatives: 0
+  };
+  var q = load(Q, []);
+  q.unshift(rec);
+  persist(q);
+  GPS = null;
+  ["v_village", "v_rt", "v_obs"].forEach(function (i) { $(i).value = ""; });
+  renderGps();
+  msg($("v_msg"), "Visite enregistrée pour " + rec.village_nom + (ONLINE ? "." : " (hors ligne)."), "ok");
+  renderRef();
+  render();
+  syncAll();
+}
+
+/* ---- Synchronisation ---------------------------------------------------- */
+function classifyErr(m) {
+  m = String(m || "").toLowerCase();
+  if (estTableAbsente(m)) return "Table absente";
+  if (/duplicate|unique|23505/.test(m)) return "Doublon serveur";
+  if (/rls|permission|policy|jwt|row-level/.test(m)) return "Accès refusé";
+  if (/network|fetch|timeout|réseau|reseau/.test(m)) return "Réseau";
+  return "Échec serveur";
+}
+/* Les champs de travail de la page ne doivent JAMAIS partir vers Supabase :
+   une colonne inconnue fait échouer l'insertion entière. On retire donc toute
+   clé préfixée « _ », sans liste à tenir à jour. */
+function cleanPayload(rec) {
+  var p = {};
+  Object.keys(rec).forEach(function (k) { if (k.charAt(0) !== "_") p[k] = rec[k]; });
+  return p;
+}
+async function syncAll() {
+  var all = load(Q, []);
+  var pend = all.filter(function (r) { return r._status === "pending" || r._status === "failed"; });
+  if (!ONLINE || !SB || !pend.length) { render(); return; }
+  $("syncBtn").disabled = true;
+  for (var i = 0; i < pend.length; i++) {
+    var rec = pend[i];
+    rec._status = "syncing";
+    rec._tentatives = (Number(rec._tentatives) || 0) + 1;
+    rec._derniereTentative = new Date().toISOString();
+    persist(all);
+    try {
+      var r = await SB.from("visites").upsert(cleanPayload(rec), { onConflict: "local_id", ignoreDuplicates: true });
+      if (!r.error) { rec._status = "synced"; rec._erreur = null; rec._categorie = null; }
+      else {
+        rec._status = "failed";
+        rec._erreur = r.error.message;
+        rec._categorie = classifyErr(r.error.message);
+        // Table absente : réessayer les suivantes échouerait à l'identique.
+        if (rec._categorie === "Table absente") { signalerTable(r.error.message); break; }
+      }
+    } catch (e) {
+      rec._status = "failed";
+      rec._erreur = String((e && e.message) || e);
+      rec._categorie = classifyErr(rec._erreur);
+      break;
+    }
+  }
+  persist(all);
+  await loadRef();
+  $("syncBtn").disabled = false;
+  render();
+}
+function retry(id) {
+  var all = load(Q, []);
+  var rec = all.find(function (r) { return r.local_id === id; });
+  if (!rec) return;
+  rec._status = "pending"; rec._erreur = null; rec._categorie = null;
+  persist(all);
+  render();
+  syncAll();
+}
+/* Une visite jamais partie n'a jamais quitté l'appareil : la retirer n'efface
+   rien côté serveur. Rien de ce qui est synchronisé n'est effaçable ici — la
+   suppression serveur reste réservée au Branch Manager (cf. achats, #144). */
+function retirerLocale(id) {
+  var all = load(Q, []);
+  var rec = all.find(function (r) { return r.local_id === id; });
+  if (!rec || rec._status === "synced") return;
+  persist(all.filter(function (r) { return r.local_id !== id; }));
+  render();
+}
+
+/* ---- Rendu -------------------------------------------------------------- */
+function render() {
+  if (!$("f_periode")) return;
+  var vis = visitesFiltrees();
+  var vils = villagesFiltres();
+  renderKpi(vis, vils);
+  renderCouverture(vis, vils);
+  renderAgents(vis);
+  renderNonCouverts(vis, vils);
+  renderJournal(vis);
+  var pend = unsynced().length;
+  $("pendBadge").textContent = pend ? "(" + pend + ")" : "";
+  var tp = $("tabPend");
+  tp.textContent = pend;
+  tp.style.display = pend ? "" : "none";
+}
+function libellePeriode() {
+  var p = periode();
+  return p ? p + " derniers jours" : "toute la campagne";
+}
+function renderKpi(vis, vils) {
+  var villagesVus = {}, agents = {};
+  vis.forEach(function (v) {
+    if (v.village_nom) villagesVus[keyc(v.village_nom)] = 1;
+    if (v.agent_nom) agents[keyc(v.agent_nom)] = 1;
+  });
+  var nbVus = Object.keys(villagesVus).length;
+  var nonCouv = vils.filter(function (v) { return !villagesVus[keyc(villageNom(v))]; }).length;
+  $("kVisites").textContent = fmt(vis.length);
+  $("kVisitesSub").textContent = "sur " + libellePeriode();
+  $("kVillages").textContent = fmt(nbVus);
+  $("kVillagesSub").textContent = vils.length ? pct(nbVus, vils.length) + " % du référentiel" : "référentiel vide";
+  $("kAgents").textContent = fmt(Object.keys(agents).length);
+  $("kAgentsSub").textContent = vis.length ? "au moins une visite" : "aucune visite";
+  $("kNonCouv").textContent = fmt(nonCouv);
+  $("kNonCouvSub").textContent = "villages du référentiel";
+}
+function jauge(taux) {
+  var cls = taux >= 60 ? "" : (taux >= 30 ? " bas" : " critique");
+  return '<span class="jauge' + cls + '"><i style="width:' + Math.max(0, Math.min(100, taux)) + '%"></i></span>';
+}
+function renderCouverture(vis, vils) {
+  var parCluster = {};
+  function bloc(c) {
+    var k = keyc(c) || "SANS";
+    if (!parCluster[k]) parCluster[k] = { nom: up(c) || "Sans cluster", villages: {}, vus: {}, visites: 0, agents: {}, derniere: "" };
+    return parCluster[k];
+  }
+  vils.forEach(function (v) { bloc(villageCluster(v)).villages[keyc(villageNom(v))] = 1; });
+  vis.forEach(function (v) {
+    var b = bloc(v.cluster);
+    b.visites++;
+    if (v.village_nom) b.vus[keyc(v.village_nom)] = 1;
+    if (v.agent_nom) b.agents[keyc(v.agent_nom)] = 1;
+    if (String(v.date || "") > b.derniere) b.derniere = String(v.date || "");
+  });
+  var lignes = Object.keys(parCluster).map(function (k) {
+    var b = parCluster[k];
+    var total = Object.keys(b.villages).length;
+    // Un cluster connu seulement par ses visites n'a pas de dénominateur :
+    // on ne lui invente pas un taux, on compte ses villages vus.
+    var vus = total
+      ? Object.keys(b.vus).filter(function (x) { return b.villages[x]; }).length
+      : Object.keys(b.vus).length;
+    return {
+      nom: b.nom, total: total, vus: vus, taux: pct(vus, total || vus || 1),
+      visites: b.visites, agents: Object.keys(b.agents).length, derniere: b.derniere
+    };
+  }).filter(function (l) { return l.total > 0 || l.visites > 0; });
+  lignes.sort(function (a, b) { return a.taux - b.taux || b.total - a.total; });
+
+  var totalV = lignes.reduce(function (s, l) { return s + l.total; }, 0);
+  var totalVus = lignes.reduce(function (s, l) { return s + l.vus; }, 0);
+  $("couvResume").textContent = lignes.length + " cluster" + (lignes.length > 1 ? "s" : "") +
+    " · " + pct(totalVus, totalV) + " % de couverture globale";
+
+  $("couvBody").innerHTML = lignes.map(function (l) {
+    return "<tr><td><b>" + esc(l.nom) + "</b></td>" +
+      '<td class="num">' + fmt(l.total) + "</td>" +
+      '<td class="num">' + fmt(l.vus) + "</td>" +
+      "<td>" + l.taux + " %" + jauge(l.taux) + "</td>" +
+      '<td class="num">' + fmt(l.visites) + "</td>" +
+      '<td class="num">' + fmt(l.agents) + "</td>" +
+      "<td>" + (l.derniere ? esc(l.derniere) + ' <span class="muted">(' + esc(anciennete(l.derniere)) + ")</span>" : '<span class="bdg danger">Jamais</span>') + "</td></tr>";
+  }).join("") || '<tr><td colspan="7" class="muted">Aucun cluster dans la sélection.</td></tr>';
+}
+function renderAgents(vis) {
+  var parAgent = {};
+  vis.forEach(function (v) {
+    var k = keyc(v.agent_nom) || "INCONNU";
+    if (!parAgent[k]) parAgent[k] = { nom: up(v.agent_nom) || "Agent non renseigné", visites: 0, villages: {}, clusters: {}, derniere: "", objets: {} };
+    var a = parAgent[k];
+    a.visites++;
+    if (v.village_nom) a.villages[keyc(v.village_nom)] = 1;
+    if (v.cluster) a.clusters[keyc(v.cluster)] = 1;
+    if (String(v.date || "") > a.derniere) a.derniere = String(v.date || "");
+    if (v.objet) a.objets[v.objet] = (a.objets[v.objet] || 0) + 1;
+  });
+  var lignes = Object.keys(parAgent).map(function (k) { return parAgent[k]; })
+    .sort(function (a, b) { return b.visites - a.visites; });
+  $("agentsResume").textContent = lignes.length + " agent" + (lignes.length > 1 ? "s" : "") + " sur " + libellePeriode();
+  $("agentsBody").innerHTML = lignes.map(function (a) {
+    var dominant = Object.keys(a.objets).sort(function (x, y) { return a.objets[y] - a.objets[x]; })[0] || "—";
+    var j = jours(a.derniere);
+    var ton = j == null ? "neutral" : (j <= 7 ? "success" : (j <= 21 ? "warning" : "danger"));
+    return "<tr><td><b>" + esc(a.nom) + "</b></td>" +
+      '<td class="num">' + fmt(a.visites) + "</td>" +
+      '<td class="num">' + fmt(Object.keys(a.villages).length) + "</td>" +
+      '<td class="num">' + fmt(Object.keys(a.clusters).length) + "</td>" +
+      "<td>" + (a.derniere ? esc(a.derniere) + ' <span class="bdg ' + ton + '">' + esc(anciennete(a.derniere)) + "</span>" : "—") + "</td>" +
+      "<td>" + esc(dominant) + ' <span class="muted">(' + fmt(a.objets[dominant] || 0) + ")</span></td></tr>";
+  }).join("") || '<tr><td colspan="6" class="muted">Aucune visite sur la période retenue.</td></tr>';
+}
+function renderNonCouverts(vis, vils) {
+  var vus = {};
+  vis.forEach(function (v) { if (v.village_nom) vus[keyc(v.village_nom)] = 1; });
+  // Dernière visite CONNUE : hors période, sinon on afficherait « jamais visité »
+  // pour un village vu il y a 40 jours — l'inverse de l'information utile.
+  var derniere = {};
+  allVisites().forEach(function (v) {
+    var k = keyc(v.village_nom);
+    if (!k) return;
+    if (String(v.date || "") > (derniere[k] || "")) derniere[k] = String(v.date || "");
+  });
+  var lignes = vils.filter(function (v) { return !vus[keyc(villageNom(v))]; })
+    .map(function (v) {
+      return {
+        nom: up(villageNom(v)),
+        cluster: up(villageCluster(v)) || "—",
+        potentiel: villagePotentiel(v),
+        derniere: derniere[keyc(villageNom(v))] || ""
+      };
+    })
+    .sort(function (a, b) { return b.potentiel - a.potentiel || a.nom.localeCompare(b.nom, "fr"); });
+  var potentielSansVisite = lignes.reduce(function (s, l) { return s + l.potentiel; }, 0);
+  $("ncResume").textContent = lignes.length + " village" + (lignes.length > 1 ? "s" : "") +
+    " · " + fmt(potentielSansVisite) + " MT de potentiel sans visite";
+  $("ncBody").innerHTML = lignes.slice(0, 200).map(function (l) {
+    var j = jours(l.derniere);
+    return "<tr><td><b>" + esc(l.nom) + "</b></td>" +
+      "<td>" + esc(l.cluster) + "</td>" +
+      '<td class="num">' + fmt(l.potentiel) + "</td>" +
+      "<td>" + (l.derniere ? esc(l.derniere) : '<span class="bdg danger">Jamais visité</span>') + "</td>" +
+      "<td>" + (j == null ? "—" : '<span class="bdg ' + (j <= 45 ? "warning" : "danger") + '">' + esc(anciennete(l.derniere)) + "</span>") + "</td></tr>";
+  }).join("") || '<tr><td colspan="5" class="muted">Tous les villages de la sélection ont été visités sur la période.</td></tr>';
+}
+function renderJournal(vis) {
+  var all = vis.slice().sort(function (a, b) {
+    return String(b.created_at || b.date || "").localeCompare(String(a.created_at || a.date || ""));
+  });
+  $("histCount").textContent = all.length + " visite" + (all.length > 1 ? "s" : "");
+  $("histBody").innerHTML = all.slice(0, 120).map(function (v) {
+    var etat = v._status === "failed"
+      ? '<span class="bdg danger">' + esc(v._categorie || "Échec") + "</span>"
+      : v._status === "syncing" ? '<span class="bdg info">En synchronisation</span>'
+        : v._status === "pending" ? '<span class="bdg warning">En attente</span>'
+          : '<span class="bdg success">Synchronisé</span>';
+    var action = v._status === "failed"
+      ? '<button type="button" class="actlink" onclick="retry(\'' + esc(v.local_id) + '\')">Réessayer</button>'
+      : (v._status === "pending"
+        ? '<button type="button" class="actlink" onclick="retirerLocale(\'' + esc(v.local_id) + '\')">Retirer</button>'
+        : "—");
+    var pos = (v.latitude != null && v.longitude != null)
+      ? esc(Number(v.latitude).toFixed(4)) + " / " + esc(Number(v.longitude).toFixed(4)) +
+        (v.precision_m == null ? "" : ' <span class="muted">±' + esc(String(v.precision_m)) + " m</span>")
+      : '<span class="muted">Non relevée</span>';
+    return "<tr><td>" + esc(v.date || "") + "</td>" +
+      "<td><b>" + esc(v.agent_nom || "—") + "</b></td>" +
+      "<td><b>" + esc(v.village_nom || "—") + '</b><br><span class="muted">' + esc(v.cluster || "") + "</span></td>" +
+      '<td><span class="bdg brand">' + esc(v.objet || "—") + "</span></td>" +
+      "<td>" + pos + "</td>" +
+      '<td class="muted">' + esc(v.observation || "—") + "</td>" +
+      "<td>" + etat + (v._erreur ? '<div class="errline">' + esc(v._erreur) + "</div>" : "") + "</td>" +
+      "<td>" + action + "</td></tr>";
+  }).join("") || '<tr><td colspan="8" class="muted">Aucune visite dans la sélection.</td></tr>';
+}
+function resetFiltres() {
+  $("f_periode").value = "30";
+  $("f_cluster").value = "";
+  $("f_agent").value = "";
+  render();
+}
+
+/* ---- Réseau et démarrage ------------------------------------------------ */
+function setNet() {
+  ONLINE = navigator.onLine;
+  $("net").className = "net " + (ONLINE ? "on" : "off");
+  $("netTxt").textContent = ONLINE ? "En ligne" : "Hors ligne";
+}
+window.addEventListener("online", function () { setNet(); syncAll(); });
+window.addEventListener("offline", setNet);
+
+document.addEventListener("anagroci:authenticated", function (e) {
+  ME = e.detail.profile;
+  NIVEAU = e.detail.niveau;
+  SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  D = load(REF, D);
+  $("v_date").value = today();
+  $("v_auteur").textContent = "Agent : " + ((ME && ME.nom) || "—");
+  if (estLecteurSeul()) {
+    $("v_lecture").style.display = "";
+    $("vSave").disabled = true;
+    ["v_date", "v_objet", "v_cluster", "v_village", "v_rt", "v_obs", "v_gpsBtn"].forEach(function (i) { $(i).disabled = true; });
+  }
+  setNet();
+  setTab("couverture");
+  renderRef();
+  renderGps();
+  render();
+  loadRef();
+  syncAll();
+});
+</script>
+</body></html>
