@@ -624,8 +624,7 @@ async function syncAll(){
   $("syncBtn").disabled=true;
   for(const rec of pend){
     const payload=Object.assign({},rec);
-    ["_status","_error","_errcat"].forEach(k=>delete payload[k]);
-    delete payload.recu_photo;                       // jamais de base64 dans la table
+["_status","_error","_errcat","last_error","device_id","sync_attempts","last_attempt_at"].forEach(k=>delete payload[k]);    delete payload.recu_photo;                       // jamais de base64 dans la table
     try{
       if(rec.recu_photo && !rec.recu_photo_url){
         const url=await uploadRecu(rec);
