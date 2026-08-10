@@ -281,7 +281,7 @@ const AV_LOCAL="anagroci_avances", SAC_LOCAL="anagroci_sacs";
 const MAX_SYNCED=500;                        // plafond de l'historique DÉJÀ synchronisé
 const $=i=>document.getElementById(i);
 let SB, ME=null, REF={villages:[],rt:[],prodByVillage:{},avances:[],achatsServer:[],sacs:[],_ctxLoaded:false}, ONLINE=navigator.onLine;
-let TAB="saisie", PHOTO=null, EXPANDED={};
+let TAB="saisie", PHOTO=null, EXPANDED={}; let IS_BM=false;
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function n(x){let v=parseFloat(String(x==null?"":x).replace(",","."));return Number.isFinite(v)?v:null;}
@@ -661,6 +661,28 @@ function promoteDraft(id){
   rec._status="pending"; persistQueue(all); render(); syncAll();
 }
 
+/* ---- Suppression d'un achat (réservée au Branch Manager) ----------------
+   Garde-fou côté client : le bouton n'apparaît que pour le BM et la fonction
+   revérifie le rôle. La barrière qui FAIT FOI reste la politique RLS de
+   suppression sur la table « achats » côté Supabase. */
+async function deleteAchat(id){
+  if(!IS_BM){ alert("Seul le Branch Manager peut supprimer un achat."); return; }
+  const all=load(Q_KEY,[]); const rec=all.find(r=>r.local_id===id); if(!rec) return;
+  const label=(rec.village_nom||"—")+" · "+fmt(rec.poids_net)+" kg · "+fmt(rec.montant)+" FCFA";
+  if(rec._status==="synced"){
+    if(!confirm("Supprimer définitivement cet achat synchronisé ?\n\n"+label+"\n\nIl sera aussi retiré du serveur.")) return;
+    if(!ONLINE||!SB){ alert("Hors ligne : impossible de supprimer un achat déjà synchronisé. Réessayez en ligne."); return; }
+    try{
+      const r=await SB.from("achats").delete().eq("local_id",rec.local_id);
+      if(r.error){ alert("Suppression refusée : "+(/(rls|policy|permission|denied|jwt)/i.test(r.error.message)?"cette action est réservée au Branch Manager (RLS serveur).":r.error.message)); return; }
+    }catch(e){ alert("Suppression impossible : "+String(e&&e.message||e)); return; }
+    store(Q_KEY, all.filter(r=>r.local_id!==id)); render();
+  } else {
+    if(!confirm("Cet achat n'est PAS synchronisé : sa suppression est définitive et il ne sera jamais envoyé au serveur.\n\n"+label+"\n\nSupprimer quand même ?")) return;
+    store(Q_KEY, all.filter(r=>r.local_id!==id)); render();
+  }
+}
+
 /* ---- Rendu ---- */
 const ST={synced:['sync','Synchronisé'],pending:['pend','En attente'],syncing:['syncing','En synchronisation'],draft:['draft','Brouillon']};
 function render(){
@@ -686,6 +708,7 @@ function render(){
     let acts='';
     if(r._status==="failed"){ acts+='<button class="actlink" onclick="showErr(\''+r.local_id+'\')">'+(EXPANDED[r.local_id]?"Masquer":"Voir l\'erreur")+'</button><button class="actlink" onclick="retry(\''+r.local_id+'\')">Réessayer</button>'; }
     if(r._status==="draft"){ acts+='<button class="actlink" onclick="promoteDraft(\''+r.local_id+'\')">Valider (ajouter le reçu)</button>'; }
+    if(IS_BM){ acts+='<button class="actlink" style="color:#C0392B" onclick="deleteAchat(\''+r.local_id+'\')">Supprimer</button>'; }
     const errBox=(r._status==="failed"&&EXPANDED[r.local_id])?'<div class="err">'+esc(r._error||"Erreur inconnue.")+'</div>':'';
     return '<div class="it"><div class="h"><b>'+esc(r.village_nom||"—")+' · '+fmt(r.poids_net)+' kg</b>'
       +'<span style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">'+badges+'</span></div>'
@@ -704,6 +727,7 @@ window.addEventListener("offline",setNet);
 /* ---- Init ---- */
 document.addEventListener("anagroci:authenticated",e=>{
   ME=e.detail.profile;
+  IS_BM=!!(e.detail&&e.detail.estBM)||(ME&&ME.role==="Branch Manager");
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   REF=Object.assign({villages:[],rt:[],prodByVillage:{},avances:[],achatsServer:[],sacs:[],_ctxLoaded:false}, load(REF_KEY,{}));
   $("f_date").value=today();
