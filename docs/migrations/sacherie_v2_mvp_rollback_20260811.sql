@@ -1,32 +1,47 @@
 -- Rollback logique Sacherie V2 MVP
--- ATTENTION : volontairement non destructif. Ne supprime aucune colonne ni table.
--- Objectif : neutraliser les gardes et RPC V2 en cas de probleme, tout en gardant les donnees.
+-- ATTENTION : volontairement NON DESTRUCTIF.
+-- Ne supprime ni table, ni colonne, ni donnée métier.
+-- Objectif : neutraliser les gardes/RPC V2 et restaurer l'insertion V1.
 
 begin;
 
--- Desactive les triggers V2 sans toucher aux donnees.
+-- 1) Désactiver les triggers V2.
 drop trigger if exists trg_sacherie_guard_mouvement on public.sacs_mouvements;
 drop trigger if exists trg_sacherie_assign_cycle_achat on public.achats;
 
--- Supprime uniquement les fonctions V2. Les colonnes/tables restent pour permettre une reprise.
-drop function if exists public.sacherie_executer_demande(uuid,integer,text,text);
-drop function if exists public.sacherie_decider_demande(uuid,text,integer,text);
-drop function if exists public.sacherie_creer_demande(text,text,numeric,integer);
-drop function if exists public.sacherie_configurer_cycle(uuid,text,numeric,numeric);
-drop function if exists public.sacherie_calculer_plafond(text,text,numeric);
-drop function if exists public.sacherie_guard_mouvement();
-drop function if exists public.sacherie_assign_cycle_achat();
-drop function if exists public.peut_executer_sacherie();
-drop function if exists public.peut_demander_sacherie();
-drop function if exists public.sacherie_code_cluster(text);
-
--- Retablit la policy d'insertion V1 du registre sacs.
+-- 2) Restaurer la policy d'insertion V1 du registre sacs.
 drop policy if exists sacs_ins on public.sacs_mouvements;
 create policy sacs_ins on public.sacs_mouvements for insert to authenticated
 with check (public.est_actif() and created_by = auth.uid());
 
+-- 3) Retirer les fonctions/RPC V2. Les données restent en place.
+drop function if exists public.sacherie_executer_demande(uuid,integer,text,text);
+drop function if exists public.sacherie_decider_demande(uuid,text,integer,text);
+drop function if exists public.sacherie_creer_demande(text,text,text,numeric,integer);
+drop function if exists public.sacherie_creer_demande(text,text,numeric,integer);
+drop function if exists public.sacherie_cloturer_cycle(text);
+drop function if exists public.sacherie_configurer_cycle(uuid,text,numeric,numeric);
+drop function if exists public.sacherie_calculer_plafond(text,text,numeric);
+drop function if exists public.sacherie_guard_mouvement();
+drop function if exists public.sacherie_assign_cycle_achat();
+drop function if exists public.sacherie_reservations_rt(text,uuid);
+drop function if exists public.sacherie_stock_cluster(text);
+drop function if exists public.sacherie_sacs_sous_responsabilite_rt(text);
+drop function if exists public.sacherie_peut_lire_demande(text,text,uuid);
+drop function if exists public.peut_executer_sacherie(text);
+drop function if exists public.peut_executer_sacherie();
+drop function if exists public.peut_demander_sacherie();
+drop function if exists public.sacherie_mon_contexte();
+drop function if exists public.sacherie_code_cluster(text);
+
 commit;
 
--- Les objets suivants restent volontairement presents :
--- bag_movement_requests, colonnes V2, cycle_id, volume_finance_kg, prix_reference_kg.
--- Cette strategie evite toute perte de donnees et permet une correction puis reactivation.
+-- Restent volontairement présents pour éviter toute perte :
+--   bag_movement_requests
+--   colonnes profils fonction_operationnelle / cluster / zone
+--   colonnes avances cycle_id / volume_finance_kg / prix_reference_kg / cycle_statut
+--   achats.cycle_id
+--   colonnes V2 de sacs_mouvements
+--   index et contraintes additives.
+--
+-- En rollback, l'interface Sacherie V2 ne doit plus être utilisée.
