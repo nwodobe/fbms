@@ -27,8 +27,8 @@ function writeDrafts(v){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(v));re
 function uid(prefix){try{return (prefix||'req')+'-'+crypto.randomUUID();}catch(e){return (prefix||'req')+'-'+Date.now()+'-'+Math.round(Math.random()*1e9);}}
 function toast(text,kind){var el=$('sv2_msg');if(!el)return;el.className='sv2-msg '+(kind||'ok');el.textContent=text;}
 function friendly(err){var s=String(err&&err.message||err&&err.details||err||'');if(/approval|approb/i.test(s))return 'Mouvement bloqué : approval Branch Manager requis.';if(/plafond|10%|autorise|autoris|disponible/i.test(s))return 'Demande bloquée : quantité supérieure au plafond disponible.';if(/stock sacs|insuffisant/i.test(s))return 'Mouvement bloqué : stock sacs cluster insuffisant.';if(/expire/i.test(s))return 'Approval expiré : créez une nouvelle demande.';if(/cluster/i.test(s)&&/hors|attribu|diff/i.test(s))return 'Opération bloquée : RT ou mouvement hors du cluster attribué.';if(/network|fetch/i.test(s))return 'Réseau indisponible. La demande peut être gardée en brouillon local.';return s||'Opération impossible.';}
-function labelRT(r){return (r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))||r.nom||(r.village_nom?('RT '+r.village_nom):'RT');}
-function clusterRT(r){return (r.data&&r.data.cluster)||r.cluster||'';}
+function labelRT(r){return r.nom||(r.data&&(r.data.nom||r.data.rt||r.data.nomComplet))||(r.village_nom?('RT '+r.village_nom):'RT');}
+function clusterRT(r){return r.cluster||(r.data&&r.data.cluster)||'';}
 function sameCluster(a,b){return String(a||'').toUpperCase()===String(b||'').toUpperCase();}
 
 function css(){
@@ -54,7 +54,7 @@ async function loadAll(){
   var c=client();if(!c)return;
   try{
     var cx=await c.rpc('sacherie_mon_contexte');if(!cx.error)STATE.context=cx.data||{};
-    var rr=await c.from('rt').select('id,data,village_nom,statut').eq('deleted',false);if(!rr.error)STATE.rt=rr.data||[];
+    var rr=await c.from('rt').select('id,nom,cluster,data,village_nom,statut').eq('deleted',false);if(!rr.error)STATE.rt=rr.data||[];
     var av=await c.from('avances').select('id,date,cluster,rt_id,rt_nom,montant,statut,cycle_id,volume_finance_kg,prix_reference_kg,cycle_statut,created_at').order('created_at',{ascending:false}).limit(300);if(!av.error)STATE.avances=av.data||[];
     var rq=await c.from('bag_movement_requests').select('*').order('requested_at',{ascending:false}).limit(200);if(!rq.error)STATE.requests=rq.data||[];
   }catch(e){}
