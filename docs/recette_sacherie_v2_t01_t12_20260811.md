@@ -3,149 +3,129 @@
 Date : 11/08/2026  
 Programme : AFLP 2027  
 Référence : AFLP-SOP-006 / MVP Sacherie V2  
-Statut initial : **READY TO EXECUTE**  
+Statut : **RECETTE P0 EXÉCUTÉE - GO TECHNIQUE CONDITIONNEL / NO-GO PRODUCTION**
 
-> Aucun test ci-dessous ne doit être marqué PASS sans exécution réelle sur un environnement de test Supabase. Ne jamais utiliser des données réelles de producteurs, des numéros personnels ou des données de production dans cette recette.
+> Les tests ci-dessous ont été exécutés sur la branche Supabase `sacherie-v2-test-20260811` avec des données fictives uniquement. La création automatique de la branche a échoué au replay de migrations historiques (`MIGRATIONS_FAILED`). Un harness Farmer Buying minimal et isolé a donc été créé pour valider les RPC, triggers, contraintes et règles métier V2. Ces résultats valident la logique P0, mais ne remplacent pas une répétition sur un clone fidèle du schéma Production.
 
-## 1. Préconditions
+## 1. Règle de calcul de référence
 
-1. Utiliser un environnement Supabase de test ou une branche de base isolée.
-2. Exécuter `docs/migrations/sacherie_v2_mvp_20260811.sql`.
-3. Exécuter ensuite `docs/migrations/sacherie_v2_mvp_verify_20260811.sql`.
-4. Préparer des comptes fictifs :
-   - 1 Branch Manager ;
-   - 1 Unit Head du cluster TEST-A ;
-   - 1 Warehouse Keeper du cluster TEST-A ;
-   - 1 Unit Head du cluster TEST-B ;
-   - 1 profil sans fonction opérationnelle Sacherie.
-5. Préparer un RT fictif du cluster TEST-A.
-6. Préparer une avance fictive et configurer un cycle `WAVE-TEST-A-001` avec `volume_finance_kg = 2 000`.
-7. Alimenter le stock sacs du cluster TEST-A avec une réception fictive suffisante.
-8. Aucun nom réel, téléphone réel, GPS réel ou montant réel de campagne ne doit être utilisé.
-
-## 2. Règle de calcul de référence
-
-Pour un RT avec :
-
-- stock RCN vérifié = 0 kg ;
-- volume financé restant = 2 000 kg ;
-- sacs sous responsabilité = 0 ;
-- aucune réservation active ;
-
-le plafond attendu est :
+Pour un RT avec stock RCN vérifié = 0 kg, volume financé restant = 2 000 kg, aucun sac détenu et aucune réservation :
 
 `floor((0 + 2 000) x 1,10 / 80) = 27 sacs`
 
 28 sacs doivent être refusés.
 
-## 3. Matrice T01-T12
+## 2. Résultats T01-T12
 
-| Test | Scénario | Action | Résultat attendu | Preuve | Statut initial |
-|---|---|---|---|---|---|
-| **T01** | Demande conforme | UH TEST-A demande 27 sacs sur le cycle 2 000 kg, stock RCN vérifié 0 | Demande créée `PENDING_BM` | Request ID + capture | READY TO EXECUTE |
-| **T02** | Dépassement plafond | UH demande 28 sacs | Refus serveur, aucune demande créée | Erreur RPC + absence ligne | READY TO EXECUTE |
-| **T03** | Remise sans approval | Warehouse Keeper tente d'exécuter une demande PENDING_BM / insertion DOTATION_RT directe | Refus serveur | Erreur serveur | READY TO EXECUTE |
-| **T04** | Remise partielle | BM approuve 19, magasin remet 15 | Mouvement = 15, statut `PARTIALLY_EXECUTED`, reliquat 4 inutilisable | Demande + mouvement | READY TO EXECUTE |
-| **T05** | Réutilisation approval | Réexécuter la demande T04 | Refus serveur, aucun 2e mouvement | Erreur + count(request_id)=1 | READY TO EXECUTE |
-| **T06** | FULL sans Lot ID | Insérer une nouvelle ligne V2 `bag_state=FULL`, `lot_id` vide dans un chemin autorisé de test | Refus contrainte serveur | Erreur check constraint | READY TO EXECUTE |
-| **T07** | Marge non cumulée | RT possède déjà des sacs + nouveau cycle/achats | Plafond utilise exposition courante et réservations, pas +10 % par tranche | Résultat RPC documenté | READY TO EXECUTE |
-| **T08** | Stock cluster insuffisant | Approval valide mais stock cluster inférieur à remise | Refus serveur | Erreur stock cluster | READY TO EXECUTE |
-| **T09** | Idempotence brouillon | Même `client_request_id` envoyé deux fois après retour réseau | Une seule demande serveur, même ID retourné | count(client_request_id)=1 | READY TO EXECUTE |
-| **T10** | Écart inventaire | Fonction de réconciliation non incluse dans le lot P0 actuel | **NOT IMPLEMENTED / P1** | N/A | P1 |
-| **T11** | Auto-approval UH | UH appelle directement `sacherie_decider_demande` | Refus `Seul le Branch Manager peut approuver` | Erreur RPC | READY TO EXECUTE |
-| **T12** | Historique V1 conservé | Comparer nombre et accès aux mouvements V1 avant/après migration | Lignes V1 intactes, colonnes V2 éventuellement nulles | Requête count + échantillon fictif | READY TO EXECUTE |
+| Test | Scénario | Résultat exécuté | Statut |
+|---|---|---|---|
+| **T01** | Demande conforme | Demande créée `PENDING_BM`, plafond serveur 27 | **PASS** |
+| **T02** | Dépassement plafond | Demande supérieure au plafond refusée côté serveur | **PASS** |
+| **T03** | Remise sans approval | Exécution avant approval BM refusée | **PASS** |
+| **T04** | Remise partielle | 19 approuvés, 15 exécutés, `PARTIALLY_EXECUTED`, Bag Movement ID créé | **PASS** |
+| **T05** | Réutilisation approval | Deuxième exécution du même request refusée | **PASS** |
+| **T06** | FULL sans Lot ID | Contrainte serveur bloque le mouvement | **PASS** |
+| **T07** | Marge non cumulée | 2 000 kg financés, 400 kg achetés, 400 kg stock vérifié, 10 sacs détenus : plafond 27, nouvelle remise max 17 | **PASS** |
+| **T08** | Stock cluster insuffisant | Approval 10 avec stock cluster 5 : exécution refusée `Stock sacs cluster insuffisant` | **PASS** |
+| **T09** | Idempotence brouillon | Deux envois avec le même `client_request_id` retournent le même ID ; une seule ligne serveur | **PASS** |
+| **T10** | Écart inventaire | Réconciliation journalière non incluse dans le lot P0 | **P1 / NOT IMPLEMENTED** |
+| **T11** | Auto-approval UH | Appel direct de l'approval par UH refusé | **PASS** |
+| **T12** | Historique V1 conservé | Mouvement V1 conservé, colonnes V2 nulles, aucun écrasement | **PASS** |
 
-## 4. Tests supplémentaires issus de la revue de sécurité
+## 3. Tests de sécurité S01-S08
 
-### S01 - Périmètre cluster
+| Test | Contrôle | Résultat exécuté | Statut |
+|---|---|---|---|
+| **S01** | UH hors cluster | Refus `RT hors du cluster attribué à l utilisateur` | **PASS** |
+| **S02** | Warehouse Keeper mauvais cluster | Exécution refusée | **PASS** |
+| **S03** | Unit Head exécute la remise | Exécution refusée ; rôle magasinier/Assistant UH requis | **PASS** |
+| **S04** | Deux approvals dépassent ensemble le plafond | 1er approval 20 accepté, 2e approval 20 refusé après prise en compte de la réservation | **PASS** |
+| **S05** | Spoof RT / cluster | Trigger refuse le RT différent de celui approuvé | **PASS** |
+| **S06** | DOTATION_RT directe | Insert direct sans request valide bloqué côté serveur | **PASS** |
+| **S07** | Un seul cycle OPEN par RT | 2e cycle refusé ; après clôture du 1er, nouveau cycle accepté | **PASS** |
+| **S08** | Responsabilité après sous-affectation producteur | 20 remis au RT, mouvements RT↔PRODUCTEUR : responsabilité calculée reste 20 | **PASS** |
 
-- UH TEST-B tente de créer une demande pour RT TEST-A.
-- Attendu : refus serveur `RT hors du cluster attribué`.
+## 4. Migration, sécurité et rollback
 
-### S02 - Exécution par mauvais cluster
+### Migration V2
 
-- Warehouse Keeper TEST-B tente d'exécuter un approval TEST-A.
-- Attendu : refus serveur.
+La migration additive `sacherie_v2_mvp_20260811.sql` a été appliquée avec succès sur le harness de test.
 
-### S03 - Exécution par Unit Head
+### Supabase Security Advisor
 
-- UH TEST-A tente d'exécuter physiquement un approval.
-- Attendu : refus serveur. L'exécution est réservée à `Warehouse Keeper` ou `Assistant Unit Head` du cluster, avec BM comme autorité de secours MVP.
+Le premier scan a détecté :
 
-### S04 - Deux approvals concurrents
+- exposition anonyme de fonctions `SECURITY DEFINER` ;
+- `search_path` non fixé sur `sacherie_code_cluster`.
 
-- Créer deux demandes qui, prises séparément, sont conformes mais dont la somme dépasserait le plafond restant.
-- Approuver la première.
-- Tenter d'approuver la seconde.
-- Attendu : seconde approval refusée ou réduite car la première quantité est déjà réservée.
+Un correctif dédié a été ajouté :
 
-### S05 - Spoof du RT / cluster
+`docs/migrations/sacherie_v2_security_hardening_20260811.sql`
 
-- Avec un `request_id` approuvé pour RT-A / TEST-A, tenter une insertion DOTATION_RT mentionnant RT-B ou TEST-B.
-- Attendu : refus du trigger serveur.
+Le premier hardening a été appliqué et une requête de contrôle a confirmé `anon_exec = false` sur les fonctions Sacherie. Une seconde révision du fichier réduit également l'exécution directe des helpers internes par `authenticated`. Cette dernière révision doit être rejouée lors de la prochaine recette fidèle après le rollback de test.
 
-### S06 - Insertion DOTATION_RT directe
+### Compatibilité avec le vrai référentiel RT
 
-- Utilisateur actif tente `insert into sacs_mouvements` via PostgREST sans RPC d'exécution.
-- Attendu : refus RLS même avec un `request_id` renseigné.
+Une lecture seule de Production a montré que 116 RT actifs ont `rt.cluster` renseigné, mais seulement 93 ont également `data->>'cluster'`. **23 RT auraient donc été rejetés à tort par la première version qui lisait uniquement le JSON.**
 
-### S07 - Un seul cycle OPEN par RT
+Correctif ajouté :
 
-- Configurer un cycle OPEN pour RT-A.
-- Tenter d'en ouvrir un deuxième.
-- Attendu : refus.
-- Clôturer le premier, puis ouvrir le second.
-- Attendu : autorisé.
+`docs/migrations/sacherie_v2_rt_normalized_compat_20260811.sql`
 
-### S08 - Responsabilité RT après sous-affectation producteur
+La V2 lit désormais `rt.cluster` / `rt.nom` en priorité et le JSON uniquement en fallback. Ce correctif est obligatoire avant Production.
 
-- Donner 20 sacs au RT.
-- Enregistrer 8 sacs RT -> PRODUCTEUR puis 3 PRODUCTEUR -> RT.
-- Attendu : `sacherie_sacs_sous_responsabilite_rt()` reste à 20, car la sous-affectation producteur ne libère pas le RT de sa responsabilité.
+### Rollback
 
-## 5. Recette interface
+Le premier rollback a révélé une dépendance de policy RLS sur `sacherie_peut_lire_demande`. Le script a été corrigé pour retirer les policies V2 avant les helpers.
 
-Tester `terrain/sacherie_v2.html` aux trois largeurs obligatoires du dépôt :
+Le rollback corrigé a ensuite été réellement exécuté avec succès :
+
+- RPC d'exécution supprimé : PASS ;
+- RPC d'approval supprimé : PASS ;
+- données `bag_movement_requests` conservées : PASS ;
+- mouvement historique V1 conservé : PASS ;
+- policy d'insertion V1 restaurée : PASS.
+
+Le rollback est donc **TESTÉ PASS**.
+
+## 5. Recette interface / CI GitHub
+
+`Agent Quality Gates` run #30 a terminé en **SUCCESS**.
+
+Le job Playwright a parcouru **18 pages x 3 viewports = 54 observations** :
 
 - 390 x 844 ;
 - 768 x 1024 ;
 - 1440 x 900.
 
-À contrôler :
+Résultat : **0 nouveau problème** détecté. Le workflow signale 20 problèmes hérités et 90 violations d'accessibilité déjà présentes dans le périmètre testé ; aucune nouvelle régression n'est attribuée à la Sacherie V2.
 
-1. aucun débordement horizontal hors tables scrollables ;
-2. calcul lisible sur mobile ;
-3. bouton Soumettre désactivé tant que le calcul n'est pas conforme ;
-4. stock RCN non prérempli à zéro ;
-5. UH ne voit que les RT de son cluster dans la liste ;
-6. Warehouse Keeper ne voit pas de bouton de remise pour un autre cluster ;
-7. BM voit l'Inbox approval et les cycles ;
-8. HOLD / Rejet exigent un motif ;
-9. brouillon hors ligne indique clairement qu'il ne vaut pas approval ;
-10. aucune erreur console nouvelle et aucune ressource 404 nouvelle.
+## 6. Verdict
 
-## 6. Critère GO MVP
+### GO technique P0
 
-GO uniquement si :
+La logique critique du MVP est validée :
 
-- T01-T09, T11-T12 sont PASS ;
-- S01-S08 sont PASS ;
-- T10 reste explicitement P1 et n'est pas présenté comme livré ;
-- aucune régression critique V1 n'est observée ;
-- les trois viewports sont vérifiés ;
-- la migration et son rollback ont été testés sur l'environnement de test ;
-- aucune preuve critique du futur pilote ne dépend uniquement de `localStorage`.
+- approval BM obligatoire ;
+- plafond 80 kg / +10 % contrôlé côté serveur ;
+- réservations empêchant le cumul d'approvals ;
+- séparation demande / approval / exécution ;
+- remise partielle non réutilisable ;
+- stock cluster protégé ;
+- périmètre cluster protégé ;
+- idempotence ;
+- historique V1 préservé ;
+- rollback fonctionnel.
 
-## 7. Critère NO-GO immédiat
+### NO-GO Production / pilote réel à ce stade
 
-NO-GO si l'un des cas suivants est possible :
+Il reste obligatoire de fermer les points suivants :
 
-- DOTATION_RT sans approval BM ;
-- approval réutilisable ;
-- remise supérieure à approved_qty ;
-- UH d'un cluster agit sur un autre cluster ;
-- Unit Head exécute la remise à la place du magasinier ;
-- somme de plusieurs approvals dépasse le plafond ;
-- stock cluster devient négatif ;
-- brouillon hors ligne présenté comme approval ;
-- migration détruit ou rend inaccessible l'historique V1.
+1. rejouer migration + hardening + compatibilité RT sur un environnement fidèle à Production, car le preview automatique a échoué sur l'historique des migrations ;
+2. appliquer et revalider le dernier hardening des droits helpers ;
+3. valider la durée métier de l'approval BM (24 h est encore une hypothèse MVP) ;
+4. implémenter T10 si la réconciliation journalière fait partie du périmètre de mise en service ;
+5. mettre les preuves photo sur Storage avant tout pilote utilisant REBUT/perte/anomalie ;
+6. décider l'intégration avec l'infrastructure existante `rcn_jute_*` afin d'éviter deux registres Sacherie concurrents.
+
+Aucune migration n'a été appliquée sur Production et aucune fusion GitHub n'a été effectuée.
