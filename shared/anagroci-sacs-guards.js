@@ -6,6 +6,17 @@
 if(window.__ANAGROCI_SACS_GUARDS_SCRIPT) return;
 window.__ANAGROCI_SACS_GUARDS_SCRIPT = true;
 
+/* En production, le portail historique continue de pointer vers sacs.html.
+   On bascule cette route vers Sacherie V2, sauf demande explicite d'historique. */
+try{
+  var isLegacyRoute=/\/terrain\/sacs\.html$/i.test(location.pathname);
+  var keepLegacy=new URLSearchParams(location.search).get('legacy')==='1';
+  if(isLegacyRoute&&!keepLegacy){
+    location.replace('sacherie_v2.html');
+    return;
+  }
+}catch(e){}
+
 function moduleName(){ return window.ANAGROCI_MODULE || (window.ANAGROCI_AUTH && window.ANAGROCI_AUTH.module) || 'unknown'; }
 function readStore(k, def){ try{ var s=localStorage.getItem(k); return s ? JSON.parse(s) : def; }catch(e){ return def; } }
 function writeStore(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
@@ -20,6 +31,7 @@ function sb(){ try{ if(window.supabase && window.ANAGROCI_SUPABASE_URL && window
 function friendly(raw){
 if(window.ANAGROCI_AUDIT && typeof window.ANAGROCI_AUDIT.friendlyServerError === 'function') return window.ANAGROCI_AUDIT.friendlyServerError(raw);
 var s=String(raw&&raw.message||raw&&raw.details||raw||''), low=s.toLowerCase();
+if(low.indexOf('approval')>=0||low.indexOf('request_id')>=0) return 'Dotation RT bloquée : utilisez Sacherie V2 pour la demande, l’approval BM et la remise.';
 if(low.indexOf('stock sacs insuffisant')>=0) return 'Synchronisation bloquée : stock de sacs insuffisant. Enregistrez d’abord la réception ou la dotation qui alimente ce stock, puis resynchronisez.';
 if(low.indexOf('row-level security')>=0) return 'Synchronisation refusée par les droits d’accès. Déconnectez-vous/reconnectez-vous ou contactez le Branch Manager.';
 return 'Synchronisation non finalisée : '+(s||'erreur serveur inconnue')+'.';
@@ -39,6 +51,7 @@ function cleanPayload(r){ var x=Object.assign({},r||{}); ['_status','_error','_e
 function validateMovement(){
 if(moduleName()!=='sacs') return {ok:true};
 var t=typeDef(), qte=num(field('m_qte')), date=field('m_date'), cluster=field('m_cluster'), village=field('m_village'), rt=field('m_rt'), prod=field('m_prod');
+if(t.k==='DOTATION_RT') return {ok:false,reason:'dotation_v2_required',message:'La dotation Cluster → RT se fait désormais dans Sacherie V2. Revenez au portail Stock & Sacs sans le mode historique.'};
 if(date){ var today=new Date(); today.setHours(23,59,59,999); if(new Date(date+'T00:00:00')>today) return {ok:false,reason:'date_future',message:'Date future interdite pour un mouvement de sacs.'}; }
 if(qte==null||qte<=0||Math.round(qte)!==qte) return {ok:false,reason:'quantity_invalid',message:'Nombre de sacs invalide : saisissez un entier positif.'};
 if(t.k==='USINE_CLUSTER'&&!cluster) return {ok:false,reason:'cluster_required',message:'Cluster requis pour une réception Usine → Cluster.'};
@@ -62,6 +75,7 @@ queue.forEach(function(r){ if(r&&r._status!=='synced'){ r._status='syncing'; r.s
 var ordered=queue.slice().sort(function(a,b){ return String(a.created_at||a.date||'').localeCompare(String(b.created_at||b.date||'')); });
 for(var i=0;i<ordered.length;i++){
 var rec=ordered[i]; if(!rec||rec._status==='synced') continue;
+if(rec.type==='DOTATION_RT'){ rec._status='failed'; rec._error='Ancienne dotation RT non synchronisée : recréez-la dans Sacherie V2 après validation BM.'; rec.last_error=rec._error; continue; }
 try{ var r=await SB.from('sacs_mouvements').upsert(cleanPayload(rec),{onConflict:'local_id',ignoreDuplicates:true});
 if(r&&r.error){ rec._status='failed'; rec._error=friendly(r.error); rec.last_error=rec._error; audit('bag_sync_server_blocked',{reason:rec._error,type:rec.type,local_id:rec.local_id}); }
 else { rec._status='synced'; delete rec._error; rec.last_error=null; }
