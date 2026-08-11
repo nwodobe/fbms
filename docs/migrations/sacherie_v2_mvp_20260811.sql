@@ -372,7 +372,7 @@ declare
   v_cluster text;
   v_cluster_stock integer:=0;
 begin
-  if not public.est_actif() then raise exception 'Accès refusé'; end if;
+  if not public.peut_demander_sacherie() then raise exception 'Droit insuffisant pour calculer le plafond Sacherie'; end if;
   if p_stock_rcn_kg is null or p_stock_rcn_kg<0 then raise exception 'Stock RCN vérifié invalide'; end if;
 
   select coalesce(a.volume_finance_kg,0)
@@ -704,8 +704,13 @@ revoke all on function public.sacherie_creer_demande(text,text,text,numeric,inte
 revoke all on function public.sacherie_decider_demande(uuid,text,integer,text) from public;
 revoke all on function public.sacherie_executer_demande(uuid,integer,text,text) from public;
 
--- Retirer l'ancienne signature si une première version a déjà été appliquée.
-revoke all on function public.sacherie_creer_demande(text,text,numeric,integer) from public;
+-- Retirer proprement l'ancienne signature si une première version a déjà été appliquée.
+do $$
+begin
+  if to_regprocedure('public.sacherie_creer_demande(text,text,numeric,integer)') is not null then
+    execute 'revoke all on function public.sacherie_creer_demande(text,text,numeric,integer) from public';
+  end if;
+end $$;
 
 grant execute on function public.sacherie_mon_contexte() to authenticated;
 grant execute on function public.sacherie_calculer_plafond(text,text,numeric) to authenticated;
