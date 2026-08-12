@@ -11,12 +11,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="../shared/auth-gate.js" data-module="sacs"></script>
 <script defer src="../shared/suite-bar.js" data-module="SAC"></script>
-<script defer src="../shared/anagroci-sacherie-control-tower.js?v=20260812-pilotage1"></script>
-<script defer src="../shared/anagroci-sacherie-control-actions.js?v=20260812-pilotage1"></script>
-<script defer src="../shared/anagroci-sacherie-v2.js?v=20260812-pilotage1"></script>
+<script defer src="../shared/anagroci-sacherie-control-tower.js?v=20260812-cockpit2"></script>
+<script defer src="../shared/anagroci-sacherie-control-actions.js?v=20260812-cockpit2"></script>
+<script defer src="../shared/anagroci-sacherie-v2.js?v=20260812-cockpit2"></script>
 <style>
 :root{--forest:#053B23;--green:#008F37;--lime:#8DC556;--amber:#EE9E00;--red:#C0392B;--bg:#F4F4F3;--ink:#323131;--muted:#6F746F;--line:#E8E7E7;--white:#fff}
-*{box-sizing:border-box}html{background:var(--forest)}body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif;min-height:100vh}.sac-appbar{background:var(--forest);color:#fff;border-bottom:4px solid var(--lime)}.sac-appbar-inner{max-width:1260px;margin:auto;padding:17px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}.sac-title{min-width:220px}.sac-title b{font:800 21px Archivo,Arial,sans-serif}.sac-title small{display:block;color:#CFE3D3;margin-top:3px;font-size:12px}.sac-spacer{flex:1}.sac-head-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.sac-primary,.sac-legacy{min-height:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;text-decoration:none}.sac-primary{border:0;background:var(--lime);color:var(--forest);padding:0 15px}.sac-primary:focus-visible,.sac-legacy:focus-visible{outline:3px solid #fff;outline-offset:2px}.sac-legacy{border:1px solid rgba(255,255,255,.35);color:#fff;background:transparent;padding:0 12px}.wrap{max-width:1260px;margin:auto;padding:18px 16px 52px}.sac-intro{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:0 0 12px}.sac-intro strong{color:var(--forest)}#sacherieApp{min-height:420px}.sac-noscript{max-width:1260px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:850px){.sac-appbar-inner{padding:14px 12px}.wrap{padding:14px 10px 44px}.sac-head-actions{width:100%}.sac-primary{flex:1}.sac-legacy{flex:0 0 auto}}@media(max-width:520px){.sac-title b{font-size:19px}.sac-title small{font-size:11px}.sac-legacy{display:none}}
+*{box-sizing:border-box}html{background:var(--forest)}body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif;min-height:100vh}.sac-appbar{background:var(--forest);color:#fff;border-bottom:4px solid var(--lime)}.sac-appbar-inner{max-width:1260px;margin:auto;padding:17px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}.sac-title{min-width:220px}.sac-title b{font:800 21px Archivo,Arial,sans-serif}.sac-title small{display:block;color:#CFE3D3;margin-top:3px;font-size:12px}.sac-spacer{flex:1}.sac-head-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.sac-primary{min-height:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;border:0;background:var(--lime);color:var(--forest);padding:0 15px}.sac-primary:focus-visible,.sac-legacy:focus-visible{outline:3px solid #fff;outline-offset:2px}.wrap{max-width:1260px;margin:auto;padding:18px 16px 22px}.sac-intro{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:0 0 12px}.sac-intro strong{color:var(--forest)}#sacherieApp{min-height:420px}.sac-noscript{max-width:1260px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}.sac-footer{max-width:1260px;margin:0 auto;padding:0 16px 38px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:11px}.sac-footer .grow{flex:1}.sac-legacy{color:var(--muted);text-decoration:none}.sac-legacy:hover{text-decoration:underline;color:var(--forest)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:850px){.sac-appbar-inner{padding:14px 12px}.wrap{padding:14px 10px 22px}.sac-head-actions{width:100%}.sac-primary{flex:1}.sac-footer{padding:0 10px 32px}}@media(max-width:520px){.sac-title b{font-size:19px}.sac-title small{font-size:11px}}
 </style>
 </head>
 <body>
@@ -25,7 +25,6 @@
     <div class="sac-title"><b>Sacherie AFLP</b><small>Patrimoine, flux, décisions et contrôles</small></div>
     <div class="sac-spacer"></div>
     <div class="sac-head-actions">
-      <a class="sac-legacy" href="sacs.html?legacy=1">Historique / module V1</a>
       <button class="sac-primary" id="sacNewOperation" type="button">+ Nouvelle opération</button>
       <span id="anagroci-userslot"></span>
     </div>
@@ -35,6 +34,12 @@
   <p class="sac-intro"><strong id="sacContextLabel">Sacherie</strong><span aria-hidden="true">·</span><span id="sacUpdatedLabel">Initialisation…</span></p>
   <section id="sacherieApp" aria-label="Pilotage de la sacherie"><div class="sac-noscript">Chargement du pilotage Sacherie…</div></section>
 </main>
+<footer class="sac-footer">
+  <span><strong>Référence :</strong> registre canonique Sacherie AFLP</span>
+  <span>Les décisions de stock restent gouvernées par les contrôles serveur.</span>
+  <span class="grow"></span>
+  <a class="sac-legacy" href="sacs.html?legacy=1">Module historique V1</a>
+</footer>
 <noscript><div class="sac-noscript">JavaScript est requis pour utiliser le module Sacherie.</div></noscript>
 </body>
 </html>
