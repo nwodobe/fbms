@@ -1,0 +1,453 @@
+/* ============================================================================
+   ANAGROCI Operations Suite — Sacherie AFLP 2027
+   Feuille de style UNIQUE du module.
+
+   Elle remplace les trois feuilles injectées par JavaScript (`ctStyle`,
+   `ctaStyle`, `sv2_style`) qui donnaient trois grammaires visuelles à un même
+   écran : pilules vert pâle, onglets soulignés lime, boutons bordés gris.
+
+   Jetons alignés sur la charte PJS Global. Échelle de statut à quatre niveaux
+   et une seule : normal · surveil · traiter · suspendu. Aucun statut n'est
+   porté par la couleur seule, et aucune pastille ne descend sous 11 px.
+   ========================================================================== */
+
+:root {
+  --sacx-forest: #053B23;
+  --sacx-pine: #00712C;
+  --sacx-emerald: #008F37;
+  --sacx-lime: #8DC556;
+  --sacx-pale: #E0F3DE;
+  --sacx-mist: #F1F9EF;
+  --sacx-soft: #F4F4F3;
+  --sacx-border: #E8E7E7;
+  --sacx-hair: #EEEEEC;
+  --sacx-ink: #323131;
+  --sacx-muted: #6F746F;
+  --sacx-subtle: #A3A1A1;
+  --sacx-neutral: #4F4E4E;
+  --sacx-orange: #EE9E00;
+  --sacx-danger: #C0392B;
+  --sacx-slate: #7A7878;
+  --sacx-display: Archivo, "Helvetica Neue", Arial, sans-serif;
+  --sacx-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --sacx-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--sacx-soft);
+  color: var(--sacx-ink);
+  font-family: var(--sacx-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --------------------------------------------------------------- Structure */
+#sacx { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Zone 1 — en-tête unique. Un écran a un titre, pas deux. */
+#sacx .sacx-head {
+  background: var(--sacx-forest);
+  color: #fff;
+  padding: 13px 30px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-bottom: 3px solid var(--sacx-lime);
+}
+#sacx .sacx-title { font: 800 18px var(--sacx-display); letter-spacing: -.01em; margin: 0; }
+#sacx .sacx-sub { font-size: 12px; color: #CFE3D3; margin-top: 2px; }
+#sacx .sacx-spacer { flex: 1; }
+#sacx .sacx-who { text-align: right; line-height: 1.4; font-size: 13px; font-weight: 600; }
+#sacx .sacx-who small { display: block; font-size: 11.5px; font-weight: 400; color: #CFE3D3; }
+
+/* Zone 2 — navigation unique : cinq onglets, un seul comportement. */
+#sacx .sacx-navbar {
+  background: #fff;
+  border-bottom: 1px solid var(--sacx-border);
+  padding: 0 30px;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+#sacx .sacx-tab {
+  border: 0;
+  background: none;
+  padding: 15px 16px;
+  font: 600 13.5px var(--sacx-body);
+  color: var(--sacx-muted);
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#sacx .sacx-tab[aria-selected="true"] { color: var(--sacx-forest); border-bottom-color: var(--sacx-lime); }
+#sacx .sacx-tab:focus-visible { outline: 2px solid var(--sacx-emerald); outline-offset: -2px; border-radius: 4px; }
+#sacx .sacx-tabbadge {
+  display: inline-block;
+  margin-left: 7px;
+  min-width: 19px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--sacx-danger);
+  color: #fff;
+  font: 700 11px var(--sacx-mono);
+  text-align: center;
+}
+
+#sacx .sacx-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 26px 30px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Zone 8 — pied : la règle SOP et la sortie de secours vers le module V1. */
+#sacx .sacx-foot {
+  width: 100%;
+  max-width: 1320px;
+  margin: 26px auto 0;
+  padding: 18px 30px 40px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--sacx-border);
+  font-size: 12px;
+  color: var(--sacx-muted);
+}
+#sacx .sacx-foot strong { color: var(--sacx-neutral); }
+#sacx .sacx-foot a { color: var(--sacx-muted); text-decoration: none; }
+#sacx .sacx-foot a:hover { color: var(--sacx-pine); }
+
+/* ------------------------------------------------------------------ Cartes */
+#sacx .sacx-card {
+  background: #fff;
+  border: 1px solid var(--sacx-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  min-width: 0;
+}
+#sacx .sacx-card.accent { border-left: 3px solid var(--sacx-lime); }
+#sacx .sacx-card h2 { font: 700 16px var(--sacx-display); color: var(--sacx-forest); margin: 0; }
+#sacx .sacx-card h3 { font: 700 13.5px var(--sacx-display); color: var(--sacx-forest); margin: 20px 0 9px; }
+#sacx .sacx-cardhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.sacx-count { font: 700 11px var(--sacx-mono); color: var(--sacx-muted); }
+.sacx-hint { font-size: 12px; color: var(--sacx-muted); margin: 0 0 14px; line-height: 1.5; }
+#sacx .sacx-more { font-size: 12.5px; margin-top: 12px; }
+#sacx .sacx-more button {
+  border: 0; background: none; padding: 0;
+  font: 700 12.5px var(--sacx-body); color: var(--sacx-pine); cursor: pointer;
+}
+#sacx .sacx-more button:hover { text-decoration: underline; }
+#sacx .sacx-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+#sacx .sacx-stack { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+/* Zone 3 — bande « À décider ». Une file de travail, pas un indicateur. */
+#sacx .sacx-decide { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+#sacx .sacx-eyebrow {
+  display: inline-block;
+  font: 800 10px var(--sacx-body);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sacx-emerald);
+}
+#sacx .sacx-decide-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 20px 6px 0;
+  border: 0; border-right: 1px solid var(--sacx-border);
+  background: none; text-align: left; font: inherit; cursor: pointer;
+}
+#sacx .sacx-decide-item:hover { opacity: .72; }
+#sacx .sacx-decide-item:focus-visible { outline: 2px solid var(--sacx-emerald); outline-offset: 2px; }
+#sacx .sacx-decide-n { font: 800 27px var(--sacx-mono); line-height: 1; flex: 0 0 auto; }
+#sacx .sacx-decide-t { display: block; font-size: 13.5px; font-weight: 700; color: var(--sacx-forest); }
+#sacx .sacx-decide-s { display: block; font-size: 11.5px; color: var(--sacx-muted); margin-top: 1px; }
+
+/* Zone 4 — six KPI décisionnels, tous cliquables. */
+#sacx .sacx-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+#sacx .sacx-kpi {
+  background: #fff;
+  border: 1px solid var(--sacx-border);
+  border-radius: 14px;
+  padding: 15px 16px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+#sacx .sacx-kpi:hover { border-color: var(--sacx-lime); box-shadow: 0 4px 14px rgba(5, 59, 35, .07); }
+#sacx .sacx-kpi:focus-visible { outline: 2px solid var(--sacx-emerald); outline-offset: 2px; }
+#sacx .sacx-kpi .l {
+  font: 700 10px var(--sacx-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--sacx-muted);
+}
+#sacx .sacx-kpi .v {
+  font: 800 27px var(--sacx-display);
+  color: var(--sacx-forest);
+  margin: 7px 0 0;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+#sacx .sacx-kpi .v em { font: 600 12px var(--sacx-body); font-style: normal; color: var(--sacx-muted); margin-left: 5px; }
+#sacx .sacx-kpi.signal .v { color: var(--sacx-danger); }
+#sacx .sacx-kpi .s { font-size: 11.5px; color: var(--sacx-muted); line-height: 1.4; min-height: 32px; margin-top: 8px; }
+#sacx .sacx-kpi .go { font-size: 11px; color: var(--sacx-emerald); font-weight: 700; margin-top: 6px; }
+
+/* Zone 5 — exceptions : liste triée gravité puis ancienneté, chaque ligne ouvre l'objet. */
+.sacx-exc {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 7px;
+  border: 1px solid var(--sacx-hair);
+  border-left: 3px solid var(--sacx-slate);
+  border-radius: 8px;
+  background: #fff;
+  align-items: flex-start;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.sacx-exc:hover { background: #FAFCF9; }
+.sacx-exc:focus-visible { outline: 2px solid var(--sacx-emerald); outline-offset: 2px; }
+.sacx-exc.traiter { border-left-color: var(--sacx-danger); }
+.sacx-exc.surveil { border-left-color: var(--sacx-orange); }
+.sacx-exc.normal { border-left-color: var(--sacx-emerald); }
+.sacx-exc .t { display: block; font-size: 13.5px; font-weight: 700; color: var(--sacx-ink); line-height: 1.4; }
+.sacx-exc .s { display: block; font-size: 11.5px; color: var(--sacx-muted); margin-top: 3px; }
+.sacx-exc .r { text-align: right; flex: 0 0 auto; }
+.sacx-exc .age { font: 600 11px var(--sacx-mono); color: var(--sacx-subtle); margin-top: 6px; }
+
+/* ---------------------------------- Échelle de statut unique — quatre niveaux */
+.sacx-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sacx-normal   { background: #E3F5E8; color: #1C7A3F; }
+.sacx-surveil  { background: #FDEFCE; color: #8A6A12; }
+.sacx-traiter  { background: #FDECE9; color: #B23A2A; }
+.sacx-suspendu { background: #F0EFED; color: #4F4E4E; }
+.sacx-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--sacx-slate); }
+.sacx-dot.normal  { background: var(--sacx-emerald); }
+.sacx-dot.surveil { background: var(--sacx-orange); }
+.sacx-dot.traiter { background: var(--sacx-danger); }
+
+/* ---------------------------------------------------------------- Tableaux */
+.sacx-tw { overflow-x: auto; }
+#sacx table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+#sacx th {
+  text-align: left;
+  font: 700 10px var(--sacx-body);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--sacx-muted);
+  padding: 7px 8px;
+  border-bottom: 2px solid var(--sacx-emerald);
+  white-space: nowrap;
+}
+#sacx td { padding: 9px 8px; border-bottom: 1px solid var(--sacx-hair); vertical-align: top; }
+#sacx td.num, #sacx th.num {
+  text-align: right;
+  font-family: var(--sacx-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#sacx tr.sacx-clickable { cursor: pointer; }
+#sacx tr.sacx-clickable:hover { background: #FAFCF9; }
+#sacx .sacx-strong { font-weight: 700; color: var(--sacx-forest); }
+#sacx .sacx-neg { color: var(--sacx-danger); font-weight: 700; }
+
+/* Zone 7 — activité récente. */
+#sacx .sacx-act { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--sacx-hair); align-items: baseline; }
+#sacx .sacx-act .h { font: 600 11px var(--sacx-mono); color: var(--sacx-subtle); flex: 0 0 78px; }
+#sacx .sacx-act .t { flex: 1; font-size: 13px; line-height: 1.45; }
+#sacx .sacx-act .q { font: 700 12px var(--sacx-mono); color: var(--sacx-forest); flex: 0 0 auto; }
+
+/* ---------------------------------------------------------------- Boutons */
+.sacx-btn {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 15px;
+  font: 700 13px var(--sacx-body);
+  background: var(--sacx-emerald);
+  color: #fff;
+  cursor: pointer;
+}
+.sacx-btn:hover { background: var(--sacx-pine); }
+.sacx-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sacx-btn:focus-visible { outline: 2px solid var(--sacx-forest); outline-offset: 2px; }
+.sacx-btn.cta { background: var(--sacx-lime); color: var(--sacx-forest); font-weight: 800; }
+.sacx-btn.cta:hover { background: #7FBA46; }
+.sacx-btn.secondary { background: #fff; color: var(--sacx-forest); border: 1px solid var(--sacx-border); }
+.sacx-btn.secondary:hover { background: var(--sacx-mist); }
+.sacx-btn.sm { padding: 7px 11px; font-size: 12px; }
+.sacx-linkbtn {
+  border: 0; background: none; padding: 0;
+  color: var(--sacx-pine); font: 700 12.5px var(--sacx-body);
+  cursor: pointer; text-decoration: underline;
+}
+
+/* Menu « Nouvelle opération » — un seul bouton primaire, quatre choix. */
+#sacx .sacx-ops { position: relative; flex: 0 0 auto; }
+#sacx .sacx-opsmenu {
+  position: absolute;
+  right: 0;
+  top: 50px;
+  width: 292px;
+  background: #fff;
+  border: 1px solid var(--sacx-border);
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(5, 59, 35, .22);
+  padding: 6px;
+  z-index: 40;
+}
+#sacx .sacx-opsmenu button {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; padding: 11px 13px;
+  border-radius: 8px; cursor: pointer; font: inherit;
+}
+#sacx .sacx-opsmenu button:hover { background: var(--sacx-mist); }
+#sacx .sacx-opsmenu .t { display: block; font-weight: 700; font-size: 13.5px; color: var(--sacx-forest); }
+#sacx .sacx-opsmenu .d { display: block; font-size: 11.5px; color: var(--sacx-muted); margin-top: 2px; }
+
+/* ----------------------------------------------------- Navigation / filtres */
+#sacx .sacx-crumb { font-size: 11.5px; color: var(--sacx-muted); margin-bottom: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#sacx .sacx-crumb button { border: 0; background: none; padding: 0; color: var(--sacx-pine); font: 700 11.5px var(--sacx-body); cursor: pointer; }
+.sacx-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--sacx-pale); color: var(--sacx-forest);
+  border-radius: 999px; padding: 4px 6px 4px 11px;
+  font-size: 11.5px; font-weight: 700;
+}
+.sacx-chip button {
+  border: 0; background: rgba(5, 59, 35, .12); color: var(--sacx-forest);
+  border-radius: 50%; width: 17px; height: 17px; line-height: 1; font-size: 11px; padding: 0; cursor: pointer;
+}
+#sacx .sacx-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+#sacx .sacx-filters select,
+#sacx .sacx-filters input {
+  border: 1px solid #D2D0D0; border-radius: 8px; padding: 8px 9px;
+  background: #fff; font: 12.5px var(--sacx-body); color: var(--sacx-ink); max-width: 240px;
+}
+#sacx .sacx-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#sacx .sacx-tile {
+  background: #F7FAF6; border: 1px solid var(--sacx-border); border-radius: 10px;
+  padding: 10px; text-align: left; font: inherit; cursor: pointer;
+}
+#sacx .sacx-tile:hover { border-color: var(--sacx-lime); }
+#sacx .sacx-tile small { display: block; color: var(--sacx-muted); font-size: 11px; }
+#sacx .sacx-tile b { font: 700 18px var(--sacx-display); color: var(--sacx-forest); }
+
+/* ------------------------------------------------------------------- États */
+.sacx-empty { padding: 22px; text-align: center; color: var(--sacx-muted); font-size: 13px; line-height: 1.55; }
+.sacx-empty.good { color: #1C7A3F; }
+.sacx-empty.bad { color: #B23A2A; font-weight: 600; }
+.sacx-skel {
+  display: block; height: 14px; border-radius: 6px;
+  background: linear-gradient(90deg, #EEF2EC 25%, #E2E9DF 50%, #EEF2EC 75%);
+  background-size: 800px 100%;
+  animation: sacxShimmer 1.4s infinite linear;
+}
+@keyframes sacxShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+
+/* -------------------------------------------- Panneau latéral de décision
+   Remplace prompt() et confirm() : le contexte de la ligne reste sous les yeux
+   pendant la saisie, et la saisie survit à une erreur serveur.              */
+.sacx-scrim { position: fixed; inset: 0; background: rgba(5, 25, 15, .42); z-index: 2147482000; }
+.sacx-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(460px, 100%);
+  background: #fff;
+  z-index: 2147482001;
+  display: flex; flex-direction: column;
+  box-shadow: -14px 0 44px rgba(5, 59, 35, .22);
+  font-family: var(--sacx-body);
+  color: var(--sacx-ink);
+}
+.sacx-panel > header { background: var(--sacx-forest); color: #fff; padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px; }
+.sacx-panel > header b { display: block; font: 800 16px var(--sacx-display); }
+.sacx-panel > header small { display: block; color: #CFE3D3; font-size: 12px; margin-top: 3px; line-height: 1.45; }
+.sacx-panel .x {
+  margin-left: auto; flex: 0 0 auto;
+  background: rgba(255, 255, 255, .16); color: #fff;
+  border: 0; border-radius: 8px; width: 30px; height: 30px; font-size: 16px; cursor: pointer;
+}
+.sacx-panelbody { padding: 18px 20px; overflow: auto; flex: 1; }
+.sacx-panelfoot { padding: 14px 20px; border-top: 1px solid var(--sacx-border); display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+.sacx-recap { background: #F7FAF6; border: 1px solid var(--sacx-border); border-radius: 10px; padding: 12px 13px; font-size: 12.5px; line-height: 1.65; margin-bottom: 14px; }
+.sacx-recap b { color: var(--sacx-forest); }
+.sacx-recap dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.sacx-recap dt { color: var(--sacx-muted); }
+.sacx-recap dd { margin: 0; text-align: right; font-family: var(--sacx-mono); font-variant-numeric: tabular-nums; }
+.sacx-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+.sacx-field label { font-size: 12px; font-weight: 700; }
+.sacx-field .help { font-size: 11.5px; color: var(--sacx-muted); line-height: 1.45; }
+.sacx-panel input, .sacx-panel select, .sacx-panel textarea {
+  width: 100%;
+  border: 1px solid #D2D0D0;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font: 14px var(--sacx-body);
+  background: #fff;
+  color: var(--sacx-ink);
+}
+.sacx-panel input:focus, .sacx-panel select:focus, .sacx-panel textarea:focus {
+  outline: none; border-color: var(--sacx-emerald); box-shadow: 0 0 0 3px rgba(0, 143, 55, .14);
+}
+.sacx-panel textarea { min-height: 76px; resize: vertical; }
+.sacx-msg { margin-top: 12px; padding: 10px 12px; border-radius: 9px; font-size: 12.5px; line-height: 1.5; display: none; }
+.sacx-msg.ok { display: block; background: var(--sacx-mist); border: 1px solid #BFE3B6; color: #1C4B30; }
+.sacx-msg.err { display: block; background: #FFF1F1; border: 1px solid #E7B7B0; color: #8F2D22; }
+.sacx-msg.warn { display: block; background: #FDEFCE; border: 1px solid var(--sacx-orange); color: #8A6A12; }
+
+.sacx-toast {
+  position: fixed; right: 18px; bottom: 18px; z-index: 2147482100;
+  max-width: 360px;
+  background: #fff;
+  border: 1px solid #BFE3B6;
+  border-left: 4px solid var(--sacx-emerald);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font: 13px var(--sacx-body);
+  color: #1C4B30;
+  box-shadow: 0 12px 30px rgba(5, 59, 35, .18);
+}
+.sacx-toast.err { border-color: #E7B7B0; border-left-color: var(--sacx-danger); color: #8F2D22; }
+
+/* --------------------------------------------------------------- Réactif
+   Le point de rupture passe de 850 px à 1180/980/720 : une tablette 768 px
+   reçoit trois colonnes de KPI au lieu de la configuration téléphone.      */
+@media (max-width: 1180px) {
+  #sacx .sacx-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #sacx .sacx-cols { gap: 22px; }
+}
+@media (max-width: 980px) {
+  #sacx .sacx-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  #sacx .sacx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #sacx .sacx-head { padding: 12px 14px; gap: 12px; }
+  #sacx .sacx-navbar { padding: 0 8px; }
+  #sacx .sacx-tab { padding: 13px 11px; }
+  #sacx .sacx-main { padding: 16px 12px 0; gap: 16px; }
+  #sacx .sacx-foot { padding: 16px 12px 34px; }
+  #sacx .sacx-who { display: none; }
+  #sacx .sacx-card { padding: 15px 14px; }
+  #sacx .sacx-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #sacx .sacx-decide-item { border-right: 0; padding-right: 0; width: 100%; }
+  #sacx .sacx-opsmenu { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; }
+}
