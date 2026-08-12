@@ -5,7 +5,7 @@ if(window.__ANAGROCI_SACHERIE_CT)return;window.__ANAGROCI_SACHERIE_CT=true;
 var SB=null,DATA=null,TAB='pilotage',FILTER={cluster:'',rt:'',q:'',from:'',to:'',state:'',page:1},COUNTS={requests:0,losses:0,expiring:0};
 var TABS=[['pilotage','Pilotage'],['reseau','Réseau'],['flux','Flux'],['parc','État du parc'],['controles','Contrôles']];
 function $(id){return document.getElementById(id);}
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c];});}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function n(v){var x=Number(v||0);return Number.isFinite(x)?x:0;}
 function fmt(v){return n(v).toLocaleString('fr-FR');}
 function dt(v){if(!v)return 'Jamais';try{return new Date(v).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});}catch(e){return String(v);}}
