@@ -86,7 +86,7 @@ que corrigé à l'aveugle.
 
 ## C. Tests
 
-`node .github/agent-tests/sacherie-validations.mjs` — **61 contrôles, 0 défaut.**
+`node .github/agent-tests/sacherie-validations.mjs` — **94 contrôles, 0 défaut.**
 
 | Famille | Cas couverts | Résultat |
 |---|---|---|
@@ -103,7 +103,12 @@ que corrigé à l'aveugle.
 | C3 — disponibilité | 2 645 en magasin cluster au lieu de 3 195 | **2 PASS** |
 | Réseau | cluster critique sans RT, RT inexistant | **2 PASS** |
 | M6 / M7 — CSV | export nominal (dates ISO), export vide bloqué | **2 PASS** |
-| Responsive | 390×844, 768×1024, 1440×900 | **3 PASS** |
+| Navigation | onglet valide porté par l'URL, onglet inconnu refusé, onglet inconnu dans l'URL signalé, `?tab=` restauré au rechargement | **4 PASS** |
+| Pagination | page bornée, « Précédent » désactivé en page 1, `?page=999` ramené à la dernière page | **3 PASS** |
+| CSV | BOM, accents et apostrophes, guillemets doublés, séparateur et en-têtes, point-virgule dans une valeur | **5 PASS** |
+| Synchronisation | perte de réseau affichée, retour en ligne rafraîchit, délai de garde sur requête sans réponse, message en clair | **4 PASS** |
+| Rôles | Branch Manager, Unit Head, Warehouse Keeper, Assistant Unit Head — création de demande, décision de perte, remise dans son cluster et **refus hors de son cluster** | **4 PASS** |
+| Responsive | 3 largeurs × 5 mesures : débordement, colonnes de KPI, onglets atteignables, cibles tactiles ≥ 40 px, journal qui défile dans son conteneur, tiroir d'opération utilisable | **18 PASS** |
 | Console | aucune erreur JavaScript | **PASS** |
 
 Le fichier a été **éprouvé contre le code d'avant correctifs** : il sort en 1 et
@@ -161,6 +166,12 @@ Supabase intercepte tous les appels RPC et enregistre ce qui **serait** parti.
    zone interdite aux agents.
 7. **Rien n'a été vérifié contre la base réelle.** Les 59 contrôles s'exécutent
    sur un double. Une recette sur données réelles reste nécessaire.
-8. **Les rôles n'ont pas été testés par rôle réel** : le banc s'exécute avec un
-   profil Branch Manager. Le cloisonnement par cluster (`canExecuteRequest`)
-   n'est vérifié que par lecture de code.
+8. **Les rôles sont testés côté interface uniquement.** Le banc rejoue l'écran
+   sous quatre profils et vérifie qu'un Warehouse Keeper de BOTRO ne peut pas
+   préparer la remise d'une demande de DIABO. Cela prouve que l'interface ne
+   propose pas l'interdit ; cela ne prouve pas que la RLS le refuse. Seule une
+   recette sur base réelle le montrerait.
+9. **Le délai de garde du chargement est réglable** par
+   `window.ANAGROCI_SACHERIE_TIMEOUT_MS` (15 s par défaut). C'est une couture de
+   configuration pour la recette, pas un contournement de règle métier : elle ne
+   change que la patience du navigateur.

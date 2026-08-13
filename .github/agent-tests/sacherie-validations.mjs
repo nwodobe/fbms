@@ -66,15 +66,13 @@ const REFERENCE = {
   ]
 }
 
-const BANC = `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>Banc validations Sacherie</title></head>
-<body>
-<header><div class="sac-title"><h1>Sacherie AFLP</h1></div>
-<button class="sac-primary" id="sacNewOperation" type="button">+ Nouvelle opération</button>
-<span id="anagroci-userslot"></span></header>
-<p><strong id="sacContextLabel">Sacherie</strong><span id="sacUpdatedLabel">Initialisation…</span></p>
-<section id="sacherieApp"></section>
-<script>
+/* Le banc EST la page de production : on charge terrain/sacherie_v2.html tel
+   quel, en retirant seulement ce qui sortirait sur le réseau (CDN Supabase,
+   portail d'authentification, barre de suite), et en injectant les données
+   fixes juste avant les modules. Mesurer le responsive sur une page d'essai
+   simplifiée reviendrait à mesurer une mise en page qui n'existe pas. */
+const PAGE = await readFile(join(RACINE, 'terrain', 'sacherie_v2.html'), 'utf8')
+const FIXTURES = `<script>
 var REFERENCE = ${JSON.stringify(REFERENCE)};
 var SNAPSHOT = {
   generated_at: new Date().toISOString(),
@@ -82,12 +80,25 @@ var SNAPSHOT = {
             dechires: 5, a_reparer: 0, repares: 0, rebut: 0 },
   clusters: REFERENCE.clusters,
   rts: REFERENCE.rts,
-  movements: [
-    { movement_at: new Date(Date.now() - 35*86400000).toISOString(), movement_type: 'DOTATION_RT',
+  movements: (function(){
+    var out = [{ movement_at: new Date(Date.now() - 35*86400000).toISOString(), movement_type: 'DOTATION_RT',
       source_type: 'LEGACY', cluster: 'BOTRO', rt_id: 'RT-BOTRO-1', qty: 60,
       from_location: 'AFLP-CL-BOTRO', to_location: 'AFLP-RT-RT-BOTRO-1',
-      from_state: 'UTILISABLE', to_state: 'UTILISABLE', reference: 'HIST-0001' }
-  ],
+      from_state: 'UTILISABLE', to_state: 'UTILISABLE', reference: 'HIST-0001' },
+    /* Valeurs piégeuses : accents, apostrophe, guillemets et point-virgule —
+       le séparateur du fichier lui-même. */
+    { movement_at: new Date(Date.now() - 86400000).toISOString(), movement_type: 'TRANSFERT',
+      source_type: 'EXECUTED', cluster: "N'DJEBONOUA", rt_id: 'RT-NDJ-1', qty: 40,
+      from_location: 'AFLP-CL-NDJ', to_location: 'AFLP-HUB-BOUAKE',
+      from_state: 'PLEIN', to_state: 'EN_TRANSIT',
+      reference: 'RÉF "SPÉCIALE" ; N\\u2019DJÉBONOUA' }];
+    for (var i = 0; i < 60; i++) out.push({
+      movement_at: new Date(Date.now() - (i + 2) * 3600000).toISOString(),
+      movement_type: 'REMISE', source_type: 'EXECUTED', cluster: 'DIABO', rt_id: 'RT-DIABO-1',
+      qty: 10 + i, from_location: 'AFLP-CL-DIABO', to_location: 'AFLP-RT-RT-DIABO-1',
+      from_state: 'UTILISABLE', to_state: 'UTILISABLE', reference: 'MVT-' + (1000 + i) });
+    return out;
+  })(),
   inventories: [],
   alerts: [{ message: 'Cluster BEOUMI sans RT rattaché', cluster: 'BEOUMI', severity: 'CRITIQUE' }],
   transit_aging: { over_7d_qty: null }
@@ -100,7 +111,9 @@ var LOCATIONS = [
 var RPC = {
   sacherie_ct_snapshot: SNAPSHOT,
   sacherie_ct_locations: LOCATIONS,
-  sacherie_ct_pertes: [],
+  sacherie_ct_pertes: [{ id: 'perte-1', cluster: 'BOTRO', location_code: 'AFLP-RT-RT-BOTRO-1',
+    location_name: 'RT BOTRO 1', state: 'UTILISABLE', qty: 12, motif: 'Magasin inondé',
+    statut: 'SOUMIS', submitted_at: new Date(Date.now() - 86400000).toISOString() }],
   sacherie_mon_contexte: { fonction_operationnelle: 'Unit Head', cluster: 'BOTRO' },
   sacherie_ct_inventorier: { status: 'HOLD', difference: 0 },
   sacherie_ct_traiter_etat: { ok: true },
@@ -111,18 +124,31 @@ var TABLES = {
   avances: [{ id: 'av-1', date: '2027-01-12', cluster: 'BOTRO', rt_id: 'RT-BOTRO-1', rt_nom: 'RT BOTRO 1',
     montant: 800000, statut: 'Active', cycle_id: 'WAVE-2027-BOT-001', volume_finance_kg: 2000,
     prix_reference_kg: 400, cycle_statut: 'OPEN', created_at: new Date().toISOString() }],
-  bag_movement_requests: []
+  bag_movement_requests: [
+    { id: 'req-botro', request_code: 'DEM-2027-0001', cluster: 'BOTRO', rt_id: 'RT-BOTRO-1',
+      rt_nom: 'RT BOTRO 1', cycle_id: 'WAVE-2027-BOT-001', stock_rcn_kg_verified: 0,
+      system_max_bags: 27, bags_already_held: 8, reserved_approved_bags: 0, max_new_available: 19,
+      requested_qty: 19, approved_qty: 19, status: 'APPROVED',
+      requested_at: new Date(Date.now() - 2*86400000).toISOString(), expires_at: null },
+    { id: 'req-diabo', request_code: 'DEM-2027-0002', cluster: 'DIABO', rt_id: 'RT-DIABO-1',
+      rt_nom: 'RT DIABO 1', cycle_id: 'WAVE-2027-DIA-001', stock_rcn_kg_verified: 0,
+      system_max_bags: 30, bags_already_held: 0, reserved_approved_bags: 0, max_new_available: 30,
+      requested_qty: 25, approved_qty: 25, status: 'APPROVED',
+      requested_at: new Date(Date.now() - 4*86400000).toISOString(), expires_at: null }
+  ]
 };
 
 /* Tout appel RPC est enregistré au lieu de partir : aucune donnée de
    production n'est créée par ces tests. */
 window.__rpc = [];
 window.__failNext = null;
+window.__bloquer = false;
 function requete(rows){var q={};['select','eq','neq','order','limit','in','is'].forEach(function(k){q[k]=function(){return q;};});
   q.then=function(ok,ko){return Promise.resolve({data:rows,error:null}).then(ok,ko);};return q;}
 window.supabase = { createClient: function(){ return {
   rpc: function(nom,args){
     window.__rpc.push({nom:nom,args:args||null});
+    if(window.__bloquer)return new Promise(function(){});
     if(window.__failNext && window.__failNext.nom===nom){var f=window.__failNext;window.__failNext=null;
       return f.throw?Promise.reject(new Error(f.message)):Promise.resolve({data:null,error:{message:f.message}});}
     if(Object.prototype.hasOwnProperty.call(RPC,nom))return Promise.resolve({data:RPC[nom],error:null});
@@ -130,16 +156,31 @@ window.supabase = { createClient: function(){ return {
   },
   from: function(t){ return requete(TABLES[t]||[]); }
 }; } };
+var Q=new URLSearchParams(location.search);
+var ROLE=Q.get('role')||'Branch Manager';
+var FONCTION=Q.get('fonction')||'Unit Head';
+var CLUSTER=Q.get('cluster')||'BOTRO';
+RPC.sacherie_mon_contexte={fonction_operationnelle:FONCTION,cluster:CLUSTER};
+if(Q.get('lent'))window.ANAGROCI_SACHERIE_TIMEOUT_MS=Number(Q.get('lent'));
 window.ANAGROCI_SUPABASE_URL='https://banc.invalid';
 window.ANAGROCI_SUPABASE_ANON='cle-banc';
 window.ANAGROCI_MODULE='sacs';
-window.ANAGROCI_AUTH={profile:{nom:'Recette',role:'Branch Manager'},niveau:'bm',estBM:true,module:'sacs'};
+window.ANAGROCI_AUTH={profile:{nom:'Recette',role:ROLE},niveau:ROLE==='Branch Manager'?'bm':'chef',estBM:ROLE==='Branch Manager',module:'sacs'};
 </script>
-<script src="/shared/anagroci-sacherie-control-tower.js"></script>
-<script src="/shared/anagroci-sacherie-control-actions.js"></script>
-<script src="/shared/anagroci-sacherie-v2.js"></script>
-<script>document.dispatchEvent(new CustomEvent('anagroci:authenticated',{detail:window.ANAGROCI_AUTH}));</script>
-</body></html>`
+`
+
+const BANC = PAGE
+  /* Les polices distantes ne changent rien aux mesures et feraient dépendre la
+     recette d'un réseau sortant : on les retire du banc. */
+  .replace(/<link rel="preconnect"[^>]*>/g, '')
+  .replace(/<link href="https:\/\/fonts\.googleapis[^>]*>/g, '')
+  .replace(/<script src="https:\/\/cdn\.jsdelivr[^>]*><\/script>/g, '')
+  .replace(/<script defer src="\.\.\/shared\/auth-gate\.js"[^>]*><\/script>/g, '')
+  .replace(/<script defer src="\.\.\/shared\/suite-bar\.js"[^>]*><\/script>/g, '')
+  .replace(/<script defer src="\.\.\/shared\/(anagroci-sacherie-[a-z0-9-]+\.js)[^"]*"><\/script>/g,
+           (_, f) => `<script defer data-module-sacherie src="/shared/${f}"></script>`)
+  .replace('</head>', FIXTURES + '</head>')
+  .replace('</body>', '<script>document.dispatchEvent(new CustomEvent("anagroci:authenticated",{detail:window.ANAGROCI_AUTH}));</script></body>')
 
 const MIME = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
 function servir() {
@@ -526,15 +567,304 @@ try {
     if (d) d.click()
   })
 
+  /* ============================================================ NAVIGATION ===
+     Un onglet, un RT ou un cluster inconnu ne doit pas produire une bascule
+     muette : l'utilisateur doit savoir que ce qu'il a demandé n'existe pas. */
+  const nav = await page.evaluate(async () => {
+    const lire = () => ({
+      onglet: (document.querySelector('.ct-tab[aria-selected="true"]') || {}).dataset?.tab,
+      url: new URLSearchParams(location.search).get('tab'),
+      corps: document.getElementById('ctBody').textContent
+    })
+    window.ANAGROCI_SACHERIE_CT.setTab('flux')
+    await new Promise((r) => setTimeout(r, 250))
+    const valide = lire()
+    window.ANAGROCI_SACHERIE_CT.setTab('onglet-qui-n-existe-pas')
+    await new Promise((r) => setTimeout(r, 250))
+    const refuse = lire()
+    return { valide, refuse }
+  })
+  if (nav.valide.onglet === 'flux' && nav.valide.url === 'flux') {
+    ok('Navigation — l’onglet actif est porté par l’URL', '?tab=flux, partageable et rechargeable')
+  } else {
+    defaut('Navigation — l’URL ne suit pas l’onglet', `onglet=${nav.valide.onglet}, url=${nav.valide.url}`)
+  }
+  if (nav.refuse.onglet === 'flux') {
+    ok('Navigation — un onglet inconnu ne déplace pas l’utilisateur', 'setTab refuse une valeur hors liste')
+  } else {
+    defaut('Navigation — un onglet inconnu déplace l’utilisateur', `onglet devenu ${nav.refuse.onglet}`)
+  }
+
+  /* Rechargement direct sur une URL portant un onglet inexistant. */
+  const p2 = await navigateur.newPage({ viewport: { width: 1440, height: 900 } })
+  await p2.goto(`http://127.0.0.1:${port}/banc?tab=inexistant`, { waitUntil: 'load' })
+  await p2.waitForSelector('.ct-kpi', { timeout: 15000 })
+  await p2.waitForTimeout(400)
+  const rechargement = await p2.evaluate(() => ({
+    onglet: document.querySelector('.ct-tab[aria-selected="true"]').dataset.tab,
+    avis: document.getElementById('ctBody').textContent
+  }))
+  if (rechargement.onglet === 'pilotage' && /n’existe pas/.test(rechargement.avis)) {
+    ok('Navigation — un onglet inconnu dans l’URL est signalé', 'retour au Pilotage annoncé, pas subi')
+  } else {
+    defaut('Navigation — bascule silencieuse depuis l’URL', `onglet=${rechargement.onglet}, aucun avis`)
+  }
+
+  /* Rechargement sur un onglet valide : l'état doit être restauré. */
+  await p2.goto(`http://127.0.0.1:${port}/banc?tab=parc`, { waitUntil: 'load' })
+  await p2.waitForSelector('.ct-tab[aria-selected="true"]', { timeout: 15000 })
+  await p2.waitForTimeout(400)
+  const restaure = await p2.evaluate(() => document.querySelector('.ct-tab[aria-selected="true"]').dataset.tab)
+  if (restaure === 'parc') ok('Navigation — ?tab= restaure l’onglet au rechargement', 'état partageable')
+  else defaut('Navigation — ?tab= n’est pas restauré', `onglet ouvert : ${restaure}`)
+  await p2.close()
+
+  /* ============================================================ PAGINATION ===
+     Bornée des deux côtés : ni page 0, ni page au-delà de la dernière. */
+  const pagePagination = await navigateur.newPage({ viewport: { width: 1440, height: 900 } })
+  await pagePagination.goto(`http://127.0.0.1:${port}/banc?tab=flux`, { waitUntil: 'load' })
+  await pagePagination.waitForSelector('.ct-pagination', { timeout: 15000 })
+  await pagePagination.waitForTimeout(300)
+  const pagination = await pagePagination.evaluate(() => {
+    const m = document.querySelector('.ct-pagination span').textContent.match(/Page (\d+) \/ (\d+)/)
+    const prec = document.querySelector('.ct-pagination [data-page="0"]')
+    return {
+      depart: { page: Number(m[1]), pages: Number(m[2]), lignes: document.querySelectorAll('#ctTable-flux tbody tr').length },
+      precDesactive: prec ? prec.disabled : null
+    }
+  })
+  await pagePagination.close()
+
+  const pageHorsBornes = await navigateur.newPage({ viewport: { width: 1440, height: 900 } })
+  await pageHorsBornes.goto(`http://127.0.0.1:${port}/banc?tab=flux&page=999`, { waitUntil: 'load' })
+  await pageHorsBornes.waitForSelector('.ct-pagination', { timeout: 15000 })
+  await pageHorsBornes.waitForTimeout(300)
+  const borne = await pageHorsBornes.evaluate(() => {
+    const m = document.querySelector('.ct-pagination span').textContent.match(/Page (\d+) \/ (\d+)/)
+    return { page: Number(m[1]), pages: Number(m[2]), vide: document.querySelectorAll('#ctTable-flux tbody tr').length === 0 }
+  })
+  if (borne.page === borne.pages && !borne.vide) {
+    ok('Pagination — une page hors bornes est ramenée à la dernière', `page ${borne.page}/${borne.pages}, tableau non vide`)
+  } else {
+    defaut('Pagination — une page hors bornes produit un tableau vide', JSON.stringify(borne))
+  }
+  await pageHorsBornes.close()
+
+  /* =================================================================== CSV ===
+     Accents, apostrophes, guillemets et point-virgule — le séparateur du
+     fichier lui-même — doivent survivre au passage dans Excel. */
+  const csv = await page.evaluate(async () => {
+    window.ANAGROCI_SACHERIE_CT.openCluster('')
+    window.ANAGROCI_SACHERIE_CT.setTab('flux')
+    await new Promise((r) => setTimeout(r, 350))
+    let capture = null
+    const vrai = URL.createObjectURL
+    URL.createObjectURL = (b) => { capture = b; return 'blob:test' }
+    document.querySelector('[data-export="flux"]').click()
+    URL.createObjectURL = vrai
+    if (!capture) return null
+    const octets = new Uint8Array(await capture.arrayBuffer())
+    return { texte: await capture.text(), bom: octets[0] === 0xef && octets[1] === 0xbb && octets[2] === 0xbf }
+  })
+  if (!csv) {
+    defaut('CSV — export du journal impossible', 'aucun fichier produit')
+  } else {
+    const texte = csv.texte
+    const lignePiege = texte.split(/\r\n/).find((l) => /SP..?CIALE|SPÉCIALE/.test(l)) || ''
+    if (csv.bom) ok('CSV — marque d’ordre des octets présente', 'Excel ouvre le fichier en UTF-8')
+    else defaut('CSV — pas de BOM', 'Excel affichera les accents en mojibake')
+    if (/RÉF/.test(texte) && /DJÉBONOUA|N’DJ/.test(texte)) ok('CSV — accents et apostrophes préservés', lignePiege.slice(0, 80))
+    else defaut('CSV — accents perdus', lignePiege.slice(0, 120))
+    if (/""SPÉCIALE""/.test(texte)) ok('CSV — les guillemets sont doublés', 'valeur échappée selon la convention CSV')
+    else defaut('CSV — guillemets non échappés', lignePiege.slice(0, 120))
+    const enTete = texte.replace(/^\ufeff/, '').split(/\r\n/)[0]
+    if (enTete.split(';').length >= 8 && /"movement_at_iso"/.test(enTete)) {
+      ok('CSV — séparateur point-virgule et en-têtes techniques', enTete.slice(0, 90))
+    } else {
+      defaut('CSV — en-tête inattendu', enTete.slice(0, 120))
+    }
+    /* Un point-virgule DANS une valeur ne doit pas créer de colonne. */
+    const colonnes = lignePiege.match(/"/g) ? (lignePiege.match(/"/g).length) : 0
+    if (colonnes % 2 === 0) ok('CSV — un point-virgule dans une valeur ne casse pas les colonnes', 'guillemets équilibrés')
+    else defaut('CSV — guillemets déséquilibrés sur la ligne piégée', lignePiege.slice(0, 120))
+  }
+
+  /* ======================================================== SYNCHRONISATION ===
+     Retour en ligne : l'écran doit se rafraîchir de lui-même. */
+  const reprise = await page.evaluate(async () => {
+    window.dispatchEvent(new Event('offline'))
+    await new Promise((r) => setTimeout(r, 200))
+    const horsLigne = document.getElementById('sacUpdatedLabel').className
+    window.dispatchEvent(new Event('online'))
+    await new Promise((r) => setTimeout(r, 700))
+    return { horsLigne, apres: document.getElementById('sacUpdatedLabel').className,
+             texte: document.getElementById('sacUpdatedLabel').textContent }
+  })
+  if (/off/.test(reprise.horsLigne)) ok('Synchronisation — la perte de réseau est affichée', 'état hors ligne')
+  else defaut('Synchronisation — la perte de réseau passe inaperçue', reprise.horsLigne)
+  if (/ok/.test(reprise.apres)) ok('Synchronisation — le retour en ligne rafraîchit l’écran', reprise.texte)
+  else defaut('Synchronisation — le retour en ligne ne rafraîchit pas', `${reprise.apres} · ${reprise.texte}`)
+
+  /* Délai de garde : une requête qui ne revient jamais. */
+  const lent = await navigateur.newPage({ viewport: { width: 1440, height: 900 } })
+  await lent.goto(`http://127.0.0.1:${port}/banc?lent=700`, { waitUntil: 'load' })
+  await lent.waitForTimeout(300)
+  const verdictLent = await lent.evaluate(async () => {
+    window.__bloquer = true
+    window.ANAGROCI_SACHERIE_CT.reload()
+    await new Promise((r) => setTimeout(r, 1800))
+    window.__bloquer = false
+    return {
+      classe: document.getElementById('sacUpdatedLabel').className,
+      texte: document.getElementById('sacUpdatedLabel').textContent,
+      corps: document.getElementById('ctBody').textContent,
+      fuite: /timeout/i.test(document.body.innerText)
+    }
+  })
+  if (/stale/.test(verdictLent.classe) && !/Chargement/.test(verdictLent.texte)) {
+    ok('Synchronisation — une requête sans réponse déclenche le délai de garde', verdictLent.texte)
+  } else {
+    defaut('Synchronisation — une requête sans réponse laisse « Chargement… » indéfiniment', `${verdictLent.classe} · ${verdictLent.texte}`)
+  }
+  if (!verdictLent.fuite && /délai imparti|pas répondu/i.test(verdictLent.corps)) {
+    ok('Synchronisation — le dépassement de délai est expliqué en clair', 'aucun terme technique exposé')
+  } else {
+    defaut('Synchronisation — message de dépassement de délai absent ou technique', verdictLent.corps.slice(0, 100))
+  }
+  await lent.close()
+
+  /* ================================================================ RÔLES ===
+     Le même écran, rejoué par profil. On vérifie ce que chaque fonction peut
+     déclencher, et surtout ce qu'elle ne peut pas. */
+  const profils = [
+    { nom: 'Branch Manager', role: 'Branch Manager', fonction: 'Branch Manager', cluster: 'BOTRO',
+      attendu: { demande: true, pertes: true, remiseBotro: true, remiseDiabo: true } },
+    { nom: 'Unit Head (BOTRO)', role: 'Supervisor', fonction: 'Unit Head', cluster: 'BOTRO',
+      attendu: { demande: true, pertes: false, remiseBotro: false, remiseDiabo: false } },
+    { nom: 'Warehouse Keeper (BOTRO)', role: 'Agent Recenseur', fonction: 'Warehouse Keeper', cluster: 'BOTRO',
+      attendu: { demande: false, pertes: false, remiseBotro: true, remiseDiabo: false } },
+    { nom: 'Assistant Unit Head (DIABO)', role: 'Agent Recenseur', fonction: 'Assistant Unit Head', cluster: 'DIABO',
+      attendu: { demande: true, pertes: false, remiseBotro: false, remiseDiabo: true } }
+  ]
+  for (const profil of profils) {
+    const pr = await navigateur.newPage({ viewport: { width: 1440, height: 900 } })
+    await pr.goto(`http://127.0.0.1:${port}/banc?role=${encodeURIComponent(profil.role)}&fonction=${encodeURIComponent(profil.fonction)}&cluster=${encodeURIComponent(profil.cluster)}&tab=flux`, { waitUntil: 'load' })
+    await pr.waitForSelector('.ct-tab', { timeout: 15000 })
+    await pr.waitForTimeout(900)
+    const vu = await pr.evaluate(async () => {
+      const v2 = window.ANAGROCI_SACHERIE_V2
+      const boutons = () => Array.from(document.querySelectorAll('[data-review-exec]')).map((b) => b.dataset.reviewExec)
+      let demande = false
+      if (v2 && v2.openRequest) {
+        v2.openRequest({})
+        await new Promise((r) => setTimeout(r, 350))
+        demande = !!document.getElementById('sv2_rt')
+        const fermer = document.querySelector('.cta-close')
+        if (fermer) fermer.click()
+        await new Promise((r) => setTimeout(r, 150))
+      }
+      /* Le bouton de remise n'existe que dans la vue « À remettre ». */
+      const mode = document.getElementById('sv2_mode')
+      if (mode) { mode.value = 'approved'; mode.dispatchEvent(new Event('change')) }
+      await new Promise((r) => setTimeout(r, 400))
+      const hote = document.getElementById('sv2_loss_decisions')
+      return {
+        demande,
+        pertes: !!(hote && /Pertes à décider/.test(hote.textContent) && hote.querySelector('[data-loss-review]')),
+        remises: boutons()
+      }
+    })
+    const constate = {
+      demande: vu.demande,
+      pertes: vu.pertes,
+      remiseBotro: vu.remises.includes('req-botro'),
+      remiseDiabo: vu.remises.includes('req-diabo')
+    }
+    const ecarts = Object.keys(profil.attendu).filter((k) => constate[k] !== profil.attendu[k])
+    if (!ecarts.length) {
+      ok(`Rôles — ${profil.nom}`,
+        `demande ${constate.demande ? 'oui' : 'non'} · décision perte ${constate.pertes ? 'oui' : 'non'} · ` +
+        `remise BOTRO ${constate.remiseBotro ? 'oui' : 'non'} · remise DIABO ${constate.remiseDiabo ? 'oui' : 'non'}`)
+    } else {
+      defaut(`Rôles — ${profil.nom} : droits incorrects`,
+        ecarts.map((k) => `${k} attendu ${profil.attendu[k]}, constaté ${constate[k]}`).join(' · '))
+    }
+    await pr.close()
+  }
+
   /* ------------------------------------------------------------- Responsive */
-  for (const vp of [{ n: 'mobile-390x844', w: 390, h: 844 }, { n: 'tablette-768x1024', w: 768, h: 1024 }, { n: 'bureau-1440x900', w: 1440, h: 900 }]) {
+  for (const vp of [{ n: 'mobile-390x844', w: 390, h: 844, kpiAttendu: 2 },
+                    { n: 'tablette-768x1024', w: 768, h: 1024, kpiAttendu: 3 },
+                    { n: 'bureau-1440x900', w: 1440, h: 900, kpiAttendu: 6 }]) {
     const p = await navigateur.newPage({ viewport: { width: vp.w, height: vp.h } })
     await p.goto(`http://127.0.0.1:${port}/banc`, { waitUntil: 'load' })
     await p.waitForSelector('.ct-kpi', { timeout: 15000 })
     await p.waitForTimeout(400)
-    const m = await p.evaluate(() => ({ corps: document.documentElement.scrollWidth, fenetre: window.innerWidth }))
-    if (m.corps <= m.fenetre + 1) ok(`${vp.n} — aucun débordement horizontal`, `${m.corps} px pour ${m.fenetre} px`)
+
+    const m = await p.evaluate(() => {
+      const grille = document.querySelector('.ct-kpis')
+      const nav = document.querySelector('.ct-nav')
+      const petit = (el) => { const r = el.getBoundingClientRect(); return r.height < 40 || r.width < 40 }
+      return {
+        corps: document.documentElement.scrollWidth,
+        fenetre: window.innerWidth,
+        colonnesKpi: grille ? getComputedStyle(grille).gridTemplateColumns.split(' ').length : 0,
+        navDefile: nav ? nav.scrollWidth > nav.clientWidth : false,
+        onglets: document.querySelectorAll('.ct-tab').length,
+        ciblesTropPetites: Array.from(document.querySelectorAll('.ct-tab, .ct-action, .sac-primary')).filter(petit)
+          .map((e) => (e.textContent || e.className).trim().slice(0, 24) + ' ' +
+            Math.round(e.getBoundingClientRect().width) + '×' + Math.round(e.getBoundingClientRect().height))
+      }
+    })
+    if (m.corps <= m.fenetre + 1) ok(`${vp.n} — aucun débordement horizontal de la page`, `${m.corps} px pour ${m.fenetre} px`)
     else defaut(`${vp.n} — la page déborde`, `${m.corps} px pour ${m.fenetre} px`)
+
+    if (m.colonnesKpi === vp.kpiAttendu) ok(`${vp.n} — ${m.colonnesKpi} colonne(s) de KPI`, 'grille adaptée à la largeur')
+    else defaut(`${vp.n} — grille de KPI inattendue`, `${m.colonnesKpi} colonne(s) au lieu de ${vp.kpiAttendu}`)
+
+    if (m.onglets === 5 && (vp.w > 720 || m.navDefile || m.corps <= m.fenetre + 1)) {
+      ok(`${vp.n} — les cinq onglets restent atteignables`, m.navDefile ? 'barre défilante' : 'barre entière visible')
+    } else {
+      defaut(`${vp.n} — navigation inatteignable`, `${m.onglets} onglet(s), défilement=${m.navDefile}`)
+    }
+
+    if (!m.ciblesTropPetites.length) ok(`${vp.n} — cibles tactiles d’au moins 40 px`, 'onglets et actions utilisables au doigt')
+    else defaut(`${vp.n} — ${m.ciblesTropPetites.length} cible(s) sous 40 px`, m.ciblesTropPetites.join(' · '))
+
+    /* Les tableaux larges doivent défiler DANS leur conteneur, pas emporter la page. */
+    const tableau = await p.evaluate(async () => {
+      window.ANAGROCI_SACHERIE_CT.setTab('flux')
+      await new Promise((r) => setTimeout(r, 400))
+      const boite = document.querySelector('.ct-table')
+      if (!boite) return null
+      return { interne: boite.scrollWidth > boite.clientWidth,
+               page: document.documentElement.scrollWidth > window.innerWidth + 1 }
+    })
+    if (tableau && !tableau.page) ok(`${vp.n} — le journal défile dans son conteneur`, tableau.interne ? 'défilement interne' : 'tableau entier visible')
+    else defaut(`${vp.n} — le journal emporte la page en largeur`, JSON.stringify(tableau))
+
+    /* Le tiroir d'opération : formulaire utilisable, champs pleine largeur. */
+    const tiroir = await p.evaluate(async () => {
+      window.ANAGROCI_SACHERIE_CT_ACTIONS.open('inventory', {})
+      await new Promise((r) => setTimeout(r, 350))
+      const d = document.querySelector('.cta-drawer')
+      const champ = document.getElementById('ctaQty')
+      const fichier = document.getElementById('ctaProof')
+      if (!d || !champ) return null
+      const rd = d.getBoundingClientRect(), rc = champ.getBoundingClientRect()
+      const r = { tiroirTientDansLaVue: rd.width <= window.innerWidth + 1,
+                  champLisible: rc.width >= Math.min(240, rd.width - 60),
+                  preuvePresente: !!fichier,
+                  accept: fichier ? fichier.getAttribute('accept') : '' }
+      window.ANAGROCI_SACHERIE_CT_ACTIONS.close()
+      return r
+    })
+    if (tiroir && tiroir.tiroirTientDansLaVue && tiroir.champLisible && tiroir.preuvePresente) {
+      ok(`${vp.n} — le tiroir d’opération est utilisable`, `champ de saisie pleine largeur · pièce justificative : ${tiroir.accept}`)
+    } else {
+      defaut(`${vp.n} — tiroir d’opération inutilisable à cette largeur`, JSON.stringify(tiroir))
+    }
+
     if (PREUVES) { await mkdir(PREUVES, { recursive: true }); await p.screenshot({ path: join(PREUVES, `sacherie-${vp.n}.png`) }) }
     await p.close()
   }
