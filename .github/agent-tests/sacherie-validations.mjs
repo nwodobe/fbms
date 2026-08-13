@@ -106,7 +106,13 @@ var RPC = {
   sacherie_ct_traiter_etat: { ok: true },
   sacherie_ct_declarer_perte: { ok: true }
 };
-var TABLES = { rt: [], avances: [], bag_movement_requests: [] };
+var TABLES = {
+  rt: [{ id: 'RT-BOTRO-1', nom: 'RT BOTRO 1', cluster: 'BOTRO', village_nom: 'Village A', data: {}, statut: 'ACTIF' }],
+  avances: [{ id: 'av-1', date: '2027-01-12', cluster: 'BOTRO', rt_id: 'RT-BOTRO-1', rt_nom: 'RT BOTRO 1',
+    montant: 800000, statut: 'Active', cycle_id: 'WAVE-2027-BOT-001', volume_finance_kg: 2000,
+    prix_reference_kg: 400, cycle_statut: 'OPEN', created_at: new Date().toISOString() }],
+  bag_movement_requests: []
+};
 
 /* Tout appel RPC est enregistré au lieu de partir : aucune donnée de
    production n'est créée par ces tests. */
@@ -451,6 +457,74 @@ try {
     defaut('M1 — l’interface propose encore des transitions interdites',
       `abîmé → ${optionsEtat.depuisDechire.join('/')} ; réparé → ${optionsEtat.depuisRepare.join('/')}`)
   }
+
+  /* ------------------- C1 dans le workflow de dotation (§4 : « ailleurs ») ---
+     Le même antipattern que l'inventaire vivait dans le workflow SOP-006 :
+     `num('')` rend 0, donc un stock RCN « vérifié » vide partait comme un
+     comptage physique à zéro. */
+  const dotation = await page.evaluate(async () => {
+    const v2 = window.ANAGROCI_SACHERIE_V2
+    if (!v2 || !v2.openRequest) return { indisponible: 'API du workflow absente' }
+    window.__rpc.length = 0
+    v2.openRequest({})
+    await new Promise((r) => setTimeout(r, 400))
+    const rt = document.getElementById('sv2_rt')
+    const champ = document.getElementById('sv2_stock')
+    if (!rt || !champ) return { indisponible: 'formulaire de demande non rendu' }
+
+    /* On place le formulaire dans l'état exact du scénario : RT choisi, cycle
+       ouvert choisi, quantité saisie — et le stock RCN laissé VIDE. */
+    const opt = Array.from(rt.options).find((o) => o.value)
+    if (!opt) return { indisponible: 'aucun RT proposé' }
+    rt.value = opt.value
+    rt.dispatchEvent(new Event('change'))
+    await new Promise((r) => setTimeout(r, 200))
+    const cycle = document.getElementById('sv2_cycle')
+    const copt = cycle && Array.from(cycle.options).find((o) => o.value)
+    if (!copt) return { indisponible: 'aucun cycle financé ouvert proposé' }
+    cycle.value = copt.value
+    champ.value = ''
+    const q = document.getElementById('sv2_qty')
+    if (q) q.value = '10'
+
+    document.getElementById('sv2_calc').click()
+    await new Promise((r) => setTimeout(r, 400))
+    const appels = window.__rpc.filter((x) => x.nom === 'sacherie_calculer_plafond')
+    return {
+      indisponible: false,
+      rt: rt.value, cycle: cycle.value,
+      plafondsDemandes: appels.length,
+      stockEnvoye: appels.length ? appels[0].args.p_stock_rcn_kg : undefined,
+      message: (document.getElementById('sv2_msg') || {}).textContent || ''
+    }
+  })
+  if (dotation.indisponible) {
+    defaut('Dotation — scénario non exécutable dans le banc',
+      dotation.indisponible + ' : le contrôle du stock RCN vide n’a PAS été exécuté, ne le comptez pas comme réussi')
+  } else if (dotation.plafondsDemandes === 0) {
+    ok('C1 — un stock RCN vérifié vide ne part pas comme zéro',
+      `RT ${dotation.rt} · cycle ${dotation.cycle} · aucun appel au calcul de plafond · « ${String(dotation.message).slice(0, 70)} »`)
+  } else {
+    defaut('C1 — un stock RCN vérifié vide part encore au serveur',
+      `p_stock_rcn_kg = ${JSON.stringify(dotation.stockEnvoye)}`)
+  }
+
+  /* Le workflow doit refuser les mêmes saisies que les formulaires de contrôle. */
+  const dotationDecimal = await page.evaluate(([h]) => {
+    const r = eval(h).parseBagQty('12.7', { min: 1 })
+    const z = eval(h).parseBagQty('', { min: 0 })
+    return { decimalRefuse: !r.ok, videRefuse: !z.ok }
+  }, [H])
+  if (dotationDecimal.decimalRefuse && dotationDecimal.videRefuse) {
+    ok('Le workflow de dotation partage la validation des contrôles', 'même helper, mêmes refus')
+  } else {
+    defaut('Le workflow de dotation a sa propre validation', 'les règles divergent entre les écrans')
+  }
+
+  await page.evaluate(() => {
+    const d = document.getElementById('sv2_request_back') || document.querySelector('.cta-close')
+    if (d) d.click()
+  })
 
   /* ------------------------------------------------------------- Responsive */
   for (const vp of [{ n: 'mobile-390x844', w: 390, h: 844 }, { n: 'tablette-768x1024', w: 768, h: 1024 }, { n: 'bureau-1440x900', w: 1440, h: 900 }]) {

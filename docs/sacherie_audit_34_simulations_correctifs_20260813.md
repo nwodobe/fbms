@@ -15,7 +15,7 @@ que corrigé à l'aveugle.
 
 | ID | Constat de l'audit | Réalité du code | Cause racine | Front | Back | Statut |
 |---|---|---|---|---|---|---|
-| **C1** | Quantité physique vide envoyée comme `0` | **Confirmé, et circonscrit** : `runCurrent()` faisait `Number($('ctaQty').value)`, et `Number('')` vaut `0`. Le garde `!Number.isFinite(qty)\|\|qty<0` laissait passer ce zéro. Les formulaires État et Perte étaient protégés par `qty>0` : **seul l'inventaire était vulnérable** | `Number('')===0`, et aucune distinction entre « absence de saisie » et « zéro » | ✅ | ✅ (doc) | **Corrigé** |
+| **C1** | Quantité physique vide envoyée comme `0` | **Confirmé, et présent à SEPT endroits.** `runCurrent()` faisait `Number($('ctaQty').value)`, et `Number('')` vaut `0`. Le même antipattern vivait dans le workflow de dotation via `num()` : stock RCN vérifié, quantité demandée, quantité remise, quantité approuvée par le BM, volume et prix du cycle financé. Un stock RCN laissé vide partait comme un **comptage physique vérifié à zéro** | `Number('')===0`, et aucune distinction entre « absence de saisie » et « zéro » | ✅ | ✅ (doc) | **Corrigé partout** |
 | **C2** | Écart d'inventaire sans motif accepté | **Confirmé côté front**, mais la correction proposée n'est pas implémentable telle quelle : **le frontend ignore le stock théorique**, calculé par le serveur. Il ne peut donc pas savoir qu'il y a écart | Règle métier qui n'existe qu'au serveur, et que le serveur n'applique pas | ⚠️ partiel | ✅ (doc) | **Corrigé côté front (confirmation explicite) · règle exacte à appliquer au serveur** |
 | **C3** | KPI « Vides disponibles » ≈ `parc − immobilisés` | **Hypothèse fausse** : le frontend n'a jamais calculé ce chiffre, il affichait `global.vides` rendu par le serveur. Le défaut est réel mais ailleurs : ce champ compte les vides **partout**, y compris chez les RT, sous un libellé qui promet du distribuable | Libellé et périmètre discordants | ✅ | ✅ (doc) | **Corrigé** |
 | **C4** | Faux statut « Synchronisé » | **Confirmé** : `sacUpdatedLabel` n'était mis à jour qu'en cas de succès et gardait sa valeur précédente en cas d'échec. L'erreur brute (`permission denied for function …`) était affichée telle quelle | Le libellé reflétait l'initialisation de la page, pas la dernière actualisation réussie | ✅ | — | **Corrigé** |
@@ -68,8 +68,14 @@ que corrigé à l'aveugle.
 
 ### `shared/anagroci-sacherie-v2.js`
 
-| Avant | Après |
-|---|---|
+| Fonction | Avant | Après |
+|---|---|---|
+| *(nouveau)* `readQty` | — | toutes les saisies chiffrées du workflow passent par `parseBagQty`, comme les formulaires de contrôle |
+| `calculate` / `submitRequest` | `num($('sv2_stock').value)` — vide → `0` | stock RCN vérifié obligatoire ; un champ vide ne part plus comme un comptage à zéro |
+| `executeRequest` | `Math.round(num(...)\|\|0)` | quantité remise obligatoire, entière, plafonnée à la quantité approuvée |
+| décision BM « Réduire » | `Math.round(num(...)\|\|0)` | quantité approuvée obligatoire, entière, plafonnée à la quantité demandée |
+| `saveCycle` | volume vide → `0` ; prix vide → `0` | volume obligatoire ; prix vide transmis comme `null`, non comme un prix de référence à zéro |
+| `renderCalc` | un décimal laissait le bouton actif | le bouton reflète la même règle que la validation |
 | « Soumettre au BM » désactivé sans explication | une raison à la fois : RT manquant → cycle ouvert requis → plafond à calculer → dépassement chiffré |
 
 ### `terrain/sacherie_v2.html`
@@ -80,12 +86,14 @@ que corrigé à l'aveugle.
 
 ## C. Tests
 
-`node .github/agent-tests/sacherie-validations.mjs` — **59 contrôles, 0 défaut.**
+`node .github/agent-tests/sacherie-validations.mjs` — **61 contrôles, 0 défaut.**
 
 | Famille | Cas couverts | Résultat |
 |---|---|---|
 | C1 — quantités | vide, espaces, `0` explicite, entier, décimal (`.` et `,`), négatif, texte, `1e9`, plafond dépassé, égal au plafond, `0` avec minimum 1 | **12 PASS** |
 | C1 bout en bout | quantité vide → aucun appel RPC + message | **PASS** |
+| C1 — workflow de dotation | RT et cycle choisis, stock RCN vide → aucun appel à `sacherie_calculer_plafond` | **PASS** |
+| Cohérence | le workflow partage la validation des écrans de contrôle | **PASS** |
 | C2 bout en bout | comptage sans motif → confirmation exigée, puis envoi unique | **2 PASS** |
 | M1 — transitions | 5 autorisées, 5 interdites (dont `DECHIRE → UTILISABLE`, `REPARE → A_REPARER`, état → même état) | **10 PASS** |
 | M1 — interface | options proposées conformes à la table | **PASS** |
