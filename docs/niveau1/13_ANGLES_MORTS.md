@@ -17,7 +17,7 @@ est un risque géré ; un angle mort tu est un incident à venir.
 | A-05 | Paiements et commissions n'ont pas d'entité propre | P1 | ouvert |
 | A-06 | Pas de rôle « auditeur » strictement en lecture | P2 | ouvert |
 | A-07 | Aucun ordonnanceur pour la détection par lot | P1 | ouvert |
-| A-08 | Le frontend n'a pas été adapté aux nouvelles règles | **P0** | **ouvert** |
+| A-08 | Frontend : chemin d écriture adapté ; écrans de suivi et recette bout-en-bout restants | ~~P0~~ → P1 | **largement fermé 14/08** |
 | A-09 | Le banc d'essai n'est pas Supabase | P1 | atténué |
 | A-10 | Dérive de schéma : 17 fonctions `sacherie_ct_*` en base, aucune DDL au dépôt | P1 | **confirmé et mesuré** |
 | A-11 | Dépôt public sur GitHub pour une application financière | P1 | ouvert |
@@ -25,6 +25,7 @@ est un risque géré ; un angle mort tu est un incident à venir.
 | A-13 | Preuves stockées comme références textuelles, pas comme fichiers | P1 | ouvert |
 | A-14 | Aucun test de charge ni de concurrence réelle multi-connexions | P1 | partiel |
 | A-15 | `TRUNCATE` et `DELETE` accordés à `anon` et `authenticated` sur toutes les tables sensibles | P1 | **découvert 14/08** |
+| A-16 | `verifier-js.mjs` ne scanne que les fichiers suivis : une porte verte sur un fichier neuf ne mesure rien | P1 | **découvert 14/08** |
 
 ---
 
