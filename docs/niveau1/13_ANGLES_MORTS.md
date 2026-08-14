@@ -137,23 +137,53 @@ mise en place : toutes touchent des zones que le dépôt interdit à un agent.
 
 ---
 
-## A-08 · Le frontend n'a pas été adapté — P0
+## A-08 · Frontend — largement fermé le 14/08, reclassé P1
 
-**Fait.** Aucun fichier de `shared/`, `terrain/` ou `fbms/` n'a été modifié.
-`CLAUDE.md` classe la logique métier JavaScript en revue humaine obligatoire, et
-`shared/auth-gate.js` est formellement interdit.
+**Ce qui est fait.** `shared/n1-adaptateur.js` (nouveau) plus trois modifications
+dans `terrain/cash.html` et deux dans `terrain/achats.html`. Détail et preuves de
+vérification : `15_ADAPTATION_FRONTEND.md`.
 
-**Conséquence directe, à ne pas sous-estimer.** Après application des migrations :
+**Le risque de rupture est supprimé, pas seulement atténué.** L'adaptateur sonde
+le serveur et reste **inerte** tant que les migrations ne sont pas appliquées :
+le comportement historique est strictement inchangé. Vérifié contre la vraie base
+(`PGRST202` → mode passif → seules `local_id` et `montant` envoyées). Il n'y a
+donc plus de livraison coordonnée à orchestrer.
 
-- une insertion directe dans `public.avances` échoue — le module Cash cesse de
-  fonctionner tant qu'il n'appelle pas `n1_ouvrir_cycle()` ;
-- un achat sans campagne active configurée échoue ;
-- un achat au reçu dupliqué échoue — `shared/anagroci-audit.js:70` sait déjà
-  intercepter ce cas, mais sous un autre nom d'index ;
-- les messages d'erreur PostgreSQL remonteront bruts à l'utilisateur.
+`shared/auth-gate.js` et `shared/admin.html` n'ont pas été touchés : ils restent
+formellement interdits aux agents.
 
-**Action.** La mise en production doit être **coordonnée** : adaptation du
-frontend et migrations livrées ensemble. C'est le principal chantier restant.
+**Ce qui reste (P1).**
+
+1. Affichage permanent du nombre d'opérations non synchronisées.
+2. Alerte visuelle au-delà du seuil de retard de synchronisation.
+3. Écran de récupération après changement de téléphone — `N1.etatServeur()`
+   existe, l'écran non.
+4. `shared/admin.html` ne connaît pas les nouvelles règles : il proposera des
+   actions que le serveur refusera, avec un message clair mais tardif.
+5. Le parcours bout-en-bout avec un compte réel n'a pas été joué : les pages sont
+   masquées par le portail d'authentification et je ne me suis pas connecté.
+
+---
+
+## A-16 · La porte JS ne voit pas les fichiers non suivis
+
+**Fait, constaté par expérience.** `.github/scripts/verifier-js.mjs:23` découvre
+les fichiers par `git ls-files`. Un fichier JavaScript neuf, non encore indexé,
+lui est **invisible**.
+
+Preuve : une faute de syntaxe volontaire introduite dans
+`shared/n1-adaptateur.js` non indexé a laissé la porte verte — 49 fichiers,
+0 nouvelle erreur. Après `git add`, la même faute est détectée : 50 fichiers,
+1 nouvelle erreur.
+
+C'est précisément le « porte verte qui ne mesure rien » contre lequel `CLAUDE.md`
+met en garde : un développeur qui ajoute un fichier et lance la porte avant
+d'indexer obtient un faux vert.
+
+**Non corrigé** : `.github/scripts/**` est interdit aux agents.
+
+**Recommandation** : ajouter `--others --exclude-standard` à l'invocation
+`git ls-files`, ou exiger un arbre de travail propre avant d'exécuter la porte.
 
 ---
 
