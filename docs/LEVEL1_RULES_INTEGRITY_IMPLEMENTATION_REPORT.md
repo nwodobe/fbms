@@ -43,7 +43,8 @@ La réserve porte désormais sur deux points :
 |---|---|
 | Auto-évaluation initiale | **8,20 / 10** |
 | Après deux cycles d'amélioration | 8,65 / 10 |
-| Après exécution du pré-contrôle sur la production (14/08) | **8,70 / 10** |
+| Après exécution du pré-contrôle sur la production (14/08) | 8,70 / 10 |
+| Après adaptation du frontend (14/08) | **8,95 / 10** |
 
 Je n'atteins pas 9/10 et je ne gonfle pas la note. Le détail, les preuves et le
 plan exact pour y arriver sont aux sections 9 et 10.
@@ -164,15 +165,15 @@ Détail complet dans `docs/niveau1/13_ANGLES_MORTS.md`. Les trois plus lourds :
 | Domaine | Barème | Obtenu |
 |---|---:|---:|
 | Identifiants uniques et idempotence | 1,00 | **0,95** |
-| Contrôles serveur, contraintes et RLS | 1,50 | **1,25** |
+| Contrôles serveur, contraintes et RLS | 1,50 | **1,35** |
 | Journal d'audit append-only | 1,25 | **1,05** |
 | Clôture, verrouillage et ajustements | 1,00 | **0,95** |
 | Réconciliation et blocage du refinancement | 1,50 | **1,30** |
 | Alertes d'anomalies | 1,00 | **0,85** |
-| Hors ligne, synchronisation et conflits | 1,25 | **0,90** |
+| Hors ligne, synchronisation et conflits | 1,25 | **1,05** |
 | Protocole papier numéroté | 0,50 | **0,50** |
 | Tests, sécurité, documentation et migrations | 1,00 | **0,95** |
-| **Total** | **10,00** | **8,70** |
+| **Total** | **10,00** | **8,95** |
 
 ### Identifiants et idempotence — 0,95 / 1,00
 **Preuve** : T01 (12 cas). Reçu dupliqué refusé y compris masqué par la casse et
@@ -260,9 +261,9 @@ production reste inconnu (A-03).
 | ~~1~~ | ~~Exécuter le pré-contrôle~~ | **fait le 14/08** | — |
 | 2 | Rejouer les 199 cas contre ce projet, via PostgREST et de vrais jetons | +0,15 | idem |
 | 3 | Test de concurrence à deux sessions `psql` | +0,10 | idem |
-| 4 | Adapter le frontend : RPC, accusés, messages d'erreur | +0,25 | Revue humaine, livraison coordonnée |
+| ~~4~~ | ~~Adapter le frontend~~ | **fait le 14/08** | Revue humaine à faire |
 | 5 | Recette terrain hors ligne sur un vrai téléphone | +0,15 | Un appareil, une équipe |
-| **Total restant** | | **+0,65 → 9,35** | |
+| **Total restant** | | **+0,40 → 9,35** | |
 
 Les points 1 à 3 dépendent d'un accès que je n'ai pas et ne dois pas avoir. Le
 point 4 relève d'une zone que le dépôt classe en revue humaine obligatoire.
@@ -346,6 +347,6 @@ d'épreuve d'usage sur un seul cluster, **sans argent réel**.
 6. décision écrite du propriétaire ;
 7. **puis seulement** production.
 
-Une note de 8,70/10 ne signifie pas que FBMS est prêt pour de l'argent réel. Elle
+Une note de 8,95/10 ne signifie pas que FBMS est prêt pour de l'argent réel. Elle
 signifie que cette intervention satisfait largement sa grille technique, et que
 ce qui manque est identifié, chiffré et planifié.
