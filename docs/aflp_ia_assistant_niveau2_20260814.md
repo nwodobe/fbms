@@ -2,8 +2,8 @@
 
 > Programme : **ANAGROCI FieldLink Programme (AFLP) 2027**
 > Destinataires : Branch Manager et responsables AFLP
-> Statut : **livré sur branche, en attente de relecture humaine**
-> Date : 2026-08-14
+> Statut : **en production** — fusionné le 2026-08-14 (PR #155, commit `85334d7`)
+> Dernière mise à jour : 2026-08-14 — répartition des zones confirmée par le Branch Manager
 
 ---
 
@@ -157,28 +157,37 @@ diverger les deux écrans sur les mêmes données.
 
 ---
 
-## 7. Hypothèse ouverte : la répartition des zones
+## 7. Répartition des zones — confirmée
 
-Le cadrage donne 2 zones et 6 clusters, mais **pas** la correspondance entre
-les deux. Le moteur applique une hypothèse de travail :
+Le cadrage initial donnait 2 zones et 6 clusters, mais **pas** la correspondance
+entre les deux. Le moteur a d'abord appliqué une hypothèse de travail, signalée
+par un bandeau dans l'interface.
+
+> **Confirmée par le Branch Manager le 2026-08-14.** Le bandeau ne s'affiche
+> plus, et les totaux par zone ne sont plus indicatifs mais fermes.
+
+Répartition en vigueur :
 
 | Zone | Clusters |
 |---|---|
 | GBEKE 1 | Djébonoua, Brobo, Diabo |
 | GBEKE 2 | Sakassou, Béoumi, Botro |
 
-Elle est **signalée dans l'interface** par un bandeau tant qu'elle n'est pas
-confirmée : les totaux par cluster sont exacts, ceux par zone sont indicatifs.
+Six assertions de `.github/agent-tests/aflp-ia-assistant.mjs` verrouillent ce
+découpage. Le modifier par inadvertance fausserait tous les totaux par zone sans
+qu'aucun autre contrôle ne s'en aperçoive.
 
-### Confirmer la répartition — deux voies, sans toucher au code
+### La modifier plus tard — deux voies, sans toucher au code
 
 1. **Paramètre en base** (recommandé) — insérer dans `parametres_calcul` :
    ```
    cle    : aflp_zones
    valeur : {"GBEKE 1":["Djébonoua","Brobo","Diabo"],"GBEKE 2":["Sakassou","Béoumi","Botro"]}
    ```
-   Le bandeau disparaît automatiquement.
 2. **Depuis la page** — `AFLP_IA.referentiel({ zones: { … }, zonesConfirmees: true })`.
+
+Si le découpage redevenait incertain, repasser `zonesConfirmees` à `false` dans
+`REFERENTIEL_DEFAUT` fait réapparaître le bandeau d'avertissement de lui-même.
 
 Le même mécanisme permet d'ajuster l'objectif (`objectifMT`), les cibles
 villages / RT et les seuils d'alerte.
@@ -248,8 +257,9 @@ l'intervention humaine que la denylist exige. Les commits portent le préfixe
 Cette pull request **ne doit pas être fusionnée automatiquement**. Trois points
 méritent l'attention du relecteur :
 
-1. **La répartition GBEKE 1 / GBEKE 2** (§7) est une hypothèse. Elle doit être
-   confirmée ou corrigée avant usage en comité.
+1. ~~**La répartition GBEKE 1 / GBEKE 2** (§7) est une hypothèse.~~
+   **Réglé le 2026-08-14** : confirmée par le Branch Manager, verrouillée par
+   six assertions de non-régression.
 2. **La tolérance d'écart de réconciliation est fixée à 0 F.** Si le terrain
    admet un écart de caisse résiduel, c'est un arbitrage du BM, pas du code.
 3. **Le délai de réconciliation est fixé à 2 jours** (`AFLP-REFI-03`). À

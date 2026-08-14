@@ -108,9 +108,10 @@
      Cadrage du pilote fourni par le Branch Manager : 3 000 MT, 2 zones,
      6 clusters, 60 villages, 60 équipes RT.
 
-     La répartition des 6 clusters entre GBEKE 1 et GBEKE 2 est une HYPOTHÈSE
-     DE TRAVAIL, signalée comme telle dans l'interface tant que le BM ne l'a pas
-     confirmée. Elle est surchargeable sans toucher à ce fichier :
+     La répartition des 6 clusters entre GBEKE 1 et GBEKE 2 a été CONFIRMÉE par
+     le Branch Manager le 2026-08-14. Elle était auparavant une hypothèse de
+     travail, signalée par un bandeau dans l'interface ; ce bandeau ne s'affiche
+     plus. Elle reste surchargeable sans toucher à ce fichier :
        · par le paramètre `aflp_zones` de la table `parametres_calcul`
          (valeur JSON : {"GBEKE 1":["Djébonoua",…],"GBEKE 2":[…]}) ;
        · ou par AFLP_IA.referentiel({zones:…}) depuis la page appelante.
@@ -134,7 +135,10 @@
       "GBEKE 1": ["Djébonoua", "Brobo", "Diabo"],
       "GBEKE 2": ["Sakassou", "Béoumi", "Botro"]
     },
-    zonesConfirmees: false,
+    /* Confirmée par le Branch Manager le 2026-08-14 : les totaux par zone ne
+       sont plus indicatifs. Repasser à `false` si le découpage redevient
+       incertain — le bandeau d'avertissement réapparaîtra de lui-même. */
+    zonesConfirmees: true,
     /* Seuils d'alerte. Aucun seuil qualité n'est défini ici : la qualité est
        déjà arbitrée en amont par les colonnes `qualite_statut` et
        `statut_validation` des achats. Le moteur les lit, il ne les redéfinit
