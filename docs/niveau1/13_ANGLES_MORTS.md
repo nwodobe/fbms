@@ -12,18 +12,19 @@ est un risque géré ; un angle mort tu est un incident à venir.
 |---|---|---|---|
 | A-01 | Un refus n'écrit pas sa ligne d'audit dans la même transaction | P1 | atténué |
 | A-02 | Aucune vraie clé étrangère : `rt_id` est `text`, `rt.id` est `uuid` | P1 | atténué |
-| A-03 | État réel de la base de production inconnu | **P0** | **ouvert** |
-| A-04 | Le contrôle à quatre yeux exige deux Branch Managers | P1 | **décision métier requise** |
+| A-03 | État réel de la base de production inconnu | ~~P0~~ | **FERMÉ 14/08 — pré-contrôle exécuté** |
+| A-04 | Un seul Branch Manager actif en production : contrôle à quatre yeux impossible | **P0** | **confirmé sur pièce** |
 | A-05 | Paiements et commissions n'ont pas d'entité propre | P1 | ouvert |
 | A-06 | Pas de rôle « auditeur » strictement en lecture | P2 | ouvert |
 | A-07 | Aucun ordonnanceur pour la détection par lot | P1 | ouvert |
 | A-08 | Le frontend n'a pas été adapté aux nouvelles règles | **P0** | **ouvert** |
 | A-09 | Le banc d'essai n'est pas Supabase | P1 | atténué |
-| A-10 | Dérive de schéma : objets en base absents du dépôt | P1 | ouvert |
+| A-10 | Dérive de schéma : 17 fonctions `sacherie_ct_*` en base, aucune DDL au dépôt | P1 | **confirmé et mesuré** |
 | A-11 | Dépôt public sur GitHub pour une application financière | P1 | ouvert |
 | A-12 | Un propriétaire de base peut désactiver un trigger | P2 | atténué |
 | A-13 | Preuves stockées comme références textuelles, pas comme fichiers | P1 | ouvert |
 | A-14 | Aucun test de charge ni de concurrence réelle multi-connexions | P1 | partiel |
+| A-15 | `TRUNCATE` et `DELETE` accordés à `anon` et `authenticated` sur toutes les tables sensibles | P1 | **découvert 14/08** |
 
 ---
 
@@ -65,36 +66,46 @@ après export vérifié. Hors périmètre du Niveau 1.
 
 ---
 
-## A-03 · L'état réel de la production est inconnu — P0
+## A-03 · État réel de la production — FERMÉ le 14/08/2026
 
-**Fait.** Cet environnement n'a pas accès à la base de production, et
-l'instruction reçue interdit toute migration en production. Trois inconnues
-majeures :
+**Résolu.** Le pré-contrôle a été exécuté en **lecture seule** sur
+`jmbdgpdthzpszfnddwzi` (PostgreSQL 17.6). Résultats complets :
+`14_PRECONTROLE_PRODUCTION_20260814.md`.
 
-1. la migration Sacherie V2 a-t-elle été appliquée, et dans quelle version ;
-2. `public.audit_log`, `achats_numero_recu_unique_idx`, `sacherie_ct_*`,
-   `rcn_jute_*` existent-ils réellement ;
-3. combien de reçus dupliqués, de soldes déjà négatifs, de montants incohérents
-   contient l'historique.
+Les trois inconnues sont levées :
 
-**Conséquence.** Aucune de ces migrations ne doit être appliquée en production
-avant l'exécution de `PRECHECK_doublons_et_blocages.sql` et la lecture de sa
-sortie. Le pré-contrôle ne modifie rien.
+1. la Sacherie V2 **est appliquée**, plus 17 fonctions Control Tower absentes du
+   dépôt (voir A-10) ;
+2. `audit_log` existe (730 lignes) et `achats_numero_recu_unique_idx` **existe**,
+   avec une portée **globale** — le reçu dupliqué n'était donc pas un P0 ouvert
+   en production, contrairement à ce que laissait craindre la lecture du dépôt ;
+3. l'historique ne contient **aucun** doublon, aucune incohérence, aucun solde
+   négatif — et pratiquement aucune donnée : 1 achat, 2 avances, 11 mouvements
+   de sacs.
 
-**Action.** Exécuter le pré-contrôle sur un projet de recette restauré depuis une
-sauvegarde de production. C'est le premier jalon, et il est bloquant.
+**Conséquence.** Le risque de migration lié aux données est levé. Les contraintes
+pourraient même être posées en `VALIDATE` ; elles restent en `NOT VALID` par
+prudence si la base évolue d'ici l'application.
 
 ---
 
-## A-04 · Le contrôle à quatre yeux exige deux Branch Managers
+## A-04 · Un seul Branch Manager actif — CONFIRMÉ SUR PIÈCE, reclassé P0
 
-**Fait.** `n1_approuver_ajustement` refuse l'approbation par le demandeur et par
-l'auteur de l'écriture d'origine. Avec un seul BM qui saisit aussi, aucune
-correction ne peut être approuvée.
+**Fait, mesuré le 14/08.** La base ne compte que **trois profils actifs** :
+1 Branch Manager, 1 Supervisor, 1 Agent Recenseur.
 
-**Ce n'est pas un défaut technique** : c'est la traduction fidèle d'une exigence
-de séparation. Le choix appartient au programme (options A, B ou C, document 04
-§6). Aucune n'a été tranchée dans le code.
+`n1_approuver_ajustement` refuse l'approbation par le demandeur **et** par
+l'auteur de l'écriture d'origine. Avec un seul BM qui saisit aussi, **aucune
+correction ne peut être approuvée**. Ce n'est plus une hypothèse : c'est l'état
+de la production.
+
+**Ce n'est pas un défaut technique** — c'est la traduction fidèle de l'exigence
+de séparation. Mais laissé tel quel, il paralysera le terrain dès la première
+erreur de pesée à corriger.
+
+**Reclassé P0** parce qu'il bloque une opération courante, pas un cas rare. Le
+choix appartient au programme (options A, B ou C, document 04 §6) et n'a
+délibérément pas été tranché dans le code.
 
 ---
 
@@ -147,9 +158,15 @@ frontend et migrations livrées ensemble. C'est le principal chantier restant.
 
 ## A-09 · Le banc d'essai n'est pas Supabase
 
-**Fait.** Les 140 cas s'exécutent sur PGlite — PostgreSQL 18.3 authentique,
+**Fait.** Les 199 cas s'exécutent sur PGlite — PostgreSQL 18.3 authentique,
 compilé en WebAssembly — parce que Docker, WSL et les droits administrateur sont
 indisponibles sur ce poste (vérifié).
+
+**Écart de version constaté le 14/08** : la production tourne sur **PostgreSQL
+17.6**, le banc sur 18.3. Rien de ce qui est employé ici n'est propre à la 18
+(colonnes générées : ≥ 12 ; `ON CONFLICT … WHERE` : ≥ 9.5 ; `attgenerated` :
+≥ 12), mais l'écart doit être refermé en rejouant les scénarios sur un projet de
+recette en 17.6.
 
 **Ce que le banc prouve.** Que les contraintes, triggers, fonctions et politiques
 RLS refusent bien ce qu'ils doivent refuser. C'est du vrai PostgreSQL, pas un
@@ -206,3 +223,41 @@ n'ont pas pu être jouées. Le comportement sous contention — attente, interbl
 **Action.** Test de concurrence sur le projet de recette : deux sessions
 psql simultanées tentant le même décrément de solde et la même ouverture de
 cycle. Bloquant avant pilote.
+
+---
+
+## A-15 · `TRUNCATE` et `DELETE` accordés à `anon` et `authenticated` — P1
+
+**Fait, constaté le 14/08.** Sur **toutes** les tables sensibles — `audit_log`,
+`achats`, `avances`, `sacs_mouvements`, `reconciliations`, `profils`, `rt`,
+`villages`, `producteurs`, `bag_movement_requests` — les rôles `anon` et
+`authenticated` détiennent `TRUNCATE` et `DELETE`.
+
+**Ce que la RLS couvre, et ce qu'elle ne couvre pas.**
+`DELETE` est neutralisé : sur `audit_log`, `avances`, `reconciliations`,
+`sacs_mouvements` et `bag_movement_requests`, aucune politique `DELETE` n'existe,
+donc la RLS refuse. **`TRUNCATE`, lui, n'est pas soumis à la RLS** : il effacerait
+la table entière, y compris les 730 lignes d'`audit_log`.
+
+**Exploitabilité réelle — sans dramatiser.** PostgREST n'expose aucun verbe
+`TRUNCATE`, et la vérification montre qu'**aucune fonction `SECURITY DEFINER`
+n'est exécutable par `anon`**. Il faudrait une connexion PostgreSQL directe, donc
+le mot de passe de la base. C'est une faiblesse de **défense en profondeur**, pas
+une brèche ouverte par la clé publique.
+
+**Pourquoi la fermer quand même** : ces droits ne servent à aucune fonctionnalité
+de FBMS. Les laisser, c'est garder une porte dont personne n'a besoin.
+
+**Correctif**, indépendant du Niveau 1 :
+
+```sql
+revoke truncate on all tables in schema public from anon, authenticated;
+revoke delete on public.audit_log, public.avances, public.reconciliations,
+                 public.sacs_mouvements, public.bag_movement_requests
+       from anon, authenticated;
+alter default privileges in schema public revoke truncate on tables from anon, authenticated;
+```
+
+Une fonction, `rcn_etl_refresh` (`SECURITY DEFINER`), contient un `TRUNCATE` —
+vraisemblablement sur une table de préparation. Non exécutable par `anon`.
+À examiner lors du versement de la dérive de schéma (A-10).

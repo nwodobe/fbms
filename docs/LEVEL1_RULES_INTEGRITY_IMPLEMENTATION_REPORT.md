@@ -13,19 +13,37 @@ Les neuf risques P0 identifiés au diagnostic sont fermés **côté base de donn
 et chacun est démontré par un test réellement exécuté. Aucune migration n'a été
 appliquée à la production, aucun test n'a été déclaré réussi sans l'avoir été.
 
-La réserve porte sur trois points, tous hors de portée de cet environnement :
+**Mise à jour du 14/08, après pré-contrôle en lecture seule sur la production**
+(`jmbdgpdthzpszfnddwzi`, PostgreSQL 17.6) — détail complet dans
+`docs/niveau1/14_PRECONTROLE_PRODUCTION_20260814.md` :
 
-1. l'état réel de la base de production n'est pas connu (accès interdit) ;
-2. le frontend n'a pas été adapté — les modules Cash et Achats cesseront de
-   fonctionner si les migrations partent seules ;
-3. rien n'a été éprouvé sur un vrai projet Supabase ni sur un vrai téléphone.
+- **Aucun obstacle dans les données.** Zéro doublon, zéro incohérence, zéro solde
+  négatif. La base ne contient que 1 achat, 2 avances et 11 mouvements de sacs :
+  le risque de migration lié aux données est levé.
+- **Correction à mon diagnostic** : `achats_numero_recu_unique_idx` **existe déjà
+  en production**, avec une portée globale. P0-1 n'était donc pas ouvert sur la
+  vraie base — il l'était dans le dépôt, qui ne contient pas cette DDL.
+- **Un seul Branch Manager actif.** L'angle mort A-04 est confirmé sur pièce et
+  reclassé **P0** : aucun ajustement ne pourra être approuvé.
+- **Découverte** : `TRUNCATE` et `DELETE` sont accordés à `anon` et
+  `authenticated` sur toutes les tables sensibles (A-15, P1). Non exploitable par
+  la clé publique, mais à révoquer.
+
+La réserve porte désormais sur deux points :
+
+1. le frontend n'a pas été adapté — les modules Cash et Achats cesseront de
+   fonctionner si les migrations partent seules (A-08, P0) ;
+2. il n'y a qu'un Branch Manager, ce qui paralysera les corrections (A-04, P0) ;
+3. rien n'a été éprouvé sur un projet Supabase de recette ni sur un vrai
+   téléphone — et la production est en PostgreSQL **17.6**, le banc en 18.3.
 
 ## 2. Note
 
 | | Note |
 |---|---|
 | Auto-évaluation initiale | **8,20 / 10** |
-| Après deux cycles d'amélioration | **8,65 / 10** |
+| Après deux cycles d'amélioration | 8,65 / 10 |
+| Après exécution du pré-contrôle sur la production (14/08) | **8,70 / 10** |
 
 Je n'atteins pas 9/10 et je ne gonfle pas la note. Le détail, les preuves et le
 plan exact pour y arriver sont aux sections 9 et 10.
@@ -34,7 +52,7 @@ plan exact pour y arriver sont aux sections 9 et 10.
 
 | Risque | Avant | Après | Preuve |
 |---|---|---|---|
-| P0-1 Reçu dupliqué | possible, aucune contrainte | **impossible**, y compris déguisé par la casse ou la ponctuation | T01 |
+| P0-1 Reçu dupliqué | aucune contrainte **au dépôt** ; en production, un index global existait déjà | **impossible**, y compris déguisé par la ponctuation, que l'index de production ne voyait pas | T01 |
 | P0-2 Avance sur cycle non réconcilié | règle 100 % navigateur, lue dans `localStorage` | **impossible**, quatre mécanismes serveur indépendants | T02, T06 |
 | P0-3 Stock ou sacs négatifs | possible, soldes calculés à la lecture | **impossible**, `CHECK (quantite >= 0)` sur colonne réelle | T04 |
 | P0-4 Opération clôturée modifiable | modifiable par le BM | **impossible**, y compris pour le propriétaire de la base | T05 |
@@ -135,9 +153,11 @@ Détail complet dans `docs/niveau1/13_ANGLES_MORTS.md`. Les trois plus lourds :
 
 | Réf | Sujet | Criticité |
 |---|---|---|
-| **A-03** | État réel de la base de production inconnu | **P0** |
 | **A-08** | Frontend non adapté aux nouvelles règles | **P0** |
-| A-04 | Le contrôle à quatre yeux exige deux Branch Managers | P1 — décision métier |
+| **A-04** | Un seul Branch Manager actif — aucun ajustement approuvable | **P0**, confirmé sur pièce |
+| A-15 | `TRUNCATE`/`DELETE` accordés à `anon` et `authenticated` | P1, découvert le 14/08 |
+| A-10 | 17 fonctions `sacherie_ct_*` en base, aucune DDL au dépôt | P1, mesuré |
+| ~~A-03~~ | ~~État de la production inconnu~~ | **fermé le 14/08** |
 
 ## 9. Auto-évaluation détaillée
 
@@ -151,8 +171,8 @@ Détail complet dans `docs/niveau1/13_ANGLES_MORTS.md`. Les trois plus lourds :
 | Alertes d'anomalies | 1,00 | **0,85** |
 | Hors ligne, synchronisation et conflits | 1,25 | **0,90** |
 | Protocole papier numéroté | 0,50 | **0,50** |
-| Tests, sécurité, documentation et migrations | 1,00 | **0,90** |
-| **Total** | **10,00** | **8,65** |
+| Tests, sécurité, documentation et migrations | 1,00 | **0,95** |
+| **Total** | **10,00** | **8,70** |
 
 ### Identifiants et idempotence — 0,95 / 1,00
 **Preuve** : T01 (12 cas). Reçu dupliqué refusé y compris masqué par la casse et
@@ -237,12 +257,12 @@ production reste inconnu (A-03).
 
 | # | Action | Gain | Ce qu'il faut |
 |---|---|---:|---|
-| 1 | Exécuter `PRECHECK` sur une restauration de production | +0,10 | **Un projet Supabase de recette** |
+| ~~1~~ | ~~Exécuter le pré-contrôle~~ | **fait le 14/08** | — |
 | 2 | Rejouer les 199 cas contre ce projet, via PostgREST et de vrais jetons | +0,15 | idem |
 | 3 | Test de concurrence à deux sessions `psql` | +0,10 | idem |
 | 4 | Adapter le frontend : RPC, accusés, messages d'erreur | +0,25 | Revue humaine, livraison coordonnée |
 | 5 | Recette terrain hors ligne sur un vrai téléphone | +0,15 | Un appareil, une équipe |
-| **Total** | | **+0,75 → 9,40** | |
+| **Total restant** | | **+0,65 → 9,35** | |
 
 Les points 1 à 3 dépendent d'un accès que je n'ai pas et ne dois pas avoir. Le
 point 4 relève d'une zone que le dépôt classe en revue humaine obligatoire.
@@ -326,6 +346,6 @@ d'épreuve d'usage sur un seul cluster, **sans argent réel**.
 6. décision écrite du propriétaire ;
 7. **puis seulement** production.
 
-Une note de 8,65/10 ne signifie pas que FBMS est prêt pour de l'argent réel. Elle
+Une note de 8,70/10 ne signifie pas que FBMS est prêt pour de l'argent réel. Elle
 signifie que cette intervention satisfait largement sa grille technique, et que
 ce qui manque est identifié, chiffré et planifié.
