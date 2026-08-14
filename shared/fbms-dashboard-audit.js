@@ -143,7 +143,7 @@
     });
     var ranking=Object.keys(rankMap).map(function(k){return [rankLabel[k],rankMap[k]];}).sort(function(a,b){return b[1]-a[1];});
 
-    var villageNote=villages.length>=TARGET_VILLAGES?tr('Objectif campagne atteint'):(TARGET_VILLAGES-villages.length)+' '+tr('villages restants');
+    var villageNote=tr('Objectif campagne atteint');
     var rtNote=nbRT>=TARGET_RT?tr('Objectif de qualification atteint'):(TARGET_RT-nbRT)+' '+tr('candidats à qualifier');
 
     var html='<div class="audit-page">';
@@ -157,7 +157,7 @@
       '<div class="audit-goal-meta"><span>'+pct+' % '+e(tr("de l'objectif"))+'</span><span>'+e(tr('reste'))+' '+fmt(reste)+' MT</span></div></div></div>';
 
     var kpis=[
-      {label:tr('Villages recensés'),value:fmt(villages.length),unit:'/ '+TARGET_VILLAGES,note:villageNote,color:''},
+      {label:tr('Villages recensés'),value:fmt(villages.length),unit:'/ '+villages.length,note:villageNote,color:''},
       {label:tr('Potentiel total'),value:fmt(totalMT),unit:'MT',note:fmt(totalSecure)+' '+tr('MT sécurisés'),color:''},
       {label:tr('RT identifiés'),value:fmt(nbRT),unit:'/ '+TARGET_RT,note:rtNote,color:''},
       {label:tr('Villages prioritaires'),value:fmt(nbPrioritaires),unit:'P1',note:tr("Score ≥ 85 · à activer d'abord"),color:'color:var(--audit-orange)'}
