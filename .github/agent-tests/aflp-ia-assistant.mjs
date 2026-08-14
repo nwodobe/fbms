@@ -134,6 +134,18 @@ assert.equal(etat.couverture.villagesCibles, 60, 'la cible villages doit rester 
 assert.equal(etat.couverture.rtCibles, 60, 'la cible équipes RT doit rester 60');
 assert.equal(IA.CLUSTERS_AFLP.length, 6, 'le pilote compte 6 clusters');
 
+/* Répartition confirmée par le Branch Manager le 2026-08-14. Ces six lignes
+   verrouillent le découpage : le modifier par inadvertance fausserait tous les
+   totaux par zone sans qu'aucun autre contrôle ne s'en aperçoive. */
+assert.equal(etat.referentiel.zonesConfirmees, true,
+  'la répartition par zone est confirmée : le bandeau d\'avertissement ne doit plus s\'afficher');
+for (const [cluster, zone] of [
+  ['Djébonoua', 'GBEKE 1'], ['Brobo', 'GBEKE 1'], ['Diabo', 'GBEKE 1'],
+  ['Sakassou', 'GBEKE 2'], ['Béoumi', 'GBEKE 2'], ['Botro', 'GBEKE 2'],
+]) {
+  assert.equal(IA.zoneDuCluster(cluster), zone, `${cluster} doit être rattaché à ${zone}`);
+}
+
 // -- Agrégats -----------------------------------------------------------------
 assert.equal(etat.volume.cumulKg, 20000, 'cumul volume');
 assert.equal(etat.volume.jourKg, 17000, 'volume du jour');
