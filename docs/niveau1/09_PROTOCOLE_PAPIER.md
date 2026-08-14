@@ -38,7 +38,7 @@ Le numéro suit le format :
 
 ```
 AFLP-{CAMPAGNE}-{CLUSTER}-{RT}-{SEQUENCE}
-exemple : AFLP-AFLP2027-BOU-RT12-000042
+exemple : AFLP-AFLP2027-CLA-RT12-000042
 ```
 
 Le format est **configurable** (paramètre `format_numero_papier`) : le programme
@@ -49,12 +49,12 @@ ce qui permet de constater qu'un numéro *manque* : un numéro qui n'existerait
 nulle part ne pourrait jamais être déclaré absent.
 
 ```sql
--- 1. Le BM crée la série (ici les numéros 1 à 200 pour le RT du cluster BOUAKE)
-select public.n1_papier_creer_serie('BOUAKE', '<uuid du RT>', 1, 200);
+-- 1. Le BM crée la série (ici les numéros 1 à 200 pour le RT du cluster CLUSTER-A)
+select public.n1_papier_creer_serie('CLUSTER-A', '<uuid du RT>', 1, 200);
 
 -- 2. Un rôle de contrôle attribue la plage, en nommant qui la reçoit
 select public.n1_papier_attribuer('<uuid de la série>', '<uuid du responsable>',
-                                  'KOUAME Yao, chef d''équipe');
+                                  'NOM PRENOM, chef d''équipe');
 ```
 
 Tant qu'une plage n'est pas attribuée, ses numéros sont `DISPONIBLE` et **ne
@@ -81,7 +81,7 @@ jour suivant** :
 2. Rapprocher immédiatement le formulaire papier :
 
 ```sql
-select public.n1_papier_consommer('AFLP-AFLP2027-BOU-RT12-000042', 'achats', '<uuid de l''achat>');
+select public.n1_papier_consommer('AFLP-AFLP2027-CLA-RT12-000042', 'achats', '<uuid de l''achat>');
 ```
 
 L'opération est alors marquée `source_saisie = 'PAPIER_SECOURS'`, et la référence
@@ -100,13 +100,13 @@ Un numéro qui sort du circuit **sans avoir servi doit être justifié**. C'est 
 seule façon de distinguer un carnet mouillé d'un achat non déclaré.
 
 ```sql
-select public.n1_papier_declarer('AFLP-AFLP2027-BOU-RT12-000043', 'ANNULE',
+select public.n1_papier_declarer('AFLP-AFLP2027-CLA-RT12-000043', 'ANNULE',
        'Formulaire raturé lors de la pesée, remplacé par le 000044');
 
-select public.n1_papier_declarer('AFLP-AFLP2027-BOU-RT12-000045', 'PERDU',
+select public.n1_papier_declarer('AFLP-AFLP2027-CLA-RT12-000045', 'PERDU',
        'Formulaire égaré entre le village de X et le hub, recherche effectuée le 14/08');
 
-select public.n1_papier_declarer('AFLP-AFLP2027-BOU-RT12-000046', 'RESTITUE',
+select public.n1_papier_declarer('AFLP-AFLP2027-CLA-RT12-000046', 'RESTITUE',
        'Carnet rendu inutilisé au magasin en fin de campagne');
 ```
 
@@ -118,7 +118,7 @@ automatiquement une anomalie `PAPIER_MANQUANT` de criticité P1.
 À faire chaque soir, par cluster :
 
 ```sql
-select public.n1_papier_cloture_quotidienne('BOUAKE');
+select public.n1_papier_cloture_quotidienne('CLUSTER-A');
 ```
 
 La clôture :
@@ -135,7 +135,7 @@ Chaque trou lève une anomalie P1 à traiter.
 
 ```sql
 select * from public.n1_vue_registre_papier
-where cluster = 'BOUAKE' and campagne = 'AFLP2027'
+where cluster = 'CLUSTER-A' and campagne = 'AFLP2027'
 order by serie_code, numero_lisible;
 ```
 
