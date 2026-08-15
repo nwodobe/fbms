@@ -217,7 +217,41 @@ préalable du journal et de l'audit. Son en-tête le dit en trois paragraphes.
 
 ---
 
-## 6. Journal des incidents
+## 6. Rapport de mise en production — 15 août 2026
+
+| Étape | Horodatage | Résultat |
+|---|---|---|
+| Fusion de la PR #160 (squash) | 18:11:43 UTC | Commit `b22d723` |
+| Publication GitHub Pages | 18:11:45 UTC | Succès, 29 s |
+| Smoke test du dépôt | 18:12:09 UTC | **16/18**, identique à l'avant-fusion |
+| Vérification du code servi | 18:20 UTC | 8/8 fichiers en 200, aucun secret |
+| Questions de contrôle sur le code déployé | 18:20 UTC | **5/5 conformes** |
+| Requêtes en échec sur `command.html` | 18:22 UTC | **0** |
+| Migration Supabase | — | **NON APPLIQUÉE** (constaté : aucune table `aflp_ia_*`) |
+
+**Aucune régression.** Le seul défaut du smoke test — `HTTP 404` sur
+`shared/anagroci-audit.js` — existait avant la fusion, sur une page que ce lot ne
+touche pas.
+
+### Ce qui n'a pas pu être vérifié depuis l'extérieur
+
+Le Command Center est derrière le portail d'authentification. Les cinq questions
+de contrôle ont donc été posées **au code téléchargé depuis la production**, sur
+le jeu d'essai du dépôt — ce qui prouve que le bon code est déployé et qu'il
+répond correctement, mais **pas** ce qu'il répondra sur les données réelles
+(125 équipes RT, 76 villages au 15/08). Cette vérification-là appartient au
+Branch Manager, connecté.
+
+### Un workflow du dépôt échoue à chaque poussée, indépendamment de ce lot
+
+`.github/workflows/agent-auto-fix.yml` termine en échec en 0 seconde sur
+**toutes** les branches depuis au moins le 14/08 — y compris sur la fusion #159
+qui précède celle-ci. GitHub indique « This run likely failed because of a
+workflow file issue ». Ce n'est pas une conséquence de ce lot, et
+`.github/workflows/**` est interdit aux agents : la correction est un geste
+humain, dans une pull request dédiée.
+
+## 7. Journal des incidents
 
 *Aucun incident à ce jour. Toute intervention en production est à consigner ici,
 avec date, symptôme observé, action menée et résultat.*

@@ -576,13 +576,50 @@ figure pas n'a pas été fait.
 | 2026-08-15 | CI — « Structure, liens et syntaxe » | **PASS** |
 | 2026-08-15 | CI — « Exécution des pages, console et accessibilité » | **PASS** (2 min 29 s) |
 | 2026-08-15 | CI — « Éligibilité à la correction automatique » | **FAIL, attendu** : 8 fichiers en liste d'interdiction ⇒ revue humaine obligatoire. C'est la politique qui fonctionne, pas un défaut |
-| 2026-08-15 | Fusion sur `main` | **NON** — pousser sur `main` est interdit à un agent |
-| 2026-08-15 | Migration appliquée sur Supabase | **NON** — interdit à un agent |
-| 2026-08-15 | Smoke production | **NON** — exige la fusion préalable |
+| 2026-08-15 18:11 | **Fusion sur `main` par le Branch Manager** | Commit `b22d723`, squash |
+| 2026-08-15 18:11 | **Publication GitHub Pages** | `pages build and deployment` — **succès**, 29 s |
+| 2026-08-15 18:12 | Smoke production (workflow du dépôt) | **16/18**, identique au relevé d'avant fusion |
+| 2026-08-15 | Migration appliquée sur Supabase | **NON** — voir ci-dessous |
 | 2026-08-15 | Couche linguistique | **Livrée désactivée**, aucun fournisseur configuré |
+
+### Vérification de la production, après publication
+
+| Contrôle | Comment | Résultat |
+|---|---|---|
+| Les 8 fichiers du lot sont servis | `fetch` sur `nwodobe.github.io/fbms` | **200 partout** |
+| Aucun secret dans les fichiers livrés | 5 motifs recherchés dans le code servi | **aucun** |
+| `command.html` charge les 4 nouveaux modules | lecture du HTML servi | **oui**, plus le lien d'administration |
+| Requêtes en échec sur `command.html` | Chromium sur l'URL réelle | **0**, dont **0** imputable à ce lot |
+| Erreurs de console | idem | **0** |
+| Version du moteur déployé | exécution du JS téléchargé | moteur 1.0.0 · catalogue 1.0.0 · **30 intentions · 188 formulations** |
+| Couche linguistique | `AFLP_IA_LANGUE.etat()` sur le code servi | **désactivée**, `activee() === false` |
+| Les 5 questions de contrôle | posées au moteur **réellement déployé**, sur le jeu d'essai | **5/5 conformes** |
+| Le refus sur les personnes ne glisse aucun chiffre | idem | **conforme** |
+
+Les 5 questions ont été posées au code téléchargé depuis la production, avec le
+jeu d'essai du dépôt. **Cela prouve que le code déployé est le bon et qu'il
+répond ce qu'il doit répondre.** Cela ne remplace pas la vérification connectée,
+sur les données réelles : elle appartient au Branch Manager (§13).
+
+Le smoke test conserve son unique défaut, **antérieur à ce lot** :
+`HTTP 404 https://nwodobe.github.io/shared/anagroci-audit.js` — un chemin absolu
+qui oublie le préfixe `/fbms/`, sur `index.html`, page que ce lot ne touche pas.
 
 ### Statut final du lot
 
-**`PRÊT À DÉPLOYER`** — tout ce qu'un agent pouvait faire l'a été et est vérifié.
-La mise en ligne demande deux gestes humains : appliquer la migration (§11.1) et
-fusionner la pull request (§3.2 du document de déploiement).
+**`DÉPLOYÉ SANS LLM`** — le frontend est en ligne et vérifié ; la couche
+linguistique est livrée désactivée, aucun fournisseur n'étant configuré.
+
+**Il reste UN geste, et il commande la boucle d'apprentissage.**
+Constaté le 15/08/2026 après la publication : aucune table `aflp_ia_*` n'existe
+sur le projet `jmbdgpdthzpszfnddwzi`. La migration du §11.1 n'a pas été
+appliquée. Conséquence exacte :
+
+- l'assistant **répond** mieux — c'est en ligne et vérifié ;
+- il **n'apprend pas** : aucune question n'est journalisée, aucune mesure n'est
+  calculée, et l'écran d'administration affiche « journal non installé ».
+
+Les advisors Supabase relevés le même jour ne signalent **aucune alerte
+`aflp_ia_*`** — normal, rien n'est appliqué. Ils serviront de point de
+comparaison : après application, aucune nouvelle alerte critique ne doit
+apparaître.
