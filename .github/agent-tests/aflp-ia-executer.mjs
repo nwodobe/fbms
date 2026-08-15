@@ -37,21 +37,38 @@ const resultats = [];
 for (const [titre, fichier] of BANCS) {
   process.stdout.write(`\n━━ ${titre}\n`);
   const r = spawnSync(process.execPath, [path.join(ICI, fichier)], {
-    stdio: 'inherit', cwd: process.cwd(),
+    encoding: 'utf8', cwd: process.cwd(),
   });
+  const sortie = (r.stdout || '') + (r.stderr || '');
+  process.stdout.write(sortie);
   const code = r.status == null ? 1 : r.status;
-  resultats.push({ titre, fichier, code });
+  /* Un banc qui s'IGNORE faute de dépendance sort en 0. Le compter comme
+     « réussi » transformerait « je n'ai pas pu vérifier » en « j'ai vérifié,
+     tout va bien » — précisément ce que le README de ce dossier interdit.
+     Le cas s'est produit : `npm install --no-save playwright` désinstalle
+     `@electric-sql/pglite`, et le banc RLS s'est mis à passer sans rien tester. */
+  const ignore = /^IGNORÉ/m.test(sortie);
+  resultats.push({ titre, fichier, code, ignore });
   if (code !== 0) echecs++;
 }
 
 console.log('\n' + '═'.repeat(72));
 for (const r of resultats) {
-  console.log(`${r.code === 0 ? 'RÉUSSI ' : 'ÉCHOUÉ '} ${r.fichier.padEnd(28)} ${r.titre}`);
+  const etat = r.code !== 0 ? 'ÉCHOUÉ ' : r.ignore ? 'IGNORÉ ' : 'RÉUSSI ';
+  console.log(`${etat} ${r.fichier.padEnd(28)} ${r.titre}`);
 }
 console.log('═'.repeat(72));
 
+const ignores = resultats.filter((r) => r.ignore && r.code === 0);
 if (echecs) {
   console.error(`\n${echecs} banc(s) en échec. Ne pas fusionner.`);
+  process.exit(1);
+}
+if (ignores.length) {
+  console.error(`\n${ignores.length} banc(s) IGNORÉ(S) faute de dépendance : ` +
+    ignores.map((r) => r.fichier).join(', '));
+  console.error('Ce n\'est pas un succès. Installez les dépendances puis relancez :');
+  console.error('  npm install --no-save @electric-sql/pglite@0.5.5');
   process.exit(1);
 }
 console.log('\nTous les bancs de l\'Assistant IA AFLP sont au vert.');

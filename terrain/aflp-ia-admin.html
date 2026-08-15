@@ -33,7 +33,24 @@
 <script defer src="../shared/auth-gate.js" data-module="admin"></script>
 <script defer src="../shared/aflp-ia-catalogue.js"></script>
 <script defer src="../shared/aflp-ia-comprehension.js"></script>
-<link rel="stylesheet" href="../shared/pjs-theme.css">
+<!--
+  PAS DE <link href="../shared/pjs-theme.css"> ICI, ET C'EST DÉLIBÉRÉ.
+
+  Cette feuille contient quatre `@import` locaux (anagroci-ui, alis-premium,
+  geo-premium, ops-premium). Dans le navigateur, ils sont résolus RELATIVEMENT
+  AU DOCUMENT et non à la feuille : depuis `terrain/`, ils partent chercher
+  `terrain/anagroci-ui.css`, qui n'existe pas. Résultat mesuré par
+  `node .github/scripts/verifier-pages.mjs` : quatre 404 réelles sur chaque page
+  de `terrain/`, `fbms/` et `logistique/`. C'est le défaut déjà consigné dans
+  CLAUDE.md §6 (« anagroci-ui.css introuvable ») et dans le référentiel des
+  portes qualité.
+
+  Le corriger demande de toucher toutes les pages du site : c'est une pull
+  request dédiée, pas un effet de bord de ce lot. En attendant, cette page se
+  suffit à elle-même — elle redéclare la palette PJS ci-dessous et nomme les
+  mêmes familles de police avec repli Arial. Elle n'ajoute donc AUCUNE 404
+  nouvelle en production, au lieu d'en ajouter quatre.
+-->
 <style>
 :root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;--line:#E8E7E7;--danger:#C0392B;--shadow:0 12px 30px rgba(5,59,35,.08)}
 *{box-sizing:border-box}
@@ -317,15 +334,26 @@ function chargerQuestions(){
 
 /* Les mesures portent sur l'ensemble du journal, pas sur le filtre affiché :
    un taux calculé sur les seules questions non comprises vaudrait 0 % par
-   construction. */
+   construction.
+
+   Le second appel compte les questions qu'un relecteur a marquées HORS
+   PÉRIMÈTRE. Elles sortent du dénominateur : « quel temps fera-t-il demain ? »
+   ne mesure pas l'assistant, et la compter ferait baisser le taux de
+   compréhension sans qu'il y ait rien à corriger. La mesure devient donc
+   exacte à mesure que la revue avance — et le tableau affiche combien de
+   questions ont réellement été triées, pour qu'on sache ce que vaut le taux. */
 function chargerMesures(){
-  SB.from("aflp_ia_questions").select("result_status,latency_ms,confidence,language_layer_used,detected_intent")
-    .gte("created_at", new Date(Date.now()-30*86400000).toISOString())
-    .limit(5000)
-    .then(function(res){
-      if(res.error){ $("kpis").innerHTML='<p class="mini">Mesures indisponibles.</p>'; return; }
-      rendreMesures(res.data||[]);
-    });
+  var depuis = new Date(Date.now()-30*86400000).toISOString();
+  Promise.all([
+    SB.from("aflp_ia_questions")
+      .select("id,result_status,latency_ms,confidence,language_layer_used,detected_intent")
+      .gte("created_at", depuis).limit(5000),
+    SB.from("aflp_ia_feedback").select("question_id,feedback_type,approval_status")
+      .gte("created_at", depuis).limit(5000)
+  ]).then(function(res){
+    if(res[0].error){ $("kpis").innerHTML='<p class="mini">Mesures indisponibles.</p>'; return; }
+    rendreMesures(res[0].data||[], (res[1] && !res[1].error && res[1].data) || []);
+  });
 }
 
 function chargerVersions(){
@@ -394,19 +422,26 @@ function rendreQuestions(){
   }).join("");
 }
 
-function rendreMesures(lignes){
+function rendreMesures(lignes, retours){
   var n=lignes.length;
   var c=function(s){return lignes.filter(function(l){return l.result_status===s;}).length;};
   var comprises=c("compris")+c("reponse_produite");
   var partiel=c("partiellement_compris"), clarif=c("clarification_demandee");
   var nonCompris=c("non_compris"), indispo=c("donnee_indisponible"), err=c("erreur_technique");
-  /* Dénominateur : les questions MÉTIER évaluables. Une question hors
-     périmètre — « quel temps fera-t-il ? » — ne mesure pas l'assistant, et la
-     compter ferait baisser un taux sans que rien n'ait à être corrigé.
-     Approximation assumée et écrite : est réputée hors périmètre une question
-     non comprise ET jamais revue. Elle sera affinée quand la revue humaine
-     aura tranché, ce que la colonne `feedback_type = hors_perimetre` permet. */
-  var evaluables=Math.max(0,n-0);
+
+  /* Dénominateur : les questions MÉTIER ÉVALUABLES, c'est-à-dire le journal
+     moins les questions qu'un relecteur a marquées hors périmètre. Tant qu'une
+     question n'a pas été triée, elle compte — le taux est donc SOUS-ESTIMÉ, et
+     l'écran le dit plutôt que de le masquer. */
+  var horsPerimetre={};
+  (retours||[]).forEach(function(f){
+    if(f.feedback_type==="hors_perimetre") horsPerimetre[f.question_id]=true;
+  });
+  var nbHors=lignes.filter(function(l){return horsPerimetre[l.id];}).length;
+  var evaluables=Math.max(0,n-nbHors);
+  var revues={};
+  (retours||[]).forEach(function(f){ revues[f.question_id]=true; });
+  var nbRevues=lignes.filter(function(l){return revues[l.id];}).length;
   var latences=lignes.map(function(l){return l.latency_ms;}).filter(function(x){return x!=null;});
   var latMoy=latences.length?Math.round(latences.reduce(function(a,b){return a+b;},0)/latences.length):null;
   var viaLangue=lignes.filter(function(l){return l.language_layer_used;}).length;
@@ -417,7 +452,7 @@ function rendreMesures(lignes){
   function bloc(t,v,s){return '<div class="k"><small>'+esc(t)+"</small><b>"+esc(v)+"</b>"+
     (s?'<div class="sub">'+esc(s)+"</div>":"")+"</div>";}
   $("kpis").innerHTML=
-    bloc("Questions",fmt(n),"30 derniers jours")+
+    bloc("Questions",fmt(n),"30 derniers jours · "+fmt(nbHors)+" hors périmètre exclues")+
     bloc("Comprises",fmt(comprises),evaluables?pct(comprises/evaluables*100)+" de couverture":"—")+
     bloc("Partiellement",fmt(partiel),evaluables?pct(partiel/evaluables*100):"—")+
     bloc("Clarifications",fmt(clarif),evaluables?pct(clarif/evaluables*100)+" de clarification":"—")+
@@ -427,7 +462,12 @@ function rendreMesures(lignes){
     bloc("Latence moyenne",latMoy==null?"—":fmt(latMoy)+" ms","")+
     bloc("Couche linguistique",fmt(viaLangue),n?pct(viaLangue/n*100)+" des questions":"—")+
     bloc("Intention la plus posée",topIntent?String(topIntent):"—",topIntent?fmt(intents[topIntent])+" questions":"")+
-    bloc("Exactitude validée","à établir","exige une revue humaine, jamais déduite d'un retour");
+    bloc("Questions revues",fmt(nbRevues),n?pct(nbRevues/n*100)+" du journal trié":"—")+
+    /* Tant qu'aucune question n'a été revue, l'exactitude n'existe pas. Afficher
+       « 100 % » parce que personne ne s'est plaint serait un chiffre inventé. */
+    bloc("Exactitude validée",nbRevues?"voir revue":"à établir",
+      nbRevues?fmt(nbRevues)+" question(s) revue(s) par un humain"
+             :"exige une revue humaine, jamais déduite d'un retour");
 }
 
 function rendreVersions(){

@@ -371,4 +371,118 @@ for (const i of CATALOGUE.intentions.filter((x) => x.statut === 'publie')) {
     `${i.code} désigne « ${i.fonction} », absente du registre du moteur`);
 }
 
-console.log('OK - Assistant IA AFLP : câblage, refinancement, alertes, synthèse, RT/Béoumi, contrat fermé');
+/* =========================================================================
+   6. Mode hors ligne — la file locale du journal
+   -------------------------------------------------------------------------
+   La règle testée ici est la plus facile à casser et la plus coûteuse à
+   découvrir en production : une entrée locale ne doit JAMAIS être effacée
+   avant l'accusé de réception du serveur. L'ordre inverse perd des questions
+   à la première coupure au mauvais moment.
+
+   `localStorage` et `navigator` sont simulés : ce sont les deux seules
+   dépendances au navigateur du journal, et elles doivent l'être pour que ce
+   contrôle tourne sans Chromium.
+   ===================================================================== */
+{
+  const memoire = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (memoire.has(k) ? memoire.get(k) : null),
+    setItem: (k, v) => memoire.set(k, String(v)),
+    removeItem: (k) => memoire.delete(k),
+  };
+  /* Node 24 expose déjà un `navigator` en lecture seule : on le redéfinit
+     plutôt que de l'assigner. */
+  const navigatorSimule = { onLine: false };
+  Object.defineProperty(globalThis, 'navigator',
+    { value: navigatorSimule, configurable: true, writable: true });
+  /* Les fichiers de `shared/` sont des UMD : leur objet global est `window`
+     s'il existe, et `this` sinon — c'est-à-dire `module.exports` sous Node.
+     Sans cette ligne, le journal chercherait `localStorage` sur ses propres
+     exports et la file locale serait silencieusement inopérante ici, alors
+     qu'elle fonctionne dans le navigateur. Le contrôle passerait au vert sans
+     rien mesurer. */
+  globalThis.window = globalThis;
+
+  const JOURNAL = require(path.join(racine, 'shared/aflp-ia-journal.js'));
+
+  // -- Hors ligne : on enregistre, rien ne part, rien ne se perd -------------
+  JOURNAL.configurer({ client: null, profil: { role: 'Branch Manager' } });
+  const cle1 = JOURNAL.enregistrer(QUESTION_REFERENCE, rtBeoumi, 12);
+  assert.ok(cle1, 'une question posée hors ligne doit être mise en file');
+  assert.equal(JOURNAL.etat().enFile, 1, 'la file locale doit contenir la question');
+
+  const refus = JOURNAL.enregistrer('Quel temps fera-t-il demain ?',
+    demander('Quel temps fera-t-il demain ?'), 8);
+  assert.notEqual(refus, cle1, 'chaque question doit porter sa propre clé d\'idempotence');
+  assert.equal(JOURNAL.etat().enFile, 2, 'la file doit accumuler hors ligne');
+
+  const m = JOURNAL.metriquesLocales();
+  assert.equal(m.parStatut.reponse_produite, 1, 'le statut d\'une réponse produite');
+  assert.equal(m.parStatut.non_compris, 1, 'le statut d\'une question hors périmètre');
+  assert.equal(m.parIntention.coverage_rt_count, 1, 'la répartition par intention');
+  assert.equal(m.parPortee.cluster, 1, 'la répartition par portée');
+
+  // -- Le serveur refuse : la file NE DOIT PAS se vider ---------------------
+  let envois = 0;
+  const clientEnEchec = {
+    from: () => ({
+      upsert: () => { envois++; return Promise.resolve({ error: { code: '08006', message: 'réseau' } }); },
+    }),
+  };
+  navigatorSimule.onLine = true;
+  JOURNAL.configurer({ client: clientEnEchec });
+  await JOURNAL.synchroniser();
+  assert.equal(envois, 1, 'la synchronisation doit avoir été tentée');
+  assert.equal(JOURNAL.etat().enFile, 2,
+    'un échec d\'envoi NE DOIT PAS vider la file : les questions seraient perdues');
+
+  // -- Le serveur accuse réception : la file se vide, une seule fois --------
+  const recus = [];
+  const clientOk = {
+    from: () => ({
+      upsert: (lot) => { recus.push(...lot); return Promise.resolve({ error: null }); },
+    }),
+  };
+  JOURNAL.configurer({ client: clientOk });
+  const bilan = await JOURNAL.synchroniser();
+  assert.equal(bilan.envoyees, 2, 'les deux questions doivent partir');
+  assert.equal(JOURNAL.etat().enFile, 0, 'la file doit être vidée APRÈS accusé de réception');
+  assert.equal(new Set(recus.map((r) => r.cle_idempotence)).size, 2,
+    'aucune clé d\'idempotence ne doit être dupliquée');
+
+  const envoye = recus[0];
+  assert.equal(envoye.detected_intent, 'coverage_rt_count', 'l\'intention doit être journalisée');
+  assert.equal(envoye.detected_scope_id, 'BEOUMI', 'la portée doit être journalisée');
+  assert.equal(envoye.catalog_version, CATALOGUE.version, 'la version du catalogue doit être journalisée');
+  assert.equal(envoye.data_reference_date, JOUR, 'la date de référence des données doit être journalisée');
+  assert.equal(envoye.language_layer_used, false, 'aucune couche linguistique n\'est active');
+  assert.ok(envoye.question_normalized.length > 0, 'la forme normalisée doit être journalisée');
+  /* Le journal ne doit porter AUCUN montant : le résumé de réponse est borné,
+     et la question est caviardée. */
+  assert.ok(envoye.answer_summary.length <= 500, 'le résumé de réponse doit être borné');
+
+  // -- Table absente : mise en veille, sans casser la page ------------------
+  const clientSansTable = {
+    from: () => ({ upsert: () => Promise.resolve({ error: { code: 'PGRST205' } }) }),
+  };
+  JOURNAL.configurer({ client: clientSansTable });
+  JOURNAL.enregistrer('Volume du jour', demander('Volume du jour'), 5);
+  await JOURNAL.synchroniser();
+  assert.equal(JOURNAL.etat().journalServeurDisponible, false,
+    'une table absente doit mettre le journal en veille, pas provoquer une erreur');
+  assert.match(JOURNAL.etat().derniereErreur, /migration non appliquée/,
+    'le motif de veille doit nommer la cause réelle');
+
+  // -- Interrupteur d'arrêt -------------------------------------------------
+  JOURNAL.arreter('essai');
+  assert.equal(JOURNAL.etat().actif, false, 'l\'interrupteur d\'arrêt doit couper la journalisation');
+  assert.equal(JOURNAL.enregistrer('x', rtBeoumi, 1), null,
+    'aucune question ne doit être enregistrée après l\'arrêt');
+  JOURNAL.reprendre();
+  assert.equal(JOURNAL.etat().actif, true, 'la reprise doit être possible');
+
+  delete globalThis.localStorage;
+  delete globalThis.navigator;
+}
+
+console.log('OK - Assistant IA AFLP : câblage, refinancement, alertes, synthèse, RT/Béoumi, contrat fermé, file hors ligne');
