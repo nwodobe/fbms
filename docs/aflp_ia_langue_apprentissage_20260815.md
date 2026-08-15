@@ -376,18 +376,54 @@ node .github/agent-tests/aflp-ia-executer.mjs
 
 ---
 
-## 10. État des contrôles Playwright
+## 10. État des contrôles Playwright, et ce qu'ils ont trouvé
 
 `node .github/scripts/verifier-pages.mjs` ouvre réellement chaque page dans
-Chromium, aux trois largeurs imposées, et relève erreurs de console et
-violations d'accessibilité. Il exige `playwright@1.49.1` et le téléchargement
-d'un navigateur.
+Chromium, aux trois largeurs imposées (390×844, 768×1024, 1440×900), et relève
+erreurs de console, requêtes internes en échec et violations d'accessibilité.
 
-**Statut à la date de ce rapport : voir le §« Journal d'exécution » ci-dessous.**
-Si l'installation n'a pas abouti dans cet environnement, la page
-`terrain/aflp-ia-admin.html` n'a **pas** été ouverte dans un navigateur, et
-aucune affirmation n'est faite sur son rendu réel. C'est un angle mort assumé,
-pas un contrôle réussi.
+**Exécuté le 15/08/2026, localement puis en intégration continue.**
+Résultat final :
+
+```
+19 page(s) × 3 viewport(s) = 57 observations
+20 problème(s) hérité(s) distinct(s) · 0 nouveau(x)
+95 violation(s) d'accessibilité relevée(s)
+```
+
+### Ce que la porte a trouvé, et qui n'aurait pas été vu autrement
+
+Au premier passage, **deux nouveaux défauts** sur
+`terrain/aflp-ia-admin.html` :
+
+```
+HTTP 404 http://127.0.0.1:4319/terrain/anagroci-ui.css
+HTTP 404 http://127.0.0.1:4319/terrain/alis-premium.css
+```
+
+Diagnostic par extraction du JSON d'observations : les quatre `@import` locaux
+de `shared/pjs-theme.css` sont résolus **relativement au document** et non à la
+feuille. Depuis `terrain/`, ils cherchent `terrain/anagroci-ui.css`, qui n'existe
+pas. C'est le défaut consigné dans CLAUDE.md §6, qui frappe **toutes** les pages
+de `terrain/`, `fbms/` et `logistique/` — quatre 404 chacune, en production.
+
+La page d'administration ne charge donc plus cette feuille : elle redéclare la
+palette PJS et les mêmes familles de police. Elle n'ajoute **aucune** 404 au lieu
+d'en ajouter quatre. **Le référentiel des portes n'a pas été élargi** — y ajouter
+une ligne aurait été le contournement que CLAUDE.md §4 nomme explicitement.
+
+La cause reste ouverte : la corriger demande de toucher toutes les pages du site,
+donc une pull request dédiée.
+
+### Un contrôle du dépôt échoue, indépendamment de ce lot
+
+`node .github/agent-tests/politique-chemins.mjs` retourne **7/35** sur ce poste
+de travail : le hook `.claude/hooks/guard-paths.sh` n'y refuse aucun chemin.
+
+Vérifié sur un worktree de `origin/main` : **28 échecs identiques, sans aucune
+modification de ce lot**. C'est un défaut d'environnement propre à ce poste
+Windows, antérieur à cette branche. Il passe en intégration continue, sur
+Ubuntu — la porte « Structure, liens et syntaxe » de la PR est verte.
 
 ---
 
@@ -533,6 +569,20 @@ figure pas n'a pas été fait.
 |---|---|---|
 | 2026-08-15 | Bancs `aflp-ia-*` (4 fichiers) | Tous verts |
 | 2026-08-15 | Portes `verifier-html` / `-liens` / `-js` | 0 nouvel écart |
+| 2026-08-15 | Porte `verifier-pages` (Chromium, 3 largeurs) | 0 nouveau · 2 défauts trouvés puis corrigés |
 | 2026-08-15 | Migration exécutée sur PostgreSQL (PGlite) | 43/43 |
+| 2026-08-15 | Branche poussée | `aflp-ia-langue-apprentissage` |
+| 2026-08-15 | Pull request ouverte | [#160](https://github.com/nwodobe/fbms/pull/160) |
+| 2026-08-15 | CI — « Structure, liens et syntaxe » | **PASS** |
+| 2026-08-15 | CI — « Exécution des pages, console et accessibilité » | **PASS** (2 min 29 s) |
+| 2026-08-15 | CI — « Éligibilité à la correction automatique » | **FAIL, attendu** : 8 fichiers en liste d'interdiction ⇒ revue humaine obligatoire. C'est la politique qui fonctionne, pas un défaut |
+| 2026-08-15 | Fusion sur `main` | **NON** — pousser sur `main` est interdit à un agent |
 | 2026-08-15 | Migration appliquée sur Supabase | **NON** — interdit à un agent |
+| 2026-08-15 | Smoke production | **NON** — exige la fusion préalable |
 | 2026-08-15 | Couche linguistique | **Livrée désactivée**, aucun fournisseur configuré |
+
+### Statut final du lot
+
+**`PRÊT À DÉPLOYER`** — tout ce qu'un agent pouvait faire l'a été et est vérifié.
+La mise en ligne demande deux gestes humains : appliquer la migration (§11.1) et
+fusionner la pull request (§3.2 du document de déploiement).
