@@ -90,6 +90,24 @@
 
   function fmtF(x) { return fmtNombre(x) + " F"; }
 
+  var MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+    "août", "septembre", "octobre", "novembre", "décembre"];
+
+  /* Date en toutes lettres, pour les phrases de réponse. La forme AAAA-MM-JJ
+     reste celle des sources : une source doit être vérifiable, pas jolie. */
+  function fmtDateLongue(j) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(txt(j));
+    if (!m) return txt(j);
+    var jour1 = Number(m[3]);
+    return (jour1 === 1 ? "1er" : String(jour1)) + " " + MOIS_FR[Number(m[2]) - 1] + " " + m[1];
+  }
+
+  /* Accord en nombre. Une réponse qui écrit « 1 équipes » perd la confiance du
+     lecteur sur le chiffre lui-même. */
+  function pluriel(n, singulier, plurielMot) {
+    return Math.abs(nb(n)) >= 2 ? (plurielMot || (singulier + "s")) : singulier;
+  }
+
   function fmtPct(x) {
     if (x == null || !isFinite(Number(x))) return "—";
     return (Math.round(Number(x) * 10) / 10).toLocaleString("fr-FR") + " %";
@@ -272,6 +290,7 @@
       clusters: {},
       zones: {},
       rt: {},
+      villagesDetail: {},
       villages: { total: villages.length, sansRt: 0, sansGps: 0, actifs: 0, inactifs: [] },
       couverture: {},
       fileLocale: {
@@ -322,9 +341,17 @@
     function ligneRt(k, nom, clusterNom) {
       if (!parRt[k]) {
         parRt[k] = {
-          cle: k, nom: nom || "—", cluster: clusterNom || "",
+          cle: k, nom: nom || "—", cluster: clusterNom || "", village: "",
+          /* `enregistre` distingue une équipe du référentiel `rt` d'une équipe
+             seulement DEVINÉE à partir d'un achat ou d'une avance. Sans cette
+             distinction, un achat imputé à un identifiant inconnu ferait
+             apparaître une équipe qui n'existe pas au référentiel — et le
+             comptage « combien de RT » deviendrait faux sans prévenir. */
+          enregistre: false,
           avances: 0, paye: 0, solde: 0, volumeKg: 0,
+          volumeJourKg: 0, volumeSemaineKg: 0,
           achatsRefinancables: 0, montantRefinancable: 0, sansRecu: 0,
+          aControler: 0, horsBareme: 0, montantSansRecu: 0,
           sacs: 0, recon: null, derniereAvance: "", dernierAchat: "", nbAchats: 0
         };
       }
@@ -334,7 +361,12 @@
     }
 
     rts.forEach(function (r) {
-      ligneRt(cleRt(r.id, nomRt(r)), nomRt(r), clusterRt(r, villages));
+      /* Dédoublonnage : `cleRt` retient l'identifiant serveur s'il existe, le
+         nom normalisé sinon. Deux lignes `rt` portant le même identifiant ne
+         créent donc qu'une seule équipe. */
+      var l = ligneRt(cleRt(r.id, nomRt(r)), nomRt(r), clusterRt(r, villages));
+      l.enregistre = true;
+      if (!l.village) l.village = txt(r.village_nom);
     });
     achats.forEach(function (a) {
       var l = ligneRt(cleRt(a.rt_id, a.rt_nom), a.rt_nom, a.cluster);
@@ -342,9 +374,16 @@
       l.volumeKg += nb(a.poids_net);
       l.nbAchats++;
       var d = jour(a.date);
+      if (d === dateRef) l.volumeJourKg += nb(a.poids_net);
+      if (debutSemaine && d && d >= debutSemaine && d <= dateRef) l.volumeSemaineKg += nb(a.poids_net);
       if (d && d > l.dernierAchat) l.dernierAchat = d;
-      if (a.refinancable === false || !a.numero_recu) l.sansRecu++;
-      else { l.achatsRefinancables++; l.montantRefinancable += nb(a.montant); }
+      if (!l.village) l.village = txt(a.village_nom);
+      if (a.refinancable === false || !a.numero_recu) {
+        l.sansRecu++;
+        l.montantSansRecu += nb(a.montant);
+      } else { l.achatsRefinancables++; l.montantRefinancable += nb(a.montant); }
+      if (a.qualite_statut && a.qualite_statut !== "OK") l.aControler++;
+      if (a.statut_validation === "Validation BM requise") l.horsBareme++;
     });
     avances.forEach(function (a) {
       var l = ligneRt(cleRt(a.rt_id, a.rt_nom), a.rt_nom, a.cluster);
@@ -441,23 +480,42 @@
         parCluster[k] = {
           cle: k, label: libelleCluster(k) || txt(nomC).toUpperCase() || "Hors cluster",
           zone: zoneDuCluster(k),
-          villages: 0, rt: 0, rtActifs: 0, volumeKg: 0, volumeMT: 0, avances: 0,
+          villages: 0, villagesActifs: 0,
+          rt: 0, rtActifs: 0, volumeKg: 0, volumeMT: 0,
+          volumeJourKg: 0, volumeSemaineKg: 0, avances: 0,
           paye: 0, solde: 0, sacs: sacClus[k] || 0, dernierAchat: "", nbAchats: 0,
-          sansRecu: 0, objectifMT: 0, pctObjectif: null, estAFLP: false
+          sansRecu: 0, montantSansRecu: 0, aControler: 0, horsBareme: 0,
+          objectifMT: 0, pctObjectif: null, estAFLP: false
         };
       }
       return parCluster[k];
     }
     CLUSTERS_AFLP.forEach(function (c) { ligneCluster(c.cle); });
-    villages.forEach(function (v) { ligneCluster(clusterVillage(v)).villages++; });
-    rts.forEach(function (r) { ligneCluster(clusterRt(r, villages)).rt++; });
+    villages.forEach(function (v) {
+      var l = ligneCluster(clusterVillage(v));
+      l.villages++;
+      if (dernierAchatVillage[cle(nomVillage(v))]) l.villagesActifs++;
+    });
+    /* Le comptage des équipes par cluster passe par `parRt` et non par la liste
+       brute : c'est la seule façon de dédoublonner deux lignes `rt` de même
+       identifiant, et de ne compter que les équipes RÉELLEMENT enregistrées. */
+    Object.keys(parRt).forEach(function (k) {
+      if (parRt[k].enregistre) ligneCluster(parRt[k].cluster).rt++;
+    });
     achats.forEach(function (a) {
       var l = ligneCluster(a.cluster);
       l.volumeKg += nb(a.poids_net);
       l.paye += nb(a.montant);
       l.nbAchats++;
-      if (a.refinancable === false || !a.numero_recu) l.sansRecu++;
       var d = jour(a.date);
+      if (d === dateRef) l.volumeJourKg += nb(a.poids_net);
+      if (debutSemaine && d && d >= debutSemaine && d <= dateRef) l.volumeSemaineKg += nb(a.poids_net);
+      if (a.refinancable === false || !a.numero_recu) {
+        l.sansRecu++;
+        l.montantSansRecu += nb(a.montant);
+      }
+      if (a.qualite_statut && a.qualite_statut !== "OK") l.aControler++;
+      if (a.statut_validation === "Validation BM requise") l.horsBareme++;
       if (d && d > l.dernierAchat) l.dernierAchat = d;
     });
     avances.forEach(function (a) { ligneCluster(a.cluster).avances += nb(a.montant); });
@@ -483,15 +541,25 @@
       var c = parCluster[k];
       if (!parZone[c.zone]) {
         parZone[c.zone] = {
-          code: c.zone, clusters: [], villages: 0, rt: 0, volumeKg: 0, volumeMT: 0,
-          avances: 0, paye: 0, solde: 0, objectifMT: 0, pctObjectif: null
+          code: c.zone, clusters: [], villages: 0, villagesActifs: 0,
+          rt: 0, rtActifs: 0, volumeKg: 0, volumeMT: 0,
+          volumeJourKg: 0, volumeSemaineKg: 0, nbAchats: 0, sacs: 0,
+          sansRecu: 0, montantSansRecu: 0, aControler: 0, horsBareme: 0,
+          avances: 0, paye: 0, solde: 0, objectifMT: 0, pctObjectif: null,
+          dernierAchat: ""
         };
       }
       var l = parZone[c.zone];
       l.clusters.push(c.label);
-      l.villages += c.villages; l.rt += c.rt;
+      l.villages += c.villages; l.villagesActifs += c.villagesActifs;
+      l.rt += c.rt; l.rtActifs += c.rtActifs;
       l.volumeKg += c.volumeKg; l.avances += c.avances; l.paye += c.paye;
+      l.volumeJourKg += c.volumeJourKg; l.volumeSemaineKg += c.volumeSemaineKg;
+      l.nbAchats += c.nbAchats; l.sacs += c.sacs;
+      l.sansRecu += c.sansRecu; l.montantSansRecu += c.montantSansRecu;
+      l.aControler += c.aControler; l.horsBareme += c.horsBareme;
       l.objectifMT += c.objectifMT;
+      if (c.dernierAchat && c.dernierAchat > l.dernierAchat) l.dernierAchat = c.dernierAchat;
     });
     Object.keys(parZone).forEach(function (z) {
       var l = parZone[z];
@@ -500,13 +568,64 @@
       l.pctObjectif = l.objectifMT ? (l.volumeMT / l.objectifMT) * 100 : null;
     });
 
+    /* -- 3.5 bis  Agrégats par village -------------------------------------
+       Sans cet index, une question portant sur un village retombait sur son
+       cluster : le chiffre était juste, mais pas celui qu'on demandait. */
+    var parVillage = etat.villagesDetail;
+    function ligneVillage(nomV, clusterV) {
+      var k = cle(nomV);
+      if (!k) return null;
+      if (!parVillage[k]) {
+        parVillage[k] = {
+          cle: k, nom: txt(nomV), cluster: txt(clusterV || ""),
+          zone: zoneDuCluster(clusterV || ""),
+          rt: 0, rtActifs: 0, volumeKg: 0, volumeJourKg: 0, volumeSemaineKg: 0,
+          nbAchats: 0, paye: 0, sansRecu: 0, montantSansRecu: 0, dernierAchat: ""
+        };
+      }
+      if (clusterV && !parVillage[k].cluster) {
+        parVillage[k].cluster = txt(clusterV);
+        parVillage[k].zone = zoneDuCluster(clusterV);
+      }
+      return parVillage[k];
+    }
+    villages.forEach(function (v) { ligneVillage(nomVillage(v), clusterVillage(v)); });
+    Object.keys(parRt).forEach(function (k) {
+      var r = parRt[k];
+      if (!r.village) return;
+      var l = ligneVillage(r.village, r.cluster);
+      if (!l) return;
+      if (r.enregistre) l.rt++;
+      if (r.nbAchats > 0) l.rtActifs++;
+    });
+    achats.forEach(function (a) {
+      var l = ligneVillage(a.village_nom, a.cluster);
+      if (!l) return;
+      var d = jour(a.date);
+      l.volumeKg += nb(a.poids_net);
+      l.paye += nb(a.montant);
+      l.nbAchats++;
+      if (d === dateRef) l.volumeJourKg += nb(a.poids_net);
+      if (debutSemaine && d && d >= debutSemaine && d <= dateRef) l.volumeSemaineKg += nb(a.poids_net);
+      if (a.refinancable === false || !a.numero_recu) {
+        l.sansRecu++;
+        l.montantSansRecu += nb(a.montant);
+      }
+      if (d && d > l.dernierAchat) l.dernierAchat = d;
+    });
+
     /* -- 3.6 Couverture du pilote ----------------------------------------- */
-    var rtActifs = 0;
-    Object.keys(parRt).forEach(function (k) { if (parRt[k].nbAchats > 0) rtActifs++; });
+    var rtActifs = 0, rtEnregistrees = 0;
+    Object.keys(parRt).forEach(function (k) {
+      if (parRt[k].nbAchats > 0) rtActifs++;
+      if (parRt[k].enregistre) rtEnregistrees++;
+    });
     etat.couverture = {
       villages: villages.length, villagesCibles: REFERENTIEL.villagesCibles,
       villagesActifs: etat.villages.actifs,
-      rt: rts.length, rtCibles: REFERENTIEL.equipesRtCibles, rtActifs: rtActifs,
+      /* Équipes DISTINCTES du référentiel, pas lignes brutes : deux lignes de
+         même identifiant sont la même équipe. */
+      rt: rtEnregistrees, rtCibles: REFERENTIEL.equipesRtCibles, rtActifs: rtActifs,
       clustersAvecAchat: Object.keys(parCluster).filter(function (k) {
         return parCluster[k].estAFLP && parCluster[k].nbAchats > 0;
       }).length,
@@ -943,123 +1062,187 @@
   /* ==========================================================================
      7. Questions en langage naturel
      --------------------------------------------------------------------------
-     Compréhension déterministe : la question est réduite à une intention et à
-     une portée (zone, cluster, RT), puis la réponse est CALCULÉE sur l'état.
-     Aucune réponse n'est produite sans chiffre ni source. Quand l'intention
-     n'est pas reconnue, le moteur le dit — il n'improvise pas.
+     Trois responsabilités, strictement séparées :
+
+       COMPRENDRE  shared/aflp-ia-comprehension.js produit un CONTRAT validé
+                   contre un schéma fermé. Il ne voit aucun chiffre.
+       CALCULER    le registre `FONCTIONS` ci-dessous. Chaque intention publiée
+                   du catalogue désigne l'une de ces fonctions par son nom, et
+                   AUCUNE autre ne peut être appelée depuis un contrat.
+       RÉPONDRE    les phrases sont construites ici, à partir des chiffres
+                   calculés ici. Ni le catalogue ni la couche linguistique
+                   n'écrivent jamais un chiffre.
+
+     Ce que le moteur ne fait jamais : deviner un chiffre absent, répondre sur
+     une portée qu'on ne lui a pas demandée, ou produire une phrase sans source.
+     Quand il ne sait pas, il le dit.
      ====================================================================== */
 
-  var INTENTIONS = [
-    { code: "refinancement", mots: ["refinancement", "refinancer", "refinancable", "debloquer", "deblocage", "bloque", "blocage"] },
-    { code: "reconciliation", mots: ["reconciliation", "reconcilie", "reconcilier", "justifie", "justification"] },
-    { code: "objectif", mots: ["objectif", "cible", "reste", "atteindre", "avancement", "plan", "retard"] },
-    { code: "volume", mots: ["volume", "tonnage", "tonne", "achete", "achat", "collecte", "quantite", "kg", "mt"] },
-    { code: "cash", mots: ["cash", "avance", "argent", "caisse", "solde", "decaisse", "paiement", "paye", "fcfa"] },
-    { code: "sacs", mots: ["sac", "sacs", "sacherie", "jute", "emballage", "dechire"] },
-    { code: "qualite", mots: ["qualite", "humidite", "kor", "rejet", "recu", "bareme", "prix", "controle"] },
-    { code: "risque", mots: ["risque", "alerte", "anomalie", "probleme", "urgence", "critique", "prioritaire", "priorite"] },
-    { code: "couverture", mots: ["village", "villages", "equipe", "equipes", "couverture", "inactif", "sommeil"] },
-    { code: "classement", mots: ["meilleur", "meilleurs", "top", "classement", "pire", "dernier", "premiers", "performant"] },
-    { code: "synthese", mots: ["synthese", "resume", "point", "situation", "bilan", "rapport", "briefing"] }
-  ];
+  function comprehension() {
+    if (global.AFLP_IA_COMPREHENSION) return global.AFLP_IA_COMPREHENSION;
+    if (typeof require === "function") return require("./aflp-ia-comprehension.js");
+    return null;
+  }
 
-  var PERIODES = [
-    { code: "jour", mots: ["aujourd hui", "aujourdhui", "ce jour", "du jour"] },
-    { code: "semaine", mots: ["semaine", "7 jours", "sept jours", "hebdo"] },
-    { code: "cumul", mots: ["cumul", "total", "depuis le debut", "campagne", "global"] }
-  ];
+  function catalogue() {
+    if (global.AFLP_IA_CATALOGUE) return global.AFLP_IA_CATALOGUE;
+    if (typeof require === "function") return require("./aflp-ia-catalogue.js");
+    return null;
+  }
 
-  function detecterIntention(q) {
-    var meilleur = "", score = 0;
-    INTENTIONS.forEach(function (i) {
-      var s = 0;
-      i.mots.forEach(function (m) { if (q.indexOf(m) >= 0) s += m.length; });
-      if (s > score) { score = s; meilleur = i.code; }
+  /* --------------------------------------------------------------------------
+     7.1  Contexte de compréhension
+     --------------------------------------------------------------------------
+     Uniquement des NOMS : zones, clusters, villages, équipes. Aucun montant,
+     aucun volume, aucun solde. La couche de compréhension — déterministe
+     aujourd'hui, éventuellement linguistique demain — n'a besoin que de cela
+     pour situer une question, et ne doit rien recevoir de plus.
+     ------------------------------------------------------------------------ */
+
+  function contexteComprehension(etat) {
+    var ctx = { zones: [], clusters: [], villages: [], rt: [] };
+    if (!etat) return ctx;
+    ctx.zones = Object.keys(etat.zones || {}).filter(function (z) {
+      return z && z !== "Hors périmètre AFLP";
     });
-    return { code: meilleur, score: score };
-  }
-
-  function detecterPeriode(q) {
-    var trouve = "cumul";
-    PERIODES.forEach(function (p) {
-      p.mots.forEach(function (m) { if (q.indexOf(m) >= 0) trouve = p.code; });
+    Object.keys(etat.clusters || {}).forEach(function (k) {
+      var c = etat.clusters[k];
+      if (c && c.label && c.label !== "Hors cluster") ctx.clusters.push({ cle: c.cle, label: c.label });
     });
-    return trouve;
+    Object.keys(etat.villagesDetail || {}).forEach(function (k) {
+      var v = etat.villagesDetail[k];
+      if (v && v.nom) ctx.villages.push({ nom: v.nom, cluster: v.cluster });
+    });
+    Object.keys(etat.rt || {}).forEach(function (k) {
+      var r = etat.rt[k];
+      if (r && r.nom && r.nom !== "—") ctx.rt.push({ cle: r.cle, nom: r.nom });
+    });
+    return ctx;
   }
 
-  /* Portée : zone AFLP, cluster, ou équipe RT nommée dans la question. */
-  function detecterPortee(q, etat) {
-    var mz = q.match(/\bgbeke\s*([12])\b/) || q.match(/\bzone\s*([12])\b/);
-    if (mz && etat.zones["GBEKE " + mz[1]]) {
-      return { type: "zone", cle: "GBEKE " + mz[1], label: "GBEKE " + mz[1] };
-    }
-    var zones = Object.keys(etat.zones);
-    for (var i = 0; i < zones.length; i++) {
-      var zk = motsCles(zones[i]);
-      if (zk && zk.length > 3 && q.indexOf(zk) >= 0) {
-        return { type: "zone", cle: zones[i], label: zones[i] };
-      }
-    }
-    var cks = Object.keys(etat.clusters);
-    for (var j = 0; j < cks.length; j++) {
-      var c = etat.clusters[cks[j]];
-      var lk = motsCles(c.label);
-      if (lk && lk.length > 3 && q.indexOf(lk) >= 0) {
-        return { type: "cluster", cle: c.cle, label: c.label };
-      }
-    }
-    var rks = Object.keys(etat.rt);
-    for (var k = 0; k < rks.length; k++) {
-      var r = etat.rt[rks[k]];
-      var rk = motsCles(r.nom);
-      if (rk && rk.length > 3 && q.indexOf(rk) >= 0) {
-        return { type: "rt", cle: r.cle, label: r.nom };
-      }
-    }
-    return { type: "global", cle: "", label: "ensemble du pilote" };
-  }
+  /* --------------------------------------------------------------------------
+     7.2  Périmètre — l'agrégat correspondant à la portée du contrat
+     --------------------------------------------------------------------------
+     Une seule forme, quelle que soit la portée. Les fonctions de calcul n'ont
+     ainsi pas à savoir si elles travaillent sur une zone ou sur un village :
+     elles ne peuvent donc pas se tromper de champ selon le cas.
+     ------------------------------------------------------------------------ */
 
-  /* Agrégat correspondant à la portée demandée. */
-  function agregatPortee(portee, etat) {
-    if (portee.type === "zone") {
-      var z = etat.zones[portee.cle] || {};
-      return {
-        libelle: "la zone " + portee.label,
-        volumeKg: nb(z.volumeKg), avances: nb(z.avances), paye: nb(z.paye),
-        solde: nb(z.solde), objectifMT: nb(z.objectifMT),
-        pctObjectif: z.pctObjectif, villages: nb(z.villages), rt: nb(z.rt),
-        sacs: 0, sansRecu: 0
-      };
-    }
-    if (portee.type === "cluster") {
-      var c = etat.clusters[portee.cle] || {};
-      return {
-        libelle: "le cluster " + portee.label,
-        volumeKg: nb(c.volumeKg), avances: nb(c.avances), paye: nb(c.paye),
-        solde: nb(c.solde), objectifMT: nb(c.objectifMT),
-        pctObjectif: c.pctObjectif, villages: nb(c.villages), rt: nb(c.rt),
-        sacs: nb(c.sacs), sansRecu: nb(c.sansRecu), dernierAchat: c.dernierAchat
-      };
-    }
-    if (portee.type === "rt") {
-      var r = etat.rt[portee.cle] || {};
-      return {
-        libelle: "l'équipe " + portee.label,
-        volumeKg: nb(r.volumeKg), avances: nb(r.avances), paye: nb(r.paye),
-        solde: nb(r.solde), sacs: nb(r.sacs), recon: r.recon, objectifMT: 0,
-        pctObjectif: null, villages: 0, rt: 1,
-        montantRefinancable: nb(r.montantRefinancable), sansRecu: nb(r.sansRecu),
-        dernierAchat: r.dernierAchat, derniereAvance: r.derniereAvance
-      };
-    }
+  function perimetreVide(type, label, libelle, court) {
     return {
-      libelle: "l'ensemble du pilote",
-      volumeKg: etat.volume.cumulKg, avances: etat.cash.avances,
-      paye: etat.cash.paye, solde: etat.cash.solde,
-      objectifMT: etat.objectifMT, pctObjectif: etat.volume.pctObjectif,
-      villages: etat.couverture.villages, rt: etat.couverture.rt,
-      sacs: etat.sacs.rtTotal, sansRecu: etat.qualite.sansRecu
+      type: type, label: label, libelle: libelle, court: court, existe: false,
+      volumeKg: 0, volumeJourKg: 0, volumeSemaineKg: 0,
+      avances: 0, paye: 0, solde: 0, objectifMT: 0, pctObjectif: null,
+      villages: 0, villagesActifs: 0, rt: 0, rtActifs: 0, rtObservees: 0,
+      sacs: 0, nbAchats: 0, sansRecu: 0, montantSansRecu: 0,
+      aControler: 0, horsBareme: 0, dernierAchat: "", derniereAvance: "", recon: null
     };
+  }
+
+  function perimetre(etat, scope) {
+    var type = (scope && scope.type) || "global";
+
+    if (type === "zone") {
+      var z = etat.zones[scope.id];
+      var pz = perimetreVide("zone", scope.label, "la zone " + scope.label, "La zone " + scope.label);
+      if (!z) return pz;
+      pz.existe = true;
+      pz.volumeKg = nb(z.volumeKg); pz.volumeJourKg = nb(z.volumeJourKg);
+      pz.volumeSemaineKg = nb(z.volumeSemaineKg);
+      pz.avances = nb(z.avances); pz.paye = nb(z.paye); pz.solde = nb(z.solde);
+      pz.objectifMT = nb(z.objectifMT); pz.pctObjectif = z.pctObjectif;
+      pz.villages = nb(z.villages); pz.villagesActifs = nb(z.villagesActifs);
+      pz.rt = nb(z.rt); pz.rtActifs = nb(z.rtActifs);
+      pz.sacs = nb(z.sacs); pz.nbAchats = nb(z.nbAchats);
+      pz.sansRecu = nb(z.sansRecu); pz.montantSansRecu = nb(z.montantSansRecu);
+      pz.aControler = nb(z.aControler); pz.horsBareme = nb(z.horsBareme);
+      pz.dernierAchat = txt(z.dernierAchat);
+      return pz;
+    }
+
+    if (type === "cluster") {
+      var c = etat.clusters[scope.id];
+      var pc = perimetreVide("cluster", scope.label, "le cluster de " + scope.label,
+        "Le cluster de " + scope.label);
+      if (!c) return pc;
+      pc.existe = true;
+      pc.volumeKg = nb(c.volumeKg); pc.volumeJourKg = nb(c.volumeJourKg);
+      pc.volumeSemaineKg = nb(c.volumeSemaineKg);
+      pc.avances = nb(c.avances); pc.paye = nb(c.paye); pc.solde = nb(c.solde);
+      pc.objectifMT = nb(c.objectifMT); pc.pctObjectif = c.pctObjectif;
+      pc.villages = nb(c.villages); pc.villagesActifs = nb(c.villagesActifs);
+      pc.rt = nb(c.rt); pc.rtActifs = nb(c.rtActifs);
+      pc.sacs = nb(c.sacs); pc.nbAchats = nb(c.nbAchats);
+      pc.sansRecu = nb(c.sansRecu); pc.montantSansRecu = nb(c.montantSansRecu);
+      pc.aControler = nb(c.aControler); pc.horsBareme = nb(c.horsBareme);
+      pc.dernierAchat = txt(c.dernierAchat);
+      return pc;
+    }
+
+    if (type === "village") {
+      var v = etat.villagesDetail[cle(scope.id)] || etat.villagesDetail[cle(scope.label)];
+      var pv = perimetreVide("village", scope.label, "le village de " + scope.label,
+        "Le village de " + scope.label);
+      if (!v) return pv;
+      pv.existe = true;
+      pv.volumeKg = nb(v.volumeKg); pv.volumeJourKg = nb(v.volumeJourKg);
+      pv.volumeSemaineKg = nb(v.volumeSemaineKg);
+      pv.paye = nb(v.paye); pv.villages = 1; pv.villagesActifs = v.nbAchats > 0 ? 1 : 0;
+      pv.rt = nb(v.rt); pv.rtActifs = nb(v.rtActifs);
+      pv.nbAchats = nb(v.nbAchats);
+      pv.sansRecu = nb(v.sansRecu); pv.montantSansRecu = nb(v.montantSansRecu);
+      pv.dernierAchat = txt(v.dernierAchat);
+      return pv;
+    }
+
+    if (type === "rt") {
+      var r = etat.rt[scope.id];
+      var pr = perimetreVide("rt", scope.label, "l'équipe " + scope.label, "L'équipe " + scope.label);
+      if (!r) return pr;
+      pr.existe = true;
+      pr.volumeKg = nb(r.volumeKg); pr.volumeJourKg = nb(r.volumeJourKg);
+      pr.volumeSemaineKg = nb(r.volumeSemaineKg);
+      pr.avances = nb(r.avances); pr.paye = nb(r.paye); pr.solde = nb(r.solde);
+      pr.rt = r.enregistre ? 1 : 0; pr.rtActifs = r.nbAchats > 0 ? 1 : 0;
+      pr.rtObservees = r.enregistre ? 0 : 1;
+      pr.sacs = nb(r.sacs); pr.nbAchats = nb(r.nbAchats);
+      pr.sansRecu = nb(r.sansRecu); pr.montantSansRecu = nb(r.montantSansRecu);
+      pr.aControler = nb(r.aControler); pr.horsBareme = nb(r.horsBareme);
+      pr.dernierAchat = txt(r.dernierAchat); pr.derniereAvance = txt(r.derniereAvance);
+      pr.recon = r.recon;
+      return pr;
+    }
+
+    var pg = perimetreVide("global", "AFLP 2027", "l'ensemble du pilote", "Le pilote AFLP 2027");
+    pg.existe = true;
+    pg.volumeKg = etat.volume.cumulKg;
+    pg.volumeJourKg = etat.volume.jourKg;
+    pg.volumeSemaineKg = etat.volume.semaineKg;
+    pg.avances = etat.cash.avances; pg.paye = etat.cash.paye; pg.solde = etat.cash.solde;
+    pg.objectifMT = etat.objectifMT; pg.pctObjectif = etat.volume.pctObjectif;
+    pg.villages = etat.couverture.villages; pg.villagesActifs = etat.couverture.villagesActifs;
+    pg.rt = etat.couverture.rt; pg.rtActifs = etat.couverture.rtActifs;
+    pg.sacs = etat.sacs.rtTotal; pg.nbAchats = etat.qualite.lignes;
+    pg.sansRecu = etat.qualite.sansRecu; pg.montantSansRecu = etat.qualite.montantSansRecu;
+    pg.aControler = etat.qualite.aControler; pg.horsBareme = etat.qualite.horsBareme;
+    pg.dernierAchat = etat.volume.dernierJour;
+    return pg;
+  }
+
+  /* Équipes RT du périmètre demandé, dédoublonnées. Une seule définition, faute
+     de quoi le comptage et la liste divergeraient. */
+  function equipesDuPerimetre(etat, scope) {
+    var type = (scope && scope.type) || "global";
+    var out = [];
+    Object.keys(etat.rt).forEach(function (k) {
+      var r = etat.rt[k];
+      if (type === "cluster" && cle(r.cluster) !== scope.id) return;
+      if (type === "zone" && zoneDuCluster(r.cluster) !== scope.id) return;
+      if (type === "village" && cle(r.village) !== cle(scope.id)) return;
+      if (type === "rt" && r.cle !== scope.id) return;
+      out.push(r);
+    });
+    return out;
   }
 
   function reponse(texte, chiffres, sources, confiance, suggestions) {
@@ -1073,282 +1256,763 @@
   }
 
   var QUESTIONS_TYPES = [
+    "Combien de RT avons-nous à Béoumi ?",
     "Où en est le volume par rapport aux 3 000 MT ?",
     "Quels RT sont bloqués pour refinancement ?",
-    "Combien a acheté Brobo ?",
     "Quel est le solde de caisse de GBEKE 1 ?",
     "Quels villages n'ont rien acheté depuis 7 jours ?",
     "Quels sont les clusters les plus avancés ?",
     "Que dois-je traiter en priorité aujourd'hui ?"
   ];
 
-  function repondre(question, etat, refi, listeAlertes) {
-    var q = motsCles(question);
-    if (!q) {
-      return reponse("Posez une question sur le volume, la caisse, la réconciliation, le refinancement, la sacherie ou la couverture terrain.",
-        [], [], "haute", QUESTIONS_TYPES);
-    }
-    refi = refi || refinancement(etat);
-    listeAlertes = listeAlertes || alertes(etat, refi);
+  /* Source unique, apposée à toute réponse. Une réponse sans source n'est pas
+     une réponse : c'est une opinion. */
+  function sourcesDe(etat) {
+    return ["FBMS · données arrêtées au " + etat.dateRef];
+  }
 
-    var intention = detecterIntention(q);
-    var periode = detecterPeriode(q);
-    var portee = detecterPortee(q, etat);
-    var agg = agregatPortee(portee, etat);
-    var src = ["FBMS · données arrêtées au " + etat.dateRef];
+  /* --------------------------------------------------------------------------
+     7.3  Registre des fonctions déterministes
+     --------------------------------------------------------------------------
+     Une intention du catalogue ne peut désigner qu'une clé de cet objet. Toute
+     autre valeur est refusée par `repondre` : c'est ce qui garantit qu'aucun
+     contrat — d'où qu'il vienne — ne peut déclencher autre chose qu'un calcul
+     de lecture prévu ici.
+     ------------------------------------------------------------------------ */
 
-    if (!intention.code) {
-      return reponse(
-        "Je ne sais pas répondre à cette question à partir des données FBMS chargées. " +
-        "Je ne devine pas : reformulez avec un mot-clé métier (volume, avance, réconciliation, " +
-        "refinancement, sacs, village, RT).",
-        [], src, "nulle", QUESTIONS_TYPES);
-    }
+  var FONCTIONS = {
 
-    /* -- Volume ------------------------------------------------------------ */
-    if (intention.code === "volume") {
-      var kg = agg.volumeKg, libPeriode = "cumulé campagne";
-      if (portee.type === "global") {
-        if (periode === "jour") { kg = etat.volume.jourKg; libPeriode = "du jour"; }
-        else if (periode === "semaine") { kg = etat.volume.semaineKg; libPeriode = "des 7 derniers jours"; }
-      } else if (periode !== "cumul") {
-        /* Le détail jour / semaine n'est agrégé qu'au niveau global : le dire,
-           plutôt que de renvoyer un cumul en le faisant passer pour la période
-           demandée. */
-        return reponse(
-          "Le volume " + (periode === "jour" ? "du jour" : "de la semaine") +
-          " n'est pas ventilé à ce niveau dans les données chargées. Pour " + agg.libelle +
-          ", le cumul campagne est de " + fmtMT(agg.volumeKg) + " MT.",
-          [{ libelle: "Cumul " + agg.libelle, valeur: fmtMT(agg.volumeKg) + " MT" }],
-          src, "moyenne", QUESTIONS_TYPES);
-      }
-      var ch = [{ libelle: "Volume " + libPeriode, valeur: fmtMT(kg) + " MT (" + fmtNombre(kg) + " kg)" }];
-      if (agg.objectifMT) {
-        ch.push({ libelle: "Quote-part objectif", valeur: fmtNombre(agg.objectifMT) + " MT" });
-        ch.push({ libelle: "Avancement", valeur: fmtPct(agg.pctObjectif) });
-      }
-      return reponse(
-        "Pour " + agg.libelle + ", le volume " + libPeriode + " est de " + fmtMT(kg) + " MT" +
-        (agg.objectifMT ? ", soit " + fmtPct(agg.pctObjectif) + " de la quote-part de " +
-          fmtNombre(agg.objectifMT) + " MT." : "."),
-        ch, src);
-    }
-
-    /* -- Objectif et rythme ------------------------------------------------- */
-    if (intention.code === "objectif") {
-      var reste = agg.objectifMT ? Math.max(0, agg.objectifMT - agg.volumeKg / 1000) : null;
-      var jours = (etat.volume.moyenneJourKg && reste != null)
-        ? Math.ceil((reste * 1000) / etat.volume.moyenneJourKg) : null;
-      return reponse(
-        "Pour " + agg.libelle + " : " + fmtMT(agg.volumeKg) + " MT collectés" +
-        (agg.objectifMT
-          ? " sur " + fmtNombre(agg.objectifMT) + " MT, soit " + fmtPct(agg.pctObjectif) +
-            ". Reste " + fmtNombre(reste) + " MT" +
-            (jours ? ", environ " + fmtNombre(jours) + " jour(s) au rythme moyen actuel." : ".")
-          : "."),
-        [
-          { libelle: "Collecté", valeur: fmtMT(agg.volumeKg) + " MT" },
-          { libelle: "Objectif", valeur: agg.objectifMT ? fmtNombre(agg.objectifMT) + " MT" : "—" },
-          { libelle: "Reste", valeur: reste != null ? fmtNombre(reste) + " MT" : "—" },
-          { libelle: "Moyenne par jour actif", valeur: fmtNombre(etat.volume.moyenneJourKg) + " kg" }
-        ], src);
-    }
-
-    /* -- Cash --------------------------------------------------------------- */
-    if (intention.code === "cash") {
-      var chCash = [
-        { libelle: "Avances RT", valeur: fmtF(agg.avances) },
-        { libelle: "Payé producteurs", valeur: fmtF(agg.paye) },
-        { libelle: "Solde en circulation", valeur: fmtF(agg.solde) }
+    /* ---- Couverture : équipes RT ---------------------------------------- */
+    couvertureRt: function (ctx) {
+      var etat = ctx.etat, per = ctx.per, code = ctx.contrat.intent;
+      var equipes = equipesDuPerimetre(etat, ctx.contrat.scope);
+      var enregistrees = equipes.filter(function (r) { return r.enregistre; });
+      var actives = equipes.filter(function (r) { return r.nbAchats > 0; });
+      var observees = equipes.filter(function (r) { return !r.enregistre; });
+      var nE = enregistrees.length, nA = actives.length;
+      var dateLongue = fmtDateLongue(etat.dateRef);
+      var chiffres = [
+        { libelle: "Équipes RT enregistrées", valeur: fmtNombre(nE) },
+        { libelle: "Équipes RT actives", valeur: fmtNombre(nA) }
       ];
-      if (portee.type === "rt" && agg.derniereAvance) {
-        chCash.push({ libelle: "Dernière avance", valeur: agg.derniereAvance });
-      }
-      return reponse(
-        "Pour " + agg.libelle + " : " + fmtF(agg.avances) + " avancés, " + fmtF(agg.paye) +
-        " payés aux producteurs, solde de " + fmtF(agg.solde) + "." +
-        (agg.solde < 0 ? " Solde négatif : une avance manque à la saisie, ou un achat est mal imputé." : ""),
-        chCash, src);
-    }
 
-    /* -- Réconciliation ------------------------------------------------------ */
-    if (intention.code === "reconciliation") {
-      if (portee.type === "rt") {
-        var r = etat.rt[portee.cle] || {};
-        if (!r.recon) {
+      /* Ventilation demandée : le détail remplace la phrase unique. */
+      var vent = ctx.contrat.filters && ctx.contrat.filters.breakdown;
+      if (vent === "cluster" || vent === "zone") {
+        var lignes = [];
+        if (vent === "cluster") {
+          Object.keys(etat.clusters).forEach(function (k) {
+            var c = etat.clusters[k];
+            if (!c.estAFLP && !c.rt) return;
+            lignes.push({ nom: c.label, enr: c.rt, act: c.rtActifs });
+          });
+        } else {
+          Object.keys(etat.zones).forEach(function (z) {
+            lignes.push({ nom: z, enr: etat.zones[z].rt, act: etat.zones[z].rtActifs });
+          });
+        }
+        var totalE = lignes.reduce(function (s, x) { return s + nb(x.enr); }, 0);
+        return reponse(
+          "Équipes RT par " + (vent === "cluster" ? "cluster" : "zone") + " au " + dateLongue + " :\n" +
+          lignes.map(function (x) {
+            return "· " + x.nom + " — " + fmtNombre(x.enr) + " " +
+              pluriel(x.enr, "équipe") + " " + pluriel(x.enr, "enregistrée") +
+              ", dont " + fmtNombre(x.act) + " " + pluriel(x.act, "active");
+          }).join("\n") +
+          "\nTotal : " + fmtNombre(totalE) + " " + pluriel(totalE, "équipe") + " RT.",
+          lignes.map(function (x) {
+            return { libelle: x.nom, valeur: fmtNombre(x.enr) + " RT" };
+          }), ctx.src);
+      }
+
+      /* Liste nominative. */
+      if (code === "coverage_rt_list") {
+        if (!enregistrees.length) {
           return reponse(
-            "L'équipe " + portee.label + " n'a aucune réconciliation enregistrée. Avec " +
-            fmtF(r.avances) + " d'avance ouverte, elle ne peut pas être refinancée.",
-            [{ libelle: "Avance ouverte", valeur: fmtF(r.avances) }], src);
+            per.court + " ne compte aucune équipe RT enregistrée. Données FBMS " +
+            "arrêtées au " + dateLongue + ".", chiffres, ctx.src);
+        }
+        var noms = enregistrees.slice(0, 30).map(function (r) {
+          return "· " + r.nom + " (" + (r.cluster || "cluster non renseigné") + ") — " +
+            (r.nbAchats > 0
+              ? fmtNombre(r.nbAchats) + " " + pluriel(r.nbAchats, "achat") + " enregistré" +
+                (r.nbAchats >= 2 ? "s" : "")
+              : "aucun achat enregistré");
+        }).join("\n");
+        return reponse(
+          per.court + " compte " + fmtNombre(nE) + " " + pluriel(nE, "équipe") + " RT " +
+          pluriel(nE, "enregistrée") + " :\n" + noms +
+          (enregistrees.length > 30 ? "\n(+" + (enregistrees.length - 30) + " autres)" : "") +
+          "\nDonnées FBMS arrêtées au " + dateLongue + ".",
+          chiffres, ctx.src);
+      }
+
+      /* Comptage des équipes actives. */
+      if (code === "coverage_rt_active_count") {
+        return reponse(
+          per.court + " compte " + fmtNombre(nA) + " " + pluriel(nA, "équipe") + " RT " +
+          pluriel(nA, "active") + " sur " + fmtNombre(nE) + " " + pluriel(nE, "enregistrée") +
+          ". Une équipe est dite active dès qu'elle a enregistré au moins un achat sur la " +
+          "campagne. Données FBMS arrêtées au " + dateLongue + ".",
+          chiffres, ctx.src);
+      }
+
+      /* Comptage par défaut : les équipes ENREGISTRÉES. C'est la lecture du
+         référentiel AFLP, où « RT » désigne une équipe. */
+      var phrase = per.court + " compte " + fmtNombre(nE) + " " + pluriel(nE, "équipe") +
+        " RT " + pluriel(nE, "enregistrée") + ". Données FBMS arrêtées au " + dateLongue + ".";
+      phrase += " " + fmtNombre(nA) + " " + pluriel(nA, "équipe") + " " +
+        pluriel(nA, "a", "ont") + " enregistré au moins un achat sur la campagne.";
+      if (observees.length) {
+        phrase += " " + fmtNombre(observees.length) + " " + pluriel(observees.length, "équipe") +
+          " " + pluriel(observees.length, "apparaît", "apparaissent") +
+          " dans les achats sans figurer au référentiel des équipes : " +
+          pluriel(observees.length, "elle n'est", "elles ne sont") + " pas " +
+          pluriel(observees.length, "comptée") + " ci-dessus.";
+      }
+      if (per.type === "global") {
+        phrase += " Cible du pilote : " + etat.couverture.rtCibles + " équipes.";
+        chiffres.push({ libelle: "Cible du pilote", valeur: String(etat.couverture.rtCibles) });
+      }
+      return reponse(phrase, chiffres, ctx.src);
+    },
+
+    /* ---- Couverture : villages ------------------------------------------ */
+    couvertureVillages: function (ctx) {
+      var etat = ctx.etat, per = ctx.per;
+      var vent = ctx.contrat.filters && ctx.contrat.filters.breakdown;
+      if (vent === "cluster" || vent === "zone") {
+        var lignes = [];
+        if (vent === "cluster") {
+          Object.keys(etat.clusters).forEach(function (k) {
+            var c = etat.clusters[k];
+            if (!c.estAFLP && !c.villages) return;
+            lignes.push({ nom: c.label, total: c.villages, actifs: c.villagesActifs });
+          });
+        } else {
+          Object.keys(etat.zones).forEach(function (z) {
+            lignes.push({ nom: z, total: etat.zones[z].villages, actifs: etat.zones[z].villagesActifs });
+          });
         }
         return reponse(
-          "Dernière réconciliation de " + portee.label + " : " + (r.recon.jour || "date inconnue") +
-          ", statut « " + r.recon.statut + " », écart " + fmtF(r.recon.ecart) + ".",
+          "Villages par " + vent + " au " + fmtDateLongue(etat.dateRef) + " :\n" +
+          lignes.map(function (x) {
+            return "· " + x.nom + " — " + fmtNombre(x.total) + " " + pluriel(x.total, "village") +
+              ", dont " + fmtNombre(x.actifs) + " " + pluriel(x.actifs, "actif");
+          }).join("\n"),
+          lignes.map(function (x) { return { libelle: x.nom, valeur: fmtNombre(x.total) }; }),
+          ctx.src);
+      }
+      var phrase = per.court + " compte " + fmtNombre(per.villages) + " " +
+        pluriel(per.villages, "village") + " " + pluriel(per.villages, "référencé") + ", dont " +
+        fmtNombre(per.villagesActifs) + " " + pluriel(per.villagesActifs, "actif") +
+        " (au moins un achat enregistré).";
+      if (per.type === "global") {
+        phrase += " Cible du pilote : " + etat.couverture.villagesCibles + " villages.";
+      }
+      phrase += " Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".";
+      return reponse(phrase, [
+        { libelle: "Villages référencés", valeur: fmtNombre(per.villages) },
+        { libelle: "Villages actifs", valeur: fmtNombre(per.villagesActifs) }
+      ], ctx.src);
+    },
+
+    villagesInactifs: function (ctx) {
+      var etat = ctx.etat, scope = ctx.contrat.scope;
+      var liste = etat.villages.inactifs.filter(function (v) {
+        if (scope.type === "cluster") return cle(v.cluster) === scope.id;
+        if (scope.type === "zone") return zoneDuCluster(v.cluster) === scope.id;
+        return true;
+      });
+      var seuil = REFERENTIEL.seuils.villageInactifJours;
+      if (!liste.length) {
+        return reponse(
+          "Aucun village " + (ctx.per.type === "global" ? "" : "de " + ctx.per.label + " ") +
+          "n'est sans achat depuis plus de " + seuil + " jours au " +
+          fmtDateLongue(etat.dateRef) + ".",
+          [{ libelle: "Villages en sommeil", valeur: "0" }], ctx.src);
+      }
+      var detail = liste.slice(0, 12).map(function (v) {
+        return "· " + (v.nom || "village sans nom") + " (" + (v.cluster || "cluster non renseigné") +
+          ") — " + (v.dernierAchat
+            ? v.joursSansAchat + " " + pluriel(v.joursSansAchat, "jour") + " sans achat"
+            : "aucun achat enregistré");
+      }).join("\n");
+      return reponse(
+        fmtNombre(liste.length) + " " + pluriel(liste.length, "village") + " " +
+        pluriel(liste.length, "est", "sont") + " sans achat depuis plus de " + seuil +
+        " jours pour " + ctx.per.libelle + " au " + fmtDateLongue(etat.dateRef) + " :\n" + detail +
+        (liste.length > 12 ? "\n(+" + (liste.length - 12) + " autres)" : ""),
+        [{ libelle: "Villages en sommeil", valeur: fmtNombre(liste.length) }], ctx.src);
+    },
+
+    /* ---- Volume ---------------------------------------------------------- */
+    volumePortee: function (ctx) {
+      var per = ctx.per, periode = ctx.contrat.period;
+      var kg = periode === "day" ? per.volumeJourKg
+        : periode === "week" ? per.volumeSemaineKg : per.volumeKg;
+      var libPeriode = periode === "day" ? "à la date du " + fmtDateLongue(ctx.etat.dateRef)
+        : periode === "week" ? "sur les 7 derniers jours"
+        : "en cumul campagne";
+      var ch = [{ libelle: "Volume " + (periode === "day" ? "du jour" : periode === "week" ? "7 jours" : "cumulé"),
+        valeur: fmtMT(kg) + " MT (" + fmtNombre(kg) + " kg)" }];
+      var phrase = "Pour " + per.libelle + ", le volume net acheté " + libPeriode + " est de " +
+        fmtMT(kg) + " MT, soit " + fmtNombre(kg) + " kg.";
+      if (periode === "campaign" && per.objectifMT) {
+        ch.push({ libelle: "Quote-part objectif", valeur: fmtNombre(per.objectifMT) + " MT" });
+        ch.push({ libelle: "Avancement", valeur: fmtPct(per.pctObjectif) });
+        phrase += " Cela représente " + fmtPct(per.pctObjectif) + " d'une quote-part de " +
+          fmtNombre(per.objectifMT) + " MT" + (per.type === "cluster" ? " (répartition indicative)" : "") + ".";
+      }
+      phrase += " Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".";
+      return reponse(phrase, ch, ctx.src);
+    },
+
+    volumeVentile: function (ctx) {
+      var etat = ctx.etat, periode = ctx.contrat.period;
+      var vent = (ctx.contrat.filters && ctx.contrat.filters.breakdown) || "cluster";
+      var champ = periode === "day" ? "volumeJourKg" : periode === "week" ? "volumeSemaineKg" : "volumeKg";
+      var lignes = [];
+      if (vent === "zone") {
+        Object.keys(etat.zones).forEach(function (z) {
+          lignes.push({ nom: z, kg: nb(etat.zones[z][champ]) });
+        });
+      } else if (vent === "village") {
+        Object.keys(etat.villagesDetail).forEach(function (k) {
+          var v = etat.villagesDetail[k];
+          if (v.nbAchats > 0) lignes.push({ nom: v.nom + " (" + (v.cluster || "—") + ")", kg: nb(v[champ]) });
+        });
+        lignes = trier(lignes, function (x) { return x.kg; }, true).slice(0, 20);
+      } else if (vent === "rt") {
+        Object.keys(etat.rt).forEach(function (k) {
+          var r = etat.rt[k];
+          if (r.nbAchats > 0) lignes.push({ nom: r.nom, kg: nb(r[champ]) });
+        });
+        lignes = trier(lignes, function (x) { return x.kg; }, true).slice(0, 20);
+      } else {
+        Object.keys(etat.clusters).forEach(function (k) {
+          var c = etat.clusters[k];
+          if (!c.estAFLP && !c.nbAchats) return;
+          lignes.push({ nom: c.label, kg: nb(c[champ]) });
+        });
+      }
+      if (!lignes.length) {
+        return reponse("Aucun volume à ventiler par " + vent + " dans les données chargées au " +
+          fmtDateLongue(etat.dateRef) + ".", [], ctx.src);
+      }
+      var total = lignes.reduce(function (s, x) { return s + x.kg; }, 0);
+      return reponse(
+        "Volume net acheté par " + vent + " au " + fmtDateLongue(etat.dateRef) + " :\n" +
+        lignes.map(function (x) { return "· " + x.nom + " — " + fmtMT(x.kg) + " MT"; }).join("\n") +
+        "\nTotal : " + fmtMT(total) + " MT.",
+        lignes.map(function (x) { return { libelle: x.nom, valeur: fmtMT(x.kg) + " MT" }; }),
+        ctx.src);
+    },
+
+    avancementObjectif: function (ctx) {
+      var per = ctx.per, etat = ctx.etat;
+      if (!per.objectifMT) {
+        return reponse(
+          "Aucun objectif n'est défini pour " + per.libelle + " : FBMS ne répartit " +
+          "l'objectif AFLP qu'entre les six clusters du pilote et leurs deux zones. " +
+          "Le volume collecté y est de " + fmtMT(per.volumeKg) + " MT au " +
+          fmtDateLongue(etat.dateRef) + ".",
+          [{ libelle: "Collecté", valeur: fmtMT(per.volumeKg) + " MT" }], ctx.src, "moyenne");
+      }
+      var reste = Math.max(0, per.objectifMT - per.volumeKg / 1000);
+      var jours = etat.volume.moyenneJourKg
+        ? Math.ceil((reste * 1000) / etat.volume.moyenneJourKg) : null;
+      var indicatif = per.type === "cluster" || per.type === "zone"
+        ? " La quote-part par " + per.type + " est une répartition indicative de l'objectif " +
+          "global de " + fmtNombre(etat.objectifMT) + " MT, pas un objectif contractuel." : "";
+      return reponse(
+        "Pour " + per.libelle + " : " + fmtMT(per.volumeKg) + " MT collectés sur " +
+        fmtNombre(per.objectifMT) + " MT, soit " + fmtPct(per.pctObjectif) + ". Reste " +
+        fmtNombre(reste) + " MT" +
+        (jours ? ", environ " + fmtNombre(jours) + " " + pluriel(jours, "jour") +
+          " d'activité au rythme moyen constaté de " + fmtNombre(etat.volume.moyenneJourKg) +
+          " kg par jour actif." : ".") + indicatif +
+        " Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".",
+        [
+          { libelle: "Collecté", valeur: fmtMT(per.volumeKg) + " MT" },
+          { libelle: "Objectif", valeur: fmtNombre(per.objectifMT) + " MT" },
+          { libelle: "Avancement", valeur: fmtPct(per.pctObjectif) },
+          { libelle: "Reste", valeur: fmtNombre(reste) + " MT" }
+        ], ctx.src);
+    },
+
+    classementClusters: function (ctx) {
+      var etat = ctx.etat;
+      var pire = /\b(pire|pires|dernier|derniers|faible|faibles|mauvais|retard|moins)\b/
+        .test(ctx.normalise);
+      var cls = Object.keys(etat.clusters).map(function (k) { return etat.clusters[k]; })
+        .filter(function (c) {
+          if (ctx.contrat.scope.type === "zone" && c.zone !== ctx.contrat.scope.id) return false;
+          return c.estAFLP || c.nbAchats > 0;
+        });
+      if (!cls.length) return reponse("Aucun cluster à classer dans les données chargées.", [], ctx.src);
+      cls = trier(cls, function (c) { return c.volumeKg; }, !pire).slice(0, 6);
+      return reponse(
+        (pire ? "Clusters les moins avancés" : "Clusters les plus avancés") + " au " +
+        fmtDateLongue(etat.dateRef) + " :\n" +
+        cls.map(function (c, i) {
+          return (i + 1) + ". " + c.label + " (" + c.zone + ") — " + fmtMT(c.volumeKg) + " MT" +
+            (c.pctObjectif != null ? " · " + fmtPct(c.pctObjectif) + " de la quote-part indicative" : "");
+        }).join("\n"),
+        cls.map(function (c) { return { libelle: c.label, valeur: fmtMT(c.volumeKg) + " MT" }; }),
+        ctx.src);
+    },
+
+    /* ---- Achats ---------------------------------------------------------- */
+    compteurAchats: function (ctx) {
+      var per = ctx.per;
+      return reponse(
+        "Pour " + per.libelle + ", FBMS a enregistré " + fmtNombre(per.nbAchats) + " " +
+        pluriel(per.nbAchats, "ligne") + " d'achat au " + fmtDateLongue(ctx.etat.dateRef) +
+        ". Une ligne d'achat n'est pas un producteur : deux achats du même producteur " +
+        "comptent pour deux.",
+        [{ libelle: "Lignes d'achat", valeur: fmtNombre(per.nbAchats) }], ctx.src);
+    },
+
+    dernierAchat: function (ctx) {
+      var per = ctx.per;
+      if (!per.dernierAchat) {
+        return reponse(
+          "Aucun achat n'est enregistré pour " + per.libelle + " dans les données chargées au " +
+          fmtDateLongue(ctx.etat.dateRef) + ".",
+          [{ libelle: "Dernier achat", valeur: "aucun" }], ctx.src);
+      }
+      var age = ecartJours(per.dernierAchat, ctx.etat.dateRef);
+      return reponse(
+        "Le dernier achat enregistré pour " + per.libelle + " date du " +
+        fmtDateLongue(per.dernierAchat) +
+        (age != null ? ", soit " + (age === 0 ? "le jour même de la date de référence"
+          : "il y a " + fmtNombre(age) + " " + pluriel(age, "jour")) : "") +
+        ". Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
+        [
+          { libelle: "Dernier achat", valeur: per.dernierAchat },
+          { libelle: "Ancienneté", valeur: age != null ? fmtNombre(age) + " j" : "—" }
+        ], ctx.src);
+    },
+
+    /* ---- Caisse ---------------------------------------------------------- */
+    caissePortee: function (ctx) {
+      var per = ctx.per, code = ctx.contrat.intent, etat = ctx.etat;
+      var ch = [
+        { libelle: "Avances RT", valeur: fmtF(per.avances) },
+        { libelle: "Payé producteurs", valeur: fmtF(per.paye) },
+        { libelle: "Solde en circulation", valeur: fmtF(per.solde) }
+      ];
+      if (code === "cash_advances") {
+        var jourTxt = per.type === "global" && ctx.contrat.period === "day"
+          ? " Dont " + fmtF(etat.cash.avancesJour) + " versés à la date de référence." : "";
+        return reponse(
+          "Pour " + per.libelle + ", " + fmtF(per.avances) + " ont été avancés aux équipes RT." +
+          jourTxt + " Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".", ch, ctx.src);
+      }
+      if (code === "cash_paid") {
+        return reponse(
+          "Pour " + per.libelle + ", " + fmtF(per.paye) + " ont été payés aux producteurs sur " +
+          fmtNombre(per.nbAchats) + " " + pluriel(per.nbAchats, "ligne") + " d'achat. " +
+          "Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".", ch, ctx.src);
+      }
+      var alerte = per.solde < 0
+        ? " Ce solde est NÉGATIF : le montant payé dépasse les avances enregistrées. " +
+          "Ce n'est pas un excédent — c'est une avance non saisie, ou un achat imputé à la " +
+          "mauvaise équipe."
+        : " Ce solde est l'argent confié aux équipes et non encore justifié par un achat.";
+      return reponse(
+        "Pour " + per.libelle + ", le solde théorique en circulation est de " + fmtF(per.solde) +
+        " : " + fmtF(per.avances) + " avancés moins " + fmtF(per.paye) + " payés aux producteurs." +
+        alerte + " Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".", ch, ctx.src);
+    },
+
+    expositionOuverte: function (ctx) {
+      var lignes = ctx.refi.parRT.filter(function (x) { return filtrerRefi(x, ctx.contrat.scope); });
+      var ouverts = lignes.filter(function (x) { return x.statut === "NO-GO"; });
+      var montant = ouverts.reduce(function (s, x) { return s + nb(x.avances); }, 0);
+      var couvert = lignes.filter(function (x) { return x.statut === "GO"; })
+        .reduce(function (s, x) { return s + nb(x.avances); }, 0);
+      return reponse(
+        "Pour " + ctx.per.libelle + ", " + fmtF(montant) + " d'avances ne sont pas couvertes par " +
+        "une réconciliation valide, portées par " + fmtNombre(ouverts.length) + " " +
+        pluriel(ouverts.length, "équipe") + " sur " + fmtNombre(lignes.length) + ". " +
+        fmtF(couvert) + " sont couverts. Données FBMS arrêtées au " +
+        fmtDateLongue(ctx.etat.dateRef) + ".",
+        [
+          { libelle: "Exposition ouverte", valeur: fmtF(montant) },
+          { libelle: "Avances couvertes", valeur: fmtF(couvert) },
+          { libelle: "Équipes exposées", valeur: fmtNombre(ouverts.length) + " / " + fmtNombre(lignes.length) }
+        ], ctx.src);
+    },
+
+    /* ---- Réconciliation --------------------------------------------------- */
+    etatReconciliation: function (ctx) {
+      if (ctx.contrat.scope.type === "rt") {
+        var r = ctx.etat.rt[ctx.contrat.scope.id] || {};
+        if (!r.recon) {
+          return reponse(
+            "L'équipe " + ctx.contrat.scope.label + " n'a aucune réconciliation enregistrée. " +
+            "Avec " + fmtF(r.avances) + " d'avance ouverte, elle ne peut pas être refinancée. " +
+            "Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
+            [{ libelle: "Avance ouverte", valeur: fmtF(r.avances) }], ctx.src);
+        }
+        return reponse(
+          "Dernière réconciliation de " + ctx.contrat.scope.label + " : " +
+          (r.recon.jour ? fmtDateLongue(r.recon.jour) : "date inconnue") + ", statut « " +
+          r.recon.statut + " », écart " + fmtF(r.recon.ecart) + ". Données FBMS arrêtées au " +
+          fmtDateLongue(ctx.etat.dateRef) + ".",
           [
             { libelle: "Statut", valeur: r.recon.statut || "—" },
             { libelle: "Écart", valeur: fmtF(r.recon.ecart) },
             { libelle: "Dernière avance", valeur: r.derniereAvance || "—" }
-          ], src);
+          ], ctx.src);
       }
-      var champ = refi.parRT.filter(function (x) {
-        if (portee.type === "global") return true;
-        if (portee.type === "cluster") return cle(x.cluster) === portee.cle;
-        return x.zone === portee.cle;
-      });
+      var champ = ctx.refi.parRT.filter(function (x) { return filtrerRefi(x, ctx.contrat.scope); });
       var nonRec = champ.filter(function (x) { return x.statut === "NO-GO"; });
+      var rec = champ.length - nonRec.length;
       return reponse(
-        "Sur " + agg.libelle + " : " + (champ.length - nonRec.length) + " équipe(s) réconciliée(s) sur " +
-        champ.length + ". " + nonRec.length + " reste(nt) à réconcilier" +
-        (nonRec.length
-          ? " : " + nonRec.slice(0, 8).map(function (x) { return x.nom; }).join(", ") +
-            (nonRec.length > 8 ? " (+" + (nonRec.length - 8) + ")" : "") + "."
-          : "."),
+        "Sur " + ctx.per.libelle + " : " + fmtNombre(rec) + " " + pluriel(rec, "équipe") + " " +
+        pluriel(rec, "réconciliée") + " sur " + fmtNombre(champ.length) + " portant une avance " +
+        "ou un achat. " + fmtNombre(nonRec.length) + " " + pluriel(nonRec.length, "reste", "restent") +
+        " à réconcilier. Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
         [
-          { libelle: "Réconciliées", valeur: String(champ.length - nonRec.length) },
-          { libelle: "À réconcilier", valeur: String(nonRec.length) }
-        ], src);
-    }
+          { libelle: "Réconciliées", valeur: fmtNombre(rec) },
+          { libelle: "À réconcilier", valeur: fmtNombre(nonRec.length) }
+        ], ctx.src);
+    },
 
-    /* -- Refinancement -------------------------------------------------------- */
-    if (intention.code === "refinancement") {
-      var lignes = refi.parRT.filter(function (x) {
-        if (portee.type === "global") return true;
-        if (portee.type === "cluster") return cle(x.cluster) === portee.cle;
-        if (portee.type === "zone") return x.zone === portee.cle;
-        return x.cle === portee.cle;
-      });
-      var bloques = lignes.filter(function (x) { return x.statut === "NO-GO"; });
-      var mBloque = bloques.reduce(function (s, x) { return s + nb(x.montantRefinancable); }, 0);
-      var mLibre = lignes.filter(function (x) { return x.statut === "GO"; })
-        .reduce(function (s, x) { return s + nb(x.montantRefinancable); }, 0);
-      var detail = bloques.slice(0, 10).map(function (x) {
-        return "· " + x.nom + " (" + (x.cluster || "cluster inconnu") + ") — " + x.motifs[0];
-      }).join("\n");
-      return reponse(
-        "Règle AFLP : pas de réconciliation = pas de refinancement.\n" +
-        "Sur " + agg.libelle + ", " + bloques.length + " équipe(s) sur " + lignes.length +
-        " sont bloquées, soit " + fmtF(mBloque) + " non débloquables. " +
-        fmtF(mLibre) + " peuvent être refinancés immédiatement." +
-        (detail ? "\n" + detail + (bloques.length > 10 ? "\n(+" + (bloques.length - 10) + " autres)" : "") : ""),
-        [
-          { libelle: "Débloquable", valeur: fmtF(mLibre) },
-          { libelle: "Bloqué", valeur: fmtF(mBloque) },
-          { libelle: "RT bloqués", valeur: bloques.length + " / " + lignes.length }
-        ], src);
-    }
-
-    /* -- Sacherie -------------------------------------------------------------- */
-    if (intention.code === "sacs") {
-      if (portee.type === "rt" || portee.type === "cluster") {
+    rtNonReconcilies: function (ctx) {
+      var champ = ctx.refi.parRT.filter(function (x) { return filtrerRefi(x, ctx.contrat.scope); });
+      var nonRec = champ.filter(function (x) { return x.statut === "NO-GO"; });
+      if (!nonRec.length) {
         return reponse(
-          "Solde de sacs pour " + agg.libelle + " : " + fmtNombre(agg.sacs) + " sac(s)." +
-          (nb(agg.sacs) < 0 ? " Solde négatif : un mouvement d'entrée manque." : ""),
-          [{ libelle: "Solde sacs", valeur: fmtNombre(agg.sacs) }], src);
+          "Toutes les équipes de " + ctx.per.libelle + " disposant d'une avance sont " +
+          "réconciliées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
+          [{ libelle: "À réconcilier", valeur: "0" }], ctx.src);
       }
       return reponse(
-        "Sacherie : " + fmtNombre(etat.sacs.rtTotal) + " sacs en main RT, " +
-        fmtNombre(etat.sacs.clusterTotal) + " en cluster, " + fmtNombre(etat.sacs.distribues) +
-        " distribués, " + fmtNombre(etat.sacs.dechires) + " déchirés. " +
-        (etat.sacs.negRt + etat.sacs.negCluster + etat.sacs.negProd) + " solde(s) négatif(s) à corriger.",
-        [
-          { libelle: "En main RT", valeur: fmtNombre(etat.sacs.rtTotal) },
-          { libelle: "En cluster", valeur: fmtNombre(etat.sacs.clusterTotal) },
-          { libelle: "Déchirés", valeur: fmtNombre(etat.sacs.dechires) },
-          { libelle: "Soldes négatifs", valeur: String(etat.sacs.negRt + etat.sacs.negCluster + etat.sacs.negProd) }
-        ], src);
-    }
+        fmtNombre(nonRec.length) + " " + pluriel(nonRec.length, "équipe") + " " +
+        pluriel(nonRec.length, "reste", "restent") + " à réconcilier sur " + ctx.per.libelle + " :\n" +
+        nonRec.slice(0, 12).map(function (x) {
+          return "· " + x.nom + " (" + (x.cluster || "cluster non renseigné") + ") — " + x.motifs[0];
+        }).join("\n") +
+        (nonRec.length > 12 ? "\n(+" + (nonRec.length - 12) + " autres)" : "") +
+        "\nDonnées FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
+        [{ libelle: "À réconcilier", valeur: fmtNombre(nonRec.length) + " / " + fmtNombre(champ.length) }],
+        ctx.src);
+    },
 
-    /* -- Qualité et traçabilité ------------------------------------------------ */
-    if (intention.code === "qualite") {
-      return reponse(
-        "Sur " + fmtNombre(etat.qualite.lignes) + " lignes d'achat : " +
-        fmtNombre(etat.qualite.sansRecu) + " sans reçu (" + fmtF(etat.qualite.montantSansRecu) +
-        ", non refinançables), " + fmtNombre(etat.qualite.aControler) + " en contrôle qualité, " +
-        fmtNombre(etat.qualite.horsBareme) + " hors barème de prix." +
-        (portee.type === "cluster"
-          ? " Pour " + agg.libelle + " : " + fmtNombre(agg.sansRecu) + " achat(s) sans reçu." : ""),
-        [
-          { libelle: "Sans reçu", valeur: fmtNombre(etat.qualite.sansRecu) },
-          { libelle: "Qualité à contrôler", valeur: fmtNombre(etat.qualite.aControler) },
-          { libelle: "Hors barème", valeur: fmtNombre(etat.qualite.horsBareme) }
-        ], src);
-    }
+    /* ---- Refinancement ---------------------------------------------------- */
+    refinancementPortee: function (ctx) {
+      var code = ctx.contrat.intent;
+      var lignes = ctx.refi.parRT.filter(function (x) { return filtrerRefi(x, ctx.contrat.scope); });
+      var bloques = lignes.filter(function (x) { return x.statut === "NO-GO"; });
+      var libres = lignes.filter(function (x) { return x.statut === "GO"; });
+      var mBloque = bloques.reduce(function (s, x) { return s + nb(x.montantRefinancable); }, 0);
+      var mLibre = libres.reduce(function (s, x) { return s + nb(x.montantRefinancable); }, 0);
+      var regle = "Règle AFLP : pas de réconciliation = pas de refinancement.";
+      var ch = [
+        { libelle: "Débloquable", valeur: fmtF(mLibre) },
+        { libelle: "Bloqué", valeur: fmtF(mBloque) },
+        { libelle: "Équipes bloquées", valeur: fmtNombre(bloques.length) + " / " + fmtNombre(lignes.length) }
+      ];
+      var dateTxt = " Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".";
 
-    /* -- Risques et priorités --------------------------------------------------- */
-    if (intention.code === "risque") {
-      if (!listeAlertes.length) {
-        return reponse("Aucune anomalie détectée au " + etat.dateRef +
-          " sur les contrôles disponibles.", [], src);
+      if (code === "refinancing_eligible_rt") {
+        if (!libres.length) {
+          return reponse(regle + "\nAucune équipe de " + ctx.per.libelle + " n'est éligible au " +
+            "refinancement : " + fmtNombre(lignes.length) + " " + pluriel(lignes.length, "équipe") +
+            " " + pluriel(lignes.length, "évaluée") + ", toutes bloquées." + dateTxt, ch, ctx.src);
+        }
+        return reponse(regle + "\n" + fmtNombre(libres.length) + " " + pluriel(libres.length, "équipe") +
+          " sur " + fmtNombre(lignes.length) + " " + pluriel(libres.length, "est", "sont") +
+          " éligible" + (libres.length >= 2 ? "s" : "") + " au refinancement pour " +
+          ctx.per.libelle + ", soit " + fmtF(mLibre) + " débloquables :\n" +
+          libres.slice(0, 12).map(function (x) {
+            return "· " + x.nom + " (" + (x.cluster || "cluster non renseigné") + ") — " +
+              fmtF(x.montantRefinancable);
+          }).join("\n") + dateTxt, ch, ctx.src);
       }
-      var top = listeAlertes.slice(0, 5);
+
+      if (code === "refinancing_amount") {
+        return reponse(regle + "\nPour " + ctx.per.libelle + " : " + fmtF(mLibre) +
+          " sont débloquables immédiatement et " + fmtF(mBloque) + " sont bloqués. " +
+          "Un achat sans reçu n'entre dans aucune de ces deux assiettes : " +
+          fmtNombre(ctx.per.sansRecu) + " " + pluriel(ctx.per.sansRecu, "achat") +
+          " dans ce cas, pour " + fmtF(ctx.per.montantSansRecu) + "." + dateTxt, ch, ctx.src);
+      }
+
+      if (!bloques.length) {
+        return reponse(regle + "\nAucune équipe n'est bloquée pour " + ctx.per.libelle + " : les " +
+          fmtNombre(lignes.length) + " " + pluriel(lignes.length, "équipe") + " portant une avance " +
+          "sont réconciliées." + dateTxt, ch, ctx.src);
+      }
       return reponse(
-        "À traiter en priorité au " + etat.dateRef + " :\n" + top.map(function (a, i) {
-          return (i + 1) + ". [" + a.severite + "] " + a.titre + " — " +
-            fmtNombre(a.valeur) + " " + a.unite + ". " + a.detail;
+        regle + "\nSur " + ctx.per.libelle + ", " + fmtNombre(bloques.length) + " " +
+        pluriel(bloques.length, "équipe") + " sur " + fmtNombre(lignes.length) + " " +
+        pluriel(bloques.length, "est", "sont") + " bloquée" + (bloques.length >= 2 ? "s" : "") +
+        ", soit " + fmtF(mBloque) + " non débloquables. " + fmtF(mLibre) +
+        " peuvent être refinancés immédiatement.\n" +
+        bloques.slice(0, 12).map(function (x) {
+          return "· " + x.nom + " (" + (x.cluster || "cluster non renseigné") + ") — " + x.motifs[0];
+        }).join("\n") +
+        (bloques.length > 12 ? "\n(+" + (bloques.length - 12) + " autres)" : "") + dateTxt,
+        ch, ctx.src);
+    },
+
+    /* ---- Sacherie --------------------------------------------------------- */
+    sacsPortee: function (ctx) {
+      var etat = ctx.etat, per = ctx.per;
+      if (per.type === "global") {
+        return reponse(
+          "Sacherie au " + fmtDateLongue(etat.dateRef) + " : " + fmtNombre(etat.sacs.rtTotal) +
+          " sacs en main des équipes RT, " + fmtNombre(etat.sacs.clusterTotal) + " en cluster, " +
+          fmtNombre(etat.sacs.distribues) + " distribués aux producteurs, " +
+          fmtNombre(etat.sacs.dechires) + " déchirés ou perdus.",
+          [
+            { libelle: "En main RT", valeur: fmtNombre(etat.sacs.rtTotal) },
+            { libelle: "En cluster", valeur: fmtNombre(etat.sacs.clusterTotal) },
+            { libelle: "Distribués", valeur: fmtNombre(etat.sacs.distribues) },
+            { libelle: "Déchirés", valeur: fmtNombre(etat.sacs.dechires) }
+          ], ctx.src);
+      }
+      return reponse(
+        "Le solde de sacs de " + per.libelle + " est de " + fmtNombre(per.sacs) + " " +
+        pluriel(per.sacs, "sac") + "." +
+        (per.sacs < 0 ? " Solde NÉGATIF : une entrée de sacs manque à la saisie." : "") +
+        " Données FBMS arrêtées au " + fmtDateLongue(etat.dateRef) + ".",
+        [{ libelle: "Solde sacs", valeur: fmtNombre(per.sacs) }], ctx.src);
+    },
+
+    sacsNegatifs: function (ctx) {
+      var s = ctx.etat.sacs, total = s.negRt + s.negCluster + s.negProd;
+      if (!total) {
+        return reponse(
+          "Aucun solde de sacs négatif au " + fmtDateLongue(ctx.etat.dateRef) +
+          " : les mouvements de sacherie sont cohérents.",
+          [{ libelle: "Soldes négatifs", valeur: "0" }], ctx.src);
+      }
+      return reponse(
+        fmtNombre(total) + " " + pluriel(total, "solde") + " de sacs " + pluriel(total, "est", "sont") +
+        " négatif" + (total >= 2 ? "s" : "") + " au " + fmtDateLongue(ctx.etat.dateRef) + " : " +
+        s.negRt + " côté équipes RT, " + s.negCluster + " côté clusters, " + s.negProd +
+        " côté producteurs. Un solde négatif est une anomalie de saisie — sortie non couverte " +
+        "par une entrée, ou double comptage — jamais un stock.",
+        [
+          { libelle: "Équipes RT", valeur: String(s.negRt) },
+          { libelle: "Clusters", valeur: String(s.negCluster) },
+          { libelle: "Producteurs", valeur: String(s.negProd) }
+        ], ctx.src);
+    },
+
+    /* ---- Qualité et traçabilité -------------------------------------------- */
+    qualitePortee: function (ctx) {
+      var per = ctx.per, code = ctx.contrat.intent;
+      var part = per.nbAchats ? (per.sansRecu / per.nbAchats) * 100 : 0;
+      if (code === "quality_missing_receipts") {
+        return reponse(
+          "Pour " + per.libelle + " : " + fmtNombre(per.sansRecu) + " " +
+          pluriel(per.sansRecu, "achat") + " sans reçu sur " + fmtNombre(per.nbAchats) + " " +
+          pluriel(per.nbAchats, "ligne") + " (" + fmtPct(part) + "), pour " +
+          fmtF(per.montantSansRecu) + ". Un achat sans reçu est retiré de l'assiette de " +
+          "refinancement, quel que soit son montant. Données FBMS arrêtées au " +
+          fmtDateLongue(ctx.etat.dateRef) + ".",
+          [
+            { libelle: "Achats sans reçu", valeur: fmtNombre(per.sansRecu) },
+            { libelle: "Montant concerné", valeur: fmtF(per.montantSansRecu) },
+            { libelle: "Part des lignes", valeur: fmtPct(part) }
+          ], ctx.src);
+      }
+      return reponse(
+        "Pour " + per.libelle + " : " + fmtNombre(per.aControler) + " " +
+        pluriel(per.aControler, "achat") + " en contrôle qualité (humidité, KOR ou rejet hors " +
+        "seuil du contrôle amont) et " + fmtNombre(per.horsBareme) + " " +
+        pluriel(per.horsBareme, "achat") + " hors barème de prix, en attente de validation du " +
+        "Branch Manager. Les seuils sont ceux du contrôle amont : l'assistant les lit, il ne " +
+        "les redéfinit pas. Données FBMS arrêtées au " + fmtDateLongue(ctx.etat.dateRef) + ".",
+        [
+          { libelle: "Qualité à contrôler", valeur: fmtNombre(per.aControler) },
+          { libelle: "Hors barème", valeur: fmtNombre(per.horsBareme) }
+        ], ctx.src);
+    },
+
+    /* ---- Pilotage ---------------------------------------------------------- */
+    alertesPrioritaires: function (ctx) {
+      if (!ctx.alertes.length) {
+        return reponse(
+          "Aucune anomalie détectée au " + fmtDateLongue(ctx.etat.dateRef) +
+          " sur les contrôles disponibles. Il n'y a donc rien à traiter en priorité.",
+          [], ctx.src);
+      }
+      var top = ctx.alertes.slice(0, 5);
+      return reponse(
+        "À traiter en priorité au " + fmtDateLongue(ctx.etat.dateRef) + " :\n" +
+        top.map(function (a, i) {
+          return (i + 1) + ". [" + a.severite + "] " + a.titre + " — " + fmtNombre(a.valeur) +
+            " " + a.unite + ". " + a.detail;
         }).join("\n"),
         top.map(function (a) {
           return { libelle: a.titre, valeur: fmtNombre(a.valeur) + " " + a.unite };
-        }), src);
-    }
+        }), ctx.src);
+    },
 
-    /* -- Couverture terrain ------------------------------------------------------ */
-    if (intention.code === "couverture") {
-      var inactifs = etat.villages.inactifs;
-      if (portee.type === "cluster") {
-        inactifs = inactifs.filter(function (v) { return cle(v.cluster) === portee.cle; });
-      }
-      var liste = inactifs.slice(0, 10).map(function (v) {
-        return "· " + (v.nom || "village sans nom") + " (" + (v.cluster || "cluster inconnu") + ") — " +
-          (v.dernierAchat ? v.joursSansAchat + " jour(s) sans achat" : "aucun achat enregistré");
-      }).join("\n");
-      return reponse(
-        "Couverture de " + agg.libelle + " : " + fmtNombre(agg.villages) + " village(s), " +
-        fmtNombre(agg.rt) + " équipe(s) RT" +
-        (portee.type === "global"
-          ? " (cibles : " + etat.couverture.villagesCibles + " villages, " +
-            etat.couverture.rtCibles + " équipes)" : "") + ". " +
-        inactifs.length + " village(s) sans achat depuis plus de " +
-        REFERENTIEL.seuils.villageInactifJours + " jours." + (liste ? "\n" + liste : ""),
-        [
-          { libelle: "Villages", valeur: fmtNombre(agg.villages) },
-          { libelle: "Équipes RT", valeur: fmtNombre(agg.rt) },
-          { libelle: "Villages en sommeil", valeur: String(inactifs.length) }
-        ], src);
-    }
-
-    /* -- Classement ---------------------------------------------------------------- */
-    if (intention.code === "classement") {
-      var pire = /pire|dernier|faible|mauvais|retard|moins/.test(q);
-      var cls = Object.keys(etat.clusters).map(function (k) { return etat.clusters[k]; })
-        .filter(function (c) { return c.estAFLP || c.nbAchats > 0; });
-      cls = trier(cls, function (c) { return c.volumeKg; }, !pire).slice(0, 6);
-      return reponse(
-        (pire ? "Clusters les moins avancés" : "Clusters les plus avancés") + " au " + etat.dateRef + " :\n" +
-        cls.map(function (c, i) {
-          return (i + 1) + ". " + c.label + " (" + c.zone + ") — " + fmtMT(c.volumeKg) + " MT" +
-            (c.pctObjectif != null ? " · " + fmtPct(c.pctObjectif) + " de la quote-part" : "");
-        }).join("\n"),
-        cls.map(function (c) { return { libelle: c.label, valeur: fmtMT(c.volumeKg) + " MT" }; }),
-        src);
-    }
-
-    /* -- Synthèse ------------------------------------------------------------------- */
-    if (intention.code === "synthese") {
-      var syn = synthese(etat, refi, listeAlertes);
+    syntheseJour: function (ctx) {
+      var syn = synthese(ctx.etat, ctx.refi, ctx.alertes);
       return reponse(
         syn.enTete + "\n\n" + syn.decisions.map(function (d, i) {
-          return (i + 1) + ". " + d.action;
+          return (i + 1) + ". " + d.action + " — " + d.pourquoi;
         }).join("\n"),
         [
-          { libelle: "Cumul", valeur: fmtMT(etat.volume.cumulKg) + " MT" },
-          { libelle: "Avancement", valeur: fmtPct(etat.volume.pctObjectif) },
-          { libelle: "RT bloqués", valeur: String(refi.global.rtNoGo) }
-        ], src);
+          { libelle: "Cumul", valeur: fmtMT(ctx.etat.volume.cumulKg) + " MT" },
+          { libelle: "Avancement", valeur: fmtPct(ctx.etat.volume.pctObjectif) },
+          { libelle: "Équipes bloquées", valeur: String(ctx.refi.global.rtNoGo) }
+        ], ctx.src);
+    }
+  };
+
+  /* Filtre commun aux fonctions qui travaillent sur `refi.parRT`. Écrit une
+     seule fois : deux filtres divergents donneraient deux réponses différentes
+     à la même question selon l'intention détectée. */
+  function filtrerRefi(x, scope) {
+    if (!scope || scope.type === "global") return true;
+    if (scope.type === "cluster") return cle(x.cluster) === scope.id;
+    if (scope.type === "zone") return x.zone === scope.id;
+    if (scope.type === "rt") return x.cle === scope.id;
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+     7.4  Répondre
+     ------------------------------------------------------------------------ */
+
+  /* Traduit la confiance numérique du contrat en niveau affichable. Les seuils
+     sont exposés pour que l'interface et les métriques emploient les mêmes. */
+  var SEUILS_CONFIANCE = { haute: 0.8, moyenne: 0.6, faible: 0.3 };
+
+  function niveauConfiance(c) {
+    if (!c) return "nulle";
+    if (c >= SEUILS_CONFIANCE.haute) return "haute";
+    if (c >= SEUILS_CONFIANCE.moyenne) return "moyenne";
+    if (c >= SEUILS_CONFIANCE.faible) return "faible";
+    return "nulle";
+  }
+
+  /* Point d'entrée unique.
+
+     `contratImpose` permet à un appelant — et à lui seul, la couche linguistique
+     étant elle-même serveur — de fournir un contrat déjà construit. Il est
+     REVALIDÉ ici contre le même schéma fermé : un contrat venu d'ailleurs n'a
+     aucun privilège. */
+  function repondre(question, etat, refi, listeAlertes, contratImpose) {
+    var CO = comprehension(), CAT = catalogue();
+    var src = sourcesDe(etat);
+
+    if (!CO || !CAT) {
+      /* Sans catalogue ni couche de compréhension, le moteur ne devine pas :
+         il le dit. Ce cas se produit si une page charge le moteur seul. */
+      return enrichir(reponse(
+        "L'assistant n'est pas complètement chargé : le catalogue des intentions " +
+        "est absent de cette page. Rechargez la page.", [], src, "nulle", QUESTIONS_TYPES),
+        null, null, etat);
     }
 
-    return reponse(
-      "Question comprise partiellement, mais aucun calcul correspondant n'est disponible " +
-      "dans les données chargées.", [], src, "faible", QUESTIONS_TYPES);
+    refi = refi || refinancement(etat);
+    listeAlertes = listeAlertes || alertes(etat, refi);
+
+    var lu;
+    if (contratImpose) {
+      var erreurs = CO.valider(contratImpose);
+      if (erreurs.length) {
+        return enrichir(reponse(
+          "Interprétation refusée : " + erreurs[0] + ". L'assistant ne répond que sur un " +
+          "contrat conforme au catalogue publié.", [], src, "nulle", QUESTIONS_TYPES),
+          { contrat: contratImpose, trace: { motif: "contrat externe refusé" }, erreurs: erreurs },
+          null);
+      }
+      lu = { contrat: contratImpose, trace: { motif: "contrat fourni par l'appelant" }, erreurs: [] };
+    } else {
+      lu = CO.comprendre(question, contexteComprehension(etat));
+    }
+
+    var contrat = lu.contrat;
+    var intention = contrat.intent ? CAT.parCode(contrat.intent) : null;
+
+    /* -- Aucune intention : refus explicite -------------------------------- */
+    if (!intention) {
+      var texte = contrat.clarification_question || CO.questionHorsPerimetre;
+      return enrichir(reponse(texte, [], src, "nulle", QUESTIONS_TYPES), lu, null, etat);
+    }
+
+    /* -- Clarification demandée -------------------------------------------- */
+    if (contrat.requires_clarification) {
+      return enrichir(reponse(
+        contrat.clarification_question, [], src,
+        niveauConfiance(contrat.confidence), QUESTIONS_TYPES), lu, intention, etat);
+    }
+
+    /* -- Donnée absente : refus qui NOMME ce qui manque -------------------- */
+    if (intention.statut === "non_disponible") {
+      return enrichir(reponse(
+        "FBMS ne dispose pas de cette information : " + intention.donneeManquante + ". " +
+        "Je préfère le dire plutôt que produire un chiffre voisin — le nombre d'ÉQUIPES RT " +
+        "n'est pas le nombre de personnes qui les composent. Données FBMS arrêtées au " +
+        fmtDateLongue(etat.dateRef) + ".",
+        [], src, niveauConfiance(contrat.confidence), QUESTIONS_TYPES), lu, intention, etat);
+    }
+
+    /* -- La fonction déterministe doit exister dans le registre ------------ */
+    var fn = Object.prototype.hasOwnProperty.call(FONCTIONS, intention.fonction)
+      ? FONCTIONS[intention.fonction] : null;
+    if (typeof fn !== "function") {
+      return enrichir(reponse(
+        "L'intention « " + intention.nom + " » est publiée mais sa fonction de calcul « " +
+        intention.fonction + " » n'existe pas dans le moteur. Aucune réponse n'est produite : " +
+        "un chiffre inventé serait pire qu'une absence de réponse.",
+        [], src, "nulle", QUESTIONS_TYPES), lu, intention, etat);
+    }
+
+    var ctx = {
+      etat: etat, refi: refi, alertes: listeAlertes, contrat: contrat,
+      intention: intention, per: perimetre(etat, contrat.scope), src: src,
+      normalise: (lu.trace && lu.trace.normalise) || CO.normaliser(question || "")
+    };
+
+    /* Portée nommée mais introuvable dans les données chargées : on le dit. */
+    if (!ctx.per.existe) {
+      return enrichir(reponse(
+        "Aucune donnée n'est chargée pour " + ctx.per.libelle + ". La question est comprise, " +
+        "mais FBMS n'a rien à agréger sur ce périmètre au " + fmtDateLongue(etat.dateRef) + ".",
+        [], src, "faible", QUESTIONS_TYPES), lu, intention, etat);
+    }
+
+    var rep;
+    try {
+      rep = fn(ctx);
+    } catch (e) {
+      return enrichir(reponse(
+        "Le calcul a échoué sur les données chargées. Aucun chiffre n'est produit.",
+        [], src, "nulle", QUESTIONS_TYPES), lu, intention, etat);
+    }
+    if (!rep.confiance || rep.confiance === "haute") rep.confiance = niveauConfiance(contrat.confidence);
+    return enrichir(rep, lu, intention, etat);
+  }
+
+  /* Attache au résultat la trace de compréhension. C'est elle qui est
+     journalisée : sans elle, on mesure la satisfaction, jamais la
+     compréhension. Aucun chiffre métier n'y figure. */
+  function enrichir(rep, lu, intention, etat) {
+    rep.contrat = lu ? lu.contrat : null;
+    rep.trace = lu ? lu.trace : null;
+    rep.intention = intention ? {
+      code: intention.code, nom: intention.nom, statut: intention.statut,
+      fonction: intention.fonction
+    } : null;
+    rep.confianceNum = lu && lu.contrat ? lu.contrat.confidence : 0;
+    rep.versionCatalogue = catalogue() ? catalogue().version : null;
+    rep.versionMoteur = VERSION;
+    rep.dateReference = etat ? etat.dateRef : null;
+    return rep;
   }
 
   /* ==========================================================================
@@ -1368,9 +2032,23 @@
     syntheseTexte: syntheseTexte,
     repondre: repondre,
     questionsTypes: QUESTIONS_TYPES,
+    /* Exposés pour la couche linguistique et pour les contrôles automatisés.
+       `contexteComprehension` est volontairement le SEUL point par lequel des
+       noms de lieux sortent du moteur : il ne laisse passer aucun chiffre. */
+    contexteComprehension: contexteComprehension,
+    perimetre: perimetre,
+    niveauConfiance: niveauConfiance,
+    seuilsConfiance: SEUILS_CONFIANCE,
+    /* Liste blanche des calculs atteignables depuis un contrat. Le banc d'essai
+       vérifie qu'aucune intention publiée ne désigne autre chose, et qu'aucune
+       de ces fonctions ne mute quoi que ce soit. */
+    fonctionsDisponibles: Object.keys(FONCTIONS),
     /* Utilitaires exposés pour que l'interface formate exactement comme le
        moteur, sans redéfinir ses propres arrondis. */
-    format: { nombre: fmtNombre, mt: fmtMT, francs: fmtF, pourcent: fmtPct, jour: jour, cle: cle }
+    format: {
+      nombre: fmtNombre, mt: fmtMT, francs: fmtF, pourcent: fmtPct,
+      jour: jour, cle: cle, dateLongue: fmtDateLongue, pluriel: pluriel
+    }
   };
 
   global.AFLP_IA = API;

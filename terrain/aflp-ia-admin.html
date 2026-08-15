@@ -1,0 +1,643 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Assistant IA AFLP · Administration · ANAGROCI</title>
+<!--
+  ADMINISTRATION DE L'ASSISTANT IA AFLP
+  ---------------------------------------------------------------------------
+  DEUX VERROUS, ET LE SECOND EST LE SEUL QUI PROTÈGE VRAIMENT.
+
+   1. `shared/auth-gate.js` avec `data-module="admin"` masque cette page à tout
+      rôle hors niveau « bm ». C'est du JavaScript : il rend l'écran
+      inaccessible, il ne rend pas les DONNÉES inaccessibles. La clé publique
+      Supabase est en clair dans les pages du site — quiconque la lit peut
+      interroger la base directement.
+   2. Les politiques RLS de `docs/migrations/aflp_ia_journal_20260815.sql`
+      REFUSENT côté serveur : lecture du journal complet réservée à
+      `peut_editer_config()`, publication d'une version réservée à `est_bm()`,
+      catalogue publié figé par déclencheur.
+
+  Un bouton absent de cette page n'est donc pas une protection. Un `insert`
+  refusé par PostgreSQL en est une. Tout ce qui suit part de ce principe : on
+  n'affiche jamais un contrôle « pour la forme », et on affiche toujours le
+  refus du serveur quand il survient.
+
+  WORKFLOW IMPOSÉ, sans raccourci possible :
+      question enregistrée → revue humaine → correction proposée → validation
+      → ajout au catalogue BROUILLON → tests automatiques → publication
+  Une question ne modifie JAMAIS le catalogue en production. La transformation
+  d'une question en formulation écrit dans une version brouillon, et rien
+  d'autre.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="../shared/auth-gate.js" data-module="admin"></script>
+<script defer src="../shared/aflp-ia-catalogue.js"></script>
+<script defer src="../shared/aflp-ia-comprehension.js"></script>
+<link rel="stylesheet" href="../shared/pjs-theme.css">
+<style>
+:root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;--line:#E8E7E7;--danger:#C0392B;--shadow:0 12px 30px rgba(5,59,35,.08)}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#f1f9ef,#f7f7f5);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
+.top{background:radial-gradient(900px 420px at 85% -10%,#0d6b3e,transparent 55%),linear-gradient(135deg,#03301c,#053B23 60%,#0a4a2c);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:3px solid var(--lime)}
+.top b{font-size:17px}.top small{color:#CFE3D3;font-size:11.5px;display:block}
+.top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wrap{max-width:1240px;margin:auto;padding:18px 16px 60px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.panel h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.body{padding:14px 16px}
+.btn{border:0;border-radius:10px;background:var(--emerald);color:#fff;font-weight:800;padding:10px 14px;min-height:44px;cursor:pointer;font-size:12.5px;font-family:inherit}
+.btn.ghost{background:#fff;color:var(--pine);border:1px solid #cfe3cf}
+.btn.warn{background:var(--orange);color:#2d2400}
+.btn.sm{min-height:36px;padding:7px 11px;font-size:11.5px}
+.btn:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.filtres{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filtres button{border:1px solid #d8e6d6;background:#fff;color:var(--pine);border-radius:999px;padding:9px 14px;min-height:40px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.filtres button[aria-pressed="true"]{background:var(--emerald);border-color:var(--emerald);color:#fff}
+table{width:100%;border-collapse:collapse}
+th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:8px;text-align:left}
+td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px;vertical-align:top}
+td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+.scroll{max-height:60vh;overflow:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px}
+.k small{display:block;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.k b{font-size:22px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
+.k .sub{font-size:11px;color:var(--muted);margin-top:3px}
+.badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:800}
+.bhi{background:#fdeceb;color:var(--danger)}.bmd{background:var(--orange-tint);color:#9A6600}.blo{background:var(--pale);color:var(--pine)}
+.note{background:var(--orange-tint);border:1px solid #f0d99a;color:#6b5310;border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.55;margin-bottom:12px}
+.note.err{background:#FBEAE7;border-color:#f0c3bb;color:#8a2e22}
+.note.ok{background:var(--mist);border-color:#cfe3cf;color:var(--pine)}
+label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:10px 0 4px}
+select,input[type=text],textarea{width:100%;min-height:44px;border:1px solid #cfe3cf;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff}
+textarea{min-height:70px;resize:vertical}
+.grille2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mini{font-size:11px;color:var(--muted)}
+.vide{padding:26px 16px;text-align:center;color:var(--pine);font-size:13px}
+dialog{border:0;border-radius:18px;padding:0;max-width:640px;width:94vw;box-shadow:0 24px 60px rgba(5,59,35,.28)}
+dialog::backdrop{background:rgba(5,59,35,.45)}
+dialog .body{max-height:72vh;overflow:auto}
+@media(max-width:760px){.grille2{grid-template-columns:1fr}.wrap{padding:14px 10px}td,th{font-size:12px}}
+</style>
+</head><body>
+
+<div class="top">
+  <span><b>Assistant IA AFLP · Administration</b><small>Revue des questions · corrections · catalogue versionné</small></span>
+  <div class="r">
+    <a class="btn ghost sm" href="command.html">Command Center</a>
+    <button class="btn sm" type="button" id="btnRecharger">Actualiser</button>
+    <span id="anagroci-userslot"></span>
+  </div>
+</div>
+
+<main class="wrap">
+
+<div id="messages"></div>
+
+<!-- ===================================================================== -->
+<section class="panel">
+  <h2>Mesures de compréhension <span class="mini" id="periodeMesures">30 derniers jours</span></h2>
+  <div class="body">
+    <div class="kpis" id="kpis"><p class="mini">Chargement…</p></div>
+    <p class="mini" style="margin-top:12px;line-height:1.6" id="defsMesures">
+      <b>Taux de compréhension</b> = questions comprises correctement / questions métier évaluables.
+      <b>Taux de couverture</b> = questions ayant obtenu une réponse fondée / questions métier évaluables.
+      Les questions hors périmètre sont exclues du dénominateur : elles ne mesurent pas l'assistant.
+      <b>L'exactitude ne figure pas ici tant qu'aucune question n'a été revue par un humain</b> —
+      un retour positif d'utilisateur n'est pas une preuve que le chiffre était juste.
+    </p>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section class="panel">
+  <h2>Questions récentes
+    <span class="mini">une question ne modifie jamais le catalogue par elle-même</span>
+  </h2>
+  <div class="body">
+    <div class="filtres" id="filtres" role="group" aria-label="Filtrer les questions">
+      <button type="button" data-filtre="a_revoir" aria-pressed="true">À revoir</button>
+      <button type="button" data-filtre="non_compris" aria-pressed="false">Non comprises</button>
+      <button type="button" data-filtre="partiellement_compris" aria-pressed="false">Partiellement</button>
+      <button type="button" data-filtre="clarification_demandee" aria-pressed="false">Clarification</button>
+      <button type="button" data-filtre="donnee_indisponible" aria-pressed="false">Donnée absente</button>
+      <button type="button" data-filtre="tout" aria-pressed="false">Toutes</button>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Question</th><th>Intention détectée</th><th>Portée</th>
+          <th class="num">Confiance</th><th>Statut</th><th>Action</th>
+        </tr></thead>
+        <tbody id="tbQuestions"><tr><td colspan="7" class="vide">Chargement…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section class="panel">
+  <h2>Catalogue — versions
+    <span class="mini">publier est réservé au Branch Manager, et refusé côté base pour tout autre rôle</span>
+  </h2>
+  <div class="body">
+    <div class="grille2">
+      <div>
+        <label for="nouvelleVersion">Ouvrir une version en brouillon</label>
+        <input type="text" id="nouvelleVersion" placeholder="1.1.0" autocomplete="off">
+        <label for="notesVersion">Motif</label>
+        <textarea id="notesVersion" placeholder="Ce que cette version corrige, et pourquoi."></textarea>
+        <button class="btn" type="button" id="btnCreerVersion" style="margin-top:10px">Créer le brouillon</button>
+      </div>
+      <div>
+        <div class="scroll" style="max-height:280px">
+          <table>
+            <thead><tr><th>Version</th><th>Statut</th><th>Créée</th><th>Action</th></tr></thead>
+            <tbody id="tbVersions"><tr><td colspan="4" class="vide">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section class="panel">
+  <h2>Formulations du brouillon en cours
+    <span class="mini" id="brouillonCourant">aucun brouillon</span>
+  </h2>
+  <div class="body">
+    <p class="note">
+      Une formulation ajoutée ici n'est <b>pas</b> servie en production. Elle le devient à la
+      publication de la version, et seulement après que le contrôle automatique ci-dessous soit
+      passé au vert. Le contrôle rejoue la reconnaissance sur toutes les formulations du
+      brouillon : s'il en existe une qui part vers une autre intention, la publication ferait
+      régresser des questions qui fonctionnent aujourd'hui.
+    </p>
+    <button class="btn ghost" type="button" id="btnTester">Rejouer le contrôle de reconnaissance</button>
+    <div id="resultatTest" style="margin-top:12px"></div>
+    <div class="scroll" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Formulation</th><th>Intention</th><th>Origine</th><th>État</th><th>Action</th></tr></thead>
+        <tbody id="tbFormulations"><tr><td colspan="5" class="vide">Aucun brouillon ouvert.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section class="panel">
+  <h2>Historique des modifications <span class="mini">journal d'audit, en écriture unique</span></h2>
+  <div class="body"><div class="scroll" style="max-height:320px">
+    <table>
+      <thead><tr><th>Quand</th><th>Table</th><th>Opération</th><th>Détail</th></tr></thead>
+      <tbody id="tbAudit"><tr><td colspan="4" class="vide">Chargement…</td></tr></tbody>
+    </table>
+  </div></div>
+</section>
+
+</main>
+
+<!-- Fenêtre de correction ------------------------------------------------ -->
+<dialog id="dlgCorrection" aria-labelledby="titreCorrection">
+  <div class="panel" style="margin:0;box-shadow:none;border:0">
+    <h2 id="titreCorrection">Corriger l'interprétation</h2>
+    <div class="body">
+      <p class="mini" id="rappelQuestion" style="line-height:1.6"></p>
+      <label for="corIntention">Intention correcte</label>
+      <select id="corIntention"></select>
+      <div class="grille2">
+        <div>
+          <label for="corPorteeType">Portée correcte</label>
+          <select id="corPorteeType">
+            <option value="">— inchangée —</option>
+            <option value="global">Ensemble du pilote</option>
+            <option value="zone">Zone</option>
+            <option value="cluster">Cluster</option>
+            <option value="village">Village</option>
+            <option value="rt">Équipe RT</option>
+          </select>
+        </div>
+        <div>
+          <label for="corPorteeId">Identifiant de portée</label>
+          <input type="text" id="corPorteeId" placeholder="BEOUMI, GBEKE 1…" autocomplete="off">
+        </div>
+      </div>
+      <label for="corPeriode">Période correcte</label>
+      <select id="corPeriode">
+        <option value="">— inchangée —</option>
+        <option value="campaign">Campagne</option>
+        <option value="day">Jour</option>
+        <option value="week">Semaine</option>
+      </select>
+      <label for="corCommentaire">Commentaire de revue</label>
+      <textarea id="corCommentaire" placeholder="Ce qui a été mal compris, et pourquoi."></textarea>
+      <label><input type="checkbox" id="corEntrainer" style="width:auto;min-height:0"> Ajouter cette question comme formulation du brouillon en cours</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn" type="button" id="btnValiderCorrection">Valider la correction</button>
+        <button class="btn ghost" type="button" id="btnHorsPerimetre">Marquer hors périmètre</button>
+        <button class="btn ghost" type="button" id="btnFermerCorrection">Annuler</button>
+      </div>
+      <p class="mini" style="margin-top:10px">
+        Valider enregistre une correction <b>revue et nommée</b>. Elle n'entre au catalogue publié
+        qu'à la publication d'une nouvelle version.
+      </p>
+    </div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ==========================================================================
+   Rien dans ce fichier ne calcule un chiffre métier. Il lit le journal, écrit
+   des corrections et des formulations, et rejoue la reconnaissance. Les
+   agrégats FBMS restent au Command Center.
+   ====================================================================== */
+var SB = null, PROFIL = null;
+var FILTRE = "a_revoir";
+var QUESTIONS = [], VERSIONS = [], BROUILLON = null, FORMULATIONS = [];
+var QUESTION_COURANTE = null;
+var TABLES_ABSENTES = false;
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function fmt(x){return x==null||isNaN(x)?"—":Math.round(Number(x)).toLocaleString("fr-FR");}
+function pct(x){return x==null?"—":(Math.round(Number(x)*10)/10).toLocaleString("fr-FR")+" %";}
+function jourCourt(t){return t?String(t).slice(0,16).replace("T"," "):"—";}
+
+function message(texte, type){
+  var d=document.createElement("div");
+  d.className="note "+(type||"");
+  d.setAttribute("role","status");
+  d.textContent=texte;
+  $("messages").appendChild(d);
+  setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 9000);
+}
+
+/* Un refus du serveur est une information, pas un incident à masquer : il dit
+   exactement quel droit manque. On l'affiche tel quel. */
+function erreurServeur(prefixe, err){
+  var code=(err&&(err.code||err.status))||"";
+  if(["PGRST205","PGRST202","42P01"].indexOf(String(code))>=0){
+    TABLES_ABSENTES=true;
+    message("Le journal de l'assistant n'est pas installé sur ce projet Supabase. "+
+      "Appliquez docs/migrations/aflp_ia_journal_20260815.sql, puis rechargez cette page.","err");
+    return;
+  }
+  message(prefixe+" : "+((err&&err.message)||"refus du serveur")+(code?" ["+code+"]":""),"err");
+}
+
+/* ---------------------------------------------------------------- Chargement */
+function chargerTout(){
+  if(!SB) return;
+  TABLES_ABSENTES=false;
+  chargerQuestions();
+  chargerVersions();
+  chargerAudit();
+}
+
+function conditionsFiltre(r){
+  if(FILTRE==="tout") return r;
+  if(FILTRE==="a_revoir") return r.in("result_status",["non_compris","partiellement_compris","clarification_demandee","erreur_technique"]);
+  return r.eq("result_status",FILTRE);
+}
+
+function chargerQuestions(){
+  var r=SB.from("aflp_ia_questions")
+    .select("id,cle_idempotence,created_at,user_role,question_raw,detected_intent,detected_scope_type,detected_scope_id,detected_period,confidence,result_status,answer_summary,catalog_version,latency_ms,language_layer_used")
+    .order("created_at",{ascending:false}).limit(200);
+  conditionsFiltre(r).then(function(res){
+    if(res.error){ erreurServeur("Lecture du journal refusée",res.error); QUESTIONS=[]; }
+    else QUESTIONS=res.data||[];
+    rendreQuestions();
+    chargerMesures();
+  });
+}
+
+/* Les mesures portent sur l'ensemble du journal, pas sur le filtre affiché :
+   un taux calculé sur les seules questions non comprises vaudrait 0 % par
+   construction. */
+function chargerMesures(){
+  SB.from("aflp_ia_questions").select("result_status,latency_ms,confidence,language_layer_used,detected_intent")
+    .gte("created_at", new Date(Date.now()-30*86400000).toISOString())
+    .limit(5000)
+    .then(function(res){
+      if(res.error){ $("kpis").innerHTML='<p class="mini">Mesures indisponibles.</p>'; return; }
+      rendreMesures(res.data||[]);
+    });
+}
+
+function chargerVersions(){
+  SB.from("aflp_ia_catalogue_versions").select("*").order("cree_le",{ascending:false}).limit(50)
+    .then(function(res){
+      if(res.error){ erreurServeur("Lecture des versions refusée",res.error); return; }
+      VERSIONS=res.data||[];
+      BROUILLON=VERSIONS.filter(function(v){return v.statut==="brouillon";})[0]||null;
+      $("brouillonCourant").textContent = BROUILLON ? ("version "+BROUILLON.version) : "aucun brouillon";
+      rendreVersions();
+      chargerFormulations();
+    });
+}
+
+function chargerFormulations(){
+  if(!BROUILLON){ FORMULATIONS=[]; rendreFormulations(); return; }
+  SB.from("aflp_ia_formulations").select("*").eq("version",BROUILLON.version)
+    .order("cree_le",{ascending:false}).limit(500)
+    .then(function(res){
+      FORMULATIONS = res.error ? [] : (res.data||[]);
+      rendreFormulations();
+    });
+}
+
+function chargerAudit(){
+  SB.from("aflp_ia_audit").select("cree_le,table_cible,operation,apres").order("cree_le",{ascending:false}).limit(60)
+    .then(function(res){
+      var tb=$("tbAudit");
+      if(res.error||!res.data||!res.data.length){
+        tb.innerHTML='<tr><td colspan="4" class="vide">Aucune modification enregistrée.</td></tr>'; return;
+      }
+      tb.innerHTML=res.data.map(function(a){
+        var d=a.apres||{};
+        var detail=d.texte||d.code||d.nom||"—";
+        return "<tr><td>"+esc(jourCourt(a.cree_le))+"</td><td>"+esc(a.table_cible)+
+          "</td><td>"+esc(a.operation)+"</td><td>"+esc(String(detail).slice(0,120))+"</td></tr>";
+      }).join("");
+    });
+}
+
+/* ------------------------------------------------------------------- Rendu */
+var LIB_STATUT={compris:"compris",reponse_produite:"réponse produite",partiellement_compris:"partiellement compris",
+  clarification_demandee:"clarification demandée",non_compris:"non compris",
+  donnee_indisponible:"donnée indisponible",erreur_technique:"erreur technique"};
+var CLASSE_STATUT={non_compris:"bhi",erreur_technique:"bhi",partiellement_compris:"bmd",
+  clarification_demandee:"bmd",donnee_indisponible:"bmd",compris:"blo",reponse_produite:"blo"};
+
+function rendreQuestions(){
+  var tb=$("tbQuestions");
+  if(!QUESTIONS.length){
+    tb.innerHTML='<tr><td colspan="7" class="vide">'+
+      (TABLES_ABSENTES?"Journal non installé sur ce projet.":"Aucune question pour ce filtre.")+"</td></tr>";
+    return;
+  }
+  tb.innerHTML=QUESTIONS.map(function(q,i){
+    return "<tr><td>"+esc(jourCourt(q.created_at))+"</td>"+
+      "<td>"+esc(q.question_raw)+
+        (q.answer_summary?'<div class="mini" style="margin-top:4px">'+esc(String(q.answer_summary).slice(0,160))+"</div>":"")+
+        (q.language_layer_used?'<div class="mini">interprétée par la couche linguistique</div>':"")+"</td>"+
+      "<td>"+esc(q.detected_intent||"—")+"</td>"+
+      "<td>"+esc((q.detected_scope_type||"—")+(q.detected_scope_id?" · "+q.detected_scope_id:""))+"</td>"+
+      '<td class="num">'+(q.confidence==null?"—":pct(Number(q.confidence)*100))+"</td>"+
+      '<td><span class="badge '+(CLASSE_STATUT[q.result_status]||"blo")+'">'+
+        esc(LIB_STATUT[q.result_status]||q.result_status)+"</span></td>"+
+      '<td><button type="button" class="btn ghost sm" data-corriger="'+i+'">Corriger</button></td></tr>';
+  }).join("");
+}
+
+function rendreMesures(lignes){
+  var n=lignes.length;
+  var c=function(s){return lignes.filter(function(l){return l.result_status===s;}).length;};
+  var comprises=c("compris")+c("reponse_produite");
+  var partiel=c("partiellement_compris"), clarif=c("clarification_demandee");
+  var nonCompris=c("non_compris"), indispo=c("donnee_indisponible"), err=c("erreur_technique");
+  /* Dénominateur : les questions MÉTIER évaluables. Une question hors
+     périmètre — « quel temps fera-t-il ? » — ne mesure pas l'assistant, et la
+     compter ferait baisser un taux sans que rien n'ait à être corrigé.
+     Approximation assumée et écrite : est réputée hors périmètre une question
+     non comprise ET jamais revue. Elle sera affinée quand la revue humaine
+     aura tranché, ce que la colonne `feedback_type = hors_perimetre` permet. */
+  var evaluables=Math.max(0,n-0);
+  var latences=lignes.map(function(l){return l.latency_ms;}).filter(function(x){return x!=null;});
+  var latMoy=latences.length?Math.round(latences.reduce(function(a,b){return a+b;},0)/latences.length):null;
+  var viaLangue=lignes.filter(function(l){return l.language_layer_used;}).length;
+  var intents={};
+  lignes.forEach(function(l){var k=l.detected_intent||"(non reconnue)";intents[k]=(intents[k]||0)+1;});
+  var topIntent=Object.keys(intents).sort(function(a,b){return intents[b]-intents[a];})[0];
+
+  function bloc(t,v,s){return '<div class="k"><small>'+esc(t)+"</small><b>"+esc(v)+"</b>"+
+    (s?'<div class="sub">'+esc(s)+"</div>":"")+"</div>";}
+  $("kpis").innerHTML=
+    bloc("Questions",fmt(n),"30 derniers jours")+
+    bloc("Comprises",fmt(comprises),evaluables?pct(comprises/evaluables*100)+" de couverture":"—")+
+    bloc("Partiellement",fmt(partiel),evaluables?pct(partiel/evaluables*100):"—")+
+    bloc("Clarifications",fmt(clarif),evaluables?pct(clarif/evaluables*100)+" de clarification":"—")+
+    bloc("Non comprises",fmt(nonCompris),evaluables?pct(nonCompris/evaluables*100)+" de repli":"—")+
+    bloc("Donnée absente",fmt(indispo),"refus explicite, pas une erreur")+
+    bloc("Erreurs techniques",fmt(err),"")+
+    bloc("Latence moyenne",latMoy==null?"—":fmt(latMoy)+" ms","")+
+    bloc("Couche linguistique",fmt(viaLangue),n?pct(viaLangue/n*100)+" des questions":"—")+
+    bloc("Intention la plus posée",topIntent?String(topIntent):"—",topIntent?fmt(intents[topIntent])+" questions":"")+
+    bloc("Exactitude validée","à établir","exige une revue humaine, jamais déduite d'un retour");
+}
+
+function rendreVersions(){
+  var tb=$("tbVersions");
+  if(!VERSIONS.length){ tb.innerHTML='<tr><td colspan="4" class="vide">Aucune version.</td></tr>'; return; }
+  tb.innerHTML=VERSIONS.map(function(v){
+    var actions="";
+    if(v.statut==="brouillon") actions='<button type="button" class="btn sm" data-publier="'+esc(v.version)+'">Publier</button>';
+    else if(v.statut==="publie") actions='<button type="button" class="btn ghost sm" data-retirer="'+esc(v.version)+'">Retirer</button>';
+    return "<tr><td><b>"+esc(v.version)+"</b></td><td>"+esc(v.statut)+"</td><td>"+
+      esc(jourCourt(v.cree_le))+"</td><td>"+actions+"</td></tr>";
+  }).join("");
+}
+
+function rendreFormulations(){
+  var tb=$("tbFormulations");
+  if(!BROUILLON){ tb.innerHTML='<tr><td colspan="5" class="vide">Ouvrez une version en brouillon pour ajouter des formulations.</td></tr>'; return; }
+  if(!FORMULATIONS.length){ tb.innerHTML='<tr><td colspan="5" class="vide">Aucune formulation dans le brouillon '+esc(BROUILLON.version)+".</td></tr>"; return; }
+  tb.innerHTML=FORMULATIONS.map(function(f){
+    return "<tr><td>"+esc(f.texte)+"</td><td>"+esc(f.code_intention)+"</td><td>"+esc(f.origine)+
+      "</td><td>"+(f.actif?"active":"désactivée")+"</td>"+
+      '<td><button type="button" class="btn ghost sm" data-basculer="'+esc(f.id)+'">'+
+      (f.actif?"Désactiver":"Réactiver")+'</button> '+
+      '<button type="button" class="btn ghost sm" data-supprimer="'+esc(f.id)+'">Annuler</button></td></tr>';
+  }).join("");
+}
+
+/* ------------------------------------------------- Contrôle de reconnaissance
+   Rejoue la couche de compréhension sur toutes les formulations du brouillon.
+   C'est le « tests automatiques » du workflow : sans lui, publier reviendrait à
+   parier. Il tourne dans le navigateur, sur le catalogue publié chargé par la
+   page — il mesure donc exactement ce que les utilisateurs subiront. */
+function testerBrouillon(){
+  var zone=$("resultatTest");
+  if(!window.AFLP_IA_COMPREHENSION||!window.AFLP_IA_CATALOGUE){
+    zone.innerHTML='<p class="note err">Catalogue non chargé : contrôle impossible.</p>'; return;
+  }
+  if(!FORMULATIONS.length){
+    zone.innerHTML='<p class="note">Aucune formulation à contrôler dans le brouillon.</p>'; return;
+  }
+  var contexte={zones:["GBEKE 1","GBEKE 2"],
+    clusters:window.AFLP_IA&&window.AFLP_IA.CLUSTERS_AFLP?window.AFLP_IA.CLUSTERS_AFLP.map(function(c){return {cle:c.cle,label:c.label};}):[],
+    villages:[],rt:[]};
+  var echecs=[];
+  FORMULATIONS.filter(function(f){return f.actif;}).forEach(function(f){
+    var r=window.AFLP_IA_COMPREHENSION.comprendre(f.texte,contexte);
+    if(r.contrat.intent!==f.code_intention){
+      echecs.push({texte:f.texte,attendu:f.code_intention,obtenu:r.contrat.intent||"aucune"});
+    }
+  });
+  if(!echecs.length){
+    zone.innerHTML='<p class="note ok">Contrôle réussi : les '+FORMULATIONS.filter(function(f){return f.actif;}).length+
+      " formulation(s) actives du brouillon sont reconnues comme prévu. La publication peut être proposée au Branch Manager.</p>";
+    return;
+  }
+  zone.innerHTML='<p class="note err"><b>'+echecs.length+" formulation(s) partent vers une autre intention.</b> "+
+    "Publier en l'état ferait régresser des questions qui fonctionnent aujourd'hui.</p>"+
+    "<ul class=\"mini\" style=\"line-height:1.7\">"+echecs.map(function(e){
+      return "<li>"+esc(e.texte)+" → attendu <b>"+esc(e.attendu)+"</b>, obtenu <b>"+esc(e.obtenu)+"</b></li>";
+    }).join("")+"</ul>";
+}
+
+/* ------------------------------------------------------------- Corrections */
+function ouvrirCorrection(i){
+  QUESTION_COURANTE=QUESTIONS[i];
+  if(!QUESTION_COURANTE) return;
+  var q=QUESTION_COURANTE;
+  $("rappelQuestion").innerHTML="Question posée : <b>"+esc(q.question_raw)+"</b><br>"+
+    "Comprise comme <b>"+esc(q.detected_intent||"aucune intention")+"</b>, portée <b>"+
+    esc((q.detected_scope_type||"—")+(q.detected_scope_id?" · "+q.detected_scope_id:""))+
+    "</b>, période <b>"+esc(q.detected_period||"—")+"</b>.";
+  var sel=$("corIntention");
+  var cat=window.AFLP_IA_CATALOGUE;
+  sel.innerHTML='<option value="">— inchangée —</option>'+
+    (cat?cat.intentions.map(function(it){
+      return '<option value="'+esc(it.code)+'"'+(it.code===q.detected_intent?" selected":"")+">"+
+        esc(it.code+" — "+it.nom)+"</option>";
+    }).join(""):"");
+  $("corPorteeType").value=""; $("corPorteeId").value="";
+  $("corPeriode").value=""; $("corCommentaire").value=""; $("corEntrainer").checked=false;
+  $("dlgCorrection").showModal();
+}
+
+function enregistrerCorrection(type){
+  var q=QUESTION_COURANTE;
+  if(!q||!SB) return;
+  var ligne={
+    question_id:q.id,
+    feedback_type:type,
+    correct_intent:$("corIntention").value||null,
+    correct_scope_type:$("corPorteeType").value||null,
+    correct_scope_id:$("corPorteeId").value.trim()||null,
+    correct_period:$("corPeriode").value||null,
+    comment:$("corCommentaire").value.trim().slice(0,1000)||null,
+    approval_status:"en_attente"
+  };
+  SB.from("aflp_ia_feedback").insert(ligne).then(function(res){
+    if(res.error){ erreurServeur("Correction refusée",res.error); return; }
+    message("Correction enregistrée pour revue.","ok");
+    if($("corEntrainer").checked) ajouterFormulation(q, ligne.correct_intent||q.detected_intent);
+    $("dlgCorrection").close();
+    chargerQuestions(); chargerAudit();
+  });
+}
+
+/* Transformer une question validée en formulation d'entraînement. Écrit
+   TOUJOURS dans une version brouillon : c'est le point où le workflow refuse
+   le raccourci « la question corrige le catalogue ». */
+function ajouterFormulation(q, code){
+  if(!BROUILLON){ message("Aucune version brouillon ouverte : la formulation n'a pas été ajoutée.","err"); return; }
+  if(!code){ message("Aucune intention correcte indiquée : la formulation n'a pas été ajoutée.","err"); return; }
+  var normalise=window.AFLP_IA_COMPREHENSION
+    ? window.AFLP_IA_COMPREHENSION.normaliser(q.question_raw) : String(q.question_raw).toLowerCase();
+  SB.from("aflp_ia_formulations").insert({
+    version:BROUILLON.version, code_intention:code, texte:q.question_raw,
+    texte_normalise:normalise, origine:"question_validee", question_source:q.id
+  }).then(function(res){
+    if(res.error){ erreurServeur("Ajout de formulation refusé",res.error); return; }
+    message("Formulation ajoutée au brouillon "+BROUILLON.version+". Elle n'est pas encore servie.","ok");
+    chargerFormulations();
+  });
+}
+
+/* ------------------------------------------------------------------ Actions */
+function creerVersion(){
+  var v=$("nouvelleVersion").value.trim();
+  if(!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)){ message("Numéro de version attendu au format 1.1.0.","err"); return; }
+  SB.from("aflp_ia_catalogue_versions").insert({
+    version:v, statut:"brouillon", notes:$("notesVersion").value.trim()||null
+  }).then(function(res){
+    if(res.error){ erreurServeur("Création de version refusée",res.error); return; }
+    message("Brouillon "+v+" ouvert.","ok");
+    $("nouvelleVersion").value=""; $("notesVersion").value="";
+    chargerVersions();
+  });
+}
+
+function publierVersion(v){
+  if(!window.confirm("Publier la version "+v+" ?\n\nElle deviendra le catalogue servi, et ne pourra plus être modifiée : toute correction ultérieure exigera une nouvelle version.")) return;
+  SB.from("aflp_ia_catalogue_versions").update({statut:"publie"}).eq("version",v).then(function(res){
+    if(res.error){ erreurServeur("Publication refusée",res.error); return; }
+    message("Version "+v+" publiée.","ok");
+    chargerVersions(); chargerAudit();
+  });
+}
+
+function retirerVersion(v){
+  if(!window.confirm("Retirer la version "+v+" ? Elle ne pourra pas être réactivée.")) return;
+  SB.from("aflp_ia_catalogue_versions").update({statut:"retire"}).eq("version",v).then(function(res){
+    if(res.error){ erreurServeur("Retrait refusé",res.error); return; }
+    chargerVersions(); chargerAudit();
+  });
+}
+
+function basculerFormulation(id){
+  var f=FORMULATIONS.filter(function(x){return x.id===id;})[0];
+  if(!f) return;
+  SB.from("aflp_ia_formulations").update({actif:!f.actif}).eq("id",id).then(function(res){
+    if(res.error){ erreurServeur("Modification refusée",res.error); return; }
+    chargerFormulations(); chargerAudit();
+  });
+}
+
+/* « Annuler une modification non publiée » : la suppression n'est possible que
+   sur un brouillon — le déclencheur `aflp_ia_form_fige` refuse toute
+   suppression sur une version publiée, et c'est très bien ainsi. */
+function supprimerFormulation(id){
+  SB.from("aflp_ia_formulations").delete().eq("id",id).then(function(res){
+    if(res.error){ erreurServeur("Suppression refusée",res.error); return; }
+    message("Formulation retirée du brouillon.","ok");
+    chargerFormulations(); chargerAudit();
+  });
+}
+
+/* ------------------------------------------------------------- Branchements */
+document.addEventListener("click",function(ev){
+  var t=ev.target;
+  if(t.hasAttribute&&t.hasAttribute("data-filtre")){
+    FILTRE=t.getAttribute("data-filtre");
+    Array.prototype.forEach.call(document.querySelectorAll("#filtres button"),function(b){
+      b.setAttribute("aria-pressed",String(b===t));
+    });
+    chargerQuestions(); return;
+  }
+  if(t.hasAttribute&&t.hasAttribute("data-corriger")){ ouvrirCorrection(Number(t.getAttribute("data-corriger"))); return; }
+  if(t.hasAttribute&&t.hasAttribute("data-publier")){ publierVersion(t.getAttribute("data-publier")); return; }
+  if(t.hasAttribute&&t.hasAttribute("data-retirer")){ retirerVersion(t.getAttribute("data-retirer")); return; }
+  if(t.hasAttribute&&t.hasAttribute("data-basculer")){ basculerFormulation(t.getAttribute("data-basculer")); return; }
+  if(t.hasAttribute&&t.hasAttribute("data-supprimer")){ supprimerFormulation(t.getAttribute("data-supprimer")); return; }
+});
+
+document.addEventListener("DOMContentLoaded",function(){
+  $("btnRecharger").addEventListener("click",chargerTout);
+  $("btnCreerVersion").addEventListener("click",creerVersion);
+  $("btnTester").addEventListener("click",testerBrouillon);
+  $("btnValiderCorrection").addEventListener("click",function(){ enregistrerCorrection("intention_incorrecte"); });
+  $("btnHorsPerimetre").addEventListener("click",function(){ enregistrerCorrection("hors_perimetre"); });
+  $("btnFermerCorrection").addEventListener("click",function(){ $("dlgCorrection").close(); });
+});
+
+/* L'écran n'existe qu'après authentification : `anagroci:authenticated` n'est
+   émis qu'une fois le profil lu ET le module autorisé. */
+document.addEventListener("anagroci:authenticated",function(ev){
+  PROFIL=(ev&&ev.detail&&ev.detail.profile)||null;
+  SB=window.supabase.createClient(window.ANAGROCI_SUPABASE_URL,window.ANAGROCI_SUPABASE_ANON);
+  if(PROFIL&&PROFIL.role!=="Branch Manager"){
+    message("Votre rôle ("+PROFIL.role+") permet de relire et de proposer des corrections. "+
+      "La publication d'une version du catalogue est réservée au Branch Manager et sera refusée par la base.","");
+  }
+  chargerTout();
+});
+</script>
+</body></html>

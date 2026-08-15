@@ -20,6 +20,9 @@
   var ETAT = null, REFI = null, ALERTES = [], SYNTHESE = null;
   var CONTENEUR = null, ONGLET = "synthese", MONTE = false;
   var CONVERSATION = [];
+  /* Vrai dès qu'une question est en cours de traitement : sans ce verrou, un
+     double appui sur « Répondre » journalise deux fois la même question. */
+  var EN_COURS = false;
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -138,7 +141,7 @@
         return;
       }
       var act = ev.target.closest("[data-action]");
-      if (act) executer(act.getAttribute("data-action"));
+      if (act) executer(act.getAttribute("data-action"), act);
     });
 
     CONTENEUR.addEventListener("keydown", function (ev) {
@@ -159,10 +162,31 @@
     rendre();
   }
 
-  function executer(action) {
+  function executer(action, element) {
     if (action === "copier") copierSynthese();
     else if (action === "telecharger") telechargerSynthese();
     else if (action === "poser") poser();
+    else if (action === "retour-ok" || action === "retour-ko") {
+      envoyerRetour(element, action === "retour-ok" ? "reponse_correcte" : "reponse_incorrecte");
+    }
+  }
+
+  /* Retour utilisateur. Le libellé du bouton dit exactement ce que le retour
+     vaut : « utile » et « à revoir », jamais « juste » et « faux ». Un
+     utilisateur ne peut pas certifier un chiffre qu'il n'a pas recalculé, et
+     laisser croire le contraire fausserait la mesure d'exactitude. */
+  function envoyerRetour(element, type) {
+    if (!element || !global.AFLP_IA_JOURNAL) return;
+    var cle = element.getAttribute("data-cle");
+    var i = Number(element.getAttribute("data-index"));
+    if (!cle) { signaler("Retour impossible : cette question n'a pas encore été journalisée."); return; }
+    if (CONVERSATION[i]) CONVERSATION[i].retour = type;
+    rendre();
+    global.AFLP_IA_JOURNAL.retour(cle, type).then(function (r) {
+      signaler(r && r.ok
+        ? "Retour enregistré. Il sera revu par le Branch Manager avant toute correction du catalogue."
+        : "Retour conservé localement : " + ((r && r.motif) || "envoi impossible") + ".");
+    }, function () { signaler("Retour non transmis : le journal serveur est indisponible."); });
   }
 
   /* ==========================================================================
@@ -172,7 +196,25 @@
   function rafraichir(donnees) {
     if (!global.AFLP_IA) return;
     if (!MONTE) monter("aflpIa");
-    ETAT = global.AFLP_IA.construireEtat(donnees || {});
+    donnees = donnees || {};
+
+    /* Journalisation et couche linguistique : branchées ici et nulle part
+       ailleurs. Toutes deux restent INERTES si la page ne fournit pas de
+       client Supabase — ce qui est le cas hors ligne. L'assistant répond
+       exactement de la même façon dans les deux situations. */
+    if (global.AFLP_IA_JOURNAL) {
+      global.AFLP_IA_JOURNAL.configurer({
+        client: donnees.client || null,
+        profil: donnees.profil || (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile) || null
+      });
+      global.AFLP_IA_JOURNAL.synchroniser();
+    }
+    if (global.AFLP_IA_LANGUE) {
+      global.AFLP_IA_LANGUE.configurer({ client: donnees.client || null });
+      global.AFLP_IA_LANGUE.appliquerParametres(donnees.parametres);
+    }
+
+    ETAT = global.AFLP_IA.construireEtat(donnees);
     REFI = global.AFLP_IA.refinancement(ETAT);
     ALERTES = global.AFLP_IA.alertes(ETAT, REFI);
     SYNTHESE = global.AFLP_IA.synthese(ETAT, REFI, ALERTES);
@@ -411,37 +453,152 @@
       h += '<div class="aflp-vide">L\'assistant répond uniquement à partir des données FBMS ' +
         "chargées dans cette page. Il calcule, il ne devine pas : quand une question sort de " +
         "son périmètre, il le dit.</div>";
-      return h;
+      return h + piedEtat();
     }
 
-    CONVERSATION.forEach(function (e) {
+    CONVERSATION.forEach(function (e, i) {
+      var r = e.reponse;
       h += '<div class="aflp-echange"><p class="aflp-dit">' + esc(e.question) + "</p>" +
-        '<p class="aflp-rep">' + escMulti(e.reponse.texte) + "</p>";
-      if (e.reponse.chiffres.length) {
-        h += '<div class="aflp-chiffres">' + e.reponse.chiffres.map(function (c) {
+        '<p class="aflp-rep">' + escMulti(r.texte) + "</p>";
+
+      /* Clarification : les réponses possibles sont proposées comme des
+         raccourcis. Redemander « précisez » sans dire quoi préciser, c'est
+         renvoyer le problème à l'utilisateur. */
+      if (r.contrat && r.contrat.requires_clarification) {
+        var options = optionsClarification(r);
+        if (options.length) {
+          h += '<div class="aflp-exemples">' + options.map(function (o) {
+            return '<button type="button" class="aflp-ex" data-exemple="' + esc(o) + '">' +
+              esc(o) + "</button>";
+          }).join("") + "</div>";
+        }
+      }
+
+      if (r.chiffres.length) {
+        h += '<div class="aflp-chiffres">' + r.chiffres.map(function (c) {
           return '<span class="aflp-chiffre">' + esc(c.libelle) + "<b>" + esc(c.valeur) + "</b></span>";
         }).join("") + "</div>";
       }
-      if (e.reponse.confiance === "nulle" || e.reponse.confiance === "faible") {
+      if (r.confiance === "nulle" || r.confiance === "faible") {
         h += '<p class="aflp-note" style="margin:10px 0 0">Réponse incertaine — l\'assistant ' +
           "préfère le dire plutôt que produire un chiffre non fondé.</p>";
       }
-      h += '<p class="aflp-source">' + esc(e.reponse.sources.join(" · ")) + "</p></div>";
+
+      /* Retour utilisateur. Absent tant que la question n'est pas journalisée :
+         un bouton qui ne mène nulle part vaut moins que pas de bouton. */
+      if (e.cleJournal) {
+        h += '<div class="aflp-actions" style="margin:10px 0 0">' +
+          (e.retour
+            ? '<span class="aflp-chiffre">Retour enregistré<b>' +
+              esc(e.retour === "reponse_correcte" ? "réponse utile" : "à revoir") + "</b></span>"
+            : '<button type="button" class="aflp-btn ghost" data-action="retour-ok" data-cle="' +
+              esc(e.cleJournal) + '" data-index="' + i + '">Réponse utile</button>' +
+              '<button type="button" class="aflp-btn ghost" data-action="retour-ko" data-cle="' +
+              esc(e.cleJournal) + '" data-index="' + i + '">À revoir</button>') +
+          "</div>";
+      }
+
+      h += '<p class="aflp-source">' + esc(r.sources.join(" · ")) + " · " +
+        esc(provenance(r)) + "</p></div>";
     });
-    return h;
+    return h + piedEtat();
+  }
+
+  /* État du dispositif, en une ligne. Il dit ce qui fonctionne ET ce qui ne
+     fonctionne pas : un composant en veille annoncé comme actif est le plus
+     sûr moyen de croire à une mesure qui n'existe pas. */
+  function piedEtat() {
+    var cat = global.AFLP_IA_CATALOGUE;
+    var j = global.AFLP_IA_JOURNAL ? global.AFLP_IA_JOURNAL.etat() : null;
+    var l = global.AFLP_IA_LANGUE ? global.AFLP_IA_LANGUE.etat() : null;
+    var bouts = [];
+    bouts.push("moteur " + (global.AFLP_IA ? global.AFLP_IA.version : "?"));
+    if (cat) bouts.push("catalogue " + cat.version + " · " + cat.intentions.length + " intentions");
+    if (j) {
+      bouts.push("journal " + (!j.actif ? "arrêté"
+        : j.journalServeurDisponible === false ? "local uniquement (migration non appliquée)"
+        : j.clientConfigure ? "actif" : "hors ligne") +
+        (j.enFile ? " · " + j.enFile + " en attente d'envoi" : ""));
+    }
+    bouts.push("couche linguistique " + (l && l.operationnelle ? "active" : "désactivée"));
+    return '<p class="aflp-source" style="margin-top:14px;border-top:1px dashed #e5eee3;padding-top:9px">' +
+      esc(bouts.join(" · ")) + "</p>";
+  }
+
+  /* D'où vient la réponse. Le Branch Manager doit pouvoir le lire sans ouvrir
+     la console : c'est ce qui distingue un chiffre calculé d'une phrase. */
+  function provenance(r) {
+    var p = r.coucheLinguistique
+      ? "question interprétée par la couche linguistique, chiffres calculés par le moteur déterministe"
+      : "calcul local déterministe, sans appel externe";
+    if (r.intention) p += " · intention " + r.intention.code;
+    if (r.versionCatalogue) p += " · catalogue " + r.versionCatalogue;
+    return p;
+  }
+
+  /* Reformulations proposées à partir de la question posée. Elles sont
+     construites à partir du référentiel réel — jamais d'un lieu inventé. */
+  function optionsClarification(r) {
+    var out = [];
+    var base = r.questionPosee || "";
+    if (!base || !ETAT) return out;
+    var intention = r.intention && r.intention.code;
+    if (r.contrat && r.contrat.scope && r.contrat.scope.type === "global") {
+      out.push(base.replace(/\s*\?*\s*$/, "") + " sur l'ensemble du pilote");
+      Object.keys(ETAT.zones).filter(function (z) { return z !== "Hors périmètre AFLP"; })
+        .forEach(function (z) { out.push(base.replace(/\s*\?*\s*$/, "") + " dans " + z); });
+    }
+    if (intention) {
+      var cat = global.AFLP_IA_CATALOGUE;
+      var def = cat && cat.parCode(intention);
+      if (def && def.formulations) {
+        def.formulations.slice(0, 2).forEach(function (f) {
+          if (out.indexOf(f) < 0) out.push(f);
+        });
+      }
+    }
+    return out.slice(0, 5);
   }
 
   function poser() {
     var champ = $("aflp-champ");
-    if (!champ || !ETAT) return;
+    if (!champ || !ETAT || EN_COURS) return;
     var question = champ.value.trim();
     if (!question) return;
-    var rep = global.AFLP_IA.repondre(question, ETAT, REFI, ALERTES);
-    CONVERSATION.unshift({ question: question, reponse: rep });
+    EN_COURS = true;
+    var depart = Date.now();
+
+    var promesse;
+    if (global.AFLP_IA_LANGUE && global.AFLP_IA_LANGUE.activee()) {
+      /* Couche linguistique active : elle n'intervient qu'en repli, et son
+         propre code retombe sur le déterministe à la moindre anomalie. */
+      promesse = global.AFLP_IA_LANGUE.repondreAvecRepli(question, ETAT);
+    } else {
+      promesse = Promise.resolve(global.AFLP_IA.repondre(question, ETAT, REFI, ALERTES));
+    }
+
+    promesse.then(function (rep) {
+      terminer(question, rep, Date.now() - depart);
+    }, function () {
+      terminer(question, global.AFLP_IA.repondre(question, ETAT, REFI, ALERTES),
+        Date.now() - depart);
+    });
+  }
+
+  function terminer(question, rep, latence) {
+    EN_COURS = false;
+    if (!rep) return;
+    rep.questionPosee = question;
+    var cle = null;
+    if (global.AFLP_IA_JOURNAL) {
+      try { cle = global.AFLP_IA_JOURNAL.enregistrer(question, rep, latence); }
+      catch (e) { cle = null; }   /* le journal ne doit jamais casser la réponse */
+    }
+    CONVERSATION.unshift({ question: question, reponse: rep, cleJournal: cle, retour: null });
     if (CONVERSATION.length > 20) CONVERSATION.length = 20;
     rendre();
     var c = $("aflp-champ");
-    if (c) c.focus();
+    if (c) { c.value = ""; c.focus(); }
   }
 
   global.AFLP_IA_UI = {
