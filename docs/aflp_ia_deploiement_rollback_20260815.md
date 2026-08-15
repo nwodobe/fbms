@@ -227,7 +227,24 @@ préalable du journal et de l'audit. Son en-tête le dit en trois paragraphes.
 | Vérification du code servi | 18:20 UTC | 8/8 fichiers en 200, aucun secret |
 | Questions de contrôle sur le code déployé | 18:20 UTC | **5/5 conformes** |
 | Requêtes en échec sur `command.html` | 18:22 UTC | **0** |
-| Migration Supabase | — | **NON APPLIQUÉE** (constaté : aucune table `aflp_ia_*`) |
+| **Migration Supabase appliquée** | 18:40 UTC | `jmbdgpdthzpszfnddwzi`, PostgreSQL 17.6 |
+| Contrôles structurels sur la base réelle | 18:45 UTC | **15/15 CONFORME** |
+| Politiques RLS jouées rôle par rôle | 18:55 UTC | **8/8 CONFORME**, transaction annulée |
+| Advisors Security et Performance | 19:00 UTC | **0 alerte imputable à ce lot** |
+| Banc PGlite après réalignement du fichier | 19:05 UTC | **46/46** |
+
+### Ce que l'application réelle a corrigé
+
+Trois correctifs, tous intégrés **dans le fichier de migration** pour qu'il
+reste la source de vérité : droits de la vue `aflp_ia_metriques` révoqués à
+`anon`, `search_path` figé sur les quatre fonctions de déclencheur, politiques
+RLS enveloppées dans `(select …)` et politiques permissives fusionnées.
+
+Une quatrième correction porte sur le **script de contrôle** lui-même : il
+comptait les déclencheurs par ligne d'`information_schema.triggers`, qui en
+renvoie une par événement. Il annonçait « DÉFAUT : 12/6 » sur une base
+parfaitement conforme. Un contrôle qui crie au loup est aussi nuisible qu'un
+contrôle qui dort.
 
 **Aucune régression.** Le seul défaut du smoke test — `HTTP 404` sur
 `shared/anagroci-audit.js` — existait avant la fusion, sur une page que ce lot ne

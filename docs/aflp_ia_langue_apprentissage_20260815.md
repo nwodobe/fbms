@@ -579,8 +579,39 @@ figure pas n'a pas été fait.
 | 2026-08-15 18:11 | **Fusion sur `main` par le Branch Manager** | Commit `b22d723`, squash |
 | 2026-08-15 18:11 | **Publication GitHub Pages** | `pages build and deployment` — **succès**, 29 s |
 | 2026-08-15 18:12 | Smoke production (workflow du dépôt) | **16/18**, identique au relevé d'avant fusion |
-| 2026-08-15 | Migration appliquée sur Supabase | **NON** — voir ci-dessous |
+| 2026-08-15 | **Migration appliquée sur Supabase** | `jmbdgpdthzpszfnddwzi`, PostgreSQL 17.6 |
+| 2026-08-15 | Contrôles structurels sur la base réelle | **15/15 CONFORME** |
+| 2026-08-15 | Politiques RLS jouées rôle par rôle, transaction annulée | **8/8 CONFORME** |
+| 2026-08-15 | Advisors Security et Performance | **0 alerte imputable à ce lot** |
 | 2026-08-15 | Couche linguistique | **Livrée désactivée**, aucun fournisseur configuré |
+
+### La migration a été appliquée — et ce qu'elle a révélé
+
+Sur instruction expresse du Branch Manager, propriétaire du projet.
+`agent-policy.yml` interdit ce geste à un agent ; la levée est consignée dans
+l'en-tête du fichier SQL, pour qu'elle ne se perde pas dans un fil de
+conversation.
+
+**Trois défauts que le banc PGlite ne pouvait pas voir**, tous corrigés dans le
+fichier de migration lui-même :
+
+1. la **vue** `aflp_ia_metriques` naissait avec tous les droits pour `anon` —
+   `alter default privileges … on tables` s'applique aussi aux vues, et le banc
+   ne regardait que les tables ;
+2. les quatre fonctions de déclencheur de `public` n'avaient pas de
+   `search_path` figé — quatre alertes d'advisor ;
+3. les politiques réévaluaient `auth.uid()` **à chaque ligne** — huit alertes
+   `auth_rls_initplan`, sans conséquence mesurable sur des tables vides, mais
+   réelle sur un journal destiné à grossir.
+
+Trois contrôles ont été ajoutés au banc PGlite, qui passe désormais à **46/46**.
+
+**Vérifié sur la base réelle, rôle par rôle, dans une transaction annulée :**
+`anon` refusé en lecture · un profil actif journalise pour lui · journaliser au
+nom d'un autre refusé · rejeu de la même clé d'idempotence refusé · réécrire une
+question refusée par le déclencheur · un profil hors supervision voit **0**
+question du Branch Manager · un non-BM ne peut pas retirer une version ·
+modifier une version publiée refusé. **Rien n'a été laissé en base.**
 
 ### Vérification de la production, après publication
 
@@ -607,19 +638,24 @@ qui oublie le préfixe `/fbms/`, sur `index.html`, page que ce lot ne touche pas
 
 ### Statut final du lot
 
-**`DÉPLOYÉ SANS LLM`** — le frontend est en ligne et vérifié ; la couche
-linguistique est livrée désactivée, aucun fournisseur n'étant configuré.
+**`DÉPLOYÉ SANS LLM`** — le frontend est en ligne et vérifié, la base est
+migrée et vérifiée, la boucle d'apprentissage est ouverte. La couche
+linguistique est livrée **désactivée**, aucun fournisseur n'étant configuré :
+c'est un choix, pas un manque.
 
-**Il reste UN geste, et il commande la boucle d'apprentissage.**
-Constaté le 15/08/2026 après la publication : aucune table `aflp_ia_*` n'existe
-sur le projet `jmbdgpdthzpszfnddwzi`. La migration du §11.1 n'a pas été
-appliquée. Conséquence exacte :
+L'assistant **répond** mieux et **enregistre** désormais ce qu'il comprend.
+Les mesures se rempliront au fil des questions réelles ; l'exactitude, elle,
+restera « à établir » jusqu'à la première revue humaine — et c'est délibéré.
 
-- l'assistant **répond** mieux — c'est en ligne et vérifié ;
-- il **n'apprend pas** : aucune question n'est journalisée, aucune mesure n'est
-  calculée, et l'écran d'administration affiche « journal non installé ».
+### Ce qui ne peut pas être vérifié sans être connecté
 
-Les advisors Supabase relevés le même jour ne signalent **aucune alerte
-`aflp_ia_*`** — normal, rien n'est appliqué. Ils serviront de point de
-comparaison : après application, aucune nouvelle alerte critique ne doit
-apparaître.
+Le Command Center est derrière le portail d'authentification. Les cinq
+questions de contrôle ont été posées **au code téléchargé depuis la
+production**, sur le jeu d'essai du dépôt : cela prouve que le bon code est
+déployé et qu'il répond correctement, **pas** ce qu'il répondra sur les données
+réelles (125 équipes RT, 76 villages au 15/08). Cette vérification-là appartient
+au Branch Manager, connecté — voir §13.
+
+Restent également hors de portée d'ici : le test sur un téléphone réel, et le
+branchement des bancs dans l'intégration continue (§11.2), qui demande une
+ligne dans un fichier interdit aux agents.
