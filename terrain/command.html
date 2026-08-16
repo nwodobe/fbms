@@ -901,10 +901,14 @@ function majBandeauPred(){
   var porte=r.porteFranchie===null?"—":(r.porteFranchie?"franchie":"non franchie");
   $("predMention").textContent="Porte du Niveau 1 "+porte+
     (r.porteFranchie===false&&r.p0Ouverts?" : "+r.p0Ouverts+" prérequis P0 ouvert(s). Aucun modèle ne peut dépasser SHADOW_ONLY.":".");
+  /* L'étiquette est isolée dans son propre nœud de texte : accolée au chiffre,
+     « modèle 3.0.0 » ne peut plus correspondre exactement dans le dictionnaire
+     FR/EN, et il aurait fallu y inscrire « modèle » et « retard » comme clés
+     globales — assez courtes pour couper « retardataire » ailleurs. */
   $("predMeta").innerHTML=
-    '<span>modèle '+esc(String(r.version||"—"))+'</span>'+
-    '<span>calculé le '+esc(String(r.dateRef||"—"))+'</span>'+
-    (r.retardJours==null?"":'<span>retard '+esc(String(r.retardJours))+' j</span>');
+    '<span><span class="lb">modèle</span> '+esc(String(r.version||"—"))+'</span>'+
+    '<span><span class="lb">calculé le</span> '+esc(String(r.dateRef||"—"))+'</span>'+
+    (r.retardJours==null?"":'<span><span class="lb">retard</span> '+esc(String(r.retardJours))+' j</span>');
   /* Encart dérive : le motif vient du moteur prédictif, il n'est pas rédigé
      ici. Tant que l'analyse n'a pas abouti, l'encart le dit. */
   var d=r.derive,txt=d&&d.motif?d.motif:(d&&d.derive?"Dérive détectée sur la période.":null);

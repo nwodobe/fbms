@@ -1,5 +1,18 @@
 # Command Center BM — refonte de l'architecture de l'information
 
+> ## ⚠ Document historique — architecture remplacée
+>
+> La navigation décrite ici (**six sections défilantes**, avec navigation locale
+> à pastilles et deux panneaux repliés) a été **remplacée le 16 août 2026** par
+> **huit onglets à un seul niveau**. Voir
+> [`command_center_onglets_20260816.md`](command_center_onglets_20260816.md).
+>
+> Ce document est conservé parce qu'il explique **pourquoi** la hiérarchie
+> SITUATION → RISQUE → ACTION → ANALYSE a été retenue, et parce que ce
+> raisonnement, lui, survit au changement de navigation : l'ordre des huit
+> onglets en découle directement. Les sections 3 (navigation collante),
+> 5 (dévoilement progressif) et 6 (panneaux repliés) ne décrivent plus le code.
+
 **Date** : 16 août 2026 · **Portée** : `terrain/command.html`, plus deux
 accesseurs en lecture seule dans `shared/aflp-ia-ui.js` et
 `shared/aflp-ia-predictif-ui.js`.
