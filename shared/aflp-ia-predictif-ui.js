@@ -937,7 +937,12 @@
       p0Ouverts: porte && porte.p0Ouverts ? porte.p0Ouverts.length : null,
       retardJours: ANALYSE.retardDonneesJours,
       dateRef: ANALYSE.dateRef,
-      version: ANALYSE.version
+      version: ANALYSE.version,
+      /* Ajout purement additif : l'appelant qui affiche un encart « dérive »
+         hors du module doit pouvoir en citer le MOTIF tel que le moteur l'a
+         rédigé, plutôt que d'en inventer un. Rien n'est calculé ici — c'est
+         l'objet déjà produit par `derive(dataset)`. */
+      derive: ANALYSE.derive || null
     };
   }
 
