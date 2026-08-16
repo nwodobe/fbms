@@ -529,16 +529,384 @@ const TIERS = [
 ];
 function tierFor(score){ return TIERS.find(t=>score>=t.min) || TIERS[TIERS.length-1]; }
 
-const ROLES = ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"];
-const ROLE_RIGHTS = {
-  "Branch Manager":"Accès total : validation, exports, administration.",
-  "Assistant Branch Manager":"Accès total en lecture/écriture, sans gestion des utilisateurs.",
-  "Head of Field":"Supervision recensements, validation RT, cartographie.",
-  "Procurement Officer":"Consultation complète, exports, priorisation achats.",
-  "Supervisor":"Validation des fiches de son périmètre géographique.",
-  "Agent Recenseur":"Création et modification de ses propres fiches uniquement.",
-  "Consultation uniquement":"Lecture seule, aucun export sensible.",
+/* ============================================================================
+   GOUVERNANCE AFLP 2027 — rôle · périmètre · niveau d'autorité · permissions
+   ----------------------------------------------------------------------------
+   v0.17 — Le droit ne se déduit plus d'une comparaison de chaîne dispersée dans
+   la page (`role === "Branch Manager"`). Il se demande à une fonction unique :
+
+       can(utilisateur, "village:write", ficheVillage)
+
+   qui croise QUATRE choses : le rôle, la permission demandée, le niveau
+   d'autorité du rôle (GLOBAL / ZONE / CLUSTER / VILLAGE) et le périmètre
+   géographique de la ressource visée.
+
+   AVERTISSEMENT DE SÉCURITÉ — à lire avant de se fier à ce fichier.
+   Ce module s'exécute dans le navigateur : il n'est PAS une barrière de
+   sécurité, exactement comme le dit SECURITE.md du portail. La vraie serrure
+   est la RLS Supabase, et à ce jour `public.profils` ne porte NI zone NI
+   cluster : `mon_role()`, `est_bm()` et `peut_editer_terrain()` ne connaissent
+   que le rôle. Tant que la RLS n'applique pas le périmètre, un Unit Head qui
+   appelle l'API hors de l'application atteint les données des autres clusters.
+   La marche à suivre côté serveur est écrite dans docs/GOUVERNANCE_AFLP.md.
+   ========================================================================== */
+
+/* --- 1. Référentiel organisationnel ---------------------------------------
+   Source unique, dans cet ordre de priorité :
+     1. `AFLP_IA.referentiel().zones` quand la page charge le moteur AFLP
+        (lui-même surchargeable par `parametres_calcul.aflp_zones`) ;
+     2. le défaut ci-dessous, qui doit rester IDENTIQUE à celui de
+        shared/aflp-ia-moteur.js.
+   Aucune deuxième liste de clusters n'est créée : les clusters réellement
+   présents dans les fiches restent lus par villageClusterOptions().          */
+const AFLP_ZONES_DEFAUT = {
+  "GBEKE 1": ["Djébonoua", "Brobo", "Sakassou"],
+  "GBEKE 2": ["Béoumi", "Botro", "Diabo"],
 };
+function orgZones(){
+  try{
+    if (window.AFLP_IA && typeof window.AFLP_IA.referentiel === "function"){
+      const z = (window.AFLP_IA.referentiel() || {}).zones;
+      if (z && Object.keys(z).length) return z;
+    }
+  }catch(e){ /* moteur AFLP absent de cette page : on garde le défaut */ }
+  return AFLP_ZONES_DEFAUT;
+}
+function orgListeZones(){ return Object.keys(orgZones()); }
+function orgClustersDeZone(zone){ const z = orgZones(); return (zone && z[zone]) ? z[zone].slice() : []; }
+function orgTousClusters(){ const z = orgZones(); return Object.keys(z).reduce((a,k)=>a.concat(z[k]), []); }
+/** Zone à laquelle appartient un cluster (comparaison insensible casse/accents). */
+function orgZoneDuCluster(cluster){
+  const k = ckey(cluster);
+  if (!k) return "";
+  const z = orgZones();
+  for (const zone of Object.keys(z)){
+    if (z[zone].some(c=>ckey(c)===k)) return zone;
+  }
+  return ""; // cluster hors référentiel AFLP (extension future, autre région)
+}
+/** Le couple zone/cluster est-il cohérent ? (§20 : jamais GBEKE 1 + DIABO) */
+function orgCoupleValide(zone, cluster){
+  if (!zone || !cluster) return true;          // couple incomplet : pas encore incohérent
+  return ckey(orgZoneDuCluster(cluster)) === ckey(zone);
+}
+
+/* --- 2. Niveaux d'autorité ------------------------------------------------
+   GLOBAL ▸ ZONE ▸ CLUSTER ▸ VILLAGE. Un niveau donne accès à son échelon et à
+   tout ce qu'il contient, jamais à ce qui est au-dessus ou à côté.           */
+const NIVEAUX_AUTORITE = { GLOBAL:4, ZONE:3, CLUSTER:2, VILLAGE:1, AUCUN:0 };
+
+/* --- 3. Vocabulaire de permissions ---------------------------------------
+   « domaine:action ». Les domaines suivent les modules du FBMS, les actions
+   vont de la lecture à la suppression. « * » signifie tout.                  */
+const PERM_DOMAINES = ["village","rt","producteur","achat","caisse","stock","sac","recon","carto","export","user"];
+
+/* --- 4. Catalogue des rôles AFLP -----------------------------------------
+   `champs` liste le périmètre EXIGÉ à la création du compte (§19).
+   `transversal` marque les rôles qui voient les 6 clusters mais restent
+   bornés par leurs permissions, non par la géographie (§6, §8, §9).          */
+const AFLP_ROLES = {
+  BRANCH_MANAGER: {
+    cle:"BRANCH_MANAGER", label:"Branch Manager / Head of Programme", niveau:"GLOBAL",
+    resume:"Accès global · Administration · Validation · Reporting", champs:[], effectif:1,
+  },
+  ZONAL_HEAD: {
+    cle:"ZONAL_HEAD", label:"Zonal Head", niveau:"ZONE",
+    resume:"Accès limité à sa zone", champs:["zone"], effectif:2,
+  },
+  LOGISTICS_COORDINATOR: {
+    cle:"LOGISTICS_COORDINATOR", label:"Logistics Coordinator", niveau:"GLOBAL", transversal:true,
+    resume:"Logistique · Stock · Sacs · Évacuations", champs:[], effectif:1,
+  },
+  UNIT_HEAD: {
+    cle:"UNIT_HEAD", label:"Unit Head", niveau:"CLUSTER",
+    resume:"Gestion opérationnelle de son cluster", champs:["zone","cluster"], effectif:6,
+  },
+  ASSISTANT_UNIT_HEAD: {
+    cle:"ASSISTANT_UNIT_HEAD", label:"Assistant Unit Head", niveau:"CLUSTER",
+    resume:"Support opérationnel du cluster", champs:["zone","cluster"], effectif:6,
+  },
+  WAREHOUSE_KEEPER: {
+    cle:"WAREHOUSE_KEEPER", label:"Warehouse Keeper", niveau:"CLUSTER",
+    resume:"Stock · Sacs · Inventaire", champs:["zone","cluster"], effectif:null,
+  },
+  FINANCE_CONTROLLER: {
+    cle:"FINANCE_CONTROLLER", label:"Finance / Controller", niveau:"GLOBAL", transversal:true,
+    resume:"Caisse · Avances · Wave · Réconciliation", champs:[], effectif:null,
+  },
+  RT: {
+    cle:"RT", label:"RT / Field Partner", niveau:"VILLAGE",
+    resume:"Accès limité à son village / activité", champs:["zone","cluster","village"], effectif:null,
+  },
+  READ_ONLY: {
+    cle:"READ_ONLY", label:"Read Only / Audit", niveau:"GLOBAL", transversal:true,
+    resume:"Consultation uniquement", champs:[], effectif:null,
+  },
+};
+const AFLP_ROLES_ORDRE = ["BRANCH_MANAGER","ZONAL_HEAD","LOGISTICS_COORDINATOR","UNIT_HEAD",
+  "ASSISTANT_UNIT_HEAD","WAREHOUSE_KEEPER","FINANCE_CONTROLLER","RT","READ_ONLY"];
+
+/* --- 5. Matrice de permissions -------------------------------------------- */
+const ROLE_PERMISSIONS = {
+  BRANCH_MANAGER: ["*"],
+  ZONAL_HEAD: ["village:read","village:write","village:approve","rt:read","rt:write",
+    "producteur:read","producteur:write","achat:read","caisse:read","stock:read","sac:read",
+    "recon:read","carto:read","export:read"],
+  LOGISTICS_COORDINATOR: ["stock:read","stock:write","sac:read","sac:write","achat:read",
+    "village:read","rt:read","carto:read","export:read"],
+  UNIT_HEAD: ["village:read","village:write","village:approve","rt:read","rt:write",
+    "producteur:read","producteur:write","achat:read","achat:write","caisse:read",
+    "stock:read","stock:write","sac:read","sac:write","recon:read","recon:write",
+    "carto:read","export:read"],
+  /* §5 : légèrement en dessous du Unit Head — pas d'approbation de fiche, pas
+     de clôture de réconciliation. Ces deux actions restent au Unit Head. */
+  ASSISTANT_UNIT_HEAD: ["village:read","village:write","rt:read","rt:write",
+    "producteur:read","producteur:write","achat:read","achat:write","caisse:read",
+    "stock:read","stock:write","sac:read","sac:write","recon:read","carto:read","export:read"],
+  WAREHOUSE_KEEPER: ["stock:read","stock:write","sac:read","sac:write","village:read"],
+  /* §8 : transversal sur le financier, aucune écriture sur le référentiel
+     terrain (villages, producteurs, RT, cartographie). */
+  FINANCE_CONTROLLER: ["caisse:read","caisse:write","achat:read","recon:read","recon:write",
+    "village:read","rt:read","producteur:read","carto:read","export:read"],
+  RT: ["village:read","producteur:read","achat:read"],
+  READ_ONLY: ["village:read","rt:read","producteur:read","achat:read","caisse:read",
+    "stock:read","sac:read","recon:read","carto:read"],
+};
+
+/* --- 6. Rôles hérités ------------------------------------------------------
+   §12 et §13 : aucun compte ne doit devenir inutilisable à cause d'un
+   renommage. Les anciens rôles restent RECONNUS avec exactement les droits
+   qu'ils avaient avant cette refonte ; ils sont marqués `legacy`, portent une
+   suggestion de migration, et c'est le Branch Manager qui tranche, compte par
+   compte, depuis « Utilisateurs à migrer ». Rien n'est converti d'office.    */
+const ROLES_LEGACY = {
+  "Branch Manager": {
+    cle:"BRANCH_MANAGER", niveau:"GLOBAL", permissions:["*"],
+    label:"Branch Manager", suggestion:"BRANCH_MANAGER", note:"Rôle conservé à l'identique dans l'architecture AFLP.",
+  },
+  "Assistant Branch Manager": {
+    cle:"LEGACY_ASSISTANT_BM", niveau:"GLOBAL",
+    permissions:["village:read","village:write","village:approve","rt:read","rt:write",
+      "producteur:read","producteur:write","achat:read","achat:write","caisse:read","caisse:write",
+      "stock:read","stock:write","sac:read","sac:write","recon:read","recon:write","carto:read","export:read"],
+    label:"Assistant Branch Manager", suggestion:null,
+    note:"Ne correspond à aucun poste AFLP. Périmètre réel à vérifier avant de trancher entre Zonal Head et Branch Manager.",
+  },
+  "Head of Field": {
+    cle:"LEGACY_HEAD_OF_FIELD", niveau:"GLOBAL",
+    permissions:["village:read","village:write","village:approve","rt:read","rt:write",
+      "producteur:read","producteur:write","achat:read","carto:read","export:read"],
+    label:"Head of Field", suggestion:"ZONAL_HEAD",
+    note:"Probablement Zonal Head. Vérifier sur quelle zone le compte intervient réellement avant migration.",
+  },
+  "Supervisor": {
+    cle:"LEGACY_SUPERVISOR", niveau:"GLOBAL",
+    permissions:["village:read","village:write","village:approve","rt:read","rt:write",
+      "producteur:read","producteur:write","achat:read","carto:read","export:read"],
+    label:"Supervisor", suggestion:"UNIT_HEAD",
+    note:"Unit Head si le compte couvre un cluster, Zonal Head s'il en couvre trois. Vérifier le périmètre réel.",
+  },
+  "Procurement Officer": {
+    cle:"LEGACY_PROCUREMENT", niveau:"GLOBAL",
+    permissions:["village:read","village:write","rt:read","rt:write","producteur:read",
+      "producteur:write","achat:read","caisse:read","carto:read","export:read"],
+    label:"Procurement Officer", suggestion:null,
+    note:"Peut rester en service si l'organisation l'utilise (§12). À passer en Legacy puis retirer seulement s'il n'a plus de justification.",
+  },
+  "Agent Recenseur": {
+    cle:"LEGACY_AGENT_RECENSEUR", niveau:"GLOBAL",
+    permissions:["village:read","village:write","rt:read","rt:write","producteur:read",
+      "producteur:write","carto:read"],
+    label:"Agent Recenseur", suggestion:null,
+    note:"Le recensement est une fonction du FBMS, pas nécessairement un poste permanent. À conserver tant que des comptes actifs en dépendent.",
+  },
+  "Consultation uniquement": {
+    cle:"READ_ONLY", niveau:"GLOBAL", permissions:ROLE_PERMISSIONS.READ_ONLY,
+    label:"Consultation uniquement", suggestion:"READ_ONLY",
+    note:"Équivalent direct de Read Only / Audit.",
+  },
+};
+
+/** Liste des rôles proposés à la sélection (les 9 rôles AFLP). */
+const ROLES = AFLP_ROLES_ORDRE.map(k=>AFLP_ROLES[k].label);
+/** Résumé affiché en regard de chaque rôle (compatibilité ROLE_RIGHTS). */
+const ROLE_RIGHTS = (function(){
+  const o = {};
+  AFLP_ROLES_ORDRE.forEach(k=>{ o[AFLP_ROLES[k].label] = AFLP_ROLES[k].resume; });
+  Object.keys(ROLES_LEGACY).forEach(nom=>{ if (!o[nom]) o[nom] = "Rôle hérité — " + ROLES_LEGACY[nom].note; });
+  return o;
+})();
+
+/**
+ * Résout un libellé de rôle — nouveau OU hérité — en une définition complète.
+ * C'est le point de passage obligé : personne d'autre ne compare de chaînes.
+ */
+function roleDef(role){
+  const nom = String(role || "").trim();
+  if (!nom) return null;
+  for (const k of AFLP_ROLES_ORDRE){
+    if (AFLP_ROLES[k].label === nom || k === nom.toUpperCase().replace(/[^A-Z_]/g,"_")){
+      return Object.assign({}, AFLP_ROLES[k], { permissions: ROLE_PERMISSIONS[k] || [], legacy:false });
+    }
+  }
+  const leg = ROLES_LEGACY[nom];
+  if (leg) return Object.assign({ resume:"", champs:[], transversal:true }, leg, { legacy:true });
+  return null; // rôle inconnu : aucun droit (et signalé dans l'Administration)
+}
+function roleEstLegacy(role){ const d = roleDef(role); return !!(d && d.legacy); }
+
+/* --- 7. Utilisateur courant ------------------------------------------------ */
+/**
+ * L'utilisateur tel que le FBMS le connaît : rôle + périmètre. Les champs de
+ * périmètre viennent de `profils` quand les colonnes existent (voir
+ * docs/GOUVERNANCE_AFLP.md) ; ils sont vides sinon, et c'est traité comme
+ * « périmètre non configuré », jamais comme « périmètre vide ».
+ */
+function utilisateurCourant(){
+  if (AUTH.isConnected() && AUTH.session){
+    const s = AUTH.session;
+    return { email:s.email||"", nom:s.nom||"", role:s.role||"", zone:s.zone||"",
+             cluster:s.cluster||"", village:s.village||"",
+             perimetreSchema:!!s.perimetreSchema, connecte:true };
+  }
+  return { email:"", nom:"", role:STATE.role, zone:"", cluster:"", village:"",
+           perimetreSchema:false, connecte:false };
+}
+/** Le périmètre exigé par le rôle est-il réellement renseigné ? */
+function perimetreConfigure(user){
+  const d = roleDef(user && user.role);
+  if (!d || !d.champs || !d.champs.length) return true;   // rôle global : rien à configurer
+  return d.champs.every(c=>!!(user && user[c]));
+}
+/**
+ * Que faire d'un rôle qui EXIGE un périmètre alors qu'il n'en a pas ?
+ *
+ *  · la base ne porte pas encore les colonnes (`perimetreSchema` faux) : aucun
+ *    compte ne peut être configuré. Tout refuser fermerait l'application à
+ *    tout le monde — on laisse passer, et l'écran Administration affiche le
+ *    bandeau qui explique pourquoi ;
+ *  · les colonnes existent mais le compte n'a pas été renseigné : c'est une
+ *    erreur d'administration. La LECTURE reste ouverte — §13, personne ne doit
+ *    se retrouver bloqué — mais plus aucune écriture, faute de savoir où elle
+ *    s'appliquerait légitimement.
+ */
+function replliSansPerimetre(user, action){
+  if (!user || !user.perimetreSchema) return true;        // schéma absent : rien d'autre n'est possible
+  return /:(read)$/.test(String(action || ""));           // sinon : lecture seule
+}
+
+/* --- 8. Périmètre d'une ressource ------------------------------------------
+   Une fiche village, un RT, un producteur : on en extrait toujours le même
+   triplet zone/cluster/village, quelle que soit sa forme.                     */
+function perimetreDe(resource){
+  if (!resource) return null;
+  const cluster = (resource.s1 && resource.s1.cluster) || resource.cluster || resource.villageCluster || "";
+  const villageId = resource.id && resource.s1 ? resource.id : (resource.villageId || "");
+  const zone = resource.zone || orgZoneDuCluster(cluster);
+  return { zone:zone, cluster:cluster, villageId:villageId };
+}
+
+/* --- 9. can() : le seul point de décision ---------------------------------- */
+function aLaPermission(def, action){
+  const perms = (def && def.permissions) || [];
+  if (perms.indexOf("*") >= 0) return true;
+  if (perms.indexOf(action) >= 0) return true;
+  const domaine = String(action||"").split(":")[0];
+  return perms.indexOf(domaine + ":*") >= 0;
+}
+/** Le périmètre de l'utilisateur couvre-t-il celui de la ressource ? */
+function dansLePerimetre(user, def, resource){
+  const niveau = NIVEAUX_AUTORITE[(def && def.niveau) || "AUCUN"] || 0;
+  if (niveau >= NIVEAUX_AUTORITE.GLOBAL) return true;      // global et transversaux
+  if (!resource) return true;                              // question générale, sans cible
+  if (!perimetreConfigure(user)) return true;              // §13 : jamais bloquer faute de configuration
+  const p = perimetreDe(resource);
+  if (!p) return true;
+  if (niveau === NIVEAUX_AUTORITE.ZONE){
+    if (!p.cluster && !p.zone) return true;                // ressource hors géographie
+    return ckey(p.zone || orgZoneDuCluster(p.cluster)) === ckey(user.zone);
+  }
+  if (niveau === NIVEAUX_AUTORITE.CLUSTER){
+    if (!p.cluster) return true;
+    return ckey(p.cluster) === ckey(user.cluster);
+  }
+  if (niveau === NIVEAUX_AUTORITE.VILLAGE){
+    if (!p.villageId) return ckey(p.cluster) === ckey(user.cluster);
+    return String(p.villageId) === String(user.village);
+  }
+  return false;
+}
+/**
+ * can(user, action, resource) — QUI peut faire QUOI, OÙ, À QUEL NIVEAU.
+ * `user` peut être omis : l'utilisateur courant est alors employé.
+ */
+function can(user, action, resource){
+  if (typeof user === "string"){ resource = action; action = user; user = null; }
+  const u = user || utilisateurCourant();
+  const def = roleDef(u.role);
+  if (!def) return false;
+  if (!aLaPermission(def, action)) return false;
+  // Rôle à périmètre, périmètre absent : repli explicite plutôt qu'implicite.
+  if (def.champs && def.champs.length && !perimetreConfigure(u)) return replliSansPerimetre(u, action);
+  return dansLePerimetre(u, def, resource);
+}
+/** Variante bavarde, pour expliquer un refus à l'utilisateur. */
+function motifRefus(action, resource){
+  const u = utilisateurCourant();
+  const def = roleDef(u.role);
+  if (!def) return t("Rôle inconnu : contactez le Branch Manager.");
+  if (!aLaPermission(def, action)) return t("Votre rôle ne permet pas cette action.");
+  if (def.champs && def.champs.length && !perimetreConfigure(u)){
+    return t("Votre périmètre n'est pas configuré (zone / cluster). Lecture seule tant que le Branch Manager ne l'a pas renseigné.");
+  }
+  const p = perimetreDe(resource);
+  return t("Hors de votre périmètre") + (p && p.cluster ? " (" + p.cluster + ")." : ".");
+}
+
+/* --- 10. Filtrage des listes par périmètre (§15) ---------------------------
+   Le périmètre s'applique à l'AFFICHAGE autant qu'à l'écriture. En mode local
+   (sans backend) rien n'est filtré : c'est le mode démonstration, et la donnée
+   y est déjà entièrement locale.                                              */
+function perimetreActif(){
+  if (!isSupabase() || !AUTH.isConnected()) return false;
+  const u = utilisateurCourant();
+  const def = roleDef(u.role);
+  if (!def) return false;
+  if ((NIVEAUX_AUTORITE[def.niveau] || 0) >= NIVEAUX_AUTORITE.GLOBAL) return false;
+  return perimetreConfigure(u);
+}
+/** Filtre une liste sur le périmètre courant. `extraire` renvoie la ressource. */
+function filtrerPerimetre(liste, extraire){
+  if (!perimetreActif()) return liste;
+  const u = utilisateurCourant();
+  const def = roleDef(u.role);
+  return (liste || []).filter(x=>dansLePerimetre(u, def, extraire ? extraire(x) : x));
+}
+
+/* --- 11. Journal d'audit (§23) ---------------------------------------------
+   Écrit dans la table `audit_log` (RLS : insert autorisé à tout compte
+   authentifié, lecture réservée au Branch Manager). Ne bloque jamais l'action
+   si le journal est indisponible — mais le signale en console.                */
+async function auditAdmin(action, details){
+  try{
+    if (!isSupabase()) return { ok:false, raison:"mode_local" };
+    initSupabase();
+    const payload = {
+      email: (AUTH.session && AUTH.session.email) || null,
+      action: String(action || "admin"),
+      details: JSON.stringify(Object.assign({
+        module:"FBMS_REF", path:location.pathname, ts_client:new Date().toISOString(),
+        auteur_role:(AUTH.session && AUTH.session.role) || null,
+      }, details || {})),
+    };
+    const r = await SB.from("audit_log").insert(payload);
+    if (r && r.error) throw new Error(r.error.message);
+    return { ok:true };
+  }catch(e){
+    console.warn("[FBMS] Audit non enregistré :", e && e.message);
+    return { ok:false, erreur:e && e.message };
+  }
+}
 
 /* ------------------------- STATUTS DE FICHE — v0.12 -----------------------
    Circuit simplifié (décision direction) : l'Agent recense et Soumet, le BM
@@ -560,11 +928,14 @@ function statutPillHTML(s){
   const c = statutColor(s);
   return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style="background-color:'+c+'1A;color:'+c+'">'+t(s)+'</span>';
 }
-/** Statuts qu'un utilisateur peut poser (circuit souple ; revérifié serveur). */
+/** Statuts qu'un utilisateur peut poser (circuit souple ; revérifié serveur).
+ *  v0.17 : déduit de la matrice de permissions, plus d'une liste de noms. Le
+ *  comportement des rôles hérités est inchangé — Consultation uniquement n'a
+ *  aucun statut, Agent Recenseur s'arrête à « Soumis » faute de village:approve. */
 function statutsAutorises(){
-  const role = AUTH.isConnected() ? AUTH.session.role : STATE.role;
-  if (role === "Consultation uniquement") return [];
-  if (role === "Agent Recenseur") return ["Brouillon","Soumis"];
+  const u = utilisateurCourant();
+  if (!can(u, "village:write")) return [];
+  if (!can(u, "village:approve")) return ["Brouillon","Soumis"];
   return STATUTS.map(s=>s.key);
 }
 
@@ -939,9 +1310,17 @@ const AUTH = {
       initSupabase();
       const { data, error } = await SB.auth.signInWithPassword({ email: email, password: pin });
       if (error) throw new Error(sbErr(error));
-      const { data: profil, error: e2 } = await SB.from("profils").select("nom, role, actif").eq("user_id", data.user.id).single();
+      /* v0.17 : « * » et non plus une liste figée — les colonnes de périmètre
+         (zone, cluster, village) sont lues dès qu'elles existent dans profils,
+         sans casser les déploiements où elles ne sont pas encore créées. */
+      const { data: profil, error: e2 } = await SB.from("profils").select("*").eq("user_id", data.user.id).single();
       if (e2 || !profil || !profil.actif){ try{ await SB.auth.signOut(); }catch(e){} throw new Error(t("Compte inactif ou profil manquant. Contactez l'administrateur.")); }
-      this.session = { token: data.session.access_token, email: email, nom: profil.nom, role: profil.role, connectedAt: new Date().toISOString() };
+      this.session = { token: data.session.access_token, email: email, nom: profil.nom, role: profil.role,
+        zone: profil.zone || "", cluster: profil.cluster || "", village: profil.village || "",
+        // Le SCHÉMA porte-t-il les colonnes de périmètre ? À distinguer d'un
+        // périmètre simplement vide : les deux appellent des replis opposés.
+        perimetreSchema: Object.prototype.hasOwnProperty.call(profil, "zone"),
+        connectedAt: new Date().toISOString() };
       this.persist();
       STATE.role = profil.role;
       return this.session;
@@ -990,7 +1369,7 @@ const AUTH = {
         const su = data.session.user;
         let profil = null;
         try{
-          const r = await SB.from("profils").select("nom, role, actif").eq("user_id", su.id).single();
+          const r = await SB.from("profils").select("*").eq("user_id", su.id).single();
           profil = r.data || null;
         }catch(e){ /* profil injoignable : on reconstruit avec ce qu'on a */ }
         if (profil && !profil.actif){ this.session = null; this.persist(); try{ await SB.auth.signOut(); }catch(e){} return false; }
@@ -999,6 +1378,12 @@ const AUTH = {
           email: (su.email || (this.session && this.session.email) || "").toLowerCase(),
           nom: (profil && profil.nom) || (this.session && this.session.nom) || su.email,
           role: (profil && profil.role) || (this.session && this.session.role) || STATE.role,
+          // v0.17 : périmètre rafraîchi à chaque revalidation de session.
+          zone: (profil && profil.zone) || (this.session && this.session.zone) || "",
+          cluster: (profil && profil.cluster) || (this.session && this.session.cluster) || "",
+          village: (profil && profil.village) || (this.session && this.session.village) || "",
+          perimetreSchema: profil ? Object.prototype.hasOwnProperty.call(profil, "zone")
+                                  : !!(this.session && this.session.perimetreSchema),
           connectedAt: (this.session && this.session.connectedAt) || new Date().toISOString(),
         };
         if (profil) STATE.role = profil.role;
@@ -1143,14 +1528,37 @@ const RemotePhotos = {
     mot de passe) se fait dans le tableau de bord Supabase (Authentication),
     car elle exige la clé secrète qui ne doit jamais entrer dans l'app. */
 const RemoteUsers = {
+  /* v0.17 : les colonnes de périmètre sont OPTIONNELLES côté base. Tant que
+     `profils` ne les porte pas, l'Administration le dit clairement et n'essaie
+     pas de les écrire, au lieu de laisser croire à un cloisonnement inexistant.
+     Création des colonnes : voir docs/GOUVERNANCE_AFLP.md. */
+  perimetreDisponible: null,   // null = pas encore déterminé
   async list(){
     if (isSupabase()){
       initSupabase();
-      const { data, error } = await SB.from("profils").select("email, nom, role, actif").order("email");
+      const { data, error } = await SB.from("profils").select("*").order("email");
       if (error) throw new Error(sbErr(error));
+      const echantillon = (data && data[0]) || {};
+      this.perimetreDisponible = Object.prototype.hasOwnProperty.call(echantillon, "zone")
+        && Object.prototype.hasOwnProperty.call(echantillon, "cluster");
       return data;
     }
-    const r = await callBackend("users.list", {}); return r.users || [];
+    const r = await callBackend("users.list", {}); this.perimetreDisponible = false; return r.users || [];
+  },
+  /** Écrit le périmètre d'un compte. Refusé si les colonnes n'existent pas. */
+  async setPerimetre(email, perimetre){
+    if (!this.perimetreDisponible){
+      throw new Error(t("Périmètre non enregistrable : la table profils ne porte pas encore les colonnes zone/cluster/village. Voir docs/GOUVERNANCE_AFLP.md."));
+    }
+    if (isSupabase()){
+      initSupabase();
+      const { error } = await SB.from("profils").update({
+        zone: perimetre.zone || null, cluster: perimetre.cluster || null, village: perimetre.village || null,
+      }).eq("email", email);
+      if (error) throw new Error(sbErr(error));
+      return { ok:true };
+    }
+    return await callBackend("users.setPerimetre", Object.assign({ email: email }, perimetre));
   },
   async create(email, nom, role, pin){
     if (isSupabase()) throw new Error(t("Création de compte : Supabase Dashboard > Authentication > Users (email + mot de passe), puis la ligne profils. Voir l'administrateur système."));
@@ -1885,7 +2293,9 @@ async function syncNow(silent){
 
 /* --------------------------------- STATE ---------------------------------- */
 const STATE = {
-  villages: [], rt: [], producteurs: [], role: "Branch Manager", active: "dashboard", collapsed: false,
+  villages: [], rt: [], producteurs: [], role: AFLP_ROLES.BRANCH_MANAGER.label, active: "dashboard", collapsed: false,
+  // v0.17 : filtres de l'écran Administration (rôle, zone, cluster, statut, recherche).
+  admQuery: "", admRoleFilter: "", admZoneFilter: "", admClusterFilter: "", admStatutFilter: "",
   rtQuery: "", rtStatutFilter: "", rtClusterFilter: "",
   prodVillageId: "", prodQuery: "", prodStatutFilter: "",
   query: "", drawerId: null, formId: null,
@@ -2198,7 +2608,12 @@ function handleNavClick(key){
   buildSidebar(); renderContent();
 }
 function openNew(){ clearTransientUI(); STATE.active="form"; STATE.formId="new"; buildSidebar(); renderContent(); }
-function openEdit(id){ if (!canEditVillages()){ refuseEditVillage(); return; } clearTransientUI(); closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
+function openEdit(id){
+  const v = STATE.villages.find(x=>x.id===id);
+  // v0.17 : périmètre vérifié sur la FICHE, pas seulement sur le rôle.
+  if (!canEditVillage(v)){ refuseEditVillage(v); return; }
+  clearTransientUI(); closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent();
+}
 function cancelForm(){
   try{ localStorage.removeItem("fbms_form_draft"); }catch(e){} // v0.11.1 : annulation = brouillon abandonné
   clearTransientUI();
@@ -2212,9 +2627,15 @@ function closeDrawer(){ STATE.drawerId=null; document.getElementById("drawer-roo
 async function saveForm(){
   // Modification d'une fiche existante reservee a l'administrateur (la creation
   // d'une nouvelle fiche reste ouverte). Double barriere avec la RLS Supabase.
-  if (STATE.formId !== "new" && !canEditVillages()){ refuseEditVillage(); return; }
-  const base = STATE.formId==="new" ? blankVillage() : STATE.villages.find(v=>v.id===STATE.formId);
+  const _base0 = STATE.formId==="new" ? null : STATE.villages.find(v=>v.id===STATE.formId);
+  if (STATE.formId !== "new" && !canEditVillage(_base0)){ refuseEditVillage(_base0); return; }
+  const base = STATE.formId==="new" ? blankVillage() : _base0;
   const draft = collectFormData(base);
+  // v0.17 : une fiche neuve ne peut pas être créée hors de son propre périmètre.
+  if (STATE.formId === "new" && !can(utilisateurCourant(), "village:write", draft)){
+    alert(motifRefus("village:write", draft));
+    return;
+  }
   // v0.11.3 : normalisation GPS à l'enregistrement (virgule → point, espaces retirés).
   const nLat = parseCoord(draft.s1.gpsLat, 90), nLng = parseCoord(draft.s1.gpsLng, 180);
   if (nLat !== null) draft.s1.gpsLat = String(nLat);
@@ -2296,7 +2717,7 @@ async function saveForm(){
  */
 function canDelete(){
   if (!isSupabase()) return true;
-  return AUTH.isConnected() && AUTH.session.role === "Branch Manager";
+  return AUTH.isConnected() && can(utilisateurCourant(), "village:delete");
 }
 function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fiches. Contactez l'administrateur.")); }
 
@@ -2305,12 +2726,22 @@ function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fich
  * — dont l'AGENT RECENSEUR — peuvent modifier ; seul « Consultation uniquement »
  * est en lecture seule (et n'a de toute facon pas acces a ce module). En mode
  * local (sans auth), edition libre. La vraie barriere reste la RLS Supabase. */
-const EDIT_TERRAIN_ROLES = ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur"];
+/* v0.17 : la liste de noms a disparu au profit de la permission village:write.
+   Les six rôles historiquement autorisés la possèdent toujours (ROLES_LEGACY),
+   le comportement est donc identique pour les comptes existants. */
 function canEditVillages(){
   if (!isSupabase()) return true;
-  return AUTH.isConnected() && EDIT_TERRAIN_ROLES.indexOf(AUTH.session.role) >= 0;
+  return AUTH.isConnected() && can(utilisateurCourant(), "village:write");
 }
-function refuseEditVillage(){ alert(t("Consultation seule : votre rôle ne permet pas de modifier cette fiche.")); }
+/** Droit d'écriture sur UNE fiche précise : permission ET périmètre. */
+function canEditVillage(v){
+  if (!isSupabase()) return true;
+  return AUTH.isConnected() && can(utilisateurCourant(), "village:write", v);
+}
+function refuseEditVillage(v){
+  if (v && canEditVillages()) alert(motifRefus("village:write", v));
+  else alert(t("Consultation seule : votre rôle ne permet pas de modifier cette fiche."));
+}
 
 async function deleteVillageAction(id){
   if (!canDelete()) return refuseDelete();
@@ -2548,7 +2979,9 @@ function villageClusterOptions(){
 }
 
 function getFilteredVillages(){
-  let rows = STATE.villages.map(v=>({v,score:scoreOf(v)}));
+  // v0.17 : le périmètre s'applique AVANT tout autre filtre — recherche,
+  // exports et statistiques héritent donc du même cloisonnement (§15).
+  let rows = filtrerPerimetre(STATE.villages, v=>v).map(v=>({v,score:scoreOf(v)}));
   if (STATE.query) rows = rows.filter(({v})=> (v.s1.village+" "+v.s1.enqueteur+" "+v.s1.cluster+" "+v.s1.departement).toLowerCase().includes(STATE.query.toLowerCase()));
   if (STATE.regionFilter) rows = rows.filter(({v})=>v.s1.region===STATE.regionFilter);
   if (STATE.clusterFilter) rows = rows.filter(({v})=> ckey(villageClusterOf(v))===ckey(STATE.clusterFilter));
@@ -2898,7 +3331,11 @@ function ProducteursView(){
     return html;
   }
 
-  let rows = STATE.producteurs.filter(p=>p.villageId===STATE.prodVillageId);
+  // v0.17 : un producteur hérite du périmètre de son village.
+  let rows = filtrerPerimetre(STATE.producteurs, p=>{
+    const v = STATE.villages.find(x=>x.id===p.villageId);
+    return { cluster: (v && v.s1 && v.s1.cluster) || "", villageId: p.villageId };
+  }).filter(p=>p.villageId===STATE.prodVillageId);
   const totalVillage = rows.length;
   const engages = rows.reduce((a,p)=>a+(Number(p.engagementKg)||0),0);
   const superficie = rows.reduce((a,p)=>a+(Number(p.superficieHa)||0),0);
@@ -3156,7 +3593,8 @@ function rtClusterOptions(){
 
 /** Vue "Base RT" : KPIs, recherche, filtre statut, tableau trié par score. */
 function RTView(){
-  let rows = STATE.rt.slice();
+  // v0.17 : périmètre appliqué avant les filtres de l'écran (§15).
+  let rows = filtrerPerimetre(STATE.rt.slice(), r=>({ cluster: rtClusterOf(r), villageId: r.villageId }));
   if (STATE.rtQuery){
     const q = STATE.rtQuery.toLowerCase();
     rows = rows.filter(r=> ((r.nom||"")+" "+(r.telephone||"")+" "+(r.villageNom||"")).toLowerCase().includes(q));
@@ -3520,6 +3958,11 @@ function riskBadges(v){
 async function setVillageStatut(id, statut){
   const v = STATE.villages.find(x=>x.id===id);
   if (!v) return;
+  // v0.17 : approuver/valider exige la permission ET le périmètre de la fiche.
+  if (estStatutSoumission(statut) && !can(utilisateurCourant(), "village:approve", v)){
+    alert(motifRefus("village:approve", v));
+    return;
+  }
   // v0.16.4 — Prérequis vérifiés AVANT d'écrire le statut : on n'enregistre
   // plus localement une validation que le serveur refusera de toute façon.
   // Le détail est donné dans le contexte de l'action demandée, pas déposé
@@ -3746,30 +4189,110 @@ function mountStatsCharts(){
 /* ============================================================================
    ADMINISTRATION
    ========================================================================== */
-function AdminView(){
-  let html = '<div class="p-6 space-y-4"><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">Administration</h1>'
-    + '<p class="ff-body text-sm mb-2" style="color:'+T.inkSoft+'">'+t('Gestion des rôles et droits d\'accès au FBMS.')+'</p>';
-  html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff">';
-  ROLES.forEach(r=>{
-    html += '<div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid '+T.line+'">'
-      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+r+'</div><div class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t(ROLE_RIGHTS[r])+'</div></div>'
-      + (STATE.role===r ? tierPillHTML(100) : (AUTH.isConnected() ? '' : '<button onclick="setRole(\''+r+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-1.5" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Se connecter comme</button>'))
-      + '</div>';
-  });
-  html += '</div>';
+/** Vignette « rôle » de la section Rôles & Permissions. */
+function carteRoleHTML(def){
+  const perms = ROLE_PERMISSIONS[def.cle] || [];
+  const domaines = perms.indexOf("*") >= 0
+    ? [t('Tous les domaines')]
+    : PERM_DOMAINES.filter(d=>perms.some(p=>p.indexOf(d+":")===0));
+  const ecriture = perms.indexOf("*") >= 0 || perms.some(p=>/:(write|approve|delete|manage)$/.test(p));
+  const badgeNiveau = { GLOBAL:T.forest700, ZONE:T.emerald, CLUSTER:T.cashewDeep, VILLAGE:T.orange }[def.niveau] || T.inkSoft;
+  return '<div class="rounded-xl" style="background:#fff;border:1px solid '+T.line+';padding:14px 16px">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+    + '<span class="ff-body" style="font-size:14px;font-weight:700;color:'+T.ink+'">'+esc(def.label)+'</span>'
+    + '<span class="ff-mono" style="font-size:10px;letter-spacing:.08em;border-radius:999px;padding:2px 8px;background:'+badgeNiveau+'1A;color:'+badgeNiveau+'">'+esc(def.niveau)+'</span></div>'
+    + '<div class="ff-body" style="font-size:12px;color:'+T.inkSoft+';margin-top:4px">'+esc(def.resume)+'</div>'
+    + '<div class="ff-mono" style="font-size:11px;color:'+T.inkSoft+';margin-top:8px">'
+    +   esc(domaines.join(' · ') || '—') + (ecriture ? '' : ' · ' + t('lecture seule'))
+    + '</div>'
+    + (def.champs && def.champs.length
+        ? '<div class="ff-mono" style="font-size:10px;color:'+T.cashewDeep+';margin-top:6px">'+t('Périmètre requis')+' : '+def.champs.join(', ')+'</div>'
+        : '')
+    + '</div>';
+}
 
-  // v0.8 : gestion des utilisateurs — Branch Manager connecté uniquement.
-  // Le serveur revérifie le rôle à chaque action (requireAdmin_) : cette
-  // condition d'affichage n'est pas la barrière de sécurité, juste l'UX.
-  if (AUTH.isConnected() && AUTH.session.role === "Branch Manager" && AUTH.isConfigured()){
+function AdminView(){
+  const u = utilisateurCourant();
+  const peutGerer = can(u, "user:manage");
+  let html = '<div class="p-6 space-y-5">'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">Administration</h1>'
+    + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t('Utilisateurs, rôles, périmètres et droits d\'accès au FBMS')+'</p></div>';
+
+  /* --- Rappel de sécurité. Il n'est pas décoratif : tant que la RLS ignore le
+     périmètre, ce que montre cet écran est une organisation, pas une serrure. */
+  html += '<div class="rounded-xl" style="background:#FEF7E6;border:1px solid #F3D89A;padding:12px 16px">'
+    + '<div style="display:flex;gap:10px;align-items:flex-start">'
+    + '<span style="color:#8A5A00;flex-shrink:0;display:inline-flex">'+icon('shield-alert','w-4 h-4')+'</span>'
+    + '<div class="ff-body" style="font-size:12px;color:#8A5A00;line-height:1.55">'
+    + '<b>'+t('Portée réelle du cloisonnement')+'</b> — '
+    + t('Les périmètres ci-dessous sont appliqués par l\'application (affichage, édition, validation, exports). La barrière opposable reste la RLS Supabase, qui ne connaît aujourd\'hui que le rôle. Voir docs/GOUVERNANCE_AFLP.md pour les colonnes et politiques à créer.')
+    + '</div></div></div>';
+
+  /* --- KPI : uniquement des données réelles (§27). Les cibles AFLP sont
+     affichées comme cibles, jamais comme un effectif déjà constitué. */
+  const zonesRef = orgListeZones();
+  const clustersRef = orgTousClusters();
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">'
+    + [[t('Zones'), zonesRef.length, zonesRef.join(' · ')],
+       [t('Clusters'), clustersRef.length, t('référentiel AFLP 2027')],
+       [t('Comptes'), '<span id="admKpiComptes">—</span>', t('chargés depuis profils')],
+       [t('Comptes actifs'), '<span id="admKpiActifs">—</span>', t('statut actif')]]
+      .map(k=>'<div class="rounded-xl" style="background:#fff;border:1px solid '+T.line+';padding:13px 15px">'
+        + '<div class="ff-body" style="font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:'+T.inkSoft+';font-weight:600">'+k[0]+'</div>'
+        + '<div class="ff-mono" style="font-size:25px;font-weight:600;color:'+T.forestDark+';line-height:1.15;margin-top:5px">'+k[1]+'</div>'
+        + '<div class="ff-body" style="font-size:11px;color:'+T.inkSoft+'">'+esc(k[2])+'</div></div>').join('')
+    + '</div>';
+
+  /* --- Section A : Rôles & Permissions --- */
+  html += '<div><h2 class="ff-display text-base font-bold mb-1" style="color:'+T.ink+'">'+t('Rôles & Permissions')+'</h2>'
+    + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+t('Neuf rôles AFLP 2027, du périmètre global au village.')+'</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">'
+    + AFLP_ROLES_ORDRE.map(k=>carteRoleHTML(AFLP_ROLES[k])).join('')
+    + '</div></div>';
+
+  /* --- Rôles hérités encore reconnus --- */
+  html += '<div class="rounded-xl" style="background:#fff;border:1px solid '+T.line+';padding:14px 16px">'
+    + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">'+t('Rôles hérités encore reconnus')+'</div>'
+    + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+t('Ces rôles conservent exactement les droits qu\'ils avaient avant la refonte. Aucun compte n\'est converti automatiquement.')+'</p>'
+    + '<div style="display:flex;flex-direction:column;gap:7px">'
+    + Object.keys(ROLES_LEGACY).filter(nom=>ROLES_LEGACY[nom].cle!=="BRANCH_MANAGER").map(nom=>{
+        const l = ROLES_LEGACY[nom];
+        return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
+          + '<span class="ff-mono" style="font-size:11px;background:'+T.cream+';border:1px solid '+T.line+';border-radius:6px;padding:2px 7px;color:'+T.ink+'">'+esc(nom)+'</span>'
+          + '<span class="ff-body" style="font-size:11.5px;color:'+T.inkSoft+';flex:1;min-width:200px">'+esc(l.note)+'</span>'
+          + (l.suggestion ? '<span class="ff-mono" style="font-size:10.5px;color:'+T.emerald+'">→ '+esc(AFLP_ROLES[l.suggestion] ? AFLP_ROLES[l.suggestion].label : l.suggestion)+'</span>' : '<span class="ff-mono" style="font-size:10.5px;color:'+T.cashewDeep+'">'+t('à arbitrer')+'</span>')
+          + '</div>';
+      }).join('')
+    + '</div></div>';
+
+  /* --- Sélecteur de rôle en mode local (démonstration, hors connexion) --- */
+  if (!AUTH.isConnected()){
+    html += '<div class="rounded-xl" style="background:#fff;border:1px solid '+T.line+';padding:14px 16px">'
+      + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">'+t('Mode local — essayer un rôle')+'</div>'
+      + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+t('Sans connexion au backend, aucune donnée n\'est cloisonnée : ce sélecteur ne sert qu\'à visualiser les droits.')+'</p>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:7px">'
+      + ROLES.map(r=>'<button onclick="setRole(\''+esc(r).replace(/'/g,"\\'")+'\')" class="ff-body" style="font-size:11.5px;border-radius:8px;padding:6px 10px;cursor:pointer;border:1px solid '+(STATE.role===r?T.forest700:T.line)+';background:'+(STATE.role===r?T.forest700:'#fff')+';color:'+(STATE.role===r?'#fff':T.ink)+'">'+esc(r)+'</button>').join('')
+      + '</div></div>';
+  }
+
+  /* --- Section B : Gestion des utilisateurs --- */
+  if (AUTH.isConnected() && peutGerer && AUTH.isConfigured()){
     html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
-      + '<div class="flex items-center justify-between mb-2 flex-wrap gap-2">'
-      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">Gestion des utilisateurs</div>'
-      + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">Créer des accès, désactiver un compte, changer un rôle, réinitialiser un PIN. Chaque action est tracée dans AUDIT_LOG.</p></div>'
-      + '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">+ Créer un utilisateur</button>'
+      + '<div class="flex items-center justify-between mb-1 flex-wrap gap-2">'
+      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+t('Gestion des utilisateurs')+'</div>'
+      + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Créer un accès, changer un rôle ou un périmètre, désactiver, réinitialiser un PIN. Chaque action est tracée dans audit_log.')+'</p></div>'
+      + '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">+ '+t('Créer un utilisateur')+'</button>'
       + '</div>'
-      + '<div id="usersAdminZone" class="ff-body text-xs" style="color:'+T.inkSoft+'">Chargement des utilisateurs…</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">'
+      + '<input id="admQuery" value="'+esc(STATE.admQuery)+'" oninput="setAdmFiltre(\'admQuery\',this.value)" placeholder="'+t('Rechercher un utilisateur…')+'" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+';flex:1;min-width:180px"/>'
+      + selectFiltreAdmin('admRoleFilter', t('Tous rôles'), ROLES.concat(Object.keys(ROLES_LEGACY)))
+      + selectFiltreAdmin('admZoneFilter', t('Toutes zones'), orgListeZones())
+      + selectFiltreAdmin('admClusterFilter', t('Tous clusters'), orgTousClusters())
+      + selectFiltreAdmin('admStatutFilter', t('Tous statuts'), [t('Actif'), t('Désactivé')])
+      + '</div>'
+      + '<div id="usersAdminZone" class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Chargement des utilisateurs…')+'</div>'
       + '</div>';
+    html += '<div id="admMigrationZone"></div>';
   }
 
   // v0.16.2 : Sécurité & Sauvegarde Master — Branch Manager, mode Supabase.
@@ -3907,37 +4430,234 @@ async function clearLocalData(){
    GESTION DES UTILISATEURS — v0.8 (Administration, Branch Manager)
    ========================================================================== */
 
+/** Petit sélecteur de filtre de l'écran Administration. */
+function selectFiltreAdmin(cle, libelleTout, options){
+  return '<select onchange="setAdmFiltre(\''+cle+'\',this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'">'
+    + '<option value="">'+esc(libelleTout)+'</option>'
+    + options.map(o=>'<option value="'+esc(o)+'" '+(STATE[cle]===o?'selected':'')+'>'+esc(o)+'</option>').join('')
+    + '</select>';
+}
+/** Un filtre change : on ne redessine QUE le tableau, pour ne pas perdre le focus. */
+function setAdmFiltre(cle, valeur){ STATE[cle] = valeur; loadUsersAdmin(); }
+
+/* Cache de la dernière liste chargée : les filtres et le panneau de migration
+   s'appuient dessus sans relancer une requête à chaque frappe. */
+let ADM_USERS = [];
+
+/** Les filtres de l'écran Administration, appliqués ensemble (§28). */
+function filtrerUtilisateurs(users){
+  const q = (STATE.admQuery || "").toLowerCase().trim();
+  return (users || []).filter(u=>{
+    if (q && !((u.nom||"")+" "+(u.email||"")+" "+(u.role||"")+" "+(u.cluster||"")+" "+(u.zone||"")).toLowerCase().includes(q)) return false;
+    if (STATE.admRoleFilter && u.role !== STATE.admRoleFilter) return false;
+    if (STATE.admZoneFilter && ckey(u.zone||"") !== ckey(STATE.admZoneFilter)) return false;
+    if (STATE.admClusterFilter && ckey(u.cluster||"") !== ckey(STATE.admClusterFilter)) return false;
+    if (STATE.admStatutFilter){
+      const actif = STATE.admStatutFilter === t('Actif');
+      if (!!u.actif !== actif) return false;
+    }
+    return true;
+  });
+}
+
 /** Charge et affiche le tableau des utilisateurs (appelé au rendu d'Administration). */
 async function loadUsersAdmin(){
   const zone = document.getElementById("usersAdminZone");
-  if (!zone) return; // carte absente (non connecté ou rôle non admin)
-  if (!(AUTH.isConnected() && AUTH.session.role === "Branch Manager")){ zone.textContent = ""; return; }
+  if (!zone) return; // carte absente (non connecté ou rôle sans user:manage)
+  if (!can(utilisateurCourant(), "user:manage")){ zone.textContent = ""; return; }
   try{
-    const users = await RemoteUsers.list();
-    let html = '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr style="background-color:'+T.cream+'">'
-      + ['Nom','Email','Rôle','Statut','Actions'].map(h=>'<th class="text-left px-3 py-2 ff-body font-semibold" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+    // Rechargement réseau uniquement si le cache est vide (les filtres sont locaux).
+    if (!ADM_USERS.length) ADM_USERS = await RemoteUsers.list();
+    const users = ADM_USERS;
+    majKpiAdmin(users);
+    const dispo = RemoteUsers.perimetreDisponible;
+    const rows = filtrerUtilisateurs(users);
+
+    let html = "";
+    if (dispo === false){
+      html += '<div class="rounded-lg" style="background:#FEF7E6;border:1px solid #F3D89A;padding:9px 12px;margin-bottom:10px">'
+        + '<span class="ff-body" style="font-size:11.5px;color:#8A5A00">'
+        + t('La table profils ne porte pas encore les colonnes zone / cluster / village : les périmètres ne peuvent être ni lus ni enregistrés. Voir docs/GOUVERNANCE_AFLP.md.')
+        + '</span></div>';
+    }
+    html += '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr style="background-color:'+T.cream+'">'
+      + ['Nom','Email','Rôle','Zone','Cluster','Village','Statut','Dernière connexion','Actions']
+        .map(h=>'<th class="text-left px-3 py-2 ff-body font-semibold whitespace-nowrap" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
       + '</tr></thead><tbody>';
-    users.forEach(u=>{
+
+    if (!rows.length){
+      html += '<tr><td colspan="9" class="px-3 py-4 ff-body" style="color:'+T.inkSoft+'">'+t('Aucun utilisateur ne correspond aux filtres.')+'</td></tr>';
+    }
+    rows.forEach(u=>{
       const isSelf = u.email === AUTH.session.email;
+      const def = roleDef(u.role);
+      const inconnu = !def;
+      const optionsRole = ROLES.concat(Object.keys(ROLES_LEGACY).filter(n=>ROLES.indexOf(n)<0));
+      if (u.role && optionsRole.indexOf(u.role) < 0) optionsRole.unshift(u.role);
       html += '<tr style="border-top:1px solid '+T.line+'">'
-        + '<td class="px-3 py-2 ff-body font-medium" style="color:'+T.ink+'">'+esc(u.nom)+(isSelf?' <span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">(vous)</span>':'')+'</td>'
-        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.email)+'</td>'
-        + '<td class="px-3 py-2"><select '+(isSelf?'disabled':'')+' onchange="changeUserRole(\''+u.email+'\', this)" class="ff-body text-xs rounded-lg px-2 py-1" style="'+inputStyleAttr()+'">'
-        + ROLES.map(ro=>'<option '+(u.role===ro?'selected':'')+'>'+ro+'</option>').join('') + '</select></td>'
+        + '<td class="px-3 py-2 ff-body font-medium" style="color:'+T.ink+'">'+esc(u.nom||"")+(isSelf?' <span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">('+t('vous')+')</span>':'')+'</td>'
+        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.email||"")+'</td>'
+        + '<td class="px-3 py-2"><select '+(isSelf?'disabled':'')+' onchange="changeUserRole(\''+esc(u.email)+'\', this)" class="ff-body text-xs rounded-lg px-2 py-1" style="'+inputStyleAttr()+'">'
+        +   optionsRole.map(ro=>'<option '+(u.role===ro?'selected':'')+'>'+esc(ro)+'</option>').join('') + '</select>'
+        +   (def && def.legacy ? '<div class="ff-mono" style="font-size:9.5px;color:'+T.cashewDeep+';margin-top:3px">'+t('hérité')+'</div>' : '')
+        +   (inconnu ? '<div class="ff-mono" style="font-size:9.5px;color:'+T.red+';margin-top:3px">'+t('rôle inconnu — aucun droit')+'</div>' : '')
+        + '</td>'
+        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.zone||"—")+'</td>'
+        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.cluster||"—")+'</td>'
+        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.village||"—")+'</td>'
         + '<td class="px-3 py-2">' + (u.actif
-            ? '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.emerald+'1A;color:'+T.emerald+'">Actif</span>'
-            : '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.red+'1A;color:'+T.red+'">Désactivé</span>') + '</td>'
+            ? '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.emerald+'1A;color:'+T.emerald+'">'+t('Actif')+'</span>'
+            : '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.red+'1A;color:'+T.red+'">'+t('Désactivé')+'</span>') + '</td>'
+        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.derniere_connexion ? new Date(u.derniere_connexion).toLocaleString("fr-FR") : "—")+'</td>'
         + '<td class="px-3 py-2 text-right whitespace-nowrap">'
         + (isSelf ? '' :
-            '<button onclick="toggleUserActive(\''+u.email+'\','+(!u.actif)+')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+(u.actif?T.red+'14':T.emerald+'1A')+';color:'+(u.actif?T.red:T.emerald)+';border:1px solid '+T.line+'">'+(u.actif?'Désactiver':'Réactiver')+'</button>'
-          + '<button onclick="resetUserPin(\''+u.email+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Réinit. PIN</button>')
+            (dispo ? '<button onclick="openPerimetreModal(\''+esc(u.email)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Périmètre')+'</button>' : '')
+          + '<button onclick="toggleUserActive(\''+esc(u.email)+'\','+(!u.actif)+')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+(u.actif?T.red+'14':T.emerald+'1A')+';color:'+(u.actif?T.red:T.emerald)+';border:1px solid '+T.line+'">'+(u.actif?t('Désactiver'):t('Réactiver'))+'</button>'
+          + '<button onclick="resetUserPin(\''+esc(u.email)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Réinit. PIN')+'</button>')
         + '</td></tr>';
     });
     html += '</tbody></table></div>';
+    if (rows.length !== users.length){
+      html += '<div class="ff-mono" style="font-size:11px;color:'+T.inkSoft+';margin-top:8px">'+rows.length+' / '+users.length+'</div>';
+    }
     zone.innerHTML = html;
+    renderMigrationAdmin(users);
   } catch(e){
     zone.innerHTML = '<span style="color:'+T.red+'">✖ '+esc(e.message)+'</span>';
   }
+}
+/** KPI réels de l'entête : uniquement ce qui existe dans profils (§27). */
+function majKpiAdmin(users){
+  const c = document.getElementById("admKpiComptes");
+  const a = document.getElementById("admKpiActifs");
+  if (c) c.textContent = users.length;
+  if (a) a.textContent = users.filter(u=>u.actif).length;
+}
+
+/**
+ * « Utilisateurs à migrer » (§29). Aucune conversion automatique : le tableau
+ * expose l'ancien rôle, la suggestion et le motif ; le Branch Manager décide
+ * compte par compte, et la migration passe par le même chemin que tout autre
+ * changement de rôle — donc par l'audit.
+ */
+function renderMigrationAdmin(users){
+  const zone = document.getElementById("admMigrationZone");
+  if (!zone) return;
+  const aMigrer = (users || []).filter(u=>{ const d = roleDef(u.role); return d && d.legacy && d.cle !== "BRANCH_MANAGER"; });
+  if (!aMigrer.length){ zone.innerHTML = ""; return; }
+  let html = '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
+    + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">'+t('Utilisateurs à migrer')+' · '+aMigrer.length+'</div>'
+    + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+t('Comptes portant un rôle hérité. Ils fonctionnent normalement ; la migration est une décision, pas une conversion automatique.')+'</p>'
+    + '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr style="background-color:'+T.cream+'">'
+    + ['Utilisateur','Ancien rôle','Rôle suggéré','Zone','Cluster','Motif',''].map(h=>'<th class="text-left px-3 py-2 ff-body font-semibold whitespace-nowrap" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+    + '</tr></thead><tbody>';
+  aMigrer.forEach(u=>{
+    const leg = ROLES_LEGACY[u.role] || {};
+    const cible = leg.suggestion ? (AFLP_ROLES[leg.suggestion] || {}).label : "";
+    html += '<tr style="border-top:1px solid '+T.line+'">'
+      + '<td class="px-3 py-2 ff-body" style="color:'+T.ink+'">'+esc(u.nom||u.email)+'</td>'
+      + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.role)+'</td>'
+      + '<td class="px-3 py-2 ff-mono" style="color:'+(cible?T.emerald:T.cashewDeep)+'">'+esc(cible || t('à arbitrer'))+'</td>'
+      + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.zone||"—")+'</td>'
+      + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.cluster||"—")+'</td>'
+      + '<td class="px-3 py-2 ff-body" style="color:'+T.inkSoft+';max-width:320px">'+esc(leg.note||"")+'</td>'
+      + '<td class="px-3 py-2 text-right whitespace-nowrap">'
+      + (cible ? '<button onclick="migrerUtilisateur(\''+esc(u.email)+'\',\''+esc(cible)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:'+T.forest700+';color:#fff">'+t('Migrer')+'</button>' : '')
+      + '</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  zone.innerHTML = html;
+}
+/** Migration d'un compte, validée explicitement par le Branch Manager. */
+async function migrerUtilisateur(email, nouveauRole){
+  const av = ADM_USERS.find(u=>u.email===email);
+  const ancien = av ? av.role : "";
+  const def = roleDef(nouveauRole);
+  let msg = t('Migrer') + " « " + email + " »\n\n" + t('Ancien rôle') + " : " + ancien + "\n" + t('Nouveau rôle') + " : " + nouveauRole;
+  if (def && def.champs && def.champs.length) msg += "\n\n" + t('Ce rôle exige un périmètre') + " (" + def.champs.join(", ") + ") " + t('à renseigner ensuite via « Périmètre ».');
+  if (!confirm(msg)) return;
+  try{
+    await RemoteUsers.setRole(email, nouveauRole);
+    await auditAdmin("user_role_migration", { cible:email, ancienne_valeur:ancien, nouvelle_valeur:nouveauRole });
+    ADM_USERS = [];
+  }catch(e){ alert(t('Échec')+" : " + e.message); }
+  loadUsersAdmin();
+}
+
+/* --------------------------------------------------------------------------
+   Champs de périmètre pilotés par le rôle (§19, §20).
+   Les listes sont DÉPENDANTES : choisir GBEKE 1 ne propose que ses clusters,
+   ce qui rend la combinaison incohérente impossible à saisir plutôt que
+   simplement refusée après coup.
+   -------------------------------------------------------------------------- */
+function champsPerimetreHTML(prefixe, roleLabel, valeurs){
+  const def = roleDef(roleLabel);
+  const champs = (def && def.champs) || [];
+  if (!champs.length){
+    return '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'
+      + t('Périmètre global : aucune zone ni cluster à renseigner pour ce rôle.') + '</p>';
+  }
+  const v = valeurs || {};
+  const zones = orgListeZones();
+  const clusters = v.zone ? orgClustersDeZone(v.zone) : orgTousClusters();
+  let html = '';
+  if (champs.indexOf("zone") >= 0){
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Zone')+'</span>'
+      + '<select id="'+prefixe+'Zone" onchange="onZoneChangeAdmin(\''+prefixe+'\')" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+t('Sélectionner')+'</option>'
+      + zones.map(z=>'<option value="'+esc(z)+'" '+(v.zone===z?'selected':'')+'>'+esc(z)+'</option>').join('')
+      + '</select></label>';
+  }
+  if (champs.indexOf("cluster") >= 0){
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Cluster')+'</span>'
+      + '<select id="'+prefixe+'Cluster" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+t('Sélectionner')+'</option>'
+      + clusters.map(c=>'<option value="'+esc(c)+'" '+(v.cluster===c?'selected':'')+'>'+esc(c)+'</option>').join('')
+      + '</select></label>';
+  }
+  if (champs.indexOf("village") >= 0){
+    const villages = STATE.villages.filter(x=>!v.cluster || ckey((x.s1&&x.s1.cluster)||"")===ckey(v.cluster));
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Village')+'</span>'
+      + '<select id="'+prefixe+'Village" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+t('Sélectionner')+'</option>'
+      + villages.map(x=>'<option value="'+esc(x.id)+'" '+(v.village===x.id?'selected':'')+'>'+esc((x.s1&&x.s1.village)||x.id)+'</option>').join('')
+      + '</select>'
+      + '<span class="ff-body text-[11px]" style="color:'+T.inkSoft+'">'+t('Les villages proposés suivent le cluster choisi.')+'</span></label>';
+  }
+  return html;
+}
+/** Le rôle change dans un formulaire : les champs de périmètre suivent. */
+function onRoleChangeAdmin(prefixe){
+  const sel = document.getElementById(prefixe+"Role");
+  const zone = document.getElementById(prefixe+"Perimetre");
+  if (!sel || !zone) return;
+  zone.innerHTML = champsPerimetreHTML(prefixe, sel.value, {});
+}
+/** La zone change : la liste des clusters est reconstruite (§20). */
+function onZoneChangeAdmin(prefixe){
+  const selZone = document.getElementById(prefixe+"Zone");
+  const selCluster = document.getElementById(prefixe+"Cluster");
+  if (!selZone || !selCluster) return;
+  const clusters = orgClustersDeZone(selZone.value);
+  selCluster.innerHTML = '<option value="">'+t('Sélectionner')+'</option>'
+    + clusters.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+}
+/** Lecture du périmètre saisi dans un formulaire, avec contrôle de cohérence. */
+function lirePerimetreForm(prefixe, roleLabel){
+  const def = roleDef(roleLabel);
+  const champs = (def && def.champs) || [];
+  const val = id => { const e = document.getElementById(id); return e ? (e.value || "") : ""; };
+  const p = { zone:"", cluster:"", village:"" };
+  if (champs.indexOf("zone") >= 0) p.zone = val(prefixe+"Zone");
+  if (champs.indexOf("cluster") >= 0) p.cluster = val(prefixe+"Cluster");
+  if (champs.indexOf("village") >= 0) p.village = val(prefixe+"Village");
+  for (const c of champs){
+    if (!p[c]) return { erreur: t('Périmètre incomplet pour ce rôle') + " : " + c + "." };
+  }
+  if (!orgCoupleValide(p.zone, p.cluster)){
+    return { erreur: t('Combinaison incohérente') + " : " + p.cluster + " " + t('n\'appartient pas à') + " " + p.zone + "." };
+  }
+  return { perimetre: p };
 }
 
 /** Fenêtre de création d'un utilisateur (PIN proposé automatiquement). */
@@ -3952,9 +4672,13 @@ function openUserModal(){
     + '<input id="nuNom" placeholder="Prénom NOM" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
     + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">Email</span>'
     + '<input id="nuEmail" type="email" placeholder="prenom.nom@gmail.com" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
-    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">Rôle</span>'
-    + '<select id="nuRole" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
-    + ROLES.map(ro=>'<option '+(ro==="Agent Recenseur"?'selected':'')+'>'+ro+'</option>').join('') + '</select></label>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Téléphone')+'</span>'
+    + '<input id="nuTel" placeholder="+225…" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Rôle')+'</span>'
+    + '<select id="nuRole" onchange="onRoleChangeAdmin(\'nu\')" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+    + ROLES.map(ro=>'<option '+(ro===AFLP_ROLES.UNIT_HEAD.label?'selected':'')+'>'+esc(ro)+'</option>').join('') + '</select></label>'
+    // Champs de périmètre : reconstruits à chaque changement de rôle.
+    + '<div id="nuPerimetre" class="space-y-3">'+champsPerimetreHTML('nu', AFLP_ROLES.UNIT_HEAD.label, {})+'</div>'
     + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Code PIN')+'</span>'
     + '<div class="flex items-center gap-2">'
     + '<input id="nuPin" value="'+genPin()+'" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/>'
@@ -3977,9 +4701,18 @@ async function submitCreateUser(){
   const err = document.getElementById("nuError");
   const btn = document.getElementById("nuSubmit");
   err.style.display = "none";
-  btn.disabled = true; btn.textContent = "Création…";
+  // v0.17 : le périmètre est validé AVANT toute création — un Unit Head sans
+  // cluster, ou un cluster hors de sa zone, ne doit jamais entrer en base.
+  const lu = lirePerimetreForm("nu", role);
+  if (lu.erreur){ err.textContent = lu.erreur; err.style.display = "block"; return; }
+  btn.disabled = true; btn.textContent = t("Création…");
   try{
     await RemoteUsers.create(email, nom, role, pin);
+    if (RemoteUsers.perimetreDisponible && (lu.perimetre.zone || lu.perimetre.cluster || lu.perimetre.village)){
+      await RemoteUsers.setPerimetre(email, lu.perimetre);
+    }
+    await auditAdmin("user_create", { cible:email, nouvelle_valeur:{ role:role, perimetre:lu.perimetre } });
+    ADM_USERS = [];
     closeUserModal();
     alert("Compte créé.\n\nÀ transmettre à " + nom + " :\nEmail : " + email + "\nPIN : " + pin + "\n\nCe PIN ne sera plus jamais affiché.");
     loadUsersAdmin();
@@ -3990,20 +4723,78 @@ async function submitCreateUser(){
   }
 }
 
+/** Fenêtre de modification du périmètre d'un compte existant. */
+function openPerimetreModal(email){
+  const u = ADM_USERS.find(x=>x.email===email);
+  if (!u){ alert(t('Utilisateur introuvable.')); return; }
+  const def = roleDef(u.role);
+  const root = document.getElementById("modal-root");
+  root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:65;background-color:#00000066" onclick="closeUserModal()">'
+    + '<div onclick="event.stopPropagation()" class="rounded-xl p-6 w-full max-w-md mx-4" style="background:#fff;border:1px solid '+T.line+'">'
+    + '<h2 class="ff-display text-lg font-bold mb-1" style="color:'+T.ink+'">'+t('Périmètre')+'</h2>'
+    + '<p class="ff-body text-xs mb-4" style="color:'+T.inkSoft+'">'+esc(u.nom||u.email)+' · '+esc(u.role)+'</p>'
+    + '<form onsubmit="event.preventDefault();submitPerimetre(\''+esc(email)+'\');" class="space-y-3">'
+    + '<div id="upPerimetre" class="space-y-3">'
+    +   champsPerimetreHTML('up', u.role, { zone:u.zone||"", cluster:u.cluster||"", village:u.village||"" })
+    + '</div>'
+    + (def && def.champs && def.champs.length ? '' :
+        '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Enregistrer videra le périmètre éventuellement présent.')+'</p>')
+    + '<p id="upError" class="ff-body text-xs" style="color:'+T.red+';display:none"></p>'
+    + '<div class="flex items-center gap-2 pt-1">'
+    + '<button type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">'+t('Enregistrer')+'</button>'
+    + '<button type="button" onclick="closeUserModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+t('Annuler')+'</button>'
+    + '</div></form></div></div>';
+}
+async function submitPerimetre(email){
+  const u = ADM_USERS.find(x=>x.email===email);
+  if (!u) return;
+  const err = document.getElementById("upError");
+  const lu = lirePerimetreForm("up", u.role);
+  if (lu.erreur){ err.textContent = lu.erreur; err.style.display = "block"; return; }
+  try{
+    await RemoteUsers.setPerimetre(email, lu.perimetre);
+    await auditAdmin("user_perimetre_change", {
+      cible:email,
+      ancienne_valeur:{ zone:u.zone||"", cluster:u.cluster||"", village:u.village||"" },
+      nouvelle_valeur:lu.perimetre,
+    });
+    ADM_USERS = [];
+    closeUserModal();
+  }catch(e){ err.textContent = e.message; err.style.display = "block"; return; }
+  loadUsersAdmin();
+}
+
 /** Active/désactive un compte (jamais le sien — refusé aussi côté serveur). */
 async function toggleUserActive(email, actif){
-  if (!confirm((actif ? "Réactiver" : "Désactiver") + " le compte " + email + " ?")) return;
-  try{ await RemoteUsers.setActive(email, actif); }
-  catch(e){ alert("Échec : " + e.message); }
+  if (!confirm((actif ? t("Réactiver") : t("Désactiver")) + " " + t("le compte") + " " + email + " ?")) return;
+  try{
+    await RemoteUsers.setActive(email, actif);
+    await auditAdmin(actif ? "user_reactivate" : "user_deactivate", { cible:email, nouvelle_valeur:{ actif:!!actif } });
+    ADM_USERS = [];
+  }
+  catch(e){ alert(t("Échec")+" : " + e.message); }
   loadUsersAdmin();
 }
 
 /** Change le rôle d'un compte depuis le sélecteur du tableau. */
 async function changeUserRole(email, selectEl){
   const role = selectEl.value;
-  if (!confirm("Donner le rôle « " + role + " » à " + email + " ?")){ loadUsersAdmin(); return; }
-  try{ await RemoteUsers.setRole(email, role); }
-  catch(e){ alert("Échec : " + e.message); }
+  const u = ADM_USERS.find(x=>x.email===email);
+  const ancien = u ? u.role : "";
+  const def = roleDef(role);
+  let msg = "Donner le rôle « " + role + " » à " + email + " ?";
+  // v0.17 : prévenir AVANT, si le nouveau rôle exige un périmètre non encore posé.
+  if (def && def.champs && def.champs.length && !def.champs.every(c=>u && u[c])){
+    msg += "\n\n" + t('Ce rôle exige un périmètre') + " (" + def.champs.join(", ") + "). "
+         + t('Sans lui, le compte reste fonctionnel mais n\'est pas cloisonné.');
+  }
+  if (!confirm(msg)){ loadUsersAdmin(); return; }
+  try{
+    await RemoteUsers.setRole(email, role);
+    await auditAdmin("user_role_change", { cible:email, ancienne_valeur:ancien, nouvelle_valeur:role });
+    ADM_USERS = [];
+  }
+  catch(e){ alert(t("Échec")+" : " + e.message); }
   loadUsersAdmin();
 }
 
@@ -4014,6 +4805,7 @@ async function resetUserPin(email){
   if (pin.trim().length < 4){ alert("PIN trop court."); return; }
   try{
     await RemoteUsers.setPin(email, pin.trim());
+    await auditAdmin("user_pin_reset", { cible:email });
     alert("PIN réinitialisé.\n\nÀ transmettre :\nEmail : " + email + "\nPIN : " + pin.trim() + "\n\nCe PIN ne sera plus jamais affiché.");
   } catch(e){ alert("Échec : " + e.message); }
 }

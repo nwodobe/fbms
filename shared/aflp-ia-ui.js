@@ -234,7 +234,7 @@
   function bandeauHypothese() {
     if (!ETAT || ETAT.referentiel.zonesConfirmees) return "";
     return '<p class="aflp-note"><b>Hypothèse à confirmer.</b> La répartition ' +
-      'GBEKE 1 (Djébonoua, Brobo, Diabo) / GBEKE 2 (Sakassou, Béoumi, Botro) n\'a pas été ' +
+      'GBEKE 1 (Djébonoua, Brobo, Sakassou) / GBEKE 2 (Béoumi, Botro, Diabo) n\'a pas été ' +
       'validée par le Branch Manager. Les totaux par cluster sont exacts ; ceux par zone ' +
       'restent indicatifs tant que la répartition n\'est pas confirmée.</p>';
   }

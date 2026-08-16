@@ -150,12 +150,15 @@
     villagesCibles: 60,
     equipesRtCibles: 60,
     zones: {
-      "GBEKE 1": ["Djébonoua", "Brobo", "Diabo"],
-      "GBEKE 2": ["Sakassou", "Béoumi", "Botro"]
+      "GBEKE 1": ["Djébonoua", "Brobo", "Sakassou"],
+      "GBEKE 2": ["Béoumi", "Botro", "Diabo"]
     },
-    /* Confirmée par le Branch Manager le 2026-08-14 : les totaux par zone ne
-       sont plus indicatifs. Repasser à `false` si le découpage redevient
-       incertain — le bandeau d'avertissement réapparaîtra de lui-même. */
+    /* Confirmee par le Branch Manager le 2026-08-14, puis RECTIFIEE par lui le
+       2026-08-16 : Sakassou et Diabo etaient intervertis. C'est cette version
+       qui fait foi, et c'est elle que reprend la gouvernance AFLP de
+       fbms/index.html (AFLP_ZONES_DEFAUT) — les deux doivent rester identiques.
+       Repasser `zonesConfirmees` a `false` si le decoupage redevient incertain :
+       le bandeau d'avertissement reapparaitra de lui-meme. */
     zonesConfirmees: true,
     /* Seuils d'alerte. Aucun seuil qualité n'est défini ici : la qualité est
        déjà arbitrée en amont par les colonnes `qualite_statut` et
