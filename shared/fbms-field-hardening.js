@@ -32,22 +32,43 @@
   function producteursFor(v){ try{ return (STATE.producteurs||[]).filter(function(p){return p.villageId===v.id || key(p.villageNom)===key(villageName(v));}); }catch(e){ return []; } }
   function rtsFor(v){ try{ return (STATE.rt||[]).filter(function(r){return r.villageId===v.id || key(r.villageNom)===key(villageName(v));}); }catch(e){ return []; } }
 
+  /* Regle metier : prerequis d'une fiche village avant soumission/validation.
+     Chaque manque porte desormais sa SECTION de formulaire. C'est ce qui permet
+     d'afficher l'avertissement la ou il se corrige — dans la fiche — au lieu
+     d'une phrase unique recopiee dans un bandeau global. */
   function auditVillage(v){
-    var miss=[];
-    if(!v||!v.s1) miss.push('fiche village invalide');
-    if(!villageName(v)||villageName(v)==='Village sans nom') miss.push('nom village');
-    if(!v.s1||!v.s1.cluster) miss.push('cluster');
-    if(!v.s1||!v.s1.gpsLat||!v.s1.gpsLng) miss.push('coordonnees GPS');
-    if(!v.s1||!v.s1.distanceHub) miss.push('distance hub');
-    if(!v.s3||!n(v.s3.potentielMT)) miss.push('potentiel MT');
-    if(!villageRT(v).length && !rtsFor(v).length) miss.push('au moins un RT');
-    if(!v.s5||(!v.s5.typeAcces && !v.s5.camion10T && !v.s5.camion30T)) miss.push('accessibilite route');
-    if(!v.s8 || v.s8.pasConflitFoncier!==true || v.s8.pasConflitCommunautaire!==true) miss.push('conflits foncier/communautaire a valider');
-    if(!villageWave(v)) miss.push('Wave non confirme');
-    if(photosOk(v).length<4) miss.push('photos terrain insuffisantes '+photosOk(v).length+'/6');
+    var manq=[];
+    function add(code,label,section){ manq.push({code:code, label:label, section:section}); }
+    if(!v||!v.s1) add('fiche','Fiche village invalide','sec1');
+    if(!villageName(v)||villageName(v)==='Village sans nom') add('nom','Nom du village manquant','sec1');
+    if(!v.s1||!v.s1.cluster) add('cluster','Cluster manquant','sec1');
+    if(!v.s1||!v.s1.gpsLat||!v.s1.gpsLng) add('gps','Coordonnées GPS manquantes','sec1');
+    if(!v.s1||!v.s1.distanceHub) add('distanceHub','Distance du hub manquante','sec1');
+    if(!v.s3||!n(v.s3.potentielMT)) add('potentiel','Potentiel MT non renseigné','sec3');
+    if(!villageRT(v).length && !rtsFor(v).length) add('rt','Aucun RT identifié','sec7');
+    if(!v.s5||(!v.s5.typeAcces && !v.s5.camion10T && !v.s5.camion30T)) add('route','Accessibilité routière non renseignée','sec5');
+    if(!v.s8 || v.s8.pasConflitFoncier!==true || v.s8.pasConflitCommunautaire!==true) add('conflits','Conflits foncier/communautaire à valider','sec8');
+    if(!villageWave(v)) add('wave','Confirmation Wave manquante','sec6');
+    if(photosOk(v).length<4) add('photos','Photos terrain : '+photosOk(v).length+' / 6','secPhotos');
+    var miss=manq.map(function(m){return m.label;});
     var approved=/Approuve|Approuvé/i.test(statut(v));
-    var ready = approved && miss.length===0;
-    return {missing:miss, ready:ready, approved:approved, photoCount:photosOk(v).length};
+    var ready = approved && manq.length===0;
+    return {missing:miss, manquants:manq, ready:ready, approved:approved, photoCount:photosOk(v).length};
+  }
+
+  /* Refus de soumission : erreur TYPEE, et non une phrase prete a etre recopiee
+     telle quelle dans l'interface. L'appelant decide ou et comment l'afficher a
+     partir de .manquants ; .message reste court, pour qu'un affichage generique
+     ne puisse plus deformer une barre de navigation. */
+  function erreurFicheIncomplete(v, manquants){
+    var e = new Error('Fiche village « '+villageName(v)+' » incomplète : '+manquants.length+' prérequis manquant(s)');
+    e.name = 'VillageIncompletError';
+    e.code = 'VILLAGE_INCOMPLET';
+    e.villageId = villageId(v);
+    e.villageNom = villageName(v);
+    e.manquants = manquants.slice();
+    e.missing = manquants.map(function(m){return m.label;});
+    return e;
   }
 
   function autoScore(v){
@@ -136,8 +157,10 @@
         var oldV=RemoteVillages.upsert;
         RemoteVillages.upsert=function(v,baseUpdatedAt,force){
           var a=auditVillage(v);
-          if(!force && /Soumis|Validé|Valide|Approuvé|Approuve/i.test(statut(v)) && a.missing.length){
-            throw new Error('Fiche village incomplète : '+a.missing.join(', ')+'. Corrigez avant soumission/validation.');
+          if(!force && /Soumis|Validé|Valide|Approuvé|Approuve/i.test(statut(v)) && a.manquants.length){
+            /* La regle metier ne bouge pas : la fiche n'est pas poussee.
+               Seule la FORME du refus change — erreur typee, detail structure. */
+            throw erreurFicheIncomplete(v, a.manquants);
           }
           return oldV.apply(this,arguments);
         };
@@ -146,6 +169,21 @@
     }catch(e){}
   }
 
-  function init(){ buildUI(); patchClearLocal(); patchRemote(); window.FBMSHardening={openActivation:openActivation,closeActivation:closeActivation,copyActivation:copyActivation,auditVillage:auditVillage,autoScore:autoScore,renderActivation:renderActivation}; }
+  /* L'API d'audit est exposee DES le chargement du script, pas au bout des
+     600 ms d'attente de init() : le formulaire village s'en sert pour son
+     avertissement contextuel et peut etre rendu avant. L'evenement previent la
+     page du moment ou la regle devient disponible, pour un recalcul immediat. */
+  window.FBMSHardening = window.FBMSHardening || {};
+  window.FBMSHardening.auditVillage = auditVillage;
+  window.FBMSHardening.autoScore = autoScore;
+  try{ document.dispatchEvent(new CustomEvent('fbms:hardening-ready')); }catch(e){}
+
+  function init(){
+    buildUI(); patchClearLocal(); patchRemote();
+    window.FBMSHardening.openActivation = openActivation;
+    window.FBMSHardening.closeActivation = closeActivation;
+    window.FBMSHardening.copyActivation = copyActivation;
+    window.FBMSHardening.renderActivation = renderActivation;
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(init,600);}); else setTimeout(init,600);
 })();

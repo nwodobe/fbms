@@ -156,6 +156,15 @@
       '<div class="audit-bar"><span style="width:'+Math.max(0,Math.min(100,pct))+'%"></span></div>'+
       '<div class="audit-goal-meta"><span>'+pct+' % '+e(tr("de l'objectif"))+'</span><span>'+e(tr('reste'))+' '+fmt(reste)+' MT</span></div></div></div>';
 
+    /* v0.16.4 — Indicateur compact « A traiter » (fiches village incompletes).
+       Ce rendu ECRASE DashboardView() de fbms/index.html : sans ce montage,
+       l'indicateur qui y est defini ne s'afficherait jamais. Le balisage vient
+       de la page pour rester en un seul exemplaire ; si la fonction est
+       absente, on n'affiche simplement rien. */
+    try{
+      if(typeof indicateurVillagesIncompletsHTML==='function') html+=indicateurVillagesIncompletsHTML();
+    }catch(err){ console.warn('[FBMS] Indicateur villages incomplets indisponible :',err&&err.message); }
+
     var kpis=[
       {label:tr('Villages recensés'),value:fmt(villages.length),unit:'/ '+villages.length,note:villageNote,color:''},
       {label:tr('Potentiel total'),value:fmt(totalMT),unit:'MT',note:fmt(totalSecure)+' '+tr('MT sécurisés'),color:''},

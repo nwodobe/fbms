@@ -1624,10 +1624,95 @@ function getPendingDeletes(){ try{ return JSON.parse(localStorage.getItem("fbms_
 function setPendingDeletes(arr){ try{ localStorage.setItem("fbms_pending_deletes", JSON.stringify(arr)); }catch(e){} }
 function addPendingDelete(id){ const a = getPendingDeletes(); if (a.indexOf(id) < 0){ a.push(id); setPendingDeletes(a); } }
 
-/** Affiche l'état de synchro dans la topbar (sans bloquer si absent du DOM). */
-function setSyncStatus(msg, color){
+/**
+ * Affiche l'état de synchro dans la topbar (sans bloquer si absent du DOM).
+ * v0.16.4 — La topbar est réservée aux événements RÉELLEMENT globaux : cycle
+ * de synchronisation, perte de réseau, erreur système. Elle ne porte jamais le
+ * détail de validation d'une fiche : celui-ci appartient à la fiche. `kind`
+ * sert au nettoyage des états transitoires lors d'un changement de page.
+ */
+let SYNC_STATUS_KIND = "";
+function setSyncStatus(msg, color, kind){
+  SYNC_STATUS_KIND = msg ? (kind || "info") : "";
   const el = document.getElementById("syncStatus");
   if (el){ el.textContent = msg || ""; el.style.color = color || T.inkSoft; }
+}
+
+/** Message court pour la topbar : première phrase, 60 caractères au plus. Le
+ *  détail complet part dans la console, jamais dans la barre de navigation. */
+function resumeErreur(e){
+  let m = String((e && e.message) || "").split(/[.\n]/)[0].trim();
+  if (!m) m = "Erreur de synchronisation";
+  return m.length > 60 ? m.slice(0, 57) + "…" : m;
+}
+
+/**
+ * v0.16.4 — Nettoyage des états d'interface transitoires à chaque changement
+ * de page. Une erreur affichée pour l'écran précédent ne survit pas à la
+ * navigation. Les données et l'état « synchronisé », eux, sont conservés.
+ */
+function clearTransientUI(){
+  if (SYNC_STATUS_KIND === "error") setSyncStatus("", null, "");
+}
+
+/* ---- VALIDATION D'UNE FICHE VILLAGE : PORTÉE LOCALE — v0.16.4 -------------
+ * « Fiche village incomplète » est une règle de la FICHE, pas un état de
+ * l'application. Elle est recalculée à la demande depuis la fiche courante
+ * (aucune persistance du message, ni en mémoire ni en stockage), affichée
+ * dans le formulaire concerné, et résumée par un compteur cliquable au
+ * tableau de bord. La règle métier elle-même reste dans
+ * shared/fbms-field-hardening.js : elle n'est ni dupliquée ni assouplie ici.
+ */
+function villageAudit(v){
+  try{
+    const api = window.FBMSHardening;
+    if (api && typeof api.auditVillage === "function"){
+      const a = api.auditVillage(v) || {};
+      return { disponible:true, manquants: a.manquants || [] };
+    }
+  }catch(e){ console.warn("[FBMS] Audit fiche village indisponible :", e && e.message); }
+  return { disponible:false, manquants:[] };
+}
+function estStatutSoumission(s){ return /Soumis|Validé|Valide|Approuvé|Approuve/i.test(s || ""); }
+function estErreurFicheIncomplete(e){ return !!(e && e.code === "VILLAGE_INCOMPLET"); }
+/** Fiches déclarées soumises/validées qui ne remplissent pas les prérequis.
+ *  Un brouillon incomplet est un état normal : il n'est jamais signalé. */
+function villagesIncomplets(){
+  const out = [];
+  (STATE.villages || []).forEach(v=>{
+    if (!estStatutSoumission(statutOf(v))) return;
+    const a = villageAudit(v);
+    if (a.disponible && a.manquants.length) out.push({ v:v, manquants:a.manquants });
+  });
+  return out;
+}
+/**
+ * Indicateur compact « À traiter » du tableau de bord : il remplace l'ancien
+ * message technique de validation village qui occupait le header. Compteur +
+ * accès direct à la fiche, jamais le détail des prérequis — celui-ci se lit
+ * dans la fiche. Recalculé à chaque rendu : rien n'est conservé.
+ *
+ * Deux points de montage, une seule source : DashboardView() ci-dessous ET
+ * DashboardViewAudit() de shared/fbms-dashboard-audit.js, qui écrase la
+ * première au chargement. Sans le second appel, l'indicateur serait du code
+ * mort en production.
+ */
+function indicateurVillagesIncompletsHTML(){
+  const aCompleter = villagesIncomplets();
+  if (!aCompleter.length) return "";
+  return '<div class="rounded-xl" style="background:#FEF7E6;border:1px solid #F3D89A;padding:12px 16px;margin-bottom:20px">'
+    + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+    + '<span style="color:#8A5A00;flex-shrink:0;display:inline-flex">'+icon('alert-triangle','w-4 h-4')+'</span>'
+    + '<span class="ff-body" style="font-size:14px;font-weight:600;color:#8A5A00">'
+    + t('À traiter')+' · '+aCompleter.length+' '
+    + (aCompleter.length>1 ? t('fiches village à compléter') : t('fiche village à compléter'))
+    + '</span></div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'
+    + aCompleter.slice(0,6).map(x=>
+        '<button type="button" onclick="ouvrirFicheVillage(\''+esc(x.v.id)+'\')" class="ff-body" style="font-size:12px;background:#fff;border:1px solid #F3D89A;color:#8A5A00;border-radius:8px;padding:7px 11px;cursor:pointer">'
+        + esc((x.v.s1 && x.v.s1.village) || t('Sans nom')) + ' · ' + x.manquants.length + ' ' + t('prérequis') + '</button>').join('')
+    + (aCompleter.length>6 ? '<span class="ff-body" style="font-size:12px;color:#8A5A00;align-self:center">+'+(aCompleter.length-6)+'</span>' : '')
+    + '</div></div>';
 }
 
 let SYNC_RUNNING = false;
@@ -1654,7 +1739,7 @@ async function syncNow(silent){
   SYNC_RUNNING = true;
   setSyncStatus("Synchronisation…", T.inkSoft);
   // Étape 4 : barre de progression + comptage des conflits.
-  let done = 0, total = 0, conflicts = 0;
+  let done = 0, total = 0, conflicts = 0, incomplets = [];
   try{
     const dels = getPendingDeletes();
     const pdels = getPendingPhotoDeletes();
@@ -1683,7 +1768,21 @@ async function syncNow(silent){
       if (v._sync !== "synced"){
         // Étape 4 : contrôle de conflit — si le serveur détient une version
         // plus récente, la fiche passe en arbitrage au lieu d'être écrasée.
-        const r = await RemoteVillages.upsert(v, v._serverUpdatedAt || null, false);
+        let r = null;
+        try{
+          r = await RemoteVillages.upsert(v, v._serverUpdatedAt || null, false);
+        }catch(err){
+          if (!estErreurFicheIncomplete(err)) throw err;
+          // v0.16.4 — Prérequis non satisfaits : la règle métier tient (la
+          // fiche n'est PAS poussée, elle reste « pending »), mais elle ne
+          // fait plus échouer TOUT le cycle. Avant ce correctif, un seul
+          // village incomplet interrompait aussi la phase RT, la phase
+          // producteurs et le pull. Le détail va à la fiche et au tableau de
+          // bord ; la topbar n'en reçoit qu'un compteur.
+          incomplets.push({ id:v.id, nom:err.villageNom, manquants:err.manquants || [] });
+          done++; setSyncProgress(done, total);
+          continue;
+        }
         if (r && r.conflict){
           v._conflictServer = r.server;
           conflicts++;
@@ -1758,8 +1857,12 @@ async function syncNow(silent){
     try{ await autoLinkRTFromRecensement(); }catch(e){ console.warn("[FBMS] autoLink RT :", e && e.message); }
     try{ localStorage.setItem("fbms_last_sync", new Date().toISOString()); }catch(e){}
     setSyncProgress(total, total);
-    if (conflicts > 0) setSyncStatus("✔ Synchronisé — " + conflicts + " conflit(s) à arbitrer (Base de données)", T.orange);
-    else setSyncStatus("✔ Synchronisé à " + new Date().toLocaleTimeString("fr-FR"), T.emerald);
+    // v0.16.4 — La topbar ne reçoit qu'un COMPTEUR. Le détail des prérequis
+    // manquants se lit dans la fiche, accessible depuis le tableau de bord.
+    if (incomplets.length) console.warn("[FBMS] Fiches non poussées (prérequis manquants) :", incomplets.map(x=>x.nom));
+    if (conflicts > 0) setSyncStatus("✔ Synchronisé — " + conflicts + " conflit(s) à arbitrer (Base de données)", T.orange, "warn");
+    else if (incomplets.length) setSyncStatus("✔ Synchronisé — " + incomplets.length + " fiche(s) à compléter", T.orange, "warn");
+    else setSyncStatus("✔ Synchronisé à " + new Date().toLocaleTimeString("fr-FR"), T.emerald, "ok");
     // v0.11.1 : ne JAMAIS redessiner l'écran pendant une saisie — c'était la
     // cause des pertes de formulaire signalées sur le terrain. Les données
     // synchronisées sont en base locale ; l'écran se rafraîchira à la
@@ -1767,7 +1870,11 @@ async function syncNow(silent){
     if (!isEditing()) renderContent();
   } catch(e){
     setSyncProgress(0, 0);
-    setSyncStatus("✖ " + e.message, T.red);
+    // v0.16.4 — Le message brut d'une exception n'est plus recopié tel quel
+    // dans la topbar : il pouvait y déposer un paragraphe entier. Détail en
+    // console, résumé court à l'écran, effacé au changement de page.
+    console.error("[FBMS] Synchronisation interrompue :", e);
+    setSyncStatus("✖ " + resumeErreur(e), T.red, "error");
   } finally {
     SYNC_RUNNING = false;
   }
@@ -2077,18 +2184,26 @@ function toggleCollapse(){ STATE.collapsed = !STATE.collapsed; buildSidebar(); }
 function setRole(v){ if (AUTH.isConnected()) return; STATE.role = v; if (STATE.active==="admin") renderContent(); }
 function onSearchInput(v){ STATE.query = v; STATE.page = 1; if (STATE.active==="database") renderContent(); }
 
+/* v0.16.4 — Toute navigation commence par purger les états d'interface
+   transitoires : l'écran change, les alertes de l'écran précédent partent
+   avec lui. L'alerte contextuelle de la fiche, elle, est démontée avec le
+   formulaire puisqu'elle vit dans son DOM. */
 function handleNavClick(key){
   if (key==="recensement"){ openNew(); return; }
+  clearTransientUI();
   STATE.active = key; STATE.formId = null;
   buildSidebar(); renderContent();
 }
-function openNew(){ STATE.active="form"; STATE.formId="new"; buildSidebar(); renderContent(); }
-function openEdit(id){ if (!canEditVillages()){ refuseEditVillage(); return; } closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
+function openNew(){ clearTransientUI(); STATE.active="form"; STATE.formId="new"; buildSidebar(); renderContent(); }
+function openEdit(id){ if (!canEditVillages()){ refuseEditVillage(); return; } clearTransientUI(); closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
 function cancelForm(){
   try{ localStorage.removeItem("fbms_form_draft"); }catch(e){} // v0.11.1 : annulation = brouillon abandonné
+  clearTransientUI();
   STATE.active="database"; STATE.formId=null; buildSidebar(); renderContent();
 }
 function openVillage(id){ STATE.drawerId=id; renderDrawer(); }
+/** v0.16.4 — Accès direct à la fiche depuis l'indicateur « À traiter ». */
+function ouvrirFicheVillage(id){ if (canEditVillages()) openEdit(id); else openVillage(id); }
 function closeDrawer(){ STATE.drawerId=null; document.getElementById("drawer-root").innerHTML=""; }
 
 async function saveForm(){
@@ -2105,6 +2220,20 @@ async function saveForm(){
   // corrige silencieusement toute incohérence de saisie.
   const regionOfficielle = regionDuDepartement(draft.s1.departement);
   if (regionOfficielle) draft.s1.region = regionOfficielle;
+  // v0.16.4 — Garde-fou métier vérifié LOCALEMENT avant toute écriture : une
+  // fiche déclarée soumise/validée doit remplir les prérequis. Le refus
+  // s'affiche dans la fiche, l'utilisateur reste sur sa saisie (rien n'est
+  // perdu, le brouillon est intact) et peut toujours enregistrer en
+  // « Brouillon ». Le contrôle serveur reste en place derrière.
+  if (estStatutSoumission(statutOf(draft))){
+    const audit = villageAudit(draft);
+    if (audit.disponible && audit.manquants.length){
+      rafraichirAlerteVillage(true);
+      const slot = document.getElementById("villageAlertSlot");
+      if (slot) slot.scrollIntoView({ behavior:"smooth", block:"center" });
+      return;
+    }
+  }
   draft.updatedAt = new Date().toISOString(); // Étape 0 : horodatage systématique (base de la future synchro)
   // Étape 1 : traçabilité utilisateur quand une session est active.
   if (AUTH.isConnected()){
@@ -2229,6 +2358,7 @@ function renderContent(){
     el.innerHTML = FormView(STATE.formId);
     const rec = STATE.formId==="new" ? null : STATE.villages.find(v=>v.id===STATE.formId);
     mountFormMiniMap(rec ? rec.s1.gpsLat : "", rec ? rec.s1.gpsLng : "");
+    rafraichirAlerteVillage(false); // v0.16.4 : validation recalculée à l'ouverture
   }
   if (window.lucide) lucide.createIcons();
 }
@@ -2291,6 +2421,9 @@ function DashboardView(){
     + '</div></div>';
 
   html += '<div class="dash-body">';
+
+  // v0.16.4 — Indicateur « À traiter » (voir indicateurVillagesIncompletsHTML).
+  html += indicateurVillagesIncompletsHTML();
 
   // ---- Cartes KPI (superposees) ----
   const KPI = [
@@ -2723,7 +2856,12 @@ async function loadProducteursVillage(villageId, silent){
     STATE.producteurs = await PROD_ADAPTER.list();
     if (!silent) renderContent();
   } catch(e){
-    if (!silent) setSyncStatus("✖ Producteurs : " + e.message, T.red);
+    // v0.16.4 — Même règle que la synchro villages : résumé court en topbar,
+    // détail complet en console, effacé au changement de page.
+    if (!silent){
+      console.error("[FBMS] Synchro producteurs :", e);
+      setSyncStatus("✖ Producteurs : " + resumeErreur(e), T.red, "error");
+    }
   }
 }
 
@@ -3379,6 +3517,19 @@ function riskBadges(v){
 async function setVillageStatut(id, statut){
   const v = STATE.villages.find(x=>x.id===id);
   if (!v) return;
+  // v0.16.4 — Prérequis vérifiés AVANT d'écrire le statut : on n'enregistre
+  // plus localement une validation que le serveur refusera de toute façon.
+  // Le détail est donné dans le contexte de l'action demandée, pas déposé
+  // dans la barre de navigation.
+  if (estStatutSoumission(statut)){
+    const audit = villageAudit(v);
+    if (audit.disponible && audit.manquants.length){
+      alert("« " + ((v.s1 && v.s1.village) || id) + " » ne remplit pas encore les prérequis :\n\n· "
+        + audit.manquants.map(m=>m.label).join("\n· ")
+        + "\n\nOuvrez la fiche pour la compléter.");
+      return;
+    }
+  }
   v.statut = statut;
   v.updatedAt = new Date().toISOString();
   if (AUTH.isConnected()){
@@ -4150,11 +4301,70 @@ function flashAutoSave(){
     }catch(e){ /* quota ou stockage indisponible : le bouton Enregistrer reste la référence */ }
     const el = document.getElementById("autoSaveFlash");
     if (!el) return;
+    // v0.16.4 : la validation suit la saisie — l'avertissement disparaît de
+    // lui-même dès que le dernier prérequis est renseigné.
+    try{ rafraichirAlerteVillage(false); }catch(e){ /* fiche fermée entre-temps */ }
     el.textContent = saved ? "● Brouillon enregistré à " + new Date().toLocaleTimeString("fr-FR") : "● Saisie en cours — pensez à Enregistrer";
     el.style.color = T.emerald;
     setTimeout(()=>{ if(el) { el.textContent = t("Un formulaire par village, conforme au FORMULAIRE_VILLAGE.xlsx"); el.style.color = T.inkSoft; } }, 1400);
   }, 700);
 }
+
+/* ---- ALERTE CONTEXTUELLE « FICHE À COMPLÉTER » — v0.16.4 ------------------
+ * Niveau AVERTISSEMENT (ambre), pas erreur (rouge) : une fiche incomplète est
+ * un état normal de saisie, pas une panne du système. Le rouge reste réservé
+ * aux échecs techniques (sauvegarde impossible, synchro interrompue).
+ * Le bloc est monté dans la fiche, démonté avec elle, et recalculé à chaque
+ * frappe : aucun état de validation n'est conservé entre deux écrans.
+ */
+const AMBRE = { fond:"#FEF7E6", bord:"#F3D89A", texte:"#8A5A00" };
+function alerteVillageHTML(manquants, bloque){
+  const n = manquants.length;
+  let h = '<div role="status" class="rounded-xl px-4 py-3" style="background:'+AMBRE.fond+';border:1px solid '+AMBRE.bord+'">'
+    + '<div style="display:flex;align-items:flex-start;gap:10px">'
+    + '<span style="color:'+AMBRE.texte+';flex-shrink:0;margin-top:1px;display:inline-flex">'+icon('alert-triangle','w-4 h-4')+'</span>'
+    + '<div style="min-width:0;flex:1">'
+    + '<div class="ff-body" style="font-size:14px;font-weight:600;color:'+AMBRE.texte+'">'+t('Fiche à compléter')+'</div>'
+    + '<div class="ff-body" style="font-size:12px;color:'+AMBRE.texte+';margin:2px 0 8px">'
+    + (bloque ? t('Soumission bloquée') + ' — ' : '') + n + ' ' + (n>1 ? t('éléments requis avant validation') : t('élément requis avant validation'))
+    + '</div><ul style="display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none">';
+  manquants.forEach(m=>{
+    h += '<li><button type="button" onclick="allerSection(\''+esc(m.section)+'\')" class="ff-body" style="font-size:12px;text-align:left;background:none;border:0;padding:0;cursor:pointer;color:'+AMBRE.texte+';text-decoration:underline;text-underline-offset:2px">• '+esc(m.label)+'</button></li>';
+  });
+  h += '</ul></div></div></div>';
+  return h;
+}
+/** Ouvre et met en vue la section du formulaire qui porte l'élément manquant. */
+function allerSection(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.tagName === "DETAILS") el.open = true;
+  el.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+/**
+ * Recalcule l'avertissement de la fiche ouverte. Sans fiche ouverte, la
+ * fonction ne fait rien : c'est la garantie qu'aucune autre page ne peut
+ * hériter de ce message. `bloque` = suite immédiate d'un refus de soumission.
+ */
+function rafraichirAlerteVillage(bloque){
+  const slot = document.getElementById("villageAlertSlot");
+  if (!slot) return;
+  const base = STATE.formId==="new" ? blankVillage() : STATE.villages.find(v=>v.id===STATE.formId);
+  if (!base){ slot.innerHTML = ""; return; }
+  const draft = collectFormData(base);
+  const audit = villageAudit(draft);
+  // Un brouillon incomplet est normal : on n'avertit que si la fiche est
+  // déclarée soumise/validée, ou juste après un refus de soumission.
+  const pertinent = !!bloque || estStatutSoumission(statutOf(draft));
+  slot.innerHTML = (audit.disponible && audit.manquants.length && pertinent)
+    ? alerteVillageHTML(audit.manquants, !!bloque) : "";
+  if (window.lucide) lucide.createIcons();
+}
+/* La règle métier arrive par script injecté (shared/uppercase.js) : dès
+   qu'elle est disponible, l'avertissement de la fiche ouverte est recalculé. */
+document.addEventListener("fbms:hardening-ready", function(){
+  try{ rafraichirAlerteVillage(false); }catch(e){}
+});
 
 /** v0.11.1 : une saisie est-elle en cours ? (bloque les re-rendus destructifs) */
 function isEditing(){
@@ -4204,6 +4414,12 @@ function FormView(id){
     + '</select>'
     + statutPillHTML(stCurrent)
     + '</div>';
+
+  /* v0.16.4 — Emplacement de l'avertissement contextuel : DANS la fiche, juste
+     au-dessus du formulaire qu'il concerne. Rempli après le rendu par
+     rafraichirAlerteVillage(), recalculé à chaque saisie, démonté avec la
+     fiche. Il ne touche jamais au header global. */
+  html += '<div id="villageAlertSlot" class="max-w-3xl mb-3"></div>';
 
   html += '<div class="space-y-3 max-w-3xl">';
 
