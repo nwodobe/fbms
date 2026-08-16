@@ -84,7 +84,7 @@
     "#aflpPred .aflpp-bloc{border:1px solid var(--line,#E8E7E7);border-radius:14px;padding:12px 14px;background:#fff}",
     "#aflpPred .aflpp-bloc h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#4A3C7A;font-family:'Archivo',Arial,sans-serif}",
     "#aflpPred .aflpp-bloc dl{margin:0;display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12.5px}",
-    "#aflpPred .aflpp-bloc dt{color:#7A7878}",
+    "#aflpPred .aflpp-bloc dt{color:#666565}",
     "#aflpPred .aflpp-bloc dd{margin:0;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#2E2547}",
     "#aflpPred .aflpp-com{margin:9px 0 0;font-size:11.5px;color:#5c5670;line-height:1.5;border-top:1px dashed #ebe7f2;padding-top:8px}",
     "#aflpPred table.aflpp-t{width:100%;border-collapse:collapse}",
@@ -116,7 +116,7 @@
     "#aflpPred .aflpp-decision{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}",
     "#aflpPred .aflpp-decision input,#aflpPred .aflpp-decision select{flex:1;min-width:170px;min-height:44px;border:1px solid #ddd8ea;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;color:#323131;background:#fff}",
     "#aflpPred .aflpp-decision input:focus-visible,#aflpPred .aflpp-decision select:focus-visible{outline:3px solid #EE9E00;outline-offset:1px}",
-    "#aflpPred .aflpp-pied{margin-top:14px;font-size:11px;color:#7A7878;line-height:1.6;border-top:1px solid #f0edf6;padding-top:10px}",
+    "#aflpPred .aflpp-pied{margin-top:14px;font-size:11px;color:#666565;line-height:1.6;border-top:1px solid #f0edf6;padding-top:10px}",
     "@media(max-width:620px){#aflpPred .aflpp-tab{flex:1 1 45%}#aflpPred .aflpp-corps{padding:10px}",
     "#aflpPred .aflpp-bloc dl{grid-template-columns:1fr;gap:2px}",
     "#aflpPred .aflpp-bloc dt{margin-top:6px}",
@@ -503,7 +503,7 @@
               '<td colspan="6" style="color:#8a2b1c;font-size:11.5px">' + esc(p.motif) + '</td></tr>';
           }
           return '<tr><td><b>' + esc(p.entiteNom) + '</b>' +
-            (p.cluster ? '<div style="font-size:11px;color:#7A7878">' + esc(p.cluster) + '</div>' : '') + '</td>' +
+            (p.cluster ? '<div style="font-size:11px;color:#666565">' + esc(p.cluster) + '</div>' : '') + '</td>' +
             '<td class="num">' + fmtMT(p.valeur) + '</td>' +
             '<td class="num">' + (p.bas == null ? "—" : fmtMT(p.bas) + " – " + fmtMT(p.haut)) + '</td>' +
             '<td class="num">' + fmtPct(p.metriques.wape * 100) + '</td>' +
@@ -616,7 +616,7 @@
     r.equipes.forEach(function (eq, i) {
       var idDet = "aflpp-eq-" + i;
       h += '<div class="aflpp-bloc" style="margin-bottom:10px">' +
-        '<h3>' + esc(eq.nom) + (eq.cluster ? ' <span style="text-transform:none;color:#7A7878;font-weight:400">· ' + esc(eq.cluster) + '</span>' : '') + '</h3>' +
+        '<h3>' + esc(eq.nom) + (eq.cluster ? ' <span style="text-transform:none;color:#666565;font-weight:400">· ' + esc(eq.cluster) + '</span>' : '') + '</h3>' +
         '<p class="aflpp-com" style="border:0;padding:0;margin:0 0 8px">' +
         tagConfiance(eq.confianceStatistique) + ' ' +
         fmtNombre(eq.observations) + ' achat(s) · période ' + esc(eq.periode) +
@@ -674,7 +674,7 @@
 
     if (!r.signaux.length) {
       h += '<div class="aflpp-vide">Aucun signal à examiner sur ce jeu de données.<br>' +
-        '<span style="font-size:11.5px;color:#7A7878">Une absence de signal n\'est pas une ' +
+        '<span style="font-size:11.5px;color:#666565">Une absence de signal n\'est pas une ' +
         'attestation de conformité : elle signifie que les règles et statistiques appliquées ' +
         'n\'ont rien relevé.</span></div>';
     } else {
@@ -685,9 +685,9 @@
           '<p style="margin:0 0 6px;font-size:13px;color:#2E2547"><b>' + esc(s.entiteNom) + '</b> · ' +
           tagConfiance(s.confiance) + ' <span class="aflpp-tag aflpp-moy">' + esc(s.qualification) + '</span></p>' +
           '<dl style="margin:0;display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12.5px">' +
-          '<dt style="color:#7A7878">Observation</dt><dd style="margin:0;text-align:right">' + esc(s.observation) + '</dd>' +
-          '<dt style="color:#7A7878">Norme de comparaison</dt><dd style="margin:0;text-align:right">' + esc(s.norme) + '</dd>' +
-          '<dt style="color:#7A7878">Écart</dt><dd style="margin:0;text-align:right">' + esc(s.ecart) + '</dd>' +
+          '<dt style="color:#666565">Observation</dt><dd style="margin:0;text-align:right">' + esc(s.observation) + '</dd>' +
+          '<dt style="color:#666565">Norme de comparaison</dt><dd style="margin:0;text-align:right">' + esc(s.norme) + '</dd>' +
+          '<dt style="color:#666565">Écart</dt><dd style="margin:0;text-align:right">' + esc(s.ecart) + '</dd>' +
           '</dl>' +
           '<button type="button" class="aflpp-btn ghost" style="margin-top:9px" data-action="detail" data-cible="' + idDet + '">' +
           'Explications et action recommandée</button>' +
@@ -783,7 +783,7 @@
         '<th>Importance</th><th>Confiance</th></tr></thead><tbody>' +
         r.ecarts.map(function (e) {
           return '<tr><td><b>' + esc(e.entiteNom) + '</b>' +
-            (e.cluster ? '<div style="font-size:11px;color:#7A7878">' + esc(e.cluster) + '</div>' : '') + '</td>' +
+            (e.cluster ? '<div style="font-size:11px;color:#666565">' + esc(e.cluster) + '</div>' : '') + '</td>' +
             '<td>' + esc(e.mesure) + '</td>' +
             '<td class="num">' + fmtDec(e.valeurMesuree, 2) + '</td>' +
             '<td class="num">' + fmtDec(e.normeAttendue, 2) + '</td>' +
@@ -835,7 +835,7 @@
           '<td>' + esc(e.decideur || "—") + '</td>' +
           '<td>' + esc(e.suite || "—") + '</td>' +
           '<td style="font-size:11.5px">' + esc(e.motif || "—") + '</td>' +
-          '<td style="font-size:11px;color:#7A7878">' + esc(e.dataset || "—") + '</td></tr>';
+          '<td style="font-size:11px;color:#666565">' + esc(e.dataset || "—") + '</td></tr>';
       }).join("") + '</tbody></table></div>';
     return h;
   }

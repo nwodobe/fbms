@@ -166,6 +166,10 @@ td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
 /* ── Référentiel terrain compacté ───────────────────────────────────────── */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}
 .stats>div{background:#fff;padding:11px 12px;min-width:0}
+/* Huit indicateurs dans une grille de trois : la neuvième case resterait vide
+   et, le fond du conteneur servant de filet, se verrait comme un bloc gris.
+   Le dernier indicateur occupe donc la fin de sa ligne. */
+.stats>div:last-child:nth-child(3n+2){grid-column:span 2}
 .stats b{display:block;font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--forest);line-height:1.2;overflow-wrap:anywhere}
 .stats small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-top:3px;line-height:1.3}
 
@@ -192,10 +196,11 @@ td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
 /* Conteneur bien identifié pour les Prévisions (violet du module). */
 #panPred{border-left:3px solid var(--violet)}
 #panIa{border-left:3px solid var(--emerald)}
-/* Lisibilité des tableaux internes des modules : en-tête collant et survol,
-   sans toucher à leur feuille (sélecteur plus spécifique volontairement). */
-#aflpIa table.aflp-t thead th,#aflpPred table.aflpp-t thead th{position:sticky;top:0;z-index:2}
-#aflpIa table.aflp-t tbody tr:hover td{background:var(--mist)}
+/* Lisibilité des tableaux internes des Prévisions : en-tête collant et survol,
+   sans toucher à leur feuille (sélecteur plus spécifique volontairement).
+   L'Assistant IA, lui, porte désormais ces règles dans sa propre feuille —
+   deux endroits pour un même effet finissent toujours par diverger. */
+#aflpPred table.aflpp-t thead th{position:sticky;top:0;z-index:2}
 #aflpPred table.aflpp-t tbody tr:hover td{background:#f7f5fd}
 
 /* ── États : chargement / vide / hors-ligne / erreur ────────────────────── */
@@ -216,6 +221,11 @@ td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
 .state .act.ghost{background:transparent;border:1px solid #cfe3cf;color:#00712C;font-weight:600}
 .state .act.ghost:hover{background:#F1F9EF}
 .netbar{display:flex;align-items:center;gap:9px;border-radius:var(--r-sm);padding:10px 13px;font-size:12.5px;font-weight:700;margin-bottom:12px;line-height:1.45}
+/* `display:flex` est une règle d'AUTEUR : elle bat le `display:none` que le
+   navigateur applique à `[hidden]`. Sans cette ligne, le bandeau réseau reste
+   peint — vide, mais bordé et coloré — en haut du cockpit à chaque chargement
+   en ligne, puisque `majReseau()` lui pose sa classe tout en le masquant. */
+.netbar[hidden]{display:none}
 .netbar.off{background:var(--orange-tint);border:1px solid #f0d99a;color:#6b5310}
 .netbar.on{background:var(--pale);border:1px solid #c6e3c2;color:var(--pine)}
 

@@ -143,16 +143,24 @@ sélecteur :
 
 | | total | barre suite | modules AFLP | **page** |
 |---|---|---|---|---|
-| avant (`HEAD`) | 71 | 2 | 56 | **13** |
-| après, tout déplié | 56 | 2 | 54 | **0** |
+| avant (`b22d723`) | 71 | 2 | 56 | **13** |
+| après, tout déplié | **6** | 2 | **4** | **0** |
 | après, état par défaut | 2 | 2 | 0 | **0** |
 
 Corrections : gris `#7A7878` → `#666565` et ambre `#9A6600` → `#8A5B00` (tous
 deux mesurés sous 4,5 aux tailles employées) ; `tabindex="0"` et nom accessible
 sur les zones à défilement ; cibles tactiles du cockpit toutes ≥ 44 px.
 
-Les 2 écarts restants viennent de `shared/suite-bar.js` (navigation globale) et
-les 54 des feuilles propres aux modules AFLP : hors périmètre de ce lot.
+**Le même gris `#7A7878` peuplait aussi les deux feuilles des modules AFLP** —
+3 occurrences dans `aflp-ia-ui.js`, 10 dans `aflp-ia-predictif-ui.js`. Les y
+remplacer par `#666565` fait tomber leurs écarts de **54 à 4**. Une seule
+couleur portait donc l'essentiel du reliquat : la corriger coûtait treize
+caractères, la déclarer « hors périmètre » coûtait cinquante violations.
+
+Les 2 écarts restants viennent de `shared/suite-bar.js` (navigation globale),
+hors périmètre ; les 4 derniers des modules AFLP tiennent à des teintes
+violettes propres à la couche prédictive (`#6b6580`, `#5c5670`), non mesurées
+ici et laissées en l'état plutôt que changées à l'aveugle.
 
 ## 9. Ce qui a été mesuré, et comment
 
@@ -162,10 +170,20 @@ comble ce trou — `.github/agent-tests/command-center/`, voir son `LISEZ-MOI.md
 Il sert le dépôt tel quel et ne double que le SDK Supabase et `auth-gate.js`,
 comme le fait déjà `verifier-pages.mjs`. Données entièrement fictives.
 
-**70 contrôles, aux trois largeurs imposées (390×844, 768×1024, 1440×900), tous
-au vert**, dont : hauteur de page à données égales **4 938 → 2 591 px (−48 %)**,
+**106 contrôles, aux trois largeurs imposées (390×844, 768×1024, 1440×900), tous
+au vert**, dont : hauteur de page à données égales **5 047 → 2 591 px (−49 %)**,
 aucune erreur JS, aucun débordement horizontal, navigation collante et ancres,
 dévoilement progressif, recherche, tri, états, accessibilité.
+
+### Un garde-fou qui se mesurait à lui-même
+
+La comparaison de hauteur lisait `git show HEAD:terrain/command.html`. C'était
+juste tant que la refonte n'était pas commise ; elle l'est depuis, et `HEAD`
+**est** la refonte. Le contrôle se comparait donc à lui-même et basculait au
+pixel près — vert à 2 592 contre 2 591, rouge à la mesure suivante. La
+référence est désormais **épinglée à `b22d723`**, dernier commit à avoir touché
+cette page avant la refonte (`CC_REF_AVANT` permet d'en viser une autre). Un
+garde-fou dont la référence bouge avec ce qu'il garde ne garde rien.
 
 Portes du dépôt : `verifier-html`, `verifier-js`, `verifier-liens`,
 `verifier-pages` — **0 nouveau problème** sur les quatre.
@@ -185,13 +203,44 @@ décrit ; le corriger relève d'une pull request dédiée.
 
 - La navigation globale et son style n'ont pas été touchés : ses 2 écarts de
   contraste et ses 8 cibles sous 44 px restent (hors périmètre).
-- Les feuilles propres aux modules AFLP n'ont pas été retouchées : leurs 54
-  écarts d'accessibilité subsistent. Les corriger demande d'entrer dans
-  `shared/aflp-ia-ui.js` et `shared/aflp-ia-predictif-ui.js` autrement que par
-  un accesseur — un lot à part.
-- Le tableau « Zones et clusters » vit **dans** l'assistant IA. Il a reçu un
-  en-tête collant et un survol de ligne depuis la feuille de la page ; sa
-  recherche et son tri demanderaient de modifier le module.
+- Les 4 derniers écarts des modules AFLP (teintes violettes de la couche
+  prédictive) n'ont pas été touchés, faute de les avoir mesurés.
 - Les libellés nouveaux ne sont pas dans le dictionnaire `shared/i18n.js` : en
   anglais, ils restent en français. Ajout à faire dans `shared/i18n-extra.js`
   si la version anglaise est utilisée sur le terrain.
+
+## 11. Zones et clusters — deuxième passe
+
+Le tableau « Zones et clusters » vit **dans** l'assistant IA, sur l'onglet
+Synthèse. La première passe s'était contentée de lui donner un en-tête collant
+et un survol de ligne depuis la feuille de la page, en évitant d'entrer dans le
+module. C'était un demi-geste : sans recherche ni tri, une table de six
+clusters se lit encore, une table de vingt ne se lit plus.
+
+Elle reçoit donc, **dans `shared/aflp-ia-ui.js` et sans toucher au moteur** :
+
+| Ajout | Détail |
+|---|---|
+| recherche | cluster **ou** zone, insensible aux accents (« beoumi » trouve « Béoumi ») |
+| tri | volume, solde le plus bas, sacs le plus bas, zone, nom A→Z |
+| compteur | « 1 sur 6 » dès qu'un filtre est actif |
+| badge de zone | discret, pour regrouper l'œil — il ne signale pas un risque |
+| repli | le bloc entier se replie, `aria-expanded` suivi |
+| état vide | « Aucun cluster ne correspond à … » |
+
+Le tableau **reste un tableau** : le transformer en cartes ferait perdre la
+comparaison colonne à colonne, qui est tout l'intérêt de ce bloc.
+
+Deux points de mise en œuvre qui ne se devinent pas :
+
+1. `rendre()` réécrit **tout** le panneau par `innerHTML`. Recherche et tri ne
+   réécrivent donc que le corps du tableau et son compteur : repasser par
+   `rendre()` recréerait le champ de saisie, qui perdrait le focus et le
+   curseur à chaque frappe. Le banc le vérifie explicitement.
+2. L'état du filtre vit au niveau du **module**, pas dans le DOM — sinon chaque
+   rafraîchissement des données le viderait.
+
+Le module écoute par **délégation** sur son conteneur, comme le reste du
+fichier. Conséquence pour qui écrira des mesures : un `new Event('input')` sans
+`bubbles: true` n'atteint jamais l'écouteur, alors qu'une vraie frappe, elle,
+remonte. Le contrôle passerait à côté sans rien signaler.

@@ -25,8 +25,11 @@ principe que les doublures de `verifier-pages.mjs` :
 `terrain/command.html` et les modules `shared/aflp-ia-*.js` sont servis **sans
 retouche** : ce qui est mesuré est bien le fichier du dépôt.
 
-Il sert en plus la version de `HEAD` sous `/__avant/command.html`, ce qui
-permet de comparer la hauteur de page **à données strictement égales**.
+Il sert en plus la version d'**avant la refonte** sous `/__avant/command.html`,
+ce qui permet de comparer la hauteur de page **à données strictement égales**.
+Cette référence est **épinglée au commit `b22d723`**, et non à `HEAD` : `HEAD`
+étant devenu la refonte, le contrôle se comparait à lui-même et basculait au
+pixel près. `CC_REF_AVANT=<commit>` permet d'en viser une autre.
 
 ## Ce qu'il vérifie
 
@@ -45,6 +48,12 @@ Aux trois largeurs imposées par `CLAUDE.md` (390×844, 768×1024, 1440×900) :
   `AFLP_PRED_UI.resume()`) et non d'un calcul parallèle ;
 - dévoilement progressif : RT à risque 3 → tout → 3, anomalies 5 → tout ;
 - recherche, tri et état « aucun résultat » des tableaux ;
+- « Zones et clusters » : badge de zone sur chaque ligne, recherche par cluster
+  **et** par zone, compteur de résultats, tri, repli avec `aria-expanded`, et
+  **conservation du focus pendant la frappe** — le module ne doit réécrire que
+  le corps du tableau. Les événements y sont émis avec `bubbles: true` : le
+  module écoute par délégation, un événement qui ne remonte pas ne serait
+  jamais vu, et le contrôle passerait au vert sans rien avoir mesuré ;
 - les 8 indicateurs du référentiel et les 8 onglets de Prévisions sont
   conservés ;
 - états hors ligne, échec de chargement et squelettes ;

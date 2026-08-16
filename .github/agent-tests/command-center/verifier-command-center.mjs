@@ -28,7 +28,7 @@
    ========================================================================== */
 import { createServer } from 'node:http'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { chromium } from 'playwright'
 
@@ -107,9 +107,16 @@ if(s)s.innerHTML='<span style="background:#fff;border-radius:999px;padding:0 14p
 document.dispatchEvent(new CustomEvent("anagroci:authenticated",{detail:{niveau:"bm"}}));}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){setTimeout(ouvrir,60);});else setTimeout(ouvrir,60);})();`
 
-/* Version de `main` de la page, pour comparer la hauteur avant / après. */
+/* Version d'AVANT la refonte, pour comparer la hauteur à données égales.
+   La référence est ÉPINGLÉE au commit qui précède la refonte (b22d723, dernier
+   à avoir touché cette page avant elle). Elle valait `HEAD` à l'écriture du
+   banc, quand la refonte n'était pas encore commise — depuis, `HEAD` EST la
+   refonte : le contrôle se comparait à lui-même et basculait au pixel près
+   (2592 contre 2591). Un garde-fou qui se mesure à soi ne garde rien.
+   `CC_REF_AVANT` permet de viser une autre référence. */
+const REF_AVANT = process.env.CC_REF_AVANT || 'b22d723'
 let AVANT = null
-try { AVANT = execFileSync('git', ['show', 'HEAD:terrain/command.html'], { encoding: 'utf8', cwd: RACINE }) } catch (e) { AVANT = null }
+try { AVANT = execFileSync('git', ['show', REF_AVANT + ':terrain/command.html'], { encoding: 'utf8', cwd: RACINE }) } catch (e) { AVANT = null }
 
 const doublurer = (html) => html
   .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^"']+/g, '/__doublure/supabase.js')
@@ -121,7 +128,7 @@ const serveur = createServer((req, res) => {
   if (url === '/__doublure/supabase.js') { res.writeHead(200, { 'content-type': TYPES['.js'] }); return res.end(DOUBLURE_SUPABASE) }
   if (url === '/__doublure/auth-gate.js') { res.writeHead(200, { 'content-type': TYPES['.js'] }); return res.end(DOUBLURE_AUTH) }
   if (url === '/__avant/command.html') {
-    if (!AVANT) { res.writeHead(404); return res.end('version HEAD indisponible') }
+    if (!AVANT) { res.writeHead(404); return res.end('référence ' + REF_AVANT + ' indisponible') }
     res.writeHead(200, { 'content-type': TYPES['.html'] }); return res.end(doublurer(AVANT))
   }
   const chemin = normalize(join(RACINE, url === '/' ? '/index.html' : url))
@@ -155,10 +162,55 @@ if (AVANT) {
   }
   const avant = await mesurer('/__avant/command.html')
   const apres = await mesurer('/terrain/command.html')
-  console.log('  avant (HEAD) : ' + avant + ' px')
+  console.log('  avant (' + REF_AVANT + ') : ' + avant + ' px')
   console.log('  après        : ' + apres + ' px')
   dire(apres < avant, 'la page est plus courte à contenu égal (' + Math.round((1 - apres / avant) * 100) + ' % de moins)')
   await ctx.close()
+}
+
+/* ── Captures d'écran, à la demande ───────────────────────────────────────
+   `CC_CAPTURES=<dossier>` écrit des images de la page CONNECTÉE, seul état où
+   le cockpit existe vraiment. Elles ne mesurent rien : elles servent à montrer
+   le résultat à quelqu'un qui n'a pas le dépôt sous la main. Hors de ce
+   dossier, le banc se comporte exactement comme avant. */
+if (process.env.CC_CAPTURES) {
+  const dossier = process.env.CC_CAPTURES
+  mkdirSync(dossier, { recursive: true })
+  console.log('\n=== captures → ' + dossier + ' ===')
+  const prete = async (pg) => {
+    await pg.waitForFunction(() => document.getElementById('kVol').textContent.indexOf('MT') > 0, null, { timeout: 20000 })
+    await pg.waitForTimeout(1400)
+  }
+  const ctx = await navigateur.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })
+  const pg = await ctx.newPage()
+
+  await pg.goto(BASE + '/terrain/command.html', { waitUntil: 'networkidle' })
+  await prete(pg)
+  await pg.screenshot({ path: join(dossier, '1-cockpit-defaut.png'), fullPage: true })
+
+  await pg.evaluate(() => document.querySelector('[data-ia="synthese"]').click())
+  await pg.waitForTimeout(900)
+  await pg.evaluate(() => document.getElementById('sec-ia').scrollIntoView())
+  await pg.waitForTimeout(500)
+  await pg.screenshot({ path: join(dossier, '2-assistant-ia.png') })
+  const bloc = await pg.$('.aflp-zc')
+  if (bloc) await bloc.screenshot({ path: join(dossier, '3-zones-clusters.png') })
+
+  if (AVANT) {
+    const pg2 = await ctx.newPage()
+    await pg2.goto(BASE + '/__avant/command.html', { waitUntil: 'networkidle' })
+    await prete(pg2)
+    await pg2.screenshot({ path: join(dossier, '0-avant.png'), fullPage: true })
+  }
+  await ctx.close()
+
+  const ctxm = await navigateur.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+  const pgm = await ctxm.newPage()
+  await pgm.goto(BASE + '/terrain/command.html', { waitUntil: 'networkidle' })
+  await prete(pgm)
+  await pgm.screenshot({ path: join(dossier, '4-mobile.png'), fullPage: true })
+  await ctxm.close()
+  console.log('  images écrites')
 }
 
 for (const vp of VIEWPORTS) {
@@ -170,7 +222,15 @@ for (const vp of VIEWPORTS) {
      « Failed to load resource » ne dit pas QUOI a échoué. */
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) erreurs.push('console: ' + m.text()) })
   page.on('pageerror', (e) => erreurs.push('js: ' + e.message))
-  page.on('requestfailed', (r) => erreurs.push('requête KO: ' + r.url()))
+  /* Seules les ressources SERVIES PAR LE BANC comptent comme échec : c'est ce
+     que le libellé du contrôle promet, et c'est tout ce que ce lot maîtrise.
+     Une police Google qui ne répond pas fait échouer la mesure sans rien dire
+     de la page. Les échecs externes sont signalés, jamais fatals — les liens
+     sortants relèvent de `verifier-liens.mjs`. */
+  const externes = []
+  page.on('requestfailed', (r) => {
+    (r.url().startsWith(BASE) ? erreurs : externes).push('requête KO: ' + r.url())
+  })
   page.on('response', (r) => { if (r.status() >= 400 && r.url().startsWith(BASE)) erreurs.push('HTTP ' + r.status() + ' ' + r.url()) })
 
   await page.goto(BASE + '/terrain/command.html', { waitUntil: 'networkidle' })
@@ -178,9 +238,16 @@ for (const vp of VIEWPORTS) {
   await page.waitForTimeout(500)
 
   dire(erreurs.length === 0, 'aucune erreur JS ni ressource interne manquante — ' + (erreurs[0] || 'RAS'))
+  if (externes.length) console.log('  note  ' + externes.length + ' ressource(s) externe(s) sans réponse (hors périmètre) : ' + externes[0])
 
   const deb = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   dire(deb <= 0, 'pas de débordement horizontal de la page (écart ' + deb + 'px)')
+
+  /* En ligne, au chargement : aucun bandeau réseau ne doit occuper de place.
+     Il en occupait — vide, bordé, coloré — parce que `hidden` ne suffit pas
+     face à `display:flex`. Le contrôle porte sur la surface, pas sur l'attribut. */
+  const netVide = await page.evaluate(() => document.getElementById('netBar').getBoundingClientRect().height)
+  dire(netVide === 0, 'aucun bandeau réseau peint au chargement en ligne (hauteur ' + netVide + 'px)')
 
   const petits = await page.evaluate(() => {
     const out = []
@@ -251,6 +318,51 @@ for (const vp of VIEWPORTS) {
   dire(/attention|Aucune anomalie/.test(ia.resume), 'résumé IA lu du moteur — « ' + ia.resume + ' »')
   dire(/Porte Niveau 1/.test(ia.pred), 'résumé Prévisions lu du moteur — « ' + ia.pred + ' »')
 
+  /* « Zones et clusters » — la table de comparaison de l'assistant, sur
+     l'onglet Synthèse. Les événements sont émis AVEC bulle : le module écoute
+     par délégation sur son conteneur, et un événement qui ne remonte pas ne
+     serait jamais vu. C'est aussi ce que fait une vraie frappe au clavier. */
+  const zc = await page.evaluate(async () => {
+    const p = (ms) => new Promise((r) => setTimeout(r, ms))
+    const ev = (n) => new Event(n, { bubbles: true })
+    const lignes = () => [...document.querySelectorAll('#aflp-zc-corps tr')]
+    document.getElementById('aflp-tab-synthese').click(); await p(350)
+    const r = {}
+    r.total = lignes().length
+    r.zones = document.querySelectorAll('#aflp-zc-corps .aflp-zn').length
+    const q = document.getElementById('aflp-zc-q')
+    q.focus()
+    q.value = 'DIA'; q.dispatchEvent(ev('input')); await p(150)
+    r.filtre = lignes().length
+    r.focusGarde = document.activeElement === q
+    r.compteur = document.getElementById('aflp-zc-cpt').textContent.trim()
+    q.value = 'gbeke'; q.dispatchEvent(ev('input')); await p(150)
+    r.parZone = lignes().length
+    q.value = 'ZZZZ'; q.dispatchEvent(ev('input')); await p(150)
+    r.vide = /Aucun cluster ne correspond/.test(document.getElementById('aflp-zc-corps').textContent)
+    q.value = ''; q.dispatchEvent(ev('input')); await p(150)
+    const t = document.getElementById('aflp-zc-tri')
+    t.value = 'nom'; t.dispatchEvent(ev('change')); await p(150)
+    r.triNom = lignes().map((x) => x.cells[0].textContent.trim())
+    const tg = document.querySelector('.aflp-zc-tg')
+    tg.click(); await p(150)
+    r.replie = document.getElementById('aflp-zc-zone').hidden === true
+    r.aria = tg.getAttribute('aria-expanded')
+    tg.click(); await p(150)
+    r.rouvert = document.getElementById('aflp-zc-zone').hidden === false
+    return r
+  })
+  dire(zc.total > 0 && zc.zones === zc.total,
+    'Zones et clusters : ' + zc.total + ' ligne(s), chacune avec son badge de zone')
+  dire(zc.filtre > 0 && zc.filtre < zc.total && zc.vide,
+    'recherche : ' + zc.filtre + ' sur ' + zc.total + ' pour « DIA », puis état « aucun résultat »')
+  dire(zc.parZone > zc.filtre, 'la recherche porte aussi sur la zone (« gbeke » → ' + zc.parZone + ')')
+  dire(zc.focusGarde, 'le champ garde le focus pendant la frappe (corps du tableau seul réécrit)')
+  dire(/sur/.test(zc.compteur), 'compteur de résultats — « ' + zc.compteur + ' »')
+  dire(JSON.stringify(zc.triNom) === JSON.stringify([...zc.triNom].sort((a, b) => a.localeCompare(b, 'fr'))),
+    'tri par nom : ' + zc.triNom.join(' < '))
+  dire(zc.replie && zc.aria === 'false' && zc.rouvert, 'le bloc se replie et se rouvre, aria-expanded suivi')
+
   const pd = await page.evaluate(async () => {
     const p = (ms) => new Promise((r) => setTimeout(r, ms))
     const r = {}
@@ -291,11 +403,20 @@ for (const vp of VIEWPORTS) {
   await ctx.setOffline(true)
   await page.evaluate(() => window.dispatchEvent(new Event('offline')))
   await page.waitForTimeout(200)
-  const horsLigne = await page.evaluate(() => {
+  /* `peint` et non `!hidden` : `.netbar{display:flex}` est une règle d'auteur,
+     elle bat le `display:none` que le navigateur donne à `[hidden]`. Mesurer
+     la propriété laissait passer un bandeau vide peint en permanence sur la
+     page en ligne. Ce qu'il faut mesurer, c'est la surface réellement occupée. */
+  const mesureNet = () => {
     const b = document.getElementById('netBar')
-    return { visible: !b.hidden, texte: b.textContent.slice(0, 40), classe: b.className }
-  })
-  dire(horsLigne.visible && /off/.test(horsLigne.classe), 'bandeau hors ligne visible — « ' + horsLigne.texte + '… »')
+    return {
+      peint: b.getBoundingClientRect().height > 0,
+      texte: b.textContent.slice(0, 40),
+      classe: b.className,
+    }
+  }
+  const horsLigne = await page.evaluate(mesureNet)
+  dire(horsLigne.peint && /off/.test(horsLigne.classe), 'bandeau hors ligne visible — « ' + horsLigne.texte + '… »')
 
   const echec = await page.evaluate(() => {
     loadFailState()
@@ -312,7 +433,8 @@ for (const vp of VIEWPORTS) {
   await ctx.setOffline(false)
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
   await page.waitForTimeout(150)
-  dire(await page.evaluate(() => document.getElementById('netBar').hidden), 'le bandeau disparaît au retour du réseau')
+  const retour = await page.evaluate(mesureNet)
+  dire(!retour.peint, 'le bandeau ne laisse aucune trace peinte au retour du réseau')
 
   const skel = await page.evaluate(() => { setSkeletons(); return document.querySelectorAll('.skel').length })
   dire(skel > 10, 'squelettes de chargement rétablis (' + skel + ' éléments)')
