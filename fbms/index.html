@@ -1857,11 +1857,14 @@ async function syncNow(silent){
     try{ await autoLinkRTFromRecensement(); }catch(e){ console.warn("[FBMS] autoLink RT :", e && e.message); }
     try{ localStorage.setItem("fbms_last_sync", new Date().toISOString()); }catch(e){}
     setSyncProgress(total, total);
-    // v0.16.4 — La topbar ne reçoit qu'un COMPTEUR. Le détail des prérequis
-    // manquants se lit dans la fiche, accessible depuis le tableau de bord.
+    // v0.16.4 — La topbar ne dit RIEN des fiches incomplètes, pas même un
+    // compteur : une fiche village qui ne remplit pas ses prérequis n'est pas
+    // un événement global. Le signalement vit au tableau de bord (indicateur
+    // « À traiter ») et le détail dans la fiche ; en base de données, chaque
+    // fiche non poussée garde son badge « en attente de synchronisation ».
+    // La console conserve la trace nominative, pour le diagnostic.
     if (incomplets.length) console.warn("[FBMS] Fiches non poussées (prérequis manquants) :", incomplets.map(x=>x.nom));
     if (conflicts > 0) setSyncStatus("✔ Synchronisé — " + conflicts + " conflit(s) à arbitrer (Base de données)", T.orange, "warn");
-    else if (incomplets.length) setSyncStatus("✔ Synchronisé — " + incomplets.length + " fiche(s) à compléter", T.orange, "warn");
     else setSyncStatus("✔ Synchronisé à " + new Date().toLocaleTimeString("fr-FR"), T.emerald, "ok");
     // v0.11.1 : ne JAMAIS redessiner l'écran pendant une saisie — c'était la
     // cause des pertes de formulaire signalées sur le terrain. Les données
