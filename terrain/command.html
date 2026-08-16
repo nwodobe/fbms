@@ -15,77 +15,775 @@
 <script defer src="../shared/aflp-ia-predictif-ui.js"></script>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <style>
-:root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;--line:#E8E7E7;--danger:#C0392B;--white:#fff;--shadow:0 12px 30px rgba(5,59,35,.08)}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#f1f9ef,#f7f7f5);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}.top{background:radial-gradient(900px 420px at 85% -10%,#0d6b3e,transparent 55%),linear-gradient(135deg,#03301c,#053B23 60%,#0a4a2c);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:3px solid var(--lime)}.top .b{display:flex;align-items:center;gap:12px}.chip{background:#fff;border-radius:10px;padding:5px 8px;display:inline-flex;align-items:center}.chip img{height:30px;display:block}.top b{font-size:17px}.top small{color:#CFE3D3;font-size:11.5px}.top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:10px;background:var(--emerald);color:#fff;font-weight:800;padding:9px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.btn.ghost{background:#fff;color:var(--forest)}.btn.warn{background:var(--orange);color:#2d2400}.btn.sm{padding:7px 10px;font-size:12px}.wrap{max-width:1240px;margin:auto;padding:18px 16px 50px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;margin-bottom:14px}.panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.panel h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif;display:flex;justify-content:space-between;align-items:center}.body{padding:12px 14px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.k{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:var(--shadow)}.k small{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.k b{font-size:24px;color:var(--forest);font-family:'IBM Plex Mono',monospace}.k .sub{font-size:11.5px;color:var(--muted);margin-top:4px}.k.danger b{color:var(--danger)}.k.warn b{color:#9A6600}.bar{height:7px;border-radius:999px;background:var(--pale);margin-top:9px;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--emerald),var(--lime))}.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}table{width:100%;border-collapse:collapse}th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:8px;text-align:left;position:sticky;top:0}td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px}td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}.neg{color:var(--danger);font-weight:800}.pos{color:var(--pine);font-weight:800}.scroll{max-height:50vh;overflow:auto}.muted{color:var(--muted);font-size:12.5px}.todo{display:flex;align-items:center;gap:11px;padding:11px 14px;border-top:1px solid #f0ede4;text-decoration:none;color:inherit}.todo:first-child{border-top:0}.todo .n{min-width:44px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:18px;border-radius:10px;padding:7px}.sev-hi .n{background:#fdeceb;color:var(--danger)}.sev-md .n{background:var(--orange-tint);color:#9A6600}.sev-lo .n{background:var(--pale);color:var(--pine)}.todo .t{font-size:13px;font-weight:800}.todo .d{font-size:11.5px;color:var(--muted)}.todo .go{margin-left:auto;color:var(--emerald);font-weight:800;font-size:18px}.empty{padding:16px;text-align:center;color:var(--pine)}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800}.bhi{background:#fdeceb;color:var(--danger)}.bmd{background:var(--orange-tint);color:#9A6600}.blo{background:var(--pale);color:var(--pine)}.mini{font-size:11px;color:var(--muted)}@media(max-width:980px){.hero,.grid2{grid-template-columns:1fr}.kpis,.grid3{grid-template-columns:1fr 1fr}}@media(max-width:620px){.kpis,.grid3{grid-template-columns:1fr}.wrap{padding:14px 10px}.top{padding:12px}}
-/* ── États de chargement / vides / erreur (Étape 4) ── */
+/* ============================================================================
+   COMMAND CENTER BM — cockpit opérationnel
+   ----------------------------------------------------------------------------
+   Hiérarchie voulue : SITUATION → RISQUE → ACTION → ANALYSE.
+   Six sections, une navigation locale collante, et du dévoilement progressif
+   partout où le détail n'est pas nécessaire à la décision immédiate.
+
+   Contrat à ne pas casser : les identifiants (#kVol, #todo, #clusTable,
+   #refTable, #rtTable, #aflpIa, #aflpPred…) et les classes .badge/.bhi/.bmd/
+   .blo/.mini/.num/.neg/.pos/.state/.skel sont consommés par le script de la
+   page ET par les modules partagés qui écrivent dedans. Les renommer casse
+   silencieusement l'Assistant IA et les Prévisions.
+   ========================================================================== */
+:root{
+  --forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;
+  --pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;
+  --ink:#323131;--line:#E8E7E7;--danger:#C0392B;--white:#fff;
+  --violet:#4A3C7A;
+  /* Gris et ambre assombris par rapport au socle (#7A7878 / var(--amber-ink)) : mesurés
+     à 4,38 et 4,30 de contraste, sous le seuil WCAG AA de 4,5 aux tailles
+     employées ici. Ces deux valeurs-ci passent, sans changer la teinte. */
+  --muted:#666565;--amber-ink:#8A5B00;
+  --shadow:0 6px 18px rgba(5,59,35,.055);
+  --shadow-lg:0 14px 34px rgba(5,59,35,.09);
+  --r:14px;--r-sm:10px;
+  --barh:50px;              /* hauteur réelle de la barre suite, mesurée au chargement */
+  --navh:54px;              /* hauteur de la navigation locale */
+  --stick:calc(var(--barh) + var(--navh));
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:#F6F8F5;color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
+
+/* ── Sous-en-tête du module ────────────────────────────────────────────── */
+.top{background:radial-gradient(900px 420px at 85% -10%,#0d6b3e,transparent 55%),linear-gradient(135deg,#03301c,#053B23 60%,#0a4a2c);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:3px solid var(--lime)}
+.top .b{display:flex;align-items:center;gap:12px;min-width:0}
+.top b{font-size:17px;font-family:'Archivo',Arial,sans-serif;letter-spacing:-.01em}
+.top small{color:#CFE3D3;font-size:11.5px}
+.top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.upd{font-size:11.5px;color:#CFE3D3;display:inline-flex;align-items:center;gap:6px}
+.upd::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lime);flex:none}
+.upd.stale::before{background:var(--orange)}
+.upd.ko::before{background:#ff8f80}
+.btn{border:0;border-radius:var(--r-sm);background:var(--emerald);color:#fff;font-weight:800;padding:0 14px;min-height:44px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn:hover{background:var(--pine)}
+.btn.ghost{background:#fff;color:var(--forest)}
+.btn.ghost:hover{background:var(--mist)}
+.btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+
+/* ── Navigation locale collante ────────────────────────────────────────── */
+.ccnav{position:sticky;top:var(--barh);z-index:900;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(5,59,35,.05)}
+.ccnav-in{max-width:1360px;margin:auto;display:flex;gap:6px;padding:5px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ccnav-in::-webkit-scrollbar{display:none}
+.pill{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 13px;border-radius:999px;border:1px solid transparent;background:transparent;color:#4d5a51;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .15s,color .15s}
+.pill svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pill:hover{background:var(--mist);color:var(--pine)}
+.pill[aria-current="true"]{background:var(--forest);color:#fff;border-color:var(--forest)}
+.pill:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.pill .cnt{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--pale);color:var(--pine);font-size:11px;font-weight:800;display:none;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace}
+.pill .cnt.on{display:inline-flex}
+.pill .cnt.hi{background:#fdeceb;color:var(--danger)}
+.pill[aria-current="true"] .cnt{background:rgba(255,255,255,.18);color:#fff}
+
+/* ── Ossature ───────────────────────────────────────────────────────────── */
+.wrap{max-width:1360px;margin:auto;padding:16px 14px 60px}
+.sec{scroll-margin-top:calc(var(--stick) + 10px);margin-bottom:26px}
+.sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 2px 10px}
+.sec-h h2{margin:0;font-size:13px;font-family:'Archivo',Arial,sans-serif;text-transform:uppercase;letter-spacing:.09em;color:var(--forest)}
+.sec-h .sub{font-size:12px;color:var(--muted)}
+.g12{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+.c4{grid-column:span 4}.c5{grid-column:span 5}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+
+.panel{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.panel h2{margin:0;padding:11px 14px;border-bottom:1px solid var(--line);color:var(--forest);font-size:14px;font-family:'Archivo',Arial,sans-serif;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.body{padding:12px 14px}
+.mini{font-size:11px;color:var(--muted);font-weight:600}
+.muted{color:var(--muted);font-size:12.5px}
+
+/* ── Niveau 1 : KPI de décision ─────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.k{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;box-shadow:var(--shadow);position:relative}
+.k small{display:block;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.k b{font-size:23px;color:var(--forest);font-family:'IBM Plex Mono',monospace;line-height:1.25;display:block;margin-top:3px}
+.k .sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+.k.danger{border-color:#f3cdc8}.k.danger b{color:var(--danger)}
+.k.warn{border-color:#f0d99a}.k.warn b{color:var(--amber-ink)}
+.bar{height:6px;border-radius:999px;background:var(--pale);margin-top:8px;overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--emerald),var(--lime))}
+
+/* Bandeau « situation du jour » : la phrase que le BM lit en premier. */
+.situ{margin-top:12px;background:linear-gradient(135deg,#03301c,#053B23 70%);color:#eafff2;border-radius:var(--r);padding:12px 15px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.situ .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--lime);font-weight:800;flex:none}
+.situ .items{display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-size:12.5px}
+.situ .items em{font-style:normal;background:rgba(255,255,255,.08);border-radius:8px;padding:5px 10px;display:inline-flex;gap:6px;align-items:center}
+.situ .items em b{font-family:'IBM Plex Mono',monospace;color:#fff;font-size:13.5px}
+.situ .verdict{margin-left:auto;font-size:11.5px;font-weight:800;border-radius:999px;padding:6px 12px;flex:none}
+.situ .verdict.ok{background:rgba(141,197,86,.2);color:var(--lime)}
+.situ .verdict.ko{background:rgba(255,143,128,.18);color:#ffb3a7}
+
+/* ── Niveau 2 : à traiter ───────────────────────────────────────────────── */
+.todo{display:flex;align-items:center;gap:11px;padding:10px 14px;border-top:1px solid #f2efe8;text-decoration:none;color:inherit}
+.todo:first-child{border-top:0}
+.todo:hover{background:var(--mist)}
+.todo:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+.todo .n{min-width:42px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:17px;border-radius:var(--r-sm);padding:6px;flex:none}
+.todo .tx{min-width:0;flex:1}
+.todo .t{font-size:13px;font-weight:800;display:block;line-height:1.3}
+.todo .d{font-size:11.5px;color:var(--muted);display:block;line-height:1.35}
+.todo .pr{flex:none;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:4px 9px}
+.todo .go{color:var(--emerald);font-weight:800;font-size:17px;flex:none}
+.sev-hi .n{background:#fdeceb;color:var(--danger)}.sev-hi .pr{background:#fdeceb;color:var(--danger)}
+.sev-md .n{background:var(--orange-tint);color:var(--amber-ink)}.sev-md .pr{background:var(--orange-tint);color:var(--amber-ink)}
+.sev-lo .n{background:var(--pale);color:var(--pine)}.sev-lo .pr{background:var(--pale);color:var(--pine)}
+.more{width:100%;min-height:44px;border:0;border-top:1px solid #f2efe8;background:#fbfdfa;color:var(--pine);font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+.more:hover{background:var(--mist)}
+.more:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+
+.mk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mk>div{border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 10px;text-align:center}
+.mk small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;line-height:1.3}
+.mk b{font-size:19px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
+
+/* ── Tableaux ───────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse}
+th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:8px;text-align:left;position:sticky;top:0;z-index:2}
+td{padding:8px;border-top:1px solid #f2efe8;font-size:12.5px}
+tbody tr:hover td{background:var(--mist)}
+td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+.neg{color:var(--danger);font-weight:800}
+.pos{color:var(--pine);font-weight:800}
+/* `tabindex="0"` sur le conteneur : une zone qui défile doit être atteignable
+   au clavier, sinon son contenu est hors de portée sans souris (règle axe
+   `scrollable-region-focusable`). D'où aussi un focus visible. */
+.scroll{max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch}
+.scroll:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--line);background:#fbfdfa}
+.tools input,.tools select{min-height:44px;border:1px solid #dbe6d9;border-radius:var(--r-sm);padding:0 11px;font-size:12.5px;font-family:inherit;color:var(--ink);background:#fff}
+.tools input{flex:1;min-width:150px}
+.tools input:focus-visible,.tools select:focus-visible{outline:3px solid var(--orange);outline-offset:1px}
+.att{display:inline-flex;align-items:center;gap:5px;margin-left:7px;font-size:10px;font-weight:800;color:var(--amber-ink);text-transform:uppercase;letter-spacing:.04em;vertical-align:middle}
+.att i{width:7px;height:7px;border-radius:50%;background:var(--orange);display:block;flex:none}
+.att.crit{color:var(--danger)}.att.crit i{background:var(--danger)}
+.badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:800;margin:1px 2px 1px 0}
+.bhi{background:#fdeceb;color:var(--danger)}
+.bmd{background:var(--orange-tint);color:var(--amber-ink)}
+.blo{background:var(--pale);color:var(--pine)}
+
+/* ── Référentiel terrain compacté ───────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}
+.stats>div{background:#fff;padding:11px 12px;min-width:0}
+/* Huit indicateurs dans une grille de trois : la neuvième case resterait vide
+   et, le fond du conteneur servant de filet, se verrait comme un bloc gris.
+   Le dernier indicateur occupe donc la fin de sa ligne. */
+.stats>div:last-child:nth-child(3n+2){grid-column:span 2}
+.stats b{display:block;font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--forest);line-height:1.2;overflow-wrap:anywhere}
+.stats small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-top:3px;line-height:1.3}
+
+/* ── Sections repliables (Assistant IA, Prévisions) ─────────────────────── */
+.fold .fh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 14px 0 0;border-bottom:1px solid var(--line);background:#fbfdfa}
+.fold .fh h2{flex:1;padding:0;border:0;background:none;min-width:200px}
+.ftg{flex:1;display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 14px;border:0;background:none;cursor:pointer;font-family:inherit;text-align:left;color:var(--forest);min-width:200px}
+.ftg:hover{background:var(--mist)}
+.ftg:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+.ftg .ft{font-size:14px;font-weight:800;font-family:'Archivo',Arial,sans-serif;flex:none}
+.ftg .fs{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.35;min-width:0}
+.ftg .chev{margin-left:auto;flex:none;width:22px;height:22px;border-radius:50%;background:var(--pale);color:var(--pine);display:grid;place-items:center;font-size:11px;font-weight:800;transition:transform .18s}
+.fold[data-open="1"] .chev{transform:rotate(180deg)}
+.facts{display:flex;gap:6px;flex-wrap:wrap;padding:0 0 8px 14px}
+.fold[data-open="1"] .facts{padding-bottom:9px}
+.chipa{min-height:44px;border:1px solid #d8e6d6;background:#fff;color:var(--pine);border-radius:999px;padding:0 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.chipa:hover{background:var(--mist)}
+.chipa:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.fold .fb{display:none}
+.fold[data-open="1"] .fb{display:block}
+/* Les modules partagés écrivent leur propre <h2> : l'en-tête repliable le
+   remplace, on le masque plutôt que de modifier le module. */
+#aflpIa>h2,#aflpPred>h2{display:none}
+/* Conteneur bien identifié pour les Prévisions (violet du module). */
+#panPred{border-left:3px solid var(--violet)}
+#panIa{border-left:3px solid var(--emerald)}
+/* Lisibilité des tableaux internes des Prévisions : en-tête collant et survol,
+   sans toucher à leur feuille (sélecteur plus spécifique volontairement).
+   L'Assistant IA, lui, porte désormais ces règles dans sa propre feuille —
+   deux endroits pour un même effet finissent toujours par diverger. */
+#aflpPred table.aflpp-t thead th{position:sticky;top:0;z-index:2}
+#aflpPred table.aflpp-t tbody tr:hover td{background:#f7f5fd}
+
+/* ── États : chargement / vide / hors-ligne / erreur ────────────────────── */
 @keyframes cmdShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 .skel{display:inline-block;height:14px;border-radius:6px;background:linear-gradient(90deg,#eef2ec 25%,#e2e9df 50%,#eef2ec 75%);background-size:800px 100%;animation:cmdShimmer 1.4s infinite linear;vertical-align:middle}
-.skrow{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid #f0ede4}.skrow:first-child{border-top:0}
-.state{padding:38px 20px;text-align:center}
-.state .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin:0 auto 12px;font-size:22px;font-weight:800}
-.state.ok .ic{background:#F1F9EF;color:#008F37}.state.off .ic{background:#FDEFCE;color:#8a6a12}.state.err .ic{background:#FBEAE7;color:#C0392B}
-.state b{font-size:15px;color:#053B23;display:block}
-.state p{margin:6px auto 14px;font-size:13px;color:#6b756e;max-width:46ch;line-height:1.55}
-.state .act{border:0;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;background:#008F37;color:#fff}.state .act:hover{background:#00712C}
-.state .act.ghost{background:transparent;border:1px solid #cfe3cf;color:#00712C;font-weight:600}.state .act.ghost:hover{background:#F1F9EF}
+@media(prefers-reduced-motion:reduce){.skel{animation:none}}
+.skrow{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid #f2efe8}
+.skrow:first-child{border-top:0}
+.state{padding:30px 20px;text-align:center}
+.state .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;margin:0 auto 10px;font-size:21px;font-weight:800}
+.state.ok .ic{background:#F1F9EF;color:#008F37}
+.state.off .ic{background:#FDEFCE;color:#8a6a12}
+.state.err .ic{background:#FBEAE7;color:#C0392B}
+.state b{font-size:14.5px;color:#053B23;display:block}
+.state p{margin:6px auto 12px;font-size:12.5px;color:#6b756e;max-width:46ch;line-height:1.55}
+.state .act{border:0;border-radius:var(--r-sm);padding:0 16px;min-height:44px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;background:#008F37;color:#fff}
+.state .act:hover{background:#00712C}
+.state .act.ghost{background:transparent;border:1px solid #cfe3cf;color:#00712C;font-weight:600}
+.state .act.ghost:hover{background:#F1F9EF}
+.netbar{display:flex;align-items:center;gap:9px;border-radius:var(--r-sm);padding:10px 13px;font-size:12.5px;font-weight:700;margin-bottom:12px;line-height:1.45}
+/* `display:flex` est une règle d'AUTEUR : elle bat le `display:none` que le
+   navigateur applique à `[hidden]`. Sans cette ligne, le bandeau réseau reste
+   peint — vide, mais bordé et coloré — en haut du cockpit à chaque chargement
+   en ligne, puisque `majReseau()` lui pose sa classe tout en le masquant. */
+.netbar[hidden]{display:none}
+.netbar.off{background:var(--orange-tint);border:1px solid #f0d99a;color:#6b5310}
+.netbar.on{background:var(--pale);border:1px solid #c6e3c2;color:var(--pine)}
+
+/* ── Adaptation ─────────────────────────────────────────────────────────── */
+@media(max-width:1080px){
+  .c4,.c5,.c7,.c8{grid-column:span 6}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:720px){
+  .g12>*{grid-column:span 12}
+  .wrap{padding:12px 10px 50px}
+  .top{padding:11px 12px}
+  .situ .verdict{margin-left:0}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .todo .pr{display:none}
+  .k b{font-size:20px}
+}
+@media(max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ── Face à la couche premium partagée ─────────────────────────────────────
+   `shared/ops-premium.css` (chargée par pjs-theme.css) cible ce module par
+   `html:has(script[data-module="command"])` et pose des `!important`. Elle
+   arrive APRÈS cette feuille : on ne peut la reprendre qu'avec une
+   spécificité supérieure. D'où l'identifiant #ccMain, utilisé UNIQUEMENT ici
+   et uniquement pour les quatre points où le cockpit diverge du gabarit
+   commun. Rien n'est retiré à la couche premium par ailleurs. */
+#ccMain{max-width:1320px!important}                       /* cockpit : 1180 → 1320, la page est moins haute à contenu égal */
+#ccMain .tools input,#ccMain .tools select{min-height:46px!important}  /* 46 et non 44 : mesuré à 43 px effectifs au seuil exact (arrondi sous-pixel) */
+
+/* `shared/anagroci-ui.css` peint TOUT bouton dépourvu de `.ghost` en émeraude
+   plein — `button:not(.ghost):not(.ag-out):not(.ag-cog)`, spécificité 0-3-1.
+   Sans ces reprises, l'en-tête repliable et les boutons « voir plus »
+   deviennent des pavés verts, et le résumé gris posé dessus tombe à 1,04 de
+   contraste : illisible. Mesuré par axe-core, pas déduit. */
+#ccMain .ftg{background:none;color:var(--forest)}
+#ccMain .ftg:hover{background:var(--mist)}
+#ccMain .chipa{background:#fff;color:var(--pine)}
+#ccMain .chipa:hover{background:var(--mist)}
+#ccMain .more{background:#fbfdfa;color:var(--pine)}
+#ccMain .more:hover{background:var(--mist)}
+#ccMain .state .act{background:var(--pine)}               /* blanc sur #008F37 : 4,21, sous le seuil AA */
+#ccMain .state .act:hover{background:#005C24}
+#ccMain .k.danger b{color:var(--danger)!important}        /* un KPI critique doit se voir : la couche premium reforçait tout en vert */
+#ccMain .k.warn b{color:var(--amber-ink)!important}
+@media(max-width:560px){#ccMain .kpis{grid-template-columns:repeat(2,1fr)!important}}  /* 4 KPI empilés = 4 écrans de haut */
+#ccSpacer{width:100%}
 </style>
 </head><body>
-<div class="top"><div class="b"><span><b>Command Center BM</b><br><small>Pilotage quotidien des achats terrain · achats · cash · sacs</small></span></div><div class="r"><span id="upd" style="font-size:11.5px;color:#CFE3D3"></span><a class="btn ghost sm" id="lienAdminIA" href="aflp-ia-admin.html" style="display:none">Assistant IA · Admin</a><button class="btn sm" onclick="loadAll()">Actualiser</button><span id="anagroci-userslot"></span></div></div>
-<main class="wrap">
-<section class="kpis"><div class="k"><small>Volume acheté</small><b id="kVol"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kVolSub">objectif 11 000 MT</div><div class="bar"><i id="kVolBar" style="width:0"></i></div></div><div class="k"><small>Cash engagé</small><b id="kAv"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kAvSub">solde caisse —</div></div><div class="k"><small>Sacs en main RT</small><b id="kSac"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kSacSub">entrepôt —</div></div><div class="k" id="kRiskBox"><small>Risques critiques</small><b id="kRisk"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kRiskSub">à traiter aujourd'hui</div></div></section>
-<section class="hero"><div class="panel"><h2>À faire aujourd'hui · anomalies métier <span class="mini">priorité BM</span></h2><div class="body" id="todo"><div style="padding:4px 0"><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:78%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:64%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:70%"></span></div></div></div></div><div class="panel"><h2>File locale & synchronisation <span class="mini">contrôle hors ligne</span></h2><div class="body"><div class="grid3"><div class="k"><small>Achats en attente</small><b id="lAch">0</b></div><div class="k"><small>Cash en attente</small><b id="lCash">0</b></div><div class="k"><small>Sacs en attente</small><b id="lSacs">0</b></div></div><div id="localHints" class="mini" style="margin-top:10px">—</div></div></div></section>
-<section class="panel" id="aflpIa" style="margin-bottom:14px"></section>
-<section class="panel" id="aflpPred" style="margin-bottom:14px"></section>
-<div class="grid2"><section class="panel"><h2>Par cluster</h2><div class="body"><div class="scroll"><table><thead><tr><th>Cluster</th><th class="num">Villages</th><th class="num">RT</th><th class="num">Volume MT</th><th class="num">Avancé</th><th class="num">Solde</th><th class="num">Sacs cluster</th></tr></thead><tbody id="clusTable"><tr><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr></tbody></table></div></div></section><section class="panel"><h2>Référentiel terrain</h2><div class="body"><table><tbody id="refTable"><tr><td><span class="skel" style="width:60%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:72%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:50%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:66%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:58%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:70%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr></tbody></table></div></section></div>
-<section class="panel"><h2>RT à risque · caisse / sacs / réconciliation</h2><div class="body"><div class="scroll" style="max-height:42vh"><table><thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Solde caisse</th><th>Réconciliation</th><th class="num">Sacs RT</th><th>Risque</th></tr></thead><tbody id="rtTable"><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr></tbody></table></div></div></section>
+
+<header class="top">
+  <div class="b"><span><b>Command Center BM</b><br><small>Pilotage quotidien des achats terrain · achats · cash · sacs</small></span></div>
+  <div class="r">
+    <span id="upd" class="upd"></span>
+    <span id="anagroci-lang-slot"></span>
+    <a class="btn ghost" id="lienAdminIA" href="aflp-ia-admin.html" style="display:none">Assistant IA · Admin</a>
+    <button class="btn" type="button" onclick="loadAll()">Actualiser</button>
+    <span id="anagroci-userslot"></span>
+  </div>
+</header>
+
+<nav class="ccnav" id="ccNav" aria-label="Sections du Command Center">
+  <div class="ccnav-in">
+    <a class="pill" href="#sec-synthese" data-sec="sec-synthese" aria-current="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Synthèse</span></a>
+    <a class="pill" href="#sec-traiter" data-sec="sec-traiter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><span>À traiter</span><span class="cnt" id="cntTraiter">0</span></a>
+    <a class="pill" href="#sec-terrain" data-sec="sec-terrain"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg><span>Terrain</span></a>
+    <a class="pill" href="#sec-risques" data-sec="sec-risques"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z"/><path d="M12 9v3.6"/><path d="M12 15.6v.1"/></svg><span>Risques</span><span class="cnt" id="cntRisques">0</span></a>
+    <a class="pill" href="#sec-ia" data-sec="sec-ia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"/><path d="M8.5 11.5h7"/><path d="M8.5 8.5h4"/></svg><span>Assistant IA</span><span class="cnt" id="cntIa">0</span></a>
+    <a class="pill" href="#sec-previsions" data-sec="sec-previsions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5.5-5.5 3.5 3.5L21 6"/><path d="M15.5 6H21v5.5"/></svg><span>Prévisions</span></a>
+  </div>
+</nav>
+
+<main class="wrap" id="ccMain">
+<div id="netBar" hidden></div>
+
+<!-- ═══ SECTION 1 · SYNTHÈSE — ce qu'il faut savoir maintenant ═══════════ -->
+<section class="sec" id="sec-synthese">
+  <div class="sec-h"><h2>Synthèse</h2><span class="sub">Situation opérationnelle du jour</span></div>
+  <div class="kpis">
+    <div class="k"><small>Volume acheté</small><b id="kVol"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kVolSub">objectif 11 000 MT</div><div class="bar"><i id="kVolBar" style="width:0"></i></div></div>
+    <div class="k"><small>Cash engagé</small><b id="kAv"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kAvSub">solde caisse —</div></div>
+    <div class="k"><small>Sacs en main RT</small><b id="kSac"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kSacSub">entrepôt —</div></div>
+    <div class="k" id="kRiskBox"><small>Risques critiques</small><b id="kRisk"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kRiskSub">à traiter aujourd'hui</div></div>
+  </div>
+  <div class="situ">
+    <span class="lab">Situation du jour</span>
+    <span class="items" id="situItems"><span class="skel" style="width:260px"></span></span>
+    <span class="verdict ok" id="situVerdict" hidden></span>
+  </div>
+</section>
+
+<!-- ═══ SECTION 2 · À TRAITER — ce qui exige une intervention ════════════ -->
+<section class="sec" id="sec-traiter">
+  <div class="sec-h"><h2>À traiter maintenant</h2><span class="sub">Anomalies métier classées par priorité</span></div>
+  <div class="g12">
+    <section class="panel c8">
+      <h2>Anomalies du jour <span class="mini" id="todoResume">priorité BM</span></h2>
+      <div id="todo"><div style="padding:4px 0"><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:78%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:64%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:70%"></span></div></div></div>
+    </section>
+    <section class="panel c4">
+      <h2>Synchronisation <span class="mini">file locale hors ligne</span></h2>
+      <div class="body">
+        <div class="mk">
+          <div><small>Achats<br>en attente</small><b id="lAch">0</b></div>
+          <div><small>Cash<br>en attente</small><b id="lCash">0</b></div>
+          <div><small>Sacs<br>en attente</small><b id="lSacs">0</b></div>
+        </div>
+        <div id="localHints" class="mini" style="margin-top:10px">—</div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══ SECTION 3 · TERRAIN — où en sont les clusters ════════════════════ -->
+<section class="sec" id="sec-terrain">
+  <div class="sec-h"><h2>Terrain</h2><span class="sub">Clusters et référentiel</span></div>
+  <div class="g12">
+    <section class="panel c8">
+      <h2>Par cluster <span class="mini" id="clusResume">—</span></h2>
+      <div class="tools">
+        <input id="clusFilter" type="search" placeholder="Rechercher un cluster…" aria-label="Rechercher un cluster">
+        <select id="clusSort" aria-label="Trier les clusters">
+          <option value="vol">Tri : volume</option>
+          <option value="solde">Tri : solde le plus bas</option>
+          <option value="sacs">Tri : sacs le plus bas</option>
+          <option value="nom">Tri : nom A→Z</option>
+        </select>
+      </div>
+      <div class="scroll" tabindex="0" role="group" aria-label="Tableau des clusters"><table><thead><tr><th>Cluster</th><th class="num">Villages</th><th class="num">RT</th><th class="num">Volume MT</th><th class="num">Avancé</th><th class="num">Solde</th><th class="num">Sacs cluster</th></tr></thead><tbody id="clusTable"></tbody></table></div>
+    </section>
+    <section class="panel c4">
+      <h2>Référentiel terrain</h2>
+      <div class="stats" id="refTable"></div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══ SECTION 4 · RISQUES — quelles équipes appellent une action ═══════ -->
+<section class="sec" id="sec-risques">
+  <div class="sec-h"><h2>Contrôle &amp; risques</h2><span class="sub">Caisse · sacs · réconciliation par équipe RT</span></div>
+  <section class="panel">
+    <h2>RT à risque <span class="mini" id="rtResume">—</span></h2>
+    <div class="tools"><input id="rtFilter" type="search" placeholder="Rechercher une équipe RT ou un cluster…" aria-label="Rechercher une équipe RT"></div>
+    <div class="scroll" style="max-height:52vh" tabindex="0" role="group" aria-label="Tableau des équipes RT à risque"><table><thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Solde caisse</th><th>Réconciliation</th><th class="num">Sacs RT</th><th>Risque</th></tr></thead><tbody id="rtTable"></tbody></table></div>
+    <button class="more" type="button" id="rtMore" hidden></button>
+  </section>
+</section>
+
+<!-- ═══ SECTION 5 · ASSISTANT IA — compact, dépliable ════════════════════ -->
+<section class="sec" id="sec-ia">
+  <div class="sec-h"><h2>Assistant IA</h2><span class="sub">Assistance métier · calcul déterministe, sans appel externe</span></div>
+  <section class="panel fold" id="panIa" data-open="0" data-cle="cc_fold_ia">
+    <div class="fh">
+      <button class="ftg" type="button" data-fold="panIa" aria-expanded="false" aria-controls="panIaBody">
+        <span class="ft">Assistant IA AFLP</span>
+        <span class="fs" id="iaResume">Calcul en cours…</span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
+    </div>
+    <div class="facts">
+      <button class="chipa" type="button" data-ia="synthese">Synthèse</button>
+      <button class="chipa" type="button" data-ia="alertes">Alertes</button>
+      <button class="chipa" type="button" data-ia="refinancement">Refinancement</button>
+      <button class="chipa" type="button" data-ia="questions">Poser une question</button>
+    </div>
+    <div class="fb" id="panIaBody"><div id="aflpIa"></div></div>
+  </section>
+</section>
+
+<!-- ═══ SECTION 6 · PRÉVISIONS — l'application d'analyse, repliée ════════ -->
+<section class="sec" id="sec-previsions">
+  <div class="sec-h"><h2>Prévisions AFLP</h2><span class="sub">Niveau 3 · aide à la décision, statut shadow</span></div>
+  <section class="panel fold" id="panPred" data-open="0" data-cle="cc_fold_pred">
+    <div class="fh">
+      <button class="ftg" type="button" data-fold="panPred" aria-expanded="false" aria-controls="panPredBody">
+        <span class="ft">Prévisions AFLP</span>
+        <span class="fs" id="predResume">8 analyses · maturité, volumes, fonds, équipes RT, signaux, évacuations, qualité, journal</span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
+    </div>
+    <div class="fb" id="panPredBody"><div id="aflpPred"></div></div>
+  </section>
+</section>
+
+<!-- Marge de défilement calculée : sans elle, la dernière section ne peut pas
+     remonter sous les en-têtes collants quand la page est courte (tout replié),
+     et la pastille cliquée paraît « ne rien faire ». Vaut 0 dès que la page
+     est assez haute. -->
+<div id="ccSpacer" aria-hidden="true"></div>
 </main>
 <script>
+/* ============================================================================
+   Le moteur métier de cette page n'a pas changé : mêmes tables interrogées,
+   mêmes agrégats, mêmes seuils. Seules la mise en forme et la mise en scène
+   de l'information ont été retravaillées.
+   ========================================================================== */
 const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";const OBJECTIF_MT=11000;const $=i=>document.getElementById(i);let SB,OBJ_COUT=8,LOAD_ERR=0,LOAD_DONE=false,LOAD_TIMER=null;
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}function fmt(x){return x==null||isNaN(x)?"—":Math.round(x).toLocaleString("fr-FR");}function mt(kg){return (Math.round(((Number(kg)||0)/1000)*10)/10).toLocaleString("fr-FR");}function keyc(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}function up(s){return String(s==null?"":s).toUpperCase();}function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}async function q(table,sel,mod){try{let r=SB.from(table).select(sel||"*");if(mod)r=mod(r);const res=await r;if(res.error){LOAD_ERR++;return [];}return res.data||[];}catch(e){LOAD_ERR++;return [];}}
-/* ── États : squelette / vide / hors-ligne / erreur (Étape 4) ── */
+/* État d'affichage — jamais de règle métier ici, seulement ce qui est montré. */
+let CLUSTERS=[],RT_ROWS=[],TODO_ITEMS=[],RT_ALL=false,TODO_ALL=false,LAST_LOAD=0;
+const TODO_APERCU=5,RT_APERCU=3;
+const PRIORITE={hi:"Critique",md:"Attention",lo:"Information"};
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmt(x){return x==null||isNaN(x)?"—":Math.round(x).toLocaleString("fr-FR");}
+function mt(kg){return (Math.round(((Number(kg)||0)/1000)*10)/10).toLocaleString("fr-FR");}
+function keyc(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function up(s){return String(s==null?"":s).toUpperCase();}
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+async function q(table,sel,mod){try{let r=SB.from(table).select(sel||"*");if(mod)r=mod(r);const res=await r;if(res.error){LOAD_ERR++;return [];}return res.data||[];}catch(e){LOAD_ERR++;return [];}}
+
+/* ==========================================================================
+   Navigation locale : ancres, défilement doux, section active
+   ====================================================================== */
+function hauteurBarre(){var b=document.getElementById("anagroci-suite-bar");return b?b.offsetHeight:0;}
+function majOffsets(){
+  var h=hauteurBarre(),n=document.getElementById("ccNav");
+  document.documentElement.style.setProperty("--barh",h+"px");
+  if(n)document.documentElement.style.setProperty("--navh",n.offsetHeight+"px");
+}
+function offsetCollant(){return hauteurBarre()+(document.getElementById("ccNav")||{offsetHeight:0}).offsetHeight;}
+/* Marge de fin de page : hauteur strictement nécessaire pour que la DERNIÈRE
+   section puisse venir se placer sous les en-têtes collants. Sans elle, un clic
+   sur « Prévisions » quand tout est replié bute sur le bas de page — la section
+   visée reste en bas de l'écran et l'espion désigne une autre pastille. */
+function majEspaceur(){
+  var sp=$("ccSpacer"),last=$("sec-previsions");
+  if(!sp||!last)return;
+  sp.style.height="0px";
+  var haut=last.getBoundingClientRect().top+window.pageYOffset;
+  var besoin=haut-offsetCollant()-10+window.innerHeight-document.documentElement.scrollHeight;
+  sp.style.height=Math.max(0,Math.ceil(besoin))+"px";
+}
+/* La pastille active est ramenée dans le champ de vision en agissant SUR LE
+   SEUL défilement horizontal de la barre. `scrollIntoView` semblait plus
+   simple, mais il agit aussi sur le document et interrompait le défilement
+   doux vers la section — la page s'arrêtait à mi-chemin. */
+function centrerPill(p){
+  var n=document.querySelector("#ccNav .ccnav-in");
+  if(!n||n.scrollWidth<=n.clientWidth)return;
+  var g=p.offsetLeft,d=g+p.offsetWidth;
+  if(g<n.scrollLeft)n.scrollLeft=Math.max(0,g-12);
+  else if(d>n.scrollLeft+n.clientWidth)n.scrollLeft=d-n.clientWidth+12;
+}
+function activerPill(id){
+  document.querySelectorAll("#ccNav .pill").forEach(function(p){
+    var on=p.getAttribute("data-sec")===id;
+    p.setAttribute("aria-current",on?"true":"false");
+    if(on)centrerPill(p);
+  });
+}
+/* Verrou de navigation : pendant le défilement doux déclenché par un clic,
+   l'espion voit défiler toutes les sections intermédiaires. Sans ce verrou, la
+   pastille clignote puis se fige parfois sur la mauvaise. */
+var NAV_VERROU=0,NAV_RELANCE=null;
+function allerA(id){
+  var el=$(id);if(!el)return;
+  /* Une section repliée que l'on vient chercher s'ouvre : sinon la navigation
+     mène à un titre sans contenu, ce qui donne l'impression d'un lien mort. */
+  var f=el.querySelector(".fold");if(f&&f.getAttribute("data-open")!=="1")basculer(f.id,true);
+  majEspaceur();
+  var doux=!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var y=el.getBoundingClientRect().top+window.pageYOffset-offsetCollant()-10;
+  NAV_VERROU=Date.now();
+  window.scrollTo({top:Math.max(0,y),behavior:doux?"smooth":"auto"});
+  activerPill(id);
+  if(history.replaceState)history.replaceState(null,"","#"+id);
+}
+function espionnerDefilement(){
+  var reste=900-(Date.now()-NAV_VERROU);
+  if(reste>0){
+    /* Le verrou ignore le défilement, il ne l'oublie pas : sans cette relance,
+       un geste de l'utilisateur juste après un clic ne mettrait jamais la
+       pastille à jour. */
+    clearTimeout(NAV_RELANCE);NAV_RELANCE=setTimeout(espionnerDefilement,reste+40);
+    return;
+  }
+  var ids=Array.prototype.map.call(document.querySelectorAll("#ccNav .pill"),function(p){return p.getAttribute("data-sec");});
+  var seuil=offsetCollant()+24,courant=ids[0];
+  /* Bas de page : la dernière section est active même si elle est courte. */
+  if(window.innerHeight+window.pageYOffset>=document.documentElement.scrollHeight-4){activerPill(ids[ids.length-1]);return;}
+  ids.forEach(function(id){var el=$(id);if(el&&el.getBoundingClientRect().top<=seuil)courant=id;});
+  activerPill(courant);
+}
+function initNav(){
+  majOffsets();
+  document.querySelectorAll("#ccNav .pill").forEach(function(p){
+    p.addEventListener("click",function(ev){ev.preventDefault();allerA(p.getAttribute("data-sec"));});
+  });
+  var tick=false;
+  window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){espionnerDefilement();tick=false;});},{passive:true});
+  /* Un geste explicite reprend la main immédiatement sur le verrou. */
+  ["wheel","touchmove","keydown"].forEach(function(e){window.addEventListener(e,function(){NAV_VERROU=0;},{passive:true});});
+  window.addEventListener("resize",function(){majOffsets();majEspaceur();espionnerDefilement();});
+  /* La barre suite est injectée après le chargement : on remesure une fois. */
+  setTimeout(function(){majOffsets();majEspaceur();espionnerDefilement();},400);
+  if(location.hash&&$(location.hash.slice(1)))setTimeout(function(){allerA(location.hash.slice(1));},450);
+  else espionnerDefilement();
+}
+
+/* ==========================================================================
+   Dévoilement progressif : sections repliables, état retenu par poste
+   ====================================================================== */
+function basculer(idPanneau,forcerOuvert){
+  var p=$(idPanneau);if(!p)return;
+  var ouvert=forcerOuvert===undefined?p.getAttribute("data-open")!=="1":!!forcerOuvert;
+  p.setAttribute("data-open",ouvert?"1":"0");
+  var b=p.querySelector(".ftg");if(b)b.setAttribute("aria-expanded",String(ouvert));
+  try{localStorage.setItem(p.getAttribute("data-cle"),ouvert?"1":"0");}catch(e){/* stockage indisponible */}
+  majOffsets();majEspaceur();
+}
+function initReplis(){
+  document.querySelectorAll(".fold").forEach(function(p){
+    var memo=null;try{memo=localStorage.getItem(p.getAttribute("data-cle"));}catch(e){memo=null;}
+    /* Par défaut replié : ces deux blocs sont de l'analyse, pas de la décision
+       immédiate. Le poste qui les ouvre tous les jours les retrouve ouverts. */
+    if(memo==="1")basculer(p.id,true);
+  });
+  document.querySelectorAll("[data-fold]").forEach(function(b){
+    b.addEventListener("click",function(){basculer(b.getAttribute("data-fold"));});
+  });
+  document.querySelectorAll("[data-ia]").forEach(function(b){
+    b.addEventListener("click",function(){
+      basculer("panIa",true);
+      var t=$("aflp-tab-"+b.getAttribute("data-ia"));
+      if(t)t.click();
+      var corps=$("panIaBody");
+      if(corps)window.scrollTo({top:Math.max(0,corps.getBoundingClientRect().top+window.pageYOffset-offsetCollant()-10),behavior:"smooth"});
+    });
+  });
+}
+
+/* ==========================================================================
+   États : squelette / vide / hors-ligne / erreur
+   ====================================================================== */
 function skelCell(w,num){return '<td'+(num?' class="num"':'')+'><span class="skel" style="width:'+w+'"></span></td>';}
+function stateBloc(kind,icon,title,msg,btn){return '<div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+(btn||'')+'</div>';}
+function stateRow(cols,kind,icon,title,msg,btn){return '<tr><td colspan="'+cols+'" style="padding:0;border:0">'+stateBloc(kind,icon,title,msg,btn)+'</td></tr>';}
 function setSkeletons(){
   $("clusTable").innerHTML=[0,1,2,3].map(function(){return '<tr>'+skelCell('70px')+skelCell('40px',1)+skelCell('30px',1)+skelCell('50px',1)+skelCell('60px',1)+skelCell('60px',1)+skelCell('50px',1)+'</tr>';}).join("");
-  $("refTable").innerHTML=[60,72,50,66,58,70].map(function(w){return '<tr>'+skelCell(w+'%')+skelCell('50px',1)+'</tr>';}).join("");
-  $("rtTable").innerHTML=[0,1,2,3].map(function(){return '<tr>'+skelCell('80px')+skelCell('60px')+skelCell('60px',1)+skelCell('60px',1)+skelCell('70px')+skelCell('40px',1)+skelCell('70px')+'</tr>';}).join("");
+  $("refTable").innerHTML=[0,1,2,3,4,5,6,7].map(function(){return '<div><b><span class="skel" style="width:46px;height:16px"></span></b><small><span class="skel" style="width:60px;height:9px"></span></small></div>';}).join("");
+  $("rtTable").innerHTML=[0,1,2].map(function(){return '<tr>'+skelCell('80px')+skelCell('60px')+skelCell('60px',1)+skelCell('60px',1)+skelCell('70px')+skelCell('40px',1)+skelCell('70px')+'</tr>';}).join("");
   $("todo").innerHTML='<div style="padding:4px 0">'+[78,64,70].map(function(w){return '<div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:'+w+'%"></span></div>';}).join("")+'</div>';
-  ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).innerHTML='<span class="skel" style="width:60px;height:20px"></span>';});
+  $("situItems").innerHTML='<span class="skel" style="width:260px"></span>';
+  $("situVerdict").hidden=true;
+  ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).innerHTML='<span class="skel" style="width:70px;height:20px"></span>';});
 }
-function stateRow(cols,kind,icon,title,msg,btn){return '<tr><td colspan="'+cols+'" style="padding:0;border:0"><div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+(btn||'')+'</div></td></tr>';}
 function loadFailState(){
   var off=!navigator.onLine, kind=off?'off':'err', icon=off?'●':'!';
   var title=off?"Aucune donnée locale":"Le chargement a échoué";
   var msg=off?"Vous êtes hors ligne et ce poste n'a pas encore été synchronisé sur cet appareil. Connectez-vous une première fois pour charger les données."
              :"Le serveur n'a pas répondu à temps. Vos saisies locales ne sont pas perdues.";
-  var btn='<button class="act" onclick="loadAll()">Réessayer</button>';
+  var btn='<button class="act" type="button" onclick="loadAll()">Réessayer</button>';
   $("clusTable").innerHTML=stateRow(7,kind,icon,title,msg,btn);
-  $("refTable").innerHTML=stateRow(2,kind,icon,title,off?"Synchronisez une première fois.":"Réessayez le chargement.","");
+  $("refTable").innerHTML='<div style="grid-column:1/-1">'+stateBloc(kind,icon,title,off?"Synchronisez une première fois.":"Réessayez le chargement.","")+'</div>';
   $("rtTable").innerHTML=stateRow(7,kind,icon,title,msg,"");
-  $("todo").innerHTML='<div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+btn+'</div>';
+  $("todo").innerHTML=stateBloc(kind,icon,title,msg,btn);
+  $("rtMore").hidden=true;
   ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).textContent="—";});
+  $("situItems").innerHTML='<em>'+esc(title)+'</em>';
+  $("situVerdict").hidden=true;
+  LAST_LOAD=0;
   $("upd").textContent=off?"Hors ligne":"Échec du chargement";
+  $("upd").className="upd ko";
 }
-function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}function pendingCount(k){return (load(k,[])||[]).filter(x=>x&&x._status!=="synced").length;}function failedCount(k){return (load(k,[])||[]).filter(x=>x&&x._status==="failed").length;}
-function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}function vGps(v){return !!(v.data&&v.data.s1&&v.data.s1.gpsLat);}function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||"";}function rtCluster(r,vills){if(r.data&&r.data.cluster)return r.data.cluster;const v=vills.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
+/* Fraîcheur de la donnée : un chiffre de ce tableau vieux de 40 minutes n'est
+   pas une erreur, mais le BM doit le savoir avant de décider. */
+function majFraicheur(){
+  if(!LAST_LOAD)return;
+  var min=Math.floor((Date.now()-LAST_LOAD)/60000);
+  $("upd").textContent=min<1?"Actualisé à l'instant":("Actualisé il y a "+min+" min");
+  $("upd").className="upd"+(min>=15?" stale":"");
+}
+function majReseau(){
+  var b=$("netBar");if(!b)return;
+  if(navigator.onLine){b.hidden=true;b.className="netbar on";b.textContent="";return;}
+  b.hidden=false;b.className="netbar off";
+  b.textContent="Hors ligne — les chiffres affichés datent de la dernière synchronisation. Vos saisies restent enregistrées sur l'appareil et repartiront au retour du réseau.";
+}
+
+/* ==========================================================================
+   File locale
+   ====================================================================== */
+function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}
+function pendingCount(k){return (load(k,[])||[]).filter(x=>x&&x._status!=="synced").length;}
+function failedCount(k){return (load(k,[])||[]).filter(x=>x&&x._status==="failed").length;}
+function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
+function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
+function vGps(v){return !!(v.data&&v.data.s1&&v.data.s1.gpsLat);}
+function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||"";}
+function rtCluster(r,vills){if(r.data&&r.data.cluster)return r.data.cluster;const v=vills.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
 function renderLocal(){const la=pendingCount("anagroci_achats"), lav=pendingCount("anagroci_avances"), lr=pendingCount("anagroci_recons"), ls=pendingCount("anagroci_sacs");$("lAch").textContent=fmt(la);$("lCash").textContent=fmt(lav+lr);$("lSacs").textContent=fmt(ls);const fails=failedCount("anagroci_achats")+failedCount("anagroci_avances")+failedCount("anagroci_recons")+failedCount("anagroci_sacs");$("localHints").innerHTML=fails?'<span class="badge bhi">'+fails+' échec(s) de synchronisation à vérifier</span>':'<span class="badge blo">File locale normale</span>';return {pending:la+lav+lr+ls,failed:fails};}
-async function loadAll(){if(!SB)return;$("upd").textContent="Chargement…";LOAD_ERR=0;LOAD_DONE=false;setSkeletons();renderLocal();if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_TIMER=setTimeout(function(){if(!LOAD_DONE)loadFailState();},8000);const [par,vills,rts,achats,avances,recons,sacs]=await Promise.all([q("parametres_calcul","cle,valeur"),q("villages","id,data",r=>r.eq("deleted",false)),q("rt","id,data,village_nom",r=>r.eq("deleted",false)),q("achats","poids_net,poids_brut,tare,montant,prix_kg,commission_rt,date,cluster,rt_id,rt_nom,village_nom,producteur_id,producteur_nom,refinancable,qualite_statut,statut_validation,numero_recu,humidite,kor,rejet,nb_sacs"),q("avances","date,montant,rt_id,rt_nom,cluster"),q("reconciliations","date,rt_id,rt_nom,cluster,statut,ecart,cash_restant,valeur_stock,created_at",r=>r.order("created_at",{ascending:false})),q("sacs_mouvements","date,type,source,destination,cluster,rt_id,rt_nom,producteur_id,producteur_nom,quantite")]);if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_DONE=true;if(LOAD_ERR>0&&(vills.length+rts.length+achats.length+avances.length+recons.length+sacs.length)===0){loadFailState();return;}par.forEach(p=>{if(p.cle==="objectif_cout_kg"){const v=Number(p.valeur);if(v)OBJ_COUT=v;}});
+
+/* ==========================================================================
+   Rendus — aucun calcul métier, uniquement de la mise en forme
+   ====================================================================== */
+function renderTodo(){
+  var t=$("todo");
+  if(!TODO_ITEMS.length){
+    t.innerHTML=stateBloc('ok','✓',"Aucune anomalie aujourd'hui","Les achats saisis ce jour respectent tous les contrôles (prix, humidité, plafond LBA).","");
+    $("todoResume").textContent="rien à traiter";
+    return;
+  }
+  var vus=TODO_ALL?TODO_ITEMS:TODO_ITEMS.slice(0,TODO_APERCU);
+  var reste=TODO_ITEMS.length-vus.length;
+  t.innerHTML=vus.map(function(x){
+    return '<a class="todo sev-'+x.sev+'" href="'+x.href+'">'+
+      '<span class="n">'+x.n+'</span>'+
+      '<span class="tx"><span class="t">'+esc(x.t)+'</span><span class="d">'+esc(x.d)+'</span></span>'+
+      '<span class="pr">'+PRIORITE[x.sev]+'</span><span class="go" aria-hidden="true">→</span></a>';
+  }).join("")+
+  ((reste>0||TODO_ALL)?'<button class="more" type="button" id="todoMore">'+(TODO_ALL?"Replier la liste":"Afficher les "+reste+" autres anomalies")+'</button>':"");
+  var b=$("todoMore");if(b)b.addEventListener("click",function(){TODO_ALL=!TODO_ALL;renderTodo();});
+  var c={hi:0,md:0,lo:0};TODO_ITEMS.forEach(function(x){c[x.sev]++;});
+  $("todoResume").textContent=c.hi+" critique(s) · "+c.md+" attention · "+c.lo+" information";
+}
+function renderClusters(){
+  var f=keyc($("clusFilter").value||""),tri=$("clusSort").value;
+  var r=CLUSTERS.filter(function(x){return !f||keyc(x.label).indexOf(f)>=0;});
+  r=r.slice().sort(function(a,b){
+    if(tri==="nom")return String(a.label).localeCompare(String(b.label),"fr");
+    if(tri==="solde")return (a.av-a.paye)-(b.av-b.paye);
+    if(tri==="sacs")return a.sac-b.sac;
+    return b.vol-a.vol;
+  });
+  var att=CLUSTERS.filter(function(x){return (x.av-x.paye)<0||x.sac<0;}).length;
+  $("clusResume").textContent=CLUSTERS.length+" cluster(s)"+(att?" · "+att+" à surveiller":"");
+  if(!r.length){
+    $("clusTable").innerHTML=stateRow(7,'ok','✓',f?"Aucun cluster ne correspond":"Aucune donnée cluster",
+      f?"Aucun cluster ne porte ce nom. Effacez la recherche pour revoir la liste complète.":"Aucun achat ni avance enregistré pour l'instant. Les clusters s'afficheront dès les premières saisies terrain.","");
+    return;
+  }
+  $("clusTable").innerHTML=r.map(function(x){
+    var solde=x.av-x.paye,crit=solde<0&&x.sac<0;
+    var marque=(solde<0||x.sac<0)?'<span class="att'+(crit?' crit':'')+'"><i></i>Attention</span>':"";
+    return '<tr><td><b>'+esc(x.label||"—")+'</b>'+marque+'</td>'+
+      '<td class="num">'+x.vil+'</td><td class="num">'+x.rt+'</td>'+
+      '<td class="num">'+mt(x.vol)+'</td><td class="num">'+fmt(x.av)+'</td>'+
+      '<td class="num'+(solde<0?' neg':'')+'">'+fmt(solde)+'</td>'+
+      '<td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td></tr>';
+  }).join("");
+}
+function renderRt(){
+  var f=keyc($("rtFilter").value||"");
+  var r=RT_ROWS.filter(function(x){return !f||keyc(x.nom).indexOf(f)>=0||keyc(x.cluster).indexOf(f)>=0;});
+  var aRisque=RT_ROWS.filter(function(x){return x.risk;}).length;
+  $("rtResume").textContent=aRisque?aRisque+" RT nécessite(nt) une action":"aucune équipe en écart";
+  if(!r.length){
+    $("rtTable").innerHTML=stateRow(7,'ok','✓',f?"Aucune équipe ne correspond":"Aucun RT à risque",
+      f?"Aucune équipe ni cluster ne porte ce nom. Effacez la recherche pour revoir la liste.":"Toutes les équipes RT sont à jour côté caisse, sacs et réconciliation.","");
+    $("rtMore").hidden=true;return;
+  }
+  /* Dévoilement progressif : les plus critiques d'abord, le reste sur demande.
+     Une recherche explicite montre tout ce qui correspond. */
+  var vus=(RT_ALL||f)?r:r.slice(0,RT_APERCU);
+  $("rtTable").innerHTML=vus.map(function(x){
+    var rc=x.rec?('<span class="'+(x.rec.statut==="Réconcilié"?'pos':'neg')+'">'+esc(x.rec.statut)+'</span>')
+                :(x.av>0?'<span class="badge bmd">À réconcilier</span>':'—');
+    var bl=[];
+    if(x.reasons.length>=2)bl.push('<span class="badge bhi">Critique</span>');
+    x.reasons.forEach(function(m){bl.push('<span class="badge '+(m==="Dépassement"?"bhi":"bmd")+'">'+esc(m)+'</span>');});
+    if(!bl.length)bl.push('<span class="badge blo">Suivi</span>');
+    return '<tr><td><b>'+esc(x.nom||"—")+'</b></td><td>'+esc(x.cluster||"—")+'</td>'+
+      '<td class="num">'+fmt(x.av)+'</td>'+
+      '<td class="num'+(x.solde<0?' neg':'')+'">'+fmt(x.solde)+'</td>'+
+      '<td>'+rc+'</td>'+
+      '<td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td>'+
+      '<td>'+bl.join("")+'</td></tr>';
+  }).join("");
+  var reste=r.length-vus.length;
+  var b=$("rtMore");
+  if(reste>0||(RT_ALL&&!f&&r.length>RT_APERCU)){b.hidden=false;b.textContent=RT_ALL?"Replier — n'afficher que les "+RT_APERCU+" plus critiques":"Voir tous les RT à risque ("+r.length+")";}
+  else b.hidden=true;
+}
+function renderRef(lignes){
+  $("refTable").innerHTML=lignes.map(function(l){
+    return '<div><b>'+esc(String(l[1]))+'</b><small>'+esc(l[0])+'</small></div>';
+  }).join("");
+}
+function renderSitu(volKg,totalAv,pending,riskTotal){
+  $("situItems").innerHTML=
+    '<em><b>'+mt(volKg)+' MT</b> acheté</em>'+
+    '<em><b>'+fmt(totalAv)+' F</b> engagés</em>'+
+    '<em><b>'+fmt(pending)+'</b> synchro. en attente</em>'+
+    '<em><b>'+fmt(riskTotal)+'</b> risque(s) à traiter</em>';
+  var v=$("situVerdict");
+  v.hidden=false;
+  v.className="verdict "+(riskTotal?"ko":"ok");
+  v.textContent=riskTotal?"Intervention requise":"Situation normale";
+}
+/* Compteurs des pastilles de navigation : une pastille muette n'aide pas. */
+function majCompteurs(traiter,risques,ia){
+  [["cntTraiter",traiter,true],["cntRisques",risques,true],["cntIa",ia,false]].forEach(function(t){
+    var e=$(t[0]);if(!e)return;
+    e.textContent=fmt(t[1]);
+    e.className="cnt"+(t[1]>0?" on":"")+(t[1]>0&&t[2]?" hi":"");
+  });
+}
+/* Résumés d'en-tête des blocs repliés : ils sont lus par les modules, jamais
+   recalculés ici — voir AFLP_IA_UI.resume() et AFLP_PRED_UI.resume(). */
+function majResumesModules(){
+  var r=window.AFLP_IA_UI&&AFLP_IA_UI.resume?AFLP_IA_UI.resume():null;
+  if(r){
+    var n=r.critique+r.majeure;
+    $("iaResume").textContent=(n?n+" point(s) demandent votre attention aujourd'hui"
+                                :"Aucune anomalie détectée")+
+      " · "+r.total+" alerte(s), "+r.decisions+" décision(s) proposée(s)";
+    majCompteurs(TODO_ITEMS.length,RT_ROWS.filter(function(x){return x.risk;}).length,n);
+  }
+  var p=window.AFLP_PRED_UI&&AFLP_PRED_UI.resume?AFLP_PRED_UI.resume():null;
+  if(p){
+    /* Le verdict complet du moteur est un paragraphe : il reste dans l'onglet
+       « Maturité des données ». L'en-tête n'en garde que l'état, sinon il
+       occupe trois lignes et cesse d'être un résumé. */
+    var porte=p.porteFranchie===null?"—":(p.porteFranchie?"franchie":"non franchie"+(p.p0Ouverts?" ("+p.p0Ouverts+" P0 ouverts)":""));
+    $("predResume").textContent="Porte Niveau 1 : "+porte+
+      (p.retardJours==null?"":" · données arrêtées il y a "+p.retardJours+" j")+
+      " · 8 analyses disponibles";
+  }
+}
+
+/* ==========================================================================
+   Chargement — logique métier inchangée
+   ====================================================================== */
+async function loadAll(){if(!SB)return;$("upd").textContent="Chargement…";$("upd").className="upd";LAST_LOAD=0;LOAD_ERR=0;LOAD_DONE=false;setSkeletons();renderLocal();if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_TIMER=setTimeout(function(){if(!LOAD_DONE)loadFailState();},8000);const [par,vills,rts,achats,avances,recons,sacs]=await Promise.all([q("parametres_calcul","cle,valeur"),q("villages","id,data",r=>r.eq("deleted",false)),q("rt","id,data,village_nom",r=>r.eq("deleted",false)),q("achats","poids_net,poids_brut,tare,montant,prix_kg,commission_rt,date,cluster,rt_id,rt_nom,village_nom,producteur_id,producteur_nom,refinancable,qualite_statut,statut_validation,numero_recu,humidite,kor,rejet,nb_sacs"),q("avances","date,montant,rt_id,rt_nom,cluster"),q("reconciliations","date,rt_id,rt_nom,cluster,statut,ecart,cash_restant,valeur_stock,created_at",r=>r.order("created_at",{ascending:false})),q("sacs_mouvements","date,type,source,destination,cluster,rt_id,rt_nom,producteur_id,producteur_nom,quantite")]);if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_DONE=true;if(LOAD_ERR>0&&(vills.length+rts.length+achats.length+avances.length+recons.length+sacs.length)===0){loadFailState();return;}par.forEach(p=>{if(p.cle==="objectif_cout_kg"){const v=Number(p.valeur);if(v)OBJ_COUT=v;}});
 let volKg=0,volJourKg=0,montant=0,sansRecu=0,qualCtrl=0,valBM=0;const t=today();achats.forEach(a=>{const w=Number(a.poids_net)||0;volKg+=w;if(a.date===t)volJourKg+=w;montant+=Number(a.montant)||0;if(a.refinancable===false||!a.numero_recu)sansRecu++;if(a.qualite_statut&&a.qualite_statut!=="OK")qualCtrl++;if(a.statut_validation==="Validation BM requise")valBM++;});
 const payeByRt={};achats.forEach(a=>{const k=a.rt_id||keyc(a.rt_nom||"");payeByRt[k]=(payeByRt[k]||0)+(Number(a.montant)||0);});const avByRt={};let totalAv=0;avances.forEach(a=>{const k=a.rt_id||keyc(a.rt_nom||"");avByRt[k]=(avByRt[k]||0)+(Number(a.montant)||0);totalAv+=Number(a.montant)||0;});const reconByRt={};recons.forEach(x=>{const k=x.rt_id||keyc(x.rt_nom||"");if(!reconByRt[k])reconByRt[k]=x;});const soldeGlobal=totalAv-montant;
 const sacRt={},sacClus={},sacProd={};let dech=0,distr=0;const negMov=[];sacs.forEach(m=>{const qn=Number(m.quantite)||0;const rk=m.rt_id||keyc(m.rt_nom||"");if(rk){if(m.destination==="RT")sacRt[rk]=(sacRt[rk]||0)+qn;if(m.source==="RT")sacRt[rk]=(sacRt[rk]||0)-qn;}const ck=keyc(m.cluster||"");if(ck&&(m.source==="CLUSTER"||m.destination==="CLUSTER")){if(m.destination==="CLUSTER")sacClus[ck]=(sacClus[ck]||0)+qn;if(m.source==="CLUSTER")sacClus[ck]=(sacClus[ck]||0)-qn;}const pk=m.producteur_id||keyc(m.producteur_nom||"");if(pk&&(m.source==="PRODUCTEUR"||m.destination==="PRODUCTEUR")){if(m.destination==="PRODUCTEUR")sacProd[pk]=(sacProd[pk]||0)+qn;if(m.source==="PRODUCTEUR")sacProd[pk]=(sacProd[pk]||0)-qn;}if(m.type==="DECHIRE_RT"||m.type==="DECHIRE_PROD")dech+=qn;if(m.type==="DISTRIBUTION")distr+=qn;});const sacRtTot=Object.values(sacRt).reduce((s,x)=>s+x,0);const sacClusTot=Object.values(sacClus).reduce((s,x)=>s+x,0);const sacProdNeg=Object.values(sacProd).filter(x=>x<0).length;const sacRtNeg=Object.values(sacRt).filter(x=>x<0).length;const sacClusNeg=Object.values(sacClus).filter(x=>x<0).length;
 const rtByCluster={};rts.forEach(r=>{const c=keyc(rtCluster(r,vills));rtByCluster[c]=(rtByCluster[c]||0)+1;});const villCluster={},villNoRt=[],villNoGps=[];const rtVillages=new Set(rts.map(r=>keyc(r.village_nom||"")));vills.forEach(v=>{const c=keyc(vcluster(v));villCluster[c]=villCluster[c]||{n:0,label:up(vcluster(v))};villCluster[c].n++;if(!rtVillages.has(keyc(vname(v))))villNoRt.push(v);if(!vGps(v))villNoGps.push(v);});
 const local=renderLocal();let rtEcart=0;rts.forEach(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0;const rec=reconByRt[k];if(av>0&&(!rec||rec.statut!=="Réconcilié"))rtEcart++;});const riskTotal=sansRecu+rtEcart+sacProdNeg+sacRtNeg+sacClusNeg+qualCtrl+valBM+local.failed;$("kRisk").textContent=fmt(riskTotal);$("kRiskBox").className="k "+(riskTotal?"danger":"");$("kRiskSub").textContent=riskTotal?"anomalies à traiter":"situation normale";$("kVol").textContent=mt(volKg)+" MT";$("kVolSub").textContent=fmt(volJourKg)+" kg aujourd'hui · obj 11 000 MT";$("kVolBar").style.width=Math.min(100,(volKg/1000)/OBJECTIF_MT*100)+"%";$("kAv").textContent=fmt(totalAv);$("kAvSub").textContent="solde caisse "+fmt(soldeGlobal);$("kSac").textContent=fmt(sacRtTot);$("kSacSub").textContent="cluster "+fmt(sacClusTot)+" · déchirés "+fmt(dech);
-const items=[{n:local.pending,t:"Synchronisations en attente",d:"Données terrain non encore remontées",sev:"hi",href:"command.html"},{n:local.failed,t:"Échecs de synchronisation",d:"Reprendre avant clôture journalière",sev:"hi",href:"command.html"},{n:sansRecu,t:"Achats sans reçu",d:"Régulariser les preuves de paiement",sev:"hi",href:"achats.html"},{n:rtEcart,t:"RT en écart caisse",d:"Avance ouverte non réconciliée",sev:"hi",href:"cash.html"},{n:sacRtNeg+sacClusNeg+sacProdNeg,t:"Soldes sacs négatifs",d:"Cluster / RT / producteur à corriger",sev:"hi",href:"sacs.html"},{n:qualCtrl,t:"Achats qualité à contrôler",d:"Humidité/KOR/rejet hors seuil",sev:"md",href:"achats.html"},{n:valBM,t:"Achats prix hors barème",d:"Validation BM requise",sev:"md",href:"achats.html"},{n:villNoRt.length,t:"Villages sans RT",d:"À mobiliser",sev:"lo",href:"../fbms/index.html"},{n:villNoGps.length,t:"Villages sans GPS",d:"Distance non fiable pour ALIS",sev:"lo",href:"../fbms/audit_distances.html"}].filter(x=>x.n>0).sort((a,b)=>({hi:0,md:1,lo:2}[a.sev]-{hi:0,md:1,lo:2}[b.sev]));$("todo").innerHTML=items.length?items.map(x=>'<a class="todo sev-'+x.sev+'" href="'+x.href+'"><span class="n">'+x.n+'</span><span><span class="t">'+esc(x.t)+'</span><br><span class="d">'+esc(x.d)+'</span></span><span class="go">→</span></a>').join(""):'<div class="state ok"><div class="ic">✓</div><b>Aucune anomalie aujourd\'hui</b><p>Les achats saisis ce jour respectent tous les contrôles (prix, humidité, plafond LBA).</p></div>';
-$("refTable").innerHTML=[["Clusters",Object.keys(villCluster).filter(Boolean).length],["Villages",vills.length],["RT",rts.length],["Achats lignes",achats.length],["Volume cumulé",mt(volKg)+" MT"],["Montant achats",fmt(montant)+" F"],["Commission RT",fmt(achats.reduce((s,a)=>s+(Number(a.commission_rt)||0),0))+" F"],["Objectif coût logistique",OBJ_COUT+" F/kg"]].map(r=>'<tr><td>'+esc(r[0])+'</td><td class="num"><b>'+esc(String(r[1]))+'</b></td></tr>').join("");
-const cmap={};Object.keys(villCluster).forEach(c=>{if(c)cmap[c]={label:villCluster[c].label,vil:villCluster[c].n,rt:rtByCluster[c]||0,vol:0,av:0,paye:0,sac:sacClus[c]||0};});achats.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].vol+=Number(a.poids_net)||0;cmap[c].paye+=Number(a.montant)||0;});avances.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].av+=Number(a.montant)||0;});const crows=Object.values(cmap).filter(x=>x.vil||x.rt||x.vol||x.av).sort((a,b)=>b.vol-a.vol);$("clusTable").innerHTML=crows.length?crows.map(x=>'<tr><td><b>'+esc(x.label||"—")+'</b></td><td class="num">'+x.vil+'</td><td class="num">'+x.rt+'</td><td class="num">'+mt(x.vol)+'</td><td class="num">'+fmt(x.av)+'</td><td class="num'+((x.av-x.paye)<0?' neg':'')+'">'+fmt(x.av-x.paye)+'</td><td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td></tr>').join(""):stateRow(7,'ok','✓','Aucune donnée cluster',"Aucun achat ni avance enregistré pour l'instant. Les clusters s'afficheront dès les premières saisies terrain.","");
-const rrisk=rts.map(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0,paye=payeByRt[k]||0,rec=reconByRt[k],sac=sacRt[k]||0;const reasons=[];if(av>0&&(!rec||rec.statut!=="Réconcilié"))reasons.push("Caisse");if(sac<0)reasons.push("Sacs");if(av-paye<0)reasons.push("Dépassement");return{nom:up(rtLabel(r)),cluster:up(rtCluster(r,vills)),av:av,solde:av-paye,rec:rec,sac:sac,risk:reasons.length,reasons:reasons};}).filter(x=>x.risk||x.av>0).sort((a,b)=>(b.risk-a.risk)||(b.av-a.av)).slice(0,60);$("rtTable").innerHTML=rrisk.length?rrisk.map(x=>{const rc=x.rec?('<span class="'+(x.rec.statut==="Réconcilié"?'pos':'neg')+'">'+esc(x.rec.statut)+'</span>'):(x.av>0?'<span class="badge bmd">À réconcilier</span>':'—');return '<tr><td><b>'+esc(x.nom||"—")+'</b></td><td>'+esc(x.cluster||"—")+'</td><td class="num">'+fmt(x.av)+'</td><td class="num'+(x.solde<0?' neg':'')+'">'+fmt(x.solde)+'</td><td>'+rc+'</td><td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td><td>'+(x.reasons.length?'<span class="badge bhi">'+esc(x.reasons.join(' · '))+'</span>':'<span class="badge blo">Suivi</span>')+'</td></tr>';}).join(""):stateRow(7,'ok','✓','Aucun RT à risque',"Toutes les équipes RT sont à jour côté caisse, sacs et réconciliation.","");
+TODO_ITEMS=[{n:local.pending,t:"Synchronisations en attente",d:"Données terrain non encore remontées",sev:"hi",href:"command.html"},{n:local.failed,t:"Échecs de synchronisation",d:"Reprendre avant clôture journalière",sev:"hi",href:"command.html"},{n:sansRecu,t:"Achats sans reçu",d:"Régulariser les preuves de paiement",sev:"hi",href:"achats.html"},{n:rtEcart,t:"RT en écart caisse",d:"Avance ouverte non réconciliée",sev:"hi",href:"cash.html"},{n:sacRtNeg+sacClusNeg+sacProdNeg,t:"Soldes sacs négatifs",d:"Cluster / RT / producteur à corriger",sev:"hi",href:"sacs.html"},{n:qualCtrl,t:"Achats qualité à contrôler",d:"Humidité/KOR/rejet hors seuil",sev:"md",href:"achats.html"},{n:valBM,t:"Achats prix hors barème",d:"Validation BM requise",sev:"md",href:"achats.html"},{n:villNoRt.length,t:"Villages sans RT",d:"À mobiliser",sev:"lo",href:"../fbms/index.html"},{n:villNoGps.length,t:"Villages sans GPS",d:"Distance non fiable pour ALIS",sev:"lo",href:"../fbms/audit_distances.html"}].filter(x=>x.n>0).sort((a,b)=>({hi:0,md:1,lo:2}[a.sev]-{hi:0,md:1,lo:2}[b.sev]));
+TODO_ALL=false;renderTodo();
+renderRef([["Clusters",Object.keys(villCluster).filter(Boolean).length],["Villages",vills.length],["RT",rts.length],["Achats lignes",achats.length],["Volume cumulé",mt(volKg)+" MT"],["Montant achats",fmt(montant)+" F"],["Commission RT",fmt(achats.reduce((s,a)=>s+(Number(a.commission_rt)||0),0))+" F"],["Objectif coût logistique",OBJ_COUT+" F/kg"]]);
+const cmap={};Object.keys(villCluster).forEach(c=>{if(c)cmap[c]={label:villCluster[c].label,vil:villCluster[c].n,rt:rtByCluster[c]||0,vol:0,av:0,paye:0,sac:sacClus[c]||0};});achats.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].vol+=Number(a.poids_net)||0;cmap[c].paye+=Number(a.montant)||0;});avances.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].av+=Number(a.montant)||0;});
+CLUSTERS=Object.values(cmap).filter(x=>x.vil||x.rt||x.vol||x.av).sort((a,b)=>b.vol-a.vol);renderClusters();
+RT_ROWS=rts.map(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0,paye=payeByRt[k]||0,rec=reconByRt[k],sac=sacRt[k]||0;const reasons=[];if(av>0&&(!rec||rec.statut!=="Réconcilié"))reasons.push("Caisse");if(sac<0)reasons.push("Sacs");if(av-paye<0)reasons.push("Dépassement");return{nom:up(rtLabel(r)),cluster:up(rtCluster(r,vills)),av:av,solde:av-paye,rec:rec,sac:sac,risk:reasons.length,reasons:reasons};}).filter(x=>x.risk||x.av>0).sort((a,b)=>(b.risk-a.risk)||(b.av-a.av)).slice(0,60);
+RT_ALL=false;renderRt();
+renderSitu(volKg,totalAv,local.pending,riskTotal);
+majCompteurs(TODO_ITEMS.length,RT_ROWS.filter(x=>x.risk).length,0);
 if(window.AFLP_IA_UI)AFLP_IA_UI.rafraichir({achats:achats,avances:avances,reconciliations:recons,sacs:sacs,villages:vills,rt:rts,parametres:par,fileLocale:{enAttente:local.pending,echecs:local.failed},dateRef:today(),client:SB,profil:(window.ANAGROCI_AUTH&&window.ANAGROCI_AUTH.profile)||null});
 if(window.AFLP_PRED_UI)AFLP_PRED_UI.rafraichir({achats:achats,avances:avances,reconciliations:recons,sacs:sacs,villages:vills,rt:rts,parametres:par,fileLocale:{enAttente:local.pending,echecs:local.failed},dateRef:today()});
-const now=new Date();$("upd").textContent="Actualisé à "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");}
+majResumesModules();
+LAST_LOAD=Date.now();majFraicheur();majEspaceur();}
+
 document.addEventListener("anagroci:authenticated",(ev)=>{SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 /* Le lien d'administration n'est qu'un raccourci : la page qu'il ouvre applique
    sa propre porte (auth-gate data-module="admin") et la base refuse de toute
    façon toute écriture non autorisée. Le masquer évite un aller-retour inutile,
    il ne protège rien. */
 if(ev&&ev.detail&&ev.detail.niveau==="bm"){const a=$("lienAdminIA");if(a)a.style.display="";}if(window.AFLP_IA_UI)AFLP_IA_UI.monter("aflpIa");if(window.AFLP_PRED_UI)AFLP_PRED_UI.monter("aflpPred");loadAll();setInterval(renderLocal,30000);});
+
+/* Interface : indépendante de l'authentification, elle doit répondre même si
+   la porte n'est pas encore franchie (sinon la page paraît figée). */
+initNav();initReplis();majReseau();
+$("clusFilter").addEventListener("input",renderClusters);
+$("clusSort").addEventListener("change",renderClusters);
+$("rtFilter").addEventListener("input",renderRt);
+$("rtMore").addEventListener("click",function(){RT_ALL=!RT_ALL;renderRt();});
+window.addEventListener("online",majReseau);
+window.addEventListener("offline",majReseau);
+setInterval(majFraicheur,60000);
 </script>
 </body></html>

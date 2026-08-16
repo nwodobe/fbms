@@ -40,6 +40,40 @@
 
   var CLASSE_SEVERITE = { critique: "bhi", majeure: "bmd", mineure: "blo" };
 
+  /* État d'affichage de la table « Zones et clusters ». Il vit au niveau du
+     module, et non dans le DOM : `rendre()` réécrit tout le panneau à chaque
+     rafraîchissement, et un filtre qui se vide tout seul ne sert à rien.
+     Rien de métier ici — `SYNTHESE.clusters` est lu, jamais recalculé. */
+  var ZC = { q: "", tri: "vol", ouvert: true };
+
+  var ZC_TRIS = [
+    { cle: "vol", label: "Tri : volume", cmp: function (a, b) { return (b.volumeKg || 0) - (a.volumeKg || 0); } },
+    { cle: "solde", label: "Tri : solde le plus bas", cmp: function (a, b) { return (a.solde || 0) - (b.solde || 0); } },
+    { cle: "sacs", label: "Tri : sacs le plus bas", cmp: function (a, b) { return (a.sacs || 0) - (b.sacs || 0); } },
+    { cle: "zone", label: "Tri : zone", cmp: function (a, b) { return cmpTexte(a.zone, b.zone) || cmpTexte(a.label, b.label); } },
+    { cle: "nom", label: "Tri : nom A→Z", cmp: function (a, b) { return cmpTexte(a.label, b.label); } }
+  ];
+
+  function cmpTexte(a, b) { return String(a == null ? "" : a).localeCompare(String(b == null ? "" : b), "fr"); }
+
+  /* Recherche insensible aux accents et à la casse : « beoumi » doit trouver
+     « BÉOUMI ». Même normalisation que la table clusters du Command Center. */
+  function aplatir(s) {
+    return String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  }
+
+  function zcListe() {
+    var l = (SYNTHESE && SYNTHESE.clusters ? SYNTHESE.clusters : []).slice();
+    var q = aplatir(ZC.q).trim();
+    if (q) {
+      l = l.filter(function (c) {
+        return aplatir(c.label).indexOf(q) >= 0 || aplatir(c.zone).indexOf(q) >= 0;
+      });
+    }
+    var tri = ZC_TRIS.filter(function (t) { return t.cle === ZC.tri; })[0] || ZC_TRIS[0];
+    return l.sort(tri.cmp);
+  }
+
   /* ==========================================================================
      Styles — injectés une seule fois, préfixés `aflp-` pour ne rien écraser
      de la feuille du Command Center.
@@ -56,7 +90,7 @@
     "#aflpIa .aflp-bloc{border:1px solid var(--line,#E8E7E7);border-radius:14px;padding:12px 14px;background:#fff}",
     "#aflpIa .aflp-bloc h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#00712C;font-family:'Archivo',Arial,sans-serif}",
     "#aflpIa .aflp-bloc dl{margin:0;display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12.5px}",
-    "#aflpIa .aflp-bloc dt{color:#7A7878}",
+    "#aflpIa .aflp-bloc dt{color:#666565}",
     "#aflpIa .aflp-bloc dd{margin:0;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#053B23}",
     "#aflpIa .aflp-com{margin:9px 0 0;font-size:12px;color:#5c6b60;line-height:1.5;border-top:1px dashed #e5eee3;padding-top:8px}",
     "#aflpIa .aflp-decision{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid #f0ede4}",
@@ -72,8 +106,26 @@
     "#aflpIa table.aflp-t td.num,#aflpIa table.aflp-t th.num{text-align:right;font-family:'IBM Plex Mono',monospace}",
     "#aflpIa .aflp-go{color:#00712C;font-weight:800}",
     "#aflpIa .aflp-nogo{color:#C0392B;font-weight:800}",
-    "#aflpIa .aflp-motifs{color:#7A7878;font-size:11.5px;margin-top:3px;line-height:1.45}",
+    "#aflpIa .aflp-motifs{color:#666565;font-size:11.5px;margin-top:3px;line-height:1.45}",
     "#aflpIa .aflp-scroll{max-height:46vh;overflow:auto}",
+    "#aflpIa .aflp-scroll:focus-visible{outline:3px solid #EE9E00;outline-offset:-3px}",
+    /* En-tête collant : sur six clusters et plus, les libellés de colonnes
+       sortent du champ dès qu'on fait défiler la zone. */
+    "#aflpIa table.aflp-t thead th{position:sticky;top:0;z-index:2}",
+    "#aflpIa table.aflp-t tbody tr:hover td{background:#F1F9EF}",
+    "#aflpIa .aflp-zc-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}",
+    "#aflpIa .aflp-zc-h h3{margin:0}",
+    "#aflpIa .aflp-zc-cpt{font-size:11px;color:#666565;font-weight:700}",
+    "#aflpIa .aflp-zc-tg{margin-left:auto;border:1px solid #d8e6d6;background:#fff;color:#00712C;border-radius:999px;padding:0 14px;min-height:44px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}",
+    "#aflpIa .aflp-zc-tg:hover{background:#F1F9EF}",
+    "#aflpIa .aflp-zc-tg:focus-visible{outline:3px solid #EE9E00;outline-offset:2px}",
+    "#aflpIa .aflp-zc-outils{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}",
+    "#aflpIa .aflp-zc-outils input,#aflpIa .aflp-zc-outils select{min-height:46px;border:1px solid #dbe6d9;border-radius:10px;padding:0 11px;font-size:12.5px;font-family:inherit;color:#323131;background:#fff}",
+    "#aflpIa .aflp-zc-outils input{flex:1;min-width:150px}",
+    "#aflpIa .aflp-zc-outils input:focus-visible,#aflpIa .aflp-zc-outils select:focus-visible{outline:3px solid #EE9E00;outline-offset:1px}",
+    /* Badge de zone : discret, il sert à regrouper l'œil, pas à alerter. */
+    "#aflpIa .aflp-zn{display:inline-block;background:#F1F9EF;color:#00712C;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:800;white-space:nowrap}",
+    "#aflpIa .aflp-zc-vide{padding:22px 10px;text-align:center;color:#666565;font-size:12.5px}",
     "#aflpIa .aflp-question{display:flex;gap:8px;flex-wrap:wrap}",
     "#aflpIa .aflp-question input{flex:1;min-width:200px;min-height:44px;border:1px solid #cfe3cf;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;color:#323131}",
     "#aflpIa .aflp-question input:focus-visible{outline:3px solid #EE9E00;outline-offset:1px}",
@@ -85,7 +137,7 @@
     "#aflpIa .aflp-chiffres{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}",
     "#aflpIa .aflp-chiffre{background:#F1F9EF;border-radius:10px;padding:7px 10px;font-size:11.5px;color:#00712C}",
     "#aflpIa .aflp-chiffre b{display:block;font-family:'IBM Plex Mono',monospace;color:#053B23;font-size:13px}",
-    "#aflpIa .aflp-source{font-size:11px;color:#7A7878;margin-top:9px}",
+    "#aflpIa .aflp-source{font-size:11px;color:#666565;margin-top:9px}",
     "#aflpIa .aflp-vide{padding:28px 16px;text-align:center;color:#00712C;font-size:13px}",
     "@media(max-width:620px){#aflpIa .aflp-tab{flex:1 1 45%}#aflpIa .aflp-corps{padding:10px}",
     /* Sur mobile, la colonne de droite écrasait les libellés longs : on
@@ -150,6 +202,16 @@
       }
     });
 
+    /* Recherche et tri de « Zones et clusters ». Délégation, comme le reste :
+       le panneau est réécrit à chaque rafraîchissement et un écouteur posé sur
+       le champ lui-même disparaîtrait avec lui. */
+    CONTENEUR.addEventListener("input", function (ev) {
+      if (ev.target && ev.target.id === "aflp-zc-q") { ZC.q = ev.target.value; majZonesClusters(); }
+    });
+    CONTENEUR.addEventListener("change", function (ev) {
+      if (ev.target && ev.target.id === "aflp-zc-tri") { ZC.tri = ev.target.value; majZonesClusters(); }
+    });
+
     MONTE = true;
   }
 
@@ -166,6 +228,7 @@
     if (action === "copier") copierSynthese();
     else if (action === "telecharger") telechargerSynthese();
     else if (action === "poser") poser();
+    else if (action === "zc-repli") replierZonesClusters(element);
     else if (action === "retour-ok" || action === "retour-ko") {
       envoyerRetour(element, action === "retour-ok" ? "reponse_correcte" : "reponse_incorrecte");
     }
@@ -271,13 +334,33 @@
     });
     h += "</div>";
 
-    h += '<div class="aflp-bloc" style="margin-top:12px"><h3>Zones et clusters</h3>' +
-      '<div class="aflp-scroll"><table class="aflp-t"><thead><tr>' +
-      "<th>Cluster</th><th>Zone</th><th class=\"num\">Volume MT</th><th class=\"num\">Quote-part</th>" +
-      "<th class=\"num\">Avances</th><th class=\"num\">Solde</th><th class=\"num\">Sacs</th>" +
-      "</tr></thead><tbody>";
-    SYNTHESE.clusters.forEach(function (c) {
-      h += "<tr><td><b>" + esc(c.label) + "</b></td><td>" + esc(c.zone) + "</td>" +
+    h += blocZonesClusters();
+    return h;
+  }
+
+  /* ==========================================================================
+     Zones et clusters — la seule table de comparaison de l'assistant.
+     Les chiffres restent tabulaires : une carte par cluster ferait perdre la
+     comparaison colonne à colonne, qui est tout l'intérêt de ce bloc. Ce qui
+     est ajouté ne touche que l'affichage — recherche, tri, repli, badge de
+     zone. Aucun agrégat n'est recalculé ici.
+     ====================================================================== */
+
+  function zcCompteur(n, total) {
+    if (n === total) return total + " cluster" + (total > 1 ? "s" : "");
+    return n + " sur " + total;
+  }
+
+  function zcLignes() {
+    var f = global.AFLP_IA.format;
+    var l = zcListe();
+    if (!l.length) {
+      return '<tr><td colspan="7" class="aflp-zc-vide">Aucun cluster ne correspond à « ' +
+        esc(ZC.q) + " ».</td></tr>";
+    }
+    return l.map(function (c) {
+      return "<tr><td><b>" + esc(c.label) + "</b></td>" +
+        '<td><span class="aflp-zn">' + esc(c.zone) + "</span></td>" +
         '<td class="num">' + esc(f.mt(c.volumeKg)) + "</td>" +
         '<td class="num">' + (c.pctObjectif != null ? esc(f.pourcent(c.pctObjectif)) : "—") + "</td>" +
         '<td class="num">' + esc(f.nombre(c.avances)) + "</td>" +
@@ -285,12 +368,69 @@
         esc(f.nombre(c.solde)) + "</td>" +
         '<td class="num"' + (c.sacs < 0 ? ' style="color:#C0392B;font-weight:800"' : "") + ">" +
         esc(f.nombre(c.sacs)) + "</td></tr>";
-    });
-    h += "</tbody></table></div>";
-    h += '<p class="aflp-source">Source : ' + esc(SYNTHESE.sources.map(function (s) {
+    }).join("");
+  }
+
+  function blocZonesClusters() {
+    var total = (SYNTHESE && SYNTHESE.clusters ? SYNTHESE.clusters : []).length;
+    var n = zcListe().length;
+    var source = '<p class="aflp-source">Source : ' + esc(SYNTHESE.sources.map(function (s) {
       return s.table + " (" + s.lignes + ")";
-    }).join(" · ")) + " · calcul local, sans appel externe.</p></div>";
-    return h;
+    }).join(" · ")) + " · calcul local, sans appel externe.</p>";
+
+    return '<div class="aflp-bloc aflp-zc" style="margin-top:12px">' +
+      '<div class="aflp-zc-h">' +
+        '<h3 id="aflp-zc-titre">Zones et clusters</h3>' +
+        '<span class="aflp-zc-cpt" id="aflp-zc-cpt">' + esc(zcCompteur(n, total)) + "</span>" +
+        '<button type="button" class="aflp-zc-tg" data-action="zc-repli" aria-expanded="' +
+          (ZC.ouvert ? "true" : "false") + '" aria-controls="aflp-zc-zone">' +
+          (ZC.ouvert ? "Replier" : "Déplier") + "</button>" +
+      "</div>" +
+      '<div id="aflp-zc-zone"' + (ZC.ouvert ? "" : " hidden") + ">" +
+        '<div class="aflp-zc-outils">' +
+          '<input type="search" id="aflp-zc-q" value="' + esc(ZC.q) +
+            '" placeholder="Rechercher un cluster ou une zone…" ' +
+            'aria-label="Rechercher un cluster ou une zone">' +
+          '<select id="aflp-zc-tri" aria-label="Trier les clusters">' +
+            ZC_TRIS.map(function (t) {
+              return '<option value="' + t.cle + '"' + (t.cle === ZC.tri ? " selected" : "") +
+                ">" + esc(t.label) + "</option>";
+            }).join("") +
+          "</select>" +
+        "</div>" +
+        '<div class="aflp-scroll" tabindex="0" role="group" aria-labelledby="aflp-zc-titre">' +
+          '<table class="aflp-t"><thead><tr>' +
+          "<th>Cluster</th><th>Zone</th><th class=\"num\">Volume MT</th><th class=\"num\">Quote-part</th>" +
+          "<th class=\"num\">Avances</th><th class=\"num\">Solde</th><th class=\"num\">Sacs</th>" +
+          '</tr></thead><tbody id="aflp-zc-corps">' + zcLignes() + "</tbody></table>" +
+        "</div>" +
+        source +
+      "</div>" +
+    "</div>";
+  }
+
+  /* Recherche et tri ne réécrivent QUE le corps du tableau et son compteur.
+     Repasser par `rendre()` recréerait le champ de saisie, qui perdrait le
+     focus et le curseur à chaque frappe. */
+  function majZonesClusters() {
+    var corps = $("aflp-zc-corps");
+    if (!corps) return;
+    corps.innerHTML = zcLignes();
+    var cpt = $("aflp-zc-cpt");
+    if (cpt) {
+      cpt.textContent = zcCompteur(zcListe().length,
+        (SYNTHESE && SYNTHESE.clusters ? SYNTHESE.clusters : []).length);
+    }
+  }
+
+  function replierZonesClusters(bouton) {
+    ZC.ouvert = !ZC.ouvert;
+    var zone = $("aflp-zc-zone");
+    if (zone) zone.hidden = !ZC.ouvert;
+    if (bouton) {
+      bouton.setAttribute("aria-expanded", ZC.ouvert ? "true" : "false");
+      bouton.textContent = ZC.ouvert ? "Replier" : "Déplier";
+    }
   }
 
   function copierSynthese() {
@@ -601,9 +741,23 @@
     if (c) { c.value = ""; c.focus(); }
   }
 
+  /* Résumé en une ligne pour un en-tête replié : il ne CALCULE rien, il compte
+     ce que le moteur a déjà produit. Renvoie null tant qu'aucune donnée n'a été
+     reçue, pour qu'un appelant ne puisse pas confondre « zéro alerte » et
+     « pas encore chargé ». */
+  function resume() {
+    if (!ETAT) return null;
+    var c = { critique: 0, majeure: 0, mineure: 0 };
+    ALERTES.forEach(function (a) { if (c[a.severite] != null) c[a.severite]++; });
+    c.total = ALERTES.length;
+    c.decisions = SYNTHESE && SYNTHESE.decisions ? SYNTHESE.decisions.length : 0;
+    return c;
+  }
+
   global.AFLP_IA_UI = {
     monter: monter,
     rafraichir: rafraichir,
+    resume: resume,
     /* Exposé pour les contrôles automatisés : permet de vérifier l'état affiché
        sans dépendre du rendu HTML. */
     etatCourant: function () { return { etat: ETAT, refinancement: REFI, alertes: ALERTES }; }
