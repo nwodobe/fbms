@@ -3941,7 +3941,15 @@ function renderUsersTable(){
   const rows = USERS_CACHE.filter(u=>{
     const a = u._acl;
     if (q && ((u.nom||"")+" "+(u.email||"")+" "+(u.role||"")).toLowerCase().indexOf(q) < 0) return false;
-    if (ADMIN_FILTERS.role && u.role !== ADMIN_FILTERS.role) return false;
+    /* Le rôle est comparé sur le CODE résolu, pas sur la chaîne brute : la base
+       contient « Unit head », « Zonal head »… (cf. les alias de aflp-access.js).
+       Repli sur une comparaison normalisée pour qu'un rôle absent du catalogue
+       reste filtrable par son texte. */
+    if (ADMIN_FILTERS.role){
+      const rFiltre = ACL.role(ADMIN_FILTERS.role), rCompte = ACL.role(u.role);
+      if (rFiltre && rCompte){ if (rFiltre.code !== rCompte.code) return false; }
+      else if (ACL.norm(u.role) !== ACL.norm(ADMIN_FILTERS.role)) return false;
+    }
     if (ADMIN_FILTERS.statut && a.status !== ADMIN_FILTERS.statut) return false;
     if (ADMIN_FILTERS.zone){
       const port = (a.zone === "ALL") ? null : a.zone;
@@ -4103,6 +4111,16 @@ function onRoleFieldChange(){
   SCOPE_DRAFT.zone = ""; SCOPE_DRAFT.cluster = ""; SCOPE_DRAFT.village = ""; SCOPE_DRAFT.rtId = "";
   refreshScopeFields(currentScopeRole());
 }
+/** Champs d'identité obligatoires à la création d'un compte.
+ *  Renvoie le message à afficher, ou "" si tout est renseigné. */
+function champsIdentiteError(nom, email, pin){
+  if (!nom) return t("Nom complet obligatoire.");
+  if (!email) return t("Email obligatoire.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return t("Email invalide.");
+  if (!pin || pin.length < 4) return t("Code PIN obligatoire (4 caractères minimum).");
+  return "";
+}
+
 /** Valide le périmètre saisi ; retourne null si complet, sinon le message. */
 function scopeError(roleLabel){
   const champs = ACL.scopeFields(roleLabel);
@@ -4168,7 +4186,9 @@ async function submitCreateUser(){
   const err = document.getElementById("nuError");
   const btn = document.getElementById("nuSubmit");
   err.style.display = "none";
-  const pb = scopeError(role);
+  /* Identité avant périmètre : un compte sans nom ni email est inexploitable
+     et illisible dans le journal d'audit. Contrôlé ici ET côté serveur. */
+  const pb = champsIdentiteError(nom, email, pin) || scopeError(role);
   if (pb){ err.textContent = pb; err.style.display = "block"; return; }
   btn.disabled = true; btn.textContent = t("Création…");
   try{
