@@ -4,6 +4,7 @@
 <title>Administration · ANAGROCI</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="./auth-gate.js" data-module="admin"></script>
+<script src="./aflp-access.js"></script>
 <style>
   :root{--forest:#053B23;--emerald:#1F5B3F;--green:#00712C;--lime:#8DC556;--orange:#EE9E00;
     --mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--ink:#132A22;--muted:#5b6b62;--line:#e6e2d6;--danger:#C0392B;}
@@ -81,7 +82,12 @@
 <script>
 const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
 const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
-const ROLES=["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"];
+/* AFLP 2027 : la liste des rôles vient de shared/aflp-access.js. Les rôles
+   historiques restent proposés tant que des comptes en dépendent. Le
+   périmètre (zone / cluster / village) se gère dans FBMS > Administration. */
+const ROLES=(window.AFLP_ACCESS
+  ? window.AFLP_ACCESS.ROLES.map(r=>r.label).concat(window.AFLP_ACCESS.LEGACY.map(r=>r.label))
+  : ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"]);
 const $=i=>document.getElementById(i);
 let SB, ME=null;
 
@@ -94,7 +100,7 @@ document.addEventListener("anagroci:authenticated",function(e){
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   $("nRole").innerHTML=ROLES.map(r=>'<option>'+esc(r)+'</option>').join("");
-  $("nRole").value="Agent Recenseur";
+  $("nRole").value=ROLES[3]||ROLES[0];
   loadProfils();
 });
 
