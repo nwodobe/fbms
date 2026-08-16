@@ -1825,11 +1825,30 @@ function kpiCardHTML(iconName, label, value, sub, accent){
     + (sub ? '<div class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+sub+'</div>' : '')
     + '</div>';
 }
+/**
+ * Déclenche le téléchargement d'un Blob sous un nom donné.
+ *
+ * Une SECONDE fonction du même nom, de signature (content, mime, filename),
+ * était déclarée plus bas dans ce même script. En JavaScript la dernière
+ * déclaration l'emporte : c'est elle qui recevait les appels d'exportCSV() et
+ * exportJSON(), qui passent (blob, nomFichier). Le nom du fichier arrivait
+ * donc dans le paramètre `mime`, et `filename` restait undefined — les deux
+ * exports sortaient un fichier « undefined.txt » (constaté dans Chromium), le
+ * second écrasant le premier dans le dossier de téléchargement. Le contenu,
+ * lui, était intact : un Blob imbriqué dans un Blob conserve ses octets, ce
+ * qui explique que le défaut soit passé inaperçu.
+ *
+ * Les deux fonctions sont ici ramenées à une seule, qui garde la mécanique la
+ * plus sûre des deux : l'ancre est attachée au document avant le clic, et
+ * l'URL objet n'est révoquée qu'après un délai — la révoquer immédiatement
+ * après click() annule le téléchargement sur certains navigateurs.
+ */
 function downloadBlob(blob, filename){
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 function inputStyleAttr(){ return 'background:'+T.cream+';border:1px solid '+T.line+';color:'+T.ink+';'; }
 
@@ -3680,13 +3699,6 @@ function setMasterStatus(msg, color){
   const el = document.getElementById("masterStatus");
   if (el){ el.textContent = msg; el.style.color = color || T.inkSoft; }
 }
-function downloadBlob(content, mime, filename){
-  const blob = new Blob([content], { type: mime });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
-}
 /** Aplatit une ligne Supabase pour Excel : colonnes lisibles + data en JSON. */
 function masterRow(row){
   const out = {};
@@ -3715,7 +3727,7 @@ async function exportMaster(){
       counts: { villages: v.data.length, rt: r.data.length, producteurs: p.data.length },
       villages: v.data, rt: r.data, producteurs: p.data,
     };
-    downloadBlob(JSON.stringify(backup, null, 1), "application/json", "FBMS_MASTER_" + stamp + ".json");
+    downloadBlob(new Blob([JSON.stringify(backup, null, 1)], {type:"application/json"}), "FBMS_MASTER_" + stamp + ".json");
     // 2) Classeur Excel lisible (colonnes + data JSON par sécurité).
     if (window.XLSX){
       const wb = XLSX.utils.book_new();
