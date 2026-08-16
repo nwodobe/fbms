@@ -1779,7 +1779,7 @@ const STATE = {
   rtQuery: "", rtStatutFilter: "", rtClusterFilter: "",
   prodVillageId: "", prodQuery: "", prodStatutFilter: "",
   query: "", drawerId: null, formId: null,
-  regionFilter: "", tierFilter: "", statutFilter: "", camionOnly: false,
+  regionFilter: "", clusterFilter: "", tierFilter: "", statutFilter: "", camionOnly: false,
   sortKey: "score", sortDir: "desc", page: 1, pageSize: 8, dbView: "table",
 };
 let CHARTS = {};
@@ -1825,11 +1825,30 @@ function kpiCardHTML(iconName, label, value, sub, accent){
     + (sub ? '<div class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+sub+'</div>' : '')
     + '</div>';
 }
+/**
+ * Déclenche le téléchargement d'un Blob sous un nom donné.
+ *
+ * Une SECONDE fonction du même nom, de signature (content, mime, filename),
+ * était déclarée plus bas dans ce même script. En JavaScript la dernière
+ * déclaration l'emporte : c'est elle qui recevait les appels d'exportCSV() et
+ * exportJSON(), qui passent (blob, nomFichier). Le nom du fichier arrivait
+ * donc dans le paramètre `mime`, et `filename` restait undefined — les deux
+ * exports sortaient un fichier « undefined.txt » (constaté dans Chromium), le
+ * second écrasant le premier dans le dossier de téléchargement. Le contenu,
+ * lui, était intact : un Blob imbriqué dans un Blob conserve ses octets, ce
+ * qui explique que le défaut soit passé inaperçu.
+ *
+ * Les deux fonctions sont ici ramenées à une seule, qui garde la mécanique la
+ * plus sûre des deux : l'ancre est attachée au document avant le clic, et
+ * l'URL objet n'est révoquée qu'après un délai — la révoquer immédiatement
+ * après click() annule le téléchargement sur certains navigateurs.
+ */
 function downloadBlob(blob, filename){
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 function inputStyleAttr(){ return 'background:'+T.cream+';border:1px solid '+T.line+';color:'+T.ink+';'; }
 
@@ -2376,10 +2395,27 @@ function mountDashboardCharts(){
 /* ============================================================================
    BASE DE DONNÉES
    ========================================================================== */
+/** Cluster d'une fiche village, normalisé pour l'affichage : espaces de bord
+ *  retirés, majuscules. Retourne "" si le champ est absent, nul ou vide — une
+ *  fiche sans cluster ne doit jamais provoquer d'erreur. */
+function villageClusterOf(v){
+  const c = (v && ((v.s1 && v.s1.cluster) || v.cluster)) || "";
+  return String(c).trim().toUpperCase();
+}
+/** Clusters réellement présents dans les fiches villages, dédupliqués sur la
+ *  clé normalisée (ckey : sans accents ni séparateurs) et triés alphabétiquement.
+ *  Aucun nom de cluster n'est codé en dur : la liste suit la base. */
+function villageClusterOptions(){
+  const seen = {}, out = [];
+  STATE.villages.forEach(v=>{ const c = villageClusterOf(v); if (c && !seen[ckey(c)]){ seen[ckey(c)] = 1; out.push(c); } });
+  return out.sort((a,b)=>a.localeCompare(b,"fr"));
+}
+
 function getFilteredVillages(){
   let rows = STATE.villages.map(v=>({v,score:scoreOf(v)}));
   if (STATE.query) rows = rows.filter(({v})=> (v.s1.village+" "+v.s1.enqueteur+" "+v.s1.cluster+" "+v.s1.departement).toLowerCase().includes(STATE.query.toLowerCase()));
   if (STATE.regionFilter) rows = rows.filter(({v})=>v.s1.region===STATE.regionFilter);
+  if (STATE.clusterFilter) rows = rows.filter(({v})=> ckey(villageClusterOf(v))===ckey(STATE.clusterFilter));
   if (STATE.tierFilter) rows = rows.filter(({score})=>tierFor(score).key===STATE.tierFilter);
   if (STATE.statutFilter) rows = rows.filter(({v})=>statutOf(v)===STATE.statutFilter); // v0.9
   if (STATE.camionOnly) rows = rows.filter(({v})=>v.s5.camion10T);
@@ -2405,7 +2441,7 @@ function exportJSON(){
 
 /**
  * Export Excel natif (.xlsx) — v0.6.1. Respecte les filtres actifs de la vue
- * (recherche, région, classement, camion 10T) via getFilteredVillages().
+ * (recherche, région, cluster, classement, statut, camion 10T) via getFilteredVillages().
  * 26 colonnes exploitables directement par la Direction. Librairie SheetJS
  * chargée en CDN : nécessite d'avoir ouvert la page au moins une fois en ligne.
  */
@@ -2453,6 +2489,7 @@ function exportExcel(){
 }
 function setDbView(v){ STATE.dbView=v; renderContent(); }
 function setRegionFilter(v){ STATE.regionFilter=v; STATE.page=1; renderContent(); }
+function setClusterFilter(v){ STATE.clusterFilter=v; STATE.page=1; renderContent(); }
 function setTierFilter(v){ STATE.tierFilter=v; STATE.page=1; renderContent(); }
 function setStatutFilter(v){ STATE.statutFilter=v; STATE.page=1; renderContent(); } // v0.9
 function setCamionOnly(v){ STATE.camionOnly=v; STATE.page=1; renderContent(); }
@@ -2482,6 +2519,8 @@ function DatabaseView(){
   html += '<div class="flex items-center gap-2 mb-4 flex-wrap">'+icon('filter','w-3.5 h-3.5')
     + '<select onchange="setRegionFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Toutes régions')+'</option>'
     + REGIONS.map(r=>'<option value="'+r.region+'" '+(STATE.regionFilter===r.region?'selected':'')+'>'+r.region+'</option>').join('') + '</select>';
+  html += '<select onchange="setClusterFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous les clusters')+'</option>'
+    + villageClusterOptions().map(c=>'<option value="'+esc(c)+'" '+(ckey(STATE.clusterFilter)===ckey(c)?'selected':'')+'>'+esc(c)+'</option>').join('') + '</select>';
   html += '<select onchange="setTierFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous classements')+'</option>'
     + TIERS.map(ti=>'<option value="'+ti.key+'" '+(STATE.tierFilter===ti.key?'selected':'')+'>'+t(ti.label)+'</option>').join('') + '</select>';
   html += '<select onchange="setStatutFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous statuts')+'</option>'
@@ -3660,13 +3699,6 @@ function setMasterStatus(msg, color){
   const el = document.getElementById("masterStatus");
   if (el){ el.textContent = msg; el.style.color = color || T.inkSoft; }
 }
-function downloadBlob(content, mime, filename){
-  const blob = new Blob([content], { type: mime });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
-}
 /** Aplatit une ligne Supabase pour Excel : colonnes lisibles + data en JSON. */
 function masterRow(row){
   const out = {};
@@ -3695,7 +3727,7 @@ async function exportMaster(){
       counts: { villages: v.data.length, rt: r.data.length, producteurs: p.data.length },
       villages: v.data, rt: r.data, producteurs: p.data,
     };
-    downloadBlob(JSON.stringify(backup, null, 1), "application/json", "FBMS_MASTER_" + stamp + ".json");
+    downloadBlob(new Blob([JSON.stringify(backup, null, 1)], {type:"application/json"}), "FBMS_MASTER_" + stamp + ".json");
     // 2) Classeur Excel lisible (colonnes + data JSON par sécurité).
     if (window.XLSX){
       const wb = XLSX.utils.book_new();
