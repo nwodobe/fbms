@@ -601,9 +601,23 @@
     if (c) { c.value = ""; c.focus(); }
   }
 
+  /* Résumé en une ligne pour un en-tête replié : il ne CALCULE rien, il compte
+     ce que le moteur a déjà produit. Renvoie null tant qu'aucune donnée n'a été
+     reçue, pour qu'un appelant ne puisse pas confondre « zéro alerte » et
+     « pas encore chargé ». */
+  function resume() {
+    if (!ETAT) return null;
+    var c = { critique: 0, majeure: 0, mineure: 0 };
+    ALERTES.forEach(function (a) { if (c[a.severite] != null) c[a.severite]++; });
+    c.total = ALERTES.length;
+    c.decisions = SYNTHESE && SYNTHESE.decisions ? SYNTHESE.decisions.length : 0;
+    return c;
+  }
+
   global.AFLP_IA_UI = {
     monter: monter,
     rafraichir: rafraichir,
+    resume: resume,
     /* Exposé pour les contrôles automatisés : permet de vérifier l'état affiché
        sans dépendre du rendu HTML. */
     etatCourant: function () { return { etat: ETAT, refinancement: REFI, alertes: ALERTES }; }

@@ -925,6 +925,22 @@
     }
   }
 
-  global.AFLP_PRED_UI = { monter: monter, rafraichir: rafraichir, journal: lireJournal };
+  /* Résumé en une ligne pour un en-tête replié. Ne recalcule rien : il relit
+     l'analyse déjà produite. null tant qu'aucune analyse n'a abouti — un
+     en-tête muet vaut mieux qu'un en-tête qui invente un verdict. */
+  function resume() {
+    if (!ANALYSE) return null;
+    var d = ANALYSE.diagnostic, porte = d && d.porteNiveau1;
+    return {
+      verdict: d ? d.verdict : null,
+      porteFranchie: porte ? !!porte.franchie : null,
+      p0Ouverts: porte && porte.p0Ouverts ? porte.p0Ouverts.length : null,
+      retardJours: ANALYSE.retardDonneesJours,
+      dateRef: ANALYSE.dateRef,
+      version: ANALYSE.version
+    };
+  }
+
+  global.AFLP_PRED_UI = { monter: monter, rafraichir: rafraichir, resume: resume, journal: lireJournal };
 
 })(typeof globalThis !== "undefined" ? globalThis : this);
