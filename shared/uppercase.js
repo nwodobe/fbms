@@ -103,7 +103,11 @@
       );
       appendScript(
         "farmer-registry-sync-script",
-        "../shared/farmer-registry-sync.js?v=20260818-complete-1"
+        "../shared/farmer-registry-sync.js?v=20260818-complete-2"
+      );
+      appendScript(
+        "farmer-registry-sync-policy-script",
+        "../shared/farmer-registry-sync-policy.js?v=20260818-complete-1"
       );
       appendScript(
         "farmer-registry-assessment-script",
