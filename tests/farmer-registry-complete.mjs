@@ -18,6 +18,7 @@ const files = {
   guards: 'shared/farmer-registry-guards.js',
   migration: 'supabase/20260818_farmer_registry_complete.sql',
   privateEvidenceMigration: 'supabase/20260818_farmer_registry_complete_private_evidence.sql',
+  performanceMigration: 'supabase/20260818_farmer_registry_complete_performance.sql',
   architecture: 'docs/farmer_passport_architecture.md',
   dictionary: 'docs/farmer_passport_data_dictionary.md',
   migrations: 'docs/farmer_passport_migrations.md',
@@ -151,7 +152,11 @@ assert.deepEqual(
   ['B02'],
 )
 
-const sql = sources.migration + '\n' + sources.privateEvidenceMigration
+const sql = [
+  sources.migration,
+  sources.privateEvidenceMigration,
+  sources.performanceMigration,
+].join('\n')
 for (const table of [
   'farmer_plots', 'farmer_production_baselines',
   'farmer_sustainability_baselines', 'farmer_sustainability_answers',
@@ -168,7 +173,10 @@ assert.match(sql, /farmer_registry_can_read_sensitive/)
 assert.match(sql, /farmer-passport-evidence/)
 assert.match(sql, /revoke all on function public\.farmer_finalize_production_baseline\(uuid\) from public, anon/i)
 assert.match(sql, /grant execute on function public\.farmer_finalize_inspection\(uuid\) to authenticated/i)
+assert.match(sql, /farmer_action_plans_baseline_idx/i)
+assert.match(sql, /farmer_sustainability_supersedes_idx/i)
+assert.match(sql, /drop index if exists public\.farmer_sust_answers_baseline_idx/i)
 assert.doesNotMatch(sql, /^\s*truncate\s+table/im)
 assert.doesNotMatch(sql, /^\s*drop\s+table/im)
 
-console.log('Farmer Registry complet : syntaxe, offline, risque, garde-fous, preuves privées et architecture SQL OK')
+console.log('Farmer Registry complet : syntaxe, offline, risque, garde-fous, preuves privées, performance et architecture SQL OK')
