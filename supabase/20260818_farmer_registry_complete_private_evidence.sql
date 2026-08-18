@@ -1,5 +1,5 @@
 -- =============================================================================
--- AFLP FARMER REGISTRY — PREUVES PRIVÉES ET RÔLES FORMATION
+-- AFLP FARMER REGISTRY — PREUVES PRIVÉES, FORMATION ET PRIVILÈGES RPC
 -- À appliquer après 20260818_farmer_registry_complete.sql
 -- =============================================================================
 
@@ -97,5 +97,15 @@ drop policy if exists participants_formation_ins on public.participants_formatio
 create policy participants_formation_ins on public.participants_formation
 for insert to authenticated
 with check(private.farmer_registry_can_capture());
+
+-- Les trois fonctions suivantes sont des RPC métier explicites. Elles restent
+-- accessibles aux utilisateurs connectés, mais jamais au rôle anonyme. Les
+-- contrôles de rôle, de périmètre et d'état sont exécutés dans chaque fonction.
+revoke all on function public.farmer_finalize_production_baseline(uuid) from public, anon;
+revoke all on function public.farmer_finalize_sustainability_baseline(uuid) from public, anon;
+revoke all on function public.farmer_finalize_inspection(uuid) from public, anon;
+grant execute on function public.farmer_finalize_production_baseline(uuid) to authenticated;
+grant execute on function public.farmer_finalize_sustainability_baseline(uuid) to authenticated;
+grant execute on function public.farmer_finalize_inspection(uuid) to authenticated;
 
 commit;
