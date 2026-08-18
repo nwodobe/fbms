@@ -1,7 +1,7 @@
 # AFLP Farmer Registry — Architecture Phase 1
 
 Date : 18 août 2026  
-Version : 1.1.0
+Version : 1.2.0
 
 ## Objet
 
@@ -14,6 +14,7 @@ fbms/index.html
   -> shared/uppercase.js
      -> shared/farmer-enrollment-phase1.js
      -> shared/farmer-registry-read-phase1.js
+     -> shared/farmer-registry-privacy-phase1.js
   -> IndexedDB historique fbms_local_db / store producteurs
   -> Supabase producteurs
   -> Supabase farmer_consents
@@ -47,11 +48,15 @@ L’enrôlement conserve les contrôles historiques et ajoute :
 
 ## Données sensibles
 
-Le numéro de pièce n’est pas conservé dans `producteurs.data`. Il est enregistré dans `farmer_identity_documents`, sous RLS. Le champ de compatibilité `producteurs.id_document_number` reste présent mais est toujours remis à `NULL` par le serveur. Les journaux d’audit expurgent `id_document_number`, `pieceNum` et `document_number`.
+Le numéro de pièce n’est pas conservé dans `producteurs.data` ni dans IndexedDB. Il est enregistré dans `farmer_identity_documents`, sous RLS. Le champ de compatibilité `producteurs.id_document_number` reste présent mais est toujours remis à `NULL` par le serveur. Les journaux d’audit expurgent `id_document_number`, `pieceNum` et `document_number`.
 
-## Consentement
+Une seule preuve de pièce peut être `ACTIVE` par producteur. Le remplacement marque l’ancienne version `REPLACED`; le retrait la marque `WITHDRAWN`. Un même numéro peut être réactivé ultérieurement sans supprimer les événements antérieurs.
+
+## Consentement et ordre des événements
 
 `farmer_consents` est append-only. Toute évolution crée un nouvel événement lié au précédent par `supersedes_id`. Un consentement complet exige les sept périmètres : identité, agriculture, GPS, photos, formation, inspections et transactions.
+
+Les tables `farmer_consents` et `farmer_identity_documents` possèdent un `event_order` monotone. Cet ordre serveur est l’autorité pour déterminer le dernier événement, même lorsque deux saisies partagent le même horodatage métier.
 
 ## Complétude Phase 1
 
