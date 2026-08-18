@@ -30,6 +30,7 @@ Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING 
 8. `farmer_registry_complete_08_baseline_version_locking`
 9. `farmer_registry_complete_09_private_evidence_and_training`
 10. `farmer_registry_complete_10_revoke_anon_business_rpcs`
+11. `farmer_registry_complete_11_performance_indexes`
 
 La migration `farmer_registry_complete_01_tables_catalog` apparaît une seconde fois dans l’historique live à la suite d’un contrôle idempotent. Le script utilise `IF NOT EXISTS` et `ON CONFLICT`; cette répétition n’a créé ni table en double, ni critère en double, ni donnée métier.
 
@@ -38,9 +39,10 @@ La migration `farmer_registry_complete_01_tables_catalog` apparaît une seconde 
 ```text
 supabase/20260818_farmer_registry_complete.sql
 supabase/20260818_farmer_registry_complete_private_evidence.sql
+supabase/20260818_farmer_registry_complete_performance.sql
 ```
 
-Le premier fichier représente le schéma métier complet à partir d’une base ayant déjà reçu la Phase 1. Le second ajoute le bucket privé de preuves, les politiques Storage et les privilèges finaux des RPC métier.
+Le premier fichier représente le schéma métier complet à partir d’une base ayant déjà reçu la Phase 1. Le deuxième ajoute le bucket privé de preuves, les politiques Storage et les privilèges finaux des RPC métier. Le troisième ajoute les indexes de clés étrangères nécessaires à la montée en charge et retire deux indexes redondants déjà couverts par des contraintes uniques.
 
 Ils couvrent :
 
@@ -54,7 +56,8 @@ Ils couvrent :
 - les vues de pilotage et de dossier 360 ;
 - l’extension des preuves et des formations existantes ;
 - le bucket privé `farmer-passport-evidence` ;
-- la révocation de l’accès `anon` aux RPC de finalisation.
+- la révocation de l’accès `anon` aux RPC de finalisation ;
+- les indexes de parcours par parcelle, baseline, inspection, mission et visite.
 
 ## Nature des changements
 
@@ -68,6 +71,8 @@ Toutes les migrations sont additives :
 
 Les baselines `FINAL` et inspections `FINAL` sont immuables. Une correction crée une nouvelle version. Les versions sont attribuées sous verrou transactionnel pour éviter une collision entre appareils.
 
+La migration de performance ne supprime aucune donnée. Elle retire uniquement deux indexes redondants : les contraintes uniques de leurs tables couvrent déjà les recherches par parent.
+
 ## Ordre d’application
 
 ```text
@@ -77,7 +82,9 @@ Phase 1
   ↓
 20260818_farmer_registry_complete_private_evidence.sql
   ↓
-Tests de schéma, RLS et privilèges RPC
+20260818_farmer_registry_complete_performance.sql
+  ↓
+Tests de schéma, RLS, privilèges RPC et indexes
   ↓
 Déploiement frontend
 ```
@@ -130,6 +137,23 @@ where n.nspname='public'
     'farmer_finalize_inspection'
   );
 -- attendu : anon=false, authenticated=true
+
+select indexname
+from pg_indexes
+where schemaname='public'
+  and indexname in (
+    'farmer_action_plans_baseline_idx',
+    'farmer_action_plans_inspection_idx',
+    'farmer_action_plans_plot_idx',
+    'farmer_inspections_plot_idx',
+    'farmer_production_supersedes_idx',
+    'farmer_sustainability_plot_idx',
+    'farmer_sustainability_supersedes_idx',
+    'farmer_verifications_plot_idx',
+    'farmer_visits_checkin_idx',
+    'farmer_visits_mission_idx',
+    'farmer_visits_plot_idx'
+  );
 ```
 
 Les fonctions trigger doivent avoir leurs privilèges RPC révoqués. Seules les trois fonctions métier de finalisation sont exécutables par `authenticated`.
