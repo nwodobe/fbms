@@ -15,6 +15,7 @@ const files = {
   passport: 'shared/farmer-registry-passport.js',
   operations: 'shared/farmer-registry-operations.js',
   evidence: 'shared/farmer-registry-evidence.js',
+  guards: 'shared/farmer-registry-guards.js',
   migration: 'supabase/20260818_farmer_registry_complete.sql',
   privateEvidenceMigration: 'supabase/20260818_farmer_registry_complete_private_evidence.sql',
   architecture: 'docs/farmer_passport_architecture.md',
@@ -30,7 +31,10 @@ const sources = Object.fromEntries(
   Object.entries(files).map(([key, file]) => [key, read(file)]),
 )
 
-for (const key of ['loader', 'sync', 'syncPolicy', 'assessment', 'passport', 'operations', 'evidence']) {
+for (const key of [
+  'loader', 'sync', 'syncPolicy', 'assessment',
+  'passport', 'operations', 'evidence', 'guards',
+]) {
   new vm.Script(sources[key], { filename: files[key] })
 }
 
@@ -44,6 +48,7 @@ for (const expected of [
   assert.match(sources.loader, new RegExp(expected.replaceAll('.', '\\.')))
 }
 assert.match(sources.syncPolicy, /farmer-registry-evidence\.js/)
+assert.match(sources.syncPolicy, /farmer-registry-guards\.js/)
 
 assert.match(sources.passport, /AFLP Farmer Registry/)
 assert.match(sources.passport, /Plans d’action/)
@@ -59,9 +64,12 @@ assert.match(sources.syncPolicy, /farmer_verifications:\s*true/)
 assert.match(sources.syncPolicy, /participants_formation:\s*true/)
 assert.match(sources.evidence, /farmer-passport-evidence/)
 assert.match(sources.evidence, /SHA-256/)
+assert.match(sources.guards, /catalogue Sustainability n’est pas encore disponible/)
+assert.match(sources.guards, /Vérification bloquée/)
+assert.match(sources.guards, /verificationRequiresOnlineSync:\s*true/)
 assert.doesNotMatch(
   sources.sync + sources.syncPolicy + sources.assessment + sources.passport
-    + sources.operations + sources.evidence,
+    + sources.operations + sources.evidence + sources.guards,
   /service_role|sb_secret_/i,
 )
 
@@ -163,4 +171,4 @@ assert.match(sql, /grant execute on function public\.farmer_finalize_inspection\
 assert.doesNotMatch(sql, /^\s*truncate\s+table/im)
 assert.doesNotMatch(sql, /^\s*drop\s+table/im)
 
-console.log('Farmer Registry complet : syntaxe, offline, risque, preuves privées et architecture SQL OK')
+console.log('Farmer Registry complet : syntaxe, offline, risque, garde-fous, preuves privées et architecture SQL OK')
