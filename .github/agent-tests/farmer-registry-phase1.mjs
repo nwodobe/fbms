@@ -49,7 +49,9 @@ assert.match(enrollment, /farmer_consents/);
 assert.match(enrollment, /farmer_identity_documents/);
 assert.match(enrollment, /passportCompletion/);
 assert.match(enrollment, /RT sélectionné n’appartient pas au village/);
-assert.match(privacy, /numéro de pièce ne sera pas conservé hors ligne/);
+assert.match(privacy, /numéro de pièce n’a pas été conservé sur le téléphone/);
+assert.match(privacy, /localIdentityNumbersPersisted:\s*false/);
+assert.match(privacy, /delete safe\.pieceNum/);
 assert.match(privacy, /WITHDRAWN/);
 assert.doesNotMatch(enrollment + readModel + privacy, /service_role/i);
 assert.doesNotMatch(enrollment + readModel + privacy, /sb_secret_/i);
@@ -64,9 +66,10 @@ assert.match(coreSql, /farmer_passport_summary_v/i);
 assert.doesNotMatch(coreSql, /^\s*drop\s+table/im);
 assert.doesNotMatch(coreSql, /^\s*truncate\s+table/im);
 
+assert.match(securitySql, /create schema if not exists private/i);
 assert.match(securitySql, /enable row level security/i);
 assert.match(securitySql, /farmer_registry_scope_guard/i);
-assert.match(securitySql, /revoke update,delete on public\.farmer_consents/i);
+assert.match(securitySql, /revoke update, delete on public\.farmer_consents/i);
 assert.match(securitySql, /farmer_identity_documents_select/i);
 assert.match(historySql, /set status = case when new\.status = 'WITHDRAWN'/i);
 assert.match(historySql, /supersedes_id/i);
@@ -89,6 +92,7 @@ const modalRoot = {
   addEventListener() {}
 };
 elements.set('modal-root', modalRoot);
+const persisted = [];
 const context = {
   console,
   setInterval,
@@ -115,7 +119,10 @@ const context = {
   SB: null,
   AUTH: { isConnected() { return false; }, session: {} },
   STATE: { producteurs: [], rt: [], villages: [] },
-  PROD_ADAPTER: { async upsert() {}, async list() { return []; } },
+  PROD_ADAPTER: {
+    async upsert(value) { persisted.push(value); },
+    async list() { return []; }
+  },
   closeProdModal() {},
   renderContent() {}
 };
@@ -131,4 +138,9 @@ assert.equal(context.FARMER_REGISTRY_READ_PHASE1?.installed, true);
 assert.equal(context.FARMER_REGISTRY_PRIVACY_PHASE1?.installed, true);
 assert.match(context.ProducteursView(), /AFLP Farmer Registry/);
 
-console.log('Farmer Registry Phase 1: contrôles statiques et runtime OK');
+await context.PROD_ADAPTER.upsert({ id: 'p-test', pieceNum: 'SECRET-001', nom: 'TEST' });
+assert.equal(persisted.length, 1);
+assert.equal(persisted[0].pieceNum, undefined);
+assert.equal(persisted[0].nom, 'TEST');
+
+console.log('Farmer Registry Phase 1: contrôles statiques, runtime et cache local OK');
