@@ -14,7 +14,11 @@
 | `producteurs.preferred_language` | Langue préférée | text | Non | Déclaré | Liste contrôlée | DECLARED | Personnel | Langue de communication |
 | `producteurs.id_document_type` | Type de pièce | text | Non | Document | Liste contrôlée | DOCUMENTED | Sensible | Type sans numéro |
 | `producteurs.id_document_number` | Compatibilité | text | Non | Système | Toujours remis à NULL | SYSTEM | Très sensible | Ne doit pas contenir de valeur persistée |
-| `farmer_identity_documents.document_number` | Numéro de pièce | text | Non | Document | Historisé | DOCUMENTED | Très sensible | Numéro isolé de la table maître |
+| `farmer_identity_documents.document_type` | Type de pièce privé | text | Conditionnel | Document | Non vide si ACTIVE | DOCUMENTED | Très sensible | Type associé à la preuve privée |
+| `farmer_identity_documents.document_number` | Numéro de pièce | text | Conditionnel | Document | Non vide si ACTIVE | DOCUMENTED | Très sensible | Numéro isolé de la table maître |
+| `farmer_identity_documents.status` | Statut de la pièce | text | Oui | Serveur | ACTIVE/REPLACED/WITHDRAWN | SYSTEM | Très sensible | Une seule version ACTIVE par producteur |
+| `farmer_identity_documents.supersedes_id` | Pièce précédente | uuid | Non | Serveur | FK historique | SYSTEM | Très sensible | Chaîne de remplacement ou retrait |
+| `farmer_identity_documents.event_order` | Ordre de preuve | bigint identity | Oui | Serveur | Monotone | SYSTEM | Interne | Détermine sans ambiguïté la dernière preuve |
 | `producteurs.village_id` | Village | text | Oui | Référentiel | FK logique villages | DOCUMENTED | Interne | Village AFLP |
 | `producteurs.rt_id` | RT | text | Oui | Référentiel | RT du même village | DOCUMENTED | Interne | RT de rattachement |
 | `producteurs.operational_status` | Statut opérationnel | text | Oui | Métier | Liste contrôlée | SYSTEM | Interne | Actif, inactif, suspendu ou revue |
@@ -31,3 +35,4 @@
 | `farmer_consents.text_version` | Version du texte | text | Oui | Système | Non vide | SYSTEM | Interne | Version légale utilisée |
 | `farmer_consents.method` | Mode | text | Oui | Agent | VERBAL/WRITTEN/DIGITAL/WITNESSED | DOCUMENTED | Interne | Mode de recueil |
 | `farmer_consents.supersedes_id` | Consentement précédent | uuid | Non | Serveur | Historique | SYSTEM | Très sensible | Chaîne de remplacement |
+| `farmer_consents.event_order` | Ordre de consentement | bigint identity | Oui | Serveur | Monotone | SYSTEM | Interne | Détermine sans ambiguïté le dernier événement |
