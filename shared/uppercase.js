@@ -77,6 +77,33 @@
     } catch (e) { /* ignorer */ }
   }
 
+  function appendScript(id, src){
+    if (document.getElementById(id)) return;
+    var s = document.createElement("script");
+    s.id = id;
+    s.defer = true;
+    s.src = src;
+    document.head.appendChild(s);
+  }
+
+  function loadFarmerRegistryPhase1(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      appendScript(
+        "farmer-enrollment-phase1-script",
+        "../shared/farmer-enrollment-phase1.js?v=20260818-phase1-1"
+      );
+      appendScript(
+        "farmer-registry-read-phase1-script",
+        "../shared/farmer-registry-read-phase1.js?v=20260818-phase1"
+      );
+      appendScript(
+        "farmer-registry-privacy-phase1-script",
+        "../shared/farmer-registry-privacy-phase1.js?v=20260818-phase1-2"
+      );
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadALISHardening(){
     try {
       if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
@@ -104,6 +131,7 @@
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
     loadFieldBuyingDashboardAudit();
+    loadFarmerRegistryPhase1();
     loadALISHardening();
     loadAuditDistancesFix();
   }
