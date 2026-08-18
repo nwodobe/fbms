@@ -80,12 +80,20 @@
   function loadFarmerRegistryPhase1(){
     try {
       if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
-      if (document.getElementById("farmer-enrollment-phase1-script")) return;
-      var s = document.createElement("script");
-      s.id = "farmer-enrollment-phase1-script";
-      s.defer = true;
-      s.src = "../shared/farmer-enrollment-phase1.js?v=20260818-phase1";
-      document.head.appendChild(s);
+      if (!document.getElementById("farmer-enrollment-phase1-script")) {
+        var enrollment = document.createElement("script");
+        enrollment.id = "farmer-enrollment-phase1-script";
+        enrollment.defer = true;
+        enrollment.src = "../shared/farmer-enrollment-phase1.js?v=20260818-phase1-1";
+        document.head.appendChild(enrollment);
+      }
+      if (!document.getElementById("farmer-registry-read-phase1-script")) {
+        var reader = document.createElement("script");
+        reader.id = "farmer-registry-read-phase1-script";
+        reader.defer = true;
+        reader.src = "../shared/farmer-registry-read-phase1.js?v=20260818-phase1";
+        document.head.appendChild(reader);
+      }
     } catch (e) { /* ignorer */ }
   }
 
