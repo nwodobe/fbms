@@ -2,13 +2,24 @@
 (function (global) {
   'use strict';
 
-  function loadPrivateEvidence() {
-    if (document.getElementById('farmer-registry-evidence-script')) return;
+  function appendScript(id, src) {
+    if (document.getElementById(id)) return;
     var script = document.createElement('script');
-    script.id = 'farmer-registry-evidence-script';
+    script.id = id;
     script.defer = true;
-    script.src = '../shared/farmer-registry-evidence.js?v=20260818-complete-1';
+    script.src = src;
     document.head.appendChild(script);
+  }
+
+  function loadRuntimeExtensions() {
+    appendScript(
+      'farmer-registry-evidence-script',
+      '../shared/farmer-registry-evidence.js?v=20260818-complete-1'
+    );
+    appendScript(
+      'farmer-registry-guards-script',
+      '../shared/farmer-registry-guards.js?v=20260818-complete-1'
+    );
   }
 
   var attempts = 0;
@@ -32,7 +43,7 @@
       };
       registry.syncEngine.__appendOnlyPolicy = true;
     }
-    loadPrivateEvidence();
+    loadRuntimeExtensions();
     clearInterval(timer);
   }, 50);
 })(window);
