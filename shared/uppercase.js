@@ -99,7 +99,7 @@
       );
       appendScript(
         "farmer-registry-privacy-phase1-script",
-        "../shared/farmer-registry-privacy-phase1.js?v=20260818-phase1"
+        "../shared/farmer-registry-privacy-phase1.js?v=20260818-phase1-2"
       );
     } catch (e) { /* ignorer */ }
   }
