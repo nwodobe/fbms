@@ -14,6 +14,7 @@ Le 18 août 2026, les migrations suivantes ont été appliquées au projet `FIEL
 8. `farmer_registry_phase1_04e_identity_history_status`
 9. `farmer_registry_phase1_05_private_rls_helpers`
 10. `farmer_registry_phase1_06_event_ordering`
+11. `farmer_registry_phase1_07_active_identity_uniqueness`
 
 La tentative intermédiaire `farmer_registry_phase1_04_privacy_history_hardening` a été annulée intégralement par PostgreSQL avant application ; elle n’a laissé aucun état partiel.
 
@@ -23,9 +24,10 @@ La tentative intermédiaire `farmer_registry_phase1_04_privacy_history_hardening
 - `supabase/20260818_farmer_registry_phase1_security.sql`
 - `supabase/20260818_farmer_registry_phase1_identity_history.sql`
 - `supabase/20260818_farmer_registry_phase1_event_ordering.sql`
+- `supabase/20260818_farmer_registry_phase1_active_identity_uniqueness.sql`
 - `supabase/20260818_farmer_registry_phase1_verify.sql`
 
-Les quatre premiers fichiers représentent l’état consolidé final et ses renforcements successifs. Le dernier est un script de vérification en lecture seule.
+Les cinq premiers fichiers représentent l’état consolidé final et ses renforcements successifs. Le dernier est un script de vérification en lecture seule.
 
 ## Nature des changements
 
@@ -37,7 +39,8 @@ Les quatre premiers fichiers représentent l’état consolidé final et ses ren
 - consentements append-only ;
 - ordre d’événement monotone pour départager deux consentements ou preuves saisis au même instant ;
 - numéros de pièce isolés sous RLS ;
-- remplacement et retrait des pièces historisés ;
+- une seule pièce active par producteur, avec conservation des versions remplacées ou retirées ;
+- réactivation possible d’un même numéro après retrait sans supprimer l’historique ;
 - audit avant/après avec expurgation ;
 - recherche de doublons ;
 - calcul serveur du Passport Completion, de la maturité et du Risk Profile ;
@@ -59,6 +62,9 @@ Une recette transactionnelle a vérifié sans laisser de données fictives :
 - blocage d’un RT appartenant à un autre village ;
 - immutabilité du Farmer ID ;
 - stockage privé de la pièce d’identité ;
+- remplacement d’une pièce avec passage de l’ancienne version à `REPLACED` ;
+- retrait sans pièce active ;
+- réactivation du même numéro avec une seule version `ACTIVE` et tout l’historique conservé ;
 - consentement complet donnant le niveau `BASIC` et 65 % de complétude ;
 - rejet serveur d’un consentement complet incomplet ;
 - historisation d’un consentement partiel supersédant le précédent ;
