@@ -2,7 +2,7 @@
 
 ## État appliqué
 
-Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING ANAGROCI` le 18 août 2026 :
+Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING ANAGROCI` le 18 août 2026.
 
 ### Phase 1 — identité et enrôlement
 
@@ -28,16 +28,21 @@ Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING 
 6. `farmer_registry_complete_06_actor_integrity`
 7. `farmer_registry_complete_07_roles_gps_privacy`
 8. `farmer_registry_complete_08_baseline_version_locking`
+9. `farmer_registry_complete_09_private_evidence_and_training`
+10. `farmer_registry_complete_10_revoke_anon_business_rpcs`
 
-## Source consolidée
+La migration `farmer_registry_complete_01_tables_catalog` apparaît une seconde fois dans l’historique live à la suite d’un contrôle idempotent. Le script utilise `IF NOT EXISTS` et `ON CONFLICT`; cette répétition n’a créé ni table en double, ni critère en double, ni donnée métier.
 
-Le fichier suivant représente l’état final attendu à partir d’une base ayant déjà reçu la Phase 1 :
+## Sources versionnées
 
 ```text
 supabase/20260818_farmer_registry_complete.sql
+supabase/20260818_farmer_registry_complete_private_evidence.sql
 ```
 
-Il contient :
+Le premier fichier représente le schéma métier complet à partir d’une base ayant déjà reçu la Phase 1. Le second ajoute le bucket privé de preuves, les politiques Storage et les privilèges finaux des RPC métier.
+
+Ils couvrent :
 
 - les tables Parcelles, Production, Sustainability, Inspections, Actions, Visites et Vérifications ;
 - le catalogue des 25 critères `AFLP-SUST-2026.1` ;
@@ -47,7 +52,9 @@ Il contient :
 - les triggers d’audit et d’historisation ;
 - les politiques RLS ;
 - les vues de pilotage et de dossier 360 ;
-- l’extension des preuves et des formations existantes.
+- l’extension des preuves et des formations existantes ;
+- le bucket privé `farmer-passport-evidence` ;
+- la révocation de l’accès `anon` aux RPC de finalisation.
 
 ## Nature des changements
 
@@ -68,24 +75,26 @@ Phase 1
   ↓
 20260818_farmer_registry_complete.sql
   ↓
-Tests de schéma et RLS
+20260818_farmer_registry_complete_private_evidence.sql
+  ↓
+Tests de schéma, RLS et privilèges RPC
   ↓
 Déploiement frontend
 ```
 
-Ne pas appliquer le fichier complet avant la Phase 1, car les nouvelles tables référencent `producteurs`, `farmer_consents`, les helpers du schéma `private` et le mécanisme d’audit existant.
+Ne pas appliquer ces fichiers avant la Phase 1, car les nouvelles tables référencent `producteurs`, `farmer_consents`, les helpers du schéma `private` et le mécanisme d’audit existant.
 
 ## Compatibilité
 
 Le JSONB historique `producteurs.data` reste disponible. Les coordonnées historiques au niveau producteur ne sont pas supprimées, mais les nouvelles captures GPS sont enregistrées dans `farmer_plots` ou `farmer_inspections`.
 
-Les relations Achats et Sacs acceptent encore temporairement l’ID technique ou le Farmer ID lisible dans les vues de dossier. La normalisation physique complète de ces deux modules reste une intégration séparée pour ne pas casser les files offline anciennes.
+Les vues de dossier acceptent encore temporairement l’ID technique ou le Farmer ID lisible dans Achats et Sacs. La normalisation physique complète de ces deux modules reste une intégration séparée pour ne pas casser les files offline anciennes.
 
 ## Retour arrière fonctionnel
 
 En cas d’incident frontend :
 
-1. retirer les quatre nouveaux chargeurs complets dans `shared/uppercase.js` ;
+1. retirer les chargeurs Farmer Registry complet dans `shared/uppercase.js` ;
 2. conserver toutes les nouvelles tables et données ;
 3. ne pas supprimer les baselines, preuves ou actions ;
 4. réactiver le frontend après correction.
@@ -98,15 +107,29 @@ Les migrations serveur ne doivent pas être annulées par suppression des tables
 select count(*) from public.sustainability_question_catalog where active;
 -- attendu : 25
 
-select table_name, row_security_active
-from information_schema.tables
-where table_name like 'farmer_%';
+select c.relname, c.relrowsecurity
+from pg_class c
+join pg_namespace n on n.oid=c.relnamespace
+where n.nspname='public'
+  and c.relname in (
+    'farmer_plots','farmer_production_baselines',
+    'farmer_sustainability_baselines','farmer_sustainability_answers',
+    'farmer_inspections','farmer_inspection_answers',
+    'farmer_action_plans','farmer_visits','farmer_verifications'
+  );
 
-select * from public.farmer_registry_dashboard_v limit 10;
-
-select proname, prosecdef
-from pg_proc
-where proname like 'farmer_registry_%';
+select p.proname,
+       has_function_privilege('anon',p.oid,'EXECUTE') as anon_execute,
+       has_function_privilege('authenticated',p.oid,'EXECUTE') as authenticated_execute
+from pg_proc p
+join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public'
+  and p.proname in (
+    'farmer_finalize_production_baseline',
+    'farmer_finalize_sustainability_baseline',
+    'farmer_finalize_inspection'
+  );
+-- attendu : anon=false, authenticated=true
 ```
 
-Les fonctions trigger doivent avoir leurs privilèges RPC révoqués. Seules les fonctions métier de finalisation sont exécutables par `authenticated`.
+Les fonctions trigger doivent avoir leurs privilèges RPC révoqués. Seules les trois fonctions métier de finalisation sont exécutables par `authenticated`.
