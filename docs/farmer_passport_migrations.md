@@ -16,7 +16,7 @@ Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING 
 8. `farmer_registry_phase1_04e_identity_history_status`
 9. `farmer_registry_phase1_05_private_rls_helpers`
 10. `farmer_registry_phase1_06_event_ordering`
-11. `farmer_registry_phase1_07_identity_same_number_reactivation`
+11. `farmer_registry_phase1_07_active_identity_uniqueness`
 
 ### Farmer Registry complet
 
@@ -28,7 +28,7 @@ Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING 
 6. `farmer_registry_complete_06_actor_integrity`
 7. `farmer_registry_complete_07_roles_gps_privacy`
 8. `farmer_registry_complete_08_baseline_version_locking`
-9. `farmer_registry_complete_09_private_evidence_and_training`
+9. `farmer_registry_complete_09_private_evidence_training_roles`
 10. `farmer_registry_complete_10_revoke_anon_business_rpcs`
 11. `farmer_registry_complete_11_performance_indexes`
 
