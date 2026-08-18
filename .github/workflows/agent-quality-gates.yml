@@ -29,7 +29,9 @@ concurrency:
 
 jobs:
   statique:
-    name: Structure, liens, syntaxe et règles métier
+    # Ce libellé est un contexte requis par la règle de branche. Ne pas le
+    # renommer sans modifier simultanément la règle GitHub correspondante.
+    name: Structure, liens et syntaxe
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
