@@ -108,9 +108,10 @@
     if (!supabaseReady() || !producteurId) return null;
     try {
       var response = await SB.from('farmer_identity_documents')
-        .select('id,document_type,document_number,status,created_at')
+        .select('id,document_type,document_number,status,event_order,created_at')
         .eq('producteur_id', producteurId)
-        .order('created_at', { ascending: false })
+        .eq('status', 'ACTIVE')
+        .order('event_order', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (response.error) return null;
@@ -142,7 +143,6 @@
       var nextNumber = String(producer.pieceNum || '').trim();
       var nextType = String(producer.pieceType || '').trim();
       var withdrawalRequested = current
-        && current.status !== 'WITHDRAWN'
         && (!nextNumber || !nextType || nextType === 'Aucune');
 
       if (current && nextNumber && nextType && nextType !== 'Aucune') {
@@ -191,7 +191,7 @@
     patchSave();
     patchRemoteUpsert();
     global.FARMER_REGISTRY_PRIVACY_PHASE1 = {
-      version: '1.1.0',
+      version: '1.2.0',
       installed: true,
       localIdentityNumbersPersisted: false
     };
