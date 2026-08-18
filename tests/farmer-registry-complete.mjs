@@ -14,7 +14,9 @@ const files = {
   assessment: 'shared/farmer-registry-assessment.js',
   passport: 'shared/farmer-registry-passport.js',
   operations: 'shared/farmer-registry-operations.js',
+  evidence: 'shared/farmer-registry-evidence.js',
   migration: 'supabase/20260818_farmer_registry_complete.sql',
+  privateEvidenceMigration: 'supabase/20260818_farmer_registry_complete_private_evidence.sql',
   architecture: 'docs/farmer_passport_architecture.md',
   dictionary: 'docs/farmer_passport_data_dictionary.md',
   migrations: 'docs/farmer_passport_migrations.md',
@@ -28,7 +30,7 @@ const sources = Object.fromEntries(
   Object.entries(files).map(([key, file]) => [key, read(file)]),
 )
 
-for (const key of ['loader', 'sync', 'syncPolicy', 'assessment', 'passport', 'operations']) {
+for (const key of ['loader', 'sync', 'syncPolicy', 'assessment', 'passport', 'operations', 'evidence']) {
   new vm.Script(sources[key], { filename: files[key] })
 }
 
@@ -41,6 +43,7 @@ for (const expected of [
 ]) {
   assert.match(sources.loader, new RegExp(expected.replaceAll('.', '\\.')))
 }
+assert.match(sources.syncPolicy, /farmer-registry-evidence\.js/)
 
 assert.match(sources.passport, /AFLP Farmer Registry/)
 assert.match(sources.passport, /Plans d’action/)
@@ -54,8 +57,11 @@ assert.match(sources.sync, /SYNC_ERROR/)
 assert.match(sources.sync, /ignoreDuplicates:\s*true/)
 assert.match(sources.syncPolicy, /farmer_verifications:\s*true/)
 assert.match(sources.syncPolicy, /participants_formation:\s*true/)
+assert.match(sources.evidence, /farmer-passport-evidence/)
+assert.match(sources.evidence, /SHA-256/)
 assert.doesNotMatch(
-  sources.sync + sources.assessment + sources.passport + sources.operations,
+  sources.sync + sources.syncPolicy + sources.assessment + sources.passport
+    + sources.operations + sources.evidence,
   /service_role|sb_secret_/i,
 )
 
@@ -137,7 +143,7 @@ assert.deepEqual(
   ['B02'],
 )
 
-const sql = sources.migration
+const sql = sources.migration + '\n' + sources.privateEvidenceMigration
 for (const table of [
   'farmer_plots', 'farmer_production_baselines',
   'farmer_sustainability_baselines', 'farmer_sustainability_answers',
@@ -151,8 +157,10 @@ assert.match(sql, /UNKNOWN/)
 assert.match(sql, /farmer_finalize_sustainability_baseline/)
 assert.match(sql, /farmer_registry_dashboard_v/)
 assert.match(sql, /farmer_registry_can_read_sensitive/)
-assert.match(sql, /terrain-preuves/)
+assert.match(sql, /farmer-passport-evidence/)
+assert.match(sql, /revoke all on function public\.farmer_finalize_production_baseline\(uuid\) from public, anon/i)
+assert.match(sql, /grant execute on function public\.farmer_finalize_inspection\(uuid\) to authenticated/i)
 assert.doesNotMatch(sql, /^\s*truncate\s+table/im)
 assert.doesNotMatch(sql, /^\s*drop\s+table/im)
 
-console.log('Farmer Registry complet : syntaxe, offline, risque et architecture SQL OK')
+console.log('Farmer Registry complet : syntaxe, offline, risque, preuves privées et architecture SQL OK')
