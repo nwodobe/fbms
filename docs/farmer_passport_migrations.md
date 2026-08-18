@@ -13,6 +13,7 @@ Le 18 août 2026, les migrations suivantes ont été appliquées au projet `FIEL
 7. `farmer_registry_phase1_04d_consent_history_rules`
 8. `farmer_registry_phase1_04e_identity_history_status`
 9. `farmer_registry_phase1_05_private_rls_helpers`
+10. `farmer_registry_phase1_06_event_ordering`
 
 La tentative intermédiaire `farmer_registry_phase1_04_privacy_history_hardening` a été annulée intégralement par PostgreSQL avant application ; elle n’a laissé aucun état partiel.
 
@@ -21,9 +22,10 @@ La tentative intermédiaire `farmer_registry_phase1_04_privacy_history_hardening
 - `supabase/20260818_farmer_registry_phase1_consolidated.sql`
 - `supabase/20260818_farmer_registry_phase1_security.sql`
 - `supabase/20260818_farmer_registry_phase1_identity_history.sql`
+- `supabase/20260818_farmer_registry_phase1_event_ordering.sql`
 - `supabase/20260818_farmer_registry_phase1_verify.sql`
 
-Les trois premiers fichiers représentent l’état consolidé final. Le dernier est en lecture seule.
+Les quatre premiers fichiers représentent l’état consolidé final et ses renforcements successifs. Le dernier est un script de vérification en lecture seule.
 
 ## Nature des changements
 
@@ -33,6 +35,7 @@ Les trois premiers fichiers représentent l’état consolidé final. Le dernier
 - Farmer ID unique et immuable ;
 - contrôle serveur RT/village ;
 - consentements append-only ;
+- ordre d’événement monotone pour départager deux consentements ou preuves saisis au même instant ;
 - numéros de pièce isolés sous RLS ;
 - remplacement et retrait des pièces historisés ;
 - audit avant/après avec expurgation ;
@@ -47,6 +50,21 @@ Les trois premiers fichiers représentent l’état consolidé final. Le dernier
 Aucun producteur supprimé n’a été réactivé. Aucun code existant n’a été modifié. `producteurs.data` demeure disponible pour les anciens clients, sauf retrait de `pieceNum`. Le champ `id_document_number` reste comme tampon de compatibilité mais ne conserve aucune valeur.
 
 Les trois profils historiques n’ont pas encore de périmètre géographique configuré. Une exception de compatibilité maintient donc leur accès actuel. Elle devra être retirée après qualification des profils.
+
+## Recette appliquée
+
+Une recette transactionnelle a vérifié sans laisser de données fictives :
+
+- deux Farmer ID uniques dans un même village ;
+- blocage d’un RT appartenant à un autre village ;
+- immutabilité du Farmer ID ;
+- stockage privé de la pièce d’identité ;
+- consentement complet donnant le niveau `BASIC` et 65 % de complétude ;
+- rejet serveur d’un consentement complet incomplet ;
+- historisation d’un consentement partiel supersédant le précédent ;
+- passage automatique à `REVIEW_REQUIRED` ;
+- détection de doublon ;
+- expurgation des données sensibles dans l’audit.
 
 ## Retour arrière fonctionnel
 
