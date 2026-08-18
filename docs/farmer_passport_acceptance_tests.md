@@ -27,7 +27,7 @@ node --check shared/farmer-enrollment-phase1.js
 node --check shared/farmer-registry-read-phase1.js
 node --check shared/farmer-registry-privacy-phase1.js
 node --check shared/uppercase.js
-node .github/agent-tests/farmer-registry-phase1.mjs
+node tests/farmer-registry-phase1.mjs
 node .github/scripts/verifier-js.mjs
 node .github/scripts/verifier-html.mjs
 node .github/scripts/verifier-liens.mjs
@@ -43,4 +43,4 @@ Tester avec données synthétiques aux dimensions :
 
 Scénarios : création online, création offline, reprise réseau, tranche d’âge sans année, consentement complet/partiel/refus, doublon confirmé, réouverture de la fiche, pièce privée, changement/retrait de pièce, changement de consentement et affichage sur un second appareil.
 
-En mode hors ligne, le numéro de pièce ne doit pas être conservé localement. L’interface doit avertir l’agent et marquer la fiche pour complément après reconnexion.
+Le numéro de pièce ne doit jamais être écrit dans IndexedDB. En ligne, il reste en mémoire jusqu’à l’envoi vers la table privée. Si la synchronisation n’est pas disponible, l’interface avertit l’agent et marque la fiche pour complément ultérieur.
