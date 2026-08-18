@@ -1,8 +1,10 @@
-# AFLP Farmer Registry — Migrations Phase 1
+# AFLP Farmer Registry — Migrations complètes
 
-## Migrations appliquées au projet Supabase
+## État appliqué
 
-Le 18 août 2026, les migrations suivantes ont été appliquées au projet `FIELD BUYING ANAGROCI` :
+Les migrations suivantes ont été appliquées au projet Supabase `FIELD BUYING ANAGROCI` le 18 août 2026 :
+
+### Phase 1 — identité et enrôlement
 
 1. `farmer_registry_phase1_01_referentiels`
 2. `farmer_registry_phase1_02_core_enrolement_v3`
@@ -14,64 +16,97 @@ Le 18 août 2026, les migrations suivantes ont été appliquées au projet `FIEL
 8. `farmer_registry_phase1_04e_identity_history_status`
 9. `farmer_registry_phase1_05_private_rls_helpers`
 10. `farmer_registry_phase1_06_event_ordering`
-11. `farmer_registry_phase1_07_active_identity_uniqueness`
+11. `farmer_registry_phase1_07_identity_same_number_reactivation`
 
-La tentative intermédiaire `farmer_registry_phase1_04_privacy_history_hardening` a été annulée intégralement par PostgreSQL avant application ; elle n’a laissé aucun état partiel.
+### Farmer Registry complet
 
-## Fichiers versionnés
+1. `farmer_registry_complete_01_tables_catalog`
+2. `farmer_registry_complete_02_rules_functions`
+3. `farmer_registry_complete_03_rls_views`
+4. `farmer_registry_complete_04_evidence_types`
+5. `farmer_registry_complete_05_action_closure_hardening`
+6. `farmer_registry_complete_06_actor_integrity`
+7. `farmer_registry_complete_07_roles_gps_privacy`
+8. `farmer_registry_complete_08_baseline_version_locking`
 
-- `supabase/20260818_farmer_registry_phase1_consolidated.sql`
-- `supabase/20260818_farmer_registry_phase1_security.sql`
-- `supabase/20260818_farmer_registry_phase1_identity_history.sql`
-- `supabase/20260818_farmer_registry_phase1_event_ordering.sql`
-- `supabase/20260818_farmer_registry_phase1_active_identity_uniqueness.sql`
-- `supabase/20260818_farmer_registry_phase1_verify.sql`
+## Source consolidée
 
-Les cinq premiers fichiers représentent l’état consolidé final et ses renforcements successifs. Le dernier est un script de vérification en lecture seule.
+Le fichier suivant représente l’état final attendu à partir d’une base ayant déjà reçu la Phase 1 :
+
+```text
+supabase/20260818_farmer_registry_complete.sql
+```
+
+Il contient :
+
+- les tables Parcelles, Production, Sustainability, Inspections, Actions, Visites et Vérifications ;
+- le catalogue des 25 critères `AFLP-SUST-2026.1` ;
+- les contraintes, indexes et relations ;
+- les fonctions de validation et finalisation ;
+- les règles de calcul du passeport et du risque ;
+- les triggers d’audit et d’historisation ;
+- les politiques RLS ;
+- les vues de pilotage et de dossier 360 ;
+- l’extension des preuves et des formations existantes.
 
 ## Nature des changements
 
-- ajout des référentiels Zone et Cluster ;
-- préfixe Farmer ID stable par village ;
-- identité producteur structurée ;
-- Farmer ID unique et immuable ;
-- contrôle serveur RT/village ;
-- consentements append-only ;
-- ordre d’événement monotone pour départager deux consentements ou preuves saisis au même instant ;
-- numéros de pièce isolés sous RLS ;
-- une seule pièce active par producteur, avec conservation des versions remplacées ou retirées ;
-- réactivation possible d’un même numéro après retrait sans supprimer l’historique ;
-- audit avant/après avec expurgation ;
-- recherche de doublons ;
-- calcul serveur du Passport Completion, de la maturité et du Risk Profile ;
-- vue `farmer_passport_summary_v` ;
-- fonctions de périmètre déplacées dans le schéma non exposé `private` ;
-- politiques RLS de périmètre.
+Toutes les migrations sont additives :
+
+- aucune table métier historique supprimée ;
+- aucun producteur réactivé ;
+- aucun Farmer ID renuméroté ;
+- aucun historique écrasé ;
+- aucune donnée synthétique conservée après recette.
+
+Les baselines `FINAL` et inspections `FINAL` sont immuables. Une correction crée une nouvelle version. Les versions sont attribuées sous verrou transactionnel pour éviter une collision entre appareils.
+
+## Ordre d’application
+
+```text
+Phase 1
+  ↓
+20260818_farmer_registry_complete.sql
+  ↓
+Tests de schéma et RLS
+  ↓
+Déploiement frontend
+```
+
+Ne pas appliquer le fichier complet avant la Phase 1, car les nouvelles tables référencent `producteurs`, `farmer_consents`, les helpers du schéma `private` et le mécanisme d’audit existant.
 
 ## Compatibilité
 
-Aucun producteur supprimé n’a été réactivé. Aucun code existant n’a été modifié. `producteurs.data` demeure disponible pour les anciens clients, sauf retrait de `pieceNum`. Le champ `id_document_number` reste comme tampon de compatibilité mais ne conserve aucune valeur.
+Le JSONB historique `producteurs.data` reste disponible. Les coordonnées historiques au niveau producteur ne sont pas supprimées, mais les nouvelles captures GPS sont enregistrées dans `farmer_plots` ou `farmer_inspections`.
 
-Les trois profils historiques n’ont pas encore de périmètre géographique configuré. Une exception de compatibilité maintient donc leur accès actuel. Elle devra être retirée après qualification des profils.
-
-## Recette appliquée
-
-Une recette transactionnelle a vérifié sans laisser de données fictives :
-
-- deux Farmer ID uniques dans un même village ;
-- blocage d’un RT appartenant à un autre village ;
-- immutabilité du Farmer ID ;
-- stockage privé de la pièce d’identité ;
-- remplacement d’une pièce avec passage de l’ancienne version à `REPLACED` ;
-- retrait sans pièce active ;
-- réactivation du même numéro avec une seule version `ACTIVE` et tout l’historique conservé ;
-- consentement complet donnant le niveau `BASIC` et 65 % de complétude ;
-- rejet serveur d’un consentement complet incomplet ;
-- historisation d’un consentement partiel supersédant le précédent ;
-- passage automatique à `REVIEW_REQUIRED` ;
-- détection de doublon ;
-- expurgation des données sensibles dans l’audit.
+Les relations Achats et Sacs acceptent encore temporairement l’ID technique ou le Farmer ID lisible dans les vues de dossier. La normalisation physique complète de ces deux modules reste une intégration séparée pour ne pas casser les files offline anciennes.
 
 ## Retour arrière fonctionnel
 
-En cas d’incident frontend, retirer les chargeurs `farmer-enrollment-phase1.js`, `farmer-registry-read-phase1.js` et `farmer-registry-privacy-phase1.js`, sans supprimer les nouvelles tables ni les données. Les migrations sont additives et doivent rester en place.
+En cas d’incident frontend :
+
+1. retirer les quatre nouveaux chargeurs complets dans `shared/uppercase.js` ;
+2. conserver toutes les nouvelles tables et données ;
+3. ne pas supprimer les baselines, preuves ou actions ;
+4. réactiver le frontend après correction.
+
+Les migrations serveur ne doivent pas être annulées par suppression des tables, car elles peuvent déjà contenir des preuves historiques.
+
+## Contrôles après migration
+
+```sql
+select count(*) from public.sustainability_question_catalog where active;
+-- attendu : 25
+
+select table_name, row_security_active
+from information_schema.tables
+where table_name like 'farmer_%';
+
+select * from public.farmer_registry_dashboard_v limit 10;
+
+select proname, prosecdef
+from pg_proc
+where proname like 'farmer_registry_%';
+```
+
+Les fonctions trigger doivent avoir leurs privilèges RPC révoqués. Seules les fonctions métier de finalisation sont exécutables par `authenticated`.
