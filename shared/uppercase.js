@@ -77,6 +77,18 @@
     } catch (e) { /* ignorer */ }
   }
 
+  function loadFarmerRegistryPhase1(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      if (document.getElementById("farmer-enrollment-phase1-script")) return;
+      var s = document.createElement("script");
+      s.id = "farmer-enrollment-phase1-script";
+      s.defer = true;
+      s.src = "../shared/farmer-enrollment-phase1.js?v=20260818-phase1";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadALISHardening(){
     try {
       if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
@@ -104,6 +116,7 @@
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
     loadFieldBuyingDashboardAudit();
+    loadFarmerRegistryPhase1();
     loadALISHardening();
     loadAuditDistancesFix();
   }
