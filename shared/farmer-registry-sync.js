@@ -28,6 +28,44 @@
     rpc: 200
   };
 
+  var SERVER_COLUMNS = {
+    farmer_plots: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'gps_captured_by'
+    ],
+    farmer_production_baselines: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'captured_by', 'finalized_at', 'finalized_by', 'yield_kg_ha'
+    ],
+    farmer_sustainability_baselines: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'captured_by', 'finalized_at', 'finalized_by', 'answered_count',
+      'required_count', 'risk_profile', 'risk_reasons'
+    ],
+    farmer_sustainability_answers: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version'
+    ],
+    farmer_inspections: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'inspector_id', 'finalized_at', 'finalized_by', 'risk_profile', 'risk_reasons'
+    ],
+    farmer_inspection_answers: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version'
+    ],
+    farmer_action_plans: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'effective_status', 'closed_at', 'closed_by'
+    ],
+    farmer_visits: [
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'record_version',
+      'agent_id'
+    ],
+    participants_formation: ['created_at', 'created_by'],
+    farmer_verifications: [
+      'created_at', 'created_by', 'verified_at', 'verified_by'
+    ]
+  };
+
   function uuid() {
     try { return crypto.randomUUID(); }
     catch (e) {
@@ -47,11 +85,13 @@
       && typeof AUTH.isConnected === 'function'
       && AUTH.isConnected();
   }
-  function cleanObject(value) {
+  function cleanPayload(table, value) {
     var result = {};
+    var excluded = SERVER_COLUMNS[table] || [];
     Object.keys(value || {}).forEach(function (key) {
       if (key.indexOf('_') === 0) return;
-      if (['sync_status','sync_error','local_updated_at','operation_id'].indexOf(key) >= 0) return;
+      if (['sync_status', 'sync_error', 'local_updated_at', 'operation_id'].indexOf(key) >= 0) return;
+      if (excluded.indexOf(key) >= 0) return;
       var v = value[key];
       if (v !== undefined) result[key] = v;
     });
@@ -163,16 +203,26 @@
 
   async function mergeRows(table, serverRows, producteurId) {
     var locals = await listCache(table, producteurId);
+    var pending = {};
     var map = {};
-    (serverRows || []).forEach(function (row) { if (row && row.id) map[row.id] = row; });
+    locals.forEach(function (row) {
+      if (row && row.id && row._sync_status && row._sync_status !== 'SYNCED') pending[row.id] = row;
+    });
+    (serverRows || []).forEach(function (row) {
+      if (row && row.id && !pending[row.id]) map[row.id] = row;
+    });
     locals.forEach(function (row) {
       if (!row || !row.id) return;
-      if (row._sync_status && row._sync_status !== 'SYNCED') map[row.id] = row;
-      else if (!map[row.id]) map[row.id] = row;
+      if (pending[row.id] || !map[row.id]) map[row.id] = row;
     });
-    var merged = Object.values(map);
-    await cacheRows(table, serverRows || [], producteurId);
-    return merged;
+    await cacheRows(table, (serverRows || []).filter(function (row) {
+      return row && row.id && !pending[row.id];
+    }), producteurId);
+    var pendingRows = Object.values(pending);
+    for (var i = 0; i < pendingRows.length; i += 1) {
+      await putCache(table, pendingRows[i], pendingRows[i]._sync_status, producteurId);
+    }
+    return Object.values(map);
   }
 
   async function enqueue(type, table, payload, options) {
@@ -253,7 +303,7 @@
     payload._sync_status = online() ? 'PENDING_SYNC' : 'LOCAL';
     await putCache(table, payload, payload._sync_status, producteurId);
 
-    var operation = await enqueue('upsert', table, cleanObject(payload), {
+    var operation = await enqueue(options.insertOnly ? 'insert' : 'upsert', table, cleanPayload(table, payload), {
       producteur_id: producteurId,
       order_no: options.order_no || ORDER[table]
     });
@@ -278,6 +328,14 @@
     return operation;
   }
 
+  async function markCacheError(operation) {
+    if (!operation || !operation.table || !operation.payload || !operation.payload.id) return;
+    var rows = await listCache(operation.table, operation.producteur_id);
+    var row = rows.find(function (item) { return item.id === operation.payload.id; }) || operation.payload;
+    row._sync_error = operation.last_error;
+    await putCache(operation.table, row, 'SYNC_ERROR', operation.producteur_id);
+  }
+
   async function processOperation(operation) {
     operation.status = 'SYNCING';
     operation.attempts = Number(operation.attempts || 0) + 1;
@@ -289,10 +347,23 @@
         var rpcResponse = await SB.rpc(operation.rpc_name, operation.rpc_args || {});
         if (rpcResponse.error) throw rpcResponse.error;
       } else {
-        var response = await SB.from(operation.table)
-          .upsert(operation.payload, { onConflict: 'id' })
-          .select('*').single();
-        if (response.error) throw response.error;
+        var response;
+        if (operation.type === 'insert') {
+          response = await SB.from(operation.table)
+            .upsert(operation.payload, { onConflict: 'id', ignoreDuplicates: true })
+            .select('*').maybeSingle();
+          if (response.error) throw response.error;
+          if (!response.data) {
+            response = await SB.from(operation.table)
+              .select('*').eq('id', operation.payload.id).maybeSingle();
+            if (response.error) throw response.error;
+          }
+        } else {
+          response = await SB.from(operation.table)
+            .upsert(operation.payload, { onConflict: 'id' })
+            .select('*').single();
+          if (response.error) throw response.error;
+        }
         if (response.data && response.data.id) {
           await putCache(operation.table, response.data, 'SYNCED', operation.producteur_id);
         }
@@ -305,6 +376,7 @@
       operation.status = 'SYNC_ERROR';
       operation.last_error = error && error.message ? error.message : String(error);
       await updateOperation(operation);
+      await markCacheError(operation);
       return false;
     }
   }
@@ -315,13 +387,16 @@
     dispatchStatus();
     try {
       var rows = await listOutbox();
+      var blockedProducers = {};
       for (var i = 0; i < rows.length; i += 1) {
         if (rows[i].status === 'SYNCED') continue;
-        await processOperation(rows[i]);
+        if (rows[i].producteur_id && blockedProducers[rows[i].producteur_id]) continue;
+        var ok = await processOperation(rows[i]);
+        if (!ok && rows[i].producteur_id) blockedProducers[rows[i].producteur_id] = true;
       }
       try { document.dispatchEvent(new CustomEvent('aflp:farmer-registry-synced')); }
       catch (e) { /* ignore */ }
-      return true;
+      return Object.keys(blockedProducers).length === 0;
     } finally {
       syncRunning = false;
       dispatchStatus();
@@ -377,7 +452,7 @@
   document.addEventListener('anagroci:authenticated', function () { sync(); });
 
   FR.syncEngine = {
-    version: '1.0.0',
+    version: '1.1.0',
     uuid: uuid,
     online: online,
     putCache: putCache,
@@ -390,6 +465,6 @@
     queueRpc: queueRpc,
     sync: sync,
     uploadEvidence: uploadEvidence,
-    cleanObject: cleanObject
+    cleanPayload: cleanPayload
   };
 })(window);
