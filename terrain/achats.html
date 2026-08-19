@@ -158,6 +158,7 @@
 </style>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <script defer src="../shared/uppercase.js"></script>
+<script defer src="../shared/n1-adaptateur.js"></script>
 </head><body>
 
 <div class="top">
@@ -624,22 +625,32 @@ async function syncAll(){
   $("syncBtn").disabled=true;
   for(const rec of pend){
     const payload=Object.assign({},rec);
-["_status","_error","_errcat","last_error","device_id","sync_attempts","last_attempt_at"].forEach(k=>delete payload[k]);    delete payload.recu_photo;                       // jamais de base64 dans la table
+["_status","_error","_errcat","last_error","device_id","sync_attempts","last_attempt_at","server_id"].forEach(k=>delete payload[k]);    delete payload.recu_photo;                       // jamais de base64 dans la table
     try{
       if(rec.recu_photo && !rec.recu_photo_url){
         const url=await uploadRecu(rec);
         if(url){ payload.recu_photo_url=url; }
       }
-      const r=await SB.from("achats").upsert(payload,{onConflict:"local_id",ignoreDuplicates:true});
-      if(!r.error){
+      /* L'adaptateur Niveau 1 renvoie un ACCUSÉ serveur. Sans lui (migrations
+         non appliquées) il retombe exactement sur l'upsert historique. */
+      const res=window.N1
+        ? await N1.pousser(SB,"achats",payload)
+        : await (async()=>{const r=await SB.from("achats").upsert(payload,{onConflict:"local_id",ignoreDuplicates:true});
+                           return r.error?{ok:false,purgeable:false,message:r.error.message,brut:r.error.message}
+                                          :{ok:true,purgeable:true,message:"Enregistré."};})();
+      if(res.ok){
         rec._status="synced"; rec._error=null; rec._errcat=null;
+        if(res.id) rec.server_id=res.id;
+        if(res.doublon) rec._error="Déjà présent sur le serveur — aucun doublon créé.";
         if(payload.recu_photo_url){ rec.recu_photo_url=payload.recu_photo_url; delete rec.recu_photo; }
         // Si pas d'URL de preuve : on GARDE la photo locale (jamais perdue).
       } else {
-        rec._status="failed"; rec._error=r.error.message; rec._errcat=classifyErr(r.error.message);
+        rec._status="failed"; rec._error=res.message;
+        rec._errcat=window.N1?N1.categorie(res.brut||res.message):classifyErr(res.brut||res.message);
       }
     }catch(e){
-      rec._status="failed"; rec._error=String(e&&e.message||e); rec._errcat=classifyErr(rec._error);
+      rec._status="failed"; rec._error=window.N1?N1.message(e):String(e&&e.message||e);
+      rec._errcat=window.N1?N1.categorie(e):classifyErr(rec._error);
     }
   }
   persistQueue(all);$("syncBtn").disabled=false;render();
