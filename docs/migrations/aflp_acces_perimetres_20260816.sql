@@ -66,12 +66,24 @@ alter table public.profils add column if not exists telephone       text;
 alter table public.profils add column if not exists derniere_connexion timestamptz;
 
 -- Cohérence : jamais « zone = GBEKE 1 » avec « cluster = DIABO ».
-alter table public.profils drop constraint if exists profils_zone_cluster_coherents;
-alter table public.profils add  constraint profils_zone_cluster_coherents check (
-  cluster is null
-  or zone is null
-  or zone = (select c.zone_code from public.aflp_clusters c where c.code = public.profils.cluster)
-) not valid;   -- not valid : les lignes existantes ne sont pas rejetées.
+--
+-- Exprimée par une CLÉ ÉTRANGÈRE COMPOSITE, et non par un CHECK : PostgreSQL
+-- rejette toute sous-requête dans une contrainte de vérification
+-- (« ERROR: cannot use subquery in check constraint »), ce qui faisait échouer
+-- la transaction entière — donc l'ensemble de cette migration.
+--
+-- La sémantique par défaut d'une clé étrangère (MATCH SIMPLE) couvre déjà le
+-- cas « périmètre partiel » : dès que `cluster` OU `zone` est NULL, la
+-- contrainte ne s'applique pas. C'est exactement la règle voulue.
+--
+-- L'ordre des DROP compte : la clé étrangère dépend de la contrainte unique,
+-- la retirer d'abord est ce qui garde le script rejouable.
+alter table public.profils       drop constraint if exists profils_zone_cluster_coherents;
+alter table public.aflp_clusters drop constraint if exists aflp_clusters_code_zone_unique;
+alter table public.aflp_clusters add  constraint aflp_clusters_code_zone_unique unique (code, zone_code);
+alter table public.profils       add  constraint profils_zone_cluster_coherents
+  foreign key (cluster, zone) references public.aflp_clusters(code, zone_code)
+  on update cascade not valid;   -- not valid : les lignes existantes ne sont pas rejetées.
 
 alter table public.profils drop constraint if exists profils_authority_level_valide;
 alter table public.profils add  constraint profils_authority_level_valide check (
@@ -179,13 +191,21 @@ commit;
 --     ('zone','cluster','village_id','rt_id','authority_level','permissions');
 -- select email, role, zone, cluster, authority_level from public.profils order by role;
 -- select public.aflp_authority(), public.aflp_clusters_autorises();   -- avec une session réelle
+-- -- Les deux contraintes de cohérence sont-elles bien en place ?
+-- select conname, contype from pg_constraint
+--   where conname in ('profils_zone_cluster_coherents','profils_authority_level_valide',
+--                     'aflp_clusters_code_zone_unique');   -- attendu 3 lignes (f, c, u)
+-- -- Doit ÉCHOUER : paire incohérente.
+-- -- update public.profils set zone='GBEKE_1', cluster='DIABO' where email='…';
 
 -- ============================================================================
 -- 6. RETOUR ARRIÈRE (uniquement sur demande explicite du Branch Manager)
 -- ============================================================================
 -- begin;
---   alter table public.profils drop constraint if exists profils_zone_cluster_coherents;
---   alter table public.profils drop constraint if exists profils_authority_level_valide;
+--   -- La clé étrangère composite d'abord : la contrainte unique en dépend.
+--   alter table public.profils       drop constraint if exists profils_zone_cluster_coherents;
+--   alter table public.aflp_clusters drop constraint if exists aflp_clusters_code_zone_unique;
+--   alter table public.profils       drop constraint if exists profils_authority_level_valide;
 --   -- Les colonnes de périmètre ne sont PAS supprimées : elles contiennent
 --   -- désormais du travail d'administration. Les retirer ferait perdre les
 --   -- affectations zone / cluster / village saisies depuis la migration.
