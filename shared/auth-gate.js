@@ -14,8 +14,15 @@
   window.ANAGROCI_MODULE = MODULE;
 
   function niveau(role) {
+    /* AFLP 2027 : la correspondance rôle -> niveau d'accès module vient de
+       shared/aflp-access.js (source unique). Repli sur l'ancienne table tant
+       que le fichier n'est pas chargé : aucun compte ne perd son accès. */
+    if (window.AFLP_ACCESS && typeof window.AFLP_ACCESS.niveauPortail === "function") {
+      return window.AFLP_ACCESS.niveauPortail(role);
+    }
     switch (role) {
       case "Branch Manager":
+      case "Branch Manager / Head of Programme":
       case "Assistant Branch Manager":
       case "Head of Field":
       case "Procurement Officer": return "bm";
@@ -25,7 +32,7 @@
       default: return "agent";
     }
   }
-  function estBM(role) { return role === "Branch Manager"; }
+  function estBM(role) { return niveau(role) === "bm"; }
   var ACCESS = { portail:["bm","chef","agent","direction"], fbms:["bm","chef","agent"], achats:["bm","chef","agent"], cash:["bm","chef"], sacs:["bm","chef","agent"], command:["bm","direction"], hubs:["bm","chef","agent","direction"], carte:["bm","chef","agent","direction"], audit:["bm","chef"], logistique:["bm","chef"], rcntrace:["bm","chef","agent","direction"], admin:["bm"] };
 
   var overlay = document.createElement("div");
@@ -68,7 +75,8 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function injectI18n(){ if(document.getElementById("anagroci-i18n-js")) return; var s=document.createElement("script"); s.id="anagroci-i18n-js"; s.src=sharedHref("i18n.js")+"?v=132333f"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
   function injectAudit(){ if(document.getElementById("anagroci-audit-js")) return; var s=document.createElement("script"); s.id="anagroci-audit-js"; s.src=sharedHref("anagroci-audit.js")+"?v=step8-friendly-errors"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
   function injectModuleGuards(){ if(MODULE!=="sacs") return; if(document.getElementById("anagroci-sacs-guards-js")) return; var s=document.createElement("script"); s.id="anagroci-sacs-guards-js"; s.src=sharedHref("anagroci-sacs-guards.js")+"?v=step8-friendly-errors"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
-  injectI18n(); injectAudit(); injectModuleGuards();
+  function injectAcces(){ if(document.getElementById("aflp-access-js")) return; var s=document.createElement("script"); s.id="aflp-access-js"; s.src=sharedHref("aflp-access.js")+"?v=aflp-1.0.0"; (document.head||document.documentElement).appendChild(s); }
+  injectAcces(); injectI18n(); injectAudit(); injectModuleGuards();
   function chipHTML(prof){ return '<span class="ag-name">'+esc(prof.nom||prof.role)+' · <span class="ag-role">'+esc(prof.role)+'</span></span>'+(estBM(prof.role)?'<a class="ag-cog" href="'+adminHref()+'" title="Administration">⚙</a>':'')+'<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
   function wireLogout(){ var b=document.getElementById("ag-logout"); b&&b.addEventListener("click",function(){ if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout",{module:MODULE}); } SB.auth.signOut().then(function(){ location.reload(); }); }); }
   function injectChip(prof){ var slot=document.getElementById("anagroci-userslot"); if(slot){ slot.innerHTML=chipHTML(prof); return wireLogout(); } var chip=document.createElement("div"); chip.id="anagroci-userslot"; chip.className="ag-floating"; chip.innerHTML=chipHTML(prof); document.body.appendChild(chip); wireLogout(); }
@@ -79,7 +87,7 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function readCachedProfile(uid){ try{ var s=localStorage.getItem("anagroci_profile_"+uid); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function decide(prof){ var allowed=ACCESS[MODULE]||[]; if(allowed.indexOf(niveau(prof.role))<0) return showDenied(prof); reveal(prof); }
   var SB;
-  function run(){ SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); SB.auth.getSession().then(function(res){ var session=res.data&&res.data.session; if(!session) return showLogin(); SB.from("profils").select("nom, role, actif").eq("user_id",session.user.id).single().then(function(r){ if(r.error||!r.data){ return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); }); } if(!r.data.actif){ return SB.auth.signOut().then(function(){ showLogin("Compte désactivé. Contactez le Branch Manager."); }); } cacheProfile(session.user.id,r.data); decide(r.data); },function(){ var cached=readCachedProfile(session.user.id); if(cached) return decide(cached); showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne)."); }); }); }
+  function run(){ SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); SB.auth.getSession().then(function(res){ var session=res.data&&res.data.session; if(!session) return showLogin(); SB.from("profils").select("*").eq("user_id",session.user.id).single().then(function(r){ if(r.error||!r.data){ return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); }); } if(!r.data.actif){ return SB.auth.signOut().then(function(){ showLogin("Compte désactivé. Contactez le Branch Manager."); }); } cacheProfile(session.user.id,r.data); decide(r.data); },function(){ var cached=readCachedProfile(session.user.id); if(cached) return decide(cached); showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne)."); }); }); }
   function ensureSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var sc=document.createElement("script"); sc.src=CDN; sc.onload=cb; sc.onerror=function(){ overlay.innerHTML=box('<p style="text-align:center">Impossible de charger le module de sécurité (réseau).<br>Réessayez.</p>'); setTimeout(function(){ window.ANAGROCI_I18N&&window.ANAGROCI_I18N.apply(); },0); }; document.head.appendChild(sc); }
   ensureSupabase(run);
 })();

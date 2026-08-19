@@ -5,70 +5,996 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="../shared/auth-gate.js" data-module="command"></script>
 <script defer src="../shared/suite-bar.js" data-module="CMD"></script>
+<script defer src="../shared/aflp-ia-catalogue.js"></script>
+<script defer src="../shared/aflp-ia-comprehension.js"></script>
+<script defer src="../shared/aflp-ia-moteur.js"></script>
+<script defer src="../shared/aflp-ia-journal.js"></script>
+<script defer src="../shared/aflp-ia-langue.js"></script>
+<script defer src="../shared/aflp-ia-ui.js"></script>
+<script defer src="../shared/aflp-ia-predictif.js"></script>
+<script defer src="../shared/aflp-ia-predictif-ui.js"></script>
 <link rel="stylesheet" href="../shared/pjs-theme.css">
 <style>
-:root{--forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;--pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;--ink:#323131;--muted:#7A7878;--line:#E8E7E7;--danger:#C0392B;--white:#fff;--shadow:0 12px 30px rgba(5,59,35,.08)}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#f1f9ef,#f7f7f5);color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}.top{background:radial-gradient(900px 420px at 85% -10%,#0d6b3e,transparent 55%),linear-gradient(135deg,#03301c,#053B23 60%,#0a4a2c);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:3px solid var(--lime)}.top .b{display:flex;align-items:center;gap:12px}.chip{background:#fff;border-radius:10px;padding:5px 8px;display:inline-flex;align-items:center}.chip img{height:30px;display:block}.top b{font-size:17px}.top small{color:#CFE3D3;font-size:11.5px}.top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:10px;background:var(--emerald);color:#fff;font-weight:800;padding:9px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.btn.ghost{background:#fff;color:var(--forest)}.btn.warn{background:var(--orange);color:#2d2400}.btn.sm{padding:7px 10px;font-size:12px}.wrap{max-width:1240px;margin:auto;padding:18px 16px 50px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;margin-bottom:14px}.panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.panel h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--forest);font-size:15px;font-family:'Archivo',Arial,sans-serif;display:flex;justify-content:space-between;align-items:center}.body{padding:12px 14px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.k{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:var(--shadow)}.k small{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.k b{font-size:24px;color:var(--forest);font-family:'IBM Plex Mono',monospace}.k .sub{font-size:11.5px;color:var(--muted);margin-top:4px}.k.danger b{color:var(--danger)}.k.warn b{color:#9A6600}.bar{height:7px;border-radius:999px;background:var(--pale);margin-top:9px;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--emerald),var(--lime))}.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}table{width:100%;border-collapse:collapse}th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:8px;text-align:left;position:sticky;top:0}td{padding:8px;border-top:1px solid #f0ede4;font-size:12.5px}td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}.neg{color:var(--danger);font-weight:800}.pos{color:var(--pine);font-weight:800}.scroll{max-height:50vh;overflow:auto}.muted{color:var(--muted);font-size:12.5px}.todo{display:flex;align-items:center;gap:11px;padding:11px 14px;border-top:1px solid #f0ede4;text-decoration:none;color:inherit}.todo:first-child{border-top:0}.todo .n{min-width:44px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:18px;border-radius:10px;padding:7px}.sev-hi .n{background:#fdeceb;color:var(--danger)}.sev-md .n{background:var(--orange-tint);color:#9A6600}.sev-lo .n{background:var(--pale);color:var(--pine)}.todo .t{font-size:13px;font-weight:800}.todo .d{font-size:11.5px;color:var(--muted)}.todo .go{margin-left:auto;color:var(--emerald);font-weight:800;font-size:18px}.empty{padding:16px;text-align:center;color:var(--pine)}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800}.bhi{background:#fdeceb;color:var(--danger)}.bmd{background:var(--orange-tint);color:#9A6600}.blo{background:var(--pale);color:var(--pine)}.mini{font-size:11px;color:var(--muted)}@media(max-width:980px){.hero,.grid2{grid-template-columns:1fr}.kpis,.grid3{grid-template-columns:1fr 1fr}}@media(max-width:620px){.kpis,.grid3{grid-template-columns:1fr}.wrap{padding:14px 10px}.top{padding:12px}}
-/* ── États de chargement / vides / erreur (Étape 4) ── */
+/* ============================================================================
+   COMMAND CENTER BM — cockpit opérationnel
+   ----------------------------------------------------------------------------
+   Navigation en HUIT ONGLETS À UN SEUL NIVEAU. Un onglet, un sujet : le BM ne
+   fait plus défiler sept blocs pour en lire un. Les sept panneaux inactifs
+   portent `hidden` — ils ne sont ni peints, ni lus par un lecteur d'écran, ni
+   atteignables au clavier.
+
+   Contrat à ne pas casser : les identifiants (#kVol, #todo, #clusTable,
+   #refTable, #rtTable, #aflpIa, #aflpPred…) et les classes .badge/.bhi/.bmd/
+   .blo/.mini/.num/.neg/.pos/.state/.skel sont consommés par le script de la
+   page ET par les modules partagés qui écrivent dedans. Les renommer casse
+   silencieusement l'Assistant IA et les Prévisions.
+
+   Aucune règle métier ici : mêmes tables, mêmes agrégats, mêmes seuils, mêmes
+   libellés qu'avant. Seule la mise en scène change.
+   ========================================================================== */
+:root{
+  --forest:#053B23;--emerald:#008F37;--pine:#00712C;--lime:#8DC556;
+  --pale:#E0F3DE;--mist:#F1F9EF;--orange:#EE9E00;--orange-tint:#FDEFCE;
+  --ink:#323131;--line:#E8E7E7;--danger:#C0392B;--white:#fff;
+  --violet:#4A3C7A;
+  /* Gris et ambre assombris par rapport au socle (#7A7878 / var(--amber-ink)) : mesurés
+     à 4,38 et 4,30 de contraste, sous le seuil WCAG AA de 4,5 aux tailles
+     employées ici. Ces deux valeurs-ci passent, sans changer la teinte. */
+  --muted:#666565;--amber-ink:#8A5B00;
+  --shadow:0 6px 18px rgba(5,59,35,.055);
+  --shadow-lg:0 14px 34px rgba(5,59,35,.09);
+  --r:12px;--r-sm:10px;
+  --ease:cubic-bezier(0.22,1,0.36,1);
+  --barh:50px;              /* hauteur réelle de la barre suite, mesurée au chargement */
+  --navh:52px;              /* hauteur de la barre d'onglets */
+  --stick:calc(var(--barh) + var(--navh));
+}
+*{box-sizing:border-box}
+body{margin:0;background:#F6F8F5;color:var(--ink);font-family:'IBM Plex Sans',Arial,sans-serif}
+
+/* Anneau de focus unique pour toute la page : émeraude 3px. Mesuré à 3,9 de
+   contraste sur blanc et sur --mist, au-dessus du seuil de 3 exigé pour un
+   composant d'interface. Une seule déclaration, pour qu'aucun contrôle ajouté
+   plus tard n'échappe au clavier. */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+[tabindex]:focus-visible{outline:3px solid var(--emerald);outline-offset:2px}
+
+/* ── Sous-en-tête du module ────────────────────────────────────────────── */
+.top{background:radial-gradient(900px 420px at 85% -10%,#0d6b3e,transparent 55%),linear-gradient(135deg,#03301c,#053B23 60%,#0a4a2c);color:#eafff2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:3px solid var(--lime)}
+.top .b{display:flex;align-items:center;gap:14px;min-width:0}
+.top b{font-size:17px;font-family:'Archivo',Arial,sans-serif;letter-spacing:-.01em}
+.top small{color:#CFE3D3;font-size:11.5px}
+.top .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Plaque blanche du logo PJS : la marque officielle est en vert sur fond
+   transparent, elle disparaît sur le vert forêt de l'en-tête. La plaque lui
+   rend son contraste, le filet la sépare du bloc ANAGROCI. */
+.plaque{background:#fff;border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;flex:none}
+.plaque img{height:28px;width:auto;display:block}
+.filet{width:1px;height:26px;background:rgba(255,255,255,.22);flex:none}
+.upd{font-size:11.5px;color:#CFE3D3;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.upd::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lime);flex:none}
+.upd.stale::before{background:var(--orange)}
+.upd.ko::before{background:#ff8f80}
+.btn{border:0;border-radius:var(--r-sm);background:var(--emerald);color:#fff;font-weight:800;padding:0 14px;min-height:44px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit;transition:background .16s var(--ease)}
+.btn:hover{background:var(--pine)}
+.btn.ghost{background:#fff;color:var(--forest)}
+.btn.ghost:hover{background:var(--mist)}
+
+/* ── Barre d'onglets collante, un seul niveau ──────────────────────────── */
+.ccnav{position:sticky;top:var(--barh);z-index:900;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(5,59,35,.05)}
+/* La barre défile horizontalement : à huit onglets, un retour à la ligne
+   ferait sauter le contenu de 50 px selon la largeur de la fenêtre. */
+.ccnav-in{max-width:1360px;margin:auto;display:flex;gap:2px;padding:0 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ccnav-in::-webkit-scrollbar{display:none}
+.cc-tab{flex:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;min-height:52px;padding:0 15px;border:0;border-bottom:3px solid transparent;background:none;color:#5c6660;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;transition:color .16s var(--ease),background .16s var(--ease),border-color .16s var(--ease)}
+.cc-tab:hover{background:var(--mist);color:var(--pine)}
+.cc-tab[aria-selected="true"]{color:var(--forest);border-bottom-color:var(--emerald)}
+.cc-tab:focus-visible{outline:3px solid var(--emerald);outline-offset:-3px}
+.cc-tab .cnt{display:none;align-items:center;justify-content:center;white-space:nowrap;min-width:20px;height:20px;padding:0 7px;border-radius:999px;background:var(--pale);color:var(--pine);font-size:11px;font-weight:800;font-family:'IBM Plex Mono',monospace}
+.cc-tab .cnt.on{display:inline-flex}
+.cc-tab .cnt.hi{background:#fdeceb;color:var(--danger)}
+.cc-tab .cnt.wa{background:var(--orange-tint);color:var(--amber-ink)}
+
+/* ── Ossature ───────────────────────────────────────────────────────────── */
+.wrap{max-width:1360px;margin:auto;padding:18px 14px 60px}
+/* Règle d'auteur : elle bat le display du panneau, quel qu'il soit. */
+.sec[hidden]{display:none}
+.sec{animation:panIn .24s var(--ease)}
+@keyframes panIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.sec{animation:none}}
+/* Le panneau porte `tabindex="0"` : après la barre d'onglets, la tabulation
+   entre DANS le panneau actif. Il lui faut donc un focus visible comme à tout
+   autre élément atteignable — un `outline:none` ici ferait disparaître le
+   curseur clavier au premier Tab. L'anneau émeraude global s'applique. */
+.sec:focus-visible{outline:3px solid var(--emerald);outline-offset:-3px}
+.sec-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 2px 14px}
+.sec-h h2{margin:0;font-size:18px;font-family:'Archivo',Arial,sans-serif;color:var(--forest);letter-spacing:-.01em}
+.sec-h .sub{font-size:12px;color:var(--muted)}
+.sec-h .verdict{margin-left:auto;display:inline-flex;align-items:center;white-space:nowrap;font-size:11.5px;font-weight:800;border-radius:999px;padding:6px 13px}
+.sec-h .verdict.ok{background:var(--pale);color:var(--pine)}
+.sec-h .verdict.ko{background:#fdeceb;color:var(--danger)}
+.g12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.c4{grid-column:span 4}.c5{grid-column:span 5}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+
+.panel{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.panel h2{margin:0;padding:12px 15px;border-bottom:1px solid var(--line);color:var(--forest);font-size:14.5px;font-family:'Archivo',Arial,sans-serif;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.body{padding:13px 15px}
+.mini{font-size:11px;color:var(--muted);font-weight:600}
+.muted{color:var(--muted);font-size:12.5px}
+
+/* ── Tuiles chiffrées (KPI et tuiles de section) ────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.tuiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.k{background:#fff;border:1px solid var(--line);border-left:4px solid var(--emerald);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+.k small{display:block;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.k b{font-size:24px;color:var(--forest);font-family:'IBM Plex Mono',monospace;line-height:1.25;display:block;margin-top:4px}
+.k .sub{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.k.danger{border-left-color:var(--orange)}.k.danger b{color:var(--danger)}
+.k.warn{border-left-color:var(--orange)}.k.warn b{color:var(--amber-ink)}
+.bar{height:5px;border-radius:999px;background:var(--pale);margin-top:10px;overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--emerald),var(--lime));transition:width .4s var(--ease)}
+
+/* ── Listes clé/valeur (Périmètre du jour, Référentiel, Zones) ──────────── */
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #f2efe8;font-size:13px}
+.kv:first-child{border-top:0}
+.kv b{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--forest);white-space:nowrap}
+.kv .zn{display:inline-flex;align-items:center;white-space:nowrap;font-size:10.5px;font-weight:800;color:var(--muted);background:var(--mist);border-radius:999px;padding:3px 9px;margin-left:auto;margin-right:10px}
+
+/* ── Encart dérive / mention (signal orange, surface contenue) ──────────── */
+.encart{background:var(--orange-tint);border-radius:var(--r-sm);padding:12px 14px;font-size:12.5px;color:#7A5200;line-height:1.55}
+.mention{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.55}
+
+/* ── Niveau 2 : à traiter ───────────────────────────────────────────────── */
+.todo{display:flex;align-items:center;gap:12px;padding:11px 15px;border-top:1px solid #f2efe8;text-decoration:none;color:inherit;transition:background .14s var(--ease)}
+.todo:first-child{border-top:0}
+.todo:hover{background:var(--mist)}
+.todo:focus-visible{outline:3px solid var(--emerald);outline-offset:-3px}
+.todo .n{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;min-width:42px;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:17px;border-radius:var(--r-sm);padding:6px;flex:none}
+.todo .tx{min-width:0;flex:1}
+.todo .t{font-size:13px;font-weight:800;display:block;line-height:1.3}
+.todo .d{font-size:11.5px;color:var(--muted);display:block;line-height:1.35}
+.todo .pr{display:inline-flex;align-items:center;white-space:nowrap;flex:none;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:4px 10px}
+.todo .go{color:var(--emerald);font-weight:800;font-size:17px;flex:none}
+.sev-hi .n{background:#fdeceb;color:var(--danger)}.sev-hi .pr{background:#fdeceb;color:var(--danger)}
+.sev-md .n{background:var(--orange-tint);color:var(--amber-ink)}.sev-md .pr{background:var(--orange-tint);color:var(--amber-ink)}
+.sev-lo .n{background:var(--pale);color:var(--pine)}.sev-lo .pr{background:var(--pale);color:var(--pine)}
+.more{width:100%;min-height:44px;border:0;border-top:1px solid #f2efe8;background:#fbfdfa;color:var(--pine);font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+.more:hover{background:var(--mist)}
+.more:focus-visible{outline:3px solid var(--emerald);outline-offset:-3px}
+
+.mk{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mk>div{border:1px solid var(--line);border-left:3px solid var(--emerald);border-radius:var(--r-sm);padding:11px 12px}
+.mk small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;line-height:1.35}
+.mk b{display:block;margin-top:7px;font-size:22px;color:var(--forest);font-family:'IBM Plex Mono',monospace}
+/* Trois compteurs côte à côte : « Contrôles ouverts » les pose à plat. */
+.trio{display:flex;gap:26px;flex-wrap:wrap}
+.trio>div b{display:block;font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--forest)}
+.trio>div small{font-size:12px;color:var(--muted)}
+.trio>div.wa b{color:var(--orange)}
+
+/* ── Tableaux ───────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse}
+th{background:var(--forest);color:#d8ead3;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:9px 8px;text-align:left;position:sticky;top:0;z-index:2;white-space:nowrap}
+td{padding:9px 8px;border-top:1px solid #f2efe8;font-size:12.5px}
+tbody tr:hover td{background:var(--mist)}
+td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+.neg{color:var(--danger);font-weight:800}
+.pos{color:var(--pine);font-weight:800}
+/* `tabindex="0"` sur le conteneur : une zone qui défile doit être atteignable
+   au clavier, sinon son contenu est hors de portée sans souris (règle axe
+   `scrollable-region-focusable`). D'où aussi un focus visible. */
+.scroll{max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch}
+.scroll:focus-visible{outline:3px solid var(--emerald);outline-offset:-3px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;padding:10px 15px;border-bottom:1px solid var(--line);background:#fbfdfa}
+.tools input,.tools select{min-height:44px;border:1px solid #dbe6d9;border-radius:var(--r-sm);padding:0 11px;font-size:12.5px;font-family:inherit;color:var(--ink);background:#fff}
+.tools input{flex:1;min-width:150px}
+.att{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;margin-left:7px;font-size:10px;font-weight:800;color:var(--amber-ink);text-transform:uppercase;letter-spacing:.04em;vertical-align:middle}
+.att i{width:7px;height:7px;border-radius:50%;background:var(--orange);display:block;flex:none}
+.att.crit{color:var(--danger)}.att.crit i{background:var(--danger)}
+/* Pastilles : `inline-flex` + `nowrap`, sinon un libellé de deux mots sort de
+   la pastille et se coupe en deux lignes dans une cellule étroite. */
+.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:3px 10px;font-size:10.5px;font-weight:800;margin:1px 2px 1px 0}
+.bhi{background:#fdeceb;color:var(--danger)}
+.bmd{background:var(--orange-tint);color:var(--amber-ink)}
+.blo{background:var(--pale);color:var(--pine)}
+
+/* ── Référentiel terrain compacté ───────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}
+.stats>div{background:#fff;padding:11px 12px;min-width:0}
+/* Huit indicateurs dans une grille de trois : la neuvième case resterait vide
+   et, le fond du conteneur servant de filet, se verrait comme un bloc gris.
+   Le dernier indicateur occupe donc la fin de sa ligne. */
+.stats>div:last-child:nth-child(3n+2){grid-column:span 2}
+.stats b{display:block;font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--forest);line-height:1.2;overflow-wrap:anywhere}
+.stats small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-top:3px;line-height:1.3}
+
+/* ── Assistant IA ───────────────────────────────────────────────────────── */
+.facts{display:flex;gap:9px;flex-wrap:wrap}
+.chipa{display:inline-flex;align-items:center;white-space:nowrap;min-height:44px;border:1px solid #d8e6d6;background:#fff;color:var(--pine);border-radius:999px;padding:0 17px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .14s var(--ease)}
+.chipa:hover{background:var(--mist)}
+.chipa.on{background:var(--emerald);border-color:var(--emerald);color:#fff}
+/* Carte réponse sur fond vert forêt : le module écrit dedans, on ne lui pose
+   qu'un cadre. Son propre <h2> ferait double emploi avec l'en-tête d'onglet. */
+#aflpIa>h2,#aflpPred>h2{display:none}
+.repIa{margin-top:16px;background:var(--forest);border-radius:var(--r);padding:4px 6px}
+
+/* ── Prévisions : grille de cartes, pas de sous-onglets ─────────────────── */
+/* Le bandeau du module est violet et se répète dans chaque vue. Ici, un seul
+   bandeau de page le remplace — même information, liseré orange, toujours à
+   l'écran puisque l'onglet ne défile pas sous lui. */
+#aflpPred .aflpp-tabs,#aflpPred .aflpp-bandeau{display:none}
+.predban{background:var(--forest);border-left:4px solid var(--orange);border-radius:var(--r);padding:16px 20px;color:#EAF6EA}
+.predban b{display:block;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);font-weight:800;margin-bottom:8px}
+.predban p{margin:0;font-size:13.5px;line-height:1.6}
+.predban .meta{margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--lime)}
+.grille{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.carte{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;cursor:pointer;box-shadow:var(--shadow);font-family:inherit;transition:box-shadow .2s var(--ease),border-color .2s var(--ease)}
+.carte:hover{box-shadow:var(--shadow-lg)}
+.carte[aria-pressed="true"]{border-color:var(--emerald);box-shadow:inset 3px 0 0 var(--emerald),var(--shadow)}
+.carte .hd{display:flex;align-items:baseline;gap:9px}
+.carte .no{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+.carte .nm{font-family:'Archivo',Arial,sans-serif;font-size:14px;font-weight:700;color:var(--forest);line-height:1.3}
+
+/* ── États : chargement / vide / hors-ligne / erreur ────────────────────── */
 @keyframes cmdShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 .skel{display:inline-block;height:14px;border-radius:6px;background:linear-gradient(90deg,#eef2ec 25%,#e2e9df 50%,#eef2ec 75%);background-size:800px 100%;animation:cmdShimmer 1.4s infinite linear;vertical-align:middle}
-.skrow{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid #f0ede4}.skrow:first-child{border-top:0}
-.state{padding:38px 20px;text-align:center}
-.state .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin:0 auto 12px;font-size:22px;font-weight:800}
-.state.ok .ic{background:#F1F9EF;color:#008F37}.state.off .ic{background:#FDEFCE;color:#8a6a12}.state.err .ic{background:#FBEAE7;color:#C0392B}
-.state b{font-size:15px;color:#053B23;display:block}
-.state p{margin:6px auto 14px;font-size:13px;color:#6b756e;max-width:46ch;line-height:1.55}
-.state .act{border:0;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;background:#008F37;color:#fff}.state .act:hover{background:#00712C}
-.state .act.ghost{background:transparent;border:1px solid #cfe3cf;color:#00712C;font-weight:600}.state .act.ghost:hover{background:#F1F9EF}
+@media(prefers-reduced-motion:reduce){.skel{animation:none}}
+.skrow{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;padding:11px 15px;border-top:1px solid #f2efe8}
+.skrow:first-child{border-top:0}
+.state{padding:30px 20px;text-align:center}
+.state .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;margin:0 auto 10px;font-size:21px;font-weight:800}
+.state.ok .ic{background:#F1F9EF;color:#008F37}
+.state.off .ic{background:#FDEFCE;color:#8a6a12}
+.state.err .ic{background:#FBEAE7;color:#C0392B}
+.state b{font-size:14.5px;color:#053B23;display:block}
+.state p{margin:6px auto 12px;font-size:12.5px;color:#6b756e;max-width:46ch;line-height:1.55}
+.state .act{display:inline-flex;align-items:center;white-space:nowrap;border:0;border-radius:var(--r-sm);padding:0 16px;min-height:44px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;background:#008F37;color:#fff}
+.state .act:hover{background:#00712C}
+.netbar{display:flex;align-items:center;gap:9px;border-radius:var(--r-sm);padding:10px 13px;font-size:12.5px;font-weight:700;margin-bottom:14px;line-height:1.45}
+/* `display:flex` est une règle d'AUTEUR : elle bat le `display:none` que le
+   navigateur applique à `[hidden]`. Sans cette ligne, le bandeau réseau reste
+   peint — vide, mais bordé et coloré — en haut du cockpit à chaque chargement
+   en ligne, puisque `majReseau()` lui pose sa classe tout en le masquant. */
+.netbar[hidden]{display:none}
+.netbar.off{background:var(--orange-tint);border:1px solid #f0d99a;color:#6b5310}
+.netbar.on{background:var(--pale);border:1px solid #c6e3c2;color:var(--pine)}
+
+/* ── Adaptation : 4 → 2 → 1, 3 → 2 → 1 ─────────────────────────────────── */
+@media(max-width:1080px){
+  .c4,.c5,.c7,.c8{grid-column:span 6}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .grille{grid-template-columns:repeat(2,1fr)}
+  /* Le référentiel passe en 2 colonnes DÈS QUE sa colonne se réduit de moitié,
+     et non 360 px plus bas : à 3 colonnes dans un conteneur de 365 px, les
+     libellés en capitales se coupent en trois lignes. Le plancher reste 2 —
+     huit indicateurs numériques courts sur une seule colonne feraient huit
+     lignes hautes, ce qui allonge la page sans rien rendre plus lisible. */
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:860px){
+  .tuiles{grid-template-columns:repeat(2,1fr)}
+  .tuiles>*:last-child:nth-child(3){grid-column:span 2}
+}
+@media(max-width:720px){
+  .g12>*{grid-column:span 12}
+  .wrap{padding:14px 10px 50px}
+  .top{padding:11px 12px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .todo .pr{display:none}
+  .k b{font-size:21px}
+  .sec-h .verdict{margin-left:0}
+}
+@media(max-width:560px){
+  .kpis,.tuiles,.grille{grid-template-columns:1fr}
+  .tuiles>*:last-child:nth-child(3){grid-column:auto}
+}
+
+/* ── Face à la couche premium partagée ─────────────────────────────────────
+   `shared/ops-premium.css` (chargée par pjs-theme.css) cible ce module par
+   `html:has(script[data-module="command"])` et pose des `!important`. Elle
+   arrive APRÈS cette feuille : on ne peut la reprendre qu'avec une
+   spécificité supérieure. D'où l'identifiant #ccMain, utilisé UNIQUEMENT ici
+   et uniquement pour les points où le cockpit diverge du gabarit commun. */
+#ccMain{max-width:1320px!important}                       /* cockpit : 1180 → 1320, la page est moins haute à contenu égal */
+#ccMain .tools input,#ccMain .tools select{min-height:46px!important}  /* 46 et non 44 : mesuré à 43 px effectifs au seuil exact (arrondi sous-pixel) */
+
+/* `shared/anagroci-ui.css` peint TOUT bouton dépourvu de `.ghost` en émeraude
+   plein — `button:not(.ghost):not(.ag-out):not(.ag-cog)`, spécificité 0-3-1.
+   Sans ces reprises, les puces d'action, les cartes de prévision et les
+   boutons « voir plus » deviennent des pavés verts, et le texte gris posé
+   dessus tombe à 1,04 de contraste : illisible. Mesuré par axe-core. */
+#ccMain .chipa{background:#fff;color:var(--pine)}
+#ccMain .chipa:hover{background:var(--mist)}
+#ccMain .chipa.on{background:var(--emerald);color:#fff}
+#ccMain .more{background:#fbfdfa;color:var(--pine)}
+#ccMain .more:hover{background:var(--mist)}
+#ccMain .carte{background:#fff}
+#ccMain .state .act{background:var(--pine)}               /* blanc sur #008F37 : 4,21, sous le seuil AA */
+#ccMain .state .act:hover{background:#005C24}
+#ccMain .k.danger b{color:var(--danger)!important}        /* un KPI critique doit se voir : la couche premium reforçait tout en vert */
+#ccMain .k.warn b{color:var(--amber-ink)!important}
+/* La barre d'onglets est hors de #ccMain : elle a sa propre reprise. */
+#ccNav .cc-tab{background:none;color:#5c6660}
+#ccNav .cc-tab:hover{background:var(--mist);color:var(--pine)}
+#ccNav .cc-tab[aria-selected="true"]{background:none;color:var(--forest)}
 </style>
 </head><body>
-<div class="top"><div class="b"><span><b>Command Center BM</b><br><small>Pilotage quotidien des achats terrain · achats · cash · sacs</small></span></div><div class="r"><span id="upd" style="font-size:11.5px;color:#CFE3D3"></span><button class="btn sm" onclick="loadAll()">Actualiser</button><span id="anagroci-userslot"></span></div></div>
-<main class="wrap">
-<section class="kpis"><div class="k"><small>Volume acheté</small><b id="kVol"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kVolSub">objectif 11 000 MT</div><div class="bar"><i id="kVolBar" style="width:0"></i></div></div><div class="k"><small>Cash engagé</small><b id="kAv"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kAvSub">solde caisse —</div></div><div class="k"><small>Sacs en main RT</small><b id="kSac"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kSacSub">entrepôt —</div></div><div class="k" id="kRiskBox"><small>Risques critiques</small><b id="kRisk"><span class="skel" style="width:60px;height:20px"></span></b><div class="sub" id="kRiskSub">à traiter aujourd'hui</div></div></section>
-<section class="hero"><div class="panel"><h2>À faire aujourd'hui · anomalies métier <span class="mini">priorité BM</span></h2><div class="body" id="todo"><div style="padding:4px 0"><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:78%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:64%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:70%"></span></div></div></div></div><div class="panel"><h2>File locale & synchronisation <span class="mini">contrôle hors ligne</span></h2><div class="body"><div class="grid3"><div class="k"><small>Achats en attente</small><b id="lAch">0</b></div><div class="k"><small>Cash en attente</small><b id="lCash">0</b></div><div class="k"><small>Sacs en attente</small><b id="lSacs">0</b></div></div><div id="localHints" class="mini" style="margin-top:10px">—</div></div></div></section>
-<div class="grid2"><section class="panel"><h2>Par cluster</h2><div class="body"><div class="scroll"><table><thead><tr><th>Cluster</th><th class="num">Villages</th><th class="num">RT</th><th class="num">Volume MT</th><th class="num">Avancé</th><th class="num">Solde</th><th class="num">Sacs cluster</th></tr></thead><tbody id="clusTable"><tr><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td class="num"><span class="skel" style="width:30px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr></tbody></table></div></div></section><section class="panel"><h2>Référentiel terrain</h2><div class="body"><table><tbody id="refTable"><tr><td><span class="skel" style="width:60%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:72%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:50%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:66%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:58%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr><tr><td><span class="skel" style="width:70%"></span></td><td class="num"><span class="skel" style="width:50px"></span></td></tr></tbody></table></div></section></div>
-<section class="panel"><h2>RT à risque · caisse / sacs / réconciliation</h2><div class="body"><div class="scroll" style="max-height:42vh"><table><thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Solde caisse</th><th>Réconciliation</th><th class="num">Sacs RT</th><th>Risque</th></tr></thead><tbody id="rtTable"><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr><tr><td><span class="skel" style="width:80px"></span></td><td><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td class="num"><span class="skel" style="width:60px"></span></td><td><span class="skel" style="width:70px"></span></td><td class="num"><span class="skel" style="width:40px"></span></td><td><span class="skel" style="width:70px"></span></td></tr></tbody></table></div></div></section>
+
+<header class="top">
+  <div class="b">
+    <span class="plaque"><img src="../assets/logo-pjs-transparent.png" alt="PJS Global — Known for Quality"></span>
+    <span class="filet" aria-hidden="true"></span>
+    <span><b>Command Center BM</b><br><small>Pilotage quotidien des achats terrain · achats · cash · sacs</small></span>
+  </div>
+  <div class="r">
+    <span id="upd" class="upd"></span>
+    <span id="anagroci-lang-slot"></span>
+    <a class="btn ghost" id="lienAdminIA" href="aflp-ia-admin.html" style="display:none">Assistant IA · Admin</a>
+    <button class="btn" type="button" onclick="loadAll()">Actualiser</button>
+    <span id="anagroci-userslot"></span>
+  </div>
+</header>
+
+<nav class="ccnav" id="ccNav">
+  <div class="ccnav-in" role="tablist" aria-label="Sections du Command Center">
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-synthese"   data-sec="sec-synthese"   aria-controls="sec-synthese"   aria-selected="true"  tabindex="0">Synthèse</button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-traiter"    data-sec="sec-traiter"    aria-controls="sec-traiter"    aria-selected="false" tabindex="-1">À traiter<span class="cnt" id="cntTraiter">0</span></button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-terrain"    data-sec="sec-terrain"    aria-controls="sec-terrain"    aria-selected="false" tabindex="-1">Terrain &amp; clusters</button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-risques"    data-sec="sec-risques"    aria-controls="sec-risques"    aria-selected="false" tabindex="-1">Contrôle &amp; risques<span class="cnt" id="cntRisques">0</span></button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-caisse"     data-sec="sec-caisse"     aria-controls="sec-caisse"     aria-selected="false" tabindex="-1">Caisse &amp; avances</button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-sacs"       data-sec="sec-sacs"       aria-controls="sec-sacs"       aria-selected="false" tabindex="-1">Stock &amp; sacs</button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-ia"         data-sec="sec-ia"         aria-controls="sec-ia"         aria-selected="false" tabindex="-1">Assistant IA</button>
+    <button class="cc-tab" type="button" role="tab" id="tab-sec-previsions" data-sec="sec-previsions" aria-controls="sec-previsions" aria-selected="false" tabindex="-1">Prévisions AFLP<span class="cnt" id="cntPrev">shadow</span></button>
+  </div>
+</nav>
+
+<main class="wrap" id="ccMain">
+<div id="netBar" hidden></div>
+
+<!-- ═══ ONGLET 1 · SYNTHÈSE — ce qu'il faut savoir maintenant ════════════ -->
+<section class="sec" id="sec-synthese" role="tabpanel" aria-labelledby="tab-sec-synthese" tabindex="0">
+  <div class="sec-h">
+    <h2>Situation du jour</h2><span class="sub">achats · cash · sacs · risques</span>
+    <span class="verdict ok" id="situVerdict" hidden></span>
+  </div>
+  <div class="kpis">
+    <div class="k"><small>Volume acheté</small><b id="kVol"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kVolSub">objectif 11 000 MT</div><div class="bar"><i id="kVolBar" style="width:0"></i></div></div>
+    <div class="k"><small>Cash engagé</small><b id="kAv"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kAvSub">solde caisse —</div></div>
+    <div class="k"><small>Sacs en main RT</small><b id="kSac"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kSacSub">entrepôt —</div></div>
+    <div class="k" id="kRiskBox"><small>Risques critiques</small><b id="kRisk"><span class="skel" style="width:70px;height:20px"></span></b><div class="sub" id="kRiskSub">à traiter aujourd'hui</div></div>
+  </div>
+  <div class="g12" style="margin-top:14px">
+    <section class="panel c7">
+      <h2>Ce qui bouge aujourd'hui <span class="mini">priorité BM</span></h2>
+      <div id="bouge"><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:74%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:62%"></span></div></div>
+    </section>
+    <section class="panel c5">
+      <h2>Périmètre du jour</h2>
+      <div class="body">
+        <div id="perimetre"><div class="kv"><span class="skel" style="width:120px"></span></div><div class="kv"><span class="skel" style="width:100px"></span></div></div>
+        <div class="encart" id="deriveSynthese" style="margin-top:14px">Dérive : analyse non encore chargée.</div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══ ONGLET 2 · À TRAITER — ce qui exige une intervention ═════════════ -->
+<section class="sec" id="sec-traiter" role="tabpanel" aria-labelledby="tab-sec-traiter" tabindex="0" hidden>
+  <div class="sec-h"><h2>À traiter maintenant</h2><span class="sub">Anomalies métier classées par priorité</span></div>
+  <div class="g12">
+    <section class="panel c8">
+      <h2>Anomalies du jour <span class="mini" id="todoResume">priorité BM</span></h2>
+      <div id="todo"><div style="padding:4px 0"><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:78%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:64%"></span></div><div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:70%"></span></div></div></div>
+    </section>
+    <section class="panel c4">
+      <h2>File locale &amp; synchronisation <span class="mini">contrôle hors ligne</span></h2>
+      <div class="body">
+        <div class="mk">
+          <div><small>Achats<br>en attente</small><b id="lAch">0</b></div>
+          <div><small>Cash<br>en attente</small><b id="lCash">0</b></div>
+          <div><small>Sacs<br>en attente</small><b id="lSacs">0</b></div>
+        </div>
+        <div id="localHints" style="margin-top:14px">—</div>
+        <div class="mention">La file locale se vide automatiquement à la reconnexion. Les échecs restent en file jusqu'à reprise manuelle.</div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══ ONGLET 3 · TERRAIN &amp; CLUSTERS ═══════════════════════════════════ -->
+<section class="sec" id="sec-terrain" role="tabpanel" aria-labelledby="tab-sec-terrain" tabindex="0" hidden>
+  <div class="sec-h"><h2>Terrain &amp; clusters</h2><span class="sub" id="terrainSub">Clusters, référentiel et zones AFLP</span></div>
+  <div class="g12">
+    <section class="panel c8">
+      <h2>Par cluster <span class="mini" id="clusResume">—</span></h2>
+      <div class="tools">
+        <input id="clusFilter" type="search" placeholder="Rechercher un cluster…" aria-label="Rechercher un cluster">
+        <select id="clusSort" aria-label="Trier les clusters">
+          <option value="vol">Tri : volume</option>
+          <option value="solde">Tri : solde le plus bas</option>
+          <option value="sacs">Tri : sacs le plus bas</option>
+          <option value="nom">Tri : nom A→Z</option>
+        </select>
+      </div>
+      <div class="scroll" tabindex="0" role="group" aria-label="Tableau des clusters"><table><thead><tr><th>Cluster</th><th class="num">Villages</th><th class="num">RT</th><th class="num">Volume MT</th><th class="num">Avancé</th><th class="num">Solde</th><th class="num">Sacs cluster</th></tr></thead><tbody id="clusTable"></tbody></table></div>
+    </section>
+    <div class="c4" style="display:flex;flex-direction:column;gap:14px">
+      <section class="panel">
+        <h2>Référentiel terrain</h2>
+        <div class="stats" id="refTable"></div>
+      </section>
+      <section class="panel">
+        <h2>Zones AFLP <span class="mini" id="zonesResume">—</span></h2>
+        <div class="body"><div id="zonesTable"><div class="kv"><span class="skel" style="width:120px"></span></div></div></div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ONGLET 4 · CONTRÔLE &amp; RISQUES ═══════════════════════════════════ -->
+<section class="sec" id="sec-risques" role="tabpanel" aria-labelledby="tab-sec-risques" tabindex="0" hidden>
+  <div class="sec-h"><h2>Contrôle &amp; risques</h2><span class="sub">Caisse · sacs · réconciliation par équipe RT</span></div>
+  <section class="panel">
+    <h2>RT à risque <span class="mini" id="rtResume">—</span></h2>
+    <div class="tools"><input id="rtFilter" type="search" placeholder="Rechercher une équipe RT ou un cluster…" aria-label="Rechercher une équipe RT"></div>
+    <div class="scroll" tabindex="0" role="group" aria-label="Tableau des équipes RT à risque"><table><thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Solde caisse</th><th>Réconciliation</th><th class="num">Sacs RT</th><th>Risque</th></tr></thead><tbody id="rtTable"></tbody></table></div>
+    <button class="more" type="button" id="rtMore" hidden></button>
+  </section>
+  <div class="g12" style="margin-top:14px">
+    <section class="panel c5">
+      <h2>Dérive</h2>
+      <div class="body"><div class="encart" id="deriveRisques">Dérive : analyse non encore chargée.</div></div>
+    </section>
+    <section class="panel c7">
+      <h2>Contrôles ouverts</h2>
+      <div class="body"><div class="trio" id="ctrlOuverts"><div><b><span class="skel" style="width:30px;height:18px"></span></b><small>réconciliations</small></div></div></div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══ ONGLET 5 · CAISSE &amp; AVANCES ═════════════════════════════════════ -->
+<section class="sec" id="sec-caisse" role="tabpanel" aria-labelledby="tab-sec-caisse" tabindex="0" hidden>
+  <div class="sec-h"><h2>Caisse &amp; avances</h2><span class="sub" id="caisseSub">—</span></div>
+  <div class="tuiles">
+    <div class="k"><small>Cash engagé</small><b id="cCash">—</b></div>
+    <div class="k"><small>Solde caisse RT</small><b id="cSolde">—</b></div>
+    <div class="k warn" id="cNonRecBox"><small>Non réconcilié</small><b id="cNonRec">—</b></div>
+  </div>
+  <section class="panel" style="margin-top:14px">
+    <h2>Avances par équipe RT <span class="mini" id="avResume">—</span></h2>
+    <div class="scroll" tabindex="0" role="group" aria-label="Tableau des avances par équipe RT"><table><thead><tr><th>RT</th><th>Cluster</th><th class="num">Avancé</th><th class="num">Dépensé</th><th class="num">Solde</th><th>Statut</th></tr></thead><tbody id="avTable"></tbody></table></div>
+  </section>
+</section>
+
+<!-- ═══ ONGLET 6 · STOCK &amp; SACS ═════════════════════════════════════════ -->
+<section class="sec" id="sec-sacs" role="tabpanel" aria-labelledby="tab-sec-sacs" tabindex="0" hidden>
+  <div class="sec-h"><h2>Stock &amp; sacs</h2><span class="sub" id="sacsSub">—</span></div>
+  <div class="tuiles">
+    <div class="k"><small>Sacs en main RT</small><b id="sSacRt">—</b></div>
+    <div class="k"><small>Sacs en cluster</small><b id="sSacClus">—</b></div>
+    <div class="k warn" id="sDechBox"><small>Sacs déchirés</small><b id="sDech">—</b></div>
+  </div>
+  <section class="panel" style="margin-top:14px">
+    <h2>Sacs par cluster <span class="mini" id="sacsResume">—</span></h2>
+    <div class="scroll" tabindex="0" role="group" aria-label="Tableau des sacs par cluster"><table><thead><tr><th>Cluster</th><th>Zone</th><th class="num">Sacs cluster</th><th class="num">Part</th></tr></thead><tbody id="sacsTable"></tbody></table></div>
+  </section>
+</section>
+
+<!-- ═══ ONGLET 7 · ASSISTANT IA ══════════════════════════════════════════ -->
+<section class="sec" id="sec-ia" role="tabpanel" aria-labelledby="tab-sec-ia" tabindex="0" hidden>
+  <div class="sec-h"><h2>Assistant IA AFLP</h2><span class="sub">Assistance métier · calcul déterministe, sans appel externe</span></div>
+  <section class="panel">
+    <div class="body">
+      <div class="facts">
+        <button class="chipa on" type="button" data-ia="synthese">Synthèse</button>
+        <button class="chipa" type="button" data-ia="alertes">Alertes</button>
+        <button class="chipa" type="button" data-ia="refinancement">Refinancement</button>
+        <button class="chipa" type="button" data-ia="questions">Poser une question</button>
+      </div>
+      <div class="repIa"><div id="aflpIa"></div></div>
+      <div class="mention">Aucune valeur de ce rapport n'autorise, ne débloque, ne valide ni ne sanctionne quoi que ce soit.</div>
+    </div>
+  </section>
+</section>
+
+<!-- ═══ ONGLET 8 · PRÉVISIONS AFLP ═══════════════════════════════════════ -->
+<section class="sec" id="sec-previsions" role="tabpanel" aria-labelledby="tab-sec-previsions" tabindex="0" hidden>
+  <div class="sec-h"><h2>Prévisions AFLP</h2><span class="sub">Niveau 3 · aide à la décision · statistiques déterministes</span></div>
+  <div class="predban" id="predBandeau">
+    <b>Aide à la décision — statut SHADOW_ONLY</b>
+    <p id="predMention">Analyse en cours de calcul.</p>
+    <div class="meta" id="predMeta"></div>
+  </div>
+  <div class="grille" id="predGrille"></div>
+  <section class="panel" style="margin-top:14px"><div id="aflpPred"></div></section>
+</section>
+
 </main>
 <script>
+/* ============================================================================
+   Le moteur métier de cette page n'a pas changé : mêmes tables interrogées,
+   mêmes agrégats, mêmes seuils, mêmes libellés. Seule la mise en scène de
+   l'information a été retravaillée — de sept blocs empilés à huit onglets.
+   ========================================================================== */
 const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";const OBJECTIF_MT=11000;const $=i=>document.getElementById(i);let SB,OBJ_COUT=8,LOAD_ERR=0,LOAD_DONE=false,LOAD_TIMER=null;
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}function fmt(x){return x==null||isNaN(x)?"—":Math.round(x).toLocaleString("fr-FR");}function mt(kg){return (Math.round(((Number(kg)||0)/1000)*10)/10).toLocaleString("fr-FR");}function keyc(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}function up(s){return String(s==null?"":s).toUpperCase();}function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}async function q(table,sel,mod){try{let r=SB.from(table).select(sel||"*");if(mod)r=mod(r);const res=await r;if(res.error){LOAD_ERR++;return [];}return res.data||[];}catch(e){LOAD_ERR++;return [];}}
-/* ── États : squelette / vide / hors-ligne / erreur (Étape 4) ── */
+/* État d'affichage — jamais de règle métier ici, seulement ce qui est montré. */
+let CLUSTERS=[],RT_ROWS=[],TODO_ITEMS=[],AV_ROWS=[],SACS_ROWS=[],RT_ALL=false,TODO_ALL=false,LAST_LOAD=0;
+const TODO_APERCU=5,RT_APERCU=3,BOUGE_APERCU=3;
+const PRIORITE={hi:"Critique",md:"Attention",lo:"Information"};
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmt(x){return x==null||isNaN(x)?"—":Math.round(x).toLocaleString("fr-FR");}
+function mt(kg){return (Math.round(((Number(kg)||0)/1000)*10)/10).toLocaleString("fr-FR");}
+function keyc(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function up(s){return String(s==null?"":s).toUpperCase();}
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+async function q(table,sel,mod){try{let r=SB.from(table).select(sel||"*");if(mod)r=mod(r);const res=await r;if(res.error){LOAD_ERR++;return [];}return res.data||[];}catch(e){LOAD_ERR++;return [];}}
+
+/* ==========================================================================
+   Navigation par onglets — un seul niveau, état porté par l'URL
+   --------------------------------------------------------------------------
+   Les ancres historiques (#sec-synthese, #sec-traiter, #sec-terrain,
+   #sec-risques, #sec-ia, #sec-previsions) sont CONSERVÉES à l'identique : un
+   lien en circulation vers l'une d'elles ouvre l'onglet correspondant au lieu
+   de faire défiler. Deux ancres s'y ajoutent, #sec-caisse et #sec-sacs.
+   ====================================================================== */
+const ONGLETS=["sec-synthese","sec-traiter","sec-terrain","sec-risques","sec-caisse","sec-sacs","sec-ia","sec-previsions"];
+let ONGLET_ACTIF=ONGLETS[0];
+function hauteurBarre(){var b=document.getElementById("anagroci-suite-bar");return b?b.offsetHeight:0;}
+function majOffsets(){
+  var h=hauteurBarre(),n=$("ccNav");
+  document.documentElement.style.setProperty("--barh",h+"px");
+  if(n)document.documentElement.style.setProperty("--navh",n.offsetHeight+"px");
+}
+/* L'onglet actif est ramené dans le champ de vision en agissant SUR LE SEUL
+   défilement horizontal de la barre. `scrollIntoView` agirait aussi sur le
+   document et ferait sauter la page au changement d'onglet. */
+function centrerOnglet(t){
+  var n=document.querySelector("#ccNav .ccnav-in");
+  if(!n||n.scrollWidth<=n.clientWidth)return;
+  var g=t.offsetLeft,d=g+t.offsetWidth;
+  if(g<n.scrollLeft)n.scrollLeft=Math.max(0,g-12);
+  else if(d>n.scrollLeft+n.clientWidth)n.scrollLeft=d-n.clientWidth+12;
+}
+function activerOnglet(id,focaliser){
+  if(ONGLETS.indexOf(id)<0)id=ONGLETS[0];
+  ONGLETS.forEach(function(s){
+    var sec=$(s),t=$("tab-"+s),on=(s===id);
+    if(sec)sec.hidden=!on;
+    if(t){t.setAttribute("aria-selected",on?"true":"false");t.tabIndex=on?0:-1;}
+  });
+  var t=$("tab-"+id);
+  if(t){centrerOnglet(t);if(focaliser)t.focus();}
+  ONGLET_ACTIF=id;
+  /* `replaceState` et non `pushState` : changer d'onglet n'est pas une
+     navigation, le bouton « précédent » doit ramener à la page d'avant et non
+     rejouer huit onglets. Le rechargement, lui, retrouve bien l'onglet. */
+  if(history.replaceState)history.replaceState(null,"","#"+id);
+}
+function initOnglets(){
+  majOffsets();
+  var tabs=Array.prototype.slice.call(document.querySelectorAll("#ccNav .cc-tab"));
+  tabs.forEach(function(t,i){
+    t.addEventListener("click",function(){activerOnglet(t.getAttribute("data-sec"));});
+    t.addEventListener("keydown",function(ev){
+      var k=ev.key,j=-1;
+      if(k==="ArrowRight")j=(i+1)%tabs.length;
+      else if(k==="ArrowLeft")j=(i-1+tabs.length)%tabs.length;
+      else if(k==="Home")j=0;
+      else if(k==="End")j=tabs.length-1;
+      if(j<0)return;
+      ev.preventDefault();
+      activerOnglet(tabs[j].getAttribute("data-sec"),true);
+    });
+  });
+  window.addEventListener("resize",majOffsets);
+  /* La barre suite est injectée après le chargement : on remesure une fois. */
+  setTimeout(majOffsets,400);
+  /* Lien profond et rechargement : l'ancre de l'URL fait foi. */
+  window.addEventListener("hashchange",function(){
+    var h=location.hash.slice(1);
+    if(h&&h!==ONGLET_ACTIF&&ONGLETS.indexOf(h)>=0)activerOnglet(h);
+  });
+  activerOnglet(location.hash.slice(1)||ONGLETS[0]);
+}
+
+/* ==========================================================================
+   États : squelette / vide / hors-ligne / erreur
+   ====================================================================== */
 function skelCell(w,num){return '<td'+(num?' class="num"':'')+'><span class="skel" style="width:'+w+'"></span></td>';}
+function stateBloc(kind,icon,title,msg,btn){return '<div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+(btn||'')+'</div>';}
+function stateRow(cols,kind,icon,title,msg,btn){return '<tr><td colspan="'+cols+'" style="padding:0;border:0">'+stateBloc(kind,icon,title,msg,btn)+'</td></tr>';}
+function skelKv(n){var h="";for(var i=0;i<n;i++)h+='<div class="kv"><span class="skel" style="width:110px"></span><span class="skel" style="width:40px"></span></div>';return h;}
 function setSkeletons(){
   $("clusTable").innerHTML=[0,1,2,3].map(function(){return '<tr>'+skelCell('70px')+skelCell('40px',1)+skelCell('30px',1)+skelCell('50px',1)+skelCell('60px',1)+skelCell('60px',1)+skelCell('50px',1)+'</tr>';}).join("");
-  $("refTable").innerHTML=[60,72,50,66,58,70].map(function(w){return '<tr>'+skelCell(w+'%')+skelCell('50px',1)+'</tr>';}).join("");
-  $("rtTable").innerHTML=[0,1,2,3].map(function(){return '<tr>'+skelCell('80px')+skelCell('60px')+skelCell('60px',1)+skelCell('60px',1)+skelCell('70px')+skelCell('40px',1)+skelCell('70px')+'</tr>';}).join("");
+  $("refTable").innerHTML=[0,1,2,3,4,5,6,7].map(function(){return '<div><b><span class="skel" style="width:46px;height:16px"></span></b><small><span class="skel" style="width:60px;height:9px"></span></small></div>';}).join("");
+  $("rtTable").innerHTML=[0,1,2].map(function(){return '<tr>'+skelCell('80px')+skelCell('60px')+skelCell('60px',1)+skelCell('60px',1)+skelCell('70px')+skelCell('40px',1)+skelCell('70px')+'</tr>';}).join("");
+  $("avTable").innerHTML=[0,1].map(function(){return '<tr>'+skelCell('80px')+skelCell('60px')+skelCell('60px',1)+skelCell('60px',1)+skelCell('60px',1)+skelCell('70px')+'</tr>';}).join("");
+  $("sacsTable").innerHTML=[0,1,2].map(function(){return '<tr>'+skelCell('70px')+skelCell('80px')+skelCell('50px',1)+skelCell('40px',1)+'</tr>';}).join("");
   $("todo").innerHTML='<div style="padding:4px 0">'+[78,64,70].map(function(w){return '<div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:'+w+'%"></span></div>';}).join("")+'</div>';
-  ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).innerHTML='<span class="skel" style="width:60px;height:20px"></span>';});
+  $("bouge").innerHTML='<div style="padding:4px 0">'+[74,62].map(function(w){return '<div class="skrow"><span class="skel" style="height:34px;width:44px;border-radius:10px"></span><span class="skel" style="width:'+w+'%"></span></div>';}).join("")+'</div>';
+  $("perimetre").innerHTML=skelKv(4);
+  $("zonesTable").innerHTML=skelKv(4);
+  $("situVerdict").hidden=true;
+  ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).innerHTML='<span class="skel" style="width:70px;height:20px"></span>';});
+  ["cCash","cSolde","cNonRec","sSacRt","sSacClus","sDech"].forEach(function(id){$(id).innerHTML='<span class="skel" style="width:70px;height:20px"></span>';});
 }
-function stateRow(cols,kind,icon,title,msg,btn){return '<tr><td colspan="'+cols+'" style="padding:0;border:0"><div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+(btn||'')+'</div></td></tr>';}
 function loadFailState(){
   var off=!navigator.onLine, kind=off?'off':'err', icon=off?'●':'!';
   var title=off?"Aucune donnée locale":"Le chargement a échoué";
   var msg=off?"Vous êtes hors ligne et ce poste n'a pas encore été synchronisé sur cet appareil. Connectez-vous une première fois pour charger les données."
              :"Le serveur n'a pas répondu à temps. Vos saisies locales ne sont pas perdues.";
-  var btn='<button class="act" onclick="loadAll()">Réessayer</button>';
+  var btn='<button class="act" type="button" onclick="loadAll()">Réessayer</button>';
   $("clusTable").innerHTML=stateRow(7,kind,icon,title,msg,btn);
-  $("refTable").innerHTML=stateRow(2,kind,icon,title,off?"Synchronisez une première fois.":"Réessayez le chargement.","");
+  $("refTable").innerHTML='<div style="grid-column:1/-1">'+stateBloc(kind,icon,title,off?"Synchronisez une première fois.":"Réessayez le chargement.","")+'</div>';
   $("rtTable").innerHTML=stateRow(7,kind,icon,title,msg,"");
-  $("todo").innerHTML='<div class="state '+kind+'"><div class="ic">'+icon+'</div><b>'+title+'</b><p>'+msg+'</p>'+btn+'</div>';
-  ["kVol","kAv","kSac","kRisk"].forEach(function(id){$(id).textContent="—";});
+  $("avTable").innerHTML=stateRow(6,kind,icon,title,msg,"");
+  $("sacsTable").innerHTML=stateRow(4,kind,icon,title,msg,"");
+  $("todo").innerHTML=stateBloc(kind,icon,title,msg,btn);
+  $("bouge").innerHTML=stateBloc(kind,icon,title,msg,"");
+  $("perimetre").innerHTML='<div class="muted">'+esc(title)+'</div>';
+  $("zonesTable").innerHTML='<div class="muted">'+esc(title)+'</div>';
+  $("rtMore").hidden=true;
+  ["kVol","kAv","kSac","kRisk","cCash","cSolde","cNonRec","sSacRt","sSacClus","sDech"].forEach(function(id){$(id).textContent="—";});
+  $("situVerdict").hidden=true;
+  LAST_LOAD=0;
   $("upd").textContent=off?"Hors ligne":"Échec du chargement";
+  $("upd").className="upd ko";
 }
-function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}function pendingCount(k){return (load(k,[])||[]).filter(x=>x&&x._status!=="synced").length;}function failedCount(k){return (load(k,[])||[]).filter(x=>x&&x._status==="failed").length;}
-function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}function vGps(v){return !!(v.data&&v.data.s1&&v.data.s1.gpsLat);}function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||"";}function rtCluster(r,vills){if(r.data&&r.data.cluster)return r.data.cluster;const v=vills.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
+/* Fraîcheur de la donnée : un chiffre de ce tableau vieux de 40 minutes n'est
+   pas une erreur, mais le BM doit le savoir avant de décider. */
+function majFraicheur(){
+  if(!LAST_LOAD)return;
+  var min=Math.floor((Date.now()-LAST_LOAD)/60000);
+  $("upd").textContent=min<1?"Actualisé à l'instant":("Actualisé il y a "+min+" min");
+  $("upd").className="upd"+(min>=15?" stale":"");
+}
+function majReseau(){
+  var b=$("netBar");if(!b)return;
+  if(navigator.onLine){b.hidden=true;b.className="netbar on";b.textContent="";return;}
+  b.hidden=false;b.className="netbar off";
+  b.textContent="Hors ligne — les chiffres affichés datent de la dernière synchronisation. Vos saisies restent enregistrées sur l'appareil et repartiront au retour du réseau.";
+}
+
+/* ==========================================================================
+   File locale
+   ====================================================================== */
+function load(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):d;}catch(e){return d;}}
+function pendingCount(k){return (load(k,[])||[]).filter(x=>x&&x._status!=="synced").length;}
+function failedCount(k){return (load(k,[])||[]).filter(x=>x&&x._status==="failed").length;}
+function vname(v){return (v.data&&v.data.s1&&v.data.s1.village)||v.village||"";}
+function vcluster(v){return (v.data&&v.data.s1&&v.data.s1.cluster)||v.cluster||"";}
+function vGps(v){return !!(v.data&&v.data.s1&&v.data.s1.gpsLat);}
+function rtLabel(r){return (r.data&&(r.data.nom||r.data.rt))||r.nom||"";}
+function rtCluster(r,vills){if(r.data&&r.data.cluster)return r.data.cluster;const v=vills.find(x=>keyc(vname(x))===keyc(r.village_nom||""));return v?vcluster(v):"";}
 function renderLocal(){const la=pendingCount("anagroci_achats"), lav=pendingCount("anagroci_avances"), lr=pendingCount("anagroci_recons"), ls=pendingCount("anagroci_sacs");$("lAch").textContent=fmt(la);$("lCash").textContent=fmt(lav+lr);$("lSacs").textContent=fmt(ls);const fails=failedCount("anagroci_achats")+failedCount("anagroci_avances")+failedCount("anagroci_recons")+failedCount("anagroci_sacs");$("localHints").innerHTML=fails?'<span class="badge bhi">'+fails+' échec(s) de synchronisation à vérifier</span>':'<span class="badge blo">File locale normale</span>';return {pending:la+lav+lr+ls,failed:fails};}
-async function loadAll(){if(!SB)return;$("upd").textContent="Chargement…";LOAD_ERR=0;LOAD_DONE=false;setSkeletons();renderLocal();if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_TIMER=setTimeout(function(){if(!LOAD_DONE)loadFailState();},8000);const [par,vills,rts,achats,avances,recons,sacs]=await Promise.all([q("parametres_calcul","cle,valeur"),q("villages","id,data",r=>r.eq("deleted",false)),q("rt","id,data,village_nom",r=>r.eq("deleted",false)),q("achats","poids_net,montant,commission_rt,date,cluster,rt_id,rt_nom,village_nom,refinancable,qualite_statut,statut_validation,numero_recu"),q("avances","montant,rt_id,rt_nom,cluster"),q("reconciliations","rt_id,rt_nom,statut,ecart,created_at",r=>r.order("created_at",{ascending:false})),q("sacs_mouvements","type,source,destination,cluster,rt_id,rt_nom,producteur_id,producteur_nom,quantite")]);if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_DONE=true;if(LOAD_ERR>0&&(vills.length+rts.length+achats.length+avances.length+recons.length+sacs.length)===0){loadFailState();return;}par.forEach(p=>{if(p.cle==="objectif_cout_kg"){const v=Number(p.valeur);if(v)OBJ_COUT=v;}});
+
+/* ==========================================================================
+   Zones AFLP — LUES, jamais recalculées
+   --------------------------------------------------------------------------
+   La répartition GBEKE 1 / GBEKE 2 appartient au moteur IA
+   (`shared/aflp-ia-moteur.js`). On la relit par `AFLP_IA_UI.etatCourant()`
+   plutôt que d'en recopier une seconde table ici : deux tables pour une même
+   vérité finissent toujours par diverger. Si le moteur n'a pas encore tourné,
+   la zone vaut « — » et rien n'est inventé.
+   ====================================================================== */
+function zonesParCluster(){
+  var m={};
+  try{
+    var e=window.AFLP_IA_UI&&AFLP_IA_UI.etatCourant?AFLP_IA_UI.etatCourant().etat:null;
+    if(e&&e.clusters)Object.keys(e.clusters).forEach(function(k){
+      var c=e.clusters[k];if(c&&c.zone)m[k]=c.zone;
+    });
+  }catch(err){/* le moteur n'est pas monté : on affichera « — » */}
+  return m;
+}
+function zonesConfirmees(){
+  try{
+    var e=window.AFLP_IA_UI&&AFLP_IA_UI.etatCourant?AFLP_IA_UI.etatCourant().etat:null;
+    return !!(e&&e.referentiel&&e.referentiel.zonesConfirmees);
+  }catch(err){return false;}
+}
+
+/* ==========================================================================
+   Rendus — aucun calcul métier, uniquement de la mise en forme
+   ====================================================================== */
+function ligneTodo(x){
+  return '<a class="todo sev-'+x.sev+'" href="'+x.href+'">'+
+    '<span class="n">'+x.n+'</span>'+
+    '<span class="tx"><span class="t">'+esc(x.t)+'</span><span class="d">'+esc(x.d)+'</span></span>'+
+    '<span class="pr">'+PRIORITE[x.sev]+'</span><span class="go" aria-hidden="true">→</span></a>';
+}
+function renderTodo(){
+  var t=$("todo");
+  if(!TODO_ITEMS.length){
+    t.innerHTML=stateBloc('ok','✓',"Aucune anomalie aujourd'hui","Les achats saisis ce jour respectent tous les contrôles (prix, humidité, plafond LBA).","");
+    $("todoResume").textContent="rien à traiter";
+    return;
+  }
+  var vus=TODO_ALL?TODO_ITEMS:TODO_ITEMS.slice(0,TODO_APERCU);
+  var reste=TODO_ITEMS.length-vus.length;
+  t.innerHTML=vus.map(ligneTodo).join("")+
+  ((reste>0||TODO_ALL)?'<button class="more" type="button" id="todoMore">'+(TODO_ALL?"Replier la liste":"Afficher les "+reste+" autres anomalies")+'</button>':"");
+  var b=$("todoMore");if(b)b.addEventListener("click",function(){TODO_ALL=!TODO_ALL;renderTodo();});
+  var c={hi:0,md:0,lo:0};TODO_ITEMS.forEach(function(x){c[x.sev]++;});
+  $("todoResume").textContent=c.hi+" critique(s) · "+c.md+" attention · "+c.lo+" information";
+}
+/* « Ce qui bouge aujourd'hui » : les trois anomalies de tête, mêmes libellés
+   et même ordre de priorité que l'onglet « À traiter ». Aucune sélection
+   nouvelle — c'est la même liste, tronquée. */
+function renderBouge(){
+  var b=$("bouge");
+  if(!TODO_ITEMS.length){
+    b.innerHTML=stateBloc('ok','✓',"Aucune anomalie aujourd'hui","Les achats saisis ce jour respectent tous les contrôles (prix, humidité, plafond LBA).","");
+    return;
+  }
+  b.innerHTML=TODO_ITEMS.slice(0,BOUGE_APERCU).map(ligneTodo).join("");
+}
+function renderPerimetre(lignes){
+  $("perimetre").innerHTML=lignes.map(function(l){
+    return '<div class="kv"><span>'+esc(l[0])+'</span><b>'+esc(String(l[1]))+'</b></div>';
+  }).join("");
+}
+function renderClusters(){
+  var f=keyc($("clusFilter").value||""),tri=$("clusSort").value;
+  var r=CLUSTERS.filter(function(x){return !f||keyc(x.label).indexOf(f)>=0;});
+  r=r.slice().sort(function(a,b){
+    if(tri==="nom")return String(a.label).localeCompare(String(b.label),"fr");
+    if(tri==="solde")return (a.av-a.paye)-(b.av-b.paye);
+    if(tri==="sacs")return a.sac-b.sac;
+    return b.vol-a.vol;
+  });
+  var att=CLUSTERS.filter(function(x){return (x.av-x.paye)<0||x.sac<0;}).length;
+  $("clusResume").textContent=CLUSTERS.length+" cluster(s)"+(att?" · "+att+" à surveiller":"");
+  if(!r.length){
+    $("clusTable").innerHTML=stateRow(7,'ok','✓',f?"Aucun cluster ne correspond":"Aucune donnée cluster",
+      f?"Aucun cluster ne porte ce nom. Effacez la recherche pour revoir la liste complète.":"Aucun achat ni avance enregistré pour l'instant. Les clusters s'afficheront dès les premières saisies terrain.","");
+    return;
+  }
+  $("clusTable").innerHTML=r.map(function(x){
+    var solde=x.av-x.paye,crit=solde<0&&x.sac<0;
+    var marque=(solde<0||x.sac<0)?'<span class="att'+(crit?' crit':'')+'"><i></i>Attention</span>':"";
+    return '<tr><td><b>'+esc(x.label||"—")+'</b>'+marque+'</td>'+
+      '<td class="num">'+x.vil+'</td><td class="num">'+x.rt+'</td>'+
+      '<td class="num">'+mt(x.vol)+'</td><td class="num">'+fmt(x.av)+'</td>'+
+      '<td class="num'+(solde<0?' neg':'')+'">'+fmt(solde)+'</td>'+
+      '<td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td></tr>';
+  }).join("");
+}
+function renderRt(){
+  var f=keyc($("rtFilter").value||"");
+  var r=RT_ROWS.filter(function(x){return !f||keyc(x.nom).indexOf(f)>=0||keyc(x.cluster).indexOf(f)>=0;});
+  var aRisque=RT_ROWS.filter(function(x){return x.risk;}).length;
+  $("rtResume").textContent=aRisque?aRisque+" RT nécessite(nt) une action":"aucune équipe en écart";
+  if(!r.length){
+    $("rtTable").innerHTML=stateRow(7,'ok','✓',f?"Aucune équipe ne correspond":"Aucun RT à risque",
+      f?"Aucune équipe ni cluster ne porte ce nom. Effacez la recherche pour revoir la liste.":"Toutes les équipes RT sont à jour côté caisse, sacs et réconciliation.","");
+    $("rtMore").hidden=true;return;
+  }
+  /* Dévoilement progressif : les plus critiques d'abord, le reste sur demande.
+     Une recherche explicite montre tout ce qui correspond. */
+  var vus=(RT_ALL||f)?r:r.slice(0,RT_APERCU);
+  $("rtTable").innerHTML=vus.map(function(x){
+    var rc=x.rec?('<span class="'+(x.rec.statut==="Réconcilié"?'pos':'neg')+'">'+esc(x.rec.statut)+'</span>')
+                :(x.av>0?'<span class="badge bmd">À réconcilier</span>':'—');
+    var bl=[];
+    if(x.reasons.length>=2)bl.push('<span class="badge bhi">Critique</span>');
+    x.reasons.forEach(function(m){bl.push('<span class="badge '+(m==="Dépassement"?"bhi":"bmd")+'">'+esc(m)+'</span>');});
+    if(!bl.length)bl.push('<span class="badge blo">Suivi</span>');
+    return '<tr><td><b>'+esc(x.nom||"—")+'</b></td><td>'+esc(x.cluster||"—")+'</td>'+
+      '<td class="num">'+fmt(x.av)+'</td>'+
+      '<td class="num'+(x.solde<0?' neg':'')+'">'+fmt(x.solde)+'</td>'+
+      '<td>'+rc+'</td>'+
+      '<td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td>'+
+      '<td>'+bl.join("")+'</td></tr>';
+  }).join("");
+  var reste=r.length-vus.length;
+  var b=$("rtMore");
+  if(reste>0||(RT_ALL&&!f&&r.length>RT_APERCU)){b.hidden=false;b.textContent=RT_ALL?"Replier — n'afficher que les "+RT_APERCU+" plus critiques":"Voir tous les RT à risque ("+r.length+")";}
+  else b.hidden=true;
+}
+function renderRef(lignes){
+  $("refTable").innerHTML=lignes.map(function(l){
+    return '<div><b>'+esc(String(l[1]))+'</b><small>'+esc(l[0])+'</small></div>';
+  }).join("");
+}
+/* Zones AFLP : un cluster, sa zone, sa part de sacs. La part est une lecture
+   du même agrégat `sacs cluster` exprimée en pourcentage du total affiché —
+   pas un nouvel indicateur. */
+function renderZones(){
+  var z=zonesParCluster(),tot=SACS_ROWS.reduce(function(s,x){return s+Math.max(0,x.sac);},0);
+  var lignes=CLUSTERS.slice().sort(function(a,b){
+    return String(z[a.cle]||"~").localeCompare(String(z[b.cle]||"~"),"fr")||String(a.label).localeCompare(String(b.label),"fr");
+  });
+  if(!lignes.length){$("zonesTable").innerHTML='<div class="muted">Aucun cluster à répartir pour l\'instant.</div>';$("zonesResume").textContent="—";return;}
+  $("zonesTable").innerHTML=lignes.map(function(x){
+    var part=tot>0?Math.round(Math.max(0,x.sac)/tot*100)+" %":"—";
+    return '<div class="kv"><span>'+esc(x.label)+'</span>'+
+      '<span class="zn">'+esc(z[x.cle]||"—")+'</span><b>'+part+'</b></div>';
+  }).join("");
+  $("zonesResume").textContent=zonesConfirmees()?"répartition confirmée":"répartition à confirmer";
+}
+/* Caisse & avances : reprise des agrégats déjà calculés par `loadAll` —
+   `avByRt`, `payeByRt`, `reconByRt`. Rien n'est recalculé, rien n'est requêté
+   en plus : les mêmes tables, présentées sous l'angle caisse. */
+function renderCaisse(){
+  if(!AV_ROWS.length){
+    $("avTable").innerHTML=stateRow(6,'ok','✓',"Aucune avance ouverte","Aucune avance de caisse n'est enregistrée pour les équipes RT.","");
+    $("avResume").textContent="aucune avance";
+    return;
+  }
+  $("avTable").innerHTML=AV_ROWS.map(function(x){
+    var st=x.rec&&x.rec.statut==="Réconcilié"
+      ? '<span class="badge blo">Réconcilié</span>'
+      : '<span class="badge bmd">Avance ouverte</span>';
+    return '<tr><td><b>'+esc(x.nom||"—")+'</b></td><td>'+esc(x.cluster||"—")+'</td>'+
+      '<td class="num">'+fmt(x.av)+'</td><td class="num">'+fmt(x.paye)+'</td>'+
+      '<td class="num'+(x.solde<0?' neg':'')+'">'+fmt(x.solde)+'</td><td>'+st+'</td></tr>';
+  }).join("");
+}
+function renderSacsCluster(){
+  var z=zonesParCluster(),tot=SACS_ROWS.reduce(function(s,x){return s+Math.max(0,x.sac);},0);
+  if(!SACS_ROWS.length){
+    $("sacsTable").innerHTML=stateRow(4,'ok','✓',"Aucun mouvement de sacs","Aucun mouvement n'est enregistré pour l'instant.","");
+    $("sacsResume").textContent="—";
+    return;
+  }
+  var r=SACS_ROWS.slice().sort(function(a,b){return b.sac-a.sac;});
+  $("sacsTable").innerHTML=r.map(function(x){
+    var part=tot>0?Math.round(Math.max(0,x.sac)/tot*100)+" %":"—";
+    return '<tr><td><b>'+esc(x.label||"—")+'</b></td>'+
+      '<td class="muted">'+esc(z[x.cle]||"—")+'</td>'+
+      '<td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td>'+
+      '<td class="num">'+part+'</td></tr>';
+  }).join("");
+}
+function renderCtrlOuverts(recons,qualCtrl,dech){
+  $("ctrlOuverts").innerHTML=
+    '<div><b>'+fmt(recons)+'</b><small>réconciliations</small></div>'+
+    '<div><b>'+fmt(qualCtrl)+'</b><small>achat qualité</small></div>'+
+    '<div'+(dech>0?' class="wa"':'')+'><b>'+fmt(dech)+'</b><small>sacs déchirés</small></div>';
+}
+function renderSitu(riskTotal){
+  var v=$("situVerdict");
+  v.hidden=false;
+  v.className="verdict "+(riskTotal?"ko":"ok");
+  v.textContent=riskTotal?"Intervention requise":"Situation normale";
+}
+/* Compteurs des onglets : alimentés par les données réelles, jamais codés en
+   dur. Un compteur à zéro n'est pas affiché — une pastille « 0 » attire l'œil
+   pour rien. */
+function majCompteurs(traiter,risques){
+  [["cntTraiter",traiter],["cntRisques",risques]].forEach(function(t){
+    var e=$(t[0]);if(!e)return;
+    e.textContent=fmt(t[1]);
+    e.className="cnt"+(t[1]>0?" on hi":"");
+  });
+}
+
+/* ==========================================================================
+   Prévisions AFLP — bandeau de page et grille de cartes
+   --------------------------------------------------------------------------
+   Le module `AFLP_PRED_UI` garde la charge de CALCULER et d'AFFICHER chaque
+   analyse. La page ne fait que remplacer son ruban d'onglets par une grille
+   de cartes : chaque carte pilote l'onglet correspondant du module. Les
+   libellés sont LUS sur les boutons du module — recopiés ici, ils finiraient
+   par diverger des siens.
+   ====================================================================== */
+function renderPredGrille(){
+  var g=$("predGrille");if(!g)return;
+  var boutons=Array.prototype.slice.call(document.querySelectorAll("#aflpPred .aflpp-tab"));
+  if(!boutons.length){g.innerHTML="";return;}
+  g.innerHTML=boutons.map(function(b,i){
+    var cle=b.getAttribute("data-onglet"),actif=b.getAttribute("aria-selected")==="true";
+    return '<button class="carte" type="button" data-pred="'+esc(cle)+'" aria-pressed="'+(actif?"true":"false")+'">'+
+      '<span class="hd"><span class="no">'+String(i+1).padStart(2,"0")+'</span>'+
+      '<span class="nm">'+esc(b.textContent)+'</span></span></button>';
+  }).join("");
+}
+function majBandeauPred(){
+  var r=window.AFLP_PRED_UI&&AFLP_PRED_UI.resume?AFLP_PRED_UI.resume():null;
+  var c=$("cntPrev");
+  if(!r){if(c)c.className="cnt";return;}
+  /* Le statut shadow est une information permanente du niveau 3, pas un
+     compteur : la pastille le dit en toutes lettres. */
+  if(c)c.className="cnt on wa";
+  var porte=r.porteFranchie===null?"—":(r.porteFranchie?"franchie":"non franchie");
+  $("predMention").textContent="Porte du Niveau 1 "+porte+
+    (r.porteFranchie===false&&r.p0Ouverts?" : "+r.p0Ouverts+" prérequis P0 ouvert(s). Aucun modèle ne peut dépasser SHADOW_ONLY.":".");
+  /* L'étiquette est isolée dans son propre nœud de texte : accolée au chiffre,
+     « modèle 3.0.0 » ne peut plus correspondre exactement dans le dictionnaire
+     FR/EN, et il aurait fallu y inscrire « modèle » et « retard » comme clés
+     globales — assez courtes pour couper « retardataire » ailleurs. */
+  $("predMeta").innerHTML=
+    '<span><span class="lb">modèle</span> '+esc(String(r.version||"—"))+'</span>'+
+    '<span><span class="lb">calculé le</span> '+esc(String(r.dateRef||"—"))+'</span>'+
+    (r.retardJours==null?"":'<span><span class="lb">retard</span> '+esc(String(r.retardJours))+' j</span>');
+  /* Encart dérive : le motif vient du moteur prédictif, il n'est pas rédigé
+     ici. Tant que l'analyse n'a pas abouti, l'encart le dit. */
+  var d=r.derive,txt=d&&d.motif?d.motif:(d&&d.derive?"Dérive détectée sur la période.":null);
+  if(txt){$("deriveSynthese").textContent=txt;$("deriveRisques").textContent=txt;}
+}
+
+/* Résumé d'en-tête de l'Assistant IA : lu par le module, jamais recalculé —
+   voir AFLP_IA_UI.resume(). */
+function majResumesModules(){
+  majBandeauPred();
+  renderPredGrille();
+  renderZones();
+}
+
+/* ==========================================================================
+   Chargement — logique métier inchangée
+   ====================================================================== */
+async function loadAll(){if(!SB)return;$("upd").textContent="Chargement…";$("upd").className="upd";LAST_LOAD=0;LOAD_ERR=0;LOAD_DONE=false;setSkeletons();renderLocal();if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_TIMER=setTimeout(function(){if(!LOAD_DONE)loadFailState();},8000);const [par,vills,rts,achats,avances,recons,sacs]=await Promise.all([q("parametres_calcul","cle,valeur"),q("villages","id,data",r=>r.eq("deleted",false)),q("rt","id,data,village_nom",r=>r.eq("deleted",false)),q("achats","poids_net,poids_brut,tare,montant,prix_kg,commission_rt,date,cluster,rt_id,rt_nom,village_nom,producteur_id,producteur_nom,refinancable,qualite_statut,statut_validation,numero_recu,humidite,kor,rejet,nb_sacs"),q("avances","date,montant,rt_id,rt_nom,cluster"),q("reconciliations","date,rt_id,rt_nom,cluster,statut,ecart,cash_restant,valeur_stock,created_at",r=>r.order("created_at",{ascending:false})),q("sacs_mouvements","date,type,source,destination,cluster,rt_id,rt_nom,producteur_id,producteur_nom,quantite")]);if(LOAD_TIMER)clearTimeout(LOAD_TIMER);LOAD_DONE=true;if(LOAD_ERR>0&&(vills.length+rts.length+achats.length+avances.length+recons.length+sacs.length)===0){loadFailState();return;}par.forEach(p=>{if(p.cle==="objectif_cout_kg"){const v=Number(p.valeur);if(v)OBJ_COUT=v;}});
 let volKg=0,volJourKg=0,montant=0,sansRecu=0,qualCtrl=0,valBM=0;const t=today();achats.forEach(a=>{const w=Number(a.poids_net)||0;volKg+=w;if(a.date===t)volJourKg+=w;montant+=Number(a.montant)||0;if(a.refinancable===false||!a.numero_recu)sansRecu++;if(a.qualite_statut&&a.qualite_statut!=="OK")qualCtrl++;if(a.statut_validation==="Validation BM requise")valBM++;});
 const payeByRt={};achats.forEach(a=>{const k=a.rt_id||keyc(a.rt_nom||"");payeByRt[k]=(payeByRt[k]||0)+(Number(a.montant)||0);});const avByRt={};let totalAv=0;avances.forEach(a=>{const k=a.rt_id||keyc(a.rt_nom||"");avByRt[k]=(avByRt[k]||0)+(Number(a.montant)||0);totalAv+=Number(a.montant)||0;});const reconByRt={};recons.forEach(x=>{const k=x.rt_id||keyc(x.rt_nom||"");if(!reconByRt[k])reconByRt[k]=x;});const soldeGlobal=totalAv-montant;
 const sacRt={},sacClus={},sacProd={};let dech=0,distr=0;const negMov=[];sacs.forEach(m=>{const qn=Number(m.quantite)||0;const rk=m.rt_id||keyc(m.rt_nom||"");if(rk){if(m.destination==="RT")sacRt[rk]=(sacRt[rk]||0)+qn;if(m.source==="RT")sacRt[rk]=(sacRt[rk]||0)-qn;}const ck=keyc(m.cluster||"");if(ck&&(m.source==="CLUSTER"||m.destination==="CLUSTER")){if(m.destination==="CLUSTER")sacClus[ck]=(sacClus[ck]||0)+qn;if(m.source==="CLUSTER")sacClus[ck]=(sacClus[ck]||0)-qn;}const pk=m.producteur_id||keyc(m.producteur_nom||"");if(pk&&(m.source==="PRODUCTEUR"||m.destination==="PRODUCTEUR")){if(m.destination==="PRODUCTEUR")sacProd[pk]=(sacProd[pk]||0)+qn;if(m.source==="PRODUCTEUR")sacProd[pk]=(sacProd[pk]||0)-qn;}if(m.type==="DECHIRE_RT"||m.type==="DECHIRE_PROD")dech+=qn;if(m.type==="DISTRIBUTION")distr+=qn;});const sacRtTot=Object.values(sacRt).reduce((s,x)=>s+x,0);const sacClusTot=Object.values(sacClus).reduce((s,x)=>s+x,0);const sacProdNeg=Object.values(sacProd).filter(x=>x<0).length;const sacRtNeg=Object.values(sacRt).filter(x=>x<0).length;const sacClusNeg=Object.values(sacClus).filter(x=>x<0).length;
 const rtByCluster={};rts.forEach(r=>{const c=keyc(rtCluster(r,vills));rtByCluster[c]=(rtByCluster[c]||0)+1;});const villCluster={},villNoRt=[],villNoGps=[];const rtVillages=new Set(rts.map(r=>keyc(r.village_nom||"")));vills.forEach(v=>{const c=keyc(vcluster(v));villCluster[c]=villCluster[c]||{n:0,label:up(vcluster(v))};villCluster[c].n++;if(!rtVillages.has(keyc(vname(v))))villNoRt.push(v);if(!vGps(v))villNoGps.push(v);});
 const local=renderLocal();let rtEcart=0;rts.forEach(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0;const rec=reconByRt[k];if(av>0&&(!rec||rec.statut!=="Réconcilié"))rtEcart++;});const riskTotal=sansRecu+rtEcart+sacProdNeg+sacRtNeg+sacClusNeg+qualCtrl+valBM+local.failed;$("kRisk").textContent=fmt(riskTotal);$("kRiskBox").className="k "+(riskTotal?"danger":"");$("kRiskSub").textContent=riskTotal?"anomalies à traiter":"situation normale";$("kVol").textContent=mt(volKg)+" MT";$("kVolSub").textContent=fmt(volJourKg)+" kg aujourd'hui · obj 11 000 MT";$("kVolBar").style.width=Math.min(100,(volKg/1000)/OBJECTIF_MT*100)+"%";$("kAv").textContent=fmt(totalAv);$("kAvSub").textContent="solde caisse "+fmt(soldeGlobal);$("kSac").textContent=fmt(sacRtTot);$("kSacSub").textContent="cluster "+fmt(sacClusTot)+" · déchirés "+fmt(dech);
-const items=[{n:local.pending,t:"Synchronisations en attente",d:"Données terrain non encore remontées",sev:"hi",href:"command.html"},{n:local.failed,t:"Échecs de synchronisation",d:"Reprendre avant clôture journalière",sev:"hi",href:"command.html"},{n:sansRecu,t:"Achats sans reçu",d:"Régulariser les preuves de paiement",sev:"hi",href:"achats.html"},{n:rtEcart,t:"RT en écart caisse",d:"Avance ouverte non réconciliée",sev:"hi",href:"cash.html"},{n:sacRtNeg+sacClusNeg+sacProdNeg,t:"Soldes sacs négatifs",d:"Cluster / RT / producteur à corriger",sev:"hi",href:"sacs.html"},{n:qualCtrl,t:"Achats qualité à contrôler",d:"Humidité/KOR/rejet hors seuil",sev:"md",href:"achats.html"},{n:valBM,t:"Achats prix hors barème",d:"Validation BM requise",sev:"md",href:"achats.html"},{n:villNoRt.length,t:"Villages sans RT",d:"À mobiliser",sev:"lo",href:"../fbms/index.html"},{n:villNoGps.length,t:"Villages sans GPS",d:"Distance non fiable pour ALIS",sev:"lo",href:"../fbms/audit_distances.html"}].filter(x=>x.n>0).sort((a,b)=>({hi:0,md:1,lo:2}[a.sev]-{hi:0,md:1,lo:2}[b.sev]));$("todo").innerHTML=items.length?items.map(x=>'<a class="todo sev-'+x.sev+'" href="'+x.href+'"><span class="n">'+x.n+'</span><span><span class="t">'+esc(x.t)+'</span><br><span class="d">'+esc(x.d)+'</span></span><span class="go">→</span></a>').join(""):'<div class="state ok"><div class="ic">✓</div><b>Aucune anomalie aujourd\'hui</b><p>Les achats saisis ce jour respectent tous les contrôles (prix, humidité, plafond LBA).</p></div>';
-$("refTable").innerHTML=[["Clusters",Object.keys(villCluster).filter(Boolean).length],["Villages",vills.length],["RT",rts.length],["Achats lignes",achats.length],["Volume cumulé",mt(volKg)+" MT"],["Montant achats",fmt(montant)+" F"],["Commission RT",fmt(achats.reduce((s,a)=>s+(Number(a.commission_rt)||0),0))+" F"],["Objectif coût logistique",OBJ_COUT+" F/kg"]].map(r=>'<tr><td>'+esc(r[0])+'</td><td class="num"><b>'+esc(String(r[1]))+'</b></td></tr>').join("");
-const cmap={};Object.keys(villCluster).forEach(c=>{if(c)cmap[c]={label:villCluster[c].label,vil:villCluster[c].n,rt:rtByCluster[c]||0,vol:0,av:0,paye:0,sac:sacClus[c]||0};});achats.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].vol+=Number(a.poids_net)||0;cmap[c].paye+=Number(a.montant)||0;});avances.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].av+=Number(a.montant)||0;});const crows=Object.values(cmap).filter(x=>x.vil||x.rt||x.vol||x.av).sort((a,b)=>b.vol-a.vol);$("clusTable").innerHTML=crows.length?crows.map(x=>'<tr><td><b>'+esc(x.label||"—")+'</b></td><td class="num">'+x.vil+'</td><td class="num">'+x.rt+'</td><td class="num">'+mt(x.vol)+'</td><td class="num">'+fmt(x.av)+'</td><td class="num'+((x.av-x.paye)<0?' neg':'')+'">'+fmt(x.av-x.paye)+'</td><td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td></tr>').join(""):stateRow(7,'ok','✓','Aucune donnée cluster',"Aucun achat ni avance enregistré pour l'instant. Les clusters s'afficheront dès les premières saisies terrain.","");
-const rrisk=rts.map(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0,paye=payeByRt[k]||0,rec=reconByRt[k],sac=sacRt[k]||0;const reasons=[];if(av>0&&(!rec||rec.statut!=="Réconcilié"))reasons.push("Caisse");if(sac<0)reasons.push("Sacs");if(av-paye<0)reasons.push("Dépassement");return{nom:up(rtLabel(r)),cluster:up(rtCluster(r,vills)),av:av,solde:av-paye,rec:rec,sac:sac,risk:reasons.length,reasons:reasons};}).filter(x=>x.risk||x.av>0).sort((a,b)=>(b.risk-a.risk)||(b.av-a.av)).slice(0,60);$("rtTable").innerHTML=rrisk.length?rrisk.map(x=>{const rc=x.rec?('<span class="'+(x.rec.statut==="Réconcilié"?'pos':'neg')+'">'+esc(x.rec.statut)+'</span>'):(x.av>0?'<span class="badge bmd">À réconcilier</span>':'—');return '<tr><td><b>'+esc(x.nom||"—")+'</b></td><td>'+esc(x.cluster||"—")+'</td><td class="num">'+fmt(x.av)+'</td><td class="num'+(x.solde<0?' neg':'')+'">'+fmt(x.solde)+'</td><td>'+rc+'</td><td class="num'+(x.sac<0?' neg':'')+'">'+fmt(x.sac)+'</td><td>'+(x.reasons.length?'<span class="badge bhi">'+esc(x.reasons.join(' · '))+'</span>':'<span class="badge blo">Suivi</span>')+'</td></tr>';}).join(""):stateRow(7,'ok','✓','Aucun RT à risque',"Toutes les équipes RT sont à jour côté caisse, sacs et réconciliation.","");
-const now=new Date();$("upd").textContent="Actualisé à "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");}
-document.addEventListener("anagroci:authenticated",()=>{SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);loadAll();setInterval(renderLocal,30000);});
+TODO_ITEMS=[{n:local.pending,t:"Synchronisations en attente",d:"Données terrain non encore remontées",sev:"hi",href:"command.html"},{n:local.failed,t:"Échecs de synchronisation",d:"Reprendre avant clôture journalière",sev:"hi",href:"command.html"},{n:sansRecu,t:"Achats sans reçu",d:"Régulariser les preuves de paiement",sev:"hi",href:"achats.html"},{n:rtEcart,t:"RT en écart caisse",d:"Avance ouverte non réconciliée",sev:"hi",href:"cash.html"},{n:sacRtNeg+sacClusNeg+sacProdNeg,t:"Soldes sacs négatifs",d:"Cluster / RT / producteur à corriger",sev:"hi",href:"sacs.html"},{n:qualCtrl,t:"Achats qualité à contrôler",d:"Humidité/KOR/rejet hors seuil",sev:"md",href:"achats.html"},{n:valBM,t:"Achats prix hors barème",d:"Validation BM requise",sev:"md",href:"achats.html"},{n:villNoRt.length,t:"Villages sans RT",d:"À mobiliser",sev:"lo",href:"../fbms/index.html"},{n:villNoGps.length,t:"Villages sans GPS",d:"Distance non fiable pour ALIS",sev:"lo",href:"../fbms/audit_distances.html"}].filter(x=>x.n>0).sort((a,b)=>({hi:0,md:1,lo:2}[a.sev]-{hi:0,md:1,lo:2}[b.sev]));
+TODO_ALL=false;renderTodo();renderBouge();
+renderRef([["Clusters",Object.keys(villCluster).filter(Boolean).length],["Villages",vills.length],["RT",rts.length],["Achats lignes",achats.length],["Volume cumulé",mt(volKg)+" MT"],["Montant achats",fmt(montant)+" F"],["Commission RT",fmt(achats.reduce((s,a)=>s+(Number(a.commission_rt)||0),0))+" F"],["Objectif coût logistique",OBJ_COUT+" F/kg"]]);
+/* « Périmètre du jour » : les mêmes quatre grandeurs que le référentiel, sans
+   recompte — clusters, villages, équipes RT, lignes d'achat saisies. */
+renderPerimetre([["Clusters actifs",Object.keys(villCluster).filter(Boolean).length],["Villages couverts",vills.length],["Équipes RT",rts.length],["Lignes d'achat saisies",achats.length]]);
+const cmap={};Object.keys(villCluster).forEach(c=>{if(c)cmap[c]={cle:c,label:villCluster[c].label,vil:villCluster[c].n,rt:rtByCluster[c]||0,vol:0,av:0,paye:0,sac:sacClus[c]||0};});achats.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={cle:c,label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].vol+=Number(a.poids_net)||0;cmap[c].paye+=Number(a.montant)||0;});avances.forEach(a=>{const c=keyc(a.cluster||"");if(!cmap[c])cmap[c]={cle:c,label:up(a.cluster||"—"),vil:0,rt:0,vol:0,av:0,paye:0,sac:sacClus[c]||0};cmap[c].av+=Number(a.montant)||0;});
+CLUSTERS=Object.values(cmap).filter(x=>x.vil||x.rt||x.vol||x.av).sort((a,b)=>b.vol-a.vol);renderClusters();
+SACS_ROWS=CLUSTERS.map(x=>({cle:x.cle,label:x.label,sac:x.sac}));renderSacsCluster();renderZones();
+RT_ROWS=rts.map(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0,paye=payeByRt[k]||0,rec=reconByRt[k],sac=sacRt[k]||0;const reasons=[];if(av>0&&(!rec||rec.statut!=="Réconcilié"))reasons.push("Caisse");if(sac<0)reasons.push("Sacs");if(av-paye<0)reasons.push("Dépassement");return{nom:up(rtLabel(r)),cluster:up(rtCluster(r,vills)),av:av,solde:av-paye,rec:rec,sac:sac,risk:reasons.length,reasons:reasons};}).filter(x=>x.risk||x.av>0).sort((a,b)=>(b.risk-a.risk)||(b.av-a.av)).slice(0,60);
+RT_ALL=false;renderRt();
+/* Caisse & avances : mêmes agrégats `avByRt` / `payeByRt` / `reconByRt`. */
+AV_ROWS=rts.map(r=>{const k=String(r.id||keyc(rtLabel(r)));const av=avByRt[k]||0,paye=payeByRt[k]||0;return{nom:up(rtLabel(r)),cluster:up(rtCluster(r,vills)),av:av,paye:paye,solde:av-paye,rec:reconByRt[k]};}).filter(x=>x.av>0).sort((a,b)=>b.av-a.av);
+const nonReconcilie=AV_ROWS.filter(x=>!x.rec||x.rec.statut!=="Réconcilié").reduce((s,x)=>s+x.solde,0);
+$("cCash").textContent=fmt(totalAv)+" F";$("cSolde").textContent=fmt(soldeGlobal)+" F";$("cNonRec").textContent=fmt(nonReconcilie)+" F";
+$("cNonRecBox").className="k"+(nonReconcilie>0?" warn":"");
+$("caisseSub").textContent=AV_ROWS.length+" avance(s) ouverte(s) · "+recons.length+" réconciliation(s)";
+$("avResume").textContent=AV_ROWS.length+" équipe(s) RT";renderCaisse();
+$("sSacRt").textContent=fmt(sacRtTot);$("sSacClus").textContent=fmt(sacClusTot);$("sDech").textContent=fmt(dech);
+$("sDechBox").className="k"+(dech>0?" warn":"");
+$("sacsSub").textContent=sacs.length+" mouvement(s) enregistré(s)";
+$("sacsResume").textContent=SACS_ROWS.length+" cluster(s)";
+renderCtrlOuverts(recons.length,qualCtrl,dech);
+renderSitu(riskTotal);
+majCompteurs(TODO_ITEMS.length,RT_ROWS.filter(x=>x.risk).length);
+if(window.AFLP_IA_UI)AFLP_IA_UI.rafraichir({achats:achats,avances:avances,reconciliations:recons,sacs:sacs,villages:vills,rt:rts,parametres:par,fileLocale:{enAttente:local.pending,echecs:local.failed},dateRef:today(),client:SB,profil:(window.ANAGROCI_AUTH&&window.ANAGROCI_AUTH.profile)||null});
+if(window.AFLP_PRED_UI)AFLP_PRED_UI.rafraichir({achats:achats,avances:avances,reconciliations:recons,sacs:sacs,villages:vills,rt:rts,parametres:par,fileLocale:{enAttente:local.pending,echecs:local.failed},dateRef:today()});
+majResumesModules();
+LAST_LOAD=Date.now();majFraicheur();}
+
+document.addEventListener("anagroci:authenticated",(ev)=>{SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+/* Le lien d'administration n'est qu'un raccourci : la page qu'il ouvre applique
+   sa propre porte (auth-gate data-module="admin") et la base refuse de toute
+   façon toute écriture non autorisée. Le masquer évite un aller-retour inutile,
+   il ne protège rien. */
+if(ev&&ev.detail&&ev.detail.niveau==="bm"){const a=$("lienAdminIA");if(a)a.style.display="";}if(window.AFLP_IA_UI)AFLP_IA_UI.monter("aflpIa");if(window.AFLP_PRED_UI){AFLP_PRED_UI.monter("aflpPred");renderPredGrille();}loadAll();setInterval(renderLocal,30000);});
+
+/* Interface : indépendante de l'authentification, elle doit répondre même si
+   la porte n'est pas encore franchie (sinon la page paraît figée). */
+initOnglets();majReseau();
+$("clusFilter").addEventListener("input",renderClusters);
+$("clusSort").addEventListener("change",renderClusters);
+$("rtFilter").addEventListener("input",renderRt);
+$("rtMore").addEventListener("click",function(){RT_ALL=!RT_ALL;renderRt();});
+/* Puces d'action de l'Assistant IA : elles pilotent les vues du module. */
+document.querySelectorAll("[data-ia]").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.querySelectorAll("[data-ia]").forEach(function(o){o.classList.toggle("on",o===b);});
+    var t=$("aflp-tab-"+b.getAttribute("data-ia"));
+    if(t)t.click();
+  });
+});
+/* Cartes des Prévisions : chacune pilote l'onglet correspondant du module. La
+   grille est reconstruite à chaque clic pour que la carte active se voie. */
+$("predGrille").addEventListener("click",function(ev){
+  var c=ev.target.closest?ev.target.closest("[data-pred]"):null;
+  if(!c)return;
+  var b=$("aflpp-t-"+c.getAttribute("data-pred"));
+  if(b)b.click();
+  renderPredGrille();
+});
+window.addEventListener("online",majReseau);
+window.addEventListener("offline",majReseau);
+setInterval(majFraicheur,60000);
 </script>
 </body></html>

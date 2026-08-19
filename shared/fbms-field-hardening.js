@@ -7,7 +7,9 @@
   if(!/\/fbms\/index\.html$/.test(location.pathname)) return;
 
   var CSS = ''+
-  '#fbmsHardBtn{position:fixed;right:18px;bottom:86px;z-index:2147482500;border:0;border-radius:999px;background:#053B23;color:#fff;padding:12px 16px;font:700 13px IBM Plex Sans,Arial;box-shadow:0 14px 36px rgba(5,59,35,.28);cursor:pointer;border-bottom:3px solid #8DC556}'+
+  '#fbmsHardBtn{position:fixed;right:18px;bottom:86px;z-index:2147482500;border:0;border-radius:999px;background:#053B23;color:#fff;padding:12px 16px;font:700 13px IBM Plex Sans,Arial;box-shadow:0 14px 36px rgba(5,59,35,.28);cursor:pointer;border-bottom:3px solid #8DC556;white-space:nowrap;max-width:calc(100vw - 24px)}'+
+  /* Le bouton flottant est retiré : plus de hauteur à réserver sous le contenu. */
+  '#content{padding-bottom:24px}'+
   '#fbmsHardPanel{position:fixed;inset:0;z-index:2147482600;background:rgba(0,0,0,.55);display:none;align-items:stretch;justify-content:flex-end}'+
   '#fbmsHardPanel.on{display:flex}#fbmsHardBox{width:min(980px,100vw);height:100%;background:#F4F4F3;overflow:auto;font-family:IBM Plex Sans,Arial;color:#323131;box-shadow:-18px 0 50px rgba(0,0,0,.25)}'+
   '#fbmsHardHead{position:sticky;top:0;background:#053B23;color:#fff;padding:18px 22px;border-bottom:3px solid #8DC556;display:flex;gap:12px;align-items:center;z-index:2}'+
@@ -111,7 +113,11 @@
 
   function buildUI(){
     addStyle();
-    if(!document.getElementById('fbmsHardBtn')){ var b=document.createElement('button'); b.id='fbmsHardBtn'; b.textContent='Activation Terrain'; b.onclick=openActivation; document.body.appendChild(b); }
+    /* 2026-08-16 — arbitrage Branch Manager : le bouton flottant « Activation
+       Terrain » n'est plus affiché (il recouvrait les cartes KPI et s'imposait
+       à tous les rôles, y compris Read Only et RT). Le panneau et le contrôle
+       qualité restent disponibles à la demande : FBMSHardening.openActivation().
+       Les garde-fous du fichier (patchClearLocal, patchRemote) sont intacts. */
     if(!document.getElementById('fbmsHardPanel')){ var p=document.createElement('div'); p.id='fbmsHardPanel'; p.innerHTML='<div id="fbmsHardBox"><div id="fbmsHardHead"><div><h2>Activation Terrain</h2><p>Contrôle qualité FBMS · villages · RT · producteurs · préparation achats/caisse/sacs</p></div><div class="sp"></div><button class="fhbtn fhcopy" onclick="FBMSHardening.copyActivation()">Copier</button><button class="fhbtn fhclose" onclick="FBMSHardening.closeActivation()">Fermer</button></div><div id="fbmsHardBody"><div id="fbmsHardContent"></div></div></div>'; p.addEventListener('click',function(e){if(e.target===p) closeActivation();}); document.body.appendChild(p); }
   }
 

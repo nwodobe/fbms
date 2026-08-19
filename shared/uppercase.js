@@ -35,7 +35,7 @@
     if (ac.indexOf("password") >= 0 || ac === "username" || ac === "email" || ac === "one-time-code") return true;
     var idn = ((el.id || "") + " " + (el.name || ""));
     if (SENSITIVE.test(idn)) return true;
-    if ((el.value || "").indexOf("@") >= 0) return true;   // ressemble à un email
+    if ((el.value || "").indexOf("@") >= 0) return true;
     return false;
   }
 
@@ -50,12 +50,9 @@
     try { if (a != null) el.setSelectionRange(a, b); } catch (e) { /* selection non supportée */ }
   }
 
-  // Capture : on normalise avant les gestionnaires de la page (recherche, filtres…).
   document.addEventListener("input", function (e) { upcase(e.target); }, true);
   document.addEventListener("change", function (e) { upcase(e.target); }, true);
 
-  // Hardening FIELD BUYING : injecté seulement sur le référentiel FBMS.
-  // Le chargement reste non destructif et ne touche pas aux autres modules.
   function loadFieldBuyingHardening(){
     try {
       if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
@@ -68,7 +65,65 @@
     } catch (e) { /* ignorer */ }
   }
 
-  // Hardening ALIS : injecté seulement sur le module logistique officiel.
+  function loadFieldBuyingDashboardAudit(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      if (document.getElementById("fbms-dashboard-audit-script")) return;
+      var s = document.createElement("script");
+      s.id = "fbms-dashboard-audit-script";
+      s.defer = true;
+      s.src = "../shared/fbms-dashboard-audit.js?v=20260807-audit";
+      document.head.appendChild(s);
+    } catch (e) { /* ignorer */ }
+  }
+
+  function appendScript(id, src){
+    if (document.getElementById(id)) return;
+    var s = document.createElement("script");
+    s.id = id;
+    s.defer = true;
+    s.src = src;
+    document.head.appendChild(s);
+  }
+
+  function loadFarmerRegistryPhase1(){
+    try {
+      if (!/\/fbms\/index\.html$/.test(location.pathname)) return;
+      appendScript(
+        "farmer-enrollment-phase1-script",
+        "../shared/farmer-enrollment-phase1.js?v=20260818-phase1-1"
+      );
+      appendScript(
+        "farmer-registry-read-phase1-script",
+        "../shared/farmer-registry-read-phase1.js?v=20260818-phase1"
+      );
+      appendScript(
+        "farmer-registry-privacy-phase1-script",
+        "../shared/farmer-registry-privacy-phase1.js?v=20260818-phase1-2"
+      );
+      appendScript(
+        "farmer-registry-sync-script",
+        "../shared/farmer-registry-sync.js?v=20260818-complete-2"
+      );
+      appendScript(
+        "farmer-registry-sync-policy-script",
+        "../shared/farmer-registry-sync-policy.js?v=20260818-complete-1"
+      );
+      appendScript(
+        "farmer-registry-assessment-script",
+        "../shared/farmer-registry-assessment.js?v=20260818-complete-1"
+      );
+      appendScript(
+        "farmer-registry-passport-script",
+        "../shared/farmer-registry-passport.js?v=20260818-complete-1"
+      );
+      appendScript(
+        "farmer-registry-operations-script",
+        "../shared/farmer-registry-operations.js?v=20260818-complete-1"
+      );
+    } catch (e) { /* ignorer */ }
+  }
+
   function loadALISHardening(){
     try {
       if (!/\/logistique\/alis_fbms\.html$/.test(location.pathname)) return;
@@ -81,7 +136,6 @@
     } catch (e) { /* ignorer */ }
   }
 
-  // Correctif Audit Distances : sauvegarde GPS hub avec id_hub au lieu de id.
   function loadAuditDistancesFix(){
     try {
       if (!/\/fbms\/audit_distances\.html$/.test(location.pathname)) return;
@@ -96,6 +150,8 @@
 
   function loadRuntimeHardening(){
     loadFieldBuyingHardening();
+    loadFieldBuyingDashboardAudit();
+    loadFarmerRegistryPhase1();
     loadALISHardening();
     loadAuditDistancesFix();
   }

@@ -22,6 +22,15 @@
     "Lecture seule, aucun export sensible.":"Read-only, no sensitive exports.",
     "Tableau de bord":"Dashboard","Recensement":"Census","Base de données":"Database","Base RT":"RT Base","Producteurs":"Producers","Cartographie":"Map","Galerie photos":"Photo gallery","Statistiques":"Statistics","Administration":"Administration"
   };
+
+  /* Libellés traduits UNIQUEMENT sur correspondance exacte du nœud entier.
+     Ils ne rejoignent jamais la boucle de sous-chaînes de `tr`, contrairement à
+     D : « Part » y transformerait « Partiellement » en « Sharediellement », et
+     le dépôt contient bien ce mot. Réservé aux en-têtes courts qui forment à
+     eux seuls le texte de leur cellule. */
+  var E={
+    "Part":"Share"
+  };
   function lang(){return localStorage.getItem(KEY)==="en"?"en":"fr"}
   function clean(s){return String(s==null?"":s).replace(/\u00a0/g," ").replace(/\s+/g," ").trim()}
   function keys(){return Object.keys(D).sort(function(a,b){return b.length-a.length})}
@@ -30,6 +39,7 @@
     if(lang()!=="en") return s;
     var a=String(s==null?"":s), lead=(a.match(/^\s*/)||[""])[0], tail=(a.match(/\s*$/)||[""])[0], x=clean(a);
     if(!x) return s;
+    if(E[x]) return lead+E[x]+tail;   /* exact seulement, jamais en sous-chaîne */
     if(D[x]) return lead+D[x]+tail;
     var out=x;(sortedKeys||(sortedKeys=keys())).forEach(function(k){if(k.length>2&&out.indexOf(k)>=0)out=out.split(k).join(D[k])});
     return lead+out+tail;

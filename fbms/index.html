@@ -29,6 +29,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- v0.15 : client Supabase (auth + base PostgreSQL). UMD → window.supabase. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- AFLP 2027 : rôles, périmètres (zone / cluster / village) et matrice de
+     permissions. Source unique de vérité des droits — chargée AVANT l'app. -->
+<script src="../shared/aflp-access.js"></script>
 
 <style>
   #mainMap, #formMiniMap{ z-index:0; }
@@ -313,6 +316,7 @@ const I18N_EN = {
   "Vue consolidée de la campagne de recensement villages — Field Buying 2027.":"Consolidated view of the village census campaign — Field Buying 2027.",
   // Graphiques
   "Potentiel (MT) par région":"Potential (MT) by region", "Top villages (score)":"Top villages (score)",
+  "trié par score":"sorted by score", "Village · sous-préfecture":"Village · sub-prefecture",
   "Évolution des recensements":"Census progress", "Classement enquêteurs":"Surveyor ranking",
   "Répartition par classement":"Breakdown by rating", "Villages par département":"Villages by department",
   // KPI
@@ -344,6 +348,13 @@ const I18N_EN = {
   "Section 7 · Identification RT":"Section 7 · RT identification",
   "Section 8 · Conformité":"Section 8 · Compliance",
   "Section 9 · Évaluation enquêteur":"Section 9 · Surveyor assessment",
+  "Non évalué":"Not evaluated", "critères notés":"criteria rated",
+  "Renseignez les 5 critères pour obtenir le classement.":"Rate all 5 criteria to get the ranking.",
+  "Score global (/100) · classement automatique":"Overall score (/100) · automatic ranking",
+  "À activer en premier sur la campagne.":"Activate first in the campaign.",
+  "Éligible, à planifier après les villages prioritaires.":"Eligible, to schedule after priority villages.",
+  "Seconde visite recommandée avant décision.":"Second visit recommended before decision.",
+  "Sous le seuil d'activation. Justifiez la décision.":"Below the activation threshold. Justify the decision.",
   "Photos obligatoires":"Required photos",
   // Champs du formulaire
   "Région":"Region", "Département":"Department", "Sous-préfecture":"Sub-prefecture",
@@ -380,6 +391,8 @@ const I18N_EN = {
   "Pas de conflit communautaire majeur":"No major community conflict",
   // SWOT + fiche village
   "Forces":"Strengths", "Faiblesses":"Weaknesses", "Opportunités":"Opportunities", "Menaces":"Threats",
+  "Atouts":"Strengths", "Points de vigilance":"Watch points", "Analyse automatique":"Automatic analysis",
+  "Analyse indisponible — complétez la fiche.":"Analysis unavailable — complete the form.",
   "Analyse SWOT automatique":"Automatic SWOT analysis", "Autorités locales":"Local authorities",
   "Infrastructure & paiement":"Infrastructure & payment", "Photos":"Photos",
   // Boutons et libellés communs
@@ -519,16 +532,43 @@ const TIERS = [
 ];
 function tierFor(score){ return TIERS.find(t=>score>=t.min) || TIERS[TIERS.length-1]; }
 
-const ROLES = ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"];
-const ROLE_RIGHTS = {
-  "Branch Manager":"Accès total : validation, exports, administration.",
-  "Assistant Branch Manager":"Accès total en lecture/écriture, sans gestion des utilisateurs.",
-  "Head of Field":"Supervision recensements, validation RT, cartographie.",
-  "Procurement Officer":"Consultation complète, exports, priorisation achats.",
-  "Supervisor":"Validation des fiches de son périmètre géographique.",
-  "Agent Recenseur":"Création et modification de ses propres fiches uniquement.",
-  "Consultation uniquement":"Lecture seule, aucun export sensible.",
-};
+/* ------------------------- RÔLES — AFLP 2027 ------------------------------
+   La liste des rôles, leurs permissions et la hiérarchie des périmètres
+   viennent de shared/aflp-access.js (source unique). ROLES garde la forme
+   d'un tableau de LIBELLÉS : aucune liste déroulante existante ne casse.
+   Les rôles historiques restent proposés tant que des comptes en dépendent. */
+const ACL = window.AFLP_ACCESS;
+const ROLES_AFLP = ACL.ROLES.map(r=>r.label);
+const ROLES_LEGACY = ACL.LEGACY.map(r=>r.label);
+const ROLES = ROLES_AFLP.concat(ROLES_LEGACY);
+const ROLE_RIGHTS = {};
+ACL.ROLES.concat(ACL.LEGACY).forEach(r=>{ ROLE_RIGHTS[r.label] = r.resume || r.note || ""; });
+
+/** Utilisateur courant normalisé : rôle + zone + cluster + village +
+ *  permissions + statut + niveau d'autorité. Jamais lu ailleurs qu'ici. */
+function ME(){
+  const s = AUTH.isConnected() ? AUTH.session : null;
+  return ACL.normalizeUser(s
+    ? { nom:s.nom, email:s.email, role:s.role, actif:true, zone:s.zone, cluster:s.cluster, village_id:s.village, rt_id:s.rtId }
+    : { nom:"Session locale", email:"", role: STATE.role, actif:true });
+}
+/** Contrôle d'accès central : rôle + permission + zone + cluster + village.
+ *  Utilisé pour l'affichage ET pour la logique de données (jamais l'un sans
+ *  l'autre : masquer un bouton ne protège rien). En mode local sans backend,
+ *  il n'y a pas de compte à opposer — l'appareil est le périmètre. */
+function can(action, resource, cible){
+  if (!isSupabase() && !AUTH.isConnected()) return true;
+  return ACL.can(ME(), action, resource, cible);
+}
+function scopedVillages(){
+  return (isSupabase() && AUTH.isConnected()) ? ACL.filterByScope(ME(), STATE.villages) : STATE.villages;
+}
+function scopedRT(){
+  return (isSupabase() && AUTH.isConnected())
+    ? ACL.filterByScope(ME(), STATE.rt, r=>({ cluster: rtClusterOf(r), villageId: r.villageId }))
+    : STATE.rt;
+}
+function refuse(action, resource, cible){ alert(ACL.refus(ME(), action, resource, cible)); }
 
 /* ------------------------- STATUTS DE FICHE — v0.12 -----------------------
    Circuit simplifié (décision direction) : l'Agent recense et Soumet, le BM
@@ -552,9 +592,9 @@ function statutPillHTML(s){
 }
 /** Statuts qu'un utilisateur peut poser (circuit souple ; revérifié serveur). */
 function statutsAutorises(){
-  const role = AUTH.isConnected() ? AUTH.session.role : STATE.role;
-  if (role === "Consultation uniquement") return [];
-  if (role === "Agent Recenseur") return ["Brouillon","Soumis"];
+  const me = ME();
+  if (!ACL.can(me, "update", "villages")) return [];
+  if (!ACL.can(me, "validate", "villages")) return ["Brouillon","Soumis"];
   return STATUTS.map(s=>s.key);
 }
 
@@ -621,7 +661,7 @@ const PHOTO_SLOTS = [["entree","Entrée du village"],["chef","Chef du village"],
 function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function pick(arr){ return arr[rand(0,arr.length-1)]; }
 function bool(p=0.5){ return Math.random()<p; }
-function esc(s){ return (s===undefined||s===null) ? "" : String(s).replace(/"/g,"&quot;"); }
+function esc(s){ return (s===undefined||s===null) ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 
 /**
  * v0.11.3 : coordonnée GPS robuste. Accepte les saisies terrain françaises :
@@ -740,6 +780,24 @@ function swotFor(v, score){
     : tier.key==="approfondir" ? "Compléter le dossier (RT, infrastructure) avant toute décision d'investissement."
     : "Ne pas engager de ressources sur ce village dans l'état actuel du dossier.";
   return { forces, faiblesses, opportunites, menaces, recommandation, tier };
+}
+
+/* Analyse fusionnée en deux listes (audit Base de données) : Atouts =
+   forces + opportunités ; Points de vigilance = faiblesses + menaces.
+   Remplace le SWOT à 4 quadrants dont deux souvent vides. */
+function analyseListsHTML(swot){
+  const atouts = swot.forces.concat(swot.opportunites);
+  const vigilance = swot.faiblesses.concat(swot.menaces);
+  const list = (items,color) => items.length
+    ? '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px">'
+      + items.map(it=>'<li style="display:flex;gap:10px;font-size:13px;line-height:1.5;color:'+T.ink+'"><span style="width:3px;flex:none;border-radius:2px;background:'+color+'"></span><span>'+it+'</span></li>').join('')
+      + '</ul>'
+    : '<p style="font-size:12px;color:'+T.inkSoft+';margin:0">—</p>';
+  let h='';
+  if (atouts.length) h += '<div style="margin-bottom:16px"><h4 style="margin:0 0 8px;font-size:13px;font-weight:600;color:'+T.forest700+'">'+t('Atouts')+'</h4>'+list(atouts,T.emerald)+'</div>';
+  if (vigilance.length) h += '<div><h4 style="margin:0 0 8px;font-size:13px;font-weight:600;color:'+T.cashewDeep+'">'+t('Points de vigilance')+'</h4>'+list(vigilance,T.orange)+'</div>';
+  if (!atouts.length && !vigilance.length) h = '<p style="font-size:12px;color:'+T.inkSoft+';margin:0">'+t('Analyse indisponible — complétez la fiche.')+'</p>';
+  return h;
 }
 
 /* ============================================================================
@@ -911,9 +969,11 @@ const AUTH = {
       initSupabase();
       const { data, error } = await SB.auth.signInWithPassword({ email: email, password: pin });
       if (error) throw new Error(sbErr(error));
-      const { data: profil, error: e2 } = await SB.from("profils").select("nom, role, actif").eq("user_id", data.user.id).single();
+      const { data: profil, error: e2 } = await SB.from("profils").select("*").eq("user_id", data.user.id).single();
       if (e2 || !profil || !profil.actif){ try{ await SB.auth.signOut(); }catch(e){} throw new Error(t("Compte inactif ou profil manquant. Contactez l'administrateur.")); }
-      this.session = { token: data.session.access_token, email: email, nom: profil.nom, role: profil.role, connectedAt: new Date().toISOString() };
+      this.session = { token: data.session.access_token, email: email, nom: profil.nom, role: profil.role,
+        zone: profil.zone || null, cluster: profil.cluster || null, village: profil.village_id || null, rtId: profil.rt_id || null,
+        connectedAt: new Date().toISOString() };
       this.persist();
       STATE.role = profil.role;
       return this.session;
@@ -962,7 +1022,7 @@ const AUTH = {
         const su = data.session.user;
         let profil = null;
         try{
-          const r = await SB.from("profils").select("nom, role, actif").eq("user_id", su.id).single();
+          const r = await SB.from("profils").select("*").eq("user_id", su.id).single();
           profil = r.data || null;
         }catch(e){ /* profil injoignable : on reconstruit avec ce qu'on a */ }
         if (profil && !profil.actif){ this.session = null; this.persist(); try{ await SB.auth.signOut(); }catch(e){} return false; }
@@ -971,6 +1031,10 @@ const AUTH = {
           email: (su.email || (this.session && this.session.email) || "").toLowerCase(),
           nom: (profil && profil.nom) || (this.session && this.session.nom) || su.email,
           role: (profil && profil.role) || (this.session && this.session.role) || STATE.role,
+          zone: (profil && profil.zone) || (this.session && this.session.zone) || null,
+          cluster: (profil && profil.cluster) || (this.session && this.session.cluster) || null,
+          village: (profil && profil.village_id) || (this.session && this.session.village) || null,
+          rtId: (profil && profil.rt_id) || (this.session && this.session.rtId) || null,
           connectedAt: (this.session && this.session.connectedAt) || new Date().toISOString(),
         };
         if (profil) STATE.role = profil.role;
@@ -1118,15 +1182,29 @@ const RemoteUsers = {
   async list(){
     if (isSupabase()){
       initSupabase();
-      const { data, error } = await SB.from("profils").select("email, nom, role, actif").order("email");
+      /* select("*") volontaire : les colonnes de périmètre (zone, cluster,
+         village_id, authority_level) peuvent ne pas encore exister sur une
+         base non migrée — la page continue de fonctionner sans elles. */
+      const { data, error } = await SB.from("profils").select("*").order("email");
       if (error) throw new Error(sbErr(error));
       return data;
     }
     const r = await callBackend("users.list", {}); return r.users || [];
   },
-  async create(email, nom, role, pin){
+  async create(email, nom, role, pin, scope){
+    scope = scope || {};
     if (isSupabase()) throw new Error(t("Création de compte : Supabase Dashboard > Authentication > Users (email + mot de passe), puis la ligne profils. Voir l'administrateur système."));
-    return await callBackend("users.create", { email: email, nom: nom, role: role, pin: pin });
+    return await callBackend("users.create", Object.assign({ email: email, nom: nom, role: role, pin: pin }, scope));
+  },
+  /** Périmètre d'un compte : zone / cluster / village / niveau d'autorité. */
+  async setScope(email, scope){
+    if (isSupabase()){
+      initSupabase();
+      const { error } = await SB.from("profils").update(scope).eq("email", email);
+      if (error) throw new Error(sbErr(error));
+      return { ok:true };
+    }
+    return await callBackend("users.setScope", Object.assign({ email: email }, scope));
   },
   async setActive(email, actif){
     if (isSupabase()){
@@ -1751,7 +1829,7 @@ const STATE = {
   rtQuery: "", rtStatutFilter: "", rtClusterFilter: "",
   prodVillageId: "", prodQuery: "", prodStatutFilter: "",
   query: "", drawerId: null, formId: null,
-  regionFilter: "", tierFilter: "", statutFilter: "", camionOnly: false,
+  regionFilter: "", clusterFilter: "", tierFilter: "", statutFilter: "", camionOnly: false,
   sortKey: "score", sortDir: "desc", page: 1, pageSize: 8, dbView: "table",
 };
 let CHARTS = {};
@@ -1797,11 +1875,30 @@ function kpiCardHTML(iconName, label, value, sub, accent){
     + (sub ? '<div class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">'+sub+'</div>' : '')
     + '</div>';
 }
+/**
+ * Déclenche le téléchargement d'un Blob sous un nom donné.
+ *
+ * Une SECONDE fonction du même nom, de signature (content, mime, filename),
+ * était déclarée plus bas dans ce même script. En JavaScript la dernière
+ * déclaration l'emporte : c'est elle qui recevait les appels d'exportCSV() et
+ * exportJSON(), qui passent (blob, nomFichier). Le nom du fichier arrivait
+ * donc dans le paramètre `mime`, et `filename` restait undefined — les deux
+ * exports sortaient un fichier « undefined.txt » (constaté dans Chromium), le
+ * second écrasant le premier dans le dossier de téléchargement. Le contenu,
+ * lui, était intact : un Blob imbriqué dans un Blob conserve ses octets, ce
+ * qui explique que le défaut soit passé inaperçu.
+ *
+ * Les deux fonctions sont ici ramenées à une seule, qui garde la mécanique la
+ * plus sûre des deux : l'ancre est attachée au document avant le clic, et
+ * l'URL objet n'est révoquée qu'après un délai — la révoquer immédiatement
+ * après click() annule le téléchargement sur certains navigateurs.
+ */
 function downloadBlob(blob, filename){
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 function inputStyleAttr(){ return 'background:'+T.cream+';border:1px solid '+T.line+';color:'+T.ink+';'; }
 
@@ -2036,7 +2133,7 @@ function handleNavClick(key){
   buildSidebar(); renderContent();
 }
 function openNew(){ STATE.active="form"; STATE.formId="new"; buildSidebar(); renderContent(); }
-function openEdit(id){ if (!canEditVillages()){ refuseEditVillage(); return; } closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
+function openEdit(id){ if (!canEditVillages(STATE.villages.find(v=>v.id===id))){ refuseEditVillage(); return; } closeDrawer(); STATE.active="form"; STATE.formId=id; buildSidebar(); renderContent(); }
 function cancelForm(){
   try{ localStorage.removeItem("fbms_form_draft"); }catch(e){} // v0.11.1 : annulation = brouillon abandonné
   STATE.active="database"; STATE.formId=null; buildSidebar(); renderContent();
@@ -2047,7 +2144,7 @@ function closeDrawer(){ STATE.drawerId=null; document.getElementById("drawer-roo
 async function saveForm(){
   // Modification d'une fiche existante reservee a l'administrateur (la creation
   // d'une nouvelle fiche reste ouverte). Double barriere avec la RLS Supabase.
-  if (STATE.formId !== "new" && !canEditVillages()){ refuseEditVillage(); return; }
+  if (STATE.formId !== "new" && !canEditVillages(STATE.villages.find(v=>v.id===STATE.formId))){ refuseEditVillage(); return; }
   const base = STATE.formId==="new" ? blankVillage() : STATE.villages.find(v=>v.id===STATE.formId);
   const draft = collectFormData(base);
   // v0.11.3 : normalisation GPS à l'enregistrement (virgule → point, espaces retirés).
@@ -2115,9 +2212,9 @@ async function saveForm(){
  * par trigger, donc c'est une double barrière (UX + serveur). En mode local /
  * Apps Script, comportement inchangé.
  */
-function canDelete(){
+function canDelete(v){
   if (!isSupabase()) return true;
-  return AUTH.isConnected() && AUTH.session.role === "Branch Manager";
+  return AUTH.isConnected() && can("delete", "villages", v);
 }
 function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fiches. Contactez l'administrateur.")); }
 
@@ -2126,10 +2223,12 @@ function refuseDelete(){ alert(t("Seul le Branch Manager peut supprimer des fich
  * — dont l'AGENT RECENSEUR — peuvent modifier ; seul « Consultation uniquement »
  * est en lecture seule (et n'a de toute facon pas acces a ce module). En mode
  * local (sans auth), edition libre. La vraie barriere reste la RLS Supabase. */
-const EDIT_TERRAIN_ROLES = ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur"];
-function canEditVillages(){
+/* v1.0 AFLP : plus de liste de rôles en dur. Le droit d'écrire une fiche
+   dépend du rôle ET du cluster de la fiche (un Unit Head DIABO ne modifie
+   pas une fiche de BROBO, même en forçant l'identifiant). */
+function canEditVillages(v){
   if (!isSupabase()) return true;
-  return AUTH.isConnected() && EDIT_TERRAIN_ROLES.indexOf(AUTH.session.role) >= 0;
+  return AUTH.isConnected() && can("update", "villages", v);
 }
 function refuseEditVillage(){ alert(t("Consultation seule : votre rôle ne permet pas de modifier cette fiche.")); }
 
@@ -2156,7 +2255,7 @@ function collectFormData(baseRecord){
     const path = el.dataset.path;
     let val;
     if (el.type==="checkbox") val = el.checked;
-    else if (el.type==="number" || el.type==="range") val = el.value==="" ? "" : Number(el.value);
+    else if (el.type==="number" || el.type==="range" || el.dataset.num) val = el.value==="" ? "" : Number(el.value);
     else val = el.value;
     setPath(draft, path, val);
   });
@@ -2225,7 +2324,9 @@ function DashboardView(){
   const regions = Object.values(rmap).sort((a,b)=>b.mt-a.mt);
   const maxRegMt = Math.max(1, ...regions.map(r=>r.mt));
   const weeks = computeEvolution(); const maxN = Math.max(1, ...weeks.map(w=>w.n));
-  const ring = s => 'width:38px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:conic-gradient('+T.emerald+' '+(Math.max(0,Math.min(100,s))*3.6)+'deg,'+T.cream100+' 0)';
+  /* Pastille de score : l'anneau (jauge conique) est retiré — sur le haut du
+     tableau (scores ~84-89) il paraissait toujours plein, donc decoratif et non
+     informatif. Le nombre dans la pastille suffit. */
 
   // ---- Bande hero ----
   let html = '<div class="dash-hero">'
@@ -2262,19 +2363,16 @@ function DashboardView(){
   // ---- Rangee 1 : Potentiel par region + Top villages ----
   html += '<div class="dash-row">';
   html += '<div class="dash-card">'
-    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">MT · '+t('campagne 2027')+'</span></div>'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px"><h2 class="dash-h">'+t('Potentiel par région')+'</h2><div class="ff-body" style="display:flex;align-items:center;gap:16px;font-size:11.5px;color:'+T.inkSoft+'"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+T.emerald+';margin-right:5px;vertical-align:middle"></span>'+t('Sécurisé')+'</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+T.cream100+';margin-right:5px;vertical-align:middle"></span>'+t('Reste à sécuriser')+'</span></div></div>'
     + '<div style="display:flex;flex-direction:column;gap:16px">';
   if (!regions.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucune donnée de recensement — lancez le Recensement pour voir le potentiel par région.')+'</div>';
   regions.forEach(r=>{
-    html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
+    const trackW=(r.mt/maxRegMt*100), fillW=r.mt>0?(r.sec/r.mt*100):0;
+    html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">'
       + '<span class="ff-body" style="font-weight:600;font-size:14px">'+esc(r.name)+' <span style="color:'+T.inkSoft+';font-weight:400;font-size:12.5px">· '+r.villages+' '+t('villages')+'</span></span>'
-      + '<span class="ff-mono" style="font-size:14px;color:'+T.forestDark+';font-weight:600">'+fmtN(r.mt)+' MT</span></div>'
-      + '<div style="height:24px;background:'+T.cream+';border-radius:7px;overflow:hidden;position:relative">'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.mt/maxRegMt*100)+'%;background:'+T.emerald+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div>'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+(r.sec/maxRegMt*100)+'%;background:'+T.cashew+';border-radius:7px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div>'
-      + '<div style="display:flex;gap:16px;margin-top:5px;font-size:11.5px;color:'+T.inkSoft+'" class="ff-body">'
-      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.emerald+';margin-right:5px"></span>'+t('Potentiel')+'</span>'
-      + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+T.cashew+';margin-right:5px"></span>'+t('Sécurisé')+' · <span class="ff-mono">'+fmtN(r.sec)+' MT</span></span></div></div>';
+      + '<span class="ff-mono" style="font-size:13px;color:'+T.inkSoft+'"><b style="color:'+T.forestDark+'">'+fmtN(r.sec)+'</b> / '+fmtN(r.mt)+' MT</span></div>'
+      + '<div style="height:22px;background:'+T.cream100+';border-radius:4px;overflow:hidden;width:'+trackW+'%;min-width:10px">'
+      + '<div style="height:100%;width:'+fillW+'%;background:'+T.emerald+';border-radius:4px;transform-origin:left;animation:dashBar .9s cubic-bezier(.22,1,.36,1)"></div></div></div>';
   });
   html += '</div>'
     + '<div style="margin-top:20px;padding-top:16px;border-top:1px solid '+T.line+';display:flex;gap:28px;flex-wrap:wrap">'
@@ -2283,22 +2381,28 @@ function DashboardView(){
     + '<div><div class="ff-body" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:'+T.inkSoft+'">'+t('Reste à sécuriser')+'</div><div class="ff-mono" style="font-size:18px;font-weight:600;color:'+T.orange+';margin-top:3px">'+fmtN(reste)+' MT</div></div>'
     + '</div></div>';
 
-  html += '<div class="dash-card"><h2 class="dash-h" style="margin-bottom:14px">'+t('Top villages (score)')+'</h2><div style="display:flex;flex-direction:column">';
-  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px">'+t('Aucun village recensé — commencez par l\'onglet Recensement.')+'</div>';
+  html += '<div class="dash-card" style="padding:0;overflow:hidden">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;padding:22px 22px 14px"><h2 class="dash-h">'+t('Top villages (score)')+'</h2><span class="ff-body" style="font-size:12px;color:'+T.inkSoft+'">'+t('trié par score')+'</span></div>'
+    + '<div style="display:flex;align-items:center;gap:14px;padding:8px 22px;background:'+T.cream+';border-top:1px solid '+T.line+';border-bottom:1px solid '+T.line+';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:'+T.inkSoft+';font-weight:600" class="ff-body">'
+    + '<span style="width:16px">#</span><span style="flex:1">'+t('Village · sous-préfecture')+'</span><span>'+t('Score')+'</span></div>';
+  if (!topVillages.length) html += '<div class="ff-body" style="color:'+T.inkSoft+';font-size:13px;padding:16px 22px">'+t('Aucun village recensé — commencez par l\'onglet Recensement.')+'</div>';
   topVillages.forEach(({v,score},i)=>{
-    html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow">'
-      + '<span class="ff-mono" style="font-size:12px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
-      + '<div style="min-width:0;flex:1"><div class="ff-body" style="font-weight:600;font-size:13.5px;color:'+T.ink+'">'+esc(v.s1.village||"Sans nom")+'</div>'
-      + '<div class="ff-body" style="font-size:11.5px;color:'+T.inkSoft+'">'+esc(v.s1.departement||v.s1.cluster||"")+'</div></div>'
-      + '<div style="'+ring(score)+'"><div style="width:30px;height:30px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center" class="ff-mono"><span style="font-size:12px;font-weight:600;color:'+T.forestDark+'">'+Math.round(score)+'</span></div></div></button>';
+    const p1=score>=80;
+    html += '<button onclick="openVillage(\''+v.id+'\')" class="dash-vrow" style="padding:13px 22px">'
+      + '<span class="ff-mono" style="font-size:13px;color:#A3A1A1;width:16px">'+(i+1)+'</span>'
+      + '<div style="min-width:0;flex:1"><div class="ff-body" style="font-weight:600;font-size:15px;color:'+T.ink+'">'+esc(v.s1.village||"Sans nom")+'</div>'
+      + '<div class="ff-body" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;color:#565555;margin-top:3px">'+esc(v.s1.departement||v.s1.cluster||"—")+'</div></div>'
+      + '<div style="display:flex;align-items:center;gap:10px;flex:0 0 auto">'
+      + '<span class="ff-mono" style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.06em;background:'+(p1?T.cream100:'#F4F4F3')+';color:'+(p1?T.forest700:T.inkSoft)+'">'+(p1?'P1':'P2')+'</span>'
+      + '<span class="ff-mono" style="font-size:20px;font-weight:600;color:'+T.forestDark+';width:30px;text-align:right">'+Math.round(score)+'</span></div></button>';
   });
-  html += '</div></div></div>';
+  html += '</div></div>';
 
   // ---- Rangee 2 : Progression census + Classement enqueteurs ----
   html += '<div class="dash-row">';
   html += '<div class="dash-card">'
     + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px"><h2 class="dash-h">'+t('Progression du census')+'</h2><span class="ff-mono" style="font-size:12px;color:'+T.inkSoft+'">'+villages.length+' '+t('villages')+'</span></div>'
-    + '<div style="display:flex;align-items:flex-end;gap:14px;height:130px">';
+    + '<div style="display:flex;align-items:flex-end;gap:14px;height:130px;border-bottom:1px solid '+T.line+';padding-bottom:2px">';
   weeks.forEach((w,i)=>{
     const h = Math.max(4, Math.round(w.n/maxN*96));
     const last = i===weeks.length-1;
@@ -2343,10 +2447,29 @@ function mountDashboardCharts(){
 /* ============================================================================
    BASE DE DONNÉES
    ========================================================================== */
+/** Cluster d'une fiche village, normalisé pour l'affichage : espaces de bord
+ *  retirés, majuscules. Retourne "" si le champ est absent, nul ou vide — une
+ *  fiche sans cluster ne doit jamais provoquer d'erreur. */
+function villageClusterOf(v){
+  const c = (v && ((v.s1 && v.s1.cluster) || v.cluster)) || "";
+  return String(c).trim().toUpperCase();
+}
+/** Clusters réellement présents dans les fiches villages, dédupliqués sur la
+ *  clé normalisée (ckey : sans accents ni séparateurs) et triés alphabétiquement.
+ *  Aucun nom de cluster n'est codé en dur : la liste suit la base. */
+function villageClusterOptions(){
+  const seen = {}, out = [];
+  STATE.villages.forEach(v=>{ const c = villageClusterOf(v); if (c && !seen[ckey(c)]){ seen[ckey(c)] = 1; out.push(c); } });
+  return out.sort((a,b)=>a.localeCompare(b,"fr"));
+}
+
 function getFilteredVillages(){
-  let rows = STATE.villages.map(v=>({v,score:scoreOf(v)}));
-  if (STATE.query) rows = rows.filter(({v})=> (v.s1.village+" "+v.s1.enqueteur+" "+v.s1.cluster+" "+v.s1.departement).toLowerCase().includes(STATE.query.toLowerCase()));
+  /* Périmètre AVANT tout : affichage, recherche, statistiques et exports
+     partent tous de cette liste. Un cluster hors périmètre n'existe pas. */
+  const base = (isSupabase() && AUTH.isConnected()) ? ACL.filterByScope(ME(), STATE.villages) : STATE.villages;
+  let rows = base.map(v=>({v,score:scoreOf(v)}));  if (STATE.query) rows = rows.filter(({v})=> (v.s1.village+" "+v.s1.enqueteur+" "+v.s1.cluster+" "+v.s1.departement).toLowerCase().includes(STATE.query.toLowerCase()));
   if (STATE.regionFilter) rows = rows.filter(({v})=>v.s1.region===STATE.regionFilter);
+  if (STATE.clusterFilter) rows = rows.filter(({v})=> ckey(villageClusterOf(v))===ckey(STATE.clusterFilter));
   if (STATE.tierFilter) rows = rows.filter(({score})=>tierFor(score).key===STATE.tierFilter);
   if (STATE.statutFilter) rows = rows.filter(({v})=>statutOf(v)===STATE.statutFilter); // v0.9
   if (STATE.camionOnly) rows = rows.filter(({v})=>v.s5.camion10T);
@@ -2372,7 +2495,7 @@ function exportJSON(){
 
 /**
  * Export Excel natif (.xlsx) — v0.6.1. Respecte les filtres actifs de la vue
- * (recherche, région, classement, camion 10T) via getFilteredVillages().
+ * (recherche, région, cluster, classement, statut, camion 10T) via getFilteredVillages().
  * 26 colonnes exploitables directement par la Direction. Librairie SheetJS
  * chargée en CDN : nécessite d'avoir ouvert la page au moins une fois en ligne.
  */
@@ -2420,6 +2543,7 @@ function exportExcel(){
 }
 function setDbView(v){ STATE.dbView=v; renderContent(); }
 function setRegionFilter(v){ STATE.regionFilter=v; STATE.page=1; renderContent(); }
+function setClusterFilter(v){ STATE.clusterFilter=v; STATE.page=1; renderContent(); }
 function setTierFilter(v){ STATE.tierFilter=v; STATE.page=1; renderContent(); }
 function setStatutFilter(v){ STATE.statutFilter=v; STATE.page=1; renderContent(); } // v0.9
 function setCamionOnly(v){ STATE.camionOnly=v; STATE.page=1; renderContent(); }
@@ -2449,6 +2573,8 @@ function DatabaseView(){
   html += '<div class="flex items-center gap-2 mb-4 flex-wrap">'+icon('filter','w-3.5 h-3.5')
     + '<select onchange="setRegionFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Toutes régions')+'</option>'
     + REGIONS.map(r=>'<option value="'+r.region+'" '+(STATE.regionFilter===r.region?'selected':'')+'>'+r.region+'</option>').join('') + '</select>';
+  html += '<select onchange="setClusterFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous les clusters')+'</option>'
+    + villageClusterOptions().map(c=>'<option value="'+esc(c)+'" '+(ckey(STATE.clusterFilter)===ckey(c)?'selected':'')+'>'+esc(c)+'</option>').join('') + '</select>';
   html += '<select onchange="setTierFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous classements')+'</option>'
     + TIERS.map(ti=>'<option value="'+ti.key+'" '+(STATE.tierFilter===ti.key?'selected':'')+'>'+t(ti.label)+'</option>').join('') + '</select>';
   html += '<select onchange="setStatutFilter(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-1.5" style="'+inputStyleAttr()+'"><option value="">'+t('Tous statuts')+'</option>'
@@ -2772,8 +2898,8 @@ function renderProdModal(){
   const rtOpts = '<option value="">—</option>' + STATE.rt
     .filter(r=>!r.villageId || r.villageId===p.villageId || r.id===p.rtId)
     .map(r=>'<option value="'+r.id+'" '+(p.rtId===r.id?'selected':'')+'>'+esc(r.nom)+(r.villageNom?' ('+esc(r.villageNom)+')':'')+'</option>').join('');
-  const inp = (id, label, value, type, ph) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
-    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
+  const inp = (id, label, value, type, ph, attrs) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
+    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" '+(attrs||"")+' class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
   // v0.14 : l'affichage est traduit mais la VALEUR enregistrée reste française
   // (compatibilité avec les validations du backend et les données existantes).
   const sel = (id, label, value, options, withEmpty) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
@@ -2793,15 +2919,15 @@ function renderProdModal(){
     + '<div class="grid grid-cols-2 gap-2.5 mb-3">'
     + inp("pNom","Nom et prénoms *", p.nom)
     + sel("pSexe","Sexe *", p.sexe, ["Homme","Femme"], true)
-    + inp("pAnnee","Année de naissance *", p.anneeNaissance, "number", "ex : 1975")
-    + inp("pTel","Téléphone *", p.telephone, "tel")
+    + inp("pAnnee","Année de naissance *", p.anneeNaissance, "number", "ex : 1975", 'min="1930" max="'+(new Date().getFullYear()-16)+'" step="1"')
+    + inp("pTel","Téléphone *", p.telephone, "tel", "10 chiffres — ex : 0700000000", 'inputmode="tel" maxlength="17"')
     + inp("pTelTit","Titulaire du téléphone", p.telTitulaire, "text", "Propre / nom du proche")
     + inp("pCampement","Campement / hameau *", p.campement)
     + '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t('RT référent')+'</span>'
     + '<select id="pRT" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'">'+rtOpts+'</select></label>'
     + inp("pCoop","Coopérative", p.cooperative, "text", "Aucune si néant")
-    + inp("pSuperficie","Superficie anacarde (ha) *", p.superficieHa, "number")
-    + inp("pProdPrec","Production précédente (kg) *", p.prodPrecKg, "number")
+    + inp("pSuperficie","Superficie anacarde (ha) *", p.superficieHa, "number", "0 – 100", 'min="0" max="100" step="0.1"')
+    + inp("pProdPrec","Production précédente (kg) *", p.prodPrecKg, "number", "en kg", 'min="0" max="1000000" step="1"')
     + '</div>'
 
     + '<div class="ff-body text-xs font-semibold mb-1.5" style="color:'+T.forest700+'">'+t('Enrichissement (optionnel)')+'</div>'
@@ -2829,6 +2955,15 @@ function renderProdModal(){
     + '</div></div></div>';
 }
 
+/** Normalise un numéro ivoirien : renvoie 10 chiffres, ou null si invalide.
+ *  Tolère espaces, points, tirets et le préfixe international +225. */
+function normalizePhoneCI(raw){
+  if (raw === undefined || raw === null) return null;
+  let d = String(raw).replace(/[^0-9]/g, "");
+  if (d.length === 13 && d.slice(0,3) === "225") d = d.slice(3);
+  return d.length === 10 ? d : null;
+}
+
 /** Enregistre l'enrôlement : validations noyau, local d'abord, puis Sheets. */
 async function saveProducteur(){
   captureProdModalFields();
@@ -2843,6 +2978,28 @@ async function saveProducteur(){
   if (!p.prodPrecKg) manquants.push("production précédente");
   if (manquants.length){ alert("Champs obligatoires manquants : " + manquants.join(", ") + "."); return; }
   if (!p.villageId){ alert("Aucun village sélectionné."); return; }
+
+  // v0.17 : validations de plage, de format et de doublon (audit sécurité/qualité).
+  const anneeMax = new Date().getFullYear() - 16;
+  const errs = [];
+  const sup = Number(p.superficieHa);
+  if (!Number.isFinite(sup) || sup <= 0 || sup > 100)
+    errs.push("Superficie anacarde : nombre attendu entre 0 (exclu) et 100 ha.");
+  const prod = Number(p.prodPrecKg);
+  if (!Number.isFinite(prod) || prod < 0 || prod > 1000000)
+    errs.push("Production précédente : nombre attendu entre 0 et 1 000 000 kg.");
+  const annee = Number(p.anneeNaissance);
+  if (!Number.isInteger(annee) || annee < 1930 || annee > anneeMax)
+    errs.push("Année de naissance : entier attendu entre 1930 et " + anneeMax + ".");
+  const telNorm = normalizePhoneCI(p.telephone);
+  if (!telNorm)
+    errs.push("Téléphone : numéro ivoirien à 10 chiffres attendu (ex : 0700000000).");
+  if (p.mobileMoneyNum && !normalizePhoneCI(p.mobileMoneyNum))
+    errs.push("N° Mobile Money : 10 chiffres attendus.");
+  if (errs.length){ alert("Corrigez avant d'enregistrer :\n\n• " + errs.join("\n• ")); return; }
+  // Doublon de téléphone dans le même village : avertissement (non bloquant).
+  const doublon = STATE.producteurs.find(x => x.id !== p.id && x.villageId === p.villageId && normalizePhoneCI(x.telephone) === telNorm);
+  if (doublon && !confirm("Ce numéro est déjà enregistré pour « " + (doublon.nom || doublon.code || "un autre producteur") + " » dans ce village.\n\nEnregistrer quand même ?")) return;
   p.updatedAt = new Date().toISOString();
   if (AUTH.isConnected()){
     if (!p.createdBy) p.createdBy = AUTH.session.email;
@@ -2912,7 +3069,12 @@ function rtClusterOptions(){
 
 /** Vue "Base RT" : KPIs, recherche, filtre statut, tableau trié par score. */
 function RTView(){
-  let rows = STATE.rt.slice();
+  /* Périmètre d'abord : un RT hors zone / cluster n'apparait ni à l'écran,
+     ni dans la recherche, ni dans les compteurs. */
+  let rows = ((isSupabase() && AUTH.isConnected())
+    ? ACL.filterByScope(ME(), STATE.rt, r=>({ cluster: rtClusterOf(r), villageId: r.villageId }))
+    : STATE.rt).slice();
+  const rtScope = rows.slice();
   if (STATE.rtQuery){
     const q = STATE.rtQuery.toLowerCase();
     rows = rows.filter(r=> ((r.nom||"")+" "+(r.telephone||"")+" "+(r.villageNom||"")).toLowerCase().includes(q));
@@ -2920,7 +3082,7 @@ function RTView(){
   if (STATE.rtStatutFilter) rows = rows.filter(r=> (r.statut||"Pressenti") === STATE.rtStatutFilter);
   if (STATE.rtClusterFilter) rows = rows.filter(r=> ckey(rtClusterOf(r)) === ckey(STATE.rtClusterFilter));
   rows.sort((a,b)=> (Number(b.score)||0) - (Number(a.score)||0));
-  const nb = k => STATE.rt.filter(r=>(r.statut||"Pressenti")===k).length;
+  const nb = k => rtScope.filter(r=>(r.statut||"Pressenti")===k).length;
 
   let html = '<div class="p-6 space-y-6">';
   html += '<div class="flex items-center justify-between flex-wrap gap-3">'
@@ -3084,8 +3246,8 @@ function renderRTModal(){
         + '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+new Date(h.date).toLocaleString("fr-FR")+' · '+esc(h.type)+(h.par ? ' · '+esc(h.par) : '')+'</span>'
         + '<div class="ff-body text-xs" style="color:'+T.ink+'">'+esc(h.note)+'</div></div>').join('')
     : '<span class="ff-body text-xs" style="color:'+T.inkSoft+'">Aucun évènement.</span>';
-  const inp = (id, label, value, type, ph) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
-    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
+  const inp = (id, label, value, type, ph, attrs) => '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t(label)+'</span>'
+    + '<input id="'+id+'" type="'+(type||"text")+'" value="'+esc(value)+'" placeholder="'+esc(ph||"")+'" '+(attrs||"")+' class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'"/></label>';
 
   const root = document.getElementById("modal-root");
   root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:65;background-color:#00000066" onclick="closeRTModal()">'
@@ -3433,12 +3595,13 @@ function GalleryView(){
    STATISTIQUES
    ========================================================================== */
 function StatsView(){
-  const villages = STATE.villages;
+  const villages = scopedVillages();
+  const rtScope = scopedRT();
   const distances = villages.map(v=>Number(v.s1.distanceHub)||0);
   const avgDist = distances.length ? Math.round(distances.reduce((a,b)=>a+b,0)/distances.length) : 0;
   // v0.11.2 : indicateurs de pilotage demandés par la direction.
-  const nbRTBase = STATE.rt.length; // base RT consolidée (synchronisée partout)
-  const nbRTOperationnels = STATE.rt.filter(r=>["Confirmé","Actif"].includes(r.statut||"Pressenti")).length;
+  const nbRTBase = rtScope.length; // base RT du périmètre de l'utilisateur
+  const nbRTOperationnels = rtScope.filter(r=>["Confirmé","Actif"].includes(r.statut||"Pressenti")).length;
   const nbProd = STATE.producteurs.length; // cache local : villages consultés sur CET appareil
   const nbProdActifs = STATE.producteurs.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Identifié")).length;
   // Comptage des clusters insensible a la casse / aux accents / aux espaces
@@ -3487,36 +3650,101 @@ function mountStatsCharts(){
 }
 
 /* ============================================================================
-   ADMINISTRATION
+   ADMINISTRATION — v1.0 (AFLP 2027)
+   Deux sections : (A) Rôles & permissions, (B) Gestion des utilisateurs.
+   Les compteurs n'affichent que des données réelles : le référentiel pour les
+   zones et clusters, la base pour les comptes. Aucun effectif théorique.
    ========================================================================== */
+function adminKpi(valeur, libelle, detail){
+  return '<div class="rounded-xl px-4 py-3" style="background:#fff;border:1px solid '+T.line+'">'
+    + '<div class="ff-mono text-2xl font-semibold leading-none mb-1" style="color:'+T.forest700+'">'+valeur+'</div>'
+    + '<div class="ff-body text-xs font-semibold" style="color:'+T.ink+'">'+t(libelle)+'</div>'
+    + (detail ? '<div class="ff-body text-[11px] mt-0.5" style="color:'+T.inkSoft+'">'+detail+'</div>' : '')
+    + '</div>';
+}
+function authorityBadge(a){
+  const map = { GLOBAL:T.forest700, ZONE:T.emerald, CLUSTER:T.cashewDeep, VILLAGE:T.inkSoft, TRANSVERSE:T.orange };
+  const c = map[a] || T.inkSoft;
+  return '<span class="ff-mono text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap" style="background-color:'+c+'1A;color:'+c+'">'+a+'</span>';
+}
+function roleCardHTML(r){
+  const perms = r.permissions || [];
+  return '<div class="rounded-xl p-4 flex flex-col" style="background:#fff;border:1px solid '+T.line+'">'
+    + '<div class="flex items-start justify-between gap-2 mb-1">'
+    +   '<div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+esc(r.label)+'</div>'+authorityBadge(r.authority)
+    + '</div>'
+    + '<div class="ff-body text-xs font-semibold mb-1.5" style="color:'+T.forest700+'">'+esc(r.resume||"")+'</div>'
+    + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'+esc(r.detail||r.note||"")+'</p>'
+    + (r.scope && r.scope.length ? '<div class="ff-mono text-[10px] mt-2" style="color:'+T.inkSoft+'">Périmètre exigé : '+r.scope.join(" · ")+'</div>' : '')
+    + (r.effectif ? '<div class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">Effectif cible : '+r.effectif+'</div>' : '')
+    + '<details class="mt-2"><summary class="ff-body text-[11px] cursor-pointer" style="color:'+T.forest700+'">'+perms.length+' permission(s)</summary>'
+    +   '<div class="ff-mono text-[10px] mt-1 leading-relaxed" style="color:'+T.inkSoft+'">'+perms.map(esc).join(" · ")+'</div>'
+    + '</details></div>';
+}
 function AdminView(){
-  let html = '<div class="p-6 space-y-4"><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">Administration</h1>'
-    + '<p class="ff-body text-sm mb-2" style="color:'+T.inkSoft+'">'+t('Gestion des rôles et droits d\'accès au FBMS.')+'</p>';
-  html += '<div class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff">';
-  ROLES.forEach(r=>{
-    html += '<div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid '+T.line+'">'
-      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+r+'</div><div class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t(ROLE_RIGHTS[r])+'</div></div>'
-      + (STATE.role===r ? tierPillHTML(100) : (AUTH.isConnected() ? '' : '<button onclick="setRole(\''+r+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-1.5" style="background-color:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Se connecter comme</button>'))
-      + '</div>';
-  });
-  html += '</div>';
+  const me = ME();
+  const clustersRef = ACL.allClusters();
+  const orphelins = ACL.hydrateFromVillages(STATE.villages);
 
-  // v0.8 : gestion des utilisateurs — Branch Manager connecté uniquement.
-  // Le serveur revérifie le rôle à chaque action (requireAdmin_) : cette
-  // condition d'affichage n'est pas la barrière de sécurité, juste l'UX.
-  if (AUTH.isConnected() && AUTH.session.role === "Branch Manager" && AUTH.isConfigured()){
+  let html = '<div class="p-6 space-y-5">'
+    + '<div><h1 class="ff-display text-2xl font-bold tracking-tight" style="color:'+T.ink+'">Administration</h1>'
+    + '<p class="ff-body text-sm" style="color:'+T.inkSoft+'">'+t("Utilisateurs, rôles, périmètres et droits d'accès au FBMS.")+'</p></div>';
+
+  html += '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">'
+    + adminKpi(ACL.ZONES.length, 'Zones', ACL.ZONES.map(z=>z.label).join(" · "))
+    + adminKpi(clustersRef.length, 'Clusters', t('Référentiel AFLP'))
+    + adminKpi('<span id="kpiComptes">—</span>', 'Comptes actifs', t('Comptes réellement créés dans FBMS'))
+    + adminKpi('<span id="kpiMigrer">—</span>', 'Comptes à qualifier', t('Rôle historique ou périmètre manquant'))
+    + '</div>';
+
+  if (orphelins.length){
+    html += '<div class="rounded-xl p-4 flex items-start gap-2" style="background-color:'+T.orange+'14;border:1px solid '+T.orange+'44">'
+      + icon('alert-triangle','w-4 h-4 flex-shrink-0 mt-0.5')
+      + '<p class="ff-body text-xs" style="color:'+T.ink+'">'+t('Clusters présents dans les fiches villages mais rattachés à aucune zone')+' : <span class="ff-mono">'+orphelins.map(esc).join(", ")+'</span>. '
+      + t('Rattachez-les dans shared/aflp-access.js (ZONES) : tant qu\'un cluster est orphelin, aucun périmètre ne peut l\'inclure.')+'</p></div>';
+  }
+
+  /* ---- A. Rôles & permissions ---- */
+  html += '<div><div class="ff-body text-sm font-semibold mb-2" style="color:'+T.ink+'">'+t('Rôles & permissions')+'</div>'
+    + '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">'+ACL.ROLES.map(roleCardHTML).join("")+'</div></div>';
+
+  html += '<details class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
+    + '<summary class="ff-body text-sm font-semibold cursor-pointer" style="color:'+T.ink+'">'+t('Rôles historiques conservés')+' <span class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">('+ACL.LEGACY.length+')</span></summary>'
+    + '<p class="ff-body text-xs mt-1 mb-3" style="color:'+T.inkSoft+'">'+t("Aucun de ces rôles n'est supprimé ni converti automatiquement. Ils restent connectables avec leurs droits actuels tant qu'un compte en dépend.")+'</p>'
+    + '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">'+ACL.LEGACY.map(roleCardHTML).join("")+'</div></details>';
+
+  if (!AUTH.isConnected()){
+    html += '<div class="rounded-xl p-4 flex items-center gap-3 flex-wrap" style="background:#fff;border:1px solid '+T.line+'">'
+      + '<div class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Session locale — rôle simulé pour tester les périmètres :')+'</div>'
+      + '<select onchange="setRole(this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'">'
+      + ROLES.map(r=>'<option value="'+esc(r)+'" '+(r===STATE.role?'selected':'')+'>'+esc(r)+'</option>').join("")
+      + '</select></div>';
+  }
+
+  /* ---- B. Gestion des utilisateurs ---- */
+  // L'affichage suit can() ; le serveur (RLS Supabase) reste la barrière réelle.
+  if (AUTH.isConnected() && AUTH.isConfigured() && can("read","utilisateurs")){
+    const admin = can("admin","utilisateurs");
     html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
-      + '<div class="flex items-center justify-between mb-2 flex-wrap gap-2">'
-      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">Gestion des utilisateurs</div>'
-      + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">Créer des accès, désactiver un compte, changer un rôle, réinitialiser un PIN. Chaque action est tracée dans AUDIT_LOG.</p></div>'
-      + '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">+ Créer un utilisateur</button>'
+      + '<div class="flex items-center justify-between mb-3 flex-wrap gap-2">'
+      + '<div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+t('Gestion des utilisateurs')+'</div>'
+      + '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Créer un accès, changer un rôle ou un périmètre, désactiver, réinitialiser un PIN. Chaque action est tracée dans AUDIT_LOG.')+'</p></div>'
+      + (admin ? '<button onclick="openUserModal()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background-color:'+T.forest700+';color:#fff">+ '+t('Créer un utilisateur')+'</button>' : '')
       + '</div>'
-      + '<div id="usersAdminZone" class="ff-body text-xs" style="color:'+T.inkSoft+'">Chargement des utilisateurs…</div>'
+      + '<div class="flex flex-wrap items-center gap-2 mb-3">'
+      +   '<input id="uSearch" value="'+esc(ADMIN_FILTERS.q)+'" oninput="setUserFilter(\'q\', this.value)" placeholder="'+t('Rechercher un utilisateur…')+'" class="ff-body text-xs rounded-lg px-3 py-2 flex-1 min-w-[180px]" style="'+inputStyleAttr()+'">'
+      +   userFilterSelect('role', t('Tous rôles'), ROLES)
+      +   userFilterSelect('zone', t('Toutes zones'), ACL.ZONES.map(z=>({v:z.code,l:z.label})))
+      +   userFilterSelect('cluster', t('Tous clusters'), clustersRef.map(c=>({v:c.code,l:c.label})))
+      +   userFilterSelect('statut', t('Tous statuts'), [{v:'actif',l:t('Actif')},{v:'inactif',l:t('Désactivé')}])
+      + '</div>'
+      + '<div id="usersAdminZone" class="ff-body text-xs" style="color:'+T.inkSoft+'">'+t('Chargement des utilisateurs…')+'</div>'
+      + '<div id="migrationZone" class="mt-4"></div>'
       + '</div>';
   }
 
   // v0.16.2 : Sécurité & Sauvegarde Master — Branch Manager, mode Supabase.
-  if (AUTH.isConnected() && AUTH.session.role === "Branch Manager" && isSupabase()){
+  if (AUTH.isConnected() && can("read","referentiel") && can("admin","utilisateurs") && isSupabase()){
     html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'">'
       + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">'+t('Sécurité & Sauvegarde Master')+'</div>'
       + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'
@@ -3596,13 +3824,6 @@ function setMasterStatus(msg, color){
   const el = document.getElementById("masterStatus");
   if (el){ el.textContent = msg; el.style.color = color || T.inkSoft; }
 }
-function downloadBlob(content, mime, filename){
-  const blob = new Blob([content], { type: mime });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
-}
 /** Aplatit une ligne Supabase pour Excel : colonnes lisibles + data en JSON. */
 function masterRow(row){
   const out = {};
@@ -3610,7 +3831,7 @@ function masterRow(row){
   return out;
 }
 async function exportMaster(){
-  if (!(AUTH.isConnected() && AUTH.session.role === "Branch Manager")){ alert(t("Sauvegarde réservée au Branch Manager.")); return; }
+  if (!can("admin","utilisateurs")){ alert(t("Sauvegarde réservée au Branch Manager.")); return; }
   if (!isSupabase()){ alert(t("Sauvegarde Master disponible en mode Supabase uniquement.")); return; }
   try{
     setMasterStatus(t("Extraction en cours…"), T.inkSoft);
@@ -3631,7 +3852,7 @@ async function exportMaster(){
       counts: { villages: v.data.length, rt: r.data.length, producteurs: p.data.length },
       villages: v.data, rt: r.data, producteurs: p.data,
     };
-    downloadBlob(JSON.stringify(backup, null, 1), "application/json", "FBMS_MASTER_" + stamp + ".json");
+    downloadBlob(new Blob([JSON.stringify(backup, null, 1)], {type:"application/json"}), "FBMS_MASTER_" + stamp + ".json");
     // 2) Classeur Excel lisible (colonnes + data JSON par sécurité).
     if (window.XLSX){
       const wb = XLSX.utils.book_new();
@@ -3657,114 +3878,419 @@ async function clearLocalData(){
    GESTION DES UTILISATEURS — v0.8 (Administration, Branch Manager)
    ========================================================================== */
 
-/** Charge et affiche le tableau des utilisateurs (appelé au rendu d'Administration). */
+/* Filtres du tableau (ils se combinent) + cache local des comptes chargés. */
+const ADMIN_FILTERS = { q:"", role:"", zone:"", cluster:"", statut:"" };
+let USERS_CACHE = [];
+
+function userFilterSelect(cle, libelleTous, options){
+  const opts = options.map(o => (typeof o === "string" ? {v:o, l:o} : o));
+  return '<select onchange="setUserFilter(\''+cle+'\', this.value)" class="ff-body text-xs rounded-lg px-2.5 py-2" style="'+inputStyleAttr()+'">'
+    + '<option value="">'+esc(libelleTous)+'</option>'
+    + opts.map(o=>'<option value="'+esc(o.v)+'" '+(ADMIN_FILTERS[cle]===o.v?'selected':'')+'>'+esc(o.l)+'</option>').join("")
+    + '</select>';
+}
+function setUserFilter(cle, valeur){ ADMIN_FILTERS[cle] = valeur; renderUsersTable(); }
+
+/** Charge les comptes réels puis délègue l'affichage (appelé au rendu d'Administration). */
 async function loadUsersAdmin(){
   const zone = document.getElementById("usersAdminZone");
-  if (!zone) return; // carte absente (non connecté ou rôle non admin)
-  if (!(AUTH.isConnected() && AUTH.session.role === "Branch Manager")){ zone.textContent = ""; return; }
+  if (!zone) return; // carte absente (non connecté ou rôle sans droit de lecture)
+  if (!can("read","utilisateurs")){ zone.textContent = ""; return; }
   try{
-    const users = await RemoteUsers.list();
-    let html = '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr style="background-color:'+T.cream+'">'
-      + ['Nom','Email','Rôle','Statut','Actions'].map(h=>'<th class="text-left px-3 py-2 ff-body font-semibold" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
-      + '</tr></thead><tbody>';
-    users.forEach(u=>{
-      const isSelf = u.email === AUTH.session.email;
-      html += '<tr style="border-top:1px solid '+T.line+'">'
-        + '<td class="px-3 py-2 ff-body font-medium" style="color:'+T.ink+'">'+esc(u.nom)+(isSelf?' <span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">(vous)</span>':'')+'</td>'
-        + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.email)+'</td>'
-        + '<td class="px-3 py-2"><select '+(isSelf?'disabled':'')+' onchange="changeUserRole(\''+u.email+'\', this)" class="ff-body text-xs rounded-lg px-2 py-1" style="'+inputStyleAttr()+'">'
-        + ROLES.map(ro=>'<option '+(u.role===ro?'selected':'')+'>'+ro+'</option>').join('') + '</select></td>'
-        + '<td class="px-3 py-2">' + (u.actif
-            ? '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.emerald+'1A;color:'+T.emerald+'">Actif</span>'
-            : '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.red+'1A;color:'+T.red+'">Désactivé</span>') + '</td>'
-        + '<td class="px-3 py-2 text-right whitespace-nowrap">'
-        + (isSelf ? '' :
-            '<button onclick="toggleUserActive(\''+u.email+'\','+(!u.actif)+')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+(u.actif?T.red+'14':T.emerald+'1A')+';color:'+(u.actif?T.red:T.emerald)+';border:1px solid '+T.line+'">'+(u.actif?'Désactiver':'Réactiver')+'</button>'
-          + '<button onclick="resetUserPin(\''+u.email+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Réinit. PIN</button>')
-        + '</td></tr>';
-    });
-    html += '</tbody></table></div>';
-    zone.innerHTML = html;
+    const rows = await RemoteUsers.list();
+    USERS_CACHE = rows.map(u => Object.assign({}, u, {
+      _acl: ACL.normalizeUser(u),
+      _mig: ACL.migrationSuggestion(u),
+    }));
+    renderUsersTable();
   } catch(e){
     zone.innerHTML = '<span style="color:'+T.red+'">✖ '+esc(e.message)+'</span>';
   }
 }
 
-/** Fenêtre de création d'un utilisateur (PIN proposé automatiquement). */
+/** Libellé lisible d'un périmètre (— quand le rôle n'en exige pas). */
+function scopeLabel(kind, u){
+  const a = u._acl;
+  if (kind === "zone"){
+    if (a.zone === "ALL") return '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">TOUTES</span>';
+    const z = ACL.zone(a.zone); return z ? esc(z.label) : manqueHTML(a, "zone");
+  }
+  if (kind === "cluster"){
+    if (a.cluster === "ALL") return '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">TOUS</span>';
+    if (a.cluster === "ALL_CLUSTERS_IN_ZONE") return '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">ZONE ENTIÈRE</span>';
+    const c = ACL.cluster(a.cluster); return c ? esc(c.label) : manqueHTML(a, "cluster");
+  }
+  if (!a.village) return (a.authorityLevel === "VILLAGE") ? manqueHTML(a, "village") : '<span style="color:'+T.inkSoft+'">—</span>';
+  const v = STATE.villages.find(x=>x.id===a.village);
+  return esc((v && v.s1 && v.s1.village) || a.village);
+}
+function manqueHTML(a, champ){
+  const exige = ACL.scopeFields(a.role).indexOf(champ) >= 0;
+  return exige
+    ? '<span class="ff-mono text-[10px] font-semibold" style="color:'+T.orange+'">à renseigner</span>'
+    : '<span style="color:'+T.inkSoft+'">—</span>';
+}
+
+/** Rend le tableau filtré + le bloc migration. Ne recharge jamais la page. */
+function renderUsersTable(){
+  const zone = document.getElementById("usersAdminZone");
+  if (!zone) return;
+  const admin = can("admin","utilisateurs");
+  const q = ADMIN_FILTERS.q.trim().toLowerCase();
+
+  const rows = USERS_CACHE.filter(u=>{
+    const a = u._acl;
+    if (q && ((u.nom||"")+" "+(u.email||"")+" "+(u.role||"")).toLowerCase().indexOf(q) < 0) return false;
+    /* Le rôle est comparé sur le CODE résolu, pas sur la chaîne brute : la base
+       contient « Unit head », « Zonal head »… (cf. les alias de aflp-access.js).
+       Repli sur une comparaison normalisée pour qu'un rôle absent du catalogue
+       reste filtrable par son texte. */
+    if (ADMIN_FILTERS.role){
+      const rFiltre = ACL.role(ADMIN_FILTERS.role), rCompte = ACL.role(u.role);
+      if (rFiltre && rCompte){ if (rFiltre.code !== rCompte.code) return false; }
+      else if (ACL.norm(u.role) !== ACL.norm(ADMIN_FILTERS.role)) return false;
+    }
+    if (ADMIN_FILTERS.statut && a.status !== ADMIN_FILTERS.statut) return false;
+    if (ADMIN_FILTERS.zone){
+      const port = (a.zone === "ALL") ? null : a.zone;
+      if (port && port !== ADMIN_FILTERS.zone) return false;
+      if (!port && a.authorityLevel !== "GLOBAL" && a.authorityLevel !== "TRANSVERSE") return false;
+    }
+    if (ADMIN_FILTERS.cluster){
+      if (a.cluster === "ALL") return true;
+      if (a.cluster === "ALL_CLUSTERS_IN_ZONE"){
+        const z = ACL.zoneOfCluster(ADMIN_FILTERS.cluster);
+        return !!(z && z.code === a.zone);
+      }
+      if (a.cluster !== ADMIN_FILTERS.cluster) return false;
+    }
+    return true;
+  });
+
+  const kc = document.getElementById("kpiComptes");
+  if (kc) kc.textContent = String(USERS_CACHE.filter(u=>u._acl.status==="actif").length);
+  const km = document.getElementById("kpiMigrer");
+  if (km) km.textContent = String(USERS_CACHE.filter(u=>u._mig.aMigrer).length);
+
+  if (!USERS_CACHE.length){ zone.innerHTML = '<span style="color:'+T.inkSoft+'">'+t('Aucun compte dans la base.')+'</span>'; renderMigrationPanel(); return; }
+
+  let html = '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr style="background-color:'+T.cream+'">'
+    + ['Nom','Email','Rôle','Zone','Cluster','Village','Statut','Dernière connexion','Actions']
+        .map(h=>'<th class="text-left px-3 py-2 ff-body font-semibold whitespace-nowrap" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+    + '</tr></thead><tbody>';
+
+  rows.forEach(u=>{
+    const a = u._acl;
+    const isSelf = (u.email||"").toLowerCase() === (AUTH.session && AUTH.session.email || "").toLowerCase();
+    const derniere = u.derniere_connexion || u.last_sign_in_at || u.dernier_acces || "";
+    html += '<tr style="border-top:1px solid '+T.line+'">'
+      + '<td class="px-3 py-2 ff-body font-medium whitespace-nowrap" style="color:'+T.ink+'">'+esc(u.nom||"")+(isSelf?' <span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">(vous)</span>':'')+'</td>'
+      + '<td class="px-3 py-2 ff-mono" style="color:'+T.inkSoft+'">'+esc(u.email||"—")+'</td>'
+      + '<td class="px-3 py-2">'
+      +   (admin && !isSelf
+            ? '<select onchange="changeUserRole(\''+esc(u.email)+'\', this)" class="ff-body text-xs rounded-lg px-2 py-1" style="'+inputStyleAttr()+'">'
+              + ROLES.map(ro=>'<option '+(u.role===ro?'selected':'')+'>'+esc(ro)+'</option>').join('') + '</select>'
+            : '<span class="ff-body" style="color:'+T.ink+'">'+esc(u.role||"")+'</span>')
+      +   (a.roleLegacy ? ' <span class="ff-mono text-[10px] font-semibold rounded-full px-2 py-0.5" style="background-color:'+T.orange+'1A;color:'+T.orange+'">LEGACY</span>' : '')
+      + '</td>'
+      + '<td class="px-3 py-2 ff-body whitespace-nowrap" style="color:'+T.ink+'">'+scopeLabel("zone", u)+'</td>'
+      + '<td class="px-3 py-2 ff-body whitespace-nowrap" style="color:'+T.ink+'">'+scopeLabel("cluster", u)+'</td>'
+      + '<td class="px-3 py-2 ff-body whitespace-nowrap" style="color:'+T.ink+'">'+scopeLabel("village", u)+'</td>'
+      + '<td class="px-3 py-2">' + (a.status === "actif"
+            ? '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.emerald+'1A;color:'+T.emerald+'">'+t('Actif')+'</span>'
+            : '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background-color:'+T.red+'1A;color:'+T.red+'">'+t('Désactivé')+'</span>') + '</td>'
+      + '<td class="px-3 py-2 ff-mono text-[11px] whitespace-nowrap" style="color:'+T.inkSoft+'">'+(derniere ? esc(new Date(derniere).toLocaleString("fr-FR")) : "—")+'</td>'
+      + '<td class="px-3 py-2 text-right whitespace-nowrap">'
+      + (!admin || isSelf ? '<span class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+(isSelf?t('— vous —'):'')+'</span>' :
+            '<button onclick="openScopeModal(\''+esc(u.email)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Périmètre')+'</button>'
+          + '<button onclick="toggleUserActive(\''+esc(u.email)+'\','+(a.status!=="actif")+')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1 mr-1" style="background:'+(a.status==="actif"?T.red+'14':T.emerald+'1A')+';color:'+(a.status==="actif"?T.red:T.emerald)+';border:1px solid '+T.line+'">'+(a.status==="actif"?t('Désactiver'):t('Réactiver'))+'</button>'
+          + '<button onclick="resetUserPin(\''+esc(u.email)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Réinit. PIN')+'</button>')
+      + '</td></tr>';
+  });
+
+  html += '</tbody></table></div>'
+    + '<div class="ff-mono text-[11px] mt-2" style="color:'+T.inkSoft+'">'+rows.length+' / '+USERS_CACHE.length+' '+t('compte(s) affiché(s)')+'</div>';
+  zone.innerHTML = html;
+  renderMigrationPanel();
+}
+
+/** Utilisateurs à migrer : ancien rôle, suggestion, périmètre manquant.
+ *  Rien n'est converti — le Branch Manager décide compte par compte. */
+function renderMigrationPanel(){
+  const box = document.getElementById("migrationZone");
+  if (!box) return;
+  const aMigrer = USERS_CACHE.filter(u=>u._mig.aMigrer);
+  if (!aMigrer.length){ box.innerHTML = ''; return; }
+  let html = '<div class="rounded-xl p-4" style="background-color:'+T.orange+'0F;border:1px solid '+T.orange+'44">'
+    + '<div class="ff-body text-sm font-semibold mb-1" style="color:'+T.ink+'">'+t('Utilisateurs à migrer')+' <span class="ff-mono text-[11px]" style="color:'+T.inkSoft+'">('+aMigrer.length+')</span></div>'
+    + '<p class="ff-body text-xs mb-3" style="color:'+T.inkSoft+'">'+t("Aucune conversion automatique. Vérifiez le périmètre réel du compte, puis appliquez le nouveau rôle et son périmètre.")+'</p>'
+    + '<div style="overflow-x:auto"><table class="w-full text-xs"><thead><tr>'
+    + ['Compte','Rôle actuel','Rôle suggéré','À vérifier',''].map(h=>'<th class="text-left px-3 py-1.5 ff-body font-semibold" style="color:'+T.inkSoft+'">'+t(h)+'</th>').join('')
+    + '</tr></thead><tbody>';
+  aMigrer.forEach(u=>{
+    const sug = u._mig.suggestion ? ACL.roleLabel(u._mig.suggestion) : "—";
+    html += '<tr style="border-top:1px solid '+T.line+'">'
+      + '<td class="px-3 py-2 ff-body" style="color:'+T.ink+'">'+esc(u.nom||u.email)+'</td>'
+      + '<td class="px-3 py-2 ff-body" style="color:'+T.inkSoft+'">'+esc(u.role||"")+'</td>'
+      + '<td class="px-3 py-2 ff-body font-semibold" style="color:'+T.forest700+'">'+esc(sug)+'</td>'
+      + '<td class="px-3 py-2 ff-body" style="color:'+T.inkSoft+'">'+esc(u._mig.note||"")+'</td>'
+      + '<td class="px-3 py-2 text-right">'+(can("admin","utilisateurs")
+          ? '<button onclick="openScopeModal(\''+esc(u.email)+'\')" class="ff-body text-[11px] font-semibold rounded-lg px-2 py-1" style="background:#fff;color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Traiter')+'</button>' : '')+'</td>'
+      + '</tr>';
+  });
+  box.innerHTML = html + '</tbody></table></div></div>';
+}
+
+/* ---------------------------------------------------------------------------
+   CHAMPS DE PÉRIMÈTRE — dépendants du rôle, et zone → cluster → village
+   dépendants entre eux. Une combinaison incohérente est impossible à saisir.
+   Les villages viennent du référentiel FBMS : aucune seconde liste.
+   ------------------------------------------------------------------------- */
+const SCOPE_DRAFT = { zone:"", cluster:"", village:"", rtId:"" };
+
+function scopeFieldsHTML(roleLabel){
+  const champs = ACL.scopeFields(roleLabel);
+  if (!champs.length){
+    const r = ACL.role(roleLabel);
+    return '<p class="ff-body text-xs" style="color:'+T.inkSoft+'">'
+      + t('Aucun périmètre à saisir pour ce rôle') + ' — ' + esc(r ? r.resume : "") + '.</p>';
+  }
+  let html = '';
+  if (champs.indexOf("zone") >= 0){
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Zone')+'</span>'
+      + '<select id="scZone" onchange="onScopeZoneChange()" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+t('— Choisir —')+'</option>'
+      + ACL.ZONES.map(z=>'<option value="'+z.code+'" '+(SCOPE_DRAFT.zone===z.code?'selected':'')+'>'+esc(z.label)+'</option>').join("")
+      + '</select></label>';
+  }
+  if (champs.indexOf("cluster") >= 0){
+    const clusters = SCOPE_DRAFT.zone ? ACL.clustersOfZone(SCOPE_DRAFT.zone) : [];
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Cluster')+'</span>'
+      + '<select id="scCluster" onchange="onScopeClusterChange()" '+(clusters.length?'':'disabled')+' class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+(clusters.length ? t('— Choisir —') : t('Sélectionnez d\'abord une zone'))+'</option>'
+      + clusters.map(c=>'<option value="'+c.code+'" '+(SCOPE_DRAFT.cluster===c.code?'selected':'')+'>'+esc(c.label)+'</option>').join("")
+      + '</select></label>';
+  }
+  if (champs.indexOf("village") >= 0){
+    const vs = STATE.villages.filter(v=>{
+      if (!SCOPE_DRAFT.cluster) return false;
+      const c = ACL.cluster((v.s1 && v.s1.cluster) || "");
+      return !!(c && c.code === SCOPE_DRAFT.cluster);
+    });
+    html += '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Village')+'</span>'
+      + '<select id="scVillage" onchange="SCOPE_DRAFT.village=this.value" '+(vs.length?'':'disabled')+' class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+      + '<option value="">'+(vs.length ? t('— Choisir —') : t('Aucune fiche village dans ce cluster'))+'</option>'
+      + vs.map(v=>'<option value="'+esc(v.id)+'" '+(SCOPE_DRAFT.village===v.id?'selected':'')+'>'+esc((v.s1&&v.s1.village)||v.id)+'</option>').join("")
+      + '</select></label>'
+      + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Identifiant RT (optionnel)')+'</span>'
+      + '<input id="scRt" value="'+esc(SCOPE_DRAFT.rtId)+'" oninput="SCOPE_DRAFT.rtId=this.value" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/></label>';
+  }
+  return html;
+}
+function refreshScopeFields(roleLabel){
+  const box = document.getElementById("scopeFields");
+  if (box) box.innerHTML = scopeFieldsHTML(roleLabel);
+}
+function currentScopeRole(){
+  const sel = document.getElementById("nuRole") || document.getElementById("scRole");
+  return sel ? sel.value : "";
+}
+function onScopeZoneChange(){
+  const el = document.getElementById("scZone");
+  SCOPE_DRAFT.zone = el ? el.value : "";
+  SCOPE_DRAFT.cluster = ""; SCOPE_DRAFT.village = "";
+  refreshScopeFields(currentScopeRole());
+}
+function onScopeClusterChange(){
+  const el = document.getElementById("scCluster");
+  SCOPE_DRAFT.cluster = el ? el.value : "";
+  SCOPE_DRAFT.village = "";
+  refreshScopeFields(currentScopeRole());
+}
+function onRoleFieldChange(){
+  SCOPE_DRAFT.zone = ""; SCOPE_DRAFT.cluster = ""; SCOPE_DRAFT.village = ""; SCOPE_DRAFT.rtId = "";
+  refreshScopeFields(currentScopeRole());
+}
+/** Champs d'identité obligatoires à la création d'un compte.
+ *  Renvoie le message à afficher, ou "" si tout est renseigné. */
+function champsIdentiteError(nom, email, pin){
+  if (!nom) return t("Nom complet obligatoire.");
+  if (!email) return t("Email obligatoire.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return t("Email invalide.");
+  if (!pin || pin.length < 4) return t("Code PIN obligatoire (4 caractères minimum).");
+  return "";
+}
+
+/** Valide le périmètre saisi ; retourne null si complet, sinon le message. */
+function scopeError(roleLabel){
+  const champs = ACL.scopeFields(roleLabel);
+  if (champs.indexOf("zone") >= 0 && !SCOPE_DRAFT.zone) return t("Zone obligatoire pour ce rôle.");
+  if (champs.indexOf("cluster") >= 0 && !SCOPE_DRAFT.cluster) return t("Cluster obligatoire pour ce rôle.");
+  if (champs.indexOf("village") >= 0 && !SCOPE_DRAFT.village) return t("Village obligatoire pour ce rôle.");
+  return null;
+}
+function scopePayload(roleLabel){
+  const champs = ACL.scopeFields(roleLabel);
+  return {
+    zone: champs.indexOf("zone") >= 0 ? SCOPE_DRAFT.zone : null,
+    cluster: champs.indexOf("cluster") >= 0 ? SCOPE_DRAFT.cluster : null,
+    village_id: champs.indexOf("village") >= 0 ? SCOPE_DRAFT.village : null,
+    rt_id: champs.indexOf("village") >= 0 ? (SCOPE_DRAFT.rtId || null) : null,
+    authority_level: (ACL.role(roleLabel) || {}).authority || null,
+  };
+}
+
+/** Fenêtre de création d'un utilisateur : champs communs + champs du rôle. */
 function openUserModal(){
+  if (!can("admin","utilisateurs")) return refuse("admin","utilisateurs");
+  SCOPE_DRAFT.zone = SCOPE_DRAFT.cluster = SCOPE_DRAFT.village = SCOPE_DRAFT.rtId = "";
+  const defaut = ACL.ROLES[3] ? ACL.ROLES[3].label : ROLES[0]; // Unit Head
   const root = document.getElementById("modal-root");
   root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:65;background-color:#00000066" onclick="closeUserModal()">'
-    + '<div onclick="event.stopPropagation()" class="rounded-xl p-6 w-full max-w-md mx-4" style="background:#fff;border:1px solid '+T.line+'">'
-    + '<h2 class="ff-display text-lg font-bold mb-1" style="color:'+T.ink+'">Créer un utilisateur</h2>'
-    + '<p class="ff-body text-xs mb-4" style="color:'+T.inkSoft+'">Le PIN ne sera affiché qu\'une seule fois : notez-le et transmettez-le individuellement à l\'agent.</p>'
+    + '<div onclick="event.stopPropagation()" class="rounded-xl p-6 w-full max-w-md mx-4 fbms-scroll" style="background:#fff;border:1px solid '+T.line+';max-height:88vh;overflow-y:auto">'
+    + '<h2 class="ff-display text-lg font-bold mb-1" style="color:'+T.ink+'">'+t('Créer un utilisateur')+'</h2>'
+    + '<p class="ff-body text-xs mb-4" style="color:'+T.inkSoft+'">'+t('Le PIN ne sera affiché qu\'une seule fois : notez-le et transmettez-le individuellement.')+'</p>'
     + '<form onsubmit="event.preventDefault();submitCreateUser();" class="space-y-3">'
-    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">Nom complet</span>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Nom complet')+'</span>'
     + '<input id="nuNom" placeholder="Prénom NOM" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
-    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">Email</span>'
-    + '<input id="nuEmail" type="email" placeholder="prenom.nom@gmail.com" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
-    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">Rôle</span>'
-    + '<select id="nuRole" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
-    + ROLES.map(ro=>'<option '+(ro==="Agent Recenseur"?'selected':'')+'>'+ro+'</option>').join('') + '</select></label>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Email')+'</span>'
+    + '<input id="nuEmail" type="email" placeholder="prenom.nom@anagroci.ci" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'"/></label>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Téléphone')+'</span>'
+    + '<input id="nuTel" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/></label>'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Rôle')+'</span>'
+    + '<select id="nuRole" onchange="onRoleFieldChange()" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+    + ROLES_AFLP.map(ro=>'<option '+(ro===defaut?'selected':'')+'>'+esc(ro)+'</option>').join('')
+    + '<optgroup label="'+t('Rôles historiques')+'">'+ROLES_LEGACY.map(ro=>'<option>'+esc(ro)+'</option>').join('')+'</optgroup>'
+    + '</select></label>'
+    + '<div id="scopeFields" class="space-y-3">'+scopeFieldsHTML(defaut)+'</div>'
     + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Code PIN')+'</span>'
     + '<div class="flex items-center gap-2">'
     + '<input id="nuPin" value="'+genPin()+'" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/>'
-    + '<button type="button" onclick="document.getElementById(\'nuPin\').value=genPin()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">Générer</button>'
+    + '<button type="button" onclick="document.getElementById(\'nuPin\').value=genPin()" class="ff-body text-xs font-semibold rounded-lg px-3 py-2 whitespace-nowrap" style="background:'+T.cream+';color:'+T.forest700+';border:1px solid '+T.line+'">'+t('Générer')+'</button>'
     + '</div></label>'
     + '<p id="nuError" class="ff-body text-xs" style="color:'+T.red+';display:none"></p>'
     + '<div class="flex items-center gap-2 pt-1">'
-    + '<button id="nuSubmit" type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">Créer le compte</button>'
-    + '<button type="button" onclick="closeUserModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">Annuler</button>'
+    + '<button id="nuSubmit" type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">'+t('Créer le compte')+'</button>'
+    + '<button type="button" onclick="closeUserModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+t('Annuler')+'</button>'
     + '</div></form></div></div>';
 }
 function closeUserModal(){ document.getElementById("modal-root").innerHTML = ""; }
 
-/** Soumission de la création : validation serveur, PIN affiché une seule fois. */
+/** Soumission de la création : périmètre validé avant tout appel serveur. */
 async function submitCreateUser(){
   const nom = (document.getElementById("nuNom").value || "").trim();
   const email = (document.getElementById("nuEmail").value || "").trim().toLowerCase();
+  const telephone = (document.getElementById("nuTel").value || "").trim();
   const role = document.getElementById("nuRole").value;
   const pin = (document.getElementById("nuPin").value || "").trim();
   const err = document.getElementById("nuError");
   const btn = document.getElementById("nuSubmit");
   err.style.display = "none";
-  btn.disabled = true; btn.textContent = "Création…";
+  /* Identité avant périmètre : un compte sans nom ni email est inexploitable
+     et illisible dans le journal d'audit. Contrôlé ici ET côté serveur. */
+  const pb = champsIdentiteError(nom, email, pin) || scopeError(role);
+  if (pb){ err.textContent = pb; err.style.display = "block"; return; }
+  btn.disabled = true; btn.textContent = t("Création…");
   try{
-    await RemoteUsers.create(email, nom, role, pin);
+    const scope = scopePayload(role);
+    await RemoteUsers.create(email, nom, role, pin, Object.assign({ telephone: telephone || null }, scope));
+    ACL.auditUser("utilisateur_creation", email, null, Object.assign({ nom:nom, role:role }, scope));
     closeUserModal();
-    alert("Compte créé.\n\nÀ transmettre à " + nom + " :\nEmail : " + email + "\nPIN : " + pin + "\n\nCe PIN ne sera plus jamais affiché.");
+    alert(t("Compte créé.")+"\n\nÀ transmettre à " + nom + " :\nEmail : " + email + "\nPIN : " + pin + "\n\n"+t("Ce PIN ne sera plus jamais affiché."));
     loadUsersAdmin();
   } catch(e){
     err.textContent = e.message;
     err.style.display = "block";
-    btn.disabled = false; btn.textContent = "Créer le compte";
+    btn.disabled = false; btn.textContent = t("Créer le compte");
   }
+}
+
+/** Fenêtre « périmètre » d'un compte existant (rôle + zone / cluster / village). */
+function openScopeModal(email){
+  if (!can("admin","utilisateurs")) return refuse("admin","utilisateurs");
+  const u = USERS_CACHE.find(x=>(x.email||"").toLowerCase() === String(email).toLowerCase());
+  if (!u) return;
+  SCOPE_DRAFT.zone = (u._acl.zone && u._acl.zone.indexOf("ALL") < 0) ? u._acl.zone : "";
+  SCOPE_DRAFT.cluster = (u._acl.cluster && u._acl.cluster.indexOf("ALL") < 0) ? u._acl.cluster : "";
+  SCOPE_DRAFT.village = u._acl.village || "";
+  SCOPE_DRAFT.rtId = u._acl.rtId || "";
+  const sug = u._mig.aMigrer && u._mig.suggestion ? ACL.roleLabel(u._mig.suggestion) : "";
+  const root = document.getElementById("modal-root");
+  root.innerHTML = '<div class="fixed inset-0 flex items-center justify-center" style="z-index:65;background-color:#00000066" onclick="closeUserModal()">'
+    + '<div onclick="event.stopPropagation()" class="rounded-xl p-6 w-full max-w-md mx-4 fbms-scroll" style="background:#fff;border:1px solid '+T.line+';max-height:88vh;overflow-y:auto">'
+    + '<h2 class="ff-display text-lg font-bold mb-1" style="color:'+T.ink+'">'+t('Périmètre du compte')+'</h2>'
+    + '<p class="ff-body text-xs mb-4" style="color:'+T.inkSoft+'">'+esc(u.nom||"")+' · <span class="ff-mono">'+esc(u.email||"")+'</span></p>'
+    + (u._mig.note ? '<p class="ff-body text-xs mb-3 rounded-lg p-2" style="background-color:'+T.orange+'14;color:'+T.ink+'">'+esc(u._mig.note)+(sug?' <b>'+t('Suggéré')+' : '+esc(sug)+'</b>':'')+'</p>' : '')
+    + '<form onsubmit="event.preventDefault();submitScope(\''+esc(u.email)+'\');" class="space-y-3">'
+    + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+t('Rôle')+'</span>'
+    + '<select id="scRole" onchange="onRoleFieldChange()" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-body" style="'+inputStyleAttr()+'">'
+    + ROLES_AFLP.map(ro=>'<option '+(ro===u.role?'selected':'')+'>'+esc(ro)+'</option>').join('')
+    + '<optgroup label="'+t('Rôles historiques')+'">'+ROLES_LEGACY.map(ro=>'<option '+(ro===u.role?'selected':'')+'>'+esc(ro)+'</option>').join('')+'</optgroup>'
+    + '</select></label>'
+    + '<div id="scopeFields" class="space-y-3">'+scopeFieldsHTML(u.role)+'</div>'
+    + '<p id="scError" class="ff-body text-xs" style="color:'+T.red+';display:none"></p>'
+    + '<div class="flex items-center gap-2 pt-1">'
+    + '<button type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">'+t('Enregistrer')+'</button>'
+    + '<button type="button" onclick="closeUserModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+t('Annuler')+'</button>'
+    + '</div></form></div></div>';
+}
+
+/** Enregistre rôle + périmètre. Trace l'avant / après dans le journal d'audit. */
+async function submitScope(email){
+  const u = USERS_CACHE.find(x=>(x.email||"").toLowerCase() === String(email).toLowerCase());
+  const role = document.getElementById("scRole").value;
+  const err = document.getElementById("scError");
+  const pb = scopeError(role);
+  if (pb){ err.textContent = pb; err.style.display = "block"; return; }
+  const avant = { role: u.role, zone: u.zone || null, cluster: u.cluster || null, village_id: u.village_id || null };
+  const apres = Object.assign({ role: role }, scopePayload(role));
+  try{
+    if (role !== u.role) await RemoteUsers.setRole(email, role);
+    await RemoteUsers.setScope(email, scopePayload(role));
+    ACL.auditUser("utilisateur_perimetre", email, avant, apres);
+    closeUserModal();
+    loadUsersAdmin();
+  }catch(e){ err.textContent = e.message; err.style.display = "block"; }
 }
 
 /** Active/désactive un compte (jamais le sien — refusé aussi côté serveur). */
 async function toggleUserActive(email, actif){
-  if (!confirm((actif ? "Réactiver" : "Désactiver") + " le compte " + email + " ?")) return;
-  try{ await RemoteUsers.setActive(email, actif); }
+  if (!can("admin","utilisateurs")) return refuse("admin","utilisateurs");
+  if (!confirm((actif ? t("Réactiver") : t("Désactiver")) + " " + t("le compte") + " " + email + " ?")) return;
+  try{
+    await RemoteUsers.setActive(email, actif);
+    ACL.auditUser(actif ? "utilisateur_reactivation" : "utilisateur_desactivation", email, { actif: !actif }, { actif: actif });
+  }
   catch(e){ alert("Échec : " + e.message); }
   loadUsersAdmin();
 }
 
-/** Change le rôle d'un compte depuis le sélecteur du tableau. */
+/** Change le rôle depuis le tableau, puis ouvre le périmètre si le nouveau
+ *  rôle en exige un : un compte ne reste jamais sans périmètre valide. */
 async function changeUserRole(email, selectEl){
+  if (!can("admin","utilisateurs")) { refuse("admin","utilisateurs"); loadUsersAdmin(); return; }
   const role = selectEl.value;
-  if (!confirm("Donner le rôle « " + role + " » à " + email + " ?")){ loadUsersAdmin(); return; }
-  try{ await RemoteUsers.setRole(email, role); }
+  const u = USERS_CACHE.find(x=>(x.email||"").toLowerCase() === String(email).toLowerCase());
+  if (!confirm(t("Donner le rôle")+" « " + role + " » à " + email + " ?")){ renderUsersTable(); return; }
+  try{
+    await RemoteUsers.setRole(email, role);
+    ACL.auditUser("utilisateur_role", email, { role: u ? u.role : null }, { role: role });
+  }
   catch(e){ alert("Échec : " + e.message); }
-  loadUsersAdmin();
+  await loadUsersAdmin();
+  if (ACL.scopeFields(role).length) openScopeModal(email);
 }
 
 /** Réinitialise le PIN d'un compte (nouveau PIN affiché une seule fois). */
 async function resetUserPin(email){
-  const pin = prompt("Nouveau PIN pour " + email + " (4 caractères minimum) :", genPin());
+  if (!can("admin","utilisateurs")) return refuse("admin","utilisateurs");
+  const pin = prompt(t("Nouveau PIN pour")+" " + email + " (4 "+t("caractères minimum")+") :", genPin());
   if (pin === null) return;
-  if (pin.trim().length < 4){ alert("PIN trop court."); return; }
+  if (pin.trim().length < 4){ alert(t("PIN trop court.")); return; }
   try{
     await RemoteUsers.setPin(email, pin.trim());
-    alert("PIN réinitialisé.\n\nÀ transmettre :\nEmail : " + email + "\nPIN : " + pin.trim() + "\n\nCe PIN ne sera plus jamais affiché.");
+    ACL.auditUser("utilisateur_reset_pin", email, null, null);
+    alert(t("PIN réinitialisé.")+"\n\nÀ transmettre :\nEmail : " + email + "\nPIN : " + pin.trim() + "\n\n"+t("Ce PIN ne sera plus jamais affiché."));
   } catch(e){ alert("Échec : " + e.message); }
 }
 
@@ -3789,6 +4315,64 @@ function noteSlider(id, path, value, max){
   return '<div class="flex items-center gap-3">'
     + '<input type="range" min="0" max="'+max+'" value="'+value+'" id="'+id+'" data-path="'+path+'" oninput="document.getElementById(\''+id+'_val\').textContent=this.value+\'/'+max+'\'; updateLiveScore();" class="flex-1"/>'
     + '<span id="'+id+'_val" class="ff-mono text-sm font-semibold" style="color:'+T.forest700+';min-width:44px;text-align:right">'+value+'/'+max+'</span></div>';
+}
+/* ============================================================================
+   NOTATION SECTION 9 — paliers explicites 0/5/10/15/20 (audit)
+   Une fiche dont les 5 critères ne sont pas tous notés est « Non évaluée »
+   et non « Rejet » : un formulaire vierge n'est pas un rejet. Le modèle de
+   données (s9.*) et les seuils métier (TIERS) sont inchangés.
+   ========================================================================== */
+const S9_STEPS = [0,5,10,15,20];
+const S9_IDS = ["note_potentiel","note_route","note_rt","note_conc","note_pay"];
+let S9_RATED = {};
+const NOTE_STEP_OFF = "padding:9px 0;flex:1;border-radius:8px;border:1px solid "+T.line+";background:#fff;color:"+T.inkSoft+";font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:600;cursor:pointer;transition:.14s";
+const NOTE_STEP_ON  = "padding:9px 0;flex:1;border-radius:8px;border:1px solid "+T.emerald+";background:"+T.emerald+";color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:600;cursor:pointer;transition:.14s";
+function noteStepStyle(on){ return on ? NOTE_STEP_ON : NOTE_STEP_OFF; }
+function s9RatedCount(d){ return ["potentiel20","route20","dispoRT20","risqueConcurrentiel20","faisabilitePaiement20"].filter(k=>Number(d.s9[k])>0).length; }
+function tierNote(score){
+  const k = tierFor(score).key;
+  return ({ prioritaire:"À activer en premier sur la campagne.",
+            secondaire:"Éligible, à planifier après les villages prioritaires.",
+            approfondir:"Seconde visite recommandée avant décision.",
+            rejet:"Sous le seuil d'activation. Justifiez la décision." })[k] || "";
+}
+function scoreUnratedSVG(size){
+  size = size || 56; const r = (size-8)/2, c = 2*Math.PI*r;
+  return '<div class="relative flex-shrink-0" style="width:'+size+'px;height:'+size+'px">'
+    + '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+T.cream100+'" stroke-width="5"/></svg>'
+    + '<div class="absolute inset-0 flex items-center justify-center"><span class="ff-mono font-semibold" style="font-size:'+(size*0.28)+'px;color:'+T.inkSoft+'">&mdash;</span></div></div>';
+}
+function notEvaluatedPillHTML(){
+  return '<span class="ff-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:'+T.cream+';color:'+T.inkSoft+'">'
+    + '<span class="w-1.5 h-1.5 rounded-full" style="background-color:'+T.inkSoft+'"></span>'+t('Non évalué')+'</span>';
+}
+function noteSteps(id, path, value){
+  const rated = Number(value)>0; S9_RATED[id] = rated;
+  const btns = S9_STEPS.map(v=>{
+    const on = rated && Number(value)===v;
+    return '<button type="button" data-val="'+v+'" aria-pressed="'+(on?'true':'false')+'" onclick="setNote(\''+id+'\',\''+path+'\','+v+',this)" style="'+noteStepStyle(on)+'">'+v+'</button>';
+  }).join('');
+  return '<div class="flex items-center gap-3">'
+    + '<div class="flex gap-1.5" style="flex:1" role="group">'+btns+'</div>'
+    + '<span id="'+id+'_val" class="ff-mono text-sm font-semibold" style="min-width:52px;text-align:right;color:'+(rated?T.forest700:T.inkSoft)+'">'+(rated?(value+'/20'):'—')+'</span>'
+    + '<input type="hidden" id="'+id+'" data-path="'+path+'" data-num="1" value="'+(Number(value)||0)+'"></div>';
+}
+function setNote(id, path, val, btn){
+  const hidden = document.getElementById(id), group = btn.parentElement;
+  const cur = Number(hidden.value), wasRated = !!S9_RATED[id];
+  if (wasRated && cur===val){ S9_RATED[id]=false; hidden.value=0; }
+  else { S9_RATED[id]=true; hidden.value=val; }
+  const nowRated = !!S9_RATED[id];
+  group.querySelectorAll('button').forEach(b=>{
+    const on = nowRated && Number(b.dataset.val)===Number(hidden.value);
+    b.setAttribute('aria-pressed', on?'true':'false');
+    b.style.cssText = noteStepStyle(on);
+  });
+  const out = document.getElementById(id+'_val');
+  out.textContent = nowRated ? (hidden.value+'/20') : '—';
+  out.style.color = nowRated ? T.forest700 : T.inkSoft;
+  updateLiveScore();
+  if (typeof flashAutoSave === 'function') flashAutoSave();
 }
 function sectionWrap(id, title, iconName, open, innerHTML){
   return '<details id="'+id+'" '+(open?'open':'')+' class="rounded-xl overflow-hidden" style="border:1px solid '+T.line+';background:#fff">'
@@ -3959,11 +4543,14 @@ function calcPotentiel(){
 }
 
 function updateLiveScore(){
-  const ids = ["note_potentiel","note_route","note_rt","note_conc","note_pay"];
-  const score = ids.reduce((sum,id)=>{ const el=document.getElementById(id); return sum + (el?Number(el.value):0); },0);
-  const gauge = document.getElementById("liveScoreGauge"); if (gauge) gauge.innerHTML = scoreCompassSVG(score,64);
-  const gaugeTop = document.getElementById("scoreBadgeTop"); if (gaugeTop) gaugeTop.innerHTML = scoreCompassSVG(score,48);
-  const pill = document.getElementById("liveTierPill"); if (pill) pill.innerHTML = tierPillHTML(score);
+  const rated = S9_IDS.filter(id=>S9_RATED[id]).length;
+  const complete = rated === S9_IDS.length;
+  const score = S9_IDS.reduce((sum,id)=>{ const el=document.getElementById(id); return sum + (el?Number(el.value):0); },0);
+  const gauge = document.getElementById("liveScoreGauge"); if (gauge) gauge.innerHTML = complete ? scoreCompassSVG(score,64) : scoreUnratedSVG(64);
+  const gaugeTop = document.getElementById("scoreBadgeTop"); if (gaugeTop) gaugeTop.innerHTML = complete ? scoreCompassSVG(score,48) : scoreUnratedSVG(48);
+  const pill = document.getElementById("liveTierPill"); if (pill) pill.innerHTML = complete ? tierPillHTML(score) : notEvaluatedPillHTML();
+  const lbl = document.getElementById("s9RatedLabel"); if (lbl) lbl.textContent = rated + ' / 5 ' + t('critères notés');
+  const note = document.getElementById("s9VerdictNote"); if (note) note.textContent = complete ? t(tierNote(score)) : t('Renseignez les 5 critères pour obtenir le classement.');
 }
 
 let autoSaveTimer = null;
@@ -4034,7 +4621,7 @@ function FormView(id){
     + '<p id="autoSaveFlash" class="ff-body text-sm" style="color:'+(draftRestored ? T.orange : T.inkSoft)+'">'
     + (draftRestored ? '⚠ Brouillon non enregistré restauré — cliquez « Enregistrer la fiche » pour le conserver.' : t('Un formulaire par village, conforme au FORMULAIRE_VILLAGE.xlsx'))
     + '</p></div>'
-    + '<div id="scoreBadgeTop" class="flex-shrink-0">'+scoreCompassSVG(score,48)+'</div></div>';
+    + '<div id="scoreBadgeTop" class="flex-shrink-0">'+(s9RatedCount(draft)===5 ? scoreCompassSVG(score,48) : scoreUnratedSVG(48))+'</div></div>';
 
   // v0.9 : statut de la fiche — options selon le rôle, revérifié côté serveur.
   const stAllowed = statutsAutorises();
@@ -4187,19 +4774,22 @@ function FormView(id){
     + toggleField("s8.pasConflitCommunautaire","Pas de conflit communautaire majeur", draft.s8.pasConflitCommunautaire)
     + '</div>');
 
-  // Section 9
+  // Section 9 — notation par paliers (audit) : 0/5/10/15/20, état « Non évalué »
+  const s9rated = s9RatedCount(draft), s9complete = s9rated === 5;
   html += sectionWrap("sec9","Section 9 · Évaluation enquêteur","award",true,
-    '<div class="space-y-3">'
-    + fieldWrap("Potentiel Village (/20)", noteSlider("note_potentiel","s9.potentiel20",draft.s9.potentiel20,20))
-    + fieldWrap("Qualité Route (/20)", noteSlider("note_route","s9.route20",draft.s9.route20,20))
-    + fieldWrap("Disponibilité RT (/20)", noteSlider("note_rt","s9.dispoRT20",draft.s9.dispoRT20,20))
-    + fieldWrap("Risque Concurrentiel (/20)", noteSlider("note_conc","s9.risqueConcurrentiel20",draft.s9.risqueConcurrentiel20,20))
-    + fieldWrap("Faisabilité Paiement (/20)", noteSlider("note_pay","s9.faisabilitePaiement20",draft.s9.faisabilitePaiement20,20))
+    '<div id="s9RatedLabel" class="ff-mono text-[11px] mb-3" style="color:'+T.inkSoft+'">'+s9rated+' / 5 '+t('critères notés')+'</div>'
+    + '<div class="space-y-3">'
+    + fieldWrap("Potentiel Village (/20)", noteSteps("note_potentiel","s9.potentiel20",draft.s9.potentiel20), "Volume RCN estimé")
+    + fieldWrap("Qualité Route (/20)", noteSteps("note_route","s9.route20",draft.s9.route20), "Praticabilité 10T")
+    + fieldWrap("Disponibilité RT (/20)", noteSteps("note_rt","s9.dispoRT20",draft.s9.dispoRT20), "Relais identifiés")
+    + fieldWrap("Risque Concurrentiel (/20)", noteSteps("note_conc","s9.risqueConcurrentiel20",draft.s9.risqueConcurrentiel20), "20 = risque faible")
+    + fieldWrap("Faisabilité Paiement (/20)", noteSteps("note_pay","s9.faisabilitePaiement20",draft.s9.faisabilitePaiement20), "Cash et mobile money")
     + '</div>'
-    + '<div class="flex items-center justify-between rounded-lg px-4 py-3 mt-4" style="background-color:'+T.cream+'">'
-    + '<div><div class="ff-body text-xs font-medium" style="color:'+T.inkSoft+'">SCORE GLOBAL (/100) · Classement automatique</div>'
-    + '<div id="liveTierPill">'+tierPillHTML(score)+'</div></div>'
-    + '<div id="liveScoreGauge">'+scoreCompassSVG(score,48)+'</div></div>'
+    + '<div class="flex items-center justify-between rounded-lg px-4 py-3 mt-4" style="background-color:'+T.cream+';border:1px solid '+T.cream100+'">'
+    + '<div style="min-width:0"><div class="ff-body text-xs font-medium" style="color:'+T.inkSoft+'">'+t('Score global (/100) · classement automatique')+'</div>'
+    + '<div class="flex items-center gap-2 mt-1.5 flex-wrap"><div id="liveTierPill">'+(s9complete?tierPillHTML(score):notEvaluatedPillHTML())+'</div>'
+    + '<span id="s9VerdictNote" class="ff-body text-[11px]" style="color:'+T.inkSoft+'">'+(s9complete?t(tierNote(score)):t('Renseignez les 5 critères pour obtenir le classement.'))+'</span></div></div>'
+    + '<div id="liveScoreGauge">'+(s9complete?scoreCompassSVG(score,64):scoreUnratedSVG(64))+'</div></div>'
     + fieldWrap("Décision (manuelle)", textInput("s9.decision", draft.s9.decision, "Ex : engager la campagne, seconde visite requise…")));
 
   // Photos
@@ -4370,9 +4960,8 @@ function openVillageReport(id){
     + flag(v.s8.pasConflitFoncier,'Pas de conflit foncier majeur') + flag(v.s8.pasConflitCommunautaire,'Pas de conflit communautaire majeur')
     + '</div></div>';
   // SWOT
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
-    + swotBloc('Forces', swot.forces, T.emerald) + swotBloc('Faiblesses', swot.faiblesses, T.red)
-    + swotBloc('Opportunités', swot.opportunites, T.cashewDeep) + swotBloc('Menaces', swot.menaces, T.orange) + '</div>';
+  html += '<div style="margin-bottom:14px"><div class="ff-body" style="font-size:11px;font-weight:700;color:'+T.ink+';margin-bottom:8px">'+t('Analyse automatique')+'</div>'
+    + analyseListsHTML(swot) + '</div>';
   html += '<div style="background:'+T.forestDark+';border-radius:8px;padding:10px 14px;margin-bottom:14px">'
     + '<div class="ff-body" style="font-size:9px;font-weight:700;color:'+T.cashew+';letter-spacing:.08em">'+t('RECOMMANDATION')+'</div>'
     + '<div class="ff-body" style="font-size:11px;color:#fff">'+swot.recommandation+'</div></div>';
@@ -4433,7 +5022,7 @@ function renderDrawer(){
     + '<button onclick="drawerNav(1)" title="'+t('Suivant')+'" class="p-1.5 rounded-lg" style="border:1px solid '+T.line+';color:'+T.inkSoft+'">'+icon('chevron-right','w-4 h-4')+'</button>'
     + '<button onclick="openVillageReport(\''+v.id+'\')" title="'+t('Rapport village')+'" class="p-1.5 rounded-lg" style="border:1px solid '+T.line+';color:'+T.forest700+'">'+icon('printer','w-4 h-4')+'</button>'
     // Modification reservee a l'administrateur (Branch Manager) ; sinon lecture seule.
-    + (canEditVillages()
+    + (canEditVillages(v)
         ? '<button onclick="openEdit(\''+v.id+'\')" class="ff-body text-xs font-semibold rounded-lg px-3 py-1.5" style="background-color:'+T.forest700+';color:#fff">'+t('Modifier')+'</button>'
         : '<span title="'+t('Modification réservée à l\'administrateur')+'" class="ff-body text-[11px] font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1" style="background:'+T.cream+';color:'+T.inkSoft+';border:1px solid '+T.line+'">'+icon('lock','w-3 h-3')+t('Lecture seule')+'</span>')
     + '<button onclick="closeDrawer()">'+icon('x','w-5 h-5')+'</button></div></div>';
@@ -4447,12 +5036,9 @@ function renderDrawer(){
     + '<div><div class="ff-mono text-[10px]" style="color:'+T.inkSoft+'">'+t('RT IDENTIFIÉS')+'</div><div class="ff-body text-sm font-semibold" style="color:'+T.ink+'">'+v.s7.candidats.filter(c=>c.nom).length+'/3</div></div>'
     + '</div></div>';
 
-  html += '<div><h3 class="ff-body text-sm font-bold mb-2" style="color:'+T.ink+'">'+t('Analyse SWOT automatique')+'</h3><div class="grid grid-cols-2 gap-2">'
-    + swotColHTML("Forces", swot.forces, T.emerald, "trending-up")
-    + swotColHTML("Faiblesses", swot.faiblesses, T.red, "trending-down")
-    + swotColHTML("Opportunités", swot.opportunites, T.cashewDeep, "star")
-    + swotColHTML("Menaces", swot.menaces, T.orange, "shield-alert")
-    + '</div><div class="rounded-lg p-3 mt-2" style="background-color:'+T.forestDark+'"><div class="ff-body text-[11px] font-semibold mb-1" style="color:'+T.cashew+'">'+t('RECOMMANDATION')+'</div>'
+  html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-bold mb-3" style="color:'+T.ink+'">'+t('Analyse automatique')+'</h3>'
+    + analyseListsHTML(swot)
+    + '<div class="rounded-lg p-3 mt-4" style="background-color:'+T.forestDark+'"><div class="ff-body text-[11px] font-semibold mb-1" style="color:'+T.cashew+'">'+t('RECOMMANDATION')+'</div>'
     + '<p class="ff-body text-sm" style="color:#fff">'+swot.recommandation+'</p></div></div>';
 
   html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-bold mb-2" style="color:'+T.ink+'">'+t('Autorités locales')+'</h3>'
