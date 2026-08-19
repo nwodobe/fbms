@@ -51,7 +51,7 @@ Les Farmer ID attendus iront donc de `SOUA-0001` à `SOUA-0010`.
 > (`20260818_farmer_registry_phase1_consolidated.sql:58`). Quatre villages sur
 > soixante sont dans ce cas. Rien à corriger.
 
-### Point de propreté — traité le 19/08/2026
+### Points de propreté — traités le 19/08/2026
 
 Les noms de villages portaient des espaces parasites en fin — `SOUAFOUÈ KAN `,
 `KOUASSI-GOLIKRO `, `KOKOFLÉ `. Invisible dans un formulaire, visible dans les
@@ -75,14 +75,36 @@ Contrôles après correction : 0 occurrence restante sur les quatre emplacements
 0 doublon de nom créé par le nettoyage, 76 lignes `villages` et 125 lignes `rt`
 inchangées, 0 producteur orphelin.
 
-### Deux écarts constatés et volontairement non corrigés
+Les noms de RT ont été nettoyés dans la foulée, même méthode :
 
+| Emplacement | Lignes corrigées |
+|---|---|
+| `rt.nom` | 12 |
+| `rt.data->>'nom'` | 12 |
+
+Les douze étaient là encore des espaces en fin. Aucune table métier ne recopie
+le nom du RT — `achats`, `avances`, `bag_movement_requests`, `reconciliations`
+et `sacs_mouvements` sont à zéro, et `sacherie_ct_rt_stock` est une vue.
+
+### Ce qui a été constaté et volontairement laissé en l'état
+
+- **Sept RT homonymes dans un même village**, en sept paires. Dans **six** de
+  ces paires, les deux lignes partagent le même numéro de téléphone : ce sont
+  très probablement des doublons de saisie, pas deux personnes. La septième
+  paire a deux numéros distincts et peut être légitime. À trancher avant le
+  pilote : un producteur rattaché au mauvais doublon fausse tout le suivi RT.
 - **Casse divergente sur 3 RT** : le RT porte `Lengbré` là où le village
   s'appelle `LENGBRÉ`, et deux cas semblables. Le rattachement se fait par
   `village_id`, pas par le nom : l'intégrité n'est pas en cause. Choisir la
-  casse canonique est une décision de votre part, pas un nettoyage.
-- **12 RT ont un nom d'agent avec espaces parasites** (`rt.data->>'nom'`).
-  Autre champ que le nom de village, laissé intact.
+  casse canonique est un arbitrage, pas un nettoyage.
+- **Quatre noms de RT à doubles espaces internes.** Le trim ne les touche pas ;
+  les normaliser modifierait le nom lui-même, ce qui demande votre accord.
+- **Une ligne RT en `soft-delete` dont la colonne `nom` et le JSONB divergent**
+  au-delà des espaces. Les deux champs ont été trimés chacun de leur côté,
+  jamais recopiés l'un sur l'autre : la divergence est préservée telle quelle.
+
+> Ces écritures sont des `UPDATE` SQL directs. L'`audit_log` du produit est
+> applicatif : il n'en garde aucune trace. Le seul témoin est `updated_at`.
 
 ---
 
@@ -347,7 +369,7 @@ réactivées ni renumérotées à cette occasion.
 ## 10. Ce qui reste à faire après le pilote, quel qu'en soit le verdict
 
 - recette authentifiée sur téléphone d'agent, jamais exécutée à ce jour ;
-- arbitrage sur la casse canonique des noms de villages et de RT ;
+- arbitrage sur les 7 RT homonymes, la casse canonique et les doubles espaces ;
 - GPS Level 2 polygonal et installation éventuelle de PostGIS ;
 - conversion physique Achats/Sacs vers `producteurs.id` ;
 - arbitrage champ par champ des conflits entre deux appareils ;
