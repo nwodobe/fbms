@@ -64,6 +64,12 @@ jobs:
   pages:
     name: Exécution des pages, console et accessibilité
     runs-on: ubuntu-latest
+    # L'image officielle contient Chromium et toutes ses bibliothèques système.
+    # Sa version doit rester identique à celle du paquet npm installé ci-dessous.
+    # Cela évite de dépendre des miroirs APT pendant chaque exécution.
+    container:
+      image: mcr.microsoft.com/playwright:v1.49.1-noble
+      options: --ipc=host
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -73,13 +79,12 @@ jobs:
           node-version: '22'
 
       # Playwright n'est pas une dépendance du dépôt : ce site n'en a aucune.
-      # On l'installe pour la durée du job, avec une version épinglée pour que
-      # deux exécutions comparent bien la même chose.
+      # Le paquet reste éphémère et strictement aligné sur l'image officielle.
       - name: Installer Playwright (éphémère, version épinglée)
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-save --no-audit --no-fund playwright@1.49.1
-          npx playwright install --with-deps chromium
+          npx playwright --version
 
       - name: Pages, erreurs console et accessibilité
         run: node .github/scripts/verifier-pages.mjs --json observations-pages.json
