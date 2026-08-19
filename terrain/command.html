@@ -920,7 +920,14 @@ function majBandeauPred(){
 function majResumesModules(){
   majBandeauPred();
   renderPredGrille();
+  /* Ces deux rendus lisent la zone de chaque cluster sur le moteur IA. Leur
+     premier passage, dans `loadAll`, a lieu AVANT `AFLP_IA_UI.rafraichir()` :
+     la table des zones y est encore vide et la colonne affiche « — ». On les
+     rejoue donc ici, une fois le moteur alimenté. Rejouer `renderZones()` sans
+     `renderSacsCluster()` corrige la carte Zones AFLP et laisse le tableau
+     « Sacs par cluster » avec ses tirets — constaté en production. */
   renderZones();
+  renderSacsCluster();
 }
 
 /* ==========================================================================
