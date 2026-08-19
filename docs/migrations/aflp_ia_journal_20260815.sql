@@ -2,19 +2,32 @@
 --  ASSISTANT IA AFLP — JOURNAL DES QUESTIONS, RETOURS ET CATALOGUE VERSIONNÉ
 --  Fichier : docs/migrations/aflp_ia_journal_20260815.sql
 --  ----------------------------------------------------------------------------
---  ⚠ CETTE MIGRATION N'A PAS ÉTÉ EXÉCUTÉE SUR LE PROJET SUPABASE.
+--  ✔ APPLIQUÉE SUR LE PROJET SUPABASE `jmbdgpdthzpszfnddwzi` LE 15/08/2026,
+--    sur instruction expresse du Branch Manager, propriétaire du projet.
 --
---  `supabase/**` est une zone interdite à toute modification automatique
---  (CLAUDE.md §3, .github/agent-policy/auto-merge-denylist.txt), et
---  `modifying-a-hosted-supabase-project` figure parmi les actions interdites
---  d'`agent-policy.yml`. Ce fichier est donc une PROPOSITION, déposée là où les
---  propositions SQL du dépôt vivent déjà (docs/migrations/, cf.
---  sacherie_v2_mvp_20260811.sql et aflp_predictions_20260814.sql). Son exécution
---  est un geste HUMAIN, à faire dans Supabase → SQL Editor, après relecture.
+--  `agent-policy.yml` interdit à un agent de modifier un projet Supabase
+--  hébergé. Le propriétaire a levé ce point explicitement pour cette
+--  application ; la levée est consignée ici, dans le fichier lui-même, pour
+--  qu'elle ne se perde pas dans un fil de conversation.
 --
---  Elle a en revanche été RÉELLEMENT EXÉCUTÉE sur PostgreSQL 18 (PGlite) par
---  `.github/agent-tests/aflp-ia-journal-rls.mjs`, qui rejoue les politiques RLS
---  rôle par rôle. Ce que ce banc ne prouve pas est écrit dans son en-tête.
+--  CE FICHIER EST LA SOURCE DE VÉRITÉ DE CE QUI EST EN BASE. Il a été
+--  RÉALIGNÉ après application : trois défauts n'apparaissaient qu'à
+--  l'exécution sur la base réelle, et les correctifs sont intégrés ci-dessous
+--  plutôt que laissés dans des migrations satellites.
+--
+--    · §7  la VUE `aflp_ia_metriques` héritait de `alter default privileges`
+--          et naissait avec tous les droits pour `anon`. Trouvé par le script
+--          de contrôle, pas à la relecture.
+--    · §5  les quatre fonctions de déclencheur de `public` n'avaient pas de
+--          `search_path` figé — quatre alertes d'advisor.
+--    · §6  les politiques réévaluaient `auth.uid()` à chaque ligne, et deux
+--          politiques permissives se superposaient sur la même table.
+--
+--  Vérifiée AVANT application sur PostgreSQL 18 (PGlite) par
+--  `.github/agent-tests/aflp-ia-journal-rls.mjs` : 43/43.
+--  Vérifiée APRÈS application sur la base réelle (PostgreSQL 17.6) : 15/15
+--  contrôles structurels, puis 8/8 contrôles de politiques joués rôle par rôle
+--  dans une transaction annulée. Advisors : aucune alerte imputable à ce lot.
 --
 --  Ordre    : APRÈS supabase/rls.sql (les fonctions est_actif / est_bm /
 --             peut_editer_config en viennent).
@@ -263,8 +276,13 @@ create index if not exists aflp_ia_audit_cible_idx on public.aflp_ia_audit (tabl
 --     au propriétaire de la table ni à `service_role`. Le déclencheur, si.
 --     Une mesure de compréhension calculée sur un journal réécriturable ne
 --     mesure rien.
+--     `search_path` figé sur les quatre fonctions de déclencheur : elles ne sont
+--     pas SECURITY DEFINER, mais un chemin de recherche modifiable reste
+--     détournable par un schéma temporaire — et les advisors Supabase le
+--     signalent, à juste titre.
 create or replace function public.aflp_ia_questions_immuables()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public, pg_temp as $$
 begin
   raise exception
     'aflp_ia_questions est en écriture unique. Opération % refusée : une question '
@@ -283,7 +301,8 @@ create trigger aflp_ia_q_no_update
 --     geste, et la version journalisée avec chaque question ne voudrait plus
 --     rien dire.
 create or replace function public.aflp_ia_catalogue_fige()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public, pg_temp as $$
 declare
   v_statut text;
   v_version text;
@@ -313,7 +332,8 @@ create trigger aflp_ia_form_fige
 --     Revenir en arrière ferait exister deux catalogues différents portant le
 --     même numéro de version.
 create or replace function public.aflp_ia_version_transition()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public, pg_temp as $$
 begin
   if old.statut = 'publie' and new.statut = 'brouillon' then
     raise exception
@@ -415,7 +435,8 @@ create trigger aflp_ia_form_audit
 
 -- 5.5 L'audit ne se réécrit pas.
 create or replace function public.aflp_ia_audit_immuable()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public, pg_temp as $$
 begin
   raise exception 'aflp_ia_audit est en écriture unique : opération % refusée.', tg_op;
 end;
@@ -441,66 +462,77 @@ alter table public.aflp_ia_formulations       enable row level security;
 alter table public.aflp_ia_audit              enable row level security;
 
 -- 6.1 Journal des questions.
-drop policy if exists aflp_ia_q_sel_self    on public.aflp_ia_questions;
-drop policy if exists aflp_ia_q_sel_revue   on public.aflp_ia_questions;
-drop policy if exists aflp_ia_q_ins         on public.aflp_ia_questions;
--- Chacun lit ses propres questions…
-create policy aflp_ia_q_sel_self on public.aflp_ia_questions
+--     UNE SEULE politique de lecture, portant le OU des deux règles. Deux
+--     politiques permissives sur la même table sont combinées en OU par
+--     PostgreSQL, mais toutes deux sont évaluées pour chaque ligne — les
+--     advisors le signalent (`multiple_permissive_policies`).
+--
+--     `(select auth.uid())` et non `auth.uid()` : écrite nue, la fonction est
+--     réévaluée POUR CHAQUE LIGNE examinée ; enveloppée, elle l'est une fois.
+--     Sur une table de journal destinée à grossir, l'écart n'est pas théorique.
+--     Les prédicats sont rigoureusement les mêmes : ce qui était refusé le reste.
+drop policy if exists aflp_ia_q_sel_self  on public.aflp_ia_questions;
+drop policy if exists aflp_ia_q_sel_revue on public.aflp_ia_questions;
+drop policy if exists aflp_ia_q_sel       on public.aflp_ia_questions;
+drop policy if exists aflp_ia_q_ins       on public.aflp_ia_questions;
+-- Chacun lit ses propres questions ; les rôles de supervision lisent tout.
+create policy aflp_ia_q_sel on public.aflp_ia_questions
   for select to authenticated
-  using (public.est_actif() and user_id = auth.uid());
--- …les rôles de supervision lisent tout le journal.
-create policy aflp_ia_q_sel_revue on public.aflp_ia_questions
-  for select to authenticated
-  using (public.peut_editer_config());
+  using (
+    ((select public.est_actif()) and user_id = (select auth.uid()))
+    or (select public.peut_editer_config())
+  );
 -- On journalise pour soi et seulement pour soi.
 create policy aflp_ia_q_ins on public.aflp_ia_questions
   for insert to authenticated
-  with check (public.est_actif() and user_id = auth.uid());
+  with check ((select public.est_actif()) and user_id = (select auth.uid()));
 -- Aucune politique UPDATE ni DELETE : le journal est en lecture seule après
 -- écriture, y compris pour son auteur.
 
 -- 6.2 Retours.
 drop policy if exists aflp_ia_fb_sel_self  on public.aflp_ia_feedback;
 drop policy if exists aflp_ia_fb_sel_revue on public.aflp_ia_feedback;
+drop policy if exists aflp_ia_fb_sel       on public.aflp_ia_feedback;
 drop policy if exists aflp_ia_fb_ins       on public.aflp_ia_feedback;
 drop policy if exists aflp_ia_fb_upd       on public.aflp_ia_feedback;
-create policy aflp_ia_fb_sel_self on public.aflp_ia_feedback
+create policy aflp_ia_fb_sel on public.aflp_ia_feedback
   for select to authenticated
-  using (public.est_actif() and auteur_uid = auth.uid());
-create policy aflp_ia_fb_sel_revue on public.aflp_ia_feedback
-  for select to authenticated
-  using (public.peut_editer_config());
+  using (
+    ((select public.est_actif()) and auteur_uid = (select auth.uid()))
+    or (select public.peut_editer_config())
+  );
 -- Tout profil actif peut signaler une réponse fausse : c'est le seul moyen de
 -- savoir qu'elle l'était. Mais il ne peut le faire qu'en son nom, et il ne peut
 -- pas valider lui-même son signalement.
 create policy aflp_ia_fb_ins on public.aflp_ia_feedback
   for insert to authenticated
   with check (
-    public.est_actif()
-    and auteur_uid = auth.uid()
+    (select public.est_actif())
+    and auteur_uid = (select auth.uid())
     and approval_status = 'en_attente'
     and reviewed_by is null
   );
 -- La validation est un acte de supervision, et le validateur se nomme.
 create policy aflp_ia_fb_upd on public.aflp_ia_feedback
   for update to authenticated
-  using (public.peut_editer_config())
-  with check (public.peut_editer_config() and reviewed_by = auth.uid());
+  using ((select public.peut_editer_config()))
+  with check ((select public.peut_editer_config()) and reviewed_by = (select auth.uid()));
 
 -- 6.3 Versions du catalogue.
 drop policy if exists aflp_ia_ver_sel on public.aflp_ia_catalogue_versions;
 drop policy if exists aflp_ia_ver_ins on public.aflp_ia_catalogue_versions;
 drop policy if exists aflp_ia_ver_upd on public.aflp_ia_catalogue_versions;
 create policy aflp_ia_ver_sel on public.aflp_ia_catalogue_versions
-  for select to authenticated using (public.est_actif());
+  for select to authenticated using ((select public.est_actif()));
 -- Ouvrir un brouillon : supervision. Une version naît toujours en brouillon.
 create policy aflp_ia_ver_ins on public.aflp_ia_catalogue_versions
   for insert to authenticated
-  with check (public.peut_editer_config() and statut = 'brouillon' and cree_par = auth.uid());
+  with check ((select public.peut_editer_config()) and statut = 'brouillon'
+              and cree_par = (select auth.uid()));
 -- PUBLIER : le Branch Manager, et lui seul.
 create policy aflp_ia_ver_upd on public.aflp_ia_catalogue_versions
   for update to authenticated
-  using (public.est_bm()) with check (public.est_bm());
+  using ((select public.est_bm())) with check ((select public.est_bm()));
 
 -- 6.4 Intentions et formulations.
 drop policy if exists aflp_ia_int_sel on public.aflp_ia_intentions;
@@ -508,35 +540,42 @@ drop policy if exists aflp_ia_int_ins on public.aflp_ia_intentions;
 drop policy if exists aflp_ia_int_upd on public.aflp_ia_intentions;
 drop policy if exists aflp_ia_int_del on public.aflp_ia_intentions;
 create policy aflp_ia_int_sel on public.aflp_ia_intentions
-  for select to authenticated using (public.est_actif());
+  for select to authenticated using ((select public.est_actif()));
 create policy aflp_ia_int_ins on public.aflp_ia_intentions
   for insert to authenticated
-  with check (public.peut_editer_config() and cree_par = auth.uid());
+  with check ((select public.peut_editer_config()) and cree_par = (select auth.uid()));
 create policy aflp_ia_int_upd on public.aflp_ia_intentions
   for update to authenticated
-  using (public.peut_editer_config()) with check (public.peut_editer_config());
+  using ((select public.peut_editer_config())) with check ((select public.peut_editer_config()));
 create policy aflp_ia_int_del on public.aflp_ia_intentions
-  for delete to authenticated using (public.est_bm());
+  for delete to authenticated using ((select public.est_bm()));
 
 drop policy if exists aflp_ia_form_sel on public.aflp_ia_formulations;
 drop policy if exists aflp_ia_form_ins on public.aflp_ia_formulations;
 drop policy if exists aflp_ia_form_upd on public.aflp_ia_formulations;
 drop policy if exists aflp_ia_form_del on public.aflp_ia_formulations;
 create policy aflp_ia_form_sel on public.aflp_ia_formulations
-  for select to authenticated using (public.est_actif());
+  for select to authenticated using ((select public.est_actif()));
 create policy aflp_ia_form_ins on public.aflp_ia_formulations
   for insert to authenticated
-  with check (public.peut_editer_config() and cree_par = auth.uid());
+  with check ((select public.peut_editer_config()) and cree_par = (select auth.uid()));
 create policy aflp_ia_form_upd on public.aflp_ia_formulations
   for update to authenticated
-  using (public.peut_editer_config()) with check (public.peut_editer_config());
+  using ((select public.peut_editer_config())) with check ((select public.peut_editer_config()));
 create policy aflp_ia_form_del on public.aflp_ia_formulations
-  for delete to authenticated using (public.est_bm());
+  for delete to authenticated using ((select public.est_bm()));
+
+-- Index de la clé étrangère `question_source`. Sans lui, chaque suppression de
+-- question parcourt la table entière des formulations pour honorer le
+-- `on delete set null` — et la purge de rétention fait exactement cela, en masse.
+create index if not exists aflp_ia_form_question_source_idx
+  on public.aflp_ia_formulations (question_source)
+  where question_source is not null;
 
 -- 6.5 Audit : lecture de supervision, écriture par déclencheur uniquement.
 drop policy if exists aflp_ia_audit_sel on public.aflp_ia_audit;
 create policy aflp_ia_audit_sel on public.aflp_ia_audit
-  for select to authenticated using (public.peut_editer_config());
+  for select to authenticated using ((select public.peut_editer_config()));
 -- AUCUNE politique INSERT, et c'est volontaire : si les utilisateurs pouvaient
 -- écrire dans l'audit, celui-ci ne prouverait plus rien. Les lignes n'arrivent
 -- que par `aflp_ia_interne.auditer()` (§5.4), qui est `security definer` pour
@@ -577,6 +616,9 @@ grant select, insert, update, delete on public.aflp_ia_formulations to authentic
 grant select, insert, update on public.aflp_ia_catalogue_versions to authenticated;
 grant select on public.aflp_ia_audit to authenticated;
 
+-- Les droits de la VUE sont posés au §8, après sa création — un `revoke` sur un
+-- objet qui n'existe pas encore fait échouer toute la migration.
+
 -- ---------------------------------------------------------------------------
 -- 8. Vue de métriques
 --    `security_invoker = true` : la vue s'exécute avec les droits de celui qui
@@ -612,6 +654,21 @@ comment on view public.aflp_ia_metriques is
   'aflp_ia_questions s''applique, un utilisateur ordinaire n''y voit que ses propres questions. '
   'L''EXACTITUDE ne figure pas ici : elle ne se déduit pas du journal, elle exige une revue '
   'humaine (table aflp_ia_feedback).';
+
+-- LA VUE HÉRITE ELLE AUSSI DES PRIVILÈGES PAR DÉFAUT.
+-- `alter default privileges … grant all on tables to anon` s'applique aux vues
+-- comme aux tables : `aflp_ia_metriques` est née avec DELETE, INSERT, TRUNCATE,
+-- UPDATE et SELECT pour `anon`. Ce n'était pas exploitable — la vue est
+-- `security_invoker`, donc une lecture par `anon` échoue faute de droits sur
+-- `aflp_ia_questions` — mais une barrière qui ne tient que par un raisonnement
+-- en trois temps n'est pas une barrière.
+--
+-- Trouvé par le script de contrôle sur la base réelle, APRÈS une première
+-- application. Pas à la relecture.
+revoke all on public.aflp_ia_metriques from anon;
+revoke insert, update, delete, truncate, references, trigger
+  on public.aflp_ia_metriques from authenticated;
+grant select on public.aflp_ia_metriques to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 9. Rétention
