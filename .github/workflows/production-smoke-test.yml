@@ -75,7 +75,7 @@ jobs:
         id: smoke
         env:
           PRODUCTION_URL: ${{ steps.cible.outputs.url }}
-        run: node .github/scripts/smoke-production.mjs | tee resultat-smoke.txt
+        run: node .github/scripts/smoke-production.mjs | tee resultat-smoke.txt; exit ${PIPESTATUS[0]}
 
       - name: Publier le résultat
         if: always()
