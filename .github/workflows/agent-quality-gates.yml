@@ -61,6 +61,9 @@ jobs:
       - name: Cohérence de la politique de chemins
         run: node .github/agent-tests/politique-chemins.mjs
 
+      - name: Scénario Farmer Registry complet
+        run: node tests/farmer-registry-complete.mjs
+
   pages:
     name: Exécution des pages, console et accessibilité
     runs-on: ubuntu-latest
