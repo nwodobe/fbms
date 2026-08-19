@@ -51,13 +51,38 @@ Les Farmer ID attendus iront donc de `SOUA-0001` à `SOUA-0010`.
 > (`20260818_farmer_registry_phase1_consolidated.sql:58`). Quatre villages sur
 > soixante sont dans ce cas. Rien à corriger.
 
-### Un point de propreté à traiter avant, ou à assumer
+### Point de propreté — traité le 19/08/2026
 
-**19 villages sur 60** portent un nom avec une espace en tête ou en fin —
-`SOUAFOUÈ KAN `, `KOUASSI-GOLIKRO `, `KOKOFLÉ `. C'est invisible dans un
-formulaire mais cela ressort dans les en-têtes du Farmer Passport et dans les
-exports. Ce n'est pas bloquant pour le pilote ; c'est une correction de dix
-minutes à faire avant la généralisation.
+Les noms de villages portaient des espaces parasites en fin — `SOUAFOUÈ KAN `,
+`KOUASSI-GOLIKRO `, `KOKOFLÉ `. Invisible dans un formulaire, visible dans les
+en-têtes du Farmer Passport et dans les exports.
+
+**C'est corrigé.** Le nom était stocké en quatre endroits, et les quatre ont été
+nettoyés dans une seule transaction :
+
+| Emplacement | Lignes corrigées |
+|---|---|
+| `villages.village` | 20 (19 actifs + 1 en `soft-delete`) |
+| `villages.data->'s1'->>'village'` — **source de vérité** | 20 |
+| `rt.village_nom` | 45 |
+| `rt.data->>'villageNom'` | 45 |
+
+Corriger la seule colonne `villages.village` n'aurait rien réglé : le JSONB
+`data->'s1'` fait foi (`fn_sync_villages_colonnes`), et le prochain
+enregistrement depuis l'interface aurait restauré l'espace.
+
+Contrôles après correction : 0 occurrence restante sur les quatre emplacements,
+0 doublon de nom créé par le nettoyage, 76 lignes `villages` et 125 lignes `rt`
+inchangées, 0 producteur orphelin.
+
+### Deux écarts constatés et volontairement non corrigés
+
+- **Casse divergente sur 3 RT** : le RT porte `Lengbré` là où le village
+  s'appelle `LENGBRÉ`, et deux cas semblables. Le rattachement se fait par
+  `village_id`, pas par le nom : l'intégrité n'est pas en cause. Choisir la
+  casse canonique est une décision de votre part, pas un nettoyage.
+- **12 RT ont un nom d'agent avec espaces parasites** (`rt.data->>'nom'`).
+  Autre champ que le nom de village, laissé intact.
 
 ---
 
@@ -322,7 +347,7 @@ réactivées ni renumérotées à cette occasion.
 ## 10. Ce qui reste à faire après le pilote, quel qu'en soit le verdict
 
 - recette authentifiée sur téléphone d'agent, jamais exécutée à ce jour ;
-- nettoyage des 19 noms de villages à espaces parasites ;
+- arbitrage sur la casse canonique des noms de villages et de RT ;
 - GPS Level 2 polygonal et installation éventuelle de PostGIS ;
 - conversion physique Achats/Sacs vers `producteurs.id` ;
 - arbitrage champ par champ des conflits entre deux appareils ;
