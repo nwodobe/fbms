@@ -647,17 +647,22 @@
    "octetsHtml": 11255,
    "octetsJs": 149874,
    "nbRessources": 13,
-   "requetesInitiales": 2,
-   "requetesAuRepos": 0,
+   "requetesInitiales": 5,
+   "requetesAuRepos": 9,
    "reposMs": 65001,
-   "requetesParMinute": 0,
-   "detailRepos": {},
+   "requetesParMinute": 8.31,
+   "detailRepos": {
+    "parametres_calcul": 3,
+    "villages": 3,
+    "hubs_clusters": 3
+   },
    "clients": {
     "globauxDetectes": 0
    },
    "ressourcesLourdes": [
     "/shared/i18n.js?v=132333f 65 ko"
-   ]
+   ],
+   "note": "Ligne remesurée avec tests/bench/doublure-leaflet.js : la première mesure était faussée par une doublure Leaflet incomplète qui interrompait le script de la page."
   },
   {
    "page": "fbms/fbms_carte.html",
@@ -681,17 +686,22 @@
    "octetsHtml": 11255,
    "octetsJs": 149874,
    "nbRessources": 13,
-   "requetesInitiales": 2,
-   "requetesAuRepos": 0,
-   "reposMs": 65000,
-   "requetesParMinute": 0,
-   "detailRepos": {},
+   "requetesInitiales": 5,
+   "requetesAuRepos": 9,
+   "reposMs": 65001,
+   "requetesParMinute": 8.31,
+   "detailRepos": {
+    "parametres_calcul": 3,
+    "villages": 3,
+    "hubs_clusters": 3
+   },
    "clients": {
     "globauxDetectes": 0
    },
    "ressourcesLourdes": [
     "/shared/i18n.js?v=132333f 65 ko"
-   ]
+   ],
+   "note": "Ligne remesurée avec tests/bench/doublure-leaflet.js : la première mesure était faussée par une doublure Leaflet incomplète qui interrompait le script de la page."
   },
   {
    "page": "fbms/fbms_carte.html",
@@ -715,17 +725,22 @@
    "octetsHtml": 11255,
    "octetsJs": 149874,
    "nbRessources": 13,
-   "requetesInitiales": 2,
-   "requetesAuRepos": 0,
-   "reposMs": 65000,
-   "requetesParMinute": 0,
-   "detailRepos": {},
+   "requetesInitiales": 5,
+   "requetesAuRepos": 9,
+   "reposMs": 65001,
+   "requetesParMinute": 8.31,
+   "detailRepos": {
+    "parametres_calcul": 3,
+    "villages": 3,
+    "hubs_clusters": 3
+   },
    "clients": {
     "globauxDetectes": 0
    },
    "ressourcesLourdes": [
     "/shared/i18n.js?v=132333f 65 ko"
-   ]
+   ],
+   "note": "Ligne remesurée avec tests/bench/doublure-leaflet.js : la première mesure était faussée par une doublure Leaflet incomplète qui interrompait le script de la page."
   },
   {
    "page": "fbms/fbms_hubs.html",

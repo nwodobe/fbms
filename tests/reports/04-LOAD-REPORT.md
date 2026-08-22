@@ -53,6 +53,33 @@ surtout la machine de test. Dix suffisent à couvrir ce que le protocole ne peut
 Le volet navigateur se lance par `node tests/load/06-navigateurs.mjs`, en parallèle d'un palier
 k6 à 90 utilisateurs.
 
+### Résultat de la simulation hybride 100 utilisateurs
+
+90 utilisateurs protocole (k6) et 10 utilisateurs navigateur (Chromium), **sur la même cible,
+en même temps**, pendant 3 minutes.
+
+| Volet | Mesure | Valeur |
+|---|---|---|
+| Protocole (90) | Requêtes | 10 459 |
+| | Débit | 41,8 req/s |
+| | Erreurs | **0 %** |
+| | p95 / p99 | 2 ms / 13 ms |
+| Navigateur (10) | Ouvertures de pages | 249 |
+| | Saisies d'achat complètes | 16 |
+| | **Échecs de parcours** | **0** |
+| | **Erreurs JavaScript** | **0** |
+| | **Mélanges de session** | **0** |
+| | **Doublons (`local_id` ou n° de reçu)** | **0** |
+| | Temps d'ouverture p50 / p95 / p99 | 176 ms / 374 ms / 2 087 ms |
+| | Temps d'enregistrement d'un achat (p50) | 2 561 ms |
+| Total en base à la fin | Achats | 414 |
+
+Les 2 561 ms d'enregistrement ne sont pas un temps serveur : ils incluent l'attente délibérée du
+script après le clic. Ce qui compte ici est ailleurs : **dix navigateurs réels ont tourné trois
+minutes sous une charge protocolaire de 90 utilisateurs sans une seule erreur JavaScript, sans
+un seul mélange d'identité et sans un seul doublon.** Le p99 d'ouverture à 2,1 s montre une
+queue longue — quelques ouvertures lentes — qu'il faudra réobserver contre un serveur réel.
+
 ---
 
 ## 2. Répartition des actions

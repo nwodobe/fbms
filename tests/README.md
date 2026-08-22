@@ -15,6 +15,20 @@ les corrections font l'objet de travaux séparés (08-RECOMMENDATIONS.md).
 | `load/` | Scripts k6 et lanceur de la campagne de charge |
 | `reports/` | Les neuf rapports, plus `donnees/` (résultats bruts JSON, source de tous les chiffres) |
 
+### Les neuf rapports
+
+| Fichier | Contenu | À lire si… |
+|---|---|---|
+| `01-MAPPING.md` | Cartographie : modules, rôles, formulaires, CRUD, tables, dépendances | vous découvrez l'application |
+| `02-FUNCTIONAL-REPORT.md` | 285 ouvertures de pages, matrice d'accès observée, formulaires | vous voulez savoir ce qui s'ouvre pour qui |
+| `03-DATA-INTEGRITY-REPORT.md` | 17 scénarios de concurrence, coupure réseau, double-clic, quota | **vous ne devez en lire qu'un seul** |
+| `04-LOAD-REPORT.md` | Paliers 1→100, montée, pic, concurrence, simulation hybride | vous dimensionnez le serveur |
+| `05-BUGS.md` | 23 anomalies, chacune avec sa preuve | vous corrigez |
+| `06-PERFORMANCE.md` | Poids, Web Vitals, demande client, réseau dégradé | vous optimisez |
+| `07-SECURITY-ACCESS.md` | Rôles, isolation, cohérence portail ↔ RLS | vous gérez les accès |
+| `08-RECOMMENDATIONS.md` | Corrections classées par risque évité / effort | vous planifiez |
+| `09-EXECUTIVE-SUMMARY.md` | Synthèse et verdict, sans jargon | vous décidez |
+
 ## Prérequis
 
 ```bash

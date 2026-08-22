@@ -1,0 +1,77 @@
+{
+ "genere": "2026-08-22T11:42:17.641Z",
+ "cible": "http://127.0.0.1:54329",
+ "avertissement": "Backend émulé localement : ces temps ne sont PAS ceux de Supabase en production. Ils mesurent la forme de la charge et le comportement du client.",
+ "latenceSimuleeMs": 0,
+ "plafondConcurrence": 0,
+ "dureePalier": "4m",
+ "resultats": [
+  {
+   "etiquette": "palier-90",
+   "requetes": 10459,
+   "debitParSeconde": 41.79,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 0,
+   "p95": 2,
+   "p99": 13,
+   "max": 108,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 10
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 11
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 13
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 9
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 11
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 3
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 86
+    }
+   },
+   "vus": 90,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 479,
+   "dureeReelleS": 251
+  }
+ ]
+}

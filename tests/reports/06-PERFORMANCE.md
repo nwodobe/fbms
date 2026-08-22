@@ -141,7 +141,7 @@ C'est le chiffre qui sert au dimensionnement, et il ne dépend pas du serveur.
 
 | Module | Requêtes / minute | Mécanisme |
 |---|---:|---|
-| **Cartographie** | **9,0** (mesuré : 9 requêtes en 65 s) | `setInterval(load, 20000)` — `parametres_calcul`, `villages`, `hubs_clusters` toutes les 20 s, **plus** un abonnement Realtime `postgres_changes` sur `villages` et `hubs_clusters` |
+| **Cartographie** | **9** | Mesuré : 9 requêtes en 65 s, soit 3 cycles de 3 requêtes, identique aux trois largeurs. `setInterval(load, 20000)` relit `parametres_calcul`, `villages` et `hubs_clusters` toutes les 20 s → 3 cycles/minute en régime établi. S'y ajoute un abonnement Realtime `postgres_changes` sur `villages` et `hubs_clusters`. |
 | FBMS Référentiel | 0 sur 65 s | Cycle de synchronisation complet toutes les **5 minutes** (`autoIntervalMin: 5`) — hors fenêtre d'observation |
 | Command Center | 0 | `setInterval(renderLocal, 30000)` et `majFraicheur` à 60 s sont **locaux**, sans réseau — bon point |
 | Tous les autres | 0 | Aucun rafraîchissement automatique |

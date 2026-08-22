@@ -45,7 +45,17 @@ function tirer(i) {
   return PARCOURS[0]
 }
 
-const banc = await demarrerBanc()
+/* Deux modes : autonome (le script démarre son propre banc), ou rattaché à un
+   banc déjà lancé par tests/load/executer.mjs — c'est ce second mode qui donne
+   les 100 utilisateurs simultanés réels, navigateur ET protocole sur la même
+   cible. */
+const apiExterne = arg('api', null)
+const siteExterne = arg('site', null)
+const rattache = !!(apiExterne && siteExterne)
+const banc = rattache
+  ? { statique: { base: siteExterne }, api: { base: apiExterne, tables: new Map(), compteurs: { requetes: 0, erreurs: 0 }, maxConcurrence: () => null }, fermer: async () => {} }
+  : await demarrerBanc()
+if (rattache) console.log(`Rattaché au banc existant : API ${apiExterne}, site ${siteExterne}`)
 const navigateur = await ouvrirNavigateur()
 console.log(`${NB} utilisateurs navigateur, ${DUREE_MS / 1000} s`)
 
@@ -118,7 +128,18 @@ const dureeReelle = Date.now() - t0
 
 await navigateur.close()
 
-const achats = banc.api.tables.get('achats') || []
+/* En mode rattaché, on relit la table par l'API plutôt que par la mémoire du
+   processus, qui appartient à l'autre banc. */
+let achats = banc.api.tables.get('achats') || []
+if (rattache) {
+  const jeton = await (await fetch(banc.api.base + '/auth/v1/token?grant_type=password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'k' },
+    body: JSON.stringify({ email: PERSONAS[0].email, password: PERSONAS[0].motDePasse }),
+  })).json()
+  achats = await (await fetch(banc.api.base + '/rest/v1/achats?select=local_id,numero_recu', {
+    headers: { apikey: 'k', Authorization: 'Bearer ' + jeton.access_token },
+  })).json()
+}
 const recus = achats.map((a) => a.numero_recu)
 const doublonsRecu = recus.length - new Set(recus).size
 const localIds = achats.map((a) => a.local_id)
@@ -142,9 +163,10 @@ const resume = {
   detailMelanges: melanges.slice(0, 5),
   erreursJs: erreursJs.length,
   detailErreursJs: [...new Set(erreursJs.map((e) => e.message))].slice(0, 10),
-  requetesBackend: banc.api.compteurs.requetes,
-  erreursBackend: banc.api.compteurs.erreurs,
-  concurrenceServeurMax: banc.api.maxConcurrence(),
+  mode: rattache ? 'rattaché à un banc externe' : 'autonome',
+  requetesBackend: rattache ? null : banc.api.compteurs.requetes,
+  erreursBackend: rattache ? null : banc.api.compteurs.erreurs,
+  concurrenceServeurMax: banc.api.maxConcurrence ? banc.api.maxConcurrence() : null,
 }
 
 await banc.fermer()
