@@ -76,20 +76,9 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select current_database(), current_user, now();"
           echo "Ephemeral database smoke test: PASS"
 
-      - name: Prepare staging SQL
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp tests/staging/bootstrap.sql /tmp/fbms-bootstrap.sql
-          sed -i "s/with check ((select public.peut_editer_config()));/with check ((select public.peut_editer_config()));)/g" /tmp/fbms-bootstrap.sql
-          grep -q "FBMS_STAGING_SCHEMA_READY" /tmp/fbms-bootstrap.sql
-
       - name: Build FBMS synthetic staging schema
         shell: bash
-        run: |
-          set -euo pipefail
-          cd tests/staging
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f /tmp/fbms-bootstrap.sql
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/bootstrap.sql
 
       - name: Seed synthetic FBMS data
         shell: bash
