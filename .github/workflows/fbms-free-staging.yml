@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   staging-smoke:
-    name: Ephemeral Supabase + Offline Integrity
+    name: Ephemeral Supabase + FBMS Integrity
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -63,7 +63,7 @@ jobs:
           supabase start
           supabase status
 
-      - name: Verify isolated database
+      - name: Resolve local database URL
         shell: bash
         run: |
           set -euo pipefail
@@ -72,15 +72,80 @@ jobs:
             echo "Could not resolve local DB_URL"
             exit 1
           fi
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select current_database(), current_user, now();"
           echo "Ephemeral database smoke test: PASS"
 
-      - name: Verify no production test data markers exist remotely
+      - name: Prepare staging SQL
         shell: bash
         run: |
           set -euo pipefail
-          echo "No remote Supabase connection is configured in this workflow."
-          echo "All test writes are confined to the runner-local containers."
+          cp tests/staging/bootstrap.sql /tmp/fbms-bootstrap.sql
+          sed -i "s/with check ((select public.peut_editer_config()));/with check ((select public.peut_editer_config()));)/g" /tmp/fbms-bootstrap.sql
+          grep -q "FBMS_STAGING_SCHEMA_READY" /tmp/fbms-bootstrap.sql
+
+      - name: Build FBMS synthetic staging schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd tests/staging
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f /tmp/fbms-bootstrap.sql
+
+      - name: Seed synthetic FBMS data
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/seed.sql
+
+      - name: Run data integrity assertions
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/integrity.sql
+
+      - name: Run RLS and role assertions
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/rls.sql
+
+      - name: Verify staging contains TEST data only
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE n bigint;
+          BEGIN
+            select count(*) into n from public.producteurs where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST producteurs detected in ephemeral staging'; end if;
+            select count(*) into n from public.villages where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST villages detected in ephemeral staging'; end if;
+            select count(*) into n from public.rt where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST RT detected in ephemeral staging'; end if;
+          END $$;
+          SQL
+          echo "Synthetic-only guard: PASS"
+
+      - name: Record staging summary
+        if: success()
+        shell: bash
+        run: |
+          mkdir -p tests/results
+          {
+            echo "FBMS FREE EPHEMERAL STAGING: PASS"
+            echo "Environment: STAGING_EPHEMERAL"
+            echo "Production connection: BLOCKED"
+            echo "Offline atomicity: PASS"
+            echo "Synthetic schema bootstrap: PASS"
+            echo "Synthetic seed: PASS"
+            echo "Data integrity: PASS"
+            echo "RLS base-role assertions: PASS"
+            echo "100-user hosted capacity: NON TESTE"
+          } > tests/results/free-staging-summary.txt
+
+      - name: Upload staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fbms-free-staging-evidence
+          path: tests/results/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Stop ephemeral Supabase
         if: always()
