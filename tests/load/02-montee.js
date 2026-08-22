@@ -47,7 +47,7 @@ export default function () {
   if (!jeton) { sleep(5); return }
   lire(jeton, 'profils?select=*&user_id=eq.x', tConsultation, 'lecture_profil')
   lire(jeton, 'villages?select=data,created_at,updated_at,created_by,updated_by&deleted=eq.false', tConsultation, 'liste_villages')
-  if ((__VU + __ITER) % 5 === 0) creerAchat(jeton, __VU, __ITER)
+  if (persona.cle !== 'direction' && (__VU + __ITER) % 5 === 0) creerAchat(jeton, __VU, __ITER)
   else lire(jeton, 'rt?select=*&deleted=eq.false', tRecherche, 'liste_rt')
   sleep(5 + Math.random() * 7)
 }

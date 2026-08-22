@@ -51,7 +51,11 @@ export default function () {
   // Toute page de l'application lit le profil au chargement (auth-gate.js).
   lire(jeton, `profils?select=*&user_id=eq.x`, tConsultation, 'lecture_profil')
 
-  const tirage = (__VU * 13 + __ITER * 7) % 100
+  // Le rôle « Consultation uniquement » n'écrit rien : lui faire tenter une
+  // écriture produirait des refus RLS parfaitement légitimes, qui viendraient
+  // gonfler artificiellement le taux d'erreur du palier. Ce persona consulte.
+  const lectureSeule = persona.cle === 'direction'
+  const tirage = lectureSeule ? (__ITER % 60) : (__VU * 13 + __ITER * 7) % 100
 
   if (tirage < 40) {
     /* Consultation : ouverture d'un module de référentiel. */

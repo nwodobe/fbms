@@ -336,6 +336,41 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
   await contexte.close(); await c2.close()
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   S-14 — Les deux couches de sécurité connaissent-elles les mêmes rôles ?
+   Le portail tire ses rôles de shared/aflp-access.js ; la base tire les siens
+   des fonctions de supabase/rls.sql. Si les listes divergent, un compte peut
+   voir un écran que la base lui refusera — ou l'inverse.
+   ════════════════════════════════════════════════════════════════════════ */
+{
+  const acces = readFileSync('shared/aflp-access.js', 'utf8')
+  const rls = readFileSync('supabase/rls.sql', 'utf8')
+  const libelles = [...acces.matchAll(/\{ code: "[A-Z_]+", label: "([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((l) => !/Djébonoua|Béoumi|Botro|Brobo|Diabo|Sakassou|Global|Transverse|Zone|Cluster|Village/i.test(l))
+  const bloc = (nom) => {
+    const i = rls.indexOf('function public.' + nom)
+    return i < 0 ? '' : rls.slice(i, i + 600)
+  }
+  const terrain = bloc('peut_editer_terrain')
+  const config = bloc('peut_editer_config')
+  const bm = bloc('est_bm')
+  const inconnusEcriture = libelles.filter((l) => !terrain.includes("'" + l + "'"))
+  const bmInconnu = libelles.filter((l) => /Branch Manager/i.test(l) && !bm.includes("'" + l + "'"))
+  verdict('S-14', 'Rôles du portail et rôles reconnus par la RLS',
+    'tout rôle proposé par l\'écran d\'administration est reconnu par les politiques',
+    inconnusEcriture.length
+      ? `${inconnusEcriture.length} rôle(s) proposés par l'administration mais absents de peut_editer_terrain() : ${inconnusEcriture.join(', ')}` +
+        (bmInconnu.length ? ` — dont, pour est_bm() : ${bmInconnu.join(', ')}` : '')
+      : 'les deux couches connaissent les mêmes rôles',
+    inconnusEcriture.length === 0, 'CRITICAL', 'modèle vérifié (lecture croisée du code et du SQL)',
+    {
+      rolesPortail: libelles,
+      note: "supabase/20260818_farmer_registry_phase1_security.sql connaît bien « Zonal Head », « Unit Head », « Warehouse Keeper » ; supabase/rls.sql, non. Les deux moitiés du même modèle d'accès ne décrivent plus les mêmes rôles.",
+      configConnaitTous: libelles.filter((l) => !config.includes("'" + l + "'")),
+    })
+}
+
 await navigateur.close()
 await banc.fermer()
 

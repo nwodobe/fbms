@@ -22,7 +22,7 @@
 import http from 'k6/http'
 import { check, sleep } from 'k6'
 import { Counter, Trend } from 'k6/metrics'
-import { connexion, personaPour, entetes, URL_BASE, ECRITURE } from './00-commun.js'
+import { connexion, personaPour, entetes, URL_BASE, ECRITURE, PERSONAS } from './00-commun.js'
 
 const collisionsVillage = new Counter('collisions_village')
 const ecrasementsSilencieux = new Counter('ecrasements_silencieux')
@@ -49,7 +49,10 @@ export const options = {
 }
 
 export default function () {
-  const jeton = connexion(personaPour(__VU))
+  // Uniquement des rôles autorisés à écrire : ce scénario mesure la collision,
+  // pas le refus de la RLS (déjà couvert par tests/e2e/04-securite-acces.mjs).
+  const persona = personaPour(__VU)
+  const jeton = connexion(persona.cle === 'direction' ? PERSONAS.find((p) => p.cle === 'agent') : persona)
   if (!jeton) { sleep(3); return }
   const cas = __ITER % 3
 
