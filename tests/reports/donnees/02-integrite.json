@@ -1,5 +1,5 @@
 {
- "genere": "2026-08-22T10:03:48.550Z",
+ "genere": "2026-08-22T16:20:32.246Z",
  "resultats": [
   {
    "id": "T-INT-01",
@@ -10,7 +10,7 @@
    "gravite": "—",
    "preuve": {
     "local_ids": [
-     "04c1c435-706e-4f9f-b8cf-04de3b57417d"
+     "2860552a-fc82-467b-b8cb-b3d627ccb651"
     ]
    }
   },
@@ -45,11 +45,11 @@
    "id": "T-INT-04",
    "titre": "Quota localStorage saturé pendant une saisie d'achat",
    "attendu": "échec explicite à l'écran, ou achat réellement conservé",
-   "obtenu": "quota atteint après 48 blocs (QuotaExceededError, marge résiduelle 32 o) ; message « Achat validé (complet). Producteur provisoire — à valider pa » (classe alert show warn) ; 0 en file, 0 sur le serveur",
-   "ok": false,
-   "gravite": "BLOCKER",
+   "obtenu": "quota atteint après 48 blocs (QuotaExceededError, marge résiduelle 32 o) ; message « Enregistrement IMPOSSIBLE : la mémoire de cet appareil est s » (classe alert show err) ; 0 en file, 0 sur le serveur",
+   "ok": true,
+   "gravite": "—",
    "preuve": {
-    "message": "Achat validé (complet). Producteur provisoire — à valider par le Chef d'Unité.",
+    "message": "Enregistrement IMPOSSIBLE : la mémoire de cet appareil est saturée. L'achat n'a PAS été enregistré et votre saisie est conservée à l'écran. Synchronisez les achats en attente pour libérer de la place, puis réessayez.",
     "enFile": 0,
     "surServeur": 0,
     "quota": {
@@ -63,11 +63,11 @@
    "id": "T-INT-05",
    "titre": "File locale tronquée (écriture interrompue)",
    "attendu": "alerte visible pour l'utilisateur, ou récupération partielle",
-   "obtenu": "1 achat(s) avant ; après rechargement l'application en voit 0 (646 octets illisibles restent en base locale) ; message écran : « (aucun) », compteur « en attente » : 0",
-   "ok": false,
-   "gravite": "CRITICAL",
+   "obtenu": "1 achat(s) avant ; après rechargement l'application en voit 0 (0 octets illisibles restent en base locale) ; message écran : « Données locales illisibles : 646 octets ont été mi », compteur « en attente » : 0",
+   "ok": true,
+   "gravite": "—",
    "preuve": {
-    "brutRestant": 646
+    "brutRestant": 0
    }
   },
   {
@@ -83,7 +83,7 @@
    "id": "T-INT-07",
    "titre": "Fermeture de l'onglet pendant la synchronisation",
    "attendu": "aucune perte, aucun doublon après réouverture",
-   "obtenu": "1 ligne(s) serveur à la fermeture (statut client failed), 1 après réouverture (statut synced)",
+   "obtenu": "1 ligne(s) serveur à la fermeture (statut client syncing), 1 après réouverture (statut syncing)",
    "ok": true,
    "gravite": "—",
    "preuve": {}
@@ -91,14 +91,21 @@
   {
    "id": "T-INT-08",
    "titre": "Deux utilisateurs modifient le même village (entrelacement)",
-   "attendu": "la seconde écriture est refusée ou signalée en conflit",
-   "obtenu": "base de référence identique pour les deux (oui) ; valeur finale « TEST_LOAD_MODIF_B » — la modification de A est PERDUE sans avertissement",
-   "ok": false,
-   "gravite": "CRITICAL",
+   "attendu": "une écriture acceptée, la seconde signalée en conflit",
+   "obtenu": "base de référence commune ; A → accepté · B → conflit signalé ; valeur finale « TEST_LOAD_MODIF_A » ; 1 écriture(s) acceptée(s), 1 conflit(s) signalé(s)",
+   "ok": true,
+   "gravite": "—",
    "preuve": {
+    "rA": {
+     "conflit": false,
+     "valeurServeur": "TEST_LOAD_MODIF_A"
+    },
+    "rB": {
+     "conflit": true
+    },
     "versionInitiale": "2026-01-01T00:00:00.000Z",
-    "nomInitial": "TEST_LOAD_V001",
-    "motif": "contrôle de conflit lire-puis-écrire, non atomique (fbms/index.html:1092-1112)"
+    "valeurFinale": "TEST_LOAD_MODIF_A",
+    "mecanisme": "écriture conditionnelle UPDATE ... WHERE id = ? AND updated_at = ? (fbms/index.html:RemoteVillages.upsert)"
    }
   },
   {
@@ -277,9 +284,9 @@
    "id": "T-INT-14",
    "titre": "Photo du reçu : où finit la preuve de paiement ?",
    "attendu": "fichier dans Supabase Storage + URL dans la ligne (recu_photo_url)",
-   "obtenu": "photo saisie : 1039 o ; URL Storage : aucune ; base64 écrit dans la colonne recu_photo de la table achats : 1039 o ; copie locale conservée : non",
-   "ok": false,
-   "gravite": "HIGH",
+   "obtenu": "photo saisie : 1039 o ; URL Storage : https://jmbdgpdthzpszfnddwzi.supabase.co/storage/v1/object/public/recus/TESTLOADRT01/1295952a-340b-4caa-b4ac-9a877b684b2b.jpg ; base64 écrit dans la colonne recu_photo de la table achats : 0 o ; copie locale conservée : non",
+   "ok": true,
+   "gravite": "—",
    "preuve": {
     "source": "shared/anagroci-audit.js:syncQueueWithErrors envoie la ligne telle quelle, base64 compris — alors que terrain/achats.html:syncAll annonce « jamais de base64 dans la table »"
    }
@@ -288,9 +295,9 @@
    "id": "T-INT-15",
    "titre": "Un brouillon sans reçu est-il poussé en base ?",
    "attendu": "le brouillon reste local tant qu'il n'est pas validé",
-   "obtenu": "file locale [[\"draft\",null]] → serveur [{\"statut\":\"Brouillon\",\"recu\":null,\"mode\":\"Brouillon\"}]",
-   "ok": false,
-   "gravite": "HIGH",
+   "obtenu": "file locale [] → serveur []",
+   "ok": true,
+   "gravite": "—",
    "preuve": {
     "source": "achats_dropdown_patch.js filtre `_status!==\"synced\"` là où la page filtre `pending|failed`"
    }

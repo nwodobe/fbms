@@ -1,5 +1,5 @@
 {
- "genere": "2026-08-22T11:32:57.663Z",
+ "genere": "2026-08-22T16:14:37.106Z",
  "resultats": [
   {
    "id": "S-01",
@@ -377,18 +377,12 @@
    "id": "S-12",
    "titre": "Toutes les pages servies passent par le portail d'authentification",
    "attendu": "chaque page HTML publiée charge shared/auth-gate.js",
-   "obtenu": "5 page(s) sans portail : fbms/index.html, logistique.html, logistique/ancien.html, logistique/index.html, suite/index.html",
-   "ok": false,
-   "gravite": "CRITICAL",
+   "obtenu": "toutes les pages sont protégées",
+   "ok": true,
+   "gravite": "—",
    "portee": "production",
    "preuve": {
-    "sansPortail": [
-     "fbms/index.html",
-     "logistique.html",
-     "logistique/ancien.html",
-     "logistique/index.html",
-     "suite/index.html"
-    ],
+    "sansPortail": [],
     "note": "SECURITE.md déclare le verrou posé sur « FBMS (fbms/app.html) ». Or la tuile REF du portail pointe vers fbms/index.html, qui ne charge pas auth-gate.js."
    }
   },
@@ -396,12 +390,12 @@
    "id": "S-13",
    "titre": "FBMS Référentiel sans session et avec un compte désactivé",
    "attendu": "interface masquée tant qu'aucun compte actif n'est authentifié",
-   "obtenu": "sans session : portail affiché NON, 23 boutons actifs, 0 référence(s) village visibles — compte désactivé : portail ABSENT, 24 boutons, 0 village(s) visibles",
-   "ok": false,
-   "gravite": "CRITICAL",
+   "obtenu": "sans session : portail affiché oui, 26 boutons actifs, 0 référence(s) village visibles — compte désactivé : portail affiché, 26 boutons, 0 village(s) visibles",
+   "ok": true,
+   "gravite": "—",
    "portee": "production",
    "preuve": {
-    "apercu": "ANAGROCI\nOPERATIONS SUITE\nCommand Center\nAchats Terrain\nCaisse & Avances\nStock & Sacs\nFBMS Référentiel\nTous les modules\n▼\n● Synchronisé\nFIELD BUYING\nANAGROCI · 2027\nTableau de bordRecensementBase de donnéesBase RTProducteursCartographieGalerie photosStatistiquesAdministration\nRéduire\nFBMS Field Buying\nNon connecté · appuyer Sync\nBranch Manager / Head of Programme\nZonal Head\nLogistics Coordinator\nU"
+    "apercu": "ANAGROCI\nOPERATIONS SUITE\nCommand Center\nAchats Terrain\nCaisse & Avances\nStock & Sacs\nFBMS Référentiel\nTous les modules\n▼\n● Synchronisé\nFIELD BUYING\nANAGROCI · 2027\nTableau de bordRecensementBase de donnéesBase RTProducteursCartographieGalerie photosStatistiquesAdministration\nRéduire\nFBMS Field Buying\nNon connecté · appuyer Sync\nFR\nEN\nBranch Manager / Head of Programme\nZonal Head\nLogistics Coordin"
    }
   },
   {

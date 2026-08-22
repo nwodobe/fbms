@@ -383,6 +383,7 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
     {
       rolesPortail: libelles,
       note: "supabase/20260818_farmer_registry_phase1_security.sql connaît bien « Zonal Head », « Unit Head », « Warehouse Keeper » ; supabase/rls.sql, non. Les deux moitiés du même modèle d'accès ne décrivent plus les mêmes rôles.",
+      correctifDisponible: "docs/migrations/rls_roles_aflp_20260822.sql — rédigé et vérifiable, NON APPLIQUÉ : supabase/** est interdit à toute modification par un agent (CLAUDE.md §3). Ce contrôle restera en défaut tant qu'une personne ne l'aura pas exécuté.",
       configConnaitTous: libelles.filter((l) => !config.includes("'" + l + "'")),
     })
 }

@@ -289,8 +289,35 @@ function fmt(x){return x==null?"0":Math.round(x).toLocaleString("fr-FR");}
 function up(s){return String(s==null?"":s).toUpperCase();}
 function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function uid(){try{return crypto.randomUUID();}catch(e){return "loc-"+Date.now()+"-"+Math.round(Math.random()*1e9);}}
-function load(k,def){try{const s=localStorage.getItem(k);return s?JSON.parse(s):def;}catch(e){return def;}}
-function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+/* Lecture locale. Si la valeur est illisible (écriture interrompue, mémoire
+   corrompue), on NE renvoie pas discrètement une liste vide : on met la valeur
+   de côté sous une clé de quarantaine et on le signale, faute de quoi des
+   saisies non synchronisées disparaissent sans que personne ne le sache. */
+function load(k,def){
+  const brut=localStorage.getItem(k);
+  if(brut==null) return def;
+  try{ return JSON.parse(brut); }
+  catch(e){
+    try{
+      localStorage.setItem(k+"_illisible_"+Date.now(), brut);
+      localStorage.removeItem(k);
+      console.error("[FBMS] "+k+" illisible ("+brut.length+" octets) : mis en quarantaine.");
+    }catch(_){}
+    QUARANTAINE.push({cle:k, octets:brut.length});
+    return def;
+  }
+}
+/* Écriture locale. Renvoie false si le navigateur refuse (mémoire saturée) :
+   l'appelant DOIT le traiter. Un échec avalé ici, c'est un achat annoncé
+   enregistré et introuvable. */
+function store(k,v){
+  try{ localStorage.setItem(k,JSON.stringify(v)); return true; }
+  catch(e){
+    try{ console.error("[FBMS] écriture locale refusée pour "+k+" : "+((e&&e.name)||e)); }catch(_){}
+    return false;
+  }
+}
+const QUARANTAINE=[];
 function msg(t,k){const m=$("msg");m.className="alert show "+(k||"ok");m.textContent=t;}
 function keyc(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 
@@ -304,8 +331,26 @@ function persistQueue(all){
     if(r&&r._status==="synced"){ if(seen<MAX_SYNCED){seen++; out.push(r);} }
     else if(r) out.push(r);
   }
-  store(Q_KEY,out); return out;
+  DERNIERE_ECRITURE_OK = store(Q_KEY,out);
+  return out;
 }
+let DERNIERE_ECRITURE_OK = true;
+/* Brouillons : clé SÉPARÉE de la file de synchronisation. Un brouillon n'a pas
+   de reçu, il n'est donc pas validable ; le sortir de `anagroci_achats` est le
+   seul moyen sûr qu'AUCUNE couche de synchronisation ne l'envoie en base. */
+const D_KEY="anagroci_achats_brouillons";
+function loadDrafts(){ return load(D_KEY,[]); }
+function storeDrafts(l){ return store(D_KEY,l); }
+/* Reprise des appareils déjà en service : les brouillons restés dans la file
+   de synchronisation sont déplacés vers leur clé dédiée au premier chargement. */
+function migrerBrouillons(){
+  const all=load(Q_KEY,[]); const drafts=all.filter(r=>r&&r._status==="draft");
+  if(!drafts.length) return;
+  const restants=all.filter(r=>!(r&&r._status==="draft"));
+  if(storeDrafts(loadDrafts().concat(drafts))) store(Q_KEY,restants);
+}
+/* Vue unifiée pour l'affichage : file de synchronisation + brouillons. */
+function toutesLesSaisies(){ return loadDrafts().concat(load(Q_KEY,[])); }
 function localUnsynced(key){ return load(key,[]).filter(r=>r&&r._status!=="synced"); }
 
 /* ---- Onglets ---- */
@@ -522,6 +567,57 @@ function onPhoto(inp){
   };img.src=rd.result;};
   rd.readAsDataURL(f);
 }
+/* ---- Photos de reçu : IndexedDB, jamais localStorage ---------------------
+   Une photo de reçu pèse de l'ordre de 100 à 250 ko une fois en base64. Une
+   vingtaine d'achats photographiés hors ligne suffisait à saturer le quota
+   localStorage (5 à 10 Mo) et à faire échouer silencieusement l'enregistrement
+   de l'achat suivant. IndexedDB n'a pas ce plafond, et la photo n'encombre
+   plus la file de synchronisation. */
+const PHOTO_DB="anagroci_photos_recus", PHOTO_STORE="recus";
+function photoDB(){
+  return new Promise((ok,ko)=>{
+    let r; try{ r=indexedDB.open(PHOTO_DB,1); }catch(e){ return ko(e); }
+    r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains(PHOTO_STORE)) d.createObjectStore(PHOTO_STORE); };
+    r.onsuccess=()=>ok(r.result); r.onerror=()=>ko(r.error);
+  });
+}
+function photoTx(mode,fn){
+  return photoDB().then(db=>new Promise((ok,ko)=>{
+    const tx=db.transaction(PHOTO_STORE,mode), req=fn(tx.objectStore(PHOTO_STORE));
+    req.onsuccess=()=>ok(req.result); req.onerror=()=>ko(req.error);
+  }));
+}
+function photoSet(id,dataURL){ return photoTx("readwrite",st=>st.put(dataURL,id)); }
+function photoGet(id){ return photoTx("readonly",st=>st.get(id)); }
+function photoDel(id){ return photoTx("readwrite",st=>st.delete(id)); }
+function photoKeys(){ return photoTx("readonly",st=>st.getAllKeys()); }
+
+/* Envoie vers le Storage les photos encore locales, puis retient l'URL.
+   Indépendant de la couche qui pousse la ligne : la photo n'est jamais
+   transportée dans le corps de l'enregistrement. */
+async function flushPhotos(){
+  if(!ONLINE||!SB) return;
+  let ids=[]; try{ ids=await photoKeys(); }catch(e){ return; }
+  if(!ids||!ids.length) return;
+  const all=load(Q_KEY,[]); let modifie=false;
+  for(const id of ids){
+    const rec=all.find(r=>r&&r.local_id===id);
+    if(!rec) continue;                        // brouillon non encore validé : on garde la photo
+    if(rec.recu_photo_url){ try{ await photoDel(id); }catch(e){} continue; }
+    let dataURL=null;
+    try{ dataURL=await photoGet(id); }catch(e){ continue; }
+    if(!dataURL) continue;
+    const url=await uploadRecu(Object.assign({},rec,{recu_photo:dataURL}));
+    if(!url) continue;                        // envoi impossible : on réessaiera
+    rec.recu_photo_url=url; modifie=true;
+    if(rec._status==="synced"){
+      try{ await SB.from("achats").update({recu_photo_url:url}).eq("local_id",id); }catch(e){}
+    }
+    try{ await photoDel(id); }catch(e){}
+  }
+  if(modifie) persistQueue(all);
+}
+
 function dataURLtoBlob(u){
   try{var a=u.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"image/jpeg",bin=atob(a[1]),len=bin.length,arr=new Uint8Array(len);
     for(var i=0;i<len;i++)arr[i]=bin.charCodeAt(i);return new Blob([arr],{type:m});}catch(e){return null;}
@@ -585,7 +681,7 @@ function save(mode){
     mode_paiement:$("f_mode").value, numero_recu:up(recu)||null,
     nb_sacs:sacs, humidite:n($("f_hum").value), kor:n($("f_kor").value), rejet:$("f_rejet").value==="1",
     observation:up($("f_obs").value.trim())||null,
-    recu_photo:PHOTO||null, recu_photo_url:null,
+    recu_photo:null, recu_photo_url:null,
     commission_rt:net*COMMISSION, bonus_diff:net*BONUS,
     refinancable:refi, qualite_statut:qual, stock_libere:(qual==="OK"),
     stock_statut: qual==="OK" ? "Entrée RT" : "Stock non libéré",
@@ -594,7 +690,31 @@ function save(mode){
     created_by_nom:(ME&&ME.nom)||null, created_at:new Date().toISOString(),
     _status: complet ? "pending" : "draft"
   };
-  const all=load(Q_KEY,[]); all.unshift(rec); persistQueue(all);
+  /* Écriture locale AVANT toute annonce de succès, et avant de vider le
+     formulaire : si la mémoire de l'appareil refuse, l'agent doit le voir et
+     garder sa saisie sous les yeux. */
+  let ecritureOk;
+  if(complet){
+    const all=load(Q_KEY,[]); all.unshift(rec); persistQueue(all);
+    ecritureOk = DERNIERE_ECRITURE_OK;
+  }else{
+    ecritureOk = storeDrafts([rec].concat(loadDrafts()));
+  }
+  if(!ecritureOk){
+    return msg("Enregistrement IMPOSSIBLE : la mémoire de cet appareil est saturée. "
+      +"L'achat n'a PAS été enregistré et votre saisie est conservée à l'écran. "
+      +"Synchronisez les achats en attente pour libérer de la place, puis réessayez.","err");
+  }
+  /* La photo va dans IndexedDB, jamais dans la file : c'est elle qui saturait
+     le stockage local, et c'est elle qui finissait en base64 dans la table.
+     On CHAÎNE cette écriture avant la synchronisation : sans cela, l'envoi
+     vers le Storage partirait avant que la photo ne soit posée, et la preuve
+     n'accompagnerait pas la ligne. */
+  const photoPosee = PHOTO
+    ? photoSet(rec.local_id, PHOTO).catch(function(){
+        msg("Achat enregistré, mais la photo du reçu n'a pas pu être conservée sur cet appareil.","warn");
+      })
+    : Promise.resolve();
   ["f_brut","f_prod","f_prod_tel","f_recu","f_sacs","f_hum","f_kor","f_obs","f_motif_prix"].forEach(i=>$(i).value="");
   $("f_tare").value="0";$("f_prix").value=PRIX_CAMPAGNE;$("f_rejet").value="0";
   PHOTO=null;$("f_photo").value="";$("photoHint").textContent="Aucune photo";calc();
@@ -603,7 +723,10 @@ function save(mode){
   if(qual!=="OK") extra+=" Qualité : "+qual+" → stock non libéré.";
   if(horsBareme) extra+=" Prix hors barème → validation BM.";
   msg((complet?"Achat validé (complet)":"Brouillon enregistré")+(ONLINE?"":" (hors ligne)")+"."+extra, (extra||!complet)?"warn":"ok");
-  render(); if(complet) syncAll();
+  render();
+  if(complet){
+    photoPosee.then(function(){ return flushPhotos(); }).then(function(){ syncAll(); }, function(){ syncAll(); });
+  }
 }
 
 /* ---- Synchronisation (statuts + preuve reçu + drafts jamais poussés) ---- */
@@ -624,17 +747,19 @@ async function syncAll(){
   $("syncBtn").disabled=true;
   for(const rec of pend){
     const payload=Object.assign({},rec);
-["_status","_error","_errcat","last_error","device_id","sync_attempts","last_attempt_at"].forEach(k=>delete payload[k]);    delete payload.recu_photo;                       // jamais de base64 dans la table
+    /* Champs techniques locaux : ils ne partent jamais en base. `recu_photo`
+       est retiré par sécurité — depuis que les photos vivent dans IndexedDB,
+       il est déjà nul, mais un enregistrement hérité d'une version antérieure
+       peut encore en porter un, et le base64 n'a rien à faire dans la table. */
+    ["_status","_error","_errcat","last_error","device_id","sync_attempts","last_attempt_at","recovered_at","recu_photo"]
+      .forEach(k=>delete payload[k]);
     try{
-      if(rec.recu_photo && !rec.recu_photo_url){
-        const url=await uploadRecu(rec);
-        if(url){ payload.recu_photo_url=url; }
-      }
+      /* L'envoi de la photo vers le Storage est assuré par flushPhotos(),
+         indépendamment de cette boucle : la preuve n'est donc jamais liée au
+         sort d'un envoi de ligne. */
       const r=await SB.from("achats").upsert(payload,{onConflict:"local_id",ignoreDuplicates:true});
       if(!r.error){
         rec._status="synced"; rec._error=null; rec._errcat=null;
-        if(payload.recu_photo_url){ rec.recu_photo_url=payload.recu_photo_url; delete rec.recu_photo; }
-        // Si pas d'URL de preuve : on GARDE la photo locale (jamais perdue).
       } else {
         rec._status="failed"; rec._error=r.error.message; rec._errcat=classifyErr(r.error.message);
       }
@@ -650,7 +775,7 @@ function retry(id){
 }
 function showErr(id){ EXPANDED[id]=!EXPANDED[id]; render(); }
 function promoteDraft(id){
-  const all=load(Q_KEY,[]); const rec=all.find(r=>r.local_id===id); if(!rec)return;
+  const drafts=loadDrafts(); const rec=drafts.find(r=>r.local_id===id); if(!rec)return;
   const recu=prompt("N° du reçu papier pour valider cet achat :", rec.numero_recu||"");
   if(recu===null) return;
   if(!recu.trim()){ alert("Reçu requis pour valider (ou laissez en brouillon)."); return; }
@@ -658,7 +783,14 @@ function promoteDraft(id){
   rec.statut_validation = rec.qualite_statut==="À rejeter" ? "Rejeté"
                         : rec.prix_hors_bareme ? "Validation BM requise"
                         : rec.qualite_statut!=="OK" ? "À contrôler" : "À valider";
-  rec._status="pending"; persistQueue(all); render(); syncAll();
+  rec._status="pending";
+  /* Le brouillon rejoint la file de synchronisation. On écrit la file EN
+     PREMIER : si cette écriture échoue, le brouillon reste où il est plutôt
+     que de disparaître entre les deux clés. */
+  const all=load(Q_KEY,[]); all.unshift(rec); persistQueue(all);
+  if(!DERNIERE_ECRITURE_OK){ return msg("Validation impossible : mémoire de l'appareil saturée. Le brouillon est conservé.","err"); }
+  storeDrafts(drafts.filter(r=>r.local_id!==id));
+  render(); flushPhotos().then(function(){ syncAll(); }, function(){ syncAll(); });
 }
 
 /* ---- Suppression d'un achat (réservée au Branch Manager) ----------------
@@ -667,6 +799,12 @@ function promoteDraft(id){
    suppression sur la table « achats » côté Supabase. */
 async function deleteAchat(id){
   if(!IS_BM){ alert("Seul le Branch Manager peut supprimer un achat."); return; }
+  const drafts=loadDrafts(); const brouillon=drafts.find(r=>r.local_id===id);
+  if(brouillon){
+    const lbl=(brouillon.village_nom||"—")+" · "+fmt(brouillon.poids_net)+" kg · "+fmt(brouillon.montant)+" FCFA";
+    if(!confirm("Supprimer ce brouillon ? Il n'a jamais été envoyé au serveur.\n\n"+lbl)) return;
+    storeDrafts(drafts.filter(r=>r.local_id!==id)); photoDel(id).catch(function(){}); render(); return;
+  }
   const all=load(Q_KEY,[]); const rec=all.find(r=>r.local_id===id); if(!rec) return;
   const label=(rec.village_nom||"—")+" · "+fmt(rec.poids_net)+" kg · "+fmt(rec.montant)+" FCFA";
   if(rec._status==="synced"){
@@ -676,17 +814,17 @@ async function deleteAchat(id){
       const r=await SB.from("achats").delete().eq("local_id",rec.local_id);
       if(r.error){ alert("Suppression refusée : "+(/(rls|policy|permission|denied|jwt)/i.test(r.error.message)?"cette action est réservée au Branch Manager (RLS serveur).":r.error.message)); return; }
     }catch(e){ alert("Suppression impossible : "+String(e&&e.message||e)); return; }
-    store(Q_KEY, all.filter(r=>r.local_id!==id)); render();
+    store(Q_KEY, all.filter(r=>r.local_id!==id)); photoDel(id).catch(function(){}); render();
   } else {
     if(!confirm("Cet achat n'est PAS synchronisé : sa suppression est définitive et il ne sera jamais envoyé au serveur.\n\n"+label+"\n\nSupprimer quand même ?")) return;
-    store(Q_KEY, all.filter(r=>r.local_id!==id)); render();
+    store(Q_KEY, all.filter(r=>r.local_id!==id)); photoDel(id).catch(function(){}); render();
   }
 }
 
 /* ---- Rendu ---- */
 const ST={synced:['sync','Synchronisé'],pending:['pend','En attente'],syncing:['syncing','En synchronisation'],draft:['draft','Brouillon']};
 function render(){
-  const all=load(Q_KEY,[]); const t=today();
+  const all=toutesLesSaisies(); const t=today();
   let vol=0,mt=0,com=0,pend=0;
   all.forEach(r=>{
     if(r.date===t && r._status!=="draft"){vol+=r.poids_net||0;mt+=r.montant||0;com+=r.commission_rt||0;}
@@ -716,12 +854,18 @@ function render(){
       +' · '+esc(r.producteur_nom||"producteur ?")+(r.numero_recu?(" · reçu "+esc(r.numero_recu)):"")+q+pr+'</div>'
       +(acts?'<div style="margin-top:6px">'+acts+'</div>':'')+errBox+'</div>';
   }).join("")||'<div class="emptystate"><div class="eic">📄</div><b>Aucun achat sur cet appareil</b><p>Vos achats saisis apparaîtront ici. Commencez par l\'onglet « Nouvel achat » ; ils se synchronisent automatiquement.</p></div>';
+  if(QUARANTAINE.length){
+    const o=QUARANTAINE.reduce((t,q)=>t+q.octets,0);
+    $("list").innerHTML='<div class="alert show err" style="margin-bottom:10px">Données locales illisibles : '
+      +o+' octets ont été mis de côté et ne sont plus affichés. Prévenez le Branch Manager AVANT de saisir : des achats non synchronisés peuvent manquer.</div>'
+      +$("list").innerHTML;
+  }
 }
 
 /* ---- État réseau ---- */
 function setNet(){ONLINE=navigator.onLine;const e=$("net");e.className="net "+(ONLINE?"on":"off");
   $("netTxt").textContent=ONLINE?"En ligne":"Hors ligne";}
-window.addEventListener("online",()=>{setNet();loadRef();syncAll();});
+window.addEventListener("online",()=>{setNet();loadRef();flushPhotos().then(()=>syncAll(),()=>syncAll());});
 window.addEventListener("offline",setNet);
 
 /* ---- Init ---- */
@@ -731,9 +875,11 @@ document.addEventListener("anagroci:authenticated",e=>{
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   REF=Object.assign({villages:[],rt:[],prodByVillage:{},avances:[],achatsServer:[],sacs:[],_ctxLoaded:false}, load(REF_KEY,{}));
   $("f_date").value=today();
+  migrerBrouillons();
   setNet();setTab("saisie");renderRef();render();calc();
   $("f_recu").addEventListener("input",calc);
-  loadRef();syncAll();
+  loadRef();
+  flushPhotos().then(()=>syncAll(),()=>syncAll());
 });
 </script>
 </body></html>

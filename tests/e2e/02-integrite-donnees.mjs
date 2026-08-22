@@ -263,12 +263,15 @@ const razAchats = () => banc.api.tables.set('achats', [])
   // de parsing et renvoie une liste vide), pas ce que voit le test.
   const vuParLApp = await page.evaluate(() => (typeof window.load === 'function' ? window.load('anagroci_achats', []) : []).length)
   const brutRestant = await page.evaluate(() => (localStorage.getItem('anagroci_achats') || '').length)
-  const alerte = await page.textContent('#msg').catch(() => '')
+  // L'avertissement peut apparaître dans le bandeau de message OU en tête de
+  // la liste : on regarde les deux, c'est la visibilité qui est testée.
+  const alerte = ((await page.textContent('#msg').catch(() => '')) || '')
+    + ' ' + ((await page.textContent('#list').catch(() => '')) || '')
   const compteurEcran = await page.textContent('#kPend').catch(() => '')
   verdict('T-INT-05', 'File locale tronquée (écriture interrompue)',
     'alerte visible pour l\'utilisateur, ou récupération partielle',
     `${avant} achat(s) avant ; après rechargement l'application en voit ${vuParLApp} (${brutRestant} octets illisibles restent en base locale) ; message écran : « ${(alerte || '(aucun)').trim().slice(0, 50) || '(aucun)'} », compteur « en attente » : ${compteurEcran}`,
-    !(avant > 0 && vuParLApp === 0 && !/perdu|corrompu|erreur/i.test(alerte || '')), 'CRITICAL', { brutRestant })
+    !(avant > 0 && vuParLApp === 0 && !/perdu|corrompu|erreur|illisible|mis de côté/i.test(alerte || '')), 'CRITICAL', { brutRestant })
   await contexte.close()
 }
 
@@ -345,49 +348,69 @@ const razAchats = () => banc.api.tables.set('achats', [])
 
 /* ════════════════════════════════════════════════════════════════════════
    T-INT-08 — Collision : deux utilisateurs modifient le MÊME village
-   Le contrôle de conflit de fbms/index.html est un « lire puis écrire »
-   (SELECT updated_at, comparaison en JavaScript, puis UPSERT). Ce test
-   provoque l'entrelacement que ce motif ne couvre pas.
+
+   Ce test passe par le VRAI chemin de code de la page (RemoteVillages.upsert),
+   dans deux navigateurs authentifiés distincts, et non par des appels HTTP
+   fabriqués. C'est indispensable depuis que le contrôle de conflit est devenu
+   une écriture conditionnelle : un test qui rejouerait l'ancienne séquence
+   mesurerait l'ancien code, pas celui qui est livré.
    ════════════════════════════════════════════════════════════════════════ */
 {
   const villages = banc.api.tables.get('villages')
   const cible = villages[0]
   const versionInitiale = cible.updated_at
-  const nomInitial = cible.data.s1.village
+  // Copie intégrale : ce test écrase réellement la fiche (colonnes ET data).
+  // Ne restaurer que le nom laisserait la colonne `village` altérée, et les
+  // tests suivants ne retrouveraient plus le village dans les listes.
+  const instantane = JSON.parse(JSON.stringify(cible))
 
-  // Deux clients lisent la même version de référence…
-  const jetonA = await (await fetch(banc.api.base + '/auth/v1/token?grant_type=password', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'k' },
-    body: JSON.stringify({ email: bm.email, password: bm.motDePasse }),
-  })).json()
-  const jetonB = await (await fetch(banc.api.base + '/auth/v1/token?grant_type=password', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'k' },
-    body: JSON.stringify({ email: PERSONAS.find((p) => p.cle === 'sup').email, password: PERSONAS.find((p) => p.cle === 'sup').motDePasse }),
-  })).json()
+  async function ouvrirReferentiel(persona) {
+    const contexte = await navigateur.newContext({ viewport: { width: 1440, height: 900 }, locale: 'fr-FR', serviceWorkers: 'block' })
+    await router(contexte, banc)
+    const page = await contexte.newPage()
+    await connecter(page, banc.api, persona)
+    await page.goto(banc.statique.base + '/fbms/index.html', { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => typeof RemoteVillages !== 'undefined' && typeof RemoteVillages.upsert === 'function', null, { timeout: 25000 })
+    return { contexte, page }
+  }
 
-  const lire = async (jeton) => (await (await fetch(banc.api.base + '/rest/v1/villages?select=data,updated_at&id=eq.' + cible.id, {
-    headers: { apikey: 'k', Authorization: 'Bearer ' + jeton.access_token, Accept: 'application/vnd.pgrst.object+json' },
-  })).json())
-  const ecrire = async (jeton, valeur) => fetch(banc.api.base + '/rest/v1/villages?on_conflict=id', {
-    method: 'POST',
-    headers: { apikey: 'k', Authorization: 'Bearer ' + jeton.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' },
-    body: JSON.stringify({ id: cible.id, data: { ...cible.data, s1: { ...cible.data.s1, village: valeur } }, deleted: false }),
-  })
+  /** Écrit la fiche via le code de la page, en partant de la version lue. */
+  const ecrire = (page, id, base, valeur) => page.evaluate(async ([id, base, valeur]) => {
+    const v = {
+      id, statut: 'Validé',
+      s1: { village: valeur, cluster: 'TEST_LOAD_CLUSTER_A', region: 'TEST_LOAD_REGION', departement: 'TEST_LOAD_DEPT' },
+      s9: { potentiel20: 10, route20: 10, dispoRT20: 10, risqueConcurrentiel20: 10, faisabilitePaiement20: 10 },
+      photos: {}, updatedAt: base,
+    }
+    try {
+      const r = await RemoteVillages.upsert(v, base, false)
+      return { conflit: !!(r && r.conflict), valeurServeur: r && r.village && r.village.s1 && r.village.s1.village }
+    } catch (e) { return { erreur: String(e && e.message || e) } }
+  }, [id, base, valeur])
 
-  const vueA = await lire(jetonA)
-  const vueB = await lire(jetonB)
-  // A écrit ; B avait lu AVANT et écrit juste après, en croyant sa base à jour.
-  await ecrire(jetonA, 'TEST_LOAD_MODIF_A')
-  await ecrire(jetonB, 'TEST_LOAD_MODIF_B')
+  const a = await ouvrirReferentiel(bm)
+  const b = await ouvrirReferentiel(PERSONAS.find((p) => p.cle === 'sup'))
+
+  // Les deux partent de la MÊME version de référence : c'est la collision.
+  const base = versionInitiale
+  const rA = await ecrire(a.page, cible.id, base, 'TEST_LOAD_MODIF_A')
+  const rB = await ecrire(b.page, cible.id, base, 'TEST_LOAD_MODIF_B')
+
   const final = villages.find((v) => v.id === cible.id)
-  const perduA = final.data.s1.village !== 'TEST_LOAD_MODIF_A'
+  const valeurFinale = final.data.s1.village
+  const acceptes = [rA, rB].filter((r) => r && !r.conflit && !r.erreur).length
+  const conflits = [rA, rB].filter((r) => r && r.conflit).length
+  const perteSilencieuse = acceptes === 2   // deux écritures acceptées : l'une est perdue sans le dire
 
   verdict('T-INT-08', 'Deux utilisateurs modifient le même village (entrelacement)',
-    'la seconde écriture est refusée ou signalée en conflit',
-    `base de référence identique pour les deux (${vueA.updated_at === vueB.updated_at ? 'oui' : 'non'}) ; valeur finale « ${final.data.s1.village} » — la modification de A est ${perduA ? 'PERDUE sans avertissement' : 'conservée'}`,
-    !perduA, 'CRITICAL',
-    { versionInitiale, nomInitial, motif: 'contrôle de conflit lire-puis-écrire, non atomique (fbms/index.html:1092-1112)' })
-  final.data.s1.village = nomInitial
+    'une écriture acceptée, la seconde signalée en conflit',
+    `base de référence commune ; A → ${rA.conflit ? 'conflit signalé' : (rA.erreur || 'accepté')} · B → ${rB.conflit ? 'conflit signalé' : (rB.erreur || 'accepté')} ; valeur finale « ${valeurFinale} » ; ${acceptes} écriture(s) acceptée(s), ${conflits} conflit(s) signalé(s)`,
+    acceptes === 1 && conflits === 1 && !perteSilencieuse, 'CRITICAL',
+    { rA, rB, versionInitiale, valeurFinale, mecanisme: 'écriture conditionnelle UPDATE ... WHERE id = ? AND updated_at = ? (fbms/index.html:RemoteVillages.upsert)' })
+
+  await a.contexte.close(); await b.contexte.close()
+  const i = villages.findIndex((v) => v.id === cible.id)
+  if (i >= 0) villages[i] = instantane
 }
 
 /* ════════════════════════════════════════════════════════════════════════
