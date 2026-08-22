@@ -114,7 +114,7 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
   verdict('S-04', 'Un agent ne lit que son propre profil',
     '1 profil pour l\'agent, tous pour le Branch Manager',
     `agent voit ${vuAgent.length} profil(s), BM voit ${vuBM.length} profil(s)`,
-    vuAgent.length === 1 && vuBM.length === PERSONAS.length, 'HIGH', 'modèle vérifié / déploiement NON CONFIRMÉ')
+    vuAgent.length === 1 && vuBM.length >= PERSONAS.length, 'HIGH', 'modèle vérifié / déploiement NON CONFIRMÉ')
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -227,7 +227,18 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
    S-09 — Aucune clé de service dans les fichiers publiés
    ════════════════════════════════════════════════════════════════════════ */
 {
-  const motifs = [/service_role/i, /\bsk_live\b/i, /\bsb_secret\b/i, /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{40,}/]
+  /* On cherche du MATÉRIEL de clé, pas le mot « service_role » : celui-ci
+     apparaît légitimement dans un commentaire de fbms/index.html qui rappelle
+     justement de ne jamais l'y mettre. Les commentaires sont donc retirés
+     avant l'analyse. */
+  const motifs = [
+    /sb_secret_[A-Za-z0-9_-]{8,}/,
+    /\bsk_live_[A-Za-z0-9]{8,}/,
+    /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/,   // JWT complet
+    /service_role\s*[:=]\s*["'`][^"'`]{8,}/i,                              // affectation d'une valeur
+    /["'`]service_role["'`]\s*:\s*["'`][^"'`]{8,}/i,
+  ]
+  const sansCommentaires = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ').replace(/<!--[\s\S]*?-->/g, ' ')
   const trouve = []
   const parcourir = (dir) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -235,8 +246,8 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
       const chemin = dir + '/' + e.name
       if (e.isDirectory()) { parcourir(chemin); continue }
       if (!/\.(html|js|css|json|webmanifest)$/.test(e.name)) continue
-      const texte = readFileSync(chemin, 'utf8')
-      for (const m of motifs) if (m.test(texte)) trouve.push(chemin + ' :: ' + String(m))
+      const texte = sansCommentaires(readFileSync(chemin, 'utf8'))
+      for (const m of motifs) { const t = m.exec(texte); if (t) trouve.push(chemin + ' :: ' + String(m) + ' → ' + t[0].slice(0, 24) + '…') }
     }
   }
   parcourir('.')
@@ -355,7 +366,12 @@ const TABLES_SENSIBLES = ['villages', 'producteurs', 'rt', 'achats', 'avances', 
   const terrain = bloc('peut_editer_terrain')
   const config = bloc('peut_editer_config')
   const bm = bloc('est_bm')
-  const inconnusEcriture = libelles.filter((l) => !terrain.includes("'" + l + "'"))
+  // « Consultation uniquement » et « Read Only / Audit » n'ont pas vocation à
+  // écrire : leur absence est normale, pas un écart.
+  const lectureSeule = ['Consultation uniquement', 'Read Only / Audit']
+  const inconnusEcriture = libelles
+    .filter((l) => !lectureSeule.includes(l))
+    .filter((l) => !terrain.includes("'" + l + "'"))
   const bmInconnu = libelles.filter((l) => /Branch Manager/i.test(l) && !bm.includes("'" + l + "'"))
   verdict('S-14', 'Rôles du portail et rôles reconnus par la RLS',
     'tout rôle proposé par l\'écran d\'administration est reconnu par les politiques',

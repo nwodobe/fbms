@@ -191,8 +191,32 @@ nativement un tableau d'objets.
 | Débordement horizontal, 768×1024 et 1440×900 | 0 |
 | Rendu tactile (`isMobile`, `hasTouch`) | Aucune erreur spécifique au mobile |
 | Zones tactiles < 44 px | `NON MESURÉ` dans cette campagne — la porte du dépôt `verifier-pages.mjs` le fait déjà |
-| Réseau lent (3G simulé) | `NON MESURÉ` — mesure prévue mais non exécutée faute de temps ; le script d'émulation accepte le paramètre `latenceMs` |
+| Réseau lent (4G / 3G / 2G) | **Mesuré** — voir le tableau ci-dessous |
 | Perte temporaire de réseau | **Mesuré** — rapport 02 et 03 (T-INT-06), et couche PWA au rapport 05 |
+
+### Temps avant qu'un écran devienne manipulable, par qualité de liaison
+
+Débit et latence appliqués par le protocole DevTools de Chromium, plus une latence serveur
+injectée dans l'émulateur. Viewport 390×844. **Les bibliothèques tierces sont remplacées par des
+doublures légères : en production, ces temps seront plus longs, jamais plus courts.**
+
+| Profil | Portail | Achats Terrain | **RCN TRACE** | Enregistrer un achat |
+|---|---:|---:|---:|---:|
+| Référence (local, 0 ms) | 124 ms | 199 ms | 145 ms | 100 ms |
+| 4G correcte (9 Mb/s, 60 ms + 40 ms serveur) | 268 ms | 407 ms | 1 108 ms | 94 ms |
+| 3G de brousse (780 kb/s, 300 ms + 150 ms serveur) | 2 008 ms | 1 965 ms | **11 250 ms** | 93 ms |
+| 2G / EDGE (240 kb/s, 800 ms + 400 ms serveur) | 6 275 ms | 5 585 ms | **36 172 ms** | 99 ms |
+
+Trois lectures :
+
+1. **L'enregistrement d'un achat ne dépend pas du réseau** — 93 à 100 ms quelle que soit la
+   liaison. C'est la conséquence directe du choix « local d'abord », et c'est un très bon point :
+   l'agent n'attend jamais le serveur pour valider une pesée.
+2. **Achats Terrain reste praticable jusqu'en 3G** (2 s) et devient pénible en 2G (5,6 s).
+3. **RCN TRACE devient inutilisable dès la 3G** : 11 secondes avant le premier écran, 36 secondes
+   en 2G. Un agent en zone de collecte n'attendra pas. Ces 1,04 Mo de JavaScript en 29 fichiers
+   ne sont pas un problème de confort : ils rendent le module inaccessible là où il devrait
+   servir.
 
 ---
 
@@ -200,7 +224,7 @@ nativement un tableau d'objets.
 
 | # | Constat | Gravité | Effort de correction |
 |---|---|---|---|
-| P-1 | RCN TRACE : 40 requêtes et 1,04 Mo de JS à l'ouverture | HIGH | Élevé (découpage du module) |
+| P-1 | RCN TRACE : 40 requêtes et 1,04 Mo de JS — **11 s avant le premier écran en 3G, 36 s en 2G** | **HIGH** | Élevé (découpage du module) |
 | P-2 | `syncNow` : une requête par fiche, en série, doublée par le contrôle de conflit | HIGH | Moyen (envoi par lot) |
 | P-3 | Photos de reçus en base64 dans la table `achats` | HIGH | Faible (unifier la synchronisation, BUG-009) |
 | P-4 | Cartographie : 9 req/min par utilisateur en permanence | MEDIUM | Faible (allonger l'intervalle, s'appuyer sur le Realtime déjà présent) |

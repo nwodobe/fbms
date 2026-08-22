@@ -120,10 +120,11 @@ Le `catch(e){}` vide avale `QuotaExceededError`. `save()` appelle `persistQueue(
 puis affiche son message de succès sans jamais vérifier que l'écriture a eu lieu.
 
 **Pourquoi le quota se remplit.** `onPhoto()` (`achats.html:513`) redimensionne la photo du reçu
-à 1 000 px et l'encode en JPEG qualité 0,6, soit en pratique 80 à 200 ko, puis **80 à 270 ko une
-fois converti en base64**. Ces photos vivent dans la file `localStorage` jusqu'à synchronisation.
-Le quota courant d'un domaine est de 5 à 10 Mo : **20 à 45 achats photographiés hors ligne
-suffisent**. C'est une journée de terrain, pas un cas extrême.
+à 1 000 px et l'encode en JPEG qualité 0,6. La taille exacte dépend de la photo ;
+l'ordre de grandeur usuel pour une photo de reçu à cette définition est de 80 à 200 ko, soit
+**110 à 270 ko une fois convertie en base64** (estimation, non mesurée sur des photos réelles). Ces photos vivent dans la file `localStorage` jusqu'à synchronisation.
+Le quota courant d'un domaine est de 5 à 10 Mo : à cet ordre de grandeur, **quelques dizaines
+d'achats photographiés hors ligne suffisent**. C'est une journée de terrain, pas un cas extrême.
 
 **Recommandation.** Vérifier le succès de l'écriture (relire la clé après `setItem`, ou capturer
 explicitement `QuotaExceededError`), refuser la validation et l'annoncer. Sortir les photos de
@@ -247,7 +248,7 @@ base64 compris, sans jamais appeler `uploadRecu()`.
 
 **Conséquences à 100 utilisateurs** — c'est là que le défaut devient dimensionnant :
 
-- une ligne d'achat pèse ~600 octets sans photo, **80 à 270 ko avec** ;
+- une ligne d'achat pèse ~600 octets sans photo, **de l'ordre de 110 à 270 ko avec** (estimation) ;
 - toute requête `select *` sur `achats` (Command Center, exports, écrans de suivi) rapatrie
   ces images ;
 - 100 agents × 30 achats/jour × 150 ko ≈ **450 Mo par jour** dans une table transactionnelle,

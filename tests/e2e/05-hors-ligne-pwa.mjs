@@ -61,7 +61,11 @@ for (const page of PAGES) {
   })
 
   // Réseau coupé, puis rechargement : c'est le geste du terrain.
-  etat.horsLigne = true
+  // Coupure TOTALE : le site lui-même devient injoignable. Sans cela, la
+  // requête interceptée est relayée au serveur local et le « hors ligne » ne
+  // teste rien — c'est le piège dans lequel une première version de ce script
+  // est tombée.
+  etat.horsLigne = 'total'
   await onglet.context().setOffline(true)
   let rechargementOk = true
   let contenu = ''
@@ -83,6 +87,7 @@ for (const page of PAGES) {
     { page: page.chemin, controle, contenu },
   )
   await onglet.context().setOffline(false)
+  etat.horsLigne = false
   await contexte.close()
 }
 
@@ -103,7 +108,7 @@ for (const page of PAGES) {
     all.unshift(rec); localStorage.setItem('anagroci_achats', JSON.stringify(all))
     return all.length
   })
-  etat.horsLigne = true
+  etat.horsLigne = 'total'
   await contexte.setOffline(true)
   let survitAuRechargement = null
   try {

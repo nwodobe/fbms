@@ -83,6 +83,13 @@ const agent = PERSONAS.find((p) => p.cle === 'agent')
   await page.goto(banc.statique.base + '/terrain/achats.html', { waitUntil: 'domcontentloaded' })
   await page.waitForSelector('#saveComplet', { timeout: 20000 })
   await page.waitForTimeout(1500)
+  // Une saisie doit exister, sinon la synchronisation n'a rien à envoyer et le
+  // test ne mesurerait rien.
+  await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('anagroci_achats') || '[]')
+    all.unshift({ local_id: 'TEST_LOAD_JETON', date: '2026-08-22', village_nom: 'TEST_LOAD_V001', rt_nom: 'TEST_LOAD_RT_01', poids_net: 100, prix_kg: 400, montant: 40000, numero_recu: 'TEST_LOAD_JET', nb_sacs: 2, _status: 'pending' })
+    localStorage.setItem('anagroci_achats', JSON.stringify(all))
+  })
   // Le jeton devient invalide côté serveur, sans que le client en soit prévenu.
   await contexte.route(SUPABASE_PROD + '/rest/v1/**', (route) =>
     route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'JWT expired', code: 'PGRST301' }) }))
@@ -101,7 +108,7 @@ const agent = PERSONAS.find((p) => p.cle === 'agent')
   verdict('R-03', 'Jeton expiré pendant l\'usage',
     'invitation claire à se reconnecter',
     `statut de la file : ${vu.statut} · message : « ${(vu.msg || vu.liste).replace(/\s+/g, ' ').slice(0, 120) || '(aucun)'} »`,
-    informe || vu.statut === '(file vide)', 'MEDIUM', { vu })
+    informe, 'MEDIUM', { vu })
   await contexte.close()
 }
 

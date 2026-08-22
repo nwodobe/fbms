@@ -21,8 +21,8 @@ LOW : défaut de finition.
 | BUG-009 | **HIGH** | Achats Terrain | Trois implémentations de synchronisation superposées ; un brouillon part en base | T-INT-15 |
 | BUG-010 | **HIGH** | Rôles / RLS | Le portail et la base ne connaissent plus les mêmes rôles | S-14 |
 | BUG-011 | **HIGH** | ALIS | `shared/alis-hardening.js` ne s'exécute pas (erreur de syntaxe) | rapport 02 §3 — **défaut déjà daté** |
-| BUG-012 | **MEDIUM** | PWA | Le service worker principal ne sait pas répondre hors ligne | rapport 02, tests PWA |
-| BUG-013 | **MEDIUM** | RCN TRACE | 40 requêtes et une écriture au simple chargement de la page | rapport 06 §4.1 |
+| BUG-012 | **MEDIUM** | PWA | Aucune page n'est mise en cache : la promesse hors ligne n'est pas tenue | `caches.keys() === []` mesuré sur 4 pages |
+| BUG-013 | **HIGH** | RCN TRACE | 1,04 Mo de JS, 40 requêtes et une écriture au chargement ; 11 s en 3G, 36 s en 2G | rapport 06 §4.1 et §6 |
 | BUG-014 | **MEDIUM** | Sécurité | Aucun cloisonnement des données par zone ou cluster | S-05 |
 | BUG-015 | **MEDIUM** | Sécurité | Le rôle « Consultation uniquement » lit directement les montants et les tiers | S-06 |
 | BUG-016 | **MEDIUM** | Stock & Sacs | Décalage de mise en page sur mobile (CLS 0,374) | rapport 06 §3 |
@@ -121,9 +121,9 @@ function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 vérifier l'écriture. Le `catch(e){}` vide fait disparaître `QuotaExceededError`.
 
 **Pourquoi le quota se remplit en usage normal.** `onPhoto()` (`achats.html:513`) encode la photo
-du reçu en JPEG 1 000 px qualité 0,6, puis en base64 : 80 à 270 ko par achat, conservés dans la
-file jusqu'à synchronisation. Quota courant : 5 à 10 Mo. **20 à 45 achats photographiés hors
-ligne suffisent** — une journée de collecte.
+du reçu en JPEG 1 000 px qualité 0,6, puis en base64 : de l'ordre de 110 à 270 ko par achat
+(estimation, non mesurée sur des photos réelles), conservés dans la file jusqu'à synchronisation. Quota courant : 5 à 10 Mo. À cet ordre de grandeur,
+**quelques dizaines d'achats photographiés hors ligne suffisent** — une journée de collecte.
 
 **Recommandation.** Vérifier le succès de l'écriture et refuser la validation en cas d'échec.
 Sortir les photos de `localStorage` vers IndexedDB, comme le fait déjà `fbms/index.html`.
@@ -269,7 +269,7 @@ base64 écrits dans la colonne `recu_photo` de la table `achats`**, copie locale
 c'est `shared/anagroci-audit.js:syncQueueWithErrors` qui envoie, et il transmet la ligne
 entière.
 
-**Impact de charge.** Une ligne d'achat passe de ~600 octets à 80–270 ko. Tout `select *` sur
+**Impact de charge.** Une ligne d'achat passe de ~600 octets à un ordre de grandeur de 110–270 ko (estimation). Tout `select *` sur
 `achats` — Command Center, exports — rapatrie les images.
 100 agents × 30 achats/jour × 150 ko ≈ **450 Mo par jour** dans une table transactionnelle.
 
@@ -362,31 +362,48 @@ en condition réelle, et pas seulement à l'analyse statique.
 
 ---
 
-## BUG-012 — Le service worker principal ne sait pas répondre hors ligne
+## BUG-012 — Aucune page n'est mise en cache : la promesse hors ligne n'est pas tenue
 
 - **Sévérité** : MEDIUM · **Module** : couche PWA
 
-**Diagnostic.** Deux service workers coexistent :
+**Mesure.** Après une visite normale, en ligne, de chacune des quatre pages testées,
+`caches.keys()` renvoie **`[]`** — aucun cache n'existe. Sur les quatre pages, le service worker
+actif est `i18n-sw.js`.
 
-| Fichier | Enregistré par | Portée | Repli hors ligne |
+**Diagnostic.** Deux service workers coexistent, et **aucun des deux ne pré-charge quoi que ce
+soit** :
+
+| Fichier | Enregistré par | Portée | Ce qu'il met en cache |
 |---|---|---|---|
-| `i18n-sw.js` | `index.html:270` | `/fbms/` — **tout le site** | **aucun** |
-| `sw.js` | `fbms/index.html:5127` | `/fbms/fbms/` | oui (`caches.match`) |
+| `i18n-sw.js` | `index.html:270` | `/fbms/` — **tout le site** | **rien** : pas de gestionnaire `install`, aucun appel à `cache.put`, aucun `caches.match` |
+| `sw.js` | `fbms/index.html:5127` | `/fbms/fbms/` uniquement | **efface tous les caches à chaque activation** ; ne remplit qu'au fil de l'eau, et seulement les tuiles OpenStreetMap |
 
-`i18n-sw.js` intercepte chaque navigation HTML, force `cache: 'no-store'`, et en cas d'échec
-retente un `fetch` — sans jamais consulter `caches`. Hors ligne, les deux échouent.
+`sw.js` prévoit bien un repli (`fetch(req).catch(() => caches.match(req))`), mais ce repli ne
+peut rien servir : le cache est vide par construction. `i18n-sw.js`, lui, n'a même pas de repli —
+il tente `fetch(req, {cache:'no-store'})`, puis `fetch(req)`, et s'arrête là.
 
-Toutes les pages hors du dossier `fbms/` — dont **Achats Terrain**, le module de terrain par
-excellence — dépendent de ce service worker.
+Un utilisateur qui recharge une page hors couverture n'obtient donc rien à servir depuis le
+cache. Seules les **données** locales (localStorage, IndexedDB) survivent — ce qui est déjà
+beaucoup, mais ce n'est pas la même chose qu'une application installable utilisable hors ligne,
+telle que la décrit `manifest.webmanifest`.
 
-Second effet : `no-store` annule le cache HTTP du CDN ; chaque ouverture retélécharge la page
-entière.
+Effet secondaire mesuré du même fichier : `cache: 'no-store'` sur chaque navigation annule le
+cache HTTP de GitHub Pages. Les 343 ko de `fbms/index.html` repartent du CDN à chaque ouverture.
+
+> **Limite de la mesure — à lire.** Le rechargement hors ligne lui-même n'a **pas pu être
+> éprouvé de façon concluante**. Playwright n'intercepte pas les requêtes émises *par* un
+> service worker, et `context.setOffline(true)` ne les atteint pas non plus : la page se
+> rechargeait depuis le serveur local, ce qui invalidait le verdict. Une première version de ce
+> rapport concluait à tort que le rechargement hors ligne fonctionnait. Le constat conservé ici
+> — **aucun cache n'existe** — est une mesure directe (`caches.keys() === []`), indépendante de
+> cette limite. Le comportement exact d'un rechargement réellement hors ligne reste
+> `NON TESTÉ`.
 
 ---
 
-## BUG-013 — RCN TRACE : 40 requêtes et une écriture au chargement
+## BUG-013 — RCN TRACE : 1,04 Mo, 40 requêtes et une écriture au chargement
 
-- **Sévérité** : MEDIUM · **Module** : RCN TRACE
+- **Sévérité** : HIGH · **Module** : RCN TRACE
 
 **Obtenu** (relevé réseau à l'ouverture, largeur bureau) : 40 requêtes, dont
 **4 lectures de `profils`** (quatre clients Supabase distincts), 31 tables `rcn_*`, un
@@ -396,6 +413,12 @@ simple fait d'ouvrir l'écran.
 Poids de la page : **1 089 ko**, dont 1 040 ko de JavaScript en 29 fichiers.
 
 À 100 utilisateurs ouvrant ce module dans la même minute : **≈ 67 requêtes/seconde** en pic.
+
+**Conséquence mesurée sur réseau de terrain** (rapport 06 §6) : le module devient utilisable au
+bout de **11,3 secondes en 3G** et de **36,2 secondes en 2G** — et encore, sans les
+bibliothèques tierces, remplacées par des doublures légères pendant la mesure. Le même écran
+s'ouvre en 145 ms en local. Ce n'est plus une question de confort : le module est hors de portée
+là où il devrait servir.
 
 ---
 

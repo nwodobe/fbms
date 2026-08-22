@@ -139,7 +139,13 @@ export async function router(contexte, { statique, api, compteur = null, horsLig
     if (compteur) compteur.push({ url, methode: requete.method(), type: requete.resourceType(), t: Date.now() })
 
     if (url.startsWith(statique.base) || url.startsWith(api.base)) {
-      if (horsLigne() && !url.startsWith(statique.base)) return route.abort('internetdisconnected')
+      // horsLigne() peut renvoyer 'total' : dans ce cas même le site statique
+      // devient injoignable — c'est le seul moyen d'éprouver réellement le
+      // service worker, car context.setOffline() n'affecte pas une requête
+      // interceptée puis relayée par route.continue().
+      const etat = horsLigne()
+      if (etat === 'total') return route.abort('internetdisconnected')
+      if (etat && !url.startsWith(statique.base)) return route.abort('internetdisconnected')
       return route.continue()
     }
 
@@ -149,7 +155,12 @@ export async function router(contexte, { statique, api, compteur = null, horsLig
       const cible = api.base + url.slice(SUPABASE_PROD.length)
       try {
         const reponse = await route.fetch({ url: cible })
-        return route.fulfill({ response: reponse })
+        // On recopie corps et en-têtes AVANT de rendre la main : sous
+        // limitation de débit (CDP), l'objet réponse peut être libéré entre le
+        // fetch et le fulfill (« Fetch response has been disposed »).
+        const corps = await reponse.body()
+        const entetes = reponse.headers()
+        return route.fulfill({ status: reponse.status(), headers: entetes, body: corps })
       } catch (e) {
         return route.abort('failed')
       }
@@ -158,11 +169,13 @@ export async function router(contexte, { statique, api, compteur = null, horsLig
     // Le VRAI SDK Supabase, servi localement (paquet npm, pas une doublure).
     if (/@supabase\/supabase-js/.test(url)) {
       const reponse = await route.fetch({ url: vendorSupabase })
-      return route.fulfill({ response: reponse, headers: { 'content-type': 'text/javascript; charset=utf-8' } })
+      const corps = await reponse.body()
+      return route.fulfill({ status: 200, body: corps, headers: { 'content-type': 'text/javascript; charset=utf-8' } })
     }
     if (/\/591\.supabase\.js/.test(url)) {
       const reponse = await route.fetch({ url: statique.base + '/__vendor/@supabase/supabase-js/dist/umd/591.supabase.js' })
-      return route.fulfill({ response: reponse, headers: { 'content-type': 'text/javascript; charset=utf-8' } })
+      const corps = await reponse.body()
+      return route.fulfill({ status: 200, body: corps, headers: { 'content-type': 'text/javascript; charset=utf-8' } })
     }
 
     const doublure = DOUBLURES.find((d) => d.motif.test(url))
