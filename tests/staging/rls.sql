@@ -34,7 +34,6 @@ BEGIN
     values ('a0000000-0000-0000-0000-000000000098','20000000-0000-0000-0000-000000000001','TEST_VILLAGE_A1','out',now(),'00000000-0000-0000-0000-000000000004');
     raise exception 'RLS FAIL: Agent forged another user check-in';
   EXCEPTION WHEN insufficient_privilege THEN null;
-  WHEN SQLSTATE '42501' THEN null;
   END;
 END $$;
 rollback;
@@ -70,7 +69,7 @@ BEGIN
 END $$;
 rollback;
 
--- Branch Manager: can read all profiles and perform BM-only update/delete.
+-- Branch Manager: can read all profiles and perform BM-only update.
 begin;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
