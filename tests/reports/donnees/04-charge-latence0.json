@@ -1,0 +1,673 @@
+{
+ "genere": "2026-08-22T11:26:29.250Z",
+ "cible": "http://127.0.0.1:54329",
+ "avertissement": "Backend émulé localement : ces temps ne sont PAS ceux de Supabase en production. Ils mesurent la forme de la charge et le comportement du client.",
+ "latenceSimuleeMs": 0,
+ "plafondConcurrence": 0,
+ "dureePalier": "60s",
+ "resultats": [
+  {
+   "etiquette": "palier-1",
+   "requetes": 28,
+   "debitParSeconde": 0.42,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 2,
+   "p99": 4,
+   "max": 5,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_authentification": {
+     "n": 0,
+     "p50": 2,
+     "p95": 6,
+     "p99": 7
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 2
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    }
+   },
+   "vus": 1,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 0,
+   "dureeReelleS": 67
+  },
+  {
+   "etiquette": "palier-5",
+   "requetes": 146,
+   "debitParSeconde": 2.25,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 2,
+   "p99": 3,
+   "max": 4,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 4
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 2,
+     "p95": 2,
+     "p99": 2
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 2,
+     "p95": 3,
+     "p99": 4
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 3
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 2
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 2
+    }
+   },
+   "vus": 5,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 11,
+   "dureeReelleS": 65
+  },
+  {
+   "etiquette": "palier-10",
+   "requetes": 300,
+   "debitParSeconde": 4.37,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 2,
+   "p99": 3,
+   "max": 4,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 3
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 2
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 2,
+     "p95": 4,
+     "p99": 4
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 3
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 4
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 3
+    }
+   },
+   "vus": 10,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 15,
+   "dureeReelleS": 69
+  },
+  {
+   "etiquette": "palier-25",
+   "requetes": 787,
+   "debitParSeconde": 11.24,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 6,
+   "p99": 8,
+   "max": 16,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 7,
+     "p99": 16
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 6,
+     "p99": 11
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 7,
+     "p99": 9
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 5,
+     "p99": 8
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 8,
+     "p99": 10
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 8,
+     "p99": 12
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 5,
+     "p99": 7
+    }
+   },
+   "vus": 25,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 43,
+   "dureeReelleS": 70
+  },
+  {
+   "etiquette": "palier-50",
+   "requetes": 1552,
+   "debitParSeconde": 22.18,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 0,
+   "p95": 5,
+   "p99": 28,
+   "max": 45,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 7
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 5,
+     "p99": 6
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 27,
+     "p99": 45
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 5
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 4,
+     "p99": 7
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 4,
+     "p99": 8
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 8,
+     "p99": 11
+    }
+   },
+   "vus": 50,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 71,
+   "dureeReelleS": 70
+  },
+  {
+   "etiquette": "palier-75",
+   "requetes": 2315,
+   "debitParSeconde": 32.5,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 2,
+   "p50": 0,
+   "p95": 12,
+   "p99": 26,
+   "max": 35,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 13,
+     "p99": 23
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 14,
+     "p99": 31
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 13,
+     "p99": 24
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 13,
+     "p99": 41
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 12,
+     "p99": 25
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 14,
+     "p99": 25
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 18,
+     "p99": 23
+    }
+   },
+   "vus": 75,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 108,
+   "dureeReelleS": 72
+  },
+  {
+   "etiquette": "palier-100",
+   "requetes": 3037,
+   "debitParSeconde": 43.17,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 2,
+   "p50": 0,
+   "p95": 10,
+   "p99": 21,
+   "max": 31,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_recherche": {
+     "n": 0,
+     "p50": 1,
+     "p95": 7,
+     "p99": 15
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 9,
+     "p99": 22
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 10,
+     "p99": 20
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 1,
+     "p95": 9,
+     "p99": 25
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 1,
+     "p95": 11,
+     "p99": 20
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 22,
+     "p99": 32
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 8,
+     "p99": 21
+    }
+   },
+   "vus": 100,
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1,
+   "lignesAchatsCreees": 135,
+   "dureeReelleS": 71
+  },
+  {
+   "etiquette": "montee-0-100",
+   "requetes": 13208,
+   "debitParSeconde": 27.86,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 0,
+   "p50": 0,
+   "p95": 1,
+   "p99": 1,
+   "max": 10,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_recherche": {
+     "n": 0,
+     "p50": 0,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 2,
+     "p99": 2
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    }
+   },
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1
+  },
+  {
+   "etiquette": "pic-10-100",
+   "requetes": 7029,
+   "debitParSeconde": 27.99,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 0,
+   "p95": 1,
+   "p99": 1,
+   "max": 21,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 2
+    },
+    "duree_creation": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_operation_lourde": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_consultation": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    },
+    "duree_export": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_recherche": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    },
+    "duree_modification": {
+     "n": 0,
+     "p50": 0,
+     "p95": 0,
+     "p99": 0
+    }
+   },
+   "seuilsRespectes": true,
+   "concurrenceServeurMax": 1
+  },
+  {
+   "etiquette": "concurrence-25",
+   "requetes": 6000,
+   "debitParSeconde": 99.53,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 2,
+   "p99": 4,
+   "max": 10,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 211,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 14232,
+   "parAction": {
+    "duree_ecriture_concurrente": {
+     "n": 0,
+     "p50": 0,
+     "p95": 1,
+     "p99": 2
+    },
+    "duree_authentification": {
+     "n": 0,
+     "p50": 1,
+     "p95": 3,
+     "p99": 5
+    }
+   },
+   "seuilsRespectes": false
+  },
+  {
+   "etiquette": "statique-0-100",
+   "requetes": 8205,
+   "debitParSeconde": 43.66,
+   "tauxEchecHttp": 0,
+   "tauxEchecFonctionnel": 0,
+   "moy": 1,
+   "p50": 1,
+   "p95": 1,
+   "p99": 2,
+   "max": 9,
+   "erreursMetier": 0,
+   "ecrituresRefusees": 0,
+   "doublons": 0,
+   "ecrasementsSilencieux": 0,
+   "doublonsLocalId": 0,
+   "doublonsRecu": 0,
+   "parAction": {
+    "duree_ressource": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 2
+    },
+    "duree_page_html": {
+     "n": 0,
+     "p50": 1,
+     "p95": 1,
+     "p99": 1
+    }
+   },
+   "seuilsRespectes": true
+  }
+ ]
+}

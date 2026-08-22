@@ -1,0 +1,36 @@
+{
+ "genere": "2026-08-22T11:41:34.832Z",
+ "utilisateurs": 10,
+ "dureeS": 188,
+ "ouvertures": 249,
+ "saisies": 16,
+ "echecs": 0,
+ "detailEchecs": [],
+ "tempsOuverture": {
+  "n": 249,
+  "moy": 249.9,
+  "p50": 176,
+  "p95": 374,
+  "p99": 2087,
+  "max": 2177
+ },
+ "tempsSaisie": {
+  "n": 16,
+  "moy": 2568.7,
+  "p50": 2561,
+  "p95": 2676,
+  "p99": 2676,
+  "max": 2676
+ },
+ "achatsEnBase": 414,
+ "doublonsNumeroRecu": 0,
+ "doublonsLocalId": 0,
+ "melangesDeSession": 0,
+ "detailMelanges": [],
+ "erreursJs": 0,
+ "detailErreursJs": [],
+ "mode": "rattaché à un banc externe",
+ "requetesBackend": null,
+ "erreursBackend": null,
+ "concurrenceServeurMax": null
+}

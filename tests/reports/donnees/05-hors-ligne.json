@@ -1,0 +1,86 @@
+{
+ "genere": "2026-08-22T11:33:23.843Z",
+ "resultats": [
+  {
+   "id": "PWA-terrainachat",
+   "titre": "Rechargement hors ligne — Achats Terrain",
+   "attendu": "la page se recharge depuis le cache et reste utilisable",
+   "obtenu": "service worker actif : i18n-sw.js?v=nocache1 (portée http://127.0.0.1:42917/, caches []) ; rechargement hors ligne : abouti ; contenu obtenu : « Achats Terrain Saisie journalière RCN · Producteur → RT Hors ligne Synchroniser VOLUME DU  »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "page": "terrain/achats.html",
+    "controle": {
+     "controle": true,
+     "script": "i18n-sw.js?v=nocache1",
+     "portee": "http://127.0.0.1:42917/",
+     "caches": []
+    },
+    "contenu": "Achats Terrain\nSaisie journalière RCN · Producteur → RT\nHors ligne\nSynchroniser\nVOLUME DU JOUR\n0\nMONTANT PAYÉ (JOUR)\n0\nCOMMISSION RT (JOUR)\n0\nEN ATTENTE DE SYNCHRO\n0\nNouvel achat\nDerniers achats\nNouve"
+   }
+  },
+  {
+   "id": "PWA-terrainsacsh",
+   "titre": "Rechargement hors ligne — Stock & Sacs",
+   "attendu": "la page se recharge depuis le cache et reste utilisable",
+   "obtenu": "service worker actif : i18n-sw.js?v=nocache1 (portée http://127.0.0.1:42917/, caches []) ; rechargement hors ligne : abouti ; contenu obtenu : « Sacherie AFLP Patrimoine, flux, décisions et contrôles + Nouvelle opération Sacherie · Ini »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "page": "terrain/sacs.html",
+    "controle": {
+     "controle": true,
+     "script": "i18n-sw.js?v=nocache1",
+     "portee": "http://127.0.0.1:42917/",
+     "caches": []
+    },
+    "contenu": "Sacherie AFLP\nPatrimoine, flux, décisions et contrôles\n+ Nouvelle opération\n\nSacherie\n·\nInitialisation…\n\nChargement du pilotage Sacherie…\nRéférence : registre canonique Sacherie AFLP\nLes décisions de "
+   }
+  },
+  {
+   "id": "PWA-indexhtml",
+   "titre": "Rechargement hors ligne — Portail",
+   "attendu": "la page se recharge depuis le cache et reste utilisable",
+   "obtenu": "service worker actif : i18n-sw.js?v=nocache1 (portée http://127.0.0.1:42917/, caches []) ; rechargement hors ligne : abouti ; contenu obtenu : « ANAGROCI Operations PLATEFORME ACHATS Toutes les applications Plateforme en ligne Campagne »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "page": "index.html",
+    "controle": {
+     "controle": true,
+     "script": "i18n-sw.js?v=nocache1",
+     "portee": "http://127.0.0.1:42917/",
+     "caches": []
+    },
+    "contenu": "ANAGROCI Operations\nPLATEFORME ACHATS\nToutes les applications\nPlateforme en ligne\nCampagne RCN 2026\nMON RÔLE\nTous les rôles\nBranch Manager\nSupervisor\nAgent\n10 applications pour ce rôle\nOpérations terr"
+   }
+  },
+  {
+   "id": "PWA-fbmsindexhtm",
+   "titre": "Rechargement hors ligne — FBMS Référentiel",
+   "attendu": "la page se recharge depuis le cache et reste utilisable",
+   "obtenu": "service worker actif : i18n-sw.js?v=nocache1 (portée http://127.0.0.1:42917/, caches []) ; rechargement hors ligne : abouti ; contenu obtenu : «  »",
+   "ok": false,
+   "gravite": "CRITICAL",
+   "preuve": {
+    "page": "fbms/index.html",
+    "controle": {
+     "controle": true,
+     "script": "i18n-sw.js?v=nocache1",
+     "portee": "http://127.0.0.1:42917/",
+     "caches": []
+    },
+    "contenu": ""
+   }
+  },
+  {
+   "id": "PWA-FILE",
+   "titre": "File de saisie hors ligne après rechargement",
+   "attendu": "la file locale survit et reste consultable",
+   "obtenu": "1 achat(s) en file avant coupure ; après rechargement hors ligne : page non rechargeable hors ligne",
+   "ok": false,
+   "gravite": "CRITICAL",
+   "preuve": {}
+  }
+ ]
+}

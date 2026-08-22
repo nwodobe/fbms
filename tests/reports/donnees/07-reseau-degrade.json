@@ -1,0 +1,143 @@
+{
+ "genere": "2026-08-22T11:36:39.950Z",
+ "profils": [
+  {
+   "nom": "reference (local)",
+   "descenteKbps": 0,
+   "monteeKbps": 0,
+   "latenceMs": 0,
+   "latenceServeurMs": 0
+  },
+  {
+   "nom": "4G correcte",
+   "descenteKbps": 9000,
+   "monteeKbps": 4000,
+   "latenceMs": 60,
+   "latenceServeurMs": 40
+  },
+  {
+   "nom": "3G de brousse",
+   "descenteKbps": 780,
+   "monteeKbps": 330,
+   "latenceMs": 300,
+   "latenceServeurMs": 150
+  },
+  {
+   "nom": "2G / EDGE",
+   "descenteKbps": 240,
+   "monteeKbps": 120,
+   "latenceMs": 800,
+   "latenceServeurMs": 400
+  }
+ ],
+ "resultats": [
+  {
+   "profil": "reference (local)",
+   "page": "terrain/achats.html",
+   "utilisableMs": 199,
+   "saisieMs": 100,
+   "statut": "ok",
+   "latenceServeurMs": 0,
+   "descenteKbps": 0
+  },
+  {
+   "profil": "reference (local)",
+   "page": "index.html",
+   "utilisableMs": 124,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 0,
+   "descenteKbps": 0
+  },
+  {
+   "profil": "reference (local)",
+   "page": "rcntrace/index.html",
+   "utilisableMs": 145,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 0,
+   "descenteKbps": 0
+  },
+  {
+   "profil": "4G correcte",
+   "page": "terrain/achats.html",
+   "utilisableMs": 407,
+   "saisieMs": 94,
+   "statut": "ok",
+   "latenceServeurMs": 40,
+   "descenteKbps": 9000
+  },
+  {
+   "profil": "4G correcte",
+   "page": "index.html",
+   "utilisableMs": 268,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 40,
+   "descenteKbps": 9000
+  },
+  {
+   "profil": "4G correcte",
+   "page": "rcntrace/index.html",
+   "utilisableMs": 1108,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 40,
+   "descenteKbps": 9000
+  },
+  {
+   "profil": "3G de brousse",
+   "page": "terrain/achats.html",
+   "utilisableMs": 1965,
+   "saisieMs": 93,
+   "statut": "ok",
+   "latenceServeurMs": 150,
+   "descenteKbps": 780
+  },
+  {
+   "profil": "3G de brousse",
+   "page": "index.html",
+   "utilisableMs": 2008,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 150,
+   "descenteKbps": 780
+  },
+  {
+   "profil": "3G de brousse",
+   "page": "rcntrace/index.html",
+   "utilisableMs": 11250,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 150,
+   "descenteKbps": 780
+  },
+  {
+   "profil": "2G / EDGE",
+   "page": "terrain/achats.html",
+   "utilisableMs": 5585,
+   "saisieMs": 99,
+   "statut": "ok",
+   "latenceServeurMs": 400,
+   "descenteKbps": 240
+  },
+  {
+   "profil": "2G / EDGE",
+   "page": "index.html",
+   "utilisableMs": 6275,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 400,
+   "descenteKbps": 240
+  },
+  {
+   "profil": "2G / EDGE",
+   "page": "rcntrace/index.html",
+   "utilisableMs": 36172,
+   "saisieMs": null,
+   "statut": "ok",
+   "latenceServeurMs": 400,
+   "descenteKbps": 240
+  }
+ ]
+}

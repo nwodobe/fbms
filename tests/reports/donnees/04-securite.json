@@ -1,0 +1,444 @@
+{
+ "genere": "2026-08-22T16:14:37.106Z",
+ "resultats": [
+  {
+   "id": "S-01",
+   "titre": "Clé publiable seule : aucune donnée lisible",
+   "attendu": "toutes les tables renvoient un ensemble vide",
+   "obtenu": "7 tables interrogées, aucune ligne renvoyée",
+   "ok": true,
+   "gravite": "—",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {}
+  },
+  {
+   "id": "S-02",
+   "titre": "Compte désactivé : accès aux données",
+   "attendu": "aucune ligne renvoyée",
+   "obtenu": "0 ligne(s) renvoyée(s)",
+   "ok": true,
+   "gravite": "—",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {}
+  },
+  {
+   "id": "S-03",
+   "titre": "Matrice d'écriture par rôle conforme aux politiques déclarées",
+   "attendu": "11 combinaisons conformes à supabase/rls.sql",
+   "obtenu": "11/11 combinaisons conformes",
+   "ok": true,
+   "gravite": "—",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {
+    "detail": [
+     {
+      "role": "agent",
+      "table": "villages",
+      "methode": "POST",
+      "attendu": "autorisé",
+      "statut": 201,
+      "obtenu": "autorisé"
+     },
+     {
+      "role": "agent",
+      "table": "achats",
+      "methode": "POST",
+      "attendu": "autorisé",
+      "statut": 201,
+      "obtenu": "autorisé"
+     },
+     {
+      "role": "agent",
+      "table": "achats",
+      "methode": "DELETE",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     },
+     {
+      "role": "agent",
+      "table": "parametres_collecte_courte",
+      "methode": "POST",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     },
+     {
+      "role": "sup",
+      "table": "parametres_collecte_courte",
+      "methode": "POST",
+      "attendu": "autorisé",
+      "statut": 201,
+      "obtenu": "autorisé"
+     },
+     {
+      "role": "sup",
+      "table": "villages",
+      "methode": "DELETE",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     },
+     {
+      "role": "direction",
+      "table": "villages",
+      "methode": "POST",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     },
+     {
+      "role": "direction",
+      "table": "achats",
+      "methode": "POST",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     },
+     {
+      "role": "bm",
+      "table": "achats",
+      "methode": "DELETE",
+      "attendu": "autorisé",
+      "statut": 200,
+      "obtenu": "autorisé"
+     },
+     {
+      "role": "bm",
+      "table": "profils",
+      "methode": "POST",
+      "attendu": "autorisé",
+      "statut": 201,
+      "obtenu": "autorisé"
+     },
+     {
+      "role": "sup",
+      "table": "profils",
+      "methode": "POST",
+      "attendu": "refusé",
+      "statut": 403,
+      "obtenu": "refusé"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S-04",
+   "titre": "Un agent ne lit que son propre profil",
+   "attendu": "1 profil pour l'agent, tous pour le Branch Manager",
+   "obtenu": "agent voit 1 profil(s), BM voit 6 profil(s)",
+   "ok": true,
+   "gravite": "—",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {}
+  },
+  {
+   "id": "S-05",
+   "titre": "Cloisonnement des données métier par zone ou par cluster",
+   "attendu": "un agent ne voit que le périmètre qui lui est affecté",
+   "obtenu": "villages visibles — BM 40, Superviseur 40, Agent 40, Consultation 40 : AUCUN cloisonnement, tous les rôles voient tout",
+   "ok": false,
+   "gravite": "MEDIUM",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {
+    "parRole": {
+     "bm": {
+      "villages": 40,
+      "achats": 1
+     },
+     "sup": {
+      "villages": 40,
+      "achats": 1
+     },
+     "agent": {
+      "villages": 40,
+      "achats": 1
+     },
+     "direction": {
+      "villages": 40,
+      "achats": 1
+     }
+    },
+    "source": "supabase/rls.sql — la politique de lecture des tables terrain est `est_actif()`, sans filtre de périmètre"
+   }
+  },
+  {
+   "id": "S-06",
+   "titre": "Rôle « Consultation uniquement » face aux montants et aux tiers",
+   "attendu": "accès restreint aux seuls écrans autorisés par le portail (Hubs, Carte, Command Center)",
+   "obtenu": "lecture directe de la table achats : 1 ligne(s) accessibles (montants, noms de producteurs, n° de reçus) ; table avances : 0 ligne(s)",
+   "ok": false,
+   "gravite": "MEDIUM",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {
+    "note": "Le portail interdit à ce rôle les modules Achats et Caisse (ACCESS de shared/auth-gate.js), mais la RLS ne l'empêche pas de lire les mêmes tables directement avec la clé publiable et sa session. L'écran est fermé, la donnée ne l'est pas."
+   }
+  },
+  {
+   "id": "S-07",
+   "titre": "Accès direct par URL à un module interdit",
+   "attendu": "le portail refuse explicitement chaque module hors périmètre",
+   "obtenu": "24/24 combinaisons conformes à la table ACCESS de shared/auth-gate.js",
+   "ok": true,
+   "gravite": "—",
+   "portee": "production",
+   "preuve": {
+    "detail": [
+     {
+      "page": "terrain/achats.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/achats.html",
+      "persona": "sup",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/achats.html",
+      "persona": "agent",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/achats.html",
+      "persona": "direction",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "terrain/cash.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/cash.html",
+      "persona": "sup",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/cash.html",
+      "persona": "agent",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "terrain/cash.html",
+      "persona": "direction",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "terrain/command.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "terrain/command.html",
+      "persona": "sup",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "terrain/command.html",
+      "persona": "agent",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "terrain/command.html",
+      "persona": "direction",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "fbms/audit_distances.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "fbms/audit_distances.html",
+      "persona": "sup",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "fbms/audit_distances.html",
+      "persona": "agent",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "fbms/audit_distances.html",
+      "persona": "direction",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "shared/admin.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "shared/admin.html",
+      "persona": "sup",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "shared/admin.html",
+      "persona": "agent",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "shared/admin.html",
+      "persona": "direction",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "logistique/alis_fbms.html",
+      "persona": "bm",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "logistique/alis_fbms.html",
+      "persona": "sup",
+      "etat": "ouvert",
+      "attendu": "ouvert"
+     },
+     {
+      "page": "logistique/alis_fbms.html",
+      "persona": "agent",
+      "etat": "refusé",
+      "attendu": "refusé"
+     },
+     {
+      "page": "logistique/alis_fbms.html",
+      "persona": "direction",
+      "etat": "refusé",
+      "attendu": "refusé"
+     }
+    ]
+   }
+  },
+  {
+   "id": "S-08",
+   "titre": "Rôle falsifié dans le cache local (mode hors ligne)",
+   "attendu": "l'écran d'administration reste inaccessible",
+   "obtenu": "écran d'administration : connexion ; création de compte tentée en base : HTTP 403 (refusée par la RLS)",
+   "ok": true,
+   "gravite": "—",
+   "portee": "production (écran) / modèle (base)",
+   "preuve": {
+    "note": "Le repli sur cache local est volontaire (travail hors ligne). Il rend l'écran ouvrable, mais la barrière qui compte reste la RLS côté base."
+   }
+  },
+  {
+   "id": "S-09",
+   "titre": "Aucun secret serveur dans les fichiers publiés",
+   "attendu": "aucune occurrence de clé de service dans les fichiers servis",
+   "obtenu": "aucune occurrence sur les fichiers HTML/JS/CSS/JSON servis",
+   "ok": true,
+   "gravite": "—",
+   "portee": "production",
+   "preuve": {}
+  },
+  {
+   "id": "S-10",
+   "titre": "Deux sessions simultanées : aucun mélange d'identité",
+   "attendu": "chaque contexte affiche son propre utilisateur",
+   "obtenu": "session 1 : « TEST_LOAD_BM · Branch Manager » · session 2 : « TEST_LOAD_AGENT · Agent Recenseur »",
+   "ok": "TEST_LOAD_AGENT · Agent Recenseur",
+   "gravite": "—",
+   "portee": "production",
+   "preuve": {}
+  },
+  {
+   "id": "S-11",
+   "titre": "Jeton fabriqué : aucune donnée",
+   "attendu": "ensemble vide ou refus",
+   "obtenu": "HTTP 200, 0 ligne(s)",
+   "ok": true,
+   "gravite": "—",
+   "portee": "modèle vérifié / déploiement NON CONFIRMÉ",
+   "preuve": {}
+  },
+  {
+   "id": "S-12",
+   "titre": "Toutes les pages servies passent par le portail d'authentification",
+   "attendu": "chaque page HTML publiée charge shared/auth-gate.js",
+   "obtenu": "toutes les pages sont protégées",
+   "ok": true,
+   "gravite": "—",
+   "portee": "production",
+   "preuve": {
+    "sansPortail": [],
+    "note": "SECURITE.md déclare le verrou posé sur « FBMS (fbms/app.html) ». Or la tuile REF du portail pointe vers fbms/index.html, qui ne charge pas auth-gate.js."
+   }
+  },
+  {
+   "id": "S-13",
+   "titre": "FBMS Référentiel sans session et avec un compte désactivé",
+   "attendu": "interface masquée tant qu'aucun compte actif n'est authentifié",
+   "obtenu": "sans session : portail affiché oui, 26 boutons actifs, 0 référence(s) village visibles — compte désactivé : portail affiché, 26 boutons, 0 village(s) visibles",
+   "ok": true,
+   "gravite": "—",
+   "portee": "production",
+   "preuve": {
+    "apercu": "ANAGROCI\nOPERATIONS SUITE\nCommand Center\nAchats Terrain\nCaisse & Avances\nStock & Sacs\nFBMS Référentiel\nTous les modules\n▼\n● Synchronisé\nFIELD BUYING\nANAGROCI · 2027\nTableau de bordRecensementBase de donnéesBase RTProducteursCartographieGalerie photosStatistiquesAdministration\nRéduire\nFBMS Field Buying\nNon connecté · appuyer Sync\nFR\nEN\nBranch Manager / Head of Programme\nZonal Head\nLogistics Coordin"
+   }
+  },
+  {
+   "id": "S-14",
+   "titre": "Rôles du portail et rôles reconnus par la RLS",
+   "attendu": "tout rôle proposé par l'écran d'administration est reconnu par les politiques",
+   "obtenu": "8 rôle(s) proposés par l'administration mais absents de peut_editer_terrain() : Branch Manager / Head of Programme, Zonal Head, Logistics Coordinator, Unit Head, Assistant Unit Head, Warehouse Keeper, Finance / Controller, RT / Field Partner — dont, pour est_bm() : Branch Manager / Head of Programme",
+   "ok": false,
+   "gravite": "CRITICAL",
+   "portee": "modèle vérifié (lecture croisée du code et du SQL)",
+   "preuve": {
+    "rolesPortail": [
+     "Branch Manager / Head of Programme",
+     "Zonal Head",
+     "Logistics Coordinator",
+     "Unit Head",
+     "Assistant Unit Head",
+     "Warehouse Keeper",
+     "Finance / Controller",
+     "RT / Field Partner",
+     "Read Only / Audit",
+     "Assistant Branch Manager",
+     "Head of Field",
+     "Procurement Officer",
+     "Supervisor",
+     "Agent Recenseur",
+     "Consultation uniquement"
+    ],
+    "note": "supabase/20260818_farmer_registry_phase1_security.sql connaît bien « Zonal Head », « Unit Head », « Warehouse Keeper » ; supabase/rls.sql, non. Les deux moitiés du même modèle d'accès ne décrivent plus les mêmes rôles.",
+    "configConnaitTous": [
+     "Branch Manager / Head of Programme",
+     "Zonal Head",
+     "Logistics Coordinator",
+     "Unit Head",
+     "Assistant Unit Head",
+     "Warehouse Keeper",
+     "Finance / Controller",
+     "RT / Field Partner",
+     "Read Only / Audit",
+     "Agent Recenseur",
+     "Consultation uniquement"
+    ]
+   }
+  }
+ ]
+}

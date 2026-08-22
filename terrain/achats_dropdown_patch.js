@@ -62,23 +62,18 @@
   }
   function onProdSelect(){var prod=$('f_prod'), free=$('f_prod_free'); if(!prod||!free)return; var isFree=prod.value==='__FREE__'||(prod.selectedOptions[0]&&prod.selectedOptions[0].getAttribute('data-free')==='1'); free.style.display=isFree?'block':'none'; if(!isFree)free.value='';}
   async function refreshDropdowns(){try{ensureDom(); if(!villages.length)await loadVillages(); var v=getVillageByName(); await loadRefsForVillage(v); renderRefs(v);}catch(e){console.warn('achats dropdown patch',e);}}
-  function patchSync(){
-    window.syncAll=async function(){
-      var all=[]; try{all=JSON.parse(localStorage.getItem('anagroci_achats')||'[]');}catch(e){all=[];}
-      var pend=all.filter(function(r){return r._status!=='synced';}); if(!navigator.onLine||!sb||!pend.length){if(typeof window.render==='function')window.render();return;}
-      var btn=$('syncBtn'); if(btn)btn.disabled=true;
-      if(!userId){try{var s=await sb.auth.getSession();userId=s.data&&s.data.session&&s.data.session.user?s.data.session.user.id:null;}catch(e){}}
-      for(var i=0;i<pend.length;i++){
-        var rec=pend[i], payload=Object.assign({},rec); delete payload._status; delete payload._error; delete payload.kor; delete payload.sync_statut;
-        if(!payload.created_by && userId) payload.created_by=userId;
-        try{var r=await sb.from('achats').upsert(payload,{onConflict:'local_id',ignoreDuplicates:true}); if(!r.error){rec._status='synced';delete rec.recu_photo;} else rec._error=r.error.message;}catch(e){rec._error=String(e&&e.message||e);break;}
-      }
-      localStorage.setItem('anagroci_achats',JSON.stringify(all)); if(btn)btn.disabled=false; if(typeof window.render==='function')window.render();
-    };
-  }
+  /* ------------------------------------------------------------------------
+     Ce correctif ne remplace PLUS window.syncAll.
+     Il en existait une seconde implémentation ici, qui se superposait à celle
+     de terrain/achats.html et à la garde de shared/anagroci-audit.js. Les trois
+     ne filtraient pas la même chose ni n'envoyaient le même corps : selon
+     l'ordre de chargement, un brouillon partait en base, ou le KOR était
+     supprimé de l'envoi. Le rôle de ce fichier est la liste déroulante des RT
+     et des producteurs ; la synchronisation appartient à la page.
+     ------------------------------------------------------------------------ */
   function init(){
     if(!window.supabase||!window.supabase.createClient)return setTimeout(init,200);
-    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); patchSync(); ensureDom(); loadVillages().then(refreshDropdowns);
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); ensureDom(); loadVillages().then(refreshDropdowns);
     document.addEventListener('input',function(e){if(e.target&&e.target.id==='f_village')setTimeout(refreshDropdowns,80);});
     document.addEventListener('change',function(e){if(e.target&&e.target.id==='f_village')setTimeout(refreshDropdowns,80); if(e.target&&e.target.id==='f_prod')onProdSelect();});
     document.addEventListener('anagroci:authenticated',function(){setTimeout(function(){loadVillages().then(refreshDropdowns);},300);});

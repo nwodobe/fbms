@@ -1,0 +1,338 @@
+{
+ "genere": "2026-08-22T16:20:32.246Z",
+ "resultats": [
+  {
+   "id": "T-INT-01",
+   "titre": "Double-clic sur Enregistrer (achats)",
+   "attendu": "1 achat en file locale et 1 sur le serveur",
+   "obtenu": "1 en file locale, 1 sur le serveur — message écran : « Poids net invalide (brut − tare doit être > 0). »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "local_ids": [
+     "2860552a-fc82-467b-b8cb-b3d627ccb651"
+    ]
+   }
+  },
+  {
+   "id": "T-INT-02",
+   "titre": "Deux achats avec le même numéro de reçu papier",
+   "attendu": "refus serveur (contrainte d'unicité) ou alerte visible",
+   "obtenu": "2 lignes acceptées, message client : « Achat validé (complet). Producteur provisoire — à valider par le Chef  »",
+   "ok": false,
+   "gravite": "HIGH",
+   "preuve": {
+    "poids": [
+     100,
+     250
+    ],
+    "montants": [
+     40000,
+     100000
+    ]
+   }
+  },
+  {
+   "id": "T-INT-03",
+   "titre": "Réponse perdue après commit serveur puis renvoi",
+   "attendu": "exactement 1 ligne serveur, client marqué « synced »",
+   "obtenu": "1 ligne(s) après coupure puis 1 après renvoi ; statut client failed → synced",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {}
+  },
+  {
+   "id": "T-INT-04",
+   "titre": "Quota localStorage saturé pendant une saisie d'achat",
+   "attendu": "échec explicite à l'écran, ou achat réellement conservé",
+   "obtenu": "quota atteint après 48 blocs (QuotaExceededError, marge résiduelle 32 o) ; message « Enregistrement IMPOSSIBLE : la mémoire de cet appareil est s » (classe alert show err) ; 0 en file, 0 sur le serveur",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "message": "Enregistrement IMPOSSIBLE : la mémoire de cet appareil est saturée. L'achat n'a PAS été enregistré et votre saisie est conservée à l'écran. Synchronisez les achats en attente pour libérer de la place, puis réessayez.",
+    "enFile": 0,
+    "surServeur": 0,
+    "quota": {
+     "blocs": 48,
+     "erreur": "QuotaExceededError",
+     "margeRestanteOctets": 32
+    }
+   }
+  },
+  {
+   "id": "T-INT-05",
+   "titre": "File locale tronquée (écriture interrompue)",
+   "attendu": "alerte visible pour l'utilisateur, ou récupération partielle",
+   "obtenu": "1 achat(s) avant ; après rechargement l'application en voit 0 (0 octets illisibles restent en base locale) ; message écran : « Données locales illisibles : 646 octets ont été mi », compteur « en attente » : 0",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "brutRestant": 0
+   }
+  },
+  {
+   "id": "T-INT-06",
+   "titre": "Coupure réseau pendant la saisie puis reconnexion",
+   "attendu": "achat conservé hors ligne puis remonté une seule fois",
+   "obtenu": "hors ligne : 1 en file / 0 serveur ; après retour réseau : 1 sur le serveur",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {}
+  },
+  {
+   "id": "T-INT-07",
+   "titre": "Fermeture de l'onglet pendant la synchronisation",
+   "attendu": "aucune perte, aucun doublon après réouverture",
+   "obtenu": "1 ligne(s) serveur à la fermeture (statut client syncing), 1 après réouverture (statut syncing)",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {}
+  },
+  {
+   "id": "T-INT-08",
+   "titre": "Deux utilisateurs modifient le même village (entrelacement)",
+   "attendu": "une écriture acceptée, la seconde signalée en conflit",
+   "obtenu": "base de référence commune ; A → accepté · B → conflit signalé ; valeur finale « TEST_LOAD_MODIF_A » ; 1 écriture(s) acceptée(s), 1 conflit(s) signalé(s)",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "rA": {
+     "conflit": false,
+     "valeurServeur": "TEST_LOAD_MODIF_A"
+    },
+    "rB": {
+     "conflit": true
+    },
+    "versionInitiale": "2026-01-01T00:00:00.000Z",
+    "valeurFinale": "TEST_LOAD_MODIF_A",
+    "mecanisme": "écriture conditionnelle UPDATE ... WHERE id = ? AND updated_at = ? (fbms/index.html:RemoteVillages.upsert)"
+   }
+  },
+  {
+   "id": "T-INT-09",
+   "titre": "Fiche village sans section s9 (donnée incomplète)",
+   "attendu": "la page reste fonctionnelle, la fiche est traitée avec une note nulle",
+   "obtenu": "aucune erreur JS",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "erreurs": [],
+    "source": "fbms/index.html:759 scoreOf() lit v.s9 sans garde"
+   }
+  },
+  {
+   "id": "T-INT-10",
+   "titre": "Valeurs limites, caractères spéciaux et injection",
+   "attendu": "toute valeur métier impossible est refusée avec un message",
+   "obtenu": "tous les cas impossibles sont refusés",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "detail": [
+     {
+      "cas": "poids négatif",
+      "refuse": true,
+      "message": "Poids net invalide (brut − tare doit être > 0).",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "poids nul",
+      "refuse": true,
+      "message": "Poids net invalide (brut − tare doit être > 0).",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "prix nul",
+      "refuse": true,
+      "message": "Prix / kg invalide.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "humidité 99 %",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "KOR 500 %",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "poids extrême 1e12",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "reçu 5000 caractères",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "reçu injection <script>",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     },
+     {
+      "cas": "accents et unicode",
+      "refuse": true,
+      "message": "Humidite invalide: doit etre entre 0 et 20%.",
+      "classe": "alert show err",
+      "conforme": true
+     }
+    ],
+    "xssExecute": false
+   }
+  },
+  {
+   "id": "T-INT-11",
+   "titre": "Deux onglets du même compte saisissent en parallèle",
+   "attendu": "les 2 achats survivent (file locale partagée)",
+   "obtenu": "file locale : [TEST_LOAD_ONGLET_1, TEST_LOAD_ONGLET_2] ; serveur : [TEST_LOAD_ONGLET_1, TEST_LOAD_ONGLET_2]",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "file": [
+     "TEST_LOAD_ONGLET_1",
+     "TEST_LOAD_ONGLET_2"
+    ],
+    "serveur": [
+     "TEST_LOAD_ONGLET_1",
+     "TEST_LOAD_ONGLET_2"
+    ]
+   }
+  },
+  {
+   "id": "T-INT-12",
+   "titre": "Rechargement pendant la synchronisation",
+   "attendu": "exactement 1 ligne serveur, aucun achat bloqué en « pending »",
+   "obtenu": "1 ligne(s) serveur, statuts clients [synced]",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "statuts": [
+     "synced"
+    ]
+   }
+  },
+  {
+   "id": "T-INT-13",
+   "titre": "Le KOR saisi arrive-t-il jusqu'à la base ?",
+   "attendu": "kor = 47 dans la ligne serveur",
+   "obtenu": "saisi à l'écran : 47 · humidité transmise : 8 · kor transmis : 47",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "source": "terrain/achats_dropdown_patch.js — `delete payload.kor` dans le syncAll de remplacement",
+    "ligneServeur": [
+     "local_id",
+     "date",
+     "cluster",
+     "village_id",
+     "village_nom",
+     "rt_id",
+     "rt_nom",
+     "producteur_id",
+     "producteur_nom",
+     "producteur_tel",
+     "producteur_ref",
+     "producteur_statut",
+     "poids_brut",
+     "tare",
+     "poids_net",
+     "prix_kg",
+     "montant",
+     "prix_hors_bareme",
+     "motif_prix",
+     "mode_paiement",
+     "numero_recu",
+     "nb_sacs",
+     "humidite",
+     "kor",
+     "rejet",
+     "observation",
+     "recu_photo",
+     "recu_photo_url",
+     "commission_rt",
+     "bonus_diff",
+     "refinancable",
+     "qualite_statut",
+     "stock_libere",
+     "stock_statut",
+     "statut_validation",
+     "saisie_mode",
+     "cash_statut",
+     "created_by_nom",
+     "created_at",
+     "id"
+    ]
+   }
+  },
+  {
+   "id": "T-INT-14",
+   "titre": "Photo du reçu : où finit la preuve de paiement ?",
+   "attendu": "fichier dans Supabase Storage + URL dans la ligne (recu_photo_url)",
+   "obtenu": "photo saisie : 1039 o ; URL Storage : https://jmbdgpdthzpszfnddwzi.supabase.co/storage/v1/object/public/recus/TESTLOADRT01/1295952a-340b-4caa-b4ac-9a877b684b2b.jpg ; base64 écrit dans la colonne recu_photo de la table achats : 0 o ; copie locale conservée : non",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "source": "shared/anagroci-audit.js:syncQueueWithErrors envoie la ligne telle quelle, base64 compris — alors que terrain/achats.html:syncAll annonce « jamais de base64 dans la table »"
+   }
+  },
+  {
+   "id": "T-INT-15",
+   "titre": "Un brouillon sans reçu est-il poussé en base ?",
+   "attendu": "le brouillon reste local tant qu'il n'est pas validé",
+   "obtenu": "file locale [] → serveur []",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "source": "achats_dropdown_patch.js filtre `_status!==\"synced\"` là où la page filtre `pending|failed`"
+   }
+  },
+  {
+   "id": "T-INT-16",
+   "titre": "Refus serveur (RLS) : l'utilisateur en est-il averti ?",
+   "attendu": "l'achat passe en « échec » et l'erreur est proposée à la lecture",
+   "obtenu": "statut client « failed », erreur mémorisée : oui, mention d'échec à l'écran : oui (compteur en attente : 1)",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "source": "achats_dropdown_patch.js ne met jamais `_status=\"failed\"` ; l'écran ne connaît que « En attente »",
+    "vu": {
+     "statut": "failed",
+     "erreurStockee": "Synchronisation refusée par les droits d’accès. Déconnectez-vous/reconnectez-vous ou contactez le Branch Manager.",
+     "categorie": null,
+     "tousLesStatuts": [
+      "failed"
+     ],
+     "texteListe": "TEST_LOAD_V001 · 100 kgÉchec serveur2026-08-22 · 40 000 FCFA · TEST_LOAD_RT_01 · TEST_LOAD_P0001 - TEST_LOAD_PRODUCTEUR_1 · reçu TEST_LOAD_R016 · producteur à régulariserVoir l'erreurRéessayer",
+     "badge": "1"
+    }
+   }
+  },
+  {
+   "id": "T-INT-17",
+   "titre": "Producteur choisi dans la liste des enrôlés : reconnu ?",
+   "attendu": "producteur_ref = true, aucun téléphone réclamé",
+   "obtenu": "valeur de la liste « TEST_LOAD_P0001 - TEST_LOAD_PRODUCTEUR_1 » ; message : « Producteur non référencé : téléphone obligatoire (+ village) pour un p » ; en base producteur_ref = false, statut « Nouveau producteur provisoire », producteur_id = null",
+   "ok": false,
+   "gravite": "HIGH",
+   "preuve": {
+    "source": "achats_dropdown_patch.js écrit « CODE - NOM » comme valeur ; achats.html:currentProdRow compare avec prodLabel() qui ne rend que le NOM"
+   }
+  }
+ ]
+}

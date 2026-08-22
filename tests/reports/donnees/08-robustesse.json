@@ -1,0 +1,63 @@
+{
+ "genere": "2026-08-22T11:33:59.739Z",
+ "resultats": [
+  {
+   "id": "R-01",
+   "titre": "Backend totalement indisponible (HTTP 503)",
+   "attendu": "un message explicite, pas un écran figé",
+   "obtenu": "portail affiché : oui · formulaire accessible : oui · message à l'écran : « ANAGROCI Tous les modules ▼ ● Synchronisé Achats Terrain Saisie journalière RCN · Producteur → RT FR EN Hors ligne Synch » · erreurs JS : 0",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "erreurs": []
+   }
+  },
+  {
+   "id": "R-02",
+   "titre": "CDN tiers indisponible : le SDK Supabase ne se charge pas",
+   "attendu": "message explicite ; idéalement, une copie locale de secours",
+   "obtenu": "écran : « Impossible de charger le module de sécurité (réseau). Réessayez. »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "note": "L'application affiche bien un message, mais elle reste entièrement inutilisable : aucune copie locale du SDK n'existe (01-MAPPING §8)."
+   }
+  },
+  {
+   "id": "R-03",
+   "titre": "Jeton expiré pendant l'usage",
+   "attendu": "invitation claire à se reconnecter",
+   "obtenu": "statut de la file : failed · message : « TEST_LOAD_V001 · 100 kgNon refinançableÉchec serveur2026-08-22 · 40 000 FCFA · TEST_LOAD_RT_01 · producteur ? · reçu TES »",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "vu": {
+     "statut": "failed",
+     "erreur": "Synchronisation non finalisée : JWT expired. Gardez la donnée en attente et contactez le Branch Manager si le problème persiste.",
+     "liste": "TEST_LOAD_V001 · 100 kgNon refinançableÉchec serveur2026-08-22 · 40 000 FCFA · TEST_LOAD_RT_01 · producteur ? · reçu TEST_LOAD_JETVoir l'erreurRéessayer",
+     "msg": ""
+    }
+   }
+  },
+  {
+   "id": "R-04",
+   "titre": "Huit clics successifs sur « Synchroniser »",
+   "attendu": "5 lignes en base, aucun doublon",
+   "obtenu": "5 ligne(s) en base pour 5 achats en file, 28 requêtes émises",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {
+    "requetes": 28
+   }
+  },
+  {
+   "id": "R-05",
+   "titre": "Retour puis avance navigateur avec une saisie en attente",
+   "attendu": "la file locale est intacte",
+   "obtenu": "1 achat(s) en file après aller-retour",
+   "ok": true,
+   "gravite": "—",
+   "preuve": {}
+  }
+ ]
+}

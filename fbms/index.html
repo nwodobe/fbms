@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr" translate="no">
 <head>
+<!-- Portail d'authentification partagé. Le portail manquait sur cette page : la tuile « FBMS Référentiel » du portail
+     pointe directement ici, et l'écran s'ouvrait sans authentification, y compris
+     pour un compte désactivé.
+     Le verrou qui FAIT FOI reste la RLS Supabase ; celui-ci ferme l'écran. -->
+<script defer src="../shared/auth-gate.js" data-module="fbms"></script>
+
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1093,13 +1099,6 @@ const RemoteVillages = {
     if (isSupabase()){
       initSupabase();
       const copy = toRemotePayload(v);
-      if (!force && baseUpdatedAt){
-        const { data: cur } = await SB.from("villages").select("data, updated_at, updated_by").eq("id", copy.id).maybeSingle();
-        if (cur && cur.updated_at && new Date(cur.updated_at) > new Date(baseUpdatedAt)){
-          const server = Object.assign(cur.data, { updatedAt: cur.updated_at, updatedBy: cur.updated_by || "" });
-          return { ok:true, conflict:true, server: server };
-        }
-      }
       const row = {
         id: copy.id, data: copy,
         village: (copy.s1 && copy.s1.village) || "", region: (copy.s1 && copy.s1.region) || "",
@@ -1108,6 +1107,36 @@ const RemoteVillages = {
         created_by: copy.createdBy || (AUTH.session && AUTH.session.email) || null,
         deleted: false,
       };
+      // Étape 4 bis : ÉCRITURE CONDITIONNELLE.
+      // L'ancien contrôle lisait `updated_at` puis écrivait : entre les deux,
+      // rien n'empêchait une autre écriture de passer, et elle disparaissait
+      // sans que personne n'en soit averti (mesuré : 211 pertes sur 500
+      // écritures concurrentes). Ici la condition part AVEC l'écriture :
+      // « mets à jour cette fiche SI sa version serveur est toujours celle que
+      // j'ai lue ». PostgreSQL réévalue la condition après avoir pris le verrou
+      // de ligne, donc la seconde écriture concurrente n'affecte aucune ligne.
+      // Aucun changement de schéma n'est requis.
+      if (!force && baseUpdatedAt){
+        const maj = Object.assign({}, row);
+        delete maj.id;                       // la clé sert de filtre, pas de valeur
+        maj.updated_at = new Date().toISOString();
+        const { data: majData, error: majErr } = await SB.from("villages")
+          .update(maj)
+          .eq("id", copy.id)
+          .eq("updated_at", baseUpdatedAt)
+          .select("data, updated_at");
+        if (majErr) throw new Error(sbErr(majErr));
+        if (majData && majData.length === 1){
+          return { ok:true, village: Object.assign(majData[0].data, { updatedAt: majData[0].updated_at }) };
+        }
+        // Aucune ligne touchée : soit un autre a écrit entre-temps (conflit),
+        // soit la fiche n'existe pas encore côté serveur (première montée).
+        const { data: cur } = await SB.from("villages").select("data, updated_at, updated_by").eq("id", copy.id).maybeSingle();
+        if (cur){
+          return { ok:true, conflict:true, server: Object.assign(cur.data, { updatedAt: cur.updated_at, updatedBy: cur.updated_by || "" }) };
+        }
+        // Fiche absente du serveur : on retombe sur l'insertion ci-dessous.
+      }
       const { data, error } = await SB.from("villages").upsert(row).select("data, updated_at").single();
       if (error) throw new Error(sbErr(error));
       return { ok:true, village: Object.assign(data.data, { updatedAt: data.updated_at }) };
