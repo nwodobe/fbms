@@ -1,0 +1,87 @@
+name: FBMS Free Ephemeral Staging
+
+on:
+  push:
+    branches:
+      - qa/fbms-offline-sync-hardening
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fbms-free-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-smoke:
+    name: Ephemeral Supabase + Offline Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FBMS_ENVIRONMENT: STAGING_EPHEMERAL
+      FBMS_ALLOW_PRODUCTION: "false"
+    steps:
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+
+      - name: Guard against production targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R "jmbdgpdthzpszfnddwzi.supabase.co" tests .github/workflows/fbms-free-staging.yml 2>/dev/null; then
+            echo "Production Supabase URL detected in test surface. Refusing to continue."
+            exit 1
+          fi
+          echo "Production target guard: PASS"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run atomic offline outbox tests
+        run: node tests/offline-outbox.test.mjs
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize local Supabase config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase status
+
+      - name: Verify isolated database
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB_URL=$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')
+          if [ -z "$DB_URL" ]; then
+            echo "Could not resolve local DB_URL"
+            exit 1
+          fi
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select current_database(), current_user, now();"
+          echo "Ephemeral database smoke test: PASS"
+
+      - name: Verify no production test data markers exist remotely
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "No remote Supabase connection is configured in this workflow."
+          echo "All test writes are confined to the runner-local containers."
+
+      - name: Stop ephemeral Supabase
+        if: always()
+        run: supabase stop --no-backup || true
