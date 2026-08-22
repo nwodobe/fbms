@@ -1,0 +1,144 @@
+name: FBMS Free Ephemeral Staging
+
+on:
+  push:
+    branches:
+      - qa/fbms-offline-sync-hardening
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fbms-free-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-smoke:
+    name: Ephemeral Supabase + FBMS Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FBMS_ENVIRONMENT: STAGING_EPHEMERAL
+      FBMS_ALLOW_PRODUCTION: "false"
+    steps:
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+
+      - name: Guard against production targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R "jmbdgpdthzpszfnddwzi.supabase.co" tests .github/workflows/fbms-free-staging.yml 2>/dev/null; then
+            echo "Production Supabase URL detected in test surface. Refusing to continue."
+            exit 1
+          fi
+          echo "Production target guard: PASS"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run atomic offline outbox tests
+        run: node tests/offline-outbox.test.mjs
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize local Supabase config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase status
+
+      - name: Resolve local database URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB_URL=$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')
+          if [ -z "$DB_URL" ]; then
+            echo "Could not resolve local DB_URL"
+            exit 1
+          fi
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select current_database(), current_user, now();"
+          echo "Ephemeral database smoke test: PASS"
+
+      - name: Build FBMS synthetic staging schema
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/bootstrap.sql
+
+      - name: Seed synthetic FBMS data
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/seed.sql
+
+      - name: Run data integrity assertions
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/integrity.sql
+
+      - name: Run RLS and role assertions
+        shell: bash
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/staging/rls.sql
+
+      - name: Verify staging contains TEST data only
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE n bigint;
+          BEGIN
+            select count(*) into n from public.producteurs where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST producteurs detected in ephemeral staging'; end if;
+            select count(*) into n from public.villages where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST villages detected in ephemeral staging'; end if;
+            select count(*) into n from public.rt where id not like 'TEST_%';
+            if n <> 0 then raise exception 'NON-TEST RT detected in ephemeral staging'; end if;
+          END $$;
+          SQL
+          echo "Synthetic-only guard: PASS"
+
+      - name: Record staging summary
+        if: success()
+        shell: bash
+        run: |
+          mkdir -p tests/results
+          {
+            echo "FBMS FREE EPHEMERAL STAGING: PASS"
+            echo "Environment: STAGING_EPHEMERAL"
+            echo "Production connection: BLOCKED"
+            echo "Offline atomicity: PASS"
+            echo "Synthetic schema bootstrap: PASS"
+            echo "Synthetic seed: PASS"
+            echo "Data integrity: PASS"
+            echo "RLS base-role assertions: PASS"
+            echo "100-user hosted capacity: NON TESTE"
+          } > tests/results/free-staging-summary.txt
+
+      - name: Upload staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fbms-free-staging-evidence
+          path: tests/results/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop ephemeral Supabase
+        if: always()
+        run: supabase stop --no-backup || true
