@@ -184,6 +184,30 @@ annoncé, aucune perte silencieuse.
 | BUG-012 — aucune page mise en cache | `sw.js` et `i18n-sw.js` sont en zone interdite : un service worker fautif survit au correctif dans le cache des utilisateurs. |
 | BUG-013 et suivants | Hors des cinq priorités. |
 
+### Un constat apparu pendant la vérification
+
+Le balayage des 285 ouvertures passe de **34 à 20 erreurs JavaScript**. Les 14 disparues étaient
+un artefact du banc (doublure Leaflet incomplète, corrigée pendant la campagne). Restent 15
+occurrences de BUG-011 (`alis-hardening.js`, zone interdite) et **5 d'un message nouveau** sur
+`fbms/index.html` : `Cannot read properties of undefined (reading 'candidats')`, là où le
+relevé initial montrait `potentiel20`.
+
+Ce n'est pas une régression, et cela a été vérifié plutôt que supposé :
+
+- le diff de cette PR sur `fbms/index.html` ne touche que l'en-tête et `RemoteVillages.upsert`,
+  à plus de 600 lignes des lectures `s7.candidats` — `git diff HEAD~1 HEAD -- fbms/index.html`
+  ne contient aucune ligne `candidats` ;
+- une sonde isolée sur la page, exécutée sur le commit AVANT et sur le commit APRÈS, ne lève
+  d'erreur ni dans un cas ni dans l'autre : le défaut est intermittent, comme l'était
+  `potentiel20` (4 ouvertures sur 15).
+
+Il s'agit du même défaut, élargi : **aucune section optionnelle de `data` n'a de valeur par
+défaut**, et chaque écran qui va un peu plus loin dans le rendu tombe sur la suivante.
+`v.s7.candidats` est lu sans garde en neuf endroits. Le registre a été mis à jour en
+conséquence (BUG-018, relevé LOW → MEDIUM), et le jeu de données du banc comporte désormais une
+section `s7`, pour que les prochains balayages mesurent l'application et non un trou du jeu
+d'essai.
+
 ---
 
 ## Ce qui reste à vérifier avant toute mise en service

@@ -90,7 +90,7 @@ présentes sur l'appareil, elles, restent accessibles.
 | BUG-010 | Le portail et la base ne connaissent plus les mêmes rôles | HIGH | 8 rôles sur 15 | Oui | Un fichier de sécurité mis à jour, l'autre non | Aligner les deux listes |
 | BUG-013 | RCN TRACE : 11 s d'attente en 3G, 36 s en 2G | HIGH | Utilisateurs du module en zone de collecte | Oui | 1,04 Mo de code chargé d'un bloc | Découpage du module |
 
-Le registre complet compte **23 anomalies** : 1 BLOCKER, 3 CRITICAL, 8 HIGH, 5 MEDIUM, 6 LOW.
+Le registre complet compte **23 anomalies** : 1 BLOCKER, 3 CRITICAL, 8 HIGH, 6 MEDIUM, 5 LOW.
 Détail et preuves : `05-BUGS.md`.
 
 ---

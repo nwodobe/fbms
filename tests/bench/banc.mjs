@@ -90,6 +90,7 @@ export function semer(api, { villages = 40, rt = 12, producteurs = 60 } = {}) {
           distanceHub: 10 + (i % 50), distanceHubRoutiere: i % 3 === 0 ? 12 + (i % 50) : null,
         },
         s3: { potentielMT: 100 + i, potentielSecuriseMT: 60 + i },
+        s7: { candidats: [ { nom: 'TEST_LOAD_CANDIDAT_RT_' + i, telephone: '0700000001' }, { nom: '' }, { nom: '' } ] },
         s9: { potentiel20: 10 + (i % 11), route20: 10, dispoRT20: 10, risqueConcurrentiel20: 10, faisabilitePaiement20: 10, decision: '' },
         photos: {}, updatedAt: '2026-01-01T00:00:00.000Z',
       },

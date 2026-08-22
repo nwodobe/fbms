@@ -27,7 +27,7 @@ LOW : défaut de finition.
 | BUG-015 | **MEDIUM** | Sécurité | Le rôle « Consultation uniquement » lit directement les montants et les tiers | S-06 |
 | BUG-016 | **MEDIUM** | Stock & Sacs | Décalage de mise en page sur mobile (CLS 0,374) | rapport 06 §3 |
 | BUG-017 | **MEDIUM** | Transverse | Quatre clients Supabase sur une même page | rapport 06 §4.1 |
-| BUG-018 | **LOW** | FBMS | Fiche village sans section `s9` : erreur JavaScript intermittente | rapport 02 §3 |
+| BUG-018 | **MEDIUM** | FBMS | Fiche village incomplète : sections `s9` et `s7` lues sans garde (10 sites) | rapport 02 §3, balayage 285 ouvertures |
 | BUG-019 | **LOW** | FBMS | `manifest.webmanifest` et `icon-192.png` en 404 | rapport 02 §5 — **défaut déjà daté** |
 | BUG-020 | **LOW** | Logistique | Trois pages logistiques servies, dont deux identiques, aucune référencée | rapport 02 §6 |
 | BUG-021 | **LOW** | Transverse | `lucide@latest` non épinglé | 01-MAPPING §8 |
@@ -474,14 +474,27 @@ rafraîchissements tardifs observés en BUG-004.
 
 ---
 
-## BUG-018 — Fiche village sans section `s9` : erreur JavaScript
+## BUG-018 — Fiche village incomplète : sections optionnelles lues sans garde
 
-- **Sévérité** : LOW
+- **Sévérité** : LOW → **MEDIUM** (relevé élargi)
 
-`Cannot read properties of undefined (reading 'potentiel20')` sur 4 ouvertures de
-`fbms/index.html` sur 15. `fbms/index.html:759` — `scoreOf(v)` lit `v.s9` sans garde. La même
-fonction est appelée dans `RemoteVillages.upsert` : une fiche ancienne sans `s9` ferait échouer
-la synchronisation.
+Deux messages distincts observés sur `fbms/index.html`, selon la section manquante :
+
+| Message | Occurrences | Origine |
+|---|---:|---|
+| `Cannot read properties of undefined (reading 'potentiel20')` | 4 / 15 | `fbms/index.html:759` — `scoreOf(v)` lit `v.s9` sans garde |
+| `Cannot read properties of undefined (reading 'candidats')` | 5 / 15 | `v.s7.candidats` lu **sans garde en 9 endroits** : lignes 778, 2335, 2516, 2558, 2657, 3461, 3528, 3643 — un seul site (3195) teste `!v.s7 \|\| !v.s7.candidats` |
+
+C'est le même défaut, pas deux : aucune section optionnelle de `data` n'a de valeur par défaut,
+et chaque écran qui va un peu plus loin dans le rendu tombe sur la suivante. `scoreOf()` étant
+aussi appelée depuis `RemoteVillages.upsert`, une fiche ancienne dépourvue de `s9` **ferait
+échouer sa propre synchronisation**.
+
+Le caractère intermittent (4 ou 5 ouvertures sur 15) tient au moment où le rendu atteint la
+fiche incomplète, pas à la fiche elle-même.
+
+**Recommandation.** Une normalisation unique à la lecture — compléter `data` avec les sections
+absentes une fois, au chargement — plutôt que dix gardes dispersées.
 
 ---
 
