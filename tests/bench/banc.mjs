@@ -39,7 +39,10 @@ const PIXEL = Buffer.from(
 const DOUBLURES = [
   { motif: /lucide/i, fichier: '.github/vendor/doublures/lucide.js' },
   { motif: /tailwind/i, fichier: '.github/vendor/doublures/tailwind.js' },
-  { motif: /leaflet|markercluster/i, fichier: '.github/vendor/doublures/leaflet.js' },
+  // Doublure Leaflet propre au banc : celle du dépôt n'a pas createPane, ce qui
+  // interrompait tout le script de fbms/fbms_carte.html — voir l'en-tête de
+  // tests/bench/doublure-leaflet.js.
+  { motif: /leaflet|markercluster/i, fichier: 'tests/bench/doublure-leaflet.js' },
   { motif: /xlsx|sheetjs/i, fichier: '.github/vendor/doublures/xlsx.js' },
   { motif: /chart\.js|chart\.umd/i, fichier: '.github/vendor/doublures/vide.js' },
 ]
