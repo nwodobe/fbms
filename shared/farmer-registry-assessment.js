@@ -4,6 +4,8 @@
   var FR = global.AFLP_FARMER_REGISTRY = global.AFLP_FARMER_REGISTRY || {};
   if (FR.assessment) return;
 
+  var CURRENT_CATALOG_VERSION = 'AFLP-SUST-2026.2';
+  var LEGACY_CATALOG_VERSION = 'AFLP-SUST-2026.1';
   var ANSWERS = [
     { value: 'YES', label: 'Oui' },
     { value: 'NO', label: 'Non' },
@@ -42,9 +44,25 @@
   function maxRisk(a, b) {
     return (RISK_RANK[a] || 0) >= (RISK_RANK[b] || 0) ? a : b;
   }
+  function rowsVersion(rows) {
+    var found = (rows || []).find(function (row) { return row && row.catalog_version; });
+    return found ? found.catalog_version : null;
+  }
+  function effectiveVersion(requested, rows) {
+    var existingVersion = rowsVersion(rows);
+    if (existingVersion) return existingVersion;
+    if (!requested || requested === LEGACY_CATALOG_VERSION) return CURRENT_CATALOG_VERSION;
+    return requested;
+  }
+  function catalogForVersion(catalog, version) {
+    var wanted = version || CURRENT_CATALOG_VERSION;
+    return (catalog || []).filter(function (q) {
+      return q && q.active !== false && (!q.catalog_version || q.catalog_version === wanted);
+    });
+  }
   function groupCatalog(catalog) {
     var groups = {};
-    (catalog || []).filter(function (q) { return q.active !== false; }).sort(function (a, b) {
+    (catalog || []).slice().sort(function (a, b) {
       return Number(a.sequence_no || 0) - Number(b.sequence_no || 0);
     }).forEach(function (q) {
       if (!groups[q.domain]) groups[q.domain] = [];
@@ -63,9 +81,11 @@
     var prefix = options.prefix || 'frq';
     var readonly = !!options.readonly;
     var defaultEvidence = options.defaultEvidence || 'DECLARED';
+    var version = effectiveVersion(options.catalogVersion, rows);
+    var selectedCatalog = catalogForVersion(catalog, version);
     var map = answerMap(rows);
-    var groups = groupCatalog(catalog);
-    var html = '<div class="frq-root" data-prefix="' + esc(prefix) + '">';
+    var groups = groupCatalog(selectedCatalog);
+    var html = '<div class="frq-root" data-prefix="' + esc(prefix) + '" data-catalog-version="' + esc(version) + '">';
 
     Object.keys(groups).forEach(function (domain) {
       html += '<section class="frq-domain"><div class="frq-domain-head"><h4>'
@@ -102,9 +122,11 @@
     var prefix = options.prefix || 'frq';
     var parentField = options.parentField || 'baseline_id';
     var parentId = options.parentId;
-    var catalogVersion = options.catalogVersion || 'AFLP-SUST-2026.1';
-    var existing = answerMap(options.existingRows || []);
-    return (catalog || []).filter(function (q) { return q.active !== false; }).map(function (q) {
+    var existingRows = options.existingRows || [];
+    var catalogVersion = effectiveVersion(options.catalogVersion, existingRows);
+    var selectedCatalog = catalogForVersion(catalog, catalogVersion);
+    var existing = answerMap(existingRows);
+    return selectedCatalog.map(function (q) {
       var answerElement = document.getElementById(prefix + '_answer_' + q.question_code);
       var evidenceElement = document.getElementById(prefix + '_evidence_' + q.question_code);
       var observationElement = document.getElementById(prefix + '_observation_' + q.question_code);
@@ -123,20 +145,24 @@
   }
 
   function validate(catalog, rows) {
+    var version = effectiveVersion(null, rows);
+    var selectedCatalog = catalogForVersion(catalog, version);
     var map = answerMap(rows);
     var missing = [];
-    (catalog || []).filter(function (q) { return q.active !== false && q.required !== false; }).forEach(function (q) {
+    selectedCatalog.filter(function (q) { return q.required !== false; }).forEach(function (q) {
       if (!map[q.question_code] || !map[q.question_code].answer) missing.push(q.question_code);
     });
     return missing;
   }
 
   function riskPreview(catalog, rows) {
+    var version = effectiveVersion(null, rows);
+    var selectedCatalog = catalogForVersion(catalog, version);
     var map = answerMap(rows);
     var risk = 'LOW';
     var reasons = [];
     var answered = 0;
-    (catalog || []).filter(function (q) { return q.active !== false; }).forEach(function (q) {
+    selectedCatalog.forEach(function (q) {
       var row = map[q.question_code];
       if (!row || !row.answer) return;
       answered += 1;
@@ -153,7 +179,7 @@
         });
       }
     });
-    return { risk: answered ? risk : 'NOT_ASSESSED', reasons: reasons, answered: answered };
+    return { risk: answered ? risk : 'NOT_ASSESSED', reasons: reasons, answered: answered, catalogVersion: version };
   }
 
   function answerLabel(value) {
@@ -162,7 +188,9 @@
   }
 
   FR.assessment = {
-    version: '1.0.0',
+    version: '1.1.0',
+    catalogVersion: CURRENT_CATALOG_VERSION,
+    legacyCatalogVersion: LEGACY_CATALOG_VERSION,
     answers: ANSWERS,
     evidenceLevels: EVIDENCE,
     domains: DOMAINS,
@@ -170,6 +198,7 @@
     read: read,
     validate: validate,
     riskPreview: riskPreview,
+    catalogForVersion: catalogForVersion,
     answerMap: answerMap,
     answerLabel: answerLabel,
     escape: esc
