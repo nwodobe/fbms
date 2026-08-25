@@ -3,7 +3,7 @@
 1. Le GPS Level 1 utilise un point représentatif. Le polygone complet est préparé dans `geometry_geojson`, mais aucun parcours de contour n’est encore actif.
 2. PostGIS est disponible dans le projet Supabase mais n’est pas installé. Le GeoJSON évite de bloquer le MVP ; une migration PostGIS pourra être ajoutée lors du GPS Level 2.
 3. La surface GPS vérifiée est saisie par la supervision. Elle n’est pas encore calculée automatiquement à partir d’un polygone.
-4. Le questionnaire `AFLP-SUST-2026.1` est une baseline opérationnelle. Il ne constitue ni une certification ni un score ESG.
+4. Le questionnaire courant est `AFLP-SUST-2026.2`. Il s’agit d’une baseline opérationnelle AFLP, pas d’une certification ni d’un score ESG. La version `AFLP-SUST-2026.1` reste conservée comme historique et n’est plus proposée pour les nouvelles saisies.
 5. Le texte de consentement `AFLP-DATA-CONSENT-2026.1` doit conserver une validation juridique avant généralisation à grande échelle.
 6. Les fichiers de preuve exigent une connexion pour l’envoi vers Supabase Storage. Les formulaires et données structurées restent utilisables offline.
 7. Une suppression du stockage du navigateur avant synchronisation peut supprimer les données uniquement locales.
@@ -13,10 +13,11 @@
 11. `RT / Field Partner` conserve l’enrôlement basic prévu en Phase 1. La capture des parcelles, baselines et inspections nécessite un rôle terrain interne autorisé.
 12. Depuis le durcissement du 25/08/2026, `achats.producteur_id` et `sacs_mouvements.producteur_id` sont normalisés vers `producteurs.id` et protégés par des clés étrangères validées. `producteur_code` conserve le Farmer ID lisible pour l’affichage et les exports.
 13. La couche serveur garde une compatibilité contrôlée avec les anciens appareils qui envoient encore le Farmer ID lisible dans `producteur_id` : un trigger le convertit avant insertion vers l’ID technique canonique et recopie le nom, le village, le cluster et le RT depuis le registre producteur.
-14. Les formations réutilisent `sessions_formation` et `participants_formation`. La création de sessions reste dans le module missions/formation existant.
-15. Les preuves sont listées par entité dans le Passport. L’interface ne génère pas encore d’URL signée de téléchargement pour chaque document.
-16. Le dashboard du registre est intégré à la vue Producteurs sélectionnée par village. Une vue exécutive multi-zones dédiée peut exploiter `farmer_registry_dashboard_v` sans modifier le modèle.
-17. La carte Leaflet nécessite le chargement initial de la librairie et des tuiles. Les points restent enregistrés hors ligne même si le fond cartographique n’est pas disponible.
-18. Les fonctions Farmer Registry de finalisation restent `SECURITY DEFINER`, mais elles sont limitées à `authenticated`/`service_role`, utilisent un `search_path` explicite et vérifient en interne le rôle, le périmètre et `auth.uid()`. Les alertes du linter Supabase sur ces fonctions sont donc revues, pas ignorées.
-19. Les avertissements Supabase hérités hors périmètre Farmer Registry, notamment certaines anciennes fonctions SECURITY DEFINER et la protection contre les mots de passe compromis, restent à traiter séparément.
-20. Les 7 anciens producteurs `TEST ...` de SESSENOUA ont été conservés en soft-delete pour l’audit et exclus du périmètre actif avant le pilote terrain.
+14. Les anciens clients Farmer Registry qui envoient encore `AFLP-SUST-2026.1` sur une nouvelle baseline ou inspection sont temporairement convertis côté serveur vers `AFLP-SUST-2026.2`; les réponses sont réalignées automatiquement sur la version de leur parent. Cette compatibilité doit être retirée après renouvellement des caches/appareils terrain.
+15. Les formations réutilisent `sessions_formation` et `participants_formation`. La création de sessions reste dans le module missions/formation existant.
+16. Les preuves sont listées par entité dans le Passport. L’interface ne génère pas encore d’URL signée de téléchargement pour chaque document.
+17. Le dashboard du registre est intégré à la vue Producteurs sélectionnée par village. Une vue exécutive multi-zones dédiée peut exploiter `farmer_registry_dashboard_v` sans modifier le modèle.
+18. La carte Leaflet nécessite le chargement initial de la librairie et des tuiles. Les points restent enregistrés hors ligne même si le fond cartographique n’est pas disponible.
+19. Les fonctions Farmer Registry de finalisation restent `SECURITY DEFINER`, mais elles sont limitées à `authenticated`/`service_role`, utilisent un `search_path` explicite et vérifient en interne le rôle, le périmètre et `auth.uid()`. Les alertes du linter Supabase sur ces fonctions sont donc revues, pas ignorées.
+20. Les avertissements Supabase hérités hors périmètre Farmer Registry, notamment certaines anciennes fonctions SECURITY DEFINER et la protection contre les mots de passe compromis, restent à traiter séparément.
+21. Les 7 anciens producteurs `TEST ...` de SESSENOUA ont été conservés en soft-delete pour l’audit et exclus du périmètre actif avant le pilote terrain.
