@@ -11,10 +11,12 @@
 9. Les baselines évitent les collisions de version par verrou transactionnel. Les fiches DRAFT modifiées simultanément par deux appareils restent soumises à la règle du dernier envoi serveur ; l’audit conserve les changements.
 10. Les coordonnées GPS sont visibles uniquement aux rôles terrain et supervision. Les vues agrégées restent accessibles sans coordonnées aux autres rôles autorisés.
 11. `RT / Field Partner` conserve l’enrôlement basic prévu en Phase 1. La capture des parcelles, baselines et inspections nécessite un rôle terrain interne autorisé.
-12. Achats et Sacs peuvent encore contenir l’ancien Farmer ID lisible dans `producteur_id`. Les vues 360 acceptent temporairement l’ID technique ou le code afin de préserver l’historique.
-13. La normalisation définitive de `achats.producteur_id` et `sacs_mouvements.producteur_id` vers `producteurs.id`, avec FK validées, doit être livrée comme migration d’intégration contrôlée après mise à jour des appareils terrain.
+12. Depuis le durcissement du 25/08/2026, `achats.producteur_id` et `sacs_mouvements.producteur_id` sont normalisés vers `producteurs.id` et protégés par des clés étrangères validées. `producteur_code` conserve le Farmer ID lisible pour l’affichage et les exports.
+13. La couche serveur garde une compatibilité contrôlée avec les anciens appareils qui envoient encore le Farmer ID lisible dans `producteur_id` : un trigger le convertit avant insertion vers l’ID technique canonique et recopie le nom, le village, le cluster et le RT depuis le registre producteur.
 14. Les formations réutilisent `sessions_formation` et `participants_formation`. La création de sessions reste dans le module missions/formation existant.
 15. Les preuves sont listées par entité dans le Passport. L’interface ne génère pas encore d’URL signée de téléchargement pour chaque document.
 16. Le dashboard du registre est intégré à la vue Producteurs sélectionnée par village. Une vue exécutive multi-zones dédiée peut exploiter `farmer_registry_dashboard_v` sans modifier le modèle.
 17. La carte Leaflet nécessite le chargement initial de la librairie et des tuiles. Les points restent enregistrés hors ligne même si le fond cartographique n’est pas disponible.
-18. Les avertissements Supabase hérités hors périmètre Farmer Registry, notamment certaines anciennes fonctions SECURITY DEFINER et la protection contre les mots de passe compromis, ne sont pas tous corrigés par cette livraison.
+18. Les fonctions Farmer Registry de finalisation restent `SECURITY DEFINER`, mais elles sont limitées à `authenticated`/`service_role`, utilisent un `search_path` explicite et vérifient en interne le rôle, le périmètre et `auth.uid()`. Les alertes du linter Supabase sur ces fonctions sont donc revues, pas ignorées.
+19. Les avertissements Supabase hérités hors périmètre Farmer Registry, notamment certaines anciennes fonctions SECURITY DEFINER et la protection contre les mots de passe compromis, restent à traiter séparément.
+20. Les 7 anciens producteurs `TEST ...` de SESSENOUA ont été conservés en soft-delete pour l’audit et exclus du périmètre actif avant le pilote terrain.
