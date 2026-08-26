@@ -91,3 +91,12 @@ function wire(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);else wire();
 })();
+
+(function(){
+  if(document.querySelector('script[data-e2e4-reconciliation]'))return;
+  const s=document.createElement('script');
+  s.src='traceability-reconciliation.js?v=e2e4';
+  s.defer=true;
+  s.dataset.e2e4Reconciliation='1';
+  document.head.appendChild(s);
+})();
