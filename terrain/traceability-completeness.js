@@ -19,7 +19,8 @@ function injectDashboard(){
 }
 
 async function loadDashboard(){
-  if(!injectDashboard())return;
+  injectDashboard();
+  if(!$('traceCompletenessCard'))return;
   const [d,c]=await Promise.all([
     SB.from('field_traceability_dashboard_v').select('*').single(),
     SB.from('field_traceability_completeness_v').select('achat_id,achat_local_id,farmer_id,producteur_nom,village_nom,poids_net,completeness_score_2027,overall_status,next_action,parcel_trace_status').neq('overall_status','COMPLETE').order('completeness_score_2027',{ascending:true}).limit(100)
@@ -84,10 +85,10 @@ function boot(){
   let tries=0;
   const timer=setInterval(()=>{
     tries++;
-    const dashboardReady=injectDashboard();
+    injectDashboard();
     const bagReady=bindExactBagBalance();
-    if(dashboardReady)loadDashboard();
-    if((dashboardReady||$('traceCompletenessCard'))&&bagReady){clearInterval(timer);setTimeout(loadDashboard,300);}
+    if($('traceCompletenessCard'))loadDashboard();
+    if($('traceCompletenessCard')&&bagReady){clearInterval(timer);setTimeout(loadDashboard,300);}
     if(tries>30)clearInterval(timer);
   },250);
   document.addEventListener('anagroci:authenticated',()=>setTimeout(loadDashboard,500));
