@@ -85,3 +85,12 @@ function wire(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);else wire();
 })();
+
+(function(){
+  if(document.querySelector('script[data-e2e5-completeness]'))return;
+  const s=document.createElement('script');
+  s.src='traceability-completeness.js?v=e2e5';
+  s.defer=true;
+  s.dataset.e2e5Completeness='1';
+  document.head.appendChild(s);
+})();
