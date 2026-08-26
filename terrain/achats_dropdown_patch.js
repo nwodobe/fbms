@@ -76,9 +76,17 @@
       localStorage.setItem('anagroci_achats',JSON.stringify(all)); if(btn)btn.disabled=false; if(typeof window.render==='function')window.render();
     };
   }
+  function injectTraceability(){
+    if(document.getElementById('achats-traceability-patch'))return;
+    var s=document.createElement('script');
+    s.id='achats-traceability-patch';
+    s.src='achats_traceability_patch.js?v=e2e2';
+    s.defer=true;
+    document.body.appendChild(s);
+  }
   function init(){
     if(!window.supabase||!window.supabase.createClient)return setTimeout(init,200);
-    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); patchSync(); ensureDom(); loadVillages().then(refreshDropdowns);
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); patchSync(); ensureDom(); injectTraceability(); loadVillages().then(refreshDropdowns);
     document.addEventListener('input',function(e){if(e.target&&e.target.id==='f_village')setTimeout(refreshDropdowns,80);});
     document.addEventListener('change',function(e){if(e.target&&e.target.id==='f_village')setTimeout(refreshDropdowns,80); if(e.target&&e.target.id==='f_prod')onProdSelect();});
     document.addEventListener('anagroci:authenticated',function(){setTimeout(function(){loadVillages().then(refreshDropdowns);},300);});
