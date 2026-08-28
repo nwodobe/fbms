@@ -1,0 +1,1 @@
+CI must run on pull request.
