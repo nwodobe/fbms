@@ -1,0 +1,64 @@
+name: Portal jute bag assets
+
+on:
+  push:
+    branches:
+      - fix/portal-jute-bags-20260828
+    paths:
+      - '.github/workflows/portal-jute-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  replace-assets:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/portal-jute-bags-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pillow
+      - name: Télécharger des visuels avec sacs en jute
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from io import BytesIO
+          from urllib.request import Request, urlopen
+          from PIL import Image, ImageOps
+
+          out = Path('assets/operations/modules')
+          out.mkdir(parents=True, exist_ok=True)
+          photos = {
+            'field-buying.webp': 'https://images.pexels.com/photos/33054043/pexels-photo-33054043/free-photo-of-child-carrying-sack-in-rural-uganda-farm-scene.jpeg?auto=compress&dpr=1&h=750&w=1260',
+            'lba-purchase.webp': 'https://images.pexels.com/photos/13795516/pexels-photo-13795516.jpeg?auto=compress&dpr=1&h=750&w=1260',
+            'warehouse.webp': 'https://images.pexels.com/photos/19052799/pexels-photo-19052799.jpeg?cs=srgb&dl=pexels-christian-dala-651910440-19052799.jpg&fm=jpg',
+            'stock-transfer.webp': 'https://images.pexels.com/photos/15733306/pexels-photo-15733306/free-photo-of-truck-filled-with-sacks.jpeg?auto=compress&dpr=1&h=750&w=1260',
+          }
+          for name, url in photos.items():
+            req = Request(url, headers={'User-Agent': 'Mozilla/5.0 ANAGROCI-Portal/1.0'})
+            with urlopen(req, timeout=45) as r:
+              raw = r.read()
+            img = Image.open(BytesIO(raw)).convert('RGB')
+            img = ImageOps.fit(img, (1200, 675), method=Image.Resampling.LANCZOS)
+            q = 80
+            while True:
+              b = BytesIO(); img.save(b, 'WEBP', quality=q, method=6, optimize=True); data=b.getvalue()
+              if len(data) <= 250_000 or q <= 58: break
+              q -= 4
+            (out/name).write_bytes(data)
+            print(name, round(len(data)/1024,1), 'KB')
+          PY
+      - name: Committer les nouveaux visuels
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/operations/modules/field-buying.webp assets/operations/modules/lba-purchase.webp assets/operations/modules/warehouse.webp assets/operations/modules/stock-transfer.webp
+          git diff --cached --quiet && exit 0
+          git commit -m 'assets: imposer les sacs en jute sur le portail'
+          git push origin HEAD:fix/portal-jute-bags-20260828
