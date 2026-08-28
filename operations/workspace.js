@@ -73,7 +73,7 @@
       ]
     },
     trace: { title:'TRACEABILITY 360', subtitle:'Où est le RCN maintenant ? D’où vient-il ?', nav:[] },
-    reports: { title:'REPORTS & EXPORT', subtitle:'Reporting Supabase et exports Excel', nav:[] }
+    reports: { title:'REPORTS & EXPORT', subtitle:'Reporting et exports Excel', nav:[] }
   };
 
   function esc(value) {
@@ -110,7 +110,7 @@
     var top = document.getElementById('opsTopbar');
     if (top) top.innerHTML = '<a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a>' +
       '<div class="ops-title"><strong>'+esc(c.title)+'</strong><small>'+esc(c.subtitle)+'</small></div>' +
-      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Supabase</span><span id="anagroci-userslot"></span></div>';
+      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-userslot"></span></div>';
     var side = document.getElementById('opsSidebar');
     if (side) {
       var active = routeName();
@@ -268,13 +268,13 @@
   }
   async function loadReports(sb){
     var lba=await count(sb,'rcn_fournisseurs',function(q){return q.like('code','LBA-%');}); var trf=await count(sb,'rcn_v_transferts'); var rec=await count(sb,'rcn_v_receptions');
-    setKpis([{label:'LBA master',value:lba,note:'source Supabase'},{label:'Réceptions',value:rec,note:'reporting physique'},{label:'Transferts',value:trf,note:'reporting logistique'},{label:'Excel',value:'Output',note:'plus de base transactionnelle'},{label:'Metadata',value:'Obligatoire',note:'campagne · filtres · version'}]);
+    setKpis([{label:'LBA master',value:lba,note:'référentiel'},{label:'Réceptions',value:rec,note:'reporting physique'},{label:'Transferts',value:trf,note:'reporting logistique'},{label:'Excel',value:'Output',note:'plus de base transactionnelle'},{label:'Metadata',value:'Obligatoire',note:'campagne · filtres · version'}]);
   }
 
   async function boot() {
     renderShell();
     var sb=await waitClient();
-    if(!sb){setKpis([{label:'Connexion',value:'Indisponible',note:'Supabase non chargé',cls:'danger'}]);return;}
+    if(!sb){setKpis([{label:'Connexion',value:'Indisponible',note:'Données indisponibles',cls:'danger'}]);return;}
     if(PAGE==='field') return loadField(sb);
     if(PAGE==='lba') return loadLba(sb);
     if(PAGE==='warehouse') return loadWarehouse(sb);
