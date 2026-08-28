@@ -121,6 +121,10 @@
         "farmer-registry-operations-script",
         "../shared/farmer-registry-operations.js?v=20260818-complete-1"
       );
+      appendScript(
+        "rt-to-producer-script",
+        "../shared/rt-to-producer.js?v=20260828-rt-to-producer-1"
+      );
     } catch (e) { /* ignorer */ }
   }
 
