@@ -1,0 +1,29 @@
+name: Operations Suite PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'operations/**'
+      - 'tests/operations-suite-static.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  operations-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assertions architecture métier
+        run: node tests/operations-suite-static.mjs
+      - name: Syntaxe JavaScript Operations
+        run: |
+          node --check operations/workspace.js
+          node --check operations/reports-export.js
+          node --check operations/traceability-search.js
