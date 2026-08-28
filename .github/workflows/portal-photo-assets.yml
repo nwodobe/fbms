@@ -1,0 +1,78 @@
+name: Portal photo assets
+
+on:
+  push:
+    branches:
+      - feat/portal-photo-redesign-20260828
+    paths:
+      - '.github/workflows/portal-photo-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-assets:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/portal-photo-redesign-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Installer Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+      - name: Télécharger et optimiser les photos Pexels
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from io import BytesIO
+          from urllib.request import Request, urlopen
+          from PIL import Image, ImageOps
+
+          OUT = Path('assets/operations/modules')
+          OUT.mkdir(parents=True, exist_ok=True)
+          photos = {
+              'field-buying.webp': 'https://images.pexels.com/photos/29006128/pexels-photo-29006128.jpeg?cs=srgb&dl=pexels-edris-ibraheem-1697115432-29006128.jpg&fm=jpg',
+              'lba-purchase.webp': 'https://images.pexels.com/photos/11196879/pexels-photo-11196879.jpeg?cs=srgb&dl=pexels-safari-consoler-3290243-11196879.jpg&fm=jpg',
+              'warehouse.webp': 'https://images.pexels.com/photos/38715718/pexels-photo-38715718.jpeg?cs=srgb&dl=pexels-mwesigwa-joel-455894964-38715718.jpg&fm=jpg',
+              'stock-transfer.webp': 'https://images.pexels.com/photos/34249580/pexels-photo-34249580.jpeg?cs=srgb&dl=pexels-speakmediauganda-34249580.jpg&fm=jpg',
+              'factory.webp': 'https://images.pexels.com/photos/36423786/pexels-photo-36423786.jpeg?cs=srgb&dl=pexels-keeganjchecks-36423786.jpg&fm=jpg',
+              'traceability.webp': 'https://images.pexels.com/photos/8316303/pexels-photo-8316303.jpeg?cs=srgb&dl=pexels-atharva-whaval-964041-8316303.jpg&fm=jpg',
+              'reports.webp': 'https://images.pexels.com/photos/30688915/pexels-photo-30688915.jpeg?cs=srgb&dl=pexels-ninthgrid-2149521550-30688915.jpg&fm=jpg',
+          }
+
+          for name, url in photos.items():
+              req = Request(url, headers={'User-Agent': 'Mozilla/5.0 ANAGROCI-Portal/1.0'})
+              with urlopen(req, timeout=45) as r:
+                  raw = r.read()
+              img = Image.open(BytesIO(raw)).convert('RGB')
+              img = ImageOps.fit(img, (1200, 675), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+              target = OUT / name
+              quality = 80
+              while True:
+                  buf = BytesIO()
+                  img.save(buf, 'WEBP', quality=quality, method=6, optimize=True)
+                  data = buf.getvalue()
+                  if len(data) <= 260_000 or quality <= 58:
+                      target.write_bytes(data)
+                      break
+                  quality -= 4
+              print(f'{name}: {len(data)/1024:.1f} KB, quality={quality}')
+          PY
+      - name: Vérifier les poids
+        run: |
+          find assets/operations/modules -type f -name '*.webp' -printf '%f %k KB\n' | sort
+          test $(find assets/operations/modules -type f -name '*.webp' | wc -l) -eq 7
+      - name: Committer les assets localement
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/operations/modules/*.webp
+          git diff --cached --quiet && exit 0
+          git commit -m 'assets: ajouter les photos optimisées du portail'
+          git push origin HEAD:feat/portal-photo-redesign-20260828
