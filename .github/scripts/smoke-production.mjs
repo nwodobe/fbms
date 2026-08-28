@@ -115,5 +115,7 @@ for (const c of constats) {
 }
 
 const echecs = constats.filter((c) => !c.ok)
-process.stdout.write(  `\n${URL_CIBLE}\n${constats.length - echecs.length}/${constats.length} controle(s) au vert\n`,
+process.stdout.write(
+  `\n${URL_CIBLE}\n${constats.length - echecs.length}/${constats.length} controle(s) au vert\n`,
+)
 process.exit(echecs.length > 0 ? 1 : 0)
