@@ -3,3 +3,28 @@
 @media(max-width:1050px){.ops-status-grid{grid-template-columns:repeat(2,1fr)}.ops-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-fin-preview{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:820px){.ops-pagehead,.ops-route-head{grid-template-columns:1fr}.ops-actions,.ops-route-actions{justify-content:flex-start}.ops-topbar{flex-wrap:wrap}.ops-title{order:3;width:100%}.ops-title strong,.ops-title small{display:block}.ops-form-grid{grid-template-columns:1fr 1fr}.ops-fin-preview{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.ops-pagehead,.ops-route-head{gap:10px}.ops-main{overflow-x:hidden}.ops-pagehead h1,.ops-route-head h1{font-size:22px}.ops-actions,.ops-route-actions{width:100%}.ops-actions .btn,.ops-route-actions .btn{flex:1 1 100%}.ops-status-grid,.ops-form-grid,.ops-fin-preview{grid-template-columns:1fr}.ops-span-2{grid-column:auto}.ops-timeline-item{grid-template-columns:1fr}.ops-top-actions{width:100%;justify-content:flex-start}.ops-top-actions .ops-pill{max-width:100%}.ops-sidebar{overflow-x:auto}.ops-nav{min-width:max-content}.ops-breadcrumbs{font-size:10px}.table-wrap{max-width:100%}}
+
+/* LBA Purchase — moteur consolidé.
+   Le bouton de création est déclaré ici de façon explicite : il a déjà disparu une fois
+   parce qu'il était injecté après le rendu. Rien ne doit pouvoir le masquer. */
+.ops-cta-create{display:inline-flex!important;visibility:visible!important;min-height:44px;background:var(--emerald);color:#fff;font-weight:800;white-space:nowrap}
+.ops-cta-create:hover{background:var(--pine)}
+.ops-route-actions .ops-cta-create{order:-1}
+
+/* Fiche d'identité du LBA Passport. */
+.ops-def-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.ops-def-grid>div{background:var(--wash,#F6F8F6);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.ops-def-grid small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.ops-def-grid b{display:block;margin-top:4px;color:var(--forest);font-size:13px;overflow-wrap:anywhere}
+
+/* Squelettes de chargement : au-delà d'une demi-seconde, l'écran montre qu'il travaille. */
+.ops-skeleton-stack{display:grid;gap:10px}
+.skeleton-row{height:34px}
+
+@media(max-width:820px){
+  /* Le bouton passe sous le titre, pleine largeur, jamais hors écran. */
+  .ops-route-actions .ops-cta-create{width:100%;white-space:normal}
+}
+@media(max-width:380px){
+  .ops-def-grid{grid-template-columns:1fr}
+}
