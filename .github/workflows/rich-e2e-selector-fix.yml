@@ -1,0 +1,33 @@
+name: Rich E2E selector one-shot fix
+on:
+  push:
+    branches: [feat/field-buying-rich-enrollment]
+    paths: ['.github/workflows/rich-e2e-selector-fix.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/field-buying-rich-enrollment
+      - name: Correct current purchase receipt selector
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tests/field-buying-rich-enrollment-e2e.mjs')
+          s=p.read_text()
+          old="await page.fill('#bf_recu','RC-RICH-001');"
+          new="await page.fill('#bf_ref','RC-RICH-001');"
+          if old not in s: raise SystemExit('old selector not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check tests/field-buying-rich-enrollment-e2e.mjs
+      - name: Commit selector correction
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests/field-buying-rich-enrollment-e2e.mjs
+          git commit -m "test(field-buying): use current receipt field selector [rich-e2e-fix]"
+          git push origin HEAD:feat/field-buying-rich-enrollment
