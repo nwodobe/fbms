@@ -64,6 +64,17 @@ function normName(v) {
     .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
 function normPhone(v) { return String(v || '').replace(/[^0-9]/g, ''); }
+/* Sexe : la colonne producteurs.sexe est normalisée M/F côté serveur. */
+function sexeCode(v) {
+  var s = String(v || '').trim().toUpperCase();
+  if (s === 'M' || s === 'HOMME' || s === 'MALE') return 'M';
+  if (s === 'F' || s === 'FEMME' || s === 'FEMALE') return 'F';
+  return '';
+}
+function sexeLabel(v) {
+  var c = sexeCode(v);
+  return c === 'M' ? 'Homme' : c === 'F' ? 'Femme' : (v || '');
+}
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
 /* --------------------------------------------------------------------- fragments */
@@ -1050,7 +1061,7 @@ function openFarmerForm(prefill, editId) {
         field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
         field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
         field('RT référent', '<select id="ff_rt" data-c><option value="">Aucun / à rattacher</option></select>') +
-        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option>Homme</option><option>Femme</option></select>') +
+        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select>') +
         field('Année de naissance', '<input id="ff_annee" data-c type="number" min="1930" max="' + anneeMax + '" placeholder="1930 – ' + anneeMax + '">') +
         field('Téléphone', '<input id="ff_tel" data-c inputmode="tel" placeholder="10 chiffres">') +
         field('Titulaire du téléphone', '<select id="ff_teltit" data-c><option value="">—</option><option>Propre</option><option>Famille</option><option>Voisin</option><option>RT</option></select>') +
@@ -1123,7 +1134,8 @@ function openFarmerForm(prefill, editId) {
       nom.value = editRow.nom || '';
       setV('ff_prenoms', editRow.prenoms);
       villageSel.value = editRow.village_id || '';
-      setV('ff_sexe', editRow.sexe);
+      /* La base stocke M/F (normalisation serveur) ; d'anciens dossiers portent Homme/Femme. */
+      setV('ff_sexe', sexeCode(editRow.sexe));
       setV('ff_annee', editRow.birth_year);
       tel.value = editRow.telephone || '';
       setV('ff_tel2', editRow.telephone_alt);
@@ -1428,7 +1440,7 @@ function renderFarmerPassport(id, tab) {
       } else if (tab === 'identity') {
         body = '<section class="card"><div class="card-head"><div><h2>Identité</h2></div></div>' +
           defGrid([['Farmer ID', f.farmer_id], ['Nom', f.nom], ['Prénoms', f.prenoms],
-            ['Sexe', row.sexe], ['Année de naissance', row.birth_year],
+            ['Sexe', sexeLabel(row.sexe)], ['Année de naissance', row.birth_year],
             ['Téléphone', f.telephone], ['Téléphone alternatif', row.telephone_alt],
             ['Titulaire téléphone', extra.telTitulaire],
             ['Pièce', row.id_document_type], ['N° de pièce', row.id_document_number ? '••• (protégé)' : '—'],

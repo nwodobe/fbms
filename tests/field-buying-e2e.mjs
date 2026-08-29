@@ -159,7 +159,8 @@ const DOUBLURE = `
       storage_path: 'agent/rt/rt_test_5/photo_profil-x.jpg', horodatage_client: '2026-08-20T10:00:00Z' }],
     audit_log: [],
     producteurs: FARMERS.map(function (f) {
-      return { id: f.producteur_id, nom: f.nom, prenoms: f.prenoms, sexe: 'Homme', birth_year: 1980,
+      /* La colonne sexe est normalisée M/F par le serveur (trigger prepare_producteur). */
+      return { id: f.producteur_id, nom: f.nom, prenoms: f.prenoms, sexe: 'M', birth_year: 1980,
         telephone: f.telephone, telephone_alt: null, id_document_type: 'CNI', id_document_number: null,
         village_id: f.village_id, rt_id: f.rt_id, statut: 'Identifié',
         data: { campement: 'CAMPEMENT TEST', superficieHa: 3 } };
@@ -174,7 +175,11 @@ const DOUBLURE = `
     var filtres = [];
     var c = {
       select: f, insert: function (row) { window.__lectures.push('insert:' + nom); return c; },
-      update: function (row) { window.__lectures.push('update:' + nom); return c; },
+      update: function (row) {
+        window.__lectures.push('update:' + nom);
+        if (row && row.sexe) window.__lectures.push('update-sexe:' + row.sexe);
+        return c;
+      },
       upsert: f, delete: f,
       eq: function (col, v) { filtres.push([col, v]); return c; },
       neq: f, in: f, like: f, ilike: f, gte: f, lte: f, order: f, limit: f, range: f,
@@ -577,13 +582,17 @@ async function main() {
         await page.waitForSelector('#farmerForm', { timeout: 10000 });
         const fpre = await page.evaluate(() => document.getElementById('ff_nom').value);
         verifier(fpre === 'PRODUCTEUR FICTIF 2', 'S9 · formulaire producteur prérempli en édition');
+        const fsexe = await page.evaluate(() => document.getElementById('ff_sexe').value);
+        verifier(fsexe === 'M', 'S9 · sexe prérempli depuis le code base M (affiché Homme)');
         await page.click('#ff_submit');
         await page.waitForTimeout(350);
         const fEcr = await page.evaluate(() => ({
           upd: window.__lectures.filter((x) => x === 'update:producteurs').length,
-          ins: window.__lectures.filter((x) => x === 'insert:producteurs').length
+          ins: window.__lectures.filter((x) => x === 'insert:producteurs').length,
+          sexe: window.__lectures.filter((x) => x === 'update-sexe:M').length
         }));
         verifier(fEcr.upd === 1 && fEcr.ins === 0, 'S9 · producteur modifié sans re-création (Farmer ID conservé)');
+        verifier(fEcr.sexe === 1, 'S9 · le sexe est réenregistré au format base (M) et survit au rechargement');
         await page.waitForTimeout(1300);
 
         // S10 — clic sur un village → Fiche Village 360°
