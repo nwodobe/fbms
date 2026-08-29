@@ -161,7 +161,7 @@ async function main() {
     const hasParcelRequirement = await page.evaluate(() => [...document.querySelectorAll('#buyForm [required]')].some(x => /plot|parcel|gps/i.test(x.id + ' ' + (x.name||''))));
     check(!hasParcelRequirement, '11 · achat : aucune parcelle/GPS exigée');
     await page.selectOption('#bf_village','v_test_2'); await page.selectOption('#bf_farmer','p_test_2');
-    await page.fill('#bf_brut','500'); await page.fill('#bf_sacs','6'); await page.fill('#bf_recu','RC-RICH-001');
+    await page.fill('#bf_brut','500'); await page.fill('#bf_sacs','6'); await page.fill('#bf_ref','RC-RICH-001');
     await page.click('#bf_submit'); await page.waitForTimeout(200);
     check(!/parcelle|gps/i.test((await page.locator('#bf_msg').innerText()) || ''), '11 · achat : producteur non cartographié non bloqué');
 
