@@ -53,7 +53,8 @@ async function set(page, values) {
   }, values);
 }
 async function submit(page, id) { await page.evaluate((formId) => document.getElementById(formId).requestSubmit(), id); }
-async function msg(page) { await page.waitForTimeout(150); return page.evaluate(() => (document.querySelector('[data-rich-msg]') || {}).textContent || ''); }
+async function msg(page) { await page.waitForTimeout(180); return page.evaluate(() => (document.querySelector('[data-rich-msg]') || {}).textContent || ''); }
+async function settle(page) { await page.waitForTimeout(1100); }
 
 async function main() {
   const s = server(); await new Promise(r => s.listen(PORT,r));
@@ -84,6 +85,7 @@ async function main() {
     await set(page,{rv_nom:'VILLAGE COMPLET TEST',rv_cluster:'BROBO',rv_region:'Gbêkê',rv_dept:'Bouaké',rv_sp:'Brobo',rv_lat:'7.5',rv_lng:'-5.1',rv_precision:'8',rv_prod_est:'25000',rv_nb_prod:'60',rv_route:'B',rv_type_acces:'Piste',rv_competition:'Oui',rv_chef:'CHEF TEST',rv_leader:'LEADER TEST',rv_pref_paie:'Wave',rv_decision:'Retenir'});
     await submit(page,'richVillageForm');
     check(/créé/i.test(await msg(page)), '1 · village complet : sauvegarde acceptée');
+    await settle(page);
 
     // 2. Village minimum opérationnel : aucun GPS requis
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openVillageForm()); await page.waitForSelector('#richVillageForm');
@@ -91,18 +93,21 @@ async function main() {
     check(reqVillage.length === 2 && reqVillage.includes('rv_nom') && reqVillage.includes('rv_cluster'), '2 · village minimum : nom + cluster seulement');
     await set(page,{rv_nom:'VILLAGE MINIMUM TEST',rv_cluster:'DIABO'}); await submit(page,'richVillageForm');
     check(/créé/i.test(await msg(page)), '2 · village minimum : création sans GPS');
+    await settle(page);
 
     // 3. RT standard
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openRtForm()); await page.waitForSelector('#richRTForm');
-    const rtText = await page.locator('#fbFormHost').innerText();
+    const rtText = await page.evaluate(() => document.getElementById('fbFormHost').textContent || '');
     check(/Expérience achat RCN/.test(rtText) && /Réputation locale/.test(rtText) && /Capacité d’achat/.test(rtText), '3 · RT : capacité, finance et évaluation présentes');
     await set(page,{rr_nom:'RT TEST STANDARD',rr_tel:'0701020304',rr_village:'v_test_2',rr_activite:'Pisteur'}); await submit(page,'richRTForm');
     check(/RT créé/i.test(await msg(page)), '3 · RT : création standard');
+    await settle(page);
 
     // 4. RT producteur
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openRtForm()); await page.waitForSelector('#richRTForm');
     await set(page,{rr_nom:'RT PRODUCTEUR TEST',rr_tel:'0701020305',rr_village:'v_test_3',rr_activite:'Producteur',rr_producteur:'Oui'}); await submit(page,'richRTForm');
     check(/Enrôler comme producteur/i.test(await msg(page)), '4 · RT producteur : double rôle détecté');
+    await settle(page);
 
     // 5. Pont RT → Producteur avec préremplissage
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.rtToFarmer('rt_test_1')); await page.waitForSelector('#richFarmerForm');
@@ -113,14 +118,17 @@ async function main() {
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openFarmerForm()); await page.waitForSelector('#richFarmerForm');
     const reqFarmer = await page.evaluate(() => [...document.querySelectorAll('#richFarmerForm [required]')].map(x=>x.id));
     check(reqFarmer.length === 2 && reqFarmer.includes('rp_nom') && reqFarmer.includes('rp_village'), '6 · producteur : nom + village seulement requis');
-    check(/Parcelle à compléter après campagne/i.test(await page.locator('#fbFormHost').innerText()), '6 · producteur : mention parcelle après campagne');
+    const farmerText = await page.evaluate(() => document.getElementById('fbFormHost').textContent || '');
+    check(/Parcelle à compléter après campagne/i.test(farmerText), '6 · producteur : mention parcelle après campagne');
     await set(page,{rp_nom:'PRODUCTEUR SANS PARCELLE',rp_village:'v_test_4'}); await submit(page,'richFarmerForm');
     check(/Producteur créé/i.test(await msg(page)), '6 · producteur sans parcelle : création autorisée');
+    await settle(page);
 
     // 7. Producteur avec parcelle + GPS
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openFarmerForm()); await page.waitForSelector('#richFarmerForm');
     await set(page,{rp_nom:'PRODUCTEUR PARCELLE GPS',rp_village:'v_test_5',rp_add_plot:'Oui',rp_plot_name:'PARCELLE TEST',rp_plot_area:'3.5',rp_plot_lat:'7.42',rp_plot_lng:'-5.09',rp_plot_acc:'6',rp_prod_2027:'1800'}); await submit(page,'richFarmerForm');
     check(/Producteur créé/i.test(await msg(page)), '7 · producteur avec parcelle/GPS : création autorisée');
+    await settle(page);
 
     // 8. Doublon producteur via RPC canonique
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openFarmerForm()); await page.waitForSelector('#richFarmerForm');
@@ -131,7 +139,8 @@ async function main() {
     await page.evaluate(() => { location.hash = '#farmers/p_test_1'; });
     await page.waitForSelector('.rich-pass-tabs',{timeout:15000});
     check(await page.locator('.rich-pass-tab').count() === 12, '9 · Farmer Passport : 12 rubriques dans Operations');
-    check(await page.locator('#opsSidebar').count() === 1 && location.pathname.endsWith('/operations/field-buying.html'), '9 · Farmer Passport : reste dans le shell Operations');
+    const shellState = await page.evaluate(() => ({sidebar:!!document.getElementById('opsSidebar'),path:location.pathname}));
+    check(shellState.sidebar && shellState.path.endsWith('/operations/field-buying.html'), '9 · Farmer Passport : reste dans le shell Operations');
 
     // 10. Complétude progressive Niveau 1 → Niveau 3
     await go(page,'#census'); await page.evaluate(() => ANAGROCI_FB.openFarmerForm()); await page.waitForSelector('#richFarmerForm');
