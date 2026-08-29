@@ -107,6 +107,13 @@ const DOUBLURE = `
     zone_code: 'GBEKE_1', zone_label: 'GBEKE 1', operational_status: 'Enrôlé', passport_stage: 'BASIC',
     passport_completion: 30, risk_profile: 'LOW', possible_duplicate: false, review_required: false,
     plot_count: 0, gps_mapped_count: 0, last_purchase_date: null, last_purchase_kg: 0, deleted: false });
+  /* Candidat RT dont les images ont été migrées : chemins de stockage privés,
+     plus aucun base64 dans le JSONB (clés photo/pieceRecto/pieceVerso à null). */
+  VILLAGES[1].data.s7 = { candidats: [{ nom: 'CANDIDAT TEST', telephone: '0700000099',
+    activite: 'Producteur', reputation: 'Bonne', smartphone: true,
+    photo: null, pieceRecto: null, pieceVerso: null,
+    photoPath: 'migration/aaaa1111.jpg', pieceRectoPath: 'migration/bbbb2222.jpg',
+    pieceVersoPath: 'migration/cccc3333.jpg' }] };
   VILLAGES[1].data.galerie = [
     { path: 'v_test_2/gallery/a.jpg', legende: 'ENTREE TEST', categorie: 'Entrée du village', date: '2026-08-20', agent: 'AGENT TEST' },
     { path: 'v_test_2/gallery/b.jpg', legende: 'ROUTE TEST', categorie: 'Route d’accès', date: '2026-08-21', agent: 'AGENT TEST' }
@@ -120,7 +127,8 @@ const DOUBLURE = `
     aflp_zones: ZN, aflp_clusters: CL,
     avances: [{ id: 'av1', date: '2026-08-20', cluster: 'Brobo', rt_id: 'rt_test_2',
       rt_nom: 'RT FICTIF 2', source: 'Finance', montant: 500000, motif: 'CAMPAGNE',
-      statut: 'Active', cycle_id: 'CYC-1', cycle_statut: 'Ouvert', created_at: '2026-08-20' }],
+      statut: 'Active', cycle_id: 'CYC-1', cycle_statut: 'OPEN', volume_finance_kg: 2000,
+      created_at: '2026-08-20' }],
     reconciliations: [],
     sacherie_ct_cluster_stock: CL.map(function (c, k) {
       return { cluster: c.label, stock_cluster_vide: 400 - k * 60, stock_cluster_plein: 40,
@@ -133,11 +141,58 @@ const DOUBLURE = `
         a_reparer: 0, repares: 0, rebut: 0,
         derniere_activite: k % 2 ? '2026-08-25' : '2026-06-01' };
     }),
-    ops_bag_requests: [{ id: 'br1', request_code: 'BAG-2027-001', channel: 'AFLP',
-      campaign: '2027', cluster: 'Brobo', rt_id: 'rt_test_2', requested_qty: 200,
-      approved_qty: 200, released_qty: 120, received_qty: 120, status: 'PARTIAL',
-      requested_at: '2026-08-20', approved_at: '2026-08-21', expires_at: '2026-09-30',
-      source_location_code: 'CLUSTER:Brobo', destination_location_code: 'RT:rt_test_2' }],
+    ops_bag_requests: [
+      /* Approbation BM active, sortie partielle en cours (multi-release). */
+      { id: 'br1', request_code: 'BAG-2027-001', channel: 'AFLP',
+        campaign: '2027', cluster: 'Brobo', rt_id: 'rt_test_2', requested_qty: 200,
+        approved_qty: 200, released_qty: 120, received_qty: 120, status: 'PARTIALLY_RELEASED',
+        requested_at: '2026-08-20', approved_at: '2026-08-21', expires_at: '2099-09-30',
+        source_location_code: 'AFLP-CL-BROBO', destination_location_code: 'AFLP-RT-rt_test_2' },
+      /* Demande fraîche : à faire avancer (revue → consolidation → BM). */
+      { id: 'br2', request_code: 'BAG-2027-002', channel: 'AFLP',
+        campaign: '2027', cluster: 'Diabo', rt_id: 'rt_test_6', requested_qty: 100,
+        approved_qty: null, released_qty: 0, received_qty: 0, status: 'REQUESTED',
+        requested_at: '2026-08-28',
+        source_location_code: 'AFLP-CL-DIABO', destination_location_code: 'AFLP-RT-rt_test_6' },
+      /* Consolidée : décision BM attendue. */
+      { id: 'br3', request_code: 'BAG-2027-003', channel: 'AFLP',
+        campaign: '2027', cluster: 'Botro', rt_id: 'rt_test_3', requested_qty: 80,
+        approved_qty: null, released_qty: 0, received_qty: 0, status: 'CONSOLIDATED',
+        requested_at: '2026-08-27',
+        source_location_code: 'AFLP-CL-BOTRO', destination_location_code: 'AFLP-RT-rt_test_3' },
+      /* Sortie totale avec écart de réception : 60 libérés, 58 reçus. */
+      { id: 'br4', request_code: 'BAG-2027-004', channel: 'AFLP',
+        campaign: '2027', cluster: 'Sakassou', rt_id: 'rt_test_4', requested_qty: 60,
+        approved_qty: 60, released_qty: 60, received_qty: 58, status: 'FULLY_RELEASED',
+        requested_at: '2026-08-22', approved_at: '2026-08-22', expires_at: '2099-09-30',
+        source_location_code: 'AFLP-CL-SAKASSOU', destination_location_code: 'AFLP-RT-rt_test_4' },
+      /* Héritée du premier moteur : codes de location invalides, à re-créer. */
+      { id: 'br5', request_code: 'BAG-2027-005', channel: 'AFLP',
+        campaign: '2027', cluster: 'Brobo', rt_id: 'rt_test_2', requested_qty: 40,
+        approved_qty: null, released_qty: 0, received_qty: 0, status: 'REQUESTED',
+        requested_at: '2026-08-19',
+        source_location_code: 'CLUSTER:Brobo', destination_location_code: 'RT:rt_test_2' }],
+    rcn_jute_locations: CL.map(function (c, k) {
+      return { code: 'AFLP-CL-' + c.label.toUpperCase(), scope_type: 'CLUSTER', cluster: c.label,
+        rt_id: null, nom: 'Cluster ' + c.label, actif: true };
+    }).concat(RTS.map(function (r) {
+      return { code: 'AFLP-RT-' + r.id, scope_type: 'RT', cluster: r.cluster,
+        rt_id: r.id, nom: r.nom, actif: true };
+    })),
+    ops_bag_releases: [
+      { id: 'rel1', client_release_id: 'k-rel1', request_id: 'br1', qty: 70,
+        source_location_code: 'AFLP-CL-BROBO', destination_location_code: 'AFLP-RT-rt_test_2',
+        released_by: 'u1', proof_url: 'u1/sacherie-1.jpg', notes: 'Sortie 1', created_at: '2026-08-23' },
+      { id: 'rel2', client_release_id: 'k-rel2', request_id: 'br1', qty: 50,
+        source_location_code: 'AFLP-CL-BROBO', destination_location_code: 'AFLP-RT-rt_test_2',
+        released_by: 'u1', proof_url: null, notes: 'Sortie 2', created_at: '2026-08-24' }],
+    sacherie_ct_global_stock: [{ total: 3600, vides: 3195, pleins: 300, transit: 5,
+      dechires: 2, a_reparer: 5, repares: 0, rebut: 0 }],
+    rcn_jute_loss_requests: [{ id: 'jls1', location_code: 'AFLP-RT-rt_test_2', state: 'UTILISABLE',
+      qty: 5, motif: 'PLUIE ENTREPOT TEST', statut: 'SOUMIS', submitted_at: '2026-08-26' }],
+    sacherie_ct_latest_inventory: [{ id: 'inv1', location_code: 'AFLP-CL-DIABO', state: 'UTILISABLE',
+      theoretical_qty: 855, counted_qty: 850, difference_qty: -5, motif: 'ECART TEST',
+      reconciliation_status: 'HOLD', counted_at: '2026-08-25' }],
     aflp_bag_envelopes: [{ id: 'env1', campaign: '2027', approved_qty: 5000, status: 'APPROVED', approved_at: '2026-08-01' }],
     aflp_bag_cluster_allocations: CL.map(function (c, k) {
       return { id: 'al' + k, envelope_id: 'env1', cluster: c.label, allocated_qty: 700 };
@@ -169,7 +224,8 @@ const DOUBLURE = `
         village_id: f.village_id, rt_id: f.rt_id, statut: 'Identifié',
         data: { campement: 'CAMPEMENT TEST', superficieHa: 3 } };
     }),
-    profils: { nom: 'PROFIL DE TEST', role: 'Procurement Officer', actif: true }
+    /* Branch Manager : le rôle qui voit toutes les actions du workflow sacherie. */
+    profils: { nom: 'PROFIL DE TEST', role: 'Branch Manager', actif: true }
   };
   function requete(nom) {
     window.__lectures.push(nom);
@@ -178,10 +234,17 @@ const DOUBLURE = `
     var unique = Array.isArray(data) ? null : (data || null);
     var filtres = [];
     var c = {
-      select: f, insert: function (row) { window.__lectures.push('insert:' + nom); return c; },
+      select: f, insert: function (row) {
+        window.__lectures.push('insert:' + nom);
+        window.__writes = window.__writes || [];
+        window.__writes.push({ op: 'insert', t: nom, row: row });
+        return c;
+      },
       update: function (row) {
         window.__lectures.push('update:' + nom);
         if (row && row.sexe) window.__lectures.push('update-sexe:' + row.sexe);
+        window.__writes = window.__writes || [];
+        window.__writes.push({ op: 'update', t: nom, row: row });
         return c;
       },
       upsert: f, delete: f,
@@ -211,6 +274,35 @@ const DOUBLURE = `
         from: requete,
         rpc: function (nom, args) {
           window.__lectures.push('rpc:' + nom);
+          window.__rpcArgs = window.__rpcArgs || [];
+          window.__rpcArgs.push({ nom: nom, args: args });
+          if (nom === 'sacherie_calculer_plafond') {
+            /* Règle serveur réelle : plafond = floor(((rcn + restant) × 1,10) / 80). */
+            var fin = 2000, achete = 400, restant = fin - achete;
+            var plafond = Math.floor(((Number(args.p_stock_rcn_kg) + restant) * 1.10) / 80);
+            return Promise.resolve({ data: { volume_finance_kg: fin, volume_achete_cycle_kg: achete,
+              volume_finance_restant_kg: restant, stock_rcn_kg_verified: args.p_stock_rcn_kg,
+              bags_already_held: 10, reserved_approved_bags: 0, system_max_bags: plafond,
+              max_new_bags: Math.max(plafond - 10, 0), max_new_available: Math.max(plafond - 10, 0),
+              cluster_stock: 400 }, error: null });
+          }
+          if (nom === 'ops_release_bags') {
+            window.__releases = window.__releases || [];
+            var deja = window.__releases.filter(function (x) { return x.cle === args.p_client_release_id; })[0];
+            if (deja) return Promise.resolve({ data: deja.ligne, error: null });
+            var ligne = { id: 'rel-' + (window.__releases.length + 1), client_release_id: args.p_client_release_id, qty: args.p_qty };
+            window.__releases.push({ cle: args.p_client_release_id, ligne: ligne });
+            return Promise.resolve({ data: ligne, error: null });
+          }
+          if (nom === 'sacherie_ct_inventorier') {
+            var theo = 100, diff = Number(args.p_counted) - theo;
+            return Promise.resolve({ data: { id: 'inv-x', theoretical: theo, counted: args.p_counted,
+              difference: diff, status: diff === 0 ? 'PASS' : 'HOLD' }, error: null });
+          }
+          if (nom === 'sacherie_ct_declarer_perte') return Promise.resolve({ data: 'JLS-CT-TEST', error: null });
+          if (nom === 'sacherie_ct_decider_perte') return Promise.resolve({ data: 'JUT-LOSS-TEST', error: null });
+          if (nom === 'sacherie_ct_traiter_etat') return Promise.resolve({ data: 'JUT-CT-TEST', error: null });
+          if (nom === 'sacherie_ct_location') return Promise.resolve({ data: 'AFLP-RT-CREE-TEST', error: null });
           if (nom === 'farmer_possible_duplicates') return Promise.resolve({ data: [], error: null });
           if (nom === 'field_traceability_search') {
             return Promise.resolve({ data: [{ farmer_id: 'FICT-1001', producteur_nom: 'PRODUCTEUR FICTIF 1',
@@ -612,6 +704,19 @@ async function main() {
         verifier(/VILLAGE FICTIF 2/.test(ficheV.titre) && ficheV.tabs === 12,
           `S10 · fiche Village : 12 onglets (vu ${ficheV.tabs})`);
 
+        // S10b — candidat RT migré : vignette servie par URL signée, jamais publique
+        await allerA(page, '#villages/v_test_2/rts');
+        await page.waitForTimeout(400);
+        const cdMig = await page.evaluate(() => ({
+          img: (document.querySelector('#cdPhoto0 img') || {}).src || '',
+          piece: /recto ✓/.test(document.body.textContent) && /verso ✓/.test(document.body.textContent),
+          pub: window.__lectures.filter((x) => x === 'publicurl:terrain-preuves').length
+        }));
+        verifier(/signed\.local\/terrain-preuves\/migration\//.test(cdMig.img),
+          'S10b · photo du candidat migrée servie par URL signée (bucket privé)');
+        verifier(cdMig.piece, 'S10b · pièce du candidat signalée recto ✓ / verso ✓');
+        verifier(cdMig.pub === 0, 'S10b · aucune URL publique demandée pour le bucket privé');
+
         // S11 — Modifier le village : formulaire s1…s9 prérempli, update même ligne
         await page.click('.ops-route-actions button.btn.primary');
         await page.waitForSelector('#villageForm', { timeout: 10000 });
@@ -725,6 +830,252 @@ async function main() {
         verifier(sac.action, 'sacherie : « + Nouvelle demande RT » visible');
         verifier(sac.regle && sac.multi, 'sacherie : règle approbation ≠ sortie et multi-release affichées');
         verifier(sac.rtAccount, 'sacherie : RT Bag Account présent');
+
+        // 8b. SACHERIE P0 — workflow, comptabilité physique, contrôles
+        await page.evaluate(() => { window.__writes = []; window.__releases = []; window.__rpcArgs = []; });
+        const sb1 = await page.evaluate(() => {
+          const t = document.getElementById('opsRouteView').textContent;
+          return {
+            kpiParc: /Parc total/.test(t), kpiEcart: /Écarts de réception/.test(t),
+            sorties: /Dernières sorties physiques/.test(t),
+            pertes: /Pertes déclarées/.test(t), inv: /Derniers inventaires/.test(t),
+            statutFr: /Sortie partielle/.test(t) && /Consolidée/.test(t),
+            legacyBadge: /codes location invalides/.test(t),
+            ecartBadge: /−\s*2|−2/.test(t.replace(/ /g, ' ')),
+            invHold: /HOLD/.test(t),
+            initCard: /Initialisation campagne/.test(t)
+          };
+        });
+        verifier(sb1.kpiParc && sb1.kpiEcart, 'SB1 · cockpit sacherie : parc total et écarts de réception');
+        verifier(sb1.sorties && sb1.pertes && sb1.inv, 'SB2 · sections sorties / pertes / inventaires présentes');
+        verifier(sb1.statutFr, 'SB3 · statuts du workflow traduits (Sortie partielle, Consolidée)');
+        verifier(sb1.legacyBadge, 'SB4 · demande héritée à codes de location invalides signalée');
+        verifier(sb1.ecartBadge, 'SB5 · écart libéré/reçu (60 vs 58) affiché en rouge');
+        verifier(sb1.invHold, 'SB6 · inventaire en écart affiché HOLD, jamais ajusté en silence');
+        verifier(!sb1.initCard, 'SB7 · initialisation READY : la carte d’initialisation ne s’affiche pas');
+
+        // SB8 — revue d'une demande REQUESTED (transition serveur par UPDATE gardé)
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Marquer revue/.test(x.textContent));
+          if (btn) btn.click();
+        });
+        await page.waitForTimeout(400);
+        const sb8 = await page.evaluate(() =>
+          (window.__writes || []).filter((w) => w.t === 'ops_bag_requests' && w.op === 'update' && w.row.status === 'REVIEWED').length);
+        verifier(sb8 === 1, 'SB8 · « Marquer revue » écrit status=REVIEWED (arbitré par le trigger serveur)');
+
+        // SB9/SB10 — décision BM : partielle sans motif bloquée, puis approbation 24 h
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__writes = []; });
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Décision BM/.test(x.textContent));
+          if (btn) btn.click();
+        });
+        await page.waitForSelector('#bagAppForm', { timeout: 8000 });
+        await page.fill('#ba_qty', '50');
+        await page.click('#bagAppForm button[type="submit"]');
+        await page.waitForTimeout(250);
+        const sb9 = await page.evaluate(() => document.getElementById('ba_msg').textContent);
+        verifier(/obligatoire/.test(sb9), 'SB9 · approbation partielle sans commentaire refusée');
+        await page.fill('#ba_note', 'PLAFOND CLUSTER TEST');
+        await page.click('#bagAppForm button[type="submit"]');
+        await page.waitForTimeout(400);
+        const sb10 = await page.evaluate(() =>
+          (window.__writes || []).filter((w) => w.t === 'ops_bag_requests' && w.row.status === 'BM_APPROVED' &&
+            w.row.approved_qty === 50 && !!w.row.expires_at).length);
+        verifier(sb10 === 1, 'SB10 · approbation BM partielle : quantité réduite + expiration posée');
+
+        // SB11/SB12/SB13 — sortie multi-release : reste autorisé, dépassement bloqué, idempotence double clic
+        await allerA(page, '#bags');
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /^Libérer$/.test(x.textContent.trim()));
+          if (btn) btn.click();
+        });
+        await page.waitForSelector('#bagRelForm', { timeout: 8000 });
+        const sb11 = await page.evaluate(() => /reste autorisé\s*80|reste autorisé[^0-9]*80/i.test(document.getElementById('fbFormHost').textContent.replace(/ /g, ' ')));
+        verifier(sb11, 'SB11 · multi-release : reste autorisé 80 affiché (200 approuvés − 120 libérés)');
+        await page.fill('#br_qty', '90');
+        /* La validation HTML5 native (max=80) bloque déjà la soumission ; on la
+           neutralise pour vérifier que le contrôle JavaScript tient aussi. */
+        await page.evaluate(() => { document.getElementById('bagRelForm').noValidate = true; });
+        await page.click('#br_submit');
+        await page.waitForTimeout(250);
+        const sb12 = await page.evaluate(() => document.getElementById('br_msg').textContent);
+        verifier(/autorisation restante/.test(sb12), 'SB12 · sortie supérieure à l’autorisation restante bloquée');
+        await page.fill('#br_qty', '30');
+        await page.evaluate(() => { document.getElementById('br_submit').disabled = false; });
+        await page.click('#br_submit');
+        await page.evaluate(() => { const b = document.getElementById('br_submit'); if (b) { b.disabled = false; b.click(); } });
+        await page.waitForTimeout(600);
+        const sb13 = await page.evaluate(() => ({
+          releases: (window.__releases || []).length,
+          rpc: (window.__rpcArgs || []).filter((x) => x.nom === 'ops_release_bags').length
+        }));
+        verifier(sb13.releases === 1, 'SB13 · double clic sur « Confirmer la sortie » : une seule sortie enregistrée (clé idempotente)');
+        await page.waitForTimeout(1000);
+
+        // SB14/SB15 — réception : écart sans observation bloqué, puis confirmation cumulée
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__writes = []; });
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Confirmer réception/.test(x.textContent));
+          if (btn) btn.click();
+        });
+        await page.waitForSelector('#bagRecForm', { timeout: 8000 });
+        await page.fill('#bc_qty', '1');
+        await page.click('#bagRecForm button[type="submit"]');
+        await page.waitForTimeout(250);
+        const sb14 = await page.evaluate(() => document.getElementById('bc_msg').textContent);
+        verifier(/observation obligatoire/i.test(sb14), 'SB14 · réception avec écart sans observation refusée');
+        await page.fill('#bc_note', 'SAC MANQUANT CAMION TEST');
+        await page.click('#bagRecForm button[type="submit"]');
+        await page.waitForTimeout(400);
+        const sb15 = await page.evaluate(() =>
+          (window.__writes || []).filter((w) => w.t === 'ops_bag_requests' && w.row.received_qty === 59).length);
+        verifier(sb15 === 1, 'SB15 · réception confirmée en cumul (58 + 1 = 59), écart restant visible');
+
+        // SB16 — rejet : motif obligatoire
+        await allerA(page, '#bags');
+        await page.evaluate(() => {
+          window.__writes = []; window.__prompts = ['', 'HORS PLAFOND CLUSTER TEST'];
+          window.prompt = () => window.__prompts.shift();
+          window.alert = (m) => { window.__alerte = m; };
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /^Rejeter$/.test(x.textContent.trim()));
+          if (btn) { btn.click(); btn.click(); }
+        });
+        await page.waitForTimeout(400);
+        const sb16 = await page.evaluate(() => ({
+          alerte: window.__alerte || '',
+          rejets: (window.__writes || []).filter((w) => w.t === 'ops_bag_requests' && w.row.status === 'REJECTED' &&
+            /HORS PLAFOND/.test(w.row.closed_reason || '')).length
+        }));
+        verifier(/obligatoire/.test(sb16.alerte), 'SB16a · rejet sans motif refusé');
+        verifier(sb16.rejets === 1, 'SB16b · rejet enregistré avec motif');
+
+        // SB17/SB18 — demande avec plafond SOP : dépassement bloqué, codes de location réels, idempotence
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__writes = []; window.__rpcArgs = []; });
+        await page.evaluate(() => ANAGROCI_FB.openBagRequest());
+        await page.waitForSelector('#bagReqForm', { timeout: 8000 });
+        await page.selectOption('#bq_cluster', 'Sakassou');
+        await page.waitForTimeout(150);
+        await page.evaluate(() => {
+          const s = document.getElementById('bq_rt');
+          s.value = 'rt_test_2'; s.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(150);
+        const cycleOk = await page.evaluate(() => {
+          const s = document.getElementById('bq_cycle');
+          return s.options.length > 1;
+        });
+        if (cycleOk) {
+          await page.evaluate(() => {
+            const s = document.getElementById('bq_cycle');
+            s.selectedIndex = 1; s.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+          await page.fill('#bq_rcn', '400');
+          await page.evaluate(() => document.getElementById('bq_rcn').dispatchEvent(new Event('change', { bubbles: true })));
+          await page.waitForTimeout(300);
+          const sopTxt = await page.evaluate(() => document.getElementById('bq_sop').textContent);
+          /* Plafond doublure : floor((400 + 1600) × 1,10 / 80) = 27 ; détenus 10 → disponible 17. */
+          verifier(/17/.test(sopTxt), 'SB17a · plafond SOP serveur affiché (disponible 17 sacs)');
+          await page.fill('#bq_qty', '28');
+          await page.click('#bq_submit');
+          await page.waitForTimeout(250);
+          const sb17 = await page.evaluate(() => document.getElementById('bq_msg').textContent);
+          verifier(/DÉPASSEMENT SOP/.test(sb17), 'SB17b · demande au-dessus du plafond SOP bloquée');
+          await page.fill('#bq_qty', '15');
+        } else {
+          verifier(false, 'SB17a · cycle financé OPEN proposé dans la demande');
+          await page.fill('#bq_qty', '15');
+        }
+        await page.click('#bq_submit');
+        await page.waitForTimeout(400);
+        const sb18 = await page.evaluate(() => {
+          const ins = (window.__writes || []).filter((w) => w.op === 'insert' && w.t === 'ops_bag_requests');
+          const r = ins[0] ? ins[0].row : {};
+          return { count: ins.length, src: r.source_location_code || '', dst: r.destination_location_code || '', cle: r.client_request_id || '' };
+        });
+        verifier(/^AFLP-CL-/.test(sb18.src) && /^AFLP-RT-/.test(sb18.dst), 'SB18a · demande créée avec les codes de location réels du registre');
+        verifier(/^bagreq-/.test(sb18.cle), 'SB18b · clé d’idempotence posée à l’ouverture du formulaire');
+        await page.waitForTimeout(1100);
+
+        // SB19/SB20/SB21 — contrôles patrimoniaux : perte, inventaire, transition d'état
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__rpcArgs = []; });
+        await page.evaluate(() => ANAGROCI_FB.openBagControl('perte'));
+        await page.waitForSelector('#bagCtlForm', { timeout: 8000 });
+        await page.evaluate(() => { document.getElementById('bx_loc').value = 'AFLP-RT-rt_test_2'; });
+        await page.fill('#bx_qty', '5');
+        await page.evaluate(() => { document.getElementById('bagCtlForm').noValidate = true; });
+        await page.click('#bx_submit');
+        await page.waitForTimeout(250);
+        const sb19a = await page.evaluate(() => document.getElementById('bx_msg').textContent);
+        verifier(/obligatoire/.test(sb19a), 'SB19a · perte sans motif refusée');
+        await page.fill('#bx_reason', 'INONDATION MAGASIN TEST');
+        await page.click('#bx_submit');
+        await page.waitForTimeout(400);
+        const sb19b = await page.evaluate(() => ({
+          rpc: (window.__rpcArgs || []).filter((x) => x.nom === 'sacherie_ct_declarer_perte').length,
+          msg: document.getElementById('bx_msg').textContent
+        }));
+        verifier(sb19b.rpc === 1 && /inchangé/.test(sb19b.msg), 'SB19b · perte déclarée : stock inchangé jusqu’à décision BM');
+        await page.waitForTimeout(1200);
+
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__rpcArgs = []; });
+        await page.evaluate(() => ANAGROCI_FB.openBagControl('inventaire'));
+        await page.waitForSelector('#bagCtlForm', { timeout: 8000 });
+        await page.evaluate(() => { document.getElementById('bx_loc').value = 'AFLP-CL-DIABO'; });
+        await page.fill('#bx_qty', '90');
+        await page.fill('#bx_reason', 'COMPTAGE MENSUEL TEST');
+        await page.click('#bx_submit');
+        await page.waitForTimeout(400);
+        const sb20 = await page.evaluate(() => document.getElementById('bx_msg').textContent);
+        verifier(/HOLD/.test(sb20) && /-10|−10/.test(sb20), 'SB20 · inventaire 90 vs 100 : HOLD et écart −10 renvoyés par le serveur');
+        await page.waitForTimeout(1200);
+
+        await allerA(page, '#bags');
+        await page.evaluate(() => { window.__rpcArgs = []; });
+        await page.evaluate(() => ANAGROCI_FB.openBagControl('etat'));
+        await page.waitForSelector('#bagCtlForm', { timeout: 8000 });
+        await page.evaluate(() => { document.getElementById('bx_loc').value = 'AFLP-CL-DIABO'; });
+        await page.fill('#bx_qty', '2');
+        await page.fill('#bx_reason', 'COUTURE DECHIREE TEST');
+        await page.click('#bx_submit');
+        await page.waitForTimeout(400);
+        const sb21 = await page.evaluate(() => {
+          const x = (window.__rpcArgs || []).filter((r) => r.nom === 'sacherie_ct_traiter_etat')[0];
+          return x ? x.args : {};
+        });
+        verifier(sb21.p_from_state === 'DECHIRE' && sb21.p_to_state === 'A_REPARER',
+          'SB21 · transition d’état DECHIRE → A_REPARER envoyée au registre canonique');
+        await page.waitForTimeout(1200);
+
+        // SB22 — décision de perte BM (approbation = diminution du stock canonique)
+        await allerA(page, '#bags');
+        await page.evaluate(() => {
+          window.__rpcArgs = []; window.confirm = () => true;
+          const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Examiner/.test(x.textContent));
+          if (btn) btn.click();
+        });
+        await page.waitForTimeout(400);
+        const sb22 = await page.evaluate(() => {
+          const x = (window.__rpcArgs || []).filter((r) => r.nom === 'sacherie_ct_decider_perte')[0];
+          return x ? x.args : null;
+        });
+        verifier(!!sb22 && sb22.p_approve === true, 'SB22 · décision de perte BM transmise au serveur');
+
+        // SB23 — Command Center : alertes sacherie enrichies
+        await allerA(page, '#command');
+        const sb23 = await page.evaluate(() => {
+          const t = document.getElementById('opsRouteView').textContent;
+          return { ecart: /Écart de réception sacs/.test(t), perte: /Perte de sacs à décider/.test(t),
+            inv: /Écart d’inventaire sacherie/.test(t) };
+        });
+        verifier(sb23.ecart, 'SB23a · alerte rouge : écart de réception sacs');
+        verifier(sb23.perte, 'SB23b · alerte : perte de sacs à décider (BM)');
+        verifier(sb23.inv, 'SB23c · alerte rouge : écart d’inventaire en HOLD');
 
         // 9. Command Center : alertes cliquables
         await allerA(page, '#command');
