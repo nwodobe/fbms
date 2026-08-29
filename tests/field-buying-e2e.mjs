@@ -101,6 +101,16 @@ const DOUBLURE = `
       stock_statut: 'Entrée RT', cash_statut: null, rejet: false, kor: 47, humidite: 8,
       created_at: '2026-08-2' + (i % 9) + 'T09:00:00Z' });
   }
+  FARMERS.push({ producteur_id: 'p_rt4', farmer_id: 'FICT-2004', nom: 'RT FICTIF 4', prenoms: '',
+    telephone: '0700000014', village_id: 'v_test_4', village_nom: 'VILLAGE FICTIF 4',
+    rt_id: 'rt_test_4', rt_nom: 'RT FICTIF 4', cluster_code: 'DJEBONOUA', cluster_label: 'Djébonoua',
+    zone_code: 'GBEKE_1', zone_label: 'GBEKE 1', operational_status: 'Enrôlé', passport_stage: 'BASIC',
+    passport_completion: 30, risk_profile: 'LOW', possible_duplicate: false, review_required: false,
+    plot_count: 0, gps_mapped_count: 0, last_purchase_date: null, last_purchase_kg: 0, deleted: false });
+  VILLAGES[1].data.galerie = [
+    { path: 'v_test_2/gallery/a.jpg', legende: 'ENTREE TEST', categorie: 'Entrée du village', date: '2026-08-20', agent: 'AGENT TEST' },
+    { path: 'v_test_2/gallery/b.jpg', legende: 'ROUTE TEST', categorie: 'Route d’accès', date: '2026-08-21', agent: 'AGENT TEST' }
+  ];
   var TABLES = {
     villages: VILLAGES, rt: RTS, farmer_passport_summary_v: FARMERS, achats: ACHATS,
     aflp_zones: ZN, aflp_clusters: CL,
@@ -145,20 +155,42 @@ const DOUBLURE = `
         open_corrective_actions: k % 3, high_risk_farmers: 0 };
     }),
     parametres_calcul: [{ cle: 'usine_lat', valeur: '6.741972' }, { cle: 'usine_lng', valeur: '-5.34575' }],
+    preuves: [{ id: 'pr1', entite_type: 'rt', entite_id: 'rt_test_5', type_preuve: 'photo_profil',
+      storage_path: 'agent/rt/rt_test_5/photo_profil-x.jpg', horodatage_client: '2026-08-20T10:00:00Z' }],
+    audit_log: [],
+    producteurs: FARMERS.map(function (f) {
+      /* La colonne sexe est normalisée M/F par le serveur (trigger prepare_producteur). */
+      return { id: f.producteur_id, nom: f.nom, prenoms: f.prenoms, sexe: 'M', birth_year: 1980,
+        telephone: f.telephone, telephone_alt: null, id_document_type: 'CNI', id_document_number: null,
+        village_id: f.village_id, rt_id: f.rt_id, statut: 'Identifié',
+        data: { campement: 'CAMPEMENT TEST', superficieHa: 3 } };
+    }),
     profils: { nom: 'PROFIL DE TEST', role: 'Procurement Officer', actif: true }
   };
   function requete(nom) {
     window.__lectures.push(nom);
     var data = TABLES[nom];
-    var liste = Array.isArray(data) ? data : [];
+    var liste = Array.isArray(data) ? data.slice() : [];
     var unique = Array.isArray(data) ? null : (data || null);
+    var filtres = [];
     var c = {
       select: f, insert: function (row) { window.__lectures.push('insert:' + nom); return c; },
-      update: f, upsert: f, delete: f, eq: f, neq: f, in: f, like: f, ilike: f,
-      gte: f, lte: f, order: f, limit: f, range: f,
+      update: function (row) {
+        window.__lectures.push('update:' + nom);
+        if (row && row.sexe) window.__lectures.push('update-sexe:' + row.sexe);
+        return c;
+      },
+      upsert: f, delete: f,
+      eq: function (col, v) { filtres.push([col, v]); return c; },
+      neq: f, in: f, like: f, ilike: f, gte: f, lte: f, order: f, limit: f, range: f,
       single: function () { return Promise.resolve({ data: unique, error: null }); },
       maybeSingle: function () { return Promise.resolve({ data: unique, error: null }); },
-      then: function (r) { return Promise.resolve({ data: liste, error: null }).then(r); }
+      then: function (r) {
+        var out = liste.filter(function (x) {
+          return filtres.every(function (fl) { return x[fl[0]] === fl[1]; });
+        });
+        return Promise.resolve({ data: out, error: null }).then(r);
+      }
     };
     function f() { return c; }
     return c;
@@ -184,16 +216,25 @@ const DOUBLURE = `
           }
           return Promise.resolve({ data: null, error: null });
         },
-        storage: { from: function () { return { list: function () { return Promise.resolve({ data: [], error: null }); } }; } },
+        storage: { from: function (bucket) { return {
+          list: function () { return Promise.resolve({ data: [], error: null }); },
+          upload: function (path) { window.__lectures.push('storage-upload:' + bucket); return Promise.resolve({ data: { path: path }, error: null }); },
+          createSignedUrl: function (path) { window.__lectures.push('signed:' + bucket); return Promise.resolve({ data: { signedUrl: 'https://signed.local/' + bucket + '/' + path }, error: null }); },
+          getPublicUrl: function (path) { window.__lectures.push('publicurl:' + bucket); return { data: { publicUrl: 'https://public.local/' + path } }; }
+        }; } },
         channel: function () { return { on: function () { return this; }, subscribe: function () { return this; } }; },
         removeChannel: function () {}
       };
     }
   };
+  window.prompt = function () { return 'LEGENDE TEST'; };
   window.ANAGROCI_SUPABASE_URL = 'https://doublure.local';
   window.ANAGROCI_SUPABASE_ANON = 'doublure';
 })();
 `;
+
+const PNG_1PX = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 const echecs = [];
 const notes = [];
@@ -453,6 +494,162 @@ async function main() {
         verifier(ins.prod === 2 && ins.plot === 1, 'producteur avec parcelle : farmer_plots alimenté (registre canonique)');
         await page.waitForTimeout(1400);
 
+        // ===== FICHES 360° — scénarios 1 à 17 de la restauration fiches/photos =====
+        async function prendrePhoto(triggerFn, nomFichier) {
+          const [chooser] = await Promise.all([
+            page.waitForEvent('filechooser', { timeout: 10000 }),
+            page.evaluate(triggerFn)
+          ]);
+          const captureAttr = await chooser.element().getAttribute('capture');
+          await chooser.setFiles({ name: nomFichier, mimeType: 'image/png', buffer: PNG_1PX });
+          await page.waitForSelector('.ops-photo-preview [data-ok]', { timeout: 10000 });
+          await page.click('.ops-photo-preview [data-ok]');
+          return captureAttr;
+        }
+
+        // S1 — clic sur un RT depuis la liste → Fiche RT
+        await allerA(page, '#rt/rts');
+        const lienRt = await page.evaluate(() =>
+          [...document.querySelectorAll('#rtBody a.ops-link')].some((a) => /^#rt\//.test(a.getAttribute('href'))));
+        verifier(lienRt, 'S1 · liste RT : noms cliquables vers la fiche');
+        await allerA(page, '#rt/rt_test_5');
+        const ficheRt = await page.evaluate(() => ({
+          titre: (document.querySelector('.ops-route-head h1') || {}).textContent || '',
+          tabs: document.querySelectorAll('.ops-passport-tabs a').length,
+          avatar: !!document.querySelector('.ops-avatar'),
+          shell: location.pathname.endsWith('/operations/field-buying.html')
+        }));
+        verifier(/RT FICTIF 5/.test(ficheRt.titre) && ficheRt.shell, 'S1 · fiche RT ouverte dans le shell');
+        verifier(ficheRt.tabs === 8 && ficheRt.avatar, `S1 · fiche RT : 8 onglets + avatar (vu ${ficheRt.tabs})`);
+        // photo existante affichée par URL SIGNÉE
+        await page.waitForTimeout(300);
+        const avatarSrc = await page.evaluate(() => {
+          const img = document.querySelector('img.ops-avatar');
+          return img ? img.src : '';
+        });
+        verifier(/signed\.local\/terrain-preuves/.test(avatarSrc), 'S17a · photo RT servie par URL signée (bucket privé)');
+
+        // S2 — Modifier le RT : même moteur, même ligne mise à jour
+        await page.click('.ops-route-actions .btn.primary');
+        await page.waitForSelector('#rtForm', { timeout: 10000 });
+        const editPrefill = await page.evaluate(() => ({
+          nom: document.getElementById('rf_nom').value,
+          titre: document.getElementById('fbFormHost').textContent.includes('Modifier le RT')
+        }));
+        verifier(editPrefill.nom === 'RT FICTIF 5' && editPrefill.titre, 'S2 · formulaire RT en mode édition, prérempli');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        await page.click('#rf_submit');
+        await page.waitForTimeout(250);
+        const ecritures = await page.evaluate(() => ({
+          upd: window.__lectures.filter((x) => x === 'update:rt').length,
+          ins: window.__lectures.filter((x) => x === 'insert:rt').length
+        }));
+        verifier(ecritures.upd === 1 && ecritures.ins === 0, 'S2 · modification = update de la même ligne, jamais un insert');
+        await page.waitForTimeout(1300);
+
+        // S3/S4/S5 — photo profil + pièce recto + verso (appareil photo mobile)
+        await allerA(page, '#rt/rt_test_4/documents');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        const cap1 = await prendrePhoto(() => ANAGROCI_FB.addRtDoc('rt_test_4', 'photo_profil'), 'photo.png');
+        await page.waitForTimeout(400);
+        const cap2 = await prendrePhoto(() => ANAGROCI_FB.addRtDoc('rt_test_4', 'piece_recto'), 'recto.png');
+        await page.waitForTimeout(400);
+        const cap3 = await prendrePhoto(() => ANAGROCI_FB.addRtDoc('rt_test_4', 'piece_verso'), 'verso.png');
+        await page.waitForTimeout(600);
+        const docsEcr = await page.evaluate(() => ({
+          uploadsPrives: window.__lectures.filter((x) => x === 'storage-upload:terrain-preuves').length,
+          preuves: window.__lectures.filter((x) => x === 'insert:preuves').length,
+          audit: window.__lectures.filter((x) => x === 'insert:audit_log').length,
+          publicPrive: window.__lectures.filter((x) => x === 'publicurl:terrain-preuves').length
+        }));
+        verifier(docsEcr.uploadsPrives === 3 && docsEcr.preuves === 3,
+          `S3-S5 · photo + recto + verso téléversés dans le bucket privé (${docsEcr.uploadsPrives} uploads, ${docsEcr.preuves} preuves)`);
+        verifier(docsEcr.audit >= 3, 'S3-S5 · chaque document journalisé dans audit_log');
+        verifier(cap1 === 'environment' && cap2 === 'environment' && cap3 === 'environment',
+          'S15 · l’appareil photo mobile est sollicité (attribut capture)');
+        verifier(docsEcr.publicPrive === 0, 'S17b · AUCUNE URL publique demandée pour le bucket privé');
+
+        // S7 — RT déjà producteur → « Voir sa fiche Producteur »
+        await allerA(page, '#rt/rt_test_4');
+        const dejaProd = await page.evaluate(() =>
+          [...document.querySelectorAll('.ops-route-actions a')].some((a) => /Voir sa fiche Producteur/.test(a.textContent)));
+        verifier(dejaProd, 'S7 · RT déjà producteur : « Voir sa fiche Producteur » (aucune re-création)');
+
+        // S9 — Modifier le producteur depuis le passeport
+        await allerA(page, '#farmers/p_test_2');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        await page.click('.ops-route-actions button.btn.secondary');
+        await page.waitForSelector('#farmerForm', { timeout: 10000 });
+        const fpre = await page.evaluate(() => document.getElementById('ff_nom').value);
+        verifier(fpre === 'PRODUCTEUR FICTIF 2', 'S9 · formulaire producteur prérempli en édition');
+        const fsexe = await page.evaluate(() => document.getElementById('ff_sexe').value);
+        verifier(fsexe === 'M', 'S9 · sexe prérempli depuis le code base M (affiché Homme)');
+        await page.click('#ff_submit');
+        await page.waitForTimeout(350);
+        const fEcr = await page.evaluate(() => ({
+          upd: window.__lectures.filter((x) => x === 'update:producteurs').length,
+          ins: window.__lectures.filter((x) => x === 'insert:producteurs').length,
+          sexe: window.__lectures.filter((x) => x === 'update-sexe:M').length
+        }));
+        verifier(fEcr.upd === 1 && fEcr.ins === 0, 'S9 · producteur modifié sans re-création (Farmer ID conservé)');
+        verifier(fEcr.sexe === 1, 'S9 · le sexe est réenregistré au format base (M) et survit au rechargement');
+        await page.waitForTimeout(1300);
+
+        // S10 — clic sur un village → Fiche Village 360°
+        await allerA(page, '#rt/villages');
+        const lienV = await page.evaluate(() =>
+          [...document.querySelectorAll('#rtBody a.ops-link')].some((a) => /^#villages\//.test(a.getAttribute('href'))));
+        verifier(lienV, 'S10 · liste villages : noms cliquables');
+        await allerA(page, '#villages/v_test_2');
+        const ficheV = await page.evaluate(() => ({
+          titre: (document.querySelector('.ops-route-head h1') || {}).textContent || '',
+          tabs: document.querySelectorAll('.ops-passport-tabs a').length
+        }));
+        verifier(/VILLAGE FICTIF 2/.test(ficheV.titre) && ficheV.tabs === 12,
+          `S10 · fiche Village : 12 onglets (vu ${ficheV.tabs})`);
+
+        // S11 — Modifier le village : formulaire s1…s9 prérempli, update même ligne
+        await page.click('.ops-route-actions button.btn.primary');
+        await page.waitForSelector('#villageForm', { timeout: 10000 });
+        const vpre = await page.evaluate(() => ({
+          nom: document.getElementById('vf_nom').value,
+          cluster: document.getElementById('vf_cluster').value,
+          pot: document.getElementById('vf_pot').value
+        }));
+        verifier(vpre.nom === 'VILLAGE FICTIF 2' && vpre.cluster && vpre.pot !== '',
+          'S11 · village en édition : s1 et s3 préremplis');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        await page.click('#vf_submit');
+        await page.waitForTimeout(300);
+        const vEcr = await page.evaluate(() => ({
+          upd: window.__lectures.filter((x) => x === 'update:villages').length,
+          ins: window.__lectures.filter((x) => x === 'insert:villages').length
+        }));
+        verifier(vEcr.upd === 1 && vEcr.ins === 0, 'S11 · village modifié : update de la même ligne');
+        await page.waitForTimeout(1300);
+
+        // S12/S13/S14 — galerie village : 2 photos existantes + ajouts multiples
+        await allerA(page, '#villages/v_test_2/galerie');
+        const gal = await page.evaluate(() => ({
+          items: document.querySelectorAll('.ops-gallery-item').length,
+          lazy: [...document.querySelectorAll('.ops-gallery-item img')].every((i) => i.loading === 'lazy'),
+          legende: /ENTREE TEST/.test(document.getElementById('opsRouteView').textContent)
+        }));
+        verifier(gal.items === 2 && gal.legende, `S14 · galerie : ${gal.items} photos avec légendes et catégories`);
+        verifier(gal.lazy, 'S19-perf · miniatures en lazy loading');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        await prendrePhoto(() => ANAGROCI_FB.addVillagePhoto('v_test_2'), 'village1.png');
+        await page.waitForTimeout(500);
+        const gEcr = await page.evaluate(() => ({
+          up: window.__lectures.filter((x) => x === 'storage-upload:photos').length,
+          upd: window.__lectures.filter((x) => x === 'update:villages').length
+        }));
+        verifier(gEcr.up === 1 && gEcr.upd === 1, 'S12 · photo village téléversée (bucket photos) + métadonnées enregistrées');
+        await prendrePhoto(() => ANAGROCI_FB.addVillagePhoto('v_test_2'), 'village2.png');
+        await page.waitForTimeout(500);
+        const gEcr2 = await page.evaluate(() => window.__lectures.filter((x) => x === 'storage-upload:photos').length);
+        verifier(gEcr2 === 2, 'S13 · plusieurs photos ajoutées à la galerie');
+
         // SCÉNARIOS 9-10 — Farmer Passport 360° : 12 sections, enrichissement progressif
         await allerA(page, '#farmers/p_test_2');
         const pass = await page.evaluate(() => ({
@@ -561,6 +758,18 @@ async function main() {
         for (const [lib, ms] of Object.entries(chrono)) {
           verifier(ms < 300, `changement « ${lib} » en ${ms} ms (< 300 ms)`);
         }
+      }
+
+      // S18 — fiche RT lisible en mobile
+      if (largeur === 390) {
+        await allerA(page, '#rt/rt_test_5');
+        const mob = await page.evaluate(() => ({
+          avatar: !!document.querySelector('.ops-avatar'),
+          debordement: document.documentElement.scrollWidth > window.innerWidth + 1,
+          tabs: document.querySelectorAll('.ops-passport-tabs a').length
+        }));
+        verifier(mob.avatar && !mob.debordement && mob.tabs === 8,
+          'S18 · fiche RT mobile 390px : avatar, onglets, aucun débordement');
       }
 
       // Captures

@@ -58,3 +58,28 @@
 .ops-passport-tabs a{padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--forest);font-size:12px;font-weight:700;text-decoration:none;min-height:38px;display:inline-flex;align-items:center}
 .ops-passport-tabs a.active{background:var(--emerald);border-color:var(--emerald);color:#fff}
 @media(max-width:520px){.ops-passport-tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.ops-passport-tabs a{white-space:nowrap}}
+
+/* Fiches 360°, avatars, documents et galerie. */
+.ops-link{color:var(--forest);text-decoration:none;border-bottom:1px solid transparent}
+.ops-link:hover{border-bottom-color:var(--emerald);color:var(--emerald)}
+.ops-link b{color:inherit}
+.ops-fiche-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.ops-fiche-id{display:flex;gap:16px;align-items:center;min-width:0}
+.ops-fiche-id h2{margin:0;font-size:20px}
+.ops-fiche-id p{margin:3px 0;font-size:12px}
+.ops-avatar{width:86px;height:86px;border-radius:14px;object-fit:cover;border:2px solid var(--line);flex:0 0 auto}
+.ops-avatar-empty{display:flex;align-items:center;justify-content:center;font-size:34px;background:var(--wash,#F6F8F6);color:var(--muted)}
+.ops-doc-box{margin:10px 0;min-height:44px}
+.ops-doc-img{max-width:100%;max-height:320px;border-radius:10px;border:1px solid var(--line)}
+.ops-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.ops-gallery-item{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.ops-gallery-item img{width:100%;height:150px;object-fit:cover;display:block}
+.ops-gallery-item figcaption{padding:8px 10px;font-size:11px;line-height:1.5}
+.ops-photo-preview{position:fixed;inset:0;background:rgba(5,25,15,.82);z-index:220;display:flex;align-items:center;justify-content:center;padding:16px}
+.ops-photo-preview-box{background:#fff;border-radius:14px;padding:14px;max-width:min(560px,94vw);max-height:92vh;overflow:auto}
+.ops-photo-preview-box img{max-width:100%;max-height:60vh;border-radius:10px;display:block;margin:0 auto 12px}
+@media(max-width:520px){
+  .ops-fiche-head{flex-direction:column}
+  .ops-avatar{width:68px;height:68px}
+  .ops-gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}

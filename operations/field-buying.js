@@ -64,6 +64,17 @@ function normName(v) {
     .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
 function normPhone(v) { return String(v || '').replace(/[^0-9]/g, ''); }
+/* Sexe : la colonne producteurs.sexe est normalisée M/F côté serveur. */
+function sexeCode(v) {
+  var s = String(v || '').trim().toUpperCase();
+  if (s === 'M' || s === 'HOMME' || s === 'MALE') return 'M';
+  if (s === 'F' || s === 'FEMME' || s === 'FEMALE') return 'F';
+  return '';
+}
+function sexeLabel(v) {
+  var c = sexeCode(v);
+  return c === 'M' ? 'Homme' : c === 'F' ? 'Femme' : (v || '');
+}
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
 /* --------------------------------------------------------------------- fragments */
@@ -525,12 +536,18 @@ var NOTE20 = [['', '—'], ['0', '0'], ['5', '5'], ['10', '10'], ['15', '15'], [
 
 /* ------------------------------- VILLAGE — recensement complet s1…s9 ---------- */
 
-function openVillageForm() {
+function openVillageForm(editId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
   Promise.all([base(), loadProfile()]).then(function (rs) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
+    /* Mode édition : mêmes sections, valeurs préremplies, MÊME ligne mise à jour. */
+    var editRow = editId ? c.vm[editId] : null;
+    var E = (editRow && editRow.data) || {};
+    var E1 = E.s1 || {}, E2 = E.s2 || {}, E3 = E.s3 || {}, E4 = E.s4 || {}, E5 = E.s5 || {},
+        E6 = E.s6 || {}, E7 = E.s7 || {}, E8 = E.s8 || {}, E9 = E.s9 || {};
+    function pv(x) { return x == null ? '' : esc(x); }
     var clusterOpts = selOptions(c.clusters.map(function (x) { return [x.label, x.label + ' — zone ' + (x.zone_code || '')]; }), '');
     var regionOpts = selOptions(REGIONS.map(function (r) { return [r.region, r.region]; }), 'Gbêkê');
     var influence = selOptions([['', '—'], ['Forte', 'Forte'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
@@ -547,48 +564,48 @@ function openVillageForm() {
         '</div>', false);
     }
 
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau village — fiche de recensement</h2>' +
+    host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le village — ' + esc(editRow.village) : 'Nouveau village — fiche de recensement') + '</h2>' +
       '<p>Les 9 sections du recensement terrain. Seuls le nom et le cluster sont requis pour créer le village ' +
       '(minimum opérationnel) ; le reste enrichit le dossier et peut être complété plus tard.</p></div></div>' +
       '<form id="villageForm">' + completenessBar('villageForm') +
 
       section('1. Identification', '<div class="ops-form-grid">' +
-        field('Nom du village *', '<input id="vf_nom" data-c required maxlength="120">', true) +
+        field('Nom du village *', '<input id="vf_nom" data-c required maxlength="120" value="' + pv(editRow && editRow.village) + '">', true) +
         field('Cluster (hub de rattachement) *', '<select id="vf_cluster" data-c required><option value="">Choisir…</option>' + clusterOpts + '</select>') +
         field('Région', '<select id="vf_region" data-c>' + regionOpts + '</select>') +
         field('Département', '<select id="vf_dept" data-c></select>') +
-        field('Sous-préfecture', '<input id="vf_sp" data-c>') +
+        field('Sous-préfecture', '<input id="vf_sp" data-c value="' + pv(E1.sousPrefecture) + '">') +
         field('Date de visite', '<input id="vf_date" data-c type="date" value="' + new Date().toISOString().slice(0, 10) + '">') +
         field('Enquêteur', '<input id="vf_enq" data-c value="' + esc(profile.nom || '') + '">') +
         '</div>', true) +
 
       section('2. Localisation & GPS', '<div class="ops-form-grid">' +
-        field('Latitude', '<input id="vf_lat" data-c type="number" step="any" placeholder="Facultatif — jamais bloquant">') +
-        field('Longitude', '<input id="vf_lng" data-c type="number" step="any">') +
+        field('Latitude', '<input id="vf_lat" data-c type="number" step="any" placeholder="Facultatif — jamais bloquant" value="' + pv(E1.gpsLat) + '">') +
+        field('Longitude', '<input id="vf_lng" data-c type="number" step="any" value="' + pv(E1.gpsLng) + '">') +
         field('&nbsp;', geoButton('vf_lat', 'vf_lng')) +
-        field('Distance au hub (km, saisie terrain)', '<input id="vf_dist" data-c type="number" step="any" min="0">') +
+        field('Distance au hub (km, saisie terrain)', '<input id="vf_dist" data-c type="number" step="any" min="0" value="' + pv(E1.distanceHub) + '">') +
         '</div><p class="muted">La distance routière validée reste gérée par l’audit des distances ' +
         '(validation avec motif) ; la valeur saisie ici sert d’estimation initiale.</p>', false) +
 
       section('3. Potentiel de production', '<div class="ops-form-grid">' +
-        field('Nombre de producteurs estimé', '<input id="vf_nbprod" data-c type="number" min="0">') +
-        field('Production moyenne / producteur (kg)', '<input id="vf_prodmoy" data-c type="number" min="0">') +
-        field('Potentiel (MT)', '<input id="vf_pot" data-c type="number" step="any" min="0"> <button class="btn secondary" type="button" onclick="ANAGROCI_FB.calcPotentiel()">Calculer</button>') +
-        field('Potentiel sécurisé ANAGROCI (MT)', '<input id="vf_sec" data-c type="number" step="any" min="0">') +
-        field('Période forte de disponibilité', '<input id="vf_periode" data-c placeholder="Ex. Février – Avril">') +
+        field('Nombre de producteurs estimé', '<input id="vf_nbprod" data-c type="number" min="0" value="' + pv(E3.nbProducteurs) + '">') +
+        field('Production moyenne / producteur (kg)', '<input id="vf_prodmoy" data-c type="number" min="0" value="' + pv(E3.prodMoyenneKg) + '">') +
+        field('Potentiel (MT)', '<input id="vf_pot" data-c type="number" step="any" min="0" value="' + pv(E3.potentielMT) + '"> <button class="btn secondary" type="button" onclick="ANAGROCI_FB.calcPotentiel()">Calculer</button>') +
+        field('Potentiel sécurisé ANAGROCI (MT)', '<input id="vf_sec" data-c type="number" step="any" min="0" value="' + pv(E3.potentielSecuriseMT) + '">') +
+        field('Période forte de disponibilité', '<input id="vf_periode" data-c placeholder="Ex. Février – Avril" value="' + pv(E3.periodeForte) + '">') +
         '</div>', false) +
 
       section('4. Concurrence & achat', '<div id="vf_acheteurs"></div>' +
         '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.addAcheteur()">+ Ajouter un acheteur concurrent</button></div>' +
         '<div class="ops-form-grid" style="margin-top:10px">' +
-        field('Acheteur dominant — nom', '<input id="vf_dom_nom" data-c>') +
-        field('Acheteur dominant — téléphone', '<input id="vf_dom_tel" data-c inputmode="tel">') +
-        field('Commentaires concurrence', '<textarea id="vf_dom_com" data-c></textarea>', true) +
+        field('Acheteur dominant — nom', '<input id="vf_dom_nom" data-c value="' + pv(E4.dominant && E4.dominant.nom) + '">') +
+        field('Acheteur dominant — téléphone', '<input id="vf_dom_tel" data-c inputmode="tel" value="' + pv(E4.dominant && E4.dominant.telephone) + '">') +
+        field('Commentaires concurrence', '<textarea id="vf_dom_com" data-c>' + pv(E4.dominant && E4.dominant.commentaires) + '</textarea>', true) +
         '</div>', false) +
 
       section('5. Accessibilité & route', '<div class="ops-form-grid">' +
         field('Type d’accès', '<select id="vf_acces" data-c><option value="">—</option><option>Route praticable</option><option>Piste</option><option>Enclavé</option></select>') +
-        field('Note route (/10)', '<input id="vf_noteroute" data-c type="number" min="0" max="10">') +
+        field('Note route (/10)', '<input id="vf_noteroute" data-c type="number" min="0" max="10" value="' + pv(E5.noteRoute) + '">') +
         field('Caractéristiques', checkbox('vf_bitume', 'Route bitumée') + checkbox('vf_piste', 'Piste praticable') + checkbox('vf_pluies', 'Accessible en saison des pluies'), true) +
         field('Accès camion', checkbox('vf_c10', 'Camion 10 T') + checkbox('vf_c30', 'Camion 30 T'), true) +
         '</div>', false) +
@@ -596,8 +613,8 @@ function openVillageForm() {
       section('6. Paiement & services financiers', '<div class="ops-form-grid">' +
         field('Réseau mobile disponible', checkbox('vf_ro', 'Orange') + checkbox('vf_rm', 'MTN') + checkbox('vf_rv', 'Moov'), true) +
         field('Mobile money accepté', checkbox('vf_mo', 'Orange Money') + checkbox('vf_mw', 'Wave') + checkbox('vf_mm', 'MTN Money'), true) +
-        field('Banque la plus proche', '<input id="vf_banque" data-c>') +
-        field('Distance banque (km)', '<input id="vf_banque_km" data-c type="number" step="any" min="0">') +
+        field('Banque la plus proche', '<input id="vf_banque" data-c value="' + pv(E6.banque && E6.banque.nom) + '">') +
+        field('Distance banque (km)', '<input id="vf_banque_km" data-c type="number" step="any" min="0" value="' + pv(E6.banque && E6.banque.distance) + '">') +
         field('Préférence de paiement', '<select id="vf_pref" data-c><option value="">—</option><option>Cash</option><option>Wave</option><option>Orange Money</option><option>Virement</option></select>') +
         '</div>', false) +
 
@@ -605,13 +622,13 @@ function openVillageForm() {
         '<p class="muted">Un candidat retenu se crée ensuite comme RT depuis Recensement → + Nouveau RT.</p>', false) +
 
       section('8. Organisation locale & conformité', '<div class="ops-form-grid">' +
-        field('Chef de village — nom', '<input id="vf_chef" data-c>') +
-        field('Chef — téléphone', '<input id="vf_chef_tel" data-c inputmode="tel">') +
+        field('Chef de village — nom', '<input id="vf_chef" data-c value="' + pv(E2.chef && E2.chef.nom) + '">') +
+        field('Chef — téléphone', '<input id="vf_chef_tel" data-c inputmode="tel" value="' + pv(E2.chef && E2.chef.telephone) + '">') +
         field('Chef — influence', '<select id="vf_chef_inf" data-c>' + influence + '</select>') +
-        field('Leader communautaire — nom', '<input id="vf_lead" data-c>') +
-        field('Leader — téléphone', '<input id="vf_lead_tel" data-c inputmode="tel">') +
-        field('Président coopérative — nom', '<input id="vf_pres" data-c>') +
-        field('Coopérative', '<input id="vf_coop" data-c>') +
+        field('Leader communautaire — nom', '<input id="vf_lead" data-c value="' + pv(E2.leader && E2.leader.nom) + '">') +
+        field('Leader — téléphone', '<input id="vf_lead_tel" data-c inputmode="tel" value="' + pv(E2.leader && E2.leader.telephone) + '">') +
+        field('Président coopérative — nom', '<input id="vf_pres" data-c value="' + pv(E2.president && E2.president.nom) + '">') +
+        field('Coopérative', '<input id="vf_coop" data-c value="' + pv(E2.president && E2.president.cooperative) + '">') +
         field('Conformité', checkbox('vf_zone_ok', 'Village dans la zone du cluster') + checkbox('vf_carte', 'Carte pisteur disponible') +
           checkbox('vf_foncier', 'Pas de conflit foncier') + checkbox('vf_commu', 'Pas de conflit communautaire'), true) +
         '</div>', false) +
@@ -623,11 +640,15 @@ function openVillageForm() {
         field('Risque concurrentiel (/20)', '<select id="vf_s9_conc" data-c>' + selOptions(NOTE20, '') + '</select>') +
         field('Faisabilité paiement (/20)', '<select id="vf_s9_pay" data-c>' + selOptions(NOTE20, '') + '</select>') +
         field('Score', '<input id="vf_score" readonly class="mono" placeholder="—">') +
-        field('Décision / observations', '<textarea id="vf_decision" data-c></textarea>', true) +
+        field('Décision / observations', '<textarea id="vf_decision" data-c>' + pv(E9.decision) + '</textarea>', true) +
         '</div>', false) +
 
+      section('10. Photos du recensement (recommandées)', '<div class="notice ok">La photo est recommandée, ' +
+        'jamais bloquante : le village peut être créé sans photo et la galerie complétée depuis sa fiche.</div>' +
+        '<div class="ops-actions"><button class="btn secondary" type="button" id="vf_photo_btn">📷 Prendre / ajouter des photos</button></div>' +
+        '<div id="vf_photos_list" class="muted"></div>', false) +
       '<div id="vf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
-      '<button class="btn primary" type="submit" id="vf_submit">Créer le village</button>' +
+      '<button class="btn primary" type="submit" id="vf_submit">' + (editRow ? 'Enregistrer les modifications' : 'Créer le village') + '</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="vf_msg" class="muted" style="margin-top:10px"></div></form>';
 
@@ -639,7 +660,39 @@ function openVillageForm() {
         selOptions((r ? r.departements : []).map(function (d) { return [d, d]; }), '');
     }
     regSel.addEventListener('change', syncDept);
+    if (editRow) {
+      regSel.value = E1.region || 'Gbêkê';
+    }
     syncDept();
+    if (editRow) {
+      var setV = function (id, v) { var e = document.getElementById(id); if (e && v != null && v !== '') e.value = v; };
+      var setC = function (id, v) { var e = document.getElementById(id); if (e) e.checked = !!v; };
+      setV('vf_cluster', E1.cluster || editRow.cluster);
+      setV('vf_dept', E1.departement);
+      setV('vf_date', E1.dateVisite);
+      setV('vf_enq', E1.enqueteur);
+      setV('vf_acces', E5.typeAcces);
+      setC('vf_bitume', E5.routeBitumee); setC('vf_piste', E5.pistePraticable); setC('vf_pluies', E5.accessiblePluies);
+      setC('vf_c10', E5.camion10T); setC('vf_c30', E5.camion30T);
+      var res = E6.reseau || {}, mm = E6.mobileMoney || {};
+      setC('vf_ro', res.Orange); setC('vf_rm', res.MTN); setC('vf_rv', res.Moov);
+      setC('vf_mo', mm.OrangeMoney); setC('vf_mw', mm.Wave); setC('vf_mm', mm.MTNMoney);
+      setV('vf_pref', typeof E6.preference === 'string' ? E6.preference : '');
+      setC('vf_zone_ok', E8.zoneCluster); setC('vf_carte', E8.cartePisteur);
+      setC('vf_foncier', E8.pasConflitFoncier); setC('vf_commu', E8.pasConflitCommunautaire);
+      ['potentiel20:vf_s9_pot', 'route20:vf_s9_route', 'dispoRT20:vf_s9_rt',
+       'risqueConcurrentiel20:vf_s9_conc', 'faisabilitePaiement20:vf_s9_pay'].forEach(function (m) {
+        var kv = m.split(':');
+        if (E9[kv[0]] != null) setV(kv[1], String(E9[kv[0]]));
+      });
+      (E7.candidats || []).slice(0, 3).forEach(function (cd, i) {
+        var j = i + 1;
+        setV('vc' + j + '_nom', cd.nom); setV('vc' + j + '_tel', cd.telephone);
+        setV('vc' + j + '_act', cd.activite); setV('vc' + j + '_ins', cd.instruction);
+        setV('vc' + j + '_rep', cd.reputation);
+        setC('vc' + j + '_smart', cd.smartphone); setC('vc' + j + '_bank', cd.compteBancaire); setC('vc' + j + '_wave', cd.compteWave);
+      });
+    }
 
     /* Score /100 = somme des 5 critères, comme l'ancien recensement. */
     function syncScore() {
@@ -653,14 +706,27 @@ function openVillageForm() {
       document.getElementById(id).addEventListener('change', syncScore);
     });
 
+    var pendingPhotos = [];
+    var photoBtn = document.getElementById('vf_photo_btn');
+    if (photoBtn) photoBtn.addEventListener('click', function () {
+      pickPhoto({ capture: true }).then(function (file) {
+        if (!file) return;
+        pendingPhotos.push(file);
+        document.getElementById('vf_photos_list').textContent =
+          pendingPhotos.length + ' photo(s) prête(s) — téléversées à l’enregistrement.';
+      });
+    });
     var refresh = bindCompleteness('villageForm');
-    addAcheteur();
+    if (editRow && (E4.acheteurs || []).length) {
+      (E4.acheteurs || []).forEach(function (a) { addAcheteur(a); });
+    } else addAcheteur();
+    refresh();
 
     var nom = document.getElementById('vf_nom');
     nom.focus();
     nom.addEventListener('input', function () {
       var k = normName(nom.value);
-      var hit = c.villages.filter(function (v) { return normName(v.village) === k; })[0];
+      var hit = c.villages.filter(function (v) { return normName(v.village) === k && (!editRow || v.id !== editRow.id); })[0];
       document.getElementById('vf_dup').innerHTML = hit
         ? '<div class="notice danger"><b>Un village de ce nom existe déjà :</b> ' + esc(hit.village) +
           ' (' + esc(hit.cluster || '—') + ', ' + esc(hit.region || '—') + '). Vérifiez avant de créer un doublon.</div>' : '';
@@ -671,7 +737,7 @@ function openVillageForm() {
       var msg = document.getElementById('vf_msg'), btn = document.getElementById('vf_submit');
       var name = val('vf_nom'), cluster = val('vf_cluster');
       if (!name || !cluster) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et cluster sont le minimum opérationnel.'; return; }
-      var id = uid();
+      var id = editRow ? editRow.id : uid();
       var acheteurs = collectAcheteurs();
       var s9vals = ['vf_s9_pot', 'vf_s9_route', 'vf_s9_rt', 'vf_s9_conc', 'vf_s9_pay'].map(val);
       var score = s9vals.every(function (v) { return v !== ''; })
@@ -684,7 +750,13 @@ function openVillageForm() {
       /* Structure identique à l'ancien recensement : tout vit dans data s1…s9,
          les colonnes plates sont synchronisées. */
       var data = {
-        id: id, statut: 'Brouillon', createdAt: new Date().toISOString(), createdBy: profile.nom || '',
+        id: id,
+        statut: editRow ? (editRow.statut || 'Brouillon') : 'Brouillon',
+        createdAt: editRow ? (E.createdAt || null) : new Date().toISOString(),
+        createdBy: editRow ? (E.createdBy || '') : (profile.nom || ''),
+        updatedAt: editRow ? new Date().toISOString() : undefined,
+        updatedBy: editRow ? (profile.nom || '') : undefined,
+        galerie: editRow ? (E.galerie || []) : [],
         s1: { village: name, cluster: cluster, region: val('vf_region'), departement: val('vf_dept'),
               sousPrefecture: val('vf_sp'), dateVisite: val('vf_date'), enqueteur: val('vf_enq'),
               gpsLat: numVal('vf_lat'), gpsLng: numVal('vf_lng'), distanceHub: numVal('vf_dist') },
@@ -710,20 +782,59 @@ function openVillageForm() {
               decision: val('vf_decision') },
         completude: refresh()
       };
-      btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Création en cours…';
+      btn.disabled = true; msg.className = 'muted';
+      msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
       client().then(function (cl) {
-        return cl.from('villages').insert({
-          id: id, village: name, cluster: cluster, statut: 'Brouillon',
+        var row = {
+          village: name, cluster: cluster,
           region: data.s1.region || null, departement: data.s1.departement || null,
           gps_lat: data.s1.gpsLat, gps_lng: data.s1.gpsLng, score: score, data: data
-        });
+        };
+        /* Édition : la MÊME ligne est mise à jour ; l'id ne change jamais. */
+        if (editRow) return cl.from('villages').update(row).eq('id', editRow.id);
+        row.id = id; row.statut = 'Brouillon';
+        return cl.from('villages').insert(row);
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
         msg.className = 'ops-ok-text';
-        msg.textContent = 'Village créé : ' + name + ' (dossier ' + data.completude + ' %). Visible dans RT & Villages, la carte et le Command Center.';
+        msg.textContent = editRow
+          ? 'Village modifié : ' + name + ' (dossier ' + data.completude + ' %).'
+          : 'Village créé : ' + name + ' (dossier ' + data.completude + ' %). Visible dans RT & Villages, la carte et le Command Center.';
+        auditLog(editRow ? 'village_modifie' : 'village_cree', id + ' · ' + name);
+        /* Photos du recensement : après l'enregistrement, jamais bloquantes. */
+        if (pendingPhotos.length) {
+          msg.textContent += ' Téléversement de ' + pendingPhotos.length + ' photo(s)…';
+          var chain = Promise.resolve();
+          pendingPhotos.forEach(function (file) {
+            chain = chain.then(function () {
+              return compressImage(file, 1280, 0.8).then(function (blob) {
+                return client().then(function (cl2) {
+                  var path = id + '/gallery/' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6) + '.jpg';
+                  return cl2.storage.from(BUCKET_PHOTOS).upload(path, blob, { contentType: 'image/jpeg' })
+                    .then(function (up) {
+                      if (up.error) return;
+                      data.galerie = (data.galerie || []).concat([{ path: path, legende: '', categorie: 'Autre',
+                        date: new Date().toISOString(), agent: profile.nom || '' }]);
+                    });
+                });
+              }).catch(function () {});
+            });
+          });
+          chain.then(function () {
+            client().then(function (cl3) {
+              cl3.from('villages').update({ data: data }).eq('id', id).then(function () {
+                auditLog('village_photo_ajoutee', id + ' · recensement × ' + pendingPhotos.length);
+              });
+            });
+          });
+        }
         FBStore.invalidate('base');
-        setTimeout(function () { closeForm(); render(); }, 1100);
+        setTimeout(function () {
+          closeForm();
+          if (editRow) location.hash = '#villages/' + encodeURIComponent(editRow.id);
+          render();
+        }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
         msg.textContent = err && err.message ? err.message : 'Création impossible.';
@@ -734,14 +845,14 @@ function openVillageForm() {
 
 /* Liste dynamique des acheteurs concurrents — reprise de l'ancien s4. */
 var acheteurSeq = 0;
-function addAcheteur() {
+function addAcheteur(prefill) {
   var box = document.getElementById('vf_acheteurs');
   if (!box) return;
   var i = ++acheteurSeq;
   var row = document.createElement('div');
   row.className = 'ops-form-grid ops-acheteur';
-  row.innerHTML = field('Acheteur concurrent', '<input id="va' + i + '_nom" data-c placeholder="Nom">') +
-    field('Volume estimé (MT)', '<input id="va' + i + '_vol" data-c type="number" step="any" min="0">') +
+  row.innerHTML = field('Acheteur concurrent', '<input id="va' + i + '_nom" data-c placeholder="Nom" value="' + esc(prefill && prefill.nom || '') + '">') +
+    field('Volume estimé (MT)', '<input id="va' + i + '_vol" data-c type="number" step="any" min="0" value="' + esc(prefill && prefill.volumeEstime != null ? prefill.volumeEstime : '') + '">') +
     field('&nbsp;', '<button class="btn secondary" type="button" onclick="this.closest(\'.ops-acheteur\').remove()">Retirer</button>');
   box.appendChild(row);
 }
@@ -762,16 +873,18 @@ function calcPotentiel() {
 
 /* ---------------------------------- RT — dossier complet ---------------------- */
 
-function openRtForm(prefill) {
+function openRtForm(prefill, editId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
   Promise.all([base(), loadProfile()]).then(function (rs) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
+    var editRow = editId ? c.rm[editId] : null;
+    var ED = (editRow && editRow.data) || {};
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
     var reput = selOptions([['', '—'], ['Excellente', 'Excellente'], ['Bonne', 'Bonne'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
 
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau RT — dossier complet</h2>' +
+    host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le RT — ' + esc(editRow.nom) + ' <span class="mono muted">' + esc(editRow.id_rt || '') + '</span>' : 'Nouveau RT — dossier complet') + '</h2>' +
       '<p>Nom, téléphone et village suffisent pour créer le RT (minimum opérationnel) ; ' +
       'le reste construit la fiche exploitable par le Branch Manager.</p></div></div>' +
       '<form id="rtForm">' + completenessBar('rtForm') +
@@ -814,7 +927,7 @@ function openRtForm(prefill) {
         '</div>', false) +
 
       '<div id="rf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
-      '<button class="btn primary" type="submit" id="rf_submit">Créer le RT</button>' +
+      '<button class="btn primary" type="submit" id="rf_submit">' + (editRow ? 'Enregistrer les modifications' : 'Créer le RT') + '</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="rf_msg" class="muted" style="margin-top:10px"></div></form>';
 
@@ -822,6 +935,25 @@ function openRtForm(prefill) {
     var nom = document.getElementById('rf_nom'), tel = document.getElementById('rf_tel');
     var villageSel = document.getElementById('rf_village');
     if (prefill && prefill.nom) nom.value = prefill.nom;
+    if (editRow) {
+      var setV = function (id, v) { var e = document.getElementById(id); if (e && v != null && v !== '') e.value = v; };
+      var setC = function (id, v) { var e = document.getElementById(id); if (e) e.checked = !!v; };
+      nom.value = editRow.nom || '';
+      tel.value = editRow.telephone || '';
+      setV('rf_tel2', ED.telephoneSecondaire);
+      villageSel.value = editRow.village_id || '';
+      setV('rf_statut', editRow.statut);
+      setV('rf_act', ED.activite); setV('rf_prod', ED.estProducteur);
+      setV('rf_ins', ED.instruction); setV('rf_depl', ED.deplacement);
+      setV('rf_exp', ED.experienceAnnees); setV('rf_nbprod', ED.nbProducteurs);
+      setV('rf_vol', ED.volumePotentielMT); setV('rf_zone_inf', ED.zoneInfluence);
+      setV('rf_dispo', ED.disponibilite);
+      setC('rf_smart', ED.smartphone); setC('rf_bank', ED.compteBancaire); setC('rf_wave', ED.compteWave);
+      if (ED.perf) { setV('rf_teng', ED.perf.tonnageEngage); setV('rf_tliv', ED.perf.tonnageLivre); setV('rf_av', ED.perf.avances); }
+      setV('rf_rep', ED.reputation); setV('rf_score', editRow.score != null ? editRow.score : ED.score);
+      setV('rf_notes', ED.notes);
+      refresh();
+    }
     nom.focus();
     function syncCluster() {
       var v = c.vm[villageSel.value] || {};
@@ -833,6 +965,7 @@ function openRtForm(prefill) {
     function checkDup() {
       var k = normName(nom.value), t = normPhone(tel.value);
       var hit = c.rts.filter(function (r) {
+        if (editRow && r.id === editRow.id) return false;
         return (t && t.length >= 8 && normPhone(r.telephone) === t) ||
                (k && normName(r.nom) === k && r.village_id === villageSel.value);
       })[0];
@@ -851,9 +984,10 @@ function openRtForm(prefill) {
       if (!name || !vid || !phone) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom, téléphone et village sont le minimum opérationnel.'; return; }
       if (phone.length !== 10) { msg.className = 'ops-danger-text'; msg.textContent = 'Le téléphone doit comporter 10 chiffres — c’est la clé de dédoublonnage.'; return; }
       var v = c.vm[vid] || {};
-      var id = uid();
+      var id = editRow ? editRow.id : uid();
       var data = {
-        id: id, nom: name, telephone: phone, telephoneSecondaire: val('rf_tel2'),
+        id: id, idRt: editRow ? editRow.id_rt : undefined,
+        nom: name, telephone: phone, telephoneSecondaire: val('rf_tel2'),
         villageId: vid, villageNom: v.village || '', cluster: v.cluster || '',
         statut: val('rf_statut'), activite: val('rf_act'), estProducteur: val('rf_prod'),
         instruction: val('rf_ins'), deplacement: val('rf_depl'),
@@ -862,23 +996,36 @@ function openRtForm(prefill) {
         smartphone: chk('rf_smart'), compteBancaire: chk('rf_bank'), compteWave: chk('rf_wave'),
         perf: { tonnageEngage: numVal('rf_teng'), tonnageLivre: numVal('rf_tliv'), avances: numVal('rf_av') },
         reputation: val('rf_rep'), score: numVal('rf_score'), notes: val('rf_notes'),
-        completude: refresh(), createdAt: new Date().toISOString(), createdBy: profile.nom || ''
+        completude: refresh(),
+        createdAt: editRow ? (ED.createdAt || null) : new Date().toISOString(),
+        createdBy: editRow ? (ED.createdBy || '') : (profile.nom || ''),
+        historique: editRow ? ((ED.historique || []).concat([{ date: new Date().toISOString(), par: profile.nom || '', type: 'Modification', note: 'Fiche modifiée' }])) : []
       };
-      btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Création en cours…';
+      btn.disabled = true; msg.className = 'muted';
+      msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
       client().then(function (cl) {
-        return cl.from('rt').insert({
-          id: id, nom: name, telephone: phone, village_id: vid,
+        var row = {
+          nom: name, telephone: phone, village_id: vid,
           village_nom: v.village || null, cluster: v.cluster || null,
           statut: val('rf_statut'), score: numVal('rf_score'), data: data
-        });
+        };
+        /* Édition : id et id_rt ne changent JAMAIS ; la même ligne est mise à jour. */
+        if (editRow) return cl.from('rt').update(row).eq('id', editRow.id);
+        row.id = id;
+        return cl.from('rt').insert(row);
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
         msg.className = 'ops-ok-text';
-        msg.textContent = 'RT créé : ' + name + ' (dossier ' + data.completude + ' %).' +
-          (data.estProducteur === 'OUI' ? ' Il pourra être enrôlé comme producteur depuis RT & Villages.' : '');
+        msg.textContent = (editRow ? 'RT modifié : ' : 'RT créé : ') + name + ' (dossier ' + data.completude + ' %).' +
+          (!editRow && data.estProducteur === 'OUI' ? ' Il pourra être enrôlé comme producteur depuis sa fiche.' : '');
+        auditLog(editRow ? 'rt_modifie' : 'rt_cree', id + ' · ' + name);
         FBStore.invalidate('base');
-        setTimeout(function () { closeForm(); render(); }, 1100);
+        setTimeout(function () {
+          closeForm();
+          if (editRow) location.hash = '#rt/' + encodeURIComponent(editRow.id);
+          render();
+        }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
         msg.textContent = err && err.message ? err.message : 'Création impossible.';
@@ -889,16 +1036,22 @@ function openRtForm(prefill) {
 
 /* ------------------------ PRODUCTEUR — porte d'entrée du Farmer Passport ------ */
 
-function openFarmerForm(prefill) {
+function openFarmerForm(prefill, editId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
-  Promise.all([base(), loadProfile()]).then(function (rs) {
+  Promise.all([base(), loadProfile(),
+    editId ? q('producteurs', 'id,nom,prenoms,sexe,birth_year,telephone,telephone_alt,id_document_type,id_document_number,village_id,rt_id,statut,data', 1,
+      function (r) { return r.eq('id', editId); }).catch(function () { return []; }) : Promise.resolve([])
+  ]).then(function (rs) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
+    var editRow = editId ? (rs[2] || [])[0] : null;
+    if (editId && !editRow) { host.innerHTML = danger('Producteur introuvable.'); return; }
+    var ED = (editRow && editRow.data) || {};
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
     var anneeMax = new Date().getFullYear() - 16;
 
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau producteur — enrôlement Farmer Passport</h2>' +
+    host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le producteur — ' + esc(editRow.nom) : 'Nouveau producteur — enrôlement Farmer Passport') + '</h2>' +
       '<p>Création rapide : identité + village suffisent. Les sections suivantes enrichissent le dossier ' +
       'maintenant ou plus tard, depuis le Farmer Passport.</p></div></div>' +
       '<form id="farmerForm">' + completenessBar('farmerForm') +
@@ -908,7 +1061,7 @@ function openFarmerForm(prefill) {
         field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
         field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
         field('RT référent', '<select id="ff_rt" data-c><option value="">Aucun / à rattacher</option></select>') +
-        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option>Homme</option><option>Femme</option></select>') +
+        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select>') +
         field('Année de naissance', '<input id="ff_annee" data-c type="number" min="1930" max="' + anneeMax + '" placeholder="1930 – ' + anneeMax + '">') +
         field('Téléphone', '<input id="ff_tel" data-c inputmode="tel" placeholder="10 chiffres">') +
         field('Titulaire du téléphone', '<select id="ff_teltit" data-c><option value="">—</option><option>Propre</option><option>Famille</option><option>Voisin</option><option>RT</option></select>') +
@@ -957,7 +1110,7 @@ function openFarmerForm(prefill) {
         '</div>', false) +
 
       '<div id="ff_dup"></div><div class="ops-actions" style="margin-top:12px">' +
-      '<button class="btn primary" type="submit" id="ff_submit">Créer le producteur</button>' +
+      '<button class="btn primary" type="submit" id="ff_submit">' + (editRow ? 'Enregistrer les modifications' : 'Créer le producteur') + '</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="ff_msg" class="muted" style="margin-top:10px"></div></form>';
 
@@ -976,13 +1129,38 @@ function openFarmerForm(prefill) {
         prefill && prefill.rt_id || '');
     }
     villageSel.addEventListener('change', syncRt);
+    if (editRow) {
+      var setV = function (id, v) { var e = document.getElementById(id); if (e && v != null && v !== '') e.value = v; };
+      nom.value = editRow.nom || '';
+      setV('ff_prenoms', editRow.prenoms);
+      villageSel.value = editRow.village_id || '';
+      /* La base stocke M/F (normalisation serveur) ; d'anciens dossiers portent Homme/Femme. */
+      setV('ff_sexe', sexeCode(editRow.sexe));
+      setV('ff_annee', editRow.birth_year);
+      tel.value = editRow.telephone || '';
+      setV('ff_tel2', editRow.telephone_alt);
+      setV('ff_teltit', ED.telTitulaire);
+      setV('ff_camp', ED.campement);
+      setV('ff_piece', editRow.id_document_type);
+      setV('ff_piece_num', editRow.id_document_number);
+      setV('ff_exp', ED.anneesAnacarde); setV('ff_ha', ED.superficieHa);
+      setV('ff_arbres', ED.nbArbres); setV('ff_age_pl', ED.agePlantation);
+      setV('ff_prodprec', ED.prodPrecKg); setV('ff_pot27', ED.potentiel2027Kg);
+      setV('ff_eng', ED.engagementKg); setV('ff_coop', ED.cooperative);
+      setV('ff_cultures', ED.autresCultures); setV('ff_ach_hab', ED.acheteurHabituel);
+      setV('ff_prix_prec', ED.prixPrecedent);
+      setV('ff_pay', ED.paiementMode); setV('ff_mm_num', ED.mobileMoneyNum); setV('ff_mm_tit', ED.mobileMoneyTitulaire);
+      setV('ff_notes', ED.notes);
+    }
     syncRt();
+    if (editRow && editRow.rt_id) rtSel.value = editRow.rt_id;
     refresh();
     nom.focus();
 
     function checkDupLocal() {
       var k = normName(nom.value), t = normPhone(tel.value);
       var hit = c.farmers.filter(function (f) {
+        if (editRow && f.producteur_id === editRow.id) return false;
         return (k && normName(f.nom + ' ' + (f.prenoms || '')) === k) ||
                (t && t.length >= 8 && normPhone(f.telephone) === t);
       })[0];
@@ -1008,7 +1186,8 @@ function openFarmerForm(prefill) {
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Contrôle des doublons…';
       client().then(function (cl) {
         return cl.rpc('farmer_possible_duplicates', {
-          p_nom: name, p_telephone: phone || null, p_village_id: vid, p_exclude_id: null
+          p_nom: name, p_telephone: phone || null, p_village_id: vid,
+          p_exclude_id: editRow ? editRow.id : null
         }).then(function (dup) {
           var hits = (dup.data || []);
           if (!dup.error && hits.length) {
@@ -1016,12 +1195,13 @@ function openFarmerForm(prefill) {
             msg.textContent = 'Doublon possible détecté côté référentiel (' + hits.length + '). Vérifiez la liste des producteurs avant de recréer.';
             return null;
           }
-          msg.textContent = 'Création en cours…';
-          var id = uid();
+          msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
+          var id = editRow ? editRow.id : uid();
           var pct = refresh();
           var data = {
-            id: id, source: prefill && prefill.sourceRtId ? 'RT_TO_PRODUCER' : 'OPERATIONS_FIELD_BUYING',
-            sourceRtId: prefill && prefill.sourceRtId || null,
+            id: id,
+            source: editRow ? (ED.source || null) : (prefill && prefill.sourceRtId ? 'RT_TO_PRODUCER' : 'OPERATIONS_FIELD_BUYING'),
+            sourceRtId: editRow ? (ED.sourceRtId || null) : (prefill && prefill.sourceRtId || null),
             campement: val('ff_camp'), cooperative: val('ff_coop'),
             anneesAnacarde: numVal('ff_exp'), superficieHa: numVal('ff_ha'),
             nbArbres: numVal('ff_arbres'), agePlantation: numVal('ff_age_pl'),
@@ -1031,14 +1211,19 @@ function openFarmerForm(prefill) {
             paiementMode: val('ff_pay'), mobileMoneyNum: val('ff_mm_num'), mobileMoneyTitulaire: val('ff_mm_tit'),
             telTitulaire: val('ff_teltit'), notes: val('ff_notes'), completude: pct
           };
-          return cl.from('producteurs').insert({
-            id: id, nom: name, prenoms: val('ff_prenoms') || null,
+          var row = {
+            nom: name, prenoms: val('ff_prenoms') || null,
             sexe: val('ff_sexe') || null, birth_year: annee,
             telephone: phone || null, telephone_alt: normPhone(val('ff_tel2')) || null,
             id_document_type: val('ff_piece') || null, id_document_number: val('ff_piece_num') || null,
             village_id: vid, village_nom: v.village || null,
-            rt_id: rtSel.value || null, statut: 'Identifié', data: data
-          }).then(function (r) {
+            rt_id: rtSel.value || null, data: data
+          };
+          /* Édition : id et Farmer ID ne changent JAMAIS ; la même personne est mise à jour. */
+          var write = editRow
+            ? cl.from('producteurs').update(row).eq('id', editRow.id)
+            : (row.id = id, row.statut = 'Identifié', cl.from('producteurs').insert(row));
+          return write.then(function (r) {
             if (r.error) throw new Error(r.error.message);
             /* Parcelle facultative : registre canonique farmer_plots, jamais data. */
             var plotNom = val('ff_plot_nom'), plotHa = numVal('ff_plot_ha');
@@ -1060,7 +1245,8 @@ function openFarmerForm(prefill) {
             btn.disabled = false;
             if (!res) return;
             msg.className = 'ops-ok-text';
-            msg.textContent = 'Producteur créé : ' + name + ' — Opérationnel ✓ · Passport ' + res.pct + ' %' +
+            auditLog(editRow ? 'producteur_modifie' : 'producteur_cree', res.id + ' · ' + name);
+            msg.textContent = (editRow ? 'Producteur modifié : ' : 'Producteur créé : ') + name + ' — Opérationnel ✓ · Passport ' + res.pct + ' %' +
               (res.plot ? ' · parcelle enregistrée.' : ' · parcelle à compléter après campagne.') +
               (res.plotError ? ' (parcelle non enregistrée : ' + res.plotError + ')' : '');
             FBStore.invalidate('base');
@@ -1140,11 +1326,12 @@ function renderFarmers(id, tab) {
       document.getElementById('farmerTable').innerHTML = table(
         ['Farmer ID', 'Nom', 'Téléphone', 'Village', 'RT', 'Cluster', 'Statut', 'Niveau', 'Parcelle', 'Dernier achat'],
         list.slice(0, 200).map(function (f) {
+          var rr = c.rm[f.rt_id], vv = c.vm[f.village_id];
           return '<tr class="ops-click" onclick="location.hash=\'#farmers/' + encodeURIComponent(f.producteur_id) + '\'">' +
-            '<td class="mono">' + esc(f.farmer_id || '—') + '</td>' +
-            '<td><b>' + esc(f.nom) + '</b>' + (f.prenoms ? ' ' + esc(f.prenoms) : '') + '</td>' +
-            '<td>' + esc(f.telephone || '—') + '</td><td>' + esc(f.village_nom || '—') + '</td>' +
-            '<td>' + esc(f.rt_nom || '—') + '</td><td>' + esc(f.cluster_label || f.cluster_code || '—') + '</td>' +
+            '<td><a class="ops-link mono" href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' + esc(f.farmer_id || '—') + '</a></td>' +
+            '<td><a class="ops-link" href="#farmers/' + encodeURIComponent(f.producteur_id) + '"><b>' + esc(f.nom) + '</b>' + (f.prenoms ? ' ' + esc(f.prenoms) : '') + '</a></td>' +
+            '<td>' + esc(f.telephone || '—') + '</td><td>' + (vv ? villageLink(vv) : esc(f.village_nom || '—')) + '</td>' +
+            '<td>' + (rr ? rtLink(rr) : esc(f.rt_nom || '—')) + '</td><td>' + esc(f.cluster_label || f.cluster_code || '—') + '</td>' +
             '<td>' + badge(f.operational_status || 'Enrôlé') + '</td>' +
             '<td>' + badge('Opérationnel ✓') + ' <span class="muted">Passport ' + n(f.passport_completion) + ' %</span></td>' +
             '<td>' + (n(f.gps_mapped_count) > 0 ? badge('GPS levé') : '<span class="muted">à compléter après campagne</span>') + '</td>' +
@@ -1253,7 +1440,7 @@ function renderFarmerPassport(id, tab) {
       } else if (tab === 'identity') {
         body = '<section class="card"><div class="card-head"><div><h2>Identité</h2></div></div>' +
           defGrid([['Farmer ID', f.farmer_id], ['Nom', f.nom], ['Prénoms', f.prenoms],
-            ['Sexe', row.sexe], ['Année de naissance', row.birth_year],
+            ['Sexe', sexeLabel(row.sexe)], ['Année de naissance', row.birth_year],
             ['Téléphone', f.telephone], ['Téléphone alternatif', row.telephone_alt],
             ['Titulaire téléphone', extra.telTitulaire],
             ['Pièce', row.id_document_type], ['N° de pièce', row.id_document_number ? '••• (protégé)' : '—'],
@@ -1362,8 +1549,9 @@ function renderFarmerPassport(id, tab) {
       paint(head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
         'Farmer Passport · fiche 360° — Opérationnel ✓ · Passport ' + n(f.passport_completion) + ' % · Parcelle : ' + parcelleEtat + '.',
         '<a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">+ Nouvel achat</a>' +
+        (canEditTerrain() ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">Modifier</button>' : '') +
         '<a class="btn secondary" href="#farmers">← Producteurs</a>') +
-        tabs() + body);
+        tabs() + '<div id="fbFormHost" class="ops-form-card" hidden></div>' + body);
     });
   });
 }
@@ -1373,7 +1561,10 @@ function renderFarmerPassport(id, tab) {
 var rtTab = 'villages';
 var rtFilter = { cluster: '', statut: '', q: '' };
 
-function renderRt(sub) {
+var RT_LIST_TABS = ['villages', 'rts', 'assign', 'anomalies'];
+function renderRt(sub, fichTab) {
+  /* #rt/villages … = vues de gestion ; #rt/<id> = fiche RT 360°. */
+  if (sub && RT_LIST_TABS.indexOf(sub) < 0) return renderRtFiche(sub, fichTab);
   if (sub) rtTab = sub;
   paint(head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
     censusActions()) + createHost() + skeletonPage(4));
@@ -1409,7 +1600,7 @@ function renderRt(sub) {
           ['Village', 'Cluster', 'Région', 'Statut', 'RT', 'Producteurs', 'Potentiel', 'Acheté', 'GPS'],
           list.map(function (v) {
             var s3 = (v.data && v.data.s3) || {};
-            return '<tr><td><b>' + esc(v.village) + '</b></td><td>' + esc(v.cluster || '—') + '</td>' +
+            return '<tr><td>' + villageLink(v) + '</td><td>' + esc(v.cluster || '—') + '</td>' +
               '<td>' + esc(v.region || '—') + '</td><td>' + badge(v.statut) + '</td>' +
               '<td>' + (d.rtByVillage[v.id] || []).map(function (r) { return esc(r.nom); }).join(', ') + '</td>' +
               '<td>' + (d.farmersByVillage[v.id] || 0) + '</td>' +
@@ -1426,8 +1617,9 @@ function renderRt(sub) {
           list2.map(function (r) {
             var act = (r.data && r.data.activite) || '—';
             var isProd = /producteur/i.test(String(act)) || (r.data && r.data.estProducteur === 'OUI');
-            return '<tr><td class="mono">' + esc(r.id_rt || '—') + '</td><td><b>' + esc(r.nom) + '</b></td>' +
-              '<td>' + esc(r.telephone || '—') + '</td><td>' + esc(r.village_nom || '—') + '</td>' +
+            var vv = c.vm[r.village_id];
+            return '<tr><td class="mono">' + esc(r.id_rt || '—') + '</td><td>' + rtLink(r) + '</td>' +
+              '<td>' + esc(r.telephone || '—') + '</td><td>' + (vv ? villageLink(vv) : esc(r.village_nom || '—')) + '</td>' +
               '<td>' + esc(r.cluster || '—') + '</td><td>' + esc(act) + '</td><td>' + badge(r.statut) + '</td>' +
               '<td>' + (d.farmersByRt[r.id] || 0) + '</td><td>' + mt(d.byRtBuy[r.id] || 0) + '</td>' +
               '<td>' + date(d.lastRtBuy[r.id]) + '</td>' +
@@ -1546,9 +1738,12 @@ function renderPurchases(sub, farmerId) {
       document.getElementById('buyTable').innerHTML = table(
         ['Date', 'Farmer ID', 'Producteur', 'RT', 'Village', 'Cluster', 'Poids net', 'Sacs', 'Prix', 'Montant', 'Paiement', 'Validation', 'Stock'],
         list.slice(0, 200).map(function (a) {
+          var ff = c.farmers.filter(function (x) { return x.producteur_id === a.producteur_id; })[0];
+          var rr = c.rm[a.rt_id], vv = c.vm[a.village_id];
           return '<tr><td>' + date(a.date) + '</td><td class="mono">' + esc(a.producteur_code || '—') + '</td>' +
-            '<td><b>' + esc(a.producteur_nom || '—') + '</b></td><td>' + esc(a.rt_nom || '—') + '</td>' +
-            '<td>' + esc(a.village_nom || '—') + '</td><td>' + esc(a.cluster || '—') + '</td>' +
+            '<td>' + (ff ? '<a class="ops-link" href="#farmers/' + encodeURIComponent(ff.producteur_id) + '"><b>' + esc(a.producteur_nom || '—') + '</b></a>' : '<b>' + esc(a.producteur_nom || '—') + '</b>') + '</td>' +
+            '<td>' + (rr ? rtLink(rr) : esc(a.rt_nom || '—')) + '</td>' +
+            '<td>' + (vv ? villageLink(vv) : esc(a.village_nom || '—')) + '</td><td>' + esc(a.cluster || '—') + '</td>' +
             '<td>' + num(a.poids_net) + ' kg</td><td>' + n(a.nb_sacs) + '</td>' +
             '<td>' + num(a.prix_kg) + ' /kg</td><td>' + money(a.montant) + '</td>' +
             '<td>' + esc(a.mode_paiement || '—') + '</td><td>' + badge(a.statut_validation) + '</td>' +
@@ -2303,6 +2498,619 @@ function renderTraceability(seed) {
   return Promise.resolve();
 }
 
+/* ==================== fiches 360°, photos et documents ====================
+   Village, RT et Producteur deviennent des fiches individuelles consultables,
+   modifiables et enrichissables, dans le shell Operations.
+
+   Stockage des images — architecture existante réutilisée, aucune migration :
+   · photo de profil RT et pièces d'identité → bucket PRIVÉ terrain-preuves
+     (URL signée temporaire uniquement, jamais d'URL publique, jamais de
+     base64 en table) + métadonnées dans la table preuves (entite_type='rt') ;
+   · galerie village → bucket public photos (l'emplacement historique des
+     photos de recensement) + métadonnées (légende, catégorie, agent, GPS)
+     dans villages.data.galerie ;
+   · chaque ajout est journalisé dans audit_log (lecture réservée au BM). */
+
+var BUCKET_PRIVE = 'terrain-preuves';
+var BUCKET_PHOTOS = 'photos';
+var CATEGORIES_PHOTO = ['Entrée du village', 'Route d’accès', 'Pont', 'Piste', 'Zone de stockage',
+  'Producteurs', 'Réunion communautaire', 'Point d’achat', 'Infrastructure', 'Autre'];
+
+function auditLog(action, details) {
+  client().then(function (c) {
+    if (!c) return;
+    c.from('audit_log').insert({ action: action, details: String(details || '').slice(0, 900), email: profile.nom || null })
+      .then(function () {});
+  });
+}
+
+/* Compression côté client. Les pièces d'identité gardent une qualité élevée :
+   la lisibilité prime sur le poids. */
+function compressImage(file, maxDim, quality) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function () {
+      var w = img.width, h = img.height;
+      var k = Math.min(1, maxDim / Math.max(w, h));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(w * k);
+      canvas.height = Math.round(h * k);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (blob) {
+        if (blob) resolve(blob); else reject(new Error('Compression impossible'));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
+    img.src = url;
+  });
+}
+
+/* Sélecteur de photo avec aperçu avant validation : Ajouter → appareil photo
+   (capture sur mobile) → APERÇU → Reprendre / Utiliser cette photo. */
+function pickPhoto(opts) {
+  return new Promise(function (resolve) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    if (opts && opts.capture) input.setAttribute('capture', 'environment');
+    input.hidden = true;
+    document.body.appendChild(input);
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      input.remove();
+      if (!file) return resolve(null);
+      var overlay = document.createElement('div');
+      overlay.className = 'ops-photo-preview';
+      var url = URL.createObjectURL(file);
+      overlay.innerHTML = '<div class="ops-photo-preview-box"><img alt="Aperçu de la photo" src="' + url + '">' +
+        '<div class="ops-actions"><button class="btn primary" type="button" data-ok>Utiliser cette photo</button>' +
+        '<button class="btn secondary" type="button" data-retry>Reprendre</button>' +
+        '<button class="btn secondary" type="button" data-cancel>Annuler</button></div></div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('[data-ok]').onclick = function () { URL.revokeObjectURL(url); overlay.remove(); resolve(file); };
+      overlay.querySelector('[data-retry]').onclick = function () { URL.revokeObjectURL(url); overlay.remove(); pickPhoto(opts).then(resolve); };
+      overlay.querySelector('[data-cancel]').onclick = function () { URL.revokeObjectURL(url); overlay.remove(); resolve(null); };
+    });
+    input.click();
+  });
+}
+
+/* Téléversement d'un document PRIVÉ (photo RT, pièce d'identité) : bucket
+   terrain-preuves + ligne preuves + journal d'audit. Retourne le chemin. */
+function uploadPrivateDoc(entiteType, entiteId, typePreuve, file, maxDim, quality) {
+  return compressImage(file, maxDim, quality).then(function (blob) {
+    return client().then(function (c) {
+      var path = (profile.userId || 'agent') + '/' + entiteType + '/' + entiteId + '/' +
+        typePreuve + '-' + Date.now().toString(36) + '.jpg';
+      return c.storage.from(BUCKET_PRIVE).upload(path, blob, { contentType: 'image/jpeg' })
+        .then(function (up) {
+          if (up.error) throw new Error(up.error.message);
+          return c.from('preuves').insert({
+            id: (global.crypto && crypto.randomUUID) ? crypto.randomUUID() : uid(),
+            entite_type: entiteType, entite_id: entiteId, type_preuve: typePreuve,
+            storage_path: path, horodatage_client: new Date().toISOString(),
+            created_by: profile.userId || null
+          });
+        }).then(function (r) {
+          if (r.error) throw new Error(r.error.message);
+          auditLog('document_ajoute', entiteType + ' ' + entiteId + ' · ' + typePreuve);
+          FBStore.invalidate('docs:' + entiteType + ':' + entiteId);
+          return path;
+        });
+    });
+  });
+}
+
+/* URL signée temporaire (60 min) — la seule façon de voir un document privé. */
+var signedCache = Object.create(null);
+function signedUrl(path) {
+  var hit = signedCache[path];
+  if (hit && Date.now() - hit.at < 50 * 60000) return Promise.resolve(hit.url);
+  return client().then(function (c) {
+    return c.storage.from(BUCKET_PRIVE).createSignedUrl(path, 3600).then(function (r) {
+      if (r.error || !r.data) return null;
+      signedCache[path] = { url: r.data.signedUrl, at: Date.now() };
+      return r.data.signedUrl;
+    });
+  });
+}
+
+function docsFor(entiteType, entiteId) {
+  return FBStore.get('docs:' + entiteType + ':' + entiteId, function () {
+    return q('preuves', 'id,entite_type,entite_id,type_preuve,storage_path,horodatage_client,created_by', 60,
+      function (r) { return r.eq('entite_type', entiteType).eq('entite_id', entiteId).order('horodatage_client', { ascending: false }); })
+      .catch(function () { return []; });
+  });
+}
+function latestDoc(docs, type) {
+  return docs.filter(function (d) { return d.type_preuve === type; })[0] || null;
+}
+
+function addRtDoc(rtId, typePreuve) {
+  pickPhoto({ capture: true }).then(function (file) {
+    if (!file) return;
+    /* Pièce d'identité : 1600 px / qualité 0,9 — la lisibilité prime.
+       Photo de profil : 512 px / 0,72 comme historiquement. */
+    var piece = typePreuve !== 'photo_profil';
+    var host = document.getElementById('rtDocMsg');
+    if (host) { host.className = 'muted'; host.textContent = 'Téléversement…'; }
+    uploadPrivateDoc('rt', rtId, typePreuve, file, piece ? 1600 : 512, piece ? 0.9 : 0.72)
+      .then(function () { render(); })
+      .catch(function (e) {
+        if (host) { host.className = 'ops-danger-text'; host.textContent = e.message; }
+      });
+  });
+}
+
+/* Galerie village : bucket public photos (emplacement historique) +
+   métadonnées dans villages.data.galerie. */
+function addVillagePhoto(villageId) {
+  pickPhoto({ capture: true }).then(function (file) {
+    if (!file) return;
+    var legende = prompt('Légende de la photo (facultatif) :') || '';
+    var cat = prompt('Catégorie (' + CATEGORIES_PHOTO.join(' / ') + ') :') || 'Autre';
+    var host = document.getElementById('villageGalMsg');
+    if (host) { host.className = 'muted'; host.textContent = 'Téléversement…'; }
+    compressImage(file, 1280, 0.8).then(function (blob) {
+      return client().then(function (c) {
+        var path = villageId + '/gallery/' + Date.now().toString(36) + '.jpg';
+        return c.storage.from(BUCKET_PHOTOS).upload(path, blob, { contentType: 'image/jpeg' })
+          .then(function (up) {
+            if (up.error) throw new Error(up.error.message);
+            return base().then(function (cc) {
+              var v = cc.vm[villageId];
+              var data = (v && v.data) || {};
+              var galerie = (data.galerie || []).concat([{
+                path: path, legende: legende, categorie: cat,
+                date: new Date().toISOString(), agent: profile.nom || '',
+                gpsLat: null, gpsLng: null
+              }]);
+              data.galerie = galerie;
+              return c.from('villages').update({ data: data }).eq('id', villageId);
+            });
+          }).then(function (r) {
+            if (r.error) throw new Error(r.error.message);
+            auditLog('village_photo_ajoutee', villageId + ' · ' + cat);
+            FBStore.invalidate('base');
+            render();
+          });
+      });
+    }).catch(function (e) {
+      if (host) { host.className = 'ops-danger-text'; host.textContent = e.message; }
+    });
+  });
+}
+function villagePhotoUrl(path) {
+  /* Le bucket photos est public : URL directe, comme historiquement. */
+  return (global.ANAGROCI_SUPABASE_URL || '') + '/storage/v1/object/public/' + BUCKET_PHOTOS + '/' + path;
+}
+function archiveVillagePhoto(villageId, index) {
+  if (!canEditTerrain()) return;
+  base().then(function (cc) {
+    var v = cc.vm[villageId];
+    if (!v || !v.data || !v.data.galerie || !v.data.galerie[index]) return;
+    v.data.galerie[index].archived = true;
+    client().then(function (c) {
+      c.from('villages').update({ data: v.data }).eq('id', villageId).then(function (r) {
+        if (!r.error) { auditLog('village_photo_archivee', villageId); FBStore.invalidate('base'); render(); }
+      });
+    });
+  });
+}
+
+/* Liens cliquables vers les fiches. */
+function rtLink(r) {
+  if (!r || !r.id) return '—';
+  return '<a class="ops-link" href="#rt/' + encodeURIComponent(r.id) + '"><b>' + esc(r.nom || r.id) + '</b>' +
+    (r.id_rt ? '<br><span class="muted mono">' + esc(r.id_rt) + '</span>' : '') + '</a>';
+}
+function villageLink(v) {
+  if (!v || !v.id) return '—';
+  return '<a class="ops-link" href="#villages/' + encodeURIComponent(v.id) + '"><b>' + esc(v.village || v.id) + '</b></a>';
+}
+function farmerLink(f) {
+  if (!f || !f.producteur_id) return '—';
+  return '<a class="ops-link" href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' +
+    '<span class="mono">' + esc(f.farmer_id || '—') + '</span> · <b>' + esc(f.nom) + '</b></a>';
+}
+function avatarHtml(url, alt) {
+  return url
+    ? '<img class="ops-avatar" alt="' + esc(alt) + '" src="' + esc(url) + '">'
+    : '<div class="ops-avatar ops-avatar-empty" aria-label="Aucune photo">👤</div>';
+}
+
+/* --------------------------------- FICHE RT 360° ----------------------------- */
+
+var RT_TABS = [['overview', 'Vue d’ensemble'], ['profil', 'Profil terrain'], ['producteurs', 'Producteurs'],
+  ['achats', 'Achats'], ['sacherie', 'Sacherie'], ['caisse', 'Caisse'], ['documents', 'Documents & Photos'],
+  ['historique', 'Historique']];
+
+function renderRtFiche(rtId, tab) {
+  tab = RT_TABS.some(function (t) { return t[0] === tab; }) ? tab : 'overview';
+  paint(head('Fiche RT', 'Chargement…', '<a class="btn secondary" href="#rt/rts">← RT & Villages</a>') + skeletonPage(6));
+
+  return Promise.all([base(), docsFor('rt', rtId), loadProfile()]).then(function (rs) {
+    var c = rs[0], docs = rs[1];
+    var r = c.rm[rtId];
+    if (!r) {
+      paint(head('Fiche RT', 'RT introuvable.', '<a class="btn secondary" href="#rt/rts">← RT & Villages</a>') +
+        empty('Aucun RT ne porte cet identifiant.'));
+      return;
+    }
+    var d = derive(c);
+    var rd = r.data || {};
+    var act = rd.activite || '—';
+    var isProd = /producteur/i.test(String(act)) || rd.estProducteur === 'OUI';
+    var t = normPhone(r.telephone), k = normName(r.nom);
+    var asFarmer = c.farmers.filter(function (f) {
+      return f.village_id === r.village_id && t && t.length >= 8 && normPhone(f.telephone) === t;
+    })[0];
+    var mesProducteurs = c.farmers.filter(function (f) { return f.rt_id === r.id; });
+    var mesAchats = c.achats.filter(function (a) { return a.rt_id === r.id; });
+    var photo = latestDoc(docs, 'photo_profil');
+    var recto = latestDoc(docs, 'piece_recto');
+    var verso = latestDoc(docs, 'piece_verso');
+    var village = c.vm[r.village_id];
+
+    var actions =
+      (canEditTerrain() ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openRtForm(null,\'' + esc(r.id) + '\')">Modifier</button>' : '') +
+      (isProd ? (asFarmer
+        ? '<a class="btn secondary" href="#farmers/' + encodeURIComponent(asFarmer.producteur_id) + '">Voir sa fiche Producteur</a>'
+        : '<button class="btn primary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">Enrôler comme producteur</button>') : '') +
+      '<a class="btn secondary" href="#rt/rts">← RT & Villages</a>';
+
+    function headerCard(photoUrl) {
+      return '<section class="card ops-fiche-head"><div class="ops-fiche-id">' +
+        avatarHtml(photoUrl, 'Photo de ' + r.nom) +
+        '<div><h2>' + esc(r.nom) + '</h2>' +
+        '<p class="mono muted">' + esc(r.id_rt || r.id) + '</p>' +
+        '<p>' + (village ? villageLink(village) : esc(r.village_nom || '—')) +
+        ' · ' + esc(r.cluster || '—') + ' · ' + esc(zoneOfCluster(c, r.cluster)) + '</p>' +
+        '<p>' + esc(r.telephone || '—') + ' · ' + badge(r.statut) + ' ' +
+        (isProd ? badge('Producteur') : '') + ' <span class="muted">' + esc(act) + '</span></p>' +
+        '</div></div>' +
+        (canEditTerrain() ? '<div class="ops-actions">' +
+          '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'photo_profil\')">' +
+          (photo ? 'Remplacer la photo' : '📷 Ajouter une photo') + '</button>' +
+          '<button class="btn secondary" type="button" onclick="location.hash=\'#rt/' + encodeURIComponent(r.id) + '/documents\'">Pièce d’identité</button>' +
+          '</div>' : '') + '</section>';
+    }
+    function tabsBar() {
+      return '<div class="ops-passport-tabs">' + RT_TABS.map(function (x) {
+        return '<a class="' + (tab === x[0] ? 'active' : '') + '" href="#rt/' + encodeURIComponent(r.id) + '/' + x[0] + '">' + esc(x[1]) + '</a>';
+      }).join('') + '</div>';
+    }
+    function defGrid(pairs) {
+      return '<div class="ops-def-grid">' + pairs.map(function (x) {
+        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(x[1] == null || x[1] === '' ? '—' : x[1]) + '</b></div>';
+      }).join('') + '</div>';
+    }
+
+    var body = '';
+    if (tab === 'overview') {
+      body = kpis([
+        ['Producteurs rattachés', String(mesProducteurs.length), 'Farmer Registry'],
+        ['Achats campagne', mt(d.byRtBuy[r.id] || 0), mesAchats.length + ' achat(s)'],
+        ['Dernière activité', date(d.lastRtBuy[r.id]), 'dernier achat'],
+        ['Score', rd.score != null ? rd.score + ' / 100' : '—', esc(rd.reputation || '')],
+        ['Documents', String(docs.length), (recto && verso) ? 'pièce complète ✓' : 'pièce à compléter', (recto && verso) ? '' : 'warn']
+      ]) + '<section class="card"><div class="card-head"><div><h2>Identité & rattachement</h2></div></div>' +
+        defGrid([['Nom', r.nom], ['RT ID', r.id_rt], ['Téléphone', r.telephone],
+          ['Téléphone secondaire', rd.telephoneSecondaire], ['Village', r.village_nom],
+          ['Cluster', r.cluster], ['Zone', zoneOfCluster(c, r.cluster)], ['Statut', r.statut],
+          ['Activité', act], ['Producteur lui-même', isProd ? 'OUI' : 'NON'],
+          ['Créé le', date(rd.createdAt || r.created_at)], ['Créé par', rd.createdBy]]) + '</section>';
+    } else if (tab === 'profil') {
+      body = '<section class="card"><div class="card-head"><div><h2>Profil terrain</h2></div></div>' +
+        defGrid([['Expérience achat RCN', rd.experienceAnnees != null ? rd.experienceAnnees + ' an(s)' : null],
+          ['Producteurs mobilisables', rd.nbProducteurs],
+          ['Volume potentiel', rd.volumePotentielMT != null ? num(rd.volumePotentielMT, 1) + ' MT' : null],
+          ['Zone d’influence', rd.zoneInfluence], ['Disponibilité', rd.disponibilite],
+          ['Moyen de déplacement', rd.deplacement], ['Instruction', rd.instruction],
+          ['Smartphone', rd.smartphone ? 'Oui' : 'Non'], ['Compte bancaire', rd.compteBancaire ? 'Oui' : 'Non'],
+          ['Compte Wave', rd.compteWave ? 'Oui' : 'Non'],
+          ['Tonnage engagé', rd.perf && rd.perf.tonnageEngage != null ? num(rd.perf.tonnageEngage, 1) + ' MT' : null],
+          ['Tonnage livré', rd.perf && rd.perf.tonnageLivre != null ? num(rd.perf.tonnageLivre, 1) + ' MT' : null],
+          ['Réputation', rd.reputation], ['Observations', rd.notes]]) + '</section>';
+    } else if (tab === 'producteurs') {
+      body = '<section class="card">' + table(['Producteur', 'Village', 'Potentiel', 'Achats campagne', 'Dernière activité'],
+        mesProducteurs.map(function (f) {
+          var fa = c.achats.filter(function (a) { return a.producteur_id === f.producteur_id; });
+          var kg = fa.reduce(function (s, a) { return s + n(a.poids_net); }, 0);
+          return '<tr><td>' + farmerLink(f) + '</td><td>' + esc(f.village_nom || '—') + '</td>' +
+            '<td>' + (f.last_purchase_kg != null ? num(f.last_purchase_kg) + ' kg' : '—') + '</td>' +
+            '<td>' + mt(kg) + '</td><td>' + date(f.last_purchase_date) + '</td></tr>';
+        })) + '</section>';
+    } else if (tab === 'achats') {
+      body = '<section class="card">' + table(['Date', 'Producteur', 'Poids net', 'Sacs', 'Montant', 'Validation', 'Stock'],
+        mesAchats.map(function (a) {
+          var f = c.farmers.filter(function (x) { return x.producteur_id === a.producteur_id; })[0];
+          return '<tr><td>' + date(a.date) + '</td><td>' + (f ? farmerLink(f) : esc(a.producteur_nom || '—')) + '</td>' +
+            '<td>' + num(a.poids_net) + ' kg</td><td>' + n(a.nb_sacs) + '</td>' +
+            '<td>' + money(a.montant) + '</td><td>' + badge(a.statut_validation) + '</td>' +
+            '<td>' + badge(a.stock_statut) + '</td></tr>';
+        })) + '</section>';
+    } else if (tab === 'sacherie') {
+      return bagsData().then(function (b) {
+        var stock = b.rtStock.filter(function (s) { return s.rt_id === r.id; })[0];
+        var reqs = b.requests.filter(function (x) { return x.rt_id === r.id; });
+        paint(headHtml(null) + tabsBar() +
+          kpis([
+            ['Sous responsabilité', stock ? num(stock.total_sous_responsabilite) : '0', 'sacs'],
+            ['Vides', stock ? num(stock.vides) : '0', ''],
+            ['Pleins', stock ? num(stock.pleins) : '0', ''],
+            ['Dernier mouvement', stock ? date(stock.derniere_activite) : '—', '']
+          ]) +
+          '<section class="card"><div class="card-head"><div><h2>Demandes de sacs</h2></div></div>' +
+          table(['Référence', 'Demandé', 'Approuvé', 'Libéré', 'Reçu', 'Statut'],
+            reqs.map(function (x) {
+              return '<tr><td class="mono">' + esc(x.request_code || x.id) + '</td><td>' + num(x.requested_qty) + '</td>' +
+                '<td>' + num(x.approved_qty) + '</td><td>' + num(x.released_qty) + '</td>' +
+                '<td>' + num(x.received_qty) + '</td><td>' + badge(x.status) + '</td></tr>';
+            })) + '</section>');
+      });
+    } else if (tab === 'caisse') {
+      return cashData().then(function (cash) {
+        var av = cash.avances.filter(function (a) { return a.rt_id === r.id && a.statut !== 'Annulee'; });
+        var totalAv = av.reduce(function (s, a) { return s + n(a.montant); }, 0);
+        var used = mesAchats.reduce(function (s, a) { return s + n(a.montant); }, 0);
+        var lastRecon = lastReconByRt(cash.recons)[r.id];
+        paint(headHtml(null) + tabsBar() +
+          kpis([
+            ['Avances actives', money(totalAv), av.length + ' avance(s)'],
+            ['Consommé en achats', money(used), ''],
+            ['Solde', money(totalAv - used), '', totalAv - used < 0 ? 'danger' : ''],
+            ['Caisse', lastRecon ? esc(lastRecon.statut) : 'À réconcilier', lastRecon ? date(lastRecon.created_at) : '', (!lastRecon || lastRecon.statut !== 'Réconcilié') && totalAv > 0 ? 'warn' : '']
+          ]) +
+          '<section class="card">' + table(['Date', 'Source', 'Montant', 'Motif', 'Cycle', 'Statut'],
+            av.map(function (a) {
+              return '<tr><td>' + date(a.date) + '</td><td>' + esc(a.source || '—') + '</td>' +
+                '<td>' + money(a.montant) + '</td><td>' + esc(a.motif || '—') + '</td>' +
+                '<td class="mono">' + esc(a.cycle_id || '—') + '</td><td>' + badge(a.cycle_statut || a.statut) + '</td></tr>';
+            })) + '</section>');
+      });
+    } else if (tab === 'documents') {
+      body = '<div class="notice info"><b>Documents privés :</b> les photos et pièces d’identité sont stockées dans un ' +
+        'espace privé et consultées par lien signé temporaire — aucune adresse publique permanente.</div>' +
+        '<div class="grid-2">' +
+        '<section class="card"><div class="card-head"><div><h2>Photo de profil</h2></div></div>' +
+        '<div id="rtPhotoBox" class="ops-doc-box">' + (photo ? '<div class="skeleton skeleton-row"></div>' : avatarHtml(null, '')) + '</div>' +
+        (canEditTerrain() ? '<div class="ops-actions">' +
+          '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'photo_profil\')">📷 ' + (photo ? 'Remplacer' : 'Prendre une photo') + '</button></div>' : '') +
+        '</section>' +
+        '<section class="card"><div class="card-head"><div><h2>Pièce d’identité</h2></div></div>' +
+        defGrid([['Type', rd.pieceType || 'CNI'], ['Recto', recto ? 'disponible ✓' : 'manquant'],
+          ['Verso', verso ? 'disponible ✓' : 'manquant'],
+          ['Enregistrée le', recto ? date(recto.horodatage_client) : '—']]) +
+        '<div id="rtRectoBox" class="ops-doc-box">' + (recto ? '<div class="skeleton skeleton-row"></div>' : '<span class="muted">Recto non fourni</span>') + '</div>' +
+        '<div id="rtVersoBox" class="ops-doc-box">' + (verso ? '<div class="skeleton skeleton-row"></div>' : '<span class="muted">Verso non fourni</span>') + '</div>' +
+        (canEditTerrain() ? '<div class="ops-actions">' +
+          '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'piece_recto\')">📷 ' + (recto ? 'Remplacer le recto' : 'Prendre le recto') + '</button>' +
+          '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'piece_verso\')">📷 ' + (verso ? 'Remplacer le verso' : 'Prendre le verso') + '</button></div>' : '') +
+        '<div id="rtDocMsg" class="muted"></div></section></div>' +
+        '<section class="card"><div class="card-head"><div><h2>Tous les documents</h2></div></div>' +
+        table(['Type', 'Date', 'Chemin'], docs.map(function (x) {
+          return '<tr><td>' + badge(x.type_preuve) + '</td><td>' + date(x.horodatage_client) + '</td>' +
+            '<td class="mono muted">' + esc(String(x.storage_path).split('/').pop()) + '</td></tr>';
+        })) + '</section>';
+    } else if (tab === 'historique') {
+      var evts = [];
+      if (rd.createdAt) evts.push([rd.createdAt, 'Création du RT', rd.createdBy || '—']);
+      (rd.historique || []).forEach(function (h) { evts.push([h.date, h.type + ' — ' + (h.note || ''), h.par || '—']); });
+      docs.forEach(function (x) { evts.push([x.horodatage_client, 'Document ajouté : ' + x.type_preuve, '—']); });
+      if (asFarmer) evts.push([null, 'Enrôlé comme producteur : ' + (asFarmer.farmer_id || ''), '—']);
+      evts.sort(function (a, b) { return new Date(b[0] || 0) - new Date(a[0] || 0); });
+      body = '<section class="card">' + table(['Date', 'Événement', 'Par'], evts.map(function (e) {
+        return '<tr><td>' + date(e[0]) + '</td><td>' + esc(e[1]) + '</td><td>' + esc(e[2]) + '</td></tr>';
+      })) + '</section>' +
+        '<div class="notice info">Le journal détaillé (lecture Branch Manager) reste dans le registre d’audit central.</div>';
+    }
+
+    function headHtml(photoUrl) {
+      return head(r.nom, 'Fiche RT 360° · consultation, modification et documents.', actions) + headerCard(photoUrl);
+    }
+    paint(headHtml(null) + tabsBar() + body);
+
+    /* Chargement paresseux des images signées après le rendu. */
+    if (photo) signedUrl(photo.storage_path).then(function (u) {
+      var box = document.querySelector('.ops-fiche-id .ops-avatar');
+      if (u && box) box.outerHTML = avatarHtml(u, 'Photo de ' + r.nom);
+      var b2 = document.getElementById('rtPhotoBox');
+      if (u && b2) b2.innerHTML = '<img class="ops-doc-img" alt="Photo de profil" src="' + esc(u) + '">';
+    });
+    if (tab === 'documents') {
+      if (recto) signedUrl(recto.storage_path).then(function (u) {
+        var b = document.getElementById('rtRectoBox');
+        if (u && b) b.innerHTML = '<img class="ops-doc-img" alt="Pièce d’identité — recto" src="' + esc(u) + '">';
+      });
+      if (verso) signedUrl(verso.storage_path).then(function (u) {
+        var b = document.getElementById('rtVersoBox');
+        if (u && b) b.innerHTML = '<img class="ops-doc-img" alt="Pièce d’identité — verso" src="' + esc(u) + '">';
+      });
+    }
+  });
+}
+
+/* ------------------------------- FICHE VILLAGE 360° -------------------------- */
+
+var VILLAGE_TABS = [['overview', 'Vue d’ensemble'], ['identification', 'Identification'],
+  ['organisation', 'Organisation'], ['production', 'Production'], ['concurrence', 'Concurrence'],
+  ['accessibilite', 'Accessibilité'], ['paiement', 'Paiement'], ['rts', 'RT'],
+  ['risques', 'Risques & Évaluation'], ['producteurs', 'Producteurs'], ['galerie', 'Galerie'],
+  ['historique', 'Historique']];
+
+function renderVillageFiche(vid, tab) {
+  tab = VILLAGE_TABS.some(function (t) { return t[0] === tab; }) ? tab : 'overview';
+  paint(head('Fiche Village', 'Chargement…', '<a class="btn secondary" href="#rt/villages">← Villages</a>') + skeletonPage(6));
+
+  return Promise.all([base(), loadProfile()]).then(function (rs) {
+    var c = rs[0];
+    var v = c.vm[vid];
+    if (!v) {
+      paint(head('Fiche Village', 'Village introuvable.', '<a class="btn secondary" href="#rt/villages">← Villages</a>') +
+        empty('Aucun village ne porte cet identifiant.'));
+      return;
+    }
+    var d = derive(c);
+    var vd = v.data || {};
+    var s1 = vd.s1 || {}, s2 = vd.s2 || {}, s3 = vd.s3 || {}, s4 = vd.s4 || {}, s5 = vd.s5 || {},
+        s6 = vd.s6 || {}, s7 = vd.s7 || {}, s8 = vd.s8 || {}, s9 = vd.s9 || {};
+    var mesRts = d.rtByVillage[v.id] || [];
+    var mesProducteurs = c.farmers.filter(function (f) { return f.village_id === v.id; });
+    var galerie = (vd.galerie || []).filter(function (g) { return !g.archived; });
+
+    var actions =
+      (canEditTerrain() ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openVillageForm(\'' + esc(v.id) + '\')">Modifier</button>' +
+        '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.addVillagePhoto(\'' + esc(v.id) + '\')">📷 Ajouter une photo</button>' : '') +
+      '<a class="btn secondary" href="#villages/' + encodeURIComponent(v.id) + '/galerie">Galerie (' + galerie.length + ')</a>' +
+      '<a class="btn secondary" href="#rt/villages">← Villages</a>';
+
+    function tabsBar() {
+      return '<div class="ops-passport-tabs">' + VILLAGE_TABS.map(function (x) {
+        return '<a class="' + (tab === x[0] ? 'active' : '') + '" href="#villages/' + encodeURIComponent(v.id) + '/' + x[0] + '">' + esc(x[1]) + '</a>';
+      }).join('') + '</div>';
+    }
+    function defGrid(pairs) {
+      return '<div class="ops-def-grid">' + pairs.map(function (x) {
+        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(x[1] == null || x[1] === '' ? '—' : x[1]) + '</b></div>';
+      }).join('') + '</div>';
+    }
+    function oui(b) { return b === true ? 'Oui' : b === false ? 'Non' : null; }
+
+    var headHtml = head(v.village, 'Fiche Village 360° · recensement, RT, producteurs et galerie.', actions) +
+      kpis([
+        ['Cluster', esc(v.cluster || '—'), 'zone ' + esc(zoneOfCluster(c, v.cluster))],
+        ['Statut', esc(v.statut || '—'), ''],
+        ['Score', v.score != null ? v.score + ' / 100' : '—', 'évaluation s9'],
+        ['Potentiel', s3.potentielMT != null ? num(s3.potentielMT, 1) + ' MT' : '—', 'sécurisé : ' + (s3.potentielSecuriseMT != null ? num(s3.potentielSecuriseMT, 1) + ' MT' : '—')],
+        ['Producteurs', String(mesProducteurs.length), 'recensés'],
+        ['RT', String(mesRts.length), mesRts.map(function (x) { return x.nom; }).join(', ') || 'aucun'],
+        ['Acheté campagne', mt(d.byVillageBuy[v.id] || 0), ''],
+        ['Photos', String(galerie.length), 'galerie de recensement']
+      ]);
+
+    var body = '';
+    if (tab === 'overview') {
+      body = '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Synthèse</h2></div></div>' +
+        defGrid([['Village', v.village], ['Région', v.region || s1.region], ['Département', v.departement || s1.departement],
+          ['Sous-préfecture', s1.sousPrefecture], ['GPS', v.gps_lat != null ? num(v.gps_lat, 5) + ', ' + num(v.gps_lng, 5) : null],
+          ['Distance hub', s1.distanceHubRoutiere != null ? num(s1.distanceHubRoutiere, 1) + ' km (validée)' : (s1.distanceHub != null ? num(s1.distanceHub, 1) + ' km (saisie)' : null)],
+          ['Enquêteur', s1.enqueteur], ['Date de visite', date(s1.dateVisite)],
+          ['Décision', s9.decision]]) + '</section>' +
+        '<section class="card"><div class="card-head"><div><h2>Accès rapide</h2></div></div><div class="quick-grid">' +
+        '<a class="quick" href="#villages/' + encodeURIComponent(v.id) + '/producteurs"><b>Producteurs</b><span>' + mesProducteurs.length + ' recensés</span><em>Ouvrir →</em></a>' +
+        '<a class="quick" href="#villages/' + encodeURIComponent(v.id) + '/rts"><b>RT</b><span>' + mesRts.length + ' affecté(s)</span><em>Ouvrir →</em></a>' +
+        '<a class="quick" href="#villages/' + encodeURIComponent(v.id) + '/galerie"><b>Galerie</b><span>' + galerie.length + ' photo(s)</span><em>Ouvrir →</em></a>' +
+        '<a class="quick" href="#hubs/' + encodeURIComponent(v.cluster || '') + '"><b>Cluster</b><span>' + esc(v.cluster || '—') + '</span><em>Ouvrir →</em></a>' +
+        '</div></section></div>';
+    } else if (tab === 'identification') {
+      body = '<section class="card">' + defGrid([['Village', s1.village || v.village], ['Cluster', s1.cluster || v.cluster],
+        ['Région', s1.region], ['Département', s1.departement], ['Sous-préfecture', s1.sousPrefecture],
+        ['Latitude', s1.gpsLat], ['Longitude', s1.gpsLng],
+        ['Distance hub (saisie)', s1.distanceHub != null ? num(s1.distanceHub, 1) + ' km' : null],
+        ['Distance routière validée', s1.distanceHubRoutiere != null ? num(s1.distanceHubRoutiere, 1) + ' km' : null],
+        ['Enquêteur', s1.enqueteur], ['Date de visite', date(s1.dateVisite)]]) + '</section>';
+    } else if (tab === 'organisation') {
+      body = '<section class="card">' + defGrid([
+        ['Chef de village', s2.chef && s2.chef.nom], ['Chef — téléphone', s2.chef && s2.chef.telephone],
+        ['Chef — influence', s2.chef && s2.chef.influence],
+        ['Leader communautaire', s2.leader && s2.leader.nom], ['Leader — téléphone', s2.leader && s2.leader.telephone],
+        ['Président coopérative', s2.president && s2.president.nom],
+        ['Coopérative', s2.president && s2.president.cooperative]]) + '</section>';
+    } else if (tab === 'production') {
+      body = '<section class="card">' + defGrid([
+        ['Producteurs estimés', s3.nbProducteurs], ['Production moyenne', s3.prodMoyenneKg != null ? num(s3.prodMoyenneKg) + ' kg' : null],
+        ['Potentiel', s3.potentielMT != null ? num(s3.potentielMT, 1) + ' MT' : null],
+        ['Potentiel sécurisé', s3.potentielSecuriseMT != null ? num(s3.potentielSecuriseMT, 1) + ' MT' : null],
+        ['Période forte', s3.periodeForte]]) + '</section>';
+    } else if (tab === 'concurrence') {
+      body = '<section class="card"><div class="card-head"><div><h2>Acheteurs concurrents</h2></div></div>' +
+        table(['Acheteur', 'Volume estimé'], (s4.acheteurs || []).map(function (a) {
+          return '<tr><td><b>' + esc(a.nom) + '</b></td><td>' + (a.volumeEstime != null ? num(a.volumeEstime, 1) + ' MT' : '—') + '</td></tr>';
+        })) + '</section>' +
+        '<section class="card">' + defGrid([['Dominant', s4.dominant && s4.dominant.nom],
+          ['Dominant — téléphone', s4.dominant && s4.dominant.telephone],
+          ['Commentaires', s4.dominant && s4.dominant.commentaires]]) + '</section>';
+    } else if (tab === 'accessibilite') {
+      body = '<section class="card">' + defGrid([
+        ['Type d’accès', s5.typeAcces], ['Note route', s5.noteRoute != null ? s5.noteRoute + ' / 10' : null],
+        ['Route bitumée', oui(s5.routeBitumee)], ['Piste praticable', oui(s5.pistePraticable)],
+        ['Accessible en saison des pluies', oui(s5.accessiblePluies)],
+        ['Camion 10 T', oui(s5.camion10T)], ['Camion 30 T', oui(s5.camion30T)]]) + '</section>';
+    } else if (tab === 'paiement') {
+      var res = s6.reseau || {}, mm = s6.mobileMoney || {};
+      body = '<section class="card">' + defGrid([
+        ['Réseau Orange', oui(res.Orange)], ['Réseau MTN', oui(res.MTN)], ['Réseau Moov', oui(res.Moov)],
+        ['Orange Money', oui(mm.OrangeMoney)], ['Wave', oui(mm.Wave)], ['MTN Money', oui(mm.MTNMoney)],
+        ['Banque', s6.banque && s6.banque.nom],
+        ['Distance banque', s6.banque && s6.banque.distance != null ? num(s6.banque.distance, 1) + ' km' : null],
+        ['Préférence', typeof s6.preference === 'string' ? s6.preference : null]]) + '</section>';
+    } else if (tab === 'rts') {
+      body = '<section class="card"><div class="card-head"><div><h2>RT affectés</h2></div></div>' +
+        table(['RT', 'Téléphone', 'Statut', 'Producteurs', 'Achats'], mesRts.map(function (r) {
+          return '<tr><td>' + rtLink(r) + '</td><td>' + esc(r.telephone || '—') + '</td>' +
+            '<td>' + badge(r.statut) + '</td><td>' + (d.farmersByRt[r.id] || 0) + '</td>' +
+            '<td>' + mt(d.byRtBuy[r.id] || 0) + '</td></tr>';
+        })) + '</section>' +
+        '<section class="card"><div class="card-head"><div><h2>Candidats RT du recensement</h2></div></div>' +
+        table(['Nom', 'Téléphone', 'Activité', 'Réputation', 'Équipement'], (s7.candidats || []).map(function (x) {
+          return '<tr><td><b>' + esc(x.nom) + '</b></td><td>' + esc(x.telephone || '—') + '</td>' +
+            '<td>' + esc(x.activite || '—') + '</td><td>' + esc(x.reputation || '—') + '</td>' +
+            '<td>' + [x.smartphone && 'Smartphone', x.compteBancaire && 'Banque', x.compteWave && 'Wave']
+              .filter(Boolean).join(' · ') + '</td></tr>';
+        })) + '</section>';
+    } else if (tab === 'risques') {
+      body = '<section class="card"><div class="card-head"><div><h2>Conformité</h2></div></div>' + defGrid([
+        ['Village dans la zone du cluster', oui(s8.zoneCluster)], ['Carte pisteur', oui(s8.cartePisteur)],
+        ['Pas de conflit foncier', oui(s8.pasConflitFoncier)], ['Pas de conflit communautaire', oui(s8.pasConflitCommunautaire)],
+        ['Risques signalés', s8.risques]]) + '</section>' +
+        '<section class="card"><div class="card-head"><div><h2>Évaluation</h2></div></div>' + defGrid([
+          ['Potentiel', s9.potentiel20 != null ? s9.potentiel20 + ' / 20' : null],
+          ['Route', s9.route20 != null ? s9.route20 + ' / 20' : null],
+          ['Disponibilité RT', s9.dispoRT20 != null ? s9.dispoRT20 + ' / 20' : null],
+          ['Risque concurrentiel', s9.risqueConcurrentiel20 != null ? s9.risqueConcurrentiel20 + ' / 20' : null],
+          ['Faisabilité paiement', s9.faisabilitePaiement20 != null ? s9.faisabilitePaiement20 + ' / 20' : null],
+          ['Score', v.score != null ? v.score + ' / 100' : null], ['Décision', s9.decision]]) + '</section>';
+    } else if (tab === 'producteurs') {
+      body = '<section class="card">' + table(['Producteur', 'Téléphone', 'RT', 'Statut', 'Dernier achat'],
+        mesProducteurs.map(function (f) {
+          var r = c.rm[f.rt_id];
+          return '<tr><td>' + farmerLink(f) + '</td><td>' + esc(f.telephone || '—') + '</td>' +
+            '<td>' + (r ? rtLink(r) : '—') + '</td><td>' + badge(f.operational_status || 'Identifié') + '</td>' +
+            '<td>' + date(f.last_purchase_date) + '</td></tr>';
+        })) + '</section>';
+    } else if (tab === 'galerie') {
+      body = '<div class="notice info">Photos de recensement — recommandées, jamais bloquantes. ' +
+        'Prise directe à l’appareil photo sur mobile.</div>' +
+        (canEditTerrain() ? '<div class="ops-actions" style="margin-bottom:12px">' +
+          '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addVillagePhoto(\'' + esc(v.id) + '\')">📷 Prendre une photo</button>' +
+          '</div><div id="villageGalMsg"></div>' : '') +
+        (galerie.length ? '<div class="ops-gallery">' + galerie.map(function (g, i) {
+          return '<figure class="ops-gallery-item">' +
+            '<a href="' + esc(villagePhotoUrl(g.path)) + '" target="_blank" rel="noopener">' +
+            '<img loading="lazy" alt="' + esc(g.legende || g.categorie || 'Photo du village') + '" src="' + esc(villagePhotoUrl(g.path)) + '"></a>' +
+            '<figcaption><b>' + esc(g.categorie || 'Autre') + '</b><br>' + esc(g.legende || '') +
+            '<br><span class="muted">' + date(g.date) + (g.agent ? ' · ' + esc(g.agent) : '') + '</span>' +
+            (canEditTerrain() ? '<br><button class="btn secondary" type="button" onclick="ANAGROCI_FB.archiveVillagePhoto(\'' + esc(v.id) + '\',' + i + ')">Archiver</button>' : '') +
+            '</figcaption></figure>';
+        }).join('') + '</div>' : empty('Aucune photo pour ce village — ajoutez la première.'));
+    } else if (tab === 'historique') {
+      var evts = [];
+      if (vd.createdAt) evts.push([vd.createdAt, 'Recensement du village', vd.createdBy || '—']);
+      if (vd.updatedAt) evts.push([vd.updatedAt, 'Fiche modifiée', vd.updatedBy || '—']);
+      (vd.galerie || []).forEach(function (g) { evts.push([g.date, 'Photo ajoutée : ' + (g.categorie || 'Autre'), g.agent || '—']); });
+      evts.sort(function (a, b) { return new Date(b[0] || 0) - new Date(a[0] || 0); });
+      body = '<section class="card">' + table(['Date', 'Événement', 'Par'], evts.map(function (e) {
+        return '<tr><td>' + date(e[0]) + '</td><td>' + esc(e[1]) + '</td><td>' + esc(e[2]) + '</td></tr>';
+      })) + '</section>';
+    }
+
+    paint(headHtml + tabsBar() + body);
+  });
+}
+
 /* ------------------------------------------------------------------- routeur */
 
 function paint(html) { if (root) root.innerHTML = html; }
@@ -2312,7 +3120,8 @@ var ROUTES = {
   purchases: function (p) { return renderPurchases(p[1], p[2]); },
   census: function () { return renderCensus(); },
   farmers: function (p) { return renderFarmers(p[1], p[2]); },
-  rt: function (p) { return renderRt(p[1]); },
+  rt: function (p) { return renderRt(p[1], p[2]); },
+  villages: function (p) { return renderVillageFiche(p[1], p[2]); },
   hubs: function (p) { return renderHubs(p[1]); },
   bags: function (p) { return renderBags(p[1]); },
   cash: function () { return renderCash(); },
@@ -2369,6 +3178,9 @@ global.ANAGROCI_FB = {
   openBuyForm: openBuyForm,
   openBagRequest: openBagRequest,
   rtToFarmer: rtToFarmer,
+  addRtDoc: addRtDoc,
+  addVillagePhoto: addVillagePhoto,
+  archiveVillagePhoto: archiveVillagePhoto,
   closeForm: closeForm,
   fillGps: fillGps,
   addAcheteur: addAcheteur,
