@@ -28,3 +28,13 @@
 @media(max-width:380px){
   .ops-def-grid{grid-template-columns:1fr}
 }
+
+/* FIELD BUYING — carte opérationnelle et légende. */
+.ops-map{height:520px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:var(--wash,#F6F8F6)}
+.ops-map .leaflet-popup-content{font-family:var(--font-body,inherit);font-size:12px;line-height:1.55}
+.ops-dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle}
+.ops-dot.ok{background:#1F9D6E}
+.ops-dot.warn{background:#EE9E00}
+.ops-dot.danger{background:#C0392B}
+@media(max-width:820px){.ops-map{height:380px}}
+@media(max-width:520px){.ops-map{height:300px}}

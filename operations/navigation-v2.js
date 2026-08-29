@@ -3,7 +3,7 @@
 'use strict';
 var page=(document.body&&document.body.dataset&&document.body.dataset.workspace)||'';
 var defs={
- field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['farmers','Farmer Registry'],['rt','RT & Villages'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['logistics','Cartographie & Logistique'],['sustainability','Sustainability'],['traceability','Traceability']]},
+ field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['rt','RT & Villages'],['hubs','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability']]},
  lba:{title:'LBA PURCHASE',routes:[['overview','Vue d’ensemble'],['registry','LBA Registry'],['purchases','Achats RCN'],['limits','Limites de financement'],['financing','Financements'],['cycles','Cycles de financement'],['deliveries','Livraisons RCN'],['bags','Gestion sacherie'],['balances','Balances'],['aging','Aging & Alertes'],['performance','Performance'],['documents','Documents'],['audit','Audit']]},
  warehouse:{title:'WAREHOUSE OPERATIONS',routes:[['overview','Overview'],['inbound','Inbound'],['quality','Quality'],['lots','RCN Lots'],['bins','Stock & BIN'],['drying','Drying / Sorting'],['bags','Bag Management'],['inventory','Inventory'],['audit','Audit']]},
  transfer:{title:'STOCK TRANSFER',routes:[['overview','Overview'],['requests','Requests'],['ready','Ready to Load'],['transit','In Transit'],['arrivals','Arrivals'],['reconciliation','Reconciliation'],['audit','Audit']]},
@@ -29,7 +29,8 @@ function renderNav(){
 }
 function harmonizeActions(){
  document.querySelectorAll('.ops-actions a[href*="rcntrace/index.html"],.ops-actions a[href*="terrain/traceability.html"]').forEach(function(a){
-   if(page==='lba')a.href='#'+(a.textContent.toLowerCase().indexOf('sacher')>=0?'bags':'registry');
+   if(page==='field')a.href='#traceability';
+   else if(page==='lba')a.href='#'+(a.textContent.toLowerCase().indexOf('sacher')>=0?'bags':'registry');
    else if(page==='warehouse')a.href='#inbound';
    else if(page==='transfer')a.href='#requests';
    else if(page==='factory')a.href='#reception';
