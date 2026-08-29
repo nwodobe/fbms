@@ -11,6 +11,7 @@ on:
       - 'tests/field-buying-profiles-static.mjs'
       - 'tests/field-buying-prefilled-edit-static.mjs'
       - 'tests/field-buying-performance-static.mjs'
+      - 'tests/field-buying-sex-compat.mjs'
 
 permissions:
   contents: read
@@ -32,11 +33,14 @@ jobs:
         run: node tests/field-buying-prefilled-edit-static.mjs
       - name: Assertions performance FIELD BUYING
         run: node tests/field-buying-performance-static.mjs
+      - name: Assertions sexe Producteur
+        run: node tests/field-buying-sex-compat.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
           node --check operations/navigation-v2.js
           node --check operations/field-buying-performance-bootstrap.js
+          node --check operations/field-buying-sex-compat.js
           node --check operations/field-buying.js
           node --check operations/field-buying-profiles.js
           node --check operations/field-buying-prefilled-edit.js
