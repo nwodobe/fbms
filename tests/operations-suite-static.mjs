@@ -132,6 +132,23 @@ assert.ok(lba.includes('requestIdleCallback'), 'idle preloading missing');
 assert.ok(!nav.includes('.ops-route-actions') || /ops-pagehead \.ops-actions/.test(nav),
   'action overflow must not collapse route-level actions');
 
+// Fiches 360° : securite des documents et regles d'edition.
+assert.ok(/villages:\s*function/.test(fb), 'village fiche route missing');
+assert.ok(fb.includes('renderRtFiche') && fb.includes('renderVillageFiche'), 'fiche 360 renderers missing');
+// Pieces d'identite : bucket prive + URL signee, JAMAIS d'URL publique ni de base64 en table.
+assert.ok(fb.includes("BUCKET_PRIVE = 'terrain-preuves'"), 'private bucket missing');
+assert.ok(fb.includes('createSignedUrl'), 'signed URL access missing');
+assert.ok(!/getPublicUrl[\s\S]{0,40}BUCKET_PRIVE|BUCKET_PRIVE[\s\S]{0,120}getPublicUrl/.test(fb),
+  'private bucket must never expose a public URL');
+assert.ok(!/toDataURL|readAsDataURL/.test(fb), 'images must never be stored as base64');
+assert.ok(fb.includes("from('preuves')"), 'documents must reuse the preuves engine');
+assert.ok(fb.includes("from('audit_log')"), 'changes must reuse the central audit log');
+// Edition : jamais de re-creation.
+assert.ok(/update\(row\)\.eq\('id', editRow\.id\)/.test(fb), 'edits must update the same row by id');
+assert.ok(fb.includes('p_exclude_id: editRow ? editRow.id : null'), 'duplicate check must exclude self on edit');
+// Camera mobile.
+assert.ok(fb.includes("setAttribute('capture', 'environment')"), 'mobile camera capture missing');
+
 // Aucun vocabulaire technique dans l'interface visible du module Operations.
 for (const file of ['lba-purchase.html', 'reports.html', 'traceability.html',
                     'lba-purchase.js', 'workspace.js', 'traceability-search.js']) {
