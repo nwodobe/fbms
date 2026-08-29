@@ -7,10 +7,13 @@ on:
       - 'index.html'
       - 'operations/**'
       - 'supabase/20260829_field_buying_sensitive_media.sql'
+      - 'supabase/20260829_sacherie_campaign_p0.sql'
+      - 'supabase/20260829_sacherie_campaign_p0_hardening.sql'
       - 'tests/operations-suite-static.mjs'
       - 'tests/field-buying-profiles-static.mjs'
       - 'tests/field-buying-prefilled-edit-static.mjs'
       - 'tests/field-buying-performance-static.mjs'
+      - 'tests/sacherie-campaign-p0-static.mjs'
 
 permissions:
   contents: read
@@ -32,6 +35,8 @@ jobs:
         run: node tests/field-buying-prefilled-edit-static.mjs
       - name: Assertions performance FIELD BUYING
         run: node tests/field-buying-performance-static.mjs
+      - name: Assertions Sacherie campagne P0
+        run: node tests/sacherie-campaign-p0-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
@@ -40,6 +45,7 @@ jobs:
           node --check operations/field-buying.js
           node --check operations/field-buying-profiles.js
           node --check operations/field-buying-prefilled-edit.js
+          node --check operations/sacherie-campaign-p0.js
           node --check operations/field-buying-v2.js
           node --check operations/lba-purchase-v2.js
           node --check operations/module-router-v2.js
