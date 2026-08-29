@@ -7,6 +7,8 @@ on:
       - 'index.html'
       - 'operations/**'
       - 'tests/operations-suite-static.mjs'
+      - 'tests/field-buying-rich-enrollment-static.mjs'
+      - 'tests/field-buying-rich-enrollment-e2e.mjs'
 
 permissions:
   contents: read
@@ -22,12 +24,35 @@ jobs:
           node-version: '22'
       - name: Assertions architecture métier
         run: node tests/operations-suite-static.mjs
+      - name: Assertions enrôlement FIELD BUYING enrichi
+        run: node tests/field-buying-rich-enrollment-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
           node --check operations/navigation-v2.js
+          node --check operations/field-buying.js
+          node --check operations/field-buying-rich-enrollment.js
           node --check operations/field-buying-v2.js
           node --check operations/lba-purchase-v2.js
           node --check operations/module-router-v2.js
           node --check operations/reports-export.js
           node --check operations/traceability-search.js
+          node --check tests/field-buying-rich-enrollment-e2e.mjs
+
+  field-buying-rich-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.49.1-noble@sha256:70e367e0cbf60340a5b5fd562f6247a34eb3196efab9f88a3dd56482d9fe09d2
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Installer Playwright éphémère
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+      - name: Scénarios Village → RT → Producteur → Farmer Passport → Achat
+        run: node tests/field-buying-rich-enrollment-e2e.mjs
