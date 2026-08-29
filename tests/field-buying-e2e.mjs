@@ -112,7 +112,11 @@ const DOUBLURE = `
     { path: 'v_test_2/gallery/b.jpg', legende: 'ROUTE TEST', categorie: 'Route d’accès', date: '2026-08-21', agent: 'AGENT TEST' }
   ];
   var TABLES = {
-    villages: VILLAGES, rt: RTS, farmer_passport_summary_v: FARMERS, achats: ACHATS,
+    villages: VILLAGES, rt: RTS,
+    /* Les vues LIGHT servent les mêmes lignes que les tables (la doublure
+       n'embarque pas d'images base64, la projection est donc identique). */
+    villages_light_v: VILLAGES, rt_light_v: RTS,
+    farmer_passport_summary_v: FARMERS, achats: ACHATS,
     aflp_zones: ZN, aflp_clusters: CL,
     avances: [{ id: 'av1', date: '2026-08-20', cluster: 'Brobo', rt_id: 'rt_test_2',
       rt_nom: 'RT FICTIF 2', source: 'Finance', montant: 500000, motif: 'CAMPAGNE',
@@ -583,7 +587,7 @@ async function main() {
         const fpre = await page.evaluate(() => document.getElementById('ff_nom').value);
         verifier(fpre === 'PRODUCTEUR FICTIF 2', 'S9 · formulaire producteur prérempli en édition');
         const fsexe = await page.evaluate(() => document.getElementById('ff_sexe').value);
-        verifier(fsexe === 'M', 'S9 · sexe prérempli depuis le code base M (affiché Homme)');
+        verifier(fsexe === 'M', 'S9 · sexe prérempli depuis le code base M (affiché « M · Homme »)');
         await page.click('#ff_submit');
         await page.waitForTimeout(350);
         const fEcr = await page.evaluate(() => ({
@@ -752,7 +756,7 @@ async function main() {
           await allerA(page, h);
           chrono[lib] = Date.now() - t0;
         }
-        const lectures = await page.evaluate(() => window.__lectures.filter((x) => x === 'villages' || x === 'achats').length);
+        const lectures = await page.evaluate(() => window.__lectures.filter((x) => x === 'villages_light_v' || x === 'achats').length);
         notes.push('  chronos (cache chaud) : ' + JSON.stringify(chrono));
         verifier(lectures === 0, `cache : référentiels non relus au changement de rubrique (relus ${lectures} fois)`);
         for (const [lib, ms] of Object.entries(chrono)) {

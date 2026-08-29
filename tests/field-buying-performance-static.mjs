@@ -26,6 +26,16 @@ has(/invalidate: function/, 'invalidation ciblée du cache attendue');
 has(/Promise\.all\(\[/, 'chargement parallèle attendu');
 has(/requestIdleCallback/, 'préchargement en requestIdleCallback attendu');
 
+/* Référentiels LIGHT : base() lit les vues sans images base64 héritées
+   (~21 Mo évités ; voir supabase/20260829_field_buying_light_referentials.sql).
+   Les écritures restent sur les tables (from('villages') / from('rt')). */
+has(/q\('villages_light_v'/, 'base() doit lire la vue villages_light_v');
+has(/q\('rt_light_v'/, 'base() doit lire la vue rt_light_v');
+assert.ok(!moteur.includes("q('villages',"),
+  'aucune lecture lourde q(\'villages\', … : la vue LIGHT est le référentiel');
+assert.ok(!moteur.includes("q('rt',"),
+  'aucune lecture lourde q(\'rt\', … : la vue LIGHT est le référentiel');
+
 /* Un seul moteur chargé par la page. */
 const scripts = (html.match(/field-buying[^"']*\.js/g) || []);
 assert.deepEqual([...new Set(scripts)].map((s) => s.replace(/\?.*$/, '')),

@@ -73,7 +73,7 @@ function sexeCode(v) {
 }
 function sexeLabel(v) {
   var c = sexeCode(v);
-  return c === 'M' ? 'Homme' : c === 'F' ? 'Femme' : (v || '');
+  return c === 'M' ? 'M · Homme' : c === 'F' ? 'F · Femme' : (v || '');
 }
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
@@ -201,8 +201,12 @@ function q(tableName, cols, limit, mod) {
 function base() {
   return FBStore.get('base', function () {
     return Promise.all([
-      q('villages', 'id,village,region,departement,cluster,cluster_code,statut,score,gps_lat,gps_lng,farmer_code_prefix,data,deleted', 500),
-      q('rt', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
+      /* Vues LIGHT (security_invoker) : mêmes lignes, data sans les images
+         base64 héritées du recensement (~21 Mo évités au chargement). Les
+         triggers trg_fb_preserve_media_* conservent ces clés côté serveur
+         quand un formulaire réécrit data sans elles. */
+      q('villages_light_v', 'id,village,region,departement,cluster,cluster_code,statut,score,gps_lat,gps_lng,farmer_code_prefix,data,deleted', 500),
+      q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
       q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
       q('achats', 'id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000),
       q('aflp_zones', 'code,label,region,active', 20),
@@ -1061,7 +1065,7 @@ function openFarmerForm(prefill, editId) {
         field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
         field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
         field('RT référent', '<select id="ff_rt" data-c><option value="">Aucun / à rattacher</option></select>') +
-        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select>') +
+        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">M · Homme</option><option value="F">F · Femme</option></select>') +
         field('Année de naissance', '<input id="ff_annee" data-c type="number" min="1930" max="' + anneeMax + '" placeholder="1930 – ' + anneeMax + '">') +
         field('Téléphone', '<input id="ff_tel" data-c inputmode="tel" placeholder="10 chiffres">') +
         field('Titulaire du téléphone', '<select id="ff_teltit" data-c><option value="">—</option><option>Propre</option><option>Famille</option><option>Voisin</option><option>RT</option></select>') +

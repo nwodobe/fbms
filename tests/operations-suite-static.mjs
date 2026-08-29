@@ -52,7 +52,7 @@ for (const label of ['Recensement', 'Producteurs', 'Hubs & Cartographie', 'Sache
 }
 
 // Reutilisation des moteurs existants — jamais de deuxieme base.
-for (const t of ["q('villages'", "from('rt')", "from('producteurs')", "from('achats')",
+for (const t of ["q('villages_light_v'", "q('rt_light_v'", "from('villages')", "from('rt')", "from('producteurs')", "from('achats')",
                  "q('avances'", "q('reconciliations'", "from('ops_bag_requests')",
                  "rpc('farmer_possible_duplicates'", "rpc('field_traceability_search'",
                  'farmer_passport_summary_v', 'sacherie_ct_rt_stock', 'sacherie_ct_cluster_stock',

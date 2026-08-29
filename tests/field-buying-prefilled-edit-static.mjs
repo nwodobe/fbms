@@ -32,7 +32,8 @@ has(/p_exclude_id: editRow \? editRow\.id : null/, 'anti-doublon Producteur avec
 
 /* Le sexe fait l'aller-retour avec le format base (M/F, trigger serveur). */
 has(/function sexeCode\(/, 'normalisation sexe M/F requise');
-has(/<option value="M">Homme<\/option>/, 'options sexe au format base');
+has(/<option value="M">M · Homme<\/option>/, 'options sexe au format base, libellé explicite');
+has(/'M · Homme'/, 'sexeLabel doit afficher le code et le libellé');
 
 for (const forbidden of ['rt_profiles_v2', 'village_profiles_v2', 'farmer_profiles_v2']) {
   assert.ok(!moteur.includes(forbidden), `aucun silo ${forbidden}`);
