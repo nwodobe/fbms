@@ -21,7 +21,7 @@ function norm(v) {
   return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
-function n(v) { var x = Number(v); return isFinite(x) ? x : null; }
+function n(v) { if (v == null || String(v).trim() === '') return null; var x = Number(v); return isFinite(x) ? x : null; }
 function val(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
 function checked(id) { var e = document.getElementById(id); return !!(e && e.checked); }
 function checks(name) {
