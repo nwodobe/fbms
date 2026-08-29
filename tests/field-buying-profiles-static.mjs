@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+const js = fs.readFileSync('operations/field-buying-profiles.js','utf8');
+const html = fs.readFileSync('operations/field-buying.html','utf8');
+const sql = fs.readFileSync('supabase/20260829_field_buying_sensitive_media.sql','utf8');
+function has(x,msg){ if(!x) throw new Error(msg); }
+has(html.includes('field-buying-profiles.js'),'profile extension must be loaded');
+has(html.includes('field-buying-profiles.css'),'profile stylesheet must be loaded');
+has(js.includes("'#rt/'") || js.includes("'#rt/"),'RT detail routes required');
+has(js.includes("'#villages/'") || js.includes("'#villages/"),'Village detail routes required');
+has(js.includes("'#farmers/'") || js.includes("'#farmers/"),'Farmer links required');
+has(js.includes('Enrôler comme producteur'),'RT -> Producteur action required');
+has(js.includes("ID_FRONT") && js.includes("ID_BACK"),'RT identity recto/verso required');
+has(js.includes("capture=\"environment\"") || js.includes("capture=\\\"environment\\\""),'mobile camera capture required');
+has(js.includes("farmer_buying_documents"),'canonical document registry required');
+has(js.includes("field-buying-sensitive"),'sensitive bucket required');
+has(js.includes('createSignedUrl'),'identity docs must use signed URLs');
+has(!js.includes('getPublicUrl(path).data.publicUrl') || js.includes("sensitive?'':publicUrl(path)"),'sensitive upload must never return a public URL');
+has(sql.includes("public = false") || sql.includes("false,"),'sensitive bucket must be private');
+has(sql.includes('as restrictive'),'sensitive metadata must have restrictive read policy');
+has(sql.includes("est_bm()") && sql.includes("Administrateur"),'identity read restricted to BM/Admin');
+has(js.includes("VILLAGE") && js.includes("GALLERY"),'Village gallery required');
+has(js.includes('editRT') && js.includes('editVillage'),'entity edit actions required');
+console.log('FIELD BUYING profiles/media static checks: OK');
