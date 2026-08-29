@@ -107,6 +107,13 @@ const DOUBLURE = `
     zone_code: 'GBEKE_1', zone_label: 'GBEKE 1', operational_status: 'Enrôlé', passport_stage: 'BASIC',
     passport_completion: 30, risk_profile: 'LOW', possible_duplicate: false, review_required: false,
     plot_count: 0, gps_mapped_count: 0, last_purchase_date: null, last_purchase_kg: 0, deleted: false });
+  /* Candidat RT dont les images ont été migrées : chemins de stockage privés,
+     plus aucun base64 dans le JSONB (clés photo/pieceRecto/pieceVerso à null). */
+  VILLAGES[1].data.s7 = { candidats: [{ nom: 'CANDIDAT TEST', telephone: '0700000099',
+    activite: 'Producteur', reputation: 'Bonne', smartphone: true,
+    photo: null, pieceRecto: null, pieceVerso: null,
+    photoPath: 'migration/aaaa1111.jpg', pieceRectoPath: 'migration/bbbb2222.jpg',
+    pieceVersoPath: 'migration/cccc3333.jpg' }] };
   VILLAGES[1].data.galerie = [
     { path: 'v_test_2/gallery/a.jpg', legende: 'ENTREE TEST', categorie: 'Entrée du village', date: '2026-08-20', agent: 'AGENT TEST' },
     { path: 'v_test_2/gallery/b.jpg', legende: 'ROUTE TEST', categorie: 'Route d’accès', date: '2026-08-21', agent: 'AGENT TEST' }
@@ -611,6 +618,19 @@ async function main() {
         }));
         verifier(/VILLAGE FICTIF 2/.test(ficheV.titre) && ficheV.tabs === 12,
           `S10 · fiche Village : 12 onglets (vu ${ficheV.tabs})`);
+
+        // S10b — candidat RT migré : vignette servie par URL signée, jamais publique
+        await allerA(page, '#villages/v_test_2/rts');
+        await page.waitForTimeout(400);
+        const cdMig = await page.evaluate(() => ({
+          img: (document.querySelector('#cdPhoto0 img') || {}).src || '',
+          piece: /recto ✓/.test(document.body.textContent) && /verso ✓/.test(document.body.textContent),
+          pub: window.__lectures.filter((x) => x === 'publicurl:terrain-preuves').length
+        }));
+        verifier(/signed\.local\/terrain-preuves\/migration\//.test(cdMig.img),
+          'S10b · photo du candidat migrée servie par URL signée (bucket privé)');
+        verifier(cdMig.piece, 'S10b · pièce du candidat signalée recto ✓ / verso ✓');
+        verifier(cdMig.pub === 0, 'S10b · aucune URL publique demandée pour le bucket privé');
 
         // S11 — Modifier le village : formulaire s1…s9 prérempli, update même ligne
         await page.click('.ops-route-actions button.btn.primary');
