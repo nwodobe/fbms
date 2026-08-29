@@ -7,6 +7,7 @@ on:
       - 'index.html'
       - 'operations/**'
       - 'tests/operations-suite-static.mjs'
+      - 'tests/field-buying-rich-enrollment-static.mjs'
 
 permissions:
   contents: read
@@ -22,10 +23,14 @@ jobs:
           node-version: '22'
       - name: Assertions architecture métier
         run: node tests/operations-suite-static.mjs
+      - name: Assertions enrôlement FIELD BUYING enrichi
+        run: node tests/field-buying-rich-enrollment-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
           node --check operations/navigation-v2.js
+          node --check operations/field-buying.js
+          node --check operations/field-buying-rich-enrollment.js
           node --check operations/field-buying-v2.js
           node --check operations/lba-purchase-v2.js
           node --check operations/module-router-v2.js
