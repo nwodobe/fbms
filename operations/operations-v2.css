@@ -69,6 +69,9 @@
 .ops-fiche-id p{margin:3px 0;font-size:12px}
 .ops-avatar{width:86px;height:86px;border-radius:14px;object-fit:cover;border:2px solid var(--line);flex:0 0 auto}
 .ops-avatar-empty{display:flex;align-items:center;justify-content:center;font-size:34px;background:var(--wash,#F6F8F6);color:var(--muted)}
+.ops-avatar-mini{display:inline-flex;width:44px;height:44px;border-radius:10px;overflow:hidden}
+.ops-avatar-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.ops-avatar-mini .ops-avatar-empty{width:100%;height:100%;font-size:20px}
 .ops-doc-box{margin:10px 0;min-height:44px}
 .ops-doc-img{max-width:100%;max-height:320px;border-radius:10px;border:1px solid var(--line)}
 .ops-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}

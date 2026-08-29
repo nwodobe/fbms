@@ -3058,10 +3058,17 @@ function renderVillageFiche(vid, tab) {
             '<td>' + badge(r.statut) + '</td><td>' + (d.farmersByRt[r.id] || 0) + '</td>' +
             '<td>' + mt(d.byRtBuy[r.id] || 0) + '</td></tr>';
         })) + '</section>' +
-        '<section class="card"><div class="card-head"><div><h2>Candidats RT du recensement</h2></div></div>' +
-        table(['Nom', 'Téléphone', 'Activité', 'Réputation', 'Équipement'], (s7.candidats || []).map(function (x) {
-          return '<tr><td><b>' + esc(x.nom) + '</b></td><td>' + esc(x.telephone || '—') + '</td>' +
+        '<section class="card"><div class="card-head"><div><h2>Candidats RT du recensement</h2>' +
+        '<p class="muted">Photos et pièces migrées vers le stockage privé — servies par URL signée temporaire.</p></div></div>' +
+        table(['Photo', 'Nom', 'Téléphone', 'Activité', 'Réputation', 'Pièce', 'Équipement'], (s7.candidats || []).map(function (x, ci) {
+          /* Depuis la migration, les images vivent sous photoPath / pieceRectoPath /
+             pieceVersoPath (bucket privé) — plus jamais en base64 dans le JSONB. */
+          return '<tr><td>' + (x.photoPath
+              ? '<span class="ops-avatar ops-avatar-mini" id="cdPhoto' + ci + '"><span class="ops-avatar-empty">👤</span></span>'
+              : '<span class="ops-avatar ops-avatar-mini"><span class="ops-avatar-empty">👤</span></span>') + '</td>' +
+            '<td><b>' + esc(x.nom) + '</b></td><td>' + esc(x.telephone || '—') + '</td>' +
             '<td>' + esc(x.activite || '—') + '</td><td>' + esc(x.reputation || '—') + '</td>' +
+            '<td>' + [x.pieceRectoPath && 'recto ✓', x.pieceVersoPath && 'verso ✓'].filter(Boolean).join(' · ') + '</td>' +
             '<td>' + [x.smartphone && 'Smartphone', x.compteBancaire && 'Banque', x.compteWave && 'Wave']
               .filter(Boolean).join(' · ') + '</td></tr>';
         })) + '</section>';
@@ -3112,6 +3119,15 @@ function renderVillageFiche(vid, tab) {
     }
 
     paint(headHtml + tabsBar() + body);
+    if (tab === 'rts') {
+      (s7.candidats || []).forEach(function (x, ci) {
+        if (!x.photoPath) return;
+        signedUrl(x.photoPath).then(function (u) {
+          var slot = document.getElementById('cdPhoto' + ci);
+          if (u && slot) slot.innerHTML = '<img loading="lazy" alt="Photo du candidat" src="' + esc(u) + '">';
+        });
+      });
+    }
   });
 }
 
