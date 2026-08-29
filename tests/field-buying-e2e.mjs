@@ -308,35 +308,170 @@ async function main() {
       }
 
       if (largeur === 1440) {
-        // 4. Formulaire village
+      async function ouvrirSections(formId) {
+        await page.evaluate((f) => {
+          document.querySelectorAll('#' + f + ' details.ops-sec').forEach((d) => { d.open = true; });
+        }, formId);
+      }
+        // SCÉNARIOS 1-2 — Village : recensement complet s1…s9, minimum opérationnel
         await allerA(page, '#census');
         await page.evaluate(() => { ANAGROCI_FB.openVillageForm(); });
         await page.waitForSelector('#villageForm', { timeout: 15000 });
         const vf = await page.evaluate(() => ({
-          champs: ['vf_nom', 'vf_cluster', 'vf_region', 'vf_dept', 'vf_lat', 'vf_lng', 'vf_pot', 'vf_route', 'vf_camion'].filter((i) => document.getElementById(i)).length,
-          clusters: document.querySelectorAll('#vf_cluster option').length
+          sections: document.querySelectorAll('#villageForm details.ops-sec').length,
+          barre: !!document.getElementById('villageForm_fill'),
+          requis: [...document.querySelectorAll('#villageForm [required]')].map((x) => x.id),
+          clusters: document.querySelectorAll('#vf_cluster option').length,
+          champsRiches: ['vf_sp', 'vf_periode', 'vf_dom_nom', 'vf_noteroute', 'vf_banque', 'vf_chef',
+                         'vc1_nom', 'vf_s9_pot', 'vf_decision'].filter((i) => document.getElementById(i)).length
         }));
-        verifier(vf.champs === 9, `formulaire village : 9 champs clés (vu ${vf.champs})`);
-        verifier(vf.clusters >= 6, `formulaire village : clusters AFLP proposés (${vf.clusters - 1})`);
+        verifier(vf.sections >= 9, `village : ${vf.sections} sections de recensement (≥ 9)`);
+        verifier(vf.barre, 'village : barre de complétude affichée');
+        verifier(vf.requis.length === 2 && vf.requis.includes('vf_nom') && vf.requis.includes('vf_cluster'),
+          'village : minimum opérationnel = nom + cluster seulement');
+        verifier(vf.champsRiches === 9, `village : champs riches présents dans toutes les sections (${vf.champsRiches}/9)`);
+        await ouvrirSections('villageForm');
+        // dépendance région → département (référentiel officiel)
+        await page.selectOption('#vf_region', 'Gbêkê');
+        const depts = await page.evaluate(() => [...document.querySelectorAll('#vf_dept option')].map((o) => o.value));
+        verifier(depts.includes('Bouaké') && depts.includes('Sakassou'), 'village : départements dérivés de la région');
+        // score s9 = somme des 5 critères
+        for (const [id, v] of [['vf_s9_pot', '15'], ['vf_s9_route', '10'], ['vf_s9_rt', '20'], ['vf_s9_conc', '5'], ['vf_s9_pay', '10']]) {
+          await page.selectOption('#' + id, v);
+        }
+        const score = await page.evaluate(() => document.getElementById('vf_score').value);
+        verifier(score === '60 / 100', `village : score s9 calculé (vu « ${score} »)`);
+        // complétude progresse
+        await page.fill('#vf_nom', 'VILLAGE NEUF TEST');
+        await page.selectOption('#vf_cluster', 'Brobo');
+        const pctV = await page.evaluate(() => document.getElementById('villageForm_pct').textContent);
+        verifier(/\d+ %/.test(pctV), `village : complétude mesurée (« ${pctV} »)`);
+        // anti-doublon
         await page.fill('#vf_nom', 'VILLAGE FICTIF 3');
         await page.waitForTimeout(120);
         const dupV = await page.evaluate(() => (document.getElementById('vf_dup') || {}).innerHTML || '');
-        verifier(/existe déjà/i.test(dupV), 'formulaire village : alerte anti-doublon sur nom existant');
+        verifier(/existe déjà/i.test(dupV), 'village : alerte anti-doublon sur nom existant');
+        // SCÉNARIO 2 : création avec seulement le minimum opérationnel
+        await page.fill('#vf_nom', 'VILLAGE MINIMUM TEST');
+        await page.click('#vf_submit');
+        await page.waitForTimeout(250);
+        const insV = await page.evaluate(() => window.__lectures.filter((x) => x === 'insert:villages').length);
+        verifier(insV === 1, 'village : création au minimum opérationnel acceptée (insert villages)');
+        await page.waitForTimeout(1300);
+
+        // SCÉNARIOS 3-4 — RT : dossier complet, producteur lui-même
+        await allerA(page, '#census');
+        await page.evaluate(() => { ANAGROCI_FB.openRtForm(); });
+        await page.waitForSelector('#rtForm', { timeout: 15000 });
+        const rf = await page.evaluate(() => ({
+          sections: document.querySelectorAll('#rtForm details.ops-sec').length,
+          estProd: !!document.getElementById('rf_prod'),
+          capacite: ['rf_exp', 'rf_nbprod', 'rf_vol', 'rf_zone_inf', 'rf_dispo'].filter((i) => document.getElementById(i)).length,
+          evaluation: ['rf_rep', 'rf_score', 'rf_notes'].filter((i) => document.getElementById(i)).length
+        }));
+        verifier(rf.sections >= 5, `RT : ${rf.sections} sections du dossier (≥ 5)`);
+        verifier(rf.estProd, 'RT : champ « Producteur lui-même » présent');
+        verifier(rf.capacite === 5 && rf.evaluation === 3, 'RT : capacité et évaluation complètes');
+        await ouvrirSections('rtForm');
+        await page.fill('#rf_nom', 'RT NEUF TEST');
+        await page.fill('#rf_tel', '0701020304');
+        await page.selectOption('#rf_village', 'v_test_2');
+        await page.selectOption('#rf_prod', 'OUI');
+        await page.click('#rf_submit');
+        await page.waitForTimeout(250);
+        const insR = await page.evaluate(() => window.__lectures.filter((x) => x === 'insert:rt').length);
+        verifier(insR === 1, 'RT : création acceptée (insert rt)');
+        const msgR = await page.evaluate(() => document.getElementById('rf_msg').textContent);
+        verifier(/enrôlé comme producteur/i.test(msgR), 'RT producteur : passerelle annoncée à la création');
+        await page.waitForTimeout(1300);
+
+        // SCÉNARIO 5 — RT → Producteur : préremplissage
+        await allerA(page, '#rt/rts');
+        const btnEnroler = await page.evaluate(() =>
+          [...document.querySelectorAll('#rtBody button')].some((b) => /Enrôler comme producteur/.test(b.textContent)));
+        verifier(btnEnroler, 'RT → Producteur : bouton « Enrôler comme producteur » visible sur les RT producteurs');
+        await page.evaluate(() => { ANAGROCI_FB.rtToFarmer('rt_test_3'); });
+        await page.waitForSelector('#farmerForm', { timeout: 15000 });
+        const pre = await page.evaluate(() => ({
+          nom: document.getElementById('ff_nom').value,
+          tel: document.getElementById('ff_tel').value,
+          village: document.getElementById('ff_village').value
+        }));
+        verifier(pre.nom === 'RT FICTIF 3' && pre.village === 'v_test_3' && pre.tel.length > 0,
+          'RT → Producteur : identité et village prérenseignés depuis la fiche RT');
         await page.evaluate(() => ANAGROCI_FB.closeForm());
 
-        // 5. Formulaire producteur : parcelle jamais exigée
+        // SCÉNARIOS 6-8 — Producteur : quick create, parcelle facultative, doublon
         await page.evaluate(() => { ANAGROCI_FB.openFarmerForm(); });
         await page.waitForSelector('#farmerForm', { timeout: 15000 });
         const ff = await page.evaluate(() => ({
+          sections: document.querySelectorAll('#farmerForm details.ops-sec').length,
           requis: [...document.querySelectorAll('#farmerForm [required]')].map((x) => x.id),
-          parcelle: /parcelle à compléter après campagne/i.test(document.getElementById('fbFormHost').textContent)
+          barre: !!document.getElementById('farmerForm_fill'),
+          parcelle: /parcelle à compléter après campagne/i.test(document.getElementById('fbFormHost').textContent),
+          agricole: ['ff_ha', 'ff_arbres', 'ff_prodprec', 'ff_pot27', 'ff_eng'].filter((i) => document.getElementById(i)).length,
+          parcelleChamps: ['ff_plot_nom', 'ff_plot_ha', 'ff_plot_lat', 'ff_plot_lng'].filter((i) => document.getElementById(i)).length
         }));
+        verifier(ff.sections >= 6, `producteur : ${ff.sections} sections du passeport (≥ 6)`);
         verifier(ff.requis.length === 2 && ff.requis.includes('ff_nom') && ff.requis.includes('ff_village'),
-          'formulaire producteur : seuls nom et village sont requis (parcelle jamais bloquante)');
-        verifier(ff.parcelle, 'formulaire producteur : mention « parcelle à compléter après campagne »');
-        await page.evaluate(() => ANAGROCI_FB.closeForm());
+          'producteur : quick create = nom + village seulement (règle 2027)');
+        verifier(ff.barre && ff.parcelle, 'producteur : barre de complétude + mention parcelle après campagne');
+        verifier(ff.agricole === 5 && ff.parcelleChamps === 4, 'producteur : profil agricole et parcelle facultative présents');
+        // SCÉNARIO 8 : doublon local signalé
+        await page.fill('#ff_nom', 'PRODUCTEUR FICTIF 3');
+        await page.waitForTimeout(120);
+        const dupF = await page.evaluate(() => (document.getElementById('ff_dup') || {}).innerHTML || '');
+        verifier(/existe déjà/i.test(dupF), 'producteur : alerte anti-doublon sur nom existant');
+        // SCÉNARIO 6 : création SANS parcelle — doit réussir
+        await page.fill('#ff_nom', 'PRODUCTEUR SANS PARCELLE');
+        await page.selectOption('#ff_village', 'v_test_2');
+        await page.click('#ff_submit');
+        await page.waitForTimeout(350);
+        let ins = await page.evaluate(() => ({
+          prod: window.__lectures.filter((x) => x === 'insert:producteurs').length,
+          plot: window.__lectures.filter((x) => x === 'insert:farmer_plots').length
+        }));
+        verifier(ins.prod === 1 && ins.plot === 0, 'producteur sans parcelle : créé, aucune parcelle exigée');
+        await page.waitForTimeout(1400);
+        await allerA(page, '#census');
+        // SCÉNARIO 7 : création AVEC parcelle + GPS → farmer_plots alimenté
+        await page.evaluate(() => { ANAGROCI_FB.openFarmerForm(); });
+        await page.waitForSelector('#farmerForm', { timeout: 15000 });
+        await ouvrirSections('farmerForm');
+        await page.fill('#ff_nom', 'PRODUCTEUR AVEC PARCELLE');
+        await page.selectOption('#ff_village', 'v_test_4');
+        await page.fill('#ff_plot_nom', 'PARCELLE TEST');
+        await page.fill('#ff_plot_ha', '2.5');
+        await page.fill('#ff_plot_lat', '7.51');
+        await page.fill('#ff_plot_lng', '-5.11');
+        await page.click('#ff_submit');
+        await page.waitForTimeout(350);
+        ins = await page.evaluate(() => ({
+          prod: window.__lectures.filter((x) => x === 'insert:producteurs').length,
+          plot: window.__lectures.filter((x) => x === 'insert:farmer_plots').length
+        }));
+        verifier(ins.prod === 2 && ins.plot === 1, 'producteur avec parcelle : farmer_plots alimenté (registre canonique)');
+        await page.waitForTimeout(1400);
 
-        // 6. Formulaire achat : prix 400 par défaut, motif exigé hors barème
+        // SCÉNARIOS 9-10 — Farmer Passport 360° : 12 sections, enrichissement progressif
+        await allerA(page, '#farmers/p_test_2');
+        const pass = await page.evaluate(() => ({
+          tabs: [...document.querySelectorAll('.ops-passport-tabs a')].map((a) => a.textContent.trim()),
+          niveau: /Opérationnel ✓/.test(document.querySelector('.ops-route-head p').textContent),
+          parcelleMention: /Parcelle/.test(document.querySelector('.ops-route-head p').textContent)
+        }));
+        verifier(pass.tabs.length === 12, `passport : 12 sections (vu ${pass.tabs.length})`);
+        for (const t of ['Identité', 'Exploitation', 'Parcelles', 'Production', 'Sustainability',
+                         'Consentements', 'Visites', 'Inspections', 'Achats', 'Actions', 'Historique']) {
+          verifier(pass.tabs.includes(t), `passport : section « ${t} »`);
+        }
+        verifier(pass.niveau && pass.parcelleMention, 'passport : niveaux « Opérationnel ✓ » et état parcelle affichés');
+        await allerA(page, '#farmers/p_test_2/plots');
+        const plotsTab = await page.evaluate(() => document.getElementById('opsRouteView').textContent);
+        verifier(/à compléter après campagne|Règle 2027/i.test(plotsTab), 'passport : onglet Parcelles avec règle 2027');
+
+        // SCÉNARIO 11 — Achat à un producteur sans parcelle : doit fonctionner
+        // (p_test_2 a gps_mapped_count=0 dans la doublure)
         await allerA(page, '#purchases');
         await page.click('#newBuyBtn');
         await page.waitForSelector('#buyForm', { timeout: 15000 });
@@ -355,7 +490,15 @@ async function main() {
         await page.waitForTimeout(200);
         const msgRecu = await page.evaluate(() => document.getElementById('bf_msg').textContent);
         verifier(/reçu/i.test(msgRecu), 'formulaire achat : le n° de reçu est exigé pour un achat complet');
-        await page.evaluate(() => ANAGROCI_FB.closeForm());
+        const ctxSansParcelle = await page.evaluate(() => document.getElementById('bf_ctx').textContent);
+        verifier(/parcelle à compléter après campagne/i.test(ctxSansParcelle),
+          'achat : producteur sans parcelle signalé comme NON bloquant');
+        await page.fill('#bf_ref', 'RC-TEST-11');
+        await page.click('#bf_submit');
+        await page.waitForTimeout(300);
+        const insA = await page.evaluate(() => window.__lectures.filter((x) => x === 'insert:achats').length);
+        verifier(insA === 1, 'SCÉNARIO 11 : achat enregistré pour un producteur sans parcelle');
+        await page.waitForTimeout(1300);
 
         // 7. Carte : Leaflet initialisé, marqueurs villages présents
         await allerA(page, '#hubs');

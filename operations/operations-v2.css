@@ -38,3 +38,23 @@
 .ops-dot.danger{background:#C0392B}
 @media(max-width:820px){.ops-map{height:380px}}
 @media(max-width:520px){.ops-map{height:300px}}
+
+/* Formulaires progressifs FIELD BUYING : données exhaustives, interface simple. */
+.ops-sec{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff;overflow:hidden}
+.ops-sec summary{cursor:pointer;padding:12px 14px;font-weight:800;font-size:13px;color:var(--forest);list-style:none;display:flex;align-items:center;gap:8px;min-height:44px}
+.ops-sec summary::before{content:'▸';color:var(--emerald);transition:transform .15s}
+.ops-sec[open] summary::before{transform:rotate(90deg)}
+.ops-sec summary::-webkit-details-marker{display:none}
+.ops-sec-body{padding:4px 14px 14px;border-top:1px solid var(--line)}
+.ops-check{display:inline-flex;align-items:center;gap:6px;margin:6px 12px 6px 0;font-size:12px;min-height:24px}
+.ops-check input{width:18px;height:18px;accent-color:var(--emerald)}
+.ops-progressline{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.ops-progresstrack{flex:1 1 160px;height:8px;border-radius:6px;background:#EDF1EE;overflow:hidden;min-width:120px}
+.ops-progresstrack i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--emerald),#8FCB3A);transition:width .25s}
+.ops-acheteur{margin-bottom:6px}
+
+/* Onglets du Farmer Passport. */
+.ops-passport-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.ops-passport-tabs a{padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--forest);font-size:12px;font-weight:700;text-decoration:none;min-height:38px;display:inline-flex;align-items:center}
+.ops-passport-tabs a.active{background:var(--emerald);border-color:var(--emerald);color:#fff}
+@media(max-width:520px){.ops-passport-tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.ops-passport-tabs a{white-space:nowrap}}

@@ -419,35 +419,242 @@ function renderCensus() {
 
 /* --- Formulaire village : réutilise la structure s1…s9 du recensement FBMS. --- */
 
+/* ==================== formulaires riches — recensement complet ====================
+   Mêmes données que l'ancien FBMS (villages.data s1…s9, dossier RT, enrôlement
+   producteur), présentées en sections progressives : un dossier incomplet reste
+   utilisable, la règle 2027 (parcelle/GPS jamais bloquante) est intacte.
+   Trois niveaux : Minimum opérationnel → Profil enrichi → Dossier complet. */
+
+/* Référentiel officiel des régions et départements de Côte d'Ivoire — identique
+   à celui du recensement historique ; la région est dérivée du département. */
+var REGIONS = [
+  { region: 'Gbêkê', departements: ['Bouaké', 'Béoumi', 'Botro', 'Sakassou'] },
+  { region: 'Bélier', departements: ['Yamoussoukro', 'Attiégouakro', 'Didiévi', 'Djékanou', 'Tiébissou', 'Toumodi'] },
+  { region: 'Hambol', departements: ['Katiola', 'Dabakala', 'Niakaramandougou'] },
+  { region: 'Worodougou', departements: ['Séguéla', 'Kani'] },
+  { region: 'Béré', departements: ['Mankono', 'Dianra', 'Kounahiri'] },
+  { region: 'Bagoué', departements: ['Boundiali', 'Kouto', 'Tengréla'] },
+  { region: 'Poro', departements: ['Korhogo', 'Dikodougou', "M'Bengué", 'Sinématiali'] },
+  { region: 'Tchologo', departements: ['Ferkessédougou', 'Kong', 'Ouangolodougou'] },
+  { region: 'Agnéby-Tiassa', departements: ['Agboville', 'Sikensi', 'Taabo', 'Tiassalé'] },
+  { region: 'Bafing', departements: ['Touba', 'Koro', 'Ouaninou'] },
+  { region: 'Bounkani', departements: ['Bouna', 'Doropo', 'Nassian', 'Téhini'] },
+  { region: 'Cavally', departements: ['Guiglo', 'Bloléquin', 'Taï', 'Toulepleu'] },
+  { region: 'Folon', departements: ['Minignan', 'Kaniasso'] },
+  { region: 'Gbôklé', departements: ['Sassandra', 'Fresco'] },
+  { region: 'Gôh', departements: ['Gagnoa', 'Oumé'] },
+  { region: 'Gontougo', departements: ['Bondoukou', 'Koun-Fao', 'Sandégué', 'Tanda', 'Transua'] },
+  { region: 'Grands-Ponts', departements: ['Dabou', 'Grand-Lahou', 'Jacqueville'] },
+  { region: 'Guémon', departements: ['Duékoué', 'Bangolo', 'Facobly', 'Kouibly'] },
+  { region: 'Haut-Sassandra', departements: ['Daloa', 'Issia', 'Vavoua', 'Zoukougbeu'] },
+  { region: 'Iffou', departements: ['Daoukro', "M'Bahiakro", 'Prikro'] },
+  { region: 'Indénié-Djuablin', departements: ['Abengourou', 'Agnibilékrou', 'Bettié'] },
+  { region: 'Kabadougou', departements: ['Odienné', 'Gbéléban', 'Madinani', 'Samatiguila', 'Séguélon'] },
+  { region: 'La Mé', departements: ['Adzopé', 'Akoupé', 'Alépé', 'Yakassé-Attobrou'] },
+  { region: 'Lôh-Djiboua', departements: ['Divo', 'Guitry', 'Lakota'] },
+  { region: 'Marahoué', departements: ['Bouaflé', 'Sinfra', 'Zuénoula'] },
+  { region: 'Moronou', departements: ['Bongouanou', 'Arrah', "M'Batto"] },
+  { region: 'Nawa', departements: ['Soubré', 'Buyo', 'Guéyo', 'Méagui'] },
+  { region: "N'Zi", departements: ['Dimbokro', 'Bocanda', 'Kouassi-Kouassikro'] },
+  { region: 'San-Pédro', departements: ['San-Pédro', 'Tabou'] },
+  { region: 'Sud-Comoé', departements: ['Aboisso', 'Adiaké', 'Grand-Bassam', 'Tiapoum'] },
+  { region: 'Tonkpi', departements: ['Man', 'Biankouma', 'Danané', 'Sipilou', 'Zouan-Hounien'] },
+  { region: 'Abidjan (district)', departements: ['Abidjan', 'Anyama'] }
+];
+
+function val(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function numVal(id) { var v = val(id); return v === '' ? null : n(v); }
+function chk(id) { var e = document.getElementById(id); return !!(e && e.checked); }
+function checkbox(id, label, checked) {
+  return '<label class="ops-check"><input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + '> ' + esc(label) + '</label>';
+}
+/* Section dépliable d'un formulaire progressif. */
+function section(titre, contenu, open, sous) {
+  return '<details class="ops-sec"' + (open ? ' open' : '') + '><summary>' + esc(titre) +
+    (sous ? ' <span class="muted">' + esc(sous) + '</span>' : '') + '</summary>' +
+    '<div class="ops-sec-body">' + contenu + '</div></details>';
+}
+/* Barre de complétude : compte les champs marqués data-c non vides dans le
+   formulaire. Un dossier incomplet reste UTILISABLE — la barre informe, elle ne
+   bloque jamais. */
+function completenessBar(formId) {
+  return '<div class="ops-progressline"><div class="ops-progresstrack"><i id="' + formId + '_fill"></i></div>' +
+    '<span id="' + formId + '_pct" class="muted">0 %</span>' +
+    '<span id="' + formId + '_level" class="badge info">Minimum opérationnel</span></div>';
+}
+function bindCompleteness(formId) {
+  var form = document.getElementById(formId);
+  if (!form) return function () {};
+  function refresh() {
+    var fields = [].slice.call(form.querySelectorAll('[data-c]'));
+    var done = fields.filter(function (e) {
+      return e.type === 'checkbox' ? e.checked : String(e.value || '').trim() !== '';
+    }).length;
+    var pct = fields.length ? Math.round(done / fields.length * 100) : 0;
+    var fill = document.getElementById(formId + '_fill');
+    var lbl = document.getElementById(formId + '_pct');
+    var lvl = document.getElementById(formId + '_level');
+    if (fill) fill.style.width = pct + '%';
+    if (lbl) lbl.textContent = 'Complétude du dossier : ' + pct + ' %';
+    if (lvl) {
+      lvl.textContent = pct >= 80 ? 'Dossier complet' : pct >= 45 ? 'Profil enrichi' : 'Minimum opérationnel';
+      lvl.className = 'badge ' + (pct >= 80 ? 'ok' : pct >= 45 ? 'info' : 'warn');
+    }
+    return pct;
+  }
+  form.addEventListener('input', refresh);
+  form.addEventListener('change', refresh);
+  refresh();
+  return refresh;
+}
+/* Bouton « Utiliser ma position » — facultatif, jamais bloquant. */
+function geoButton(latId, lngId) {
+  return '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.fillGps(\'' + latId + '\',\'' + lngId + '\')">📍 Utiliser ma position</button>';
+}
+function fillGps(latId, lngId) {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(function (p) {
+    var la = document.getElementById(latId), lo = document.getElementById(lngId);
+    if (la) la.value = p.coords.latitude.toFixed(6);
+    if (lo) lo.value = p.coords.longitude.toFixed(6);
+    var f = la && la.closest('form');
+    if (f) f.dispatchEvent(new Event('input'));
+  }, function () {}, { enableHighAccuracy: true, timeout: 8000 });
+}
+var NOTE20 = [['', '—'], ['0', '0'], ['5', '5'], ['10', '10'], ['15', '15'], ['20', '20']];
+
+/* ------------------------------- VILLAGE — recensement complet s1…s9 ---------- */
+
 function openVillageForm() {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
   Promise.all([base(), loadProfile()]).then(function (rs) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
-    var clusterOpts = selOptions(c.clusters.map(function (x) { return [x.label, x.label + ' (' + (x.zone_code || '') + ')']; }), '');
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau village</h2>' +
-      '<p>Mêmes sections que le recensement terrain : identité, potentiel, accès, risques.</p></div></div>' +
-      '<form id="villageForm"><div class="ops-form-grid">' +
-      field('Nom du village *', '<input id="vf_nom" required maxlength="120">', true) +
-      field('Cluster *', '<select id="vf_cluster" required><option value="">Choisir…</option>' + clusterOpts + '</select>') +
-      field('Région', '<input id="vf_region" placeholder="Ex. Gbêkê">') +
-      field('Département', '<input id="vf_dept" placeholder="Ex. Bouaké">') +
-      field('Sous-préfecture', '<input id="vf_sp">') +
-      field('GPS latitude', '<input id="vf_lat" type="number" step="any" placeholder="Facultatif">') +
-      field('GPS longitude', '<input id="vf_lng" type="number" step="any" placeholder="Facultatif">') +
-      field('Distance au hub (km)', '<input id="vf_dist" type="number" step="any" min="0">') +
-      field('Potentiel (MT)', '<input id="vf_pot" type="number" step="any" min="0">') +
-      field('Potentiel sécurisé (MT)', '<input id="vf_sec" type="number" step="any" min="0">') +
-      field('Nombre de producteurs estimé', '<input id="vf_nbprod" type="number" min="0">') +
-      field('État de la route', '<select id="vf_route"><option value="">—</option><option>Bitumée</option><option>Piste praticable</option><option>Piste difficile</option></select>') +
-      field('Accès camion', '<select id="vf_camion"><option value="">—</option><option value="10T">Camion 10T</option><option value="30T">Camion 30T</option><option value="Aucun">Aucun</option></select>') +
-      field('Acheteur dominant (concurrence)', '<input id="vf_conc">') +
-      field('Risques', '<input id="vf_risques" placeholder="Ex. conflit foncier, zone hors cluster">', true) +
-      '</div><div id="vf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
+    var clusterOpts = selOptions(c.clusters.map(function (x) { return [x.label, x.label + ' — zone ' + (x.zone_code || '')]; }), '');
+    var regionOpts = selOptions(REGIONS.map(function (r) { return [r.region, r.region]; }), 'Gbêkê');
+    var influence = selOptions([['', '—'], ['Forte', 'Forte'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
+    var reput = selOptions([['', '—'], ['Excellente', 'Excellente'], ['Bonne', 'Bonne'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
+
+    function candidat(i) {
+      return section('Candidat RT n° ' + i, '<div class="ops-form-grid">' +
+        field('Nom', '<input id="vc' + i + '_nom" data-c maxlength="120">') +
+        field('Téléphone', '<input id="vc' + i + '_tel" data-c inputmode="tel">') +
+        field('Activité', '<input id="vc' + i + '_act" data-c placeholder="Ex. Producteur, pisteur">') +
+        field('Instruction', '<select id="vc' + i + '_ins" data-c><option value="">—</option><option>Lit et écrit</option><option>Lit seulement</option><option>Aucune</option></select>') +
+        field('Réputation', '<select id="vc' + i + '_rep" data-c>' + reput + '</select>') +
+        field('Équipement', checkbox('vc' + i + '_smart', 'Smartphone') + checkbox('vc' + i + '_bank', 'Compte bancaire') + checkbox('vc' + i + '_wave', 'Compte Wave')) +
+        '</div>', false);
+    }
+
+    host.innerHTML = '<div class="card-head"><div><h2>Nouveau village — fiche de recensement</h2>' +
+      '<p>Les 9 sections du recensement terrain. Seuls le nom et le cluster sont requis pour créer le village ' +
+      '(minimum opérationnel) ; le reste enrichit le dossier et peut être complété plus tard.</p></div></div>' +
+      '<form id="villageForm">' + completenessBar('villageForm') +
+
+      section('1. Identification', '<div class="ops-form-grid">' +
+        field('Nom du village *', '<input id="vf_nom" data-c required maxlength="120">', true) +
+        field('Cluster (hub de rattachement) *', '<select id="vf_cluster" data-c required><option value="">Choisir…</option>' + clusterOpts + '</select>') +
+        field('Région', '<select id="vf_region" data-c>' + regionOpts + '</select>') +
+        field('Département', '<select id="vf_dept" data-c></select>') +
+        field('Sous-préfecture', '<input id="vf_sp" data-c>') +
+        field('Date de visite', '<input id="vf_date" data-c type="date" value="' + new Date().toISOString().slice(0, 10) + '">') +
+        field('Enquêteur', '<input id="vf_enq" data-c value="' + esc(profile.nom || '') + '">') +
+        '</div>', true) +
+
+      section('2. Localisation & GPS', '<div class="ops-form-grid">' +
+        field('Latitude', '<input id="vf_lat" data-c type="number" step="any" placeholder="Facultatif — jamais bloquant">') +
+        field('Longitude', '<input id="vf_lng" data-c type="number" step="any">') +
+        field('&nbsp;', geoButton('vf_lat', 'vf_lng')) +
+        field('Distance au hub (km, saisie terrain)', '<input id="vf_dist" data-c type="number" step="any" min="0">') +
+        '</div><p class="muted">La distance routière validée reste gérée par l’audit des distances ' +
+        '(validation avec motif) ; la valeur saisie ici sert d’estimation initiale.</p>', false) +
+
+      section('3. Potentiel de production', '<div class="ops-form-grid">' +
+        field('Nombre de producteurs estimé', '<input id="vf_nbprod" data-c type="number" min="0">') +
+        field('Production moyenne / producteur (kg)', '<input id="vf_prodmoy" data-c type="number" min="0">') +
+        field('Potentiel (MT)', '<input id="vf_pot" data-c type="number" step="any" min="0"> <button class="btn secondary" type="button" onclick="ANAGROCI_FB.calcPotentiel()">Calculer</button>') +
+        field('Potentiel sécurisé ANAGROCI (MT)', '<input id="vf_sec" data-c type="number" step="any" min="0">') +
+        field('Période forte de disponibilité', '<input id="vf_periode" data-c placeholder="Ex. Février – Avril">') +
+        '</div>', false) +
+
+      section('4. Concurrence & achat', '<div id="vf_acheteurs"></div>' +
+        '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.addAcheteur()">+ Ajouter un acheteur concurrent</button></div>' +
+        '<div class="ops-form-grid" style="margin-top:10px">' +
+        field('Acheteur dominant — nom', '<input id="vf_dom_nom" data-c>') +
+        field('Acheteur dominant — téléphone', '<input id="vf_dom_tel" data-c inputmode="tel">') +
+        field('Commentaires concurrence', '<textarea id="vf_dom_com" data-c></textarea>', true) +
+        '</div>', false) +
+
+      section('5. Accessibilité & route', '<div class="ops-form-grid">' +
+        field('Type d’accès', '<select id="vf_acces" data-c><option value="">—</option><option>Route praticable</option><option>Piste</option><option>Enclavé</option></select>') +
+        field('Note route (/10)', '<input id="vf_noteroute" data-c type="number" min="0" max="10">') +
+        field('Caractéristiques', checkbox('vf_bitume', 'Route bitumée') + checkbox('vf_piste', 'Piste praticable') + checkbox('vf_pluies', 'Accessible en saison des pluies'), true) +
+        field('Accès camion', checkbox('vf_c10', 'Camion 10 T') + checkbox('vf_c30', 'Camion 30 T'), true) +
+        '</div>', false) +
+
+      section('6. Paiement & services financiers', '<div class="ops-form-grid">' +
+        field('Réseau mobile disponible', checkbox('vf_ro', 'Orange') + checkbox('vf_rm', 'MTN') + checkbox('vf_rv', 'Moov'), true) +
+        field('Mobile money accepté', checkbox('vf_mo', 'Orange Money') + checkbox('vf_mw', 'Wave') + checkbox('vf_mm', 'MTN Money'), true) +
+        field('Banque la plus proche', '<input id="vf_banque" data-c>') +
+        field('Distance banque (km)', '<input id="vf_banque_km" data-c type="number" step="any" min="0">') +
+        field('Préférence de paiement', '<select id="vf_pref" data-c><option value="">—</option><option>Cash</option><option>Wave</option><option>Orange Money</option><option>Virement</option></select>') +
+        '</div>', false) +
+
+      section('7. Candidats RT identifiés', candidat(1) + candidat(2) + candidat(3) +
+        '<p class="muted">Un candidat retenu se crée ensuite comme RT depuis Recensement → + Nouveau RT.</p>', false) +
+
+      section('8. Organisation locale & conformité', '<div class="ops-form-grid">' +
+        field('Chef de village — nom', '<input id="vf_chef" data-c>') +
+        field('Chef — téléphone', '<input id="vf_chef_tel" data-c inputmode="tel">') +
+        field('Chef — influence', '<select id="vf_chef_inf" data-c>' + influence + '</select>') +
+        field('Leader communautaire — nom', '<input id="vf_lead" data-c>') +
+        field('Leader — téléphone', '<input id="vf_lead_tel" data-c inputmode="tel">') +
+        field('Président coopérative — nom', '<input id="vf_pres" data-c>') +
+        field('Coopérative', '<input id="vf_coop" data-c>') +
+        field('Conformité', checkbox('vf_zone_ok', 'Village dans la zone du cluster') + checkbox('vf_carte', 'Carte pisteur disponible') +
+          checkbox('vf_foncier', 'Pas de conflit foncier') + checkbox('vf_commu', 'Pas de conflit communautaire'), true) +
+        '</div>', false) +
+
+      section('9. Évaluation & risques', '<div class="ops-form-grid">' +
+        field('Potentiel (/20)', '<select id="vf_s9_pot" data-c>' + selOptions(NOTE20, '') + '</select>') +
+        field('Route (/20)', '<select id="vf_s9_route" data-c>' + selOptions(NOTE20, '') + '</select>') +
+        field('Disponibilité RT (/20)', '<select id="vf_s9_rt" data-c>' + selOptions(NOTE20, '') + '</select>') +
+        field('Risque concurrentiel (/20)', '<select id="vf_s9_conc" data-c>' + selOptions(NOTE20, '') + '</select>') +
+        field('Faisabilité paiement (/20)', '<select id="vf_s9_pay" data-c>' + selOptions(NOTE20, '') + '</select>') +
+        field('Score', '<input id="vf_score" readonly class="mono" placeholder="—">') +
+        field('Décision / observations', '<textarea id="vf_decision" data-c></textarea>', true) +
+        '</div>', false) +
+
+      '<div id="vf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
       '<button class="btn primary" type="submit" id="vf_submit">Créer le village</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="vf_msg" class="muted" style="margin-top:10px"></div></form>';
+
+    /* Départements dépendants de la région — référentiel officiel. */
+    var regSel = document.getElementById('vf_region'), depSel = document.getElementById('vf_dept');
+    function syncDept() {
+      var r = REGIONS.filter(function (x) { return x.region === regSel.value; })[0];
+      depSel.innerHTML = '<option value="">—</option>' +
+        selOptions((r ? r.departements : []).map(function (d) { return [d, d]; }), '');
+    }
+    regSel.addEventListener('change', syncDept);
+    syncDept();
+
+    /* Score /100 = somme des 5 critères, comme l'ancien recensement. */
+    function syncScore() {
+      var ids = ['vf_s9_pot', 'vf_s9_route', 'vf_s9_rt', 'vf_s9_conc', 'vf_s9_pay'];
+      var vals = ids.map(val);
+      document.getElementById('vf_score').value = vals.every(function (v) { return v !== ''; })
+        ? vals.reduce(function (t, v) { return t + n(v); }, 0) + ' / 100'
+        : (vals.some(function (v) { return v !== ''; }) ? 'notation incomplète' : '');
+    }
+    ['vf_s9_pot', 'vf_s9_route', 'vf_s9_rt', 'vf_s9_conc', 'vf_s9_pay'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', syncScore);
+    });
+
+    var refresh = bindCompleteness('villageForm');
+    addAcheteur();
 
     var nom = document.getElementById('vf_nom');
     nom.focus();
@@ -456,47 +663,67 @@ function openVillageForm() {
       var hit = c.villages.filter(function (v) { return normName(v.village) === k; })[0];
       document.getElementById('vf_dup').innerHTML = hit
         ? '<div class="notice danger"><b>Un village de ce nom existe déjà :</b> ' + esc(hit.village) +
-          ' (' + esc(hit.cluster || '—') + '). Vérifiez avant de créer un doublon.</div>' : '';
+          ' (' + esc(hit.cluster || '—') + ', ' + esc(hit.region || '—') + '). Vérifiez avant de créer un doublon.</div>' : '';
     });
 
     document.getElementById('villageForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = document.getElementById('vf_msg'), btn = document.getElementById('vf_submit');
-      var name = nom.value.trim(), cluster = document.getElementById('vf_cluster').value;
-      if (!name || !cluster) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et cluster sont obligatoires.'; return; }
-      var lat = document.getElementById('vf_lat').value, lng = document.getElementById('vf_lng').value;
+      var name = val('vf_nom'), cluster = val('vf_cluster');
+      if (!name || !cluster) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et cluster sont le minimum opérationnel.'; return; }
       var id = uid();
-      /* Même structure que l'ancien recensement : colonnes synchronisées + data s1…s9. */
+      var acheteurs = collectAcheteurs();
+      var s9vals = ['vf_s9_pot', 'vf_s9_route', 'vf_s9_rt', 'vf_s9_conc', 'vf_s9_pay'].map(val);
+      var score = s9vals.every(function (v) { return v !== ''; })
+        ? s9vals.reduce(function (t, v) { return t + n(v); }, 0) : null;
+      var candidats = [1, 2, 3].map(function (i) {
+        return { nom: val('vc' + i + '_nom'), telephone: val('vc' + i + '_tel'), activite: val('vc' + i + '_act'),
+          instruction: val('vc' + i + '_ins'), reputation: val('vc' + i + '_rep'),
+          smartphone: chk('vc' + i + '_smart'), compteBancaire: chk('vc' + i + '_bank'), compteWave: chk('vc' + i + '_wave') };
+      }).filter(function (x) { return x.nom; });
+      /* Structure identique à l'ancien recensement : tout vit dans data s1…s9,
+         les colonnes plates sont synchronisées. */
       var data = {
         id: id, statut: 'Brouillon', createdAt: new Date().toISOString(), createdBy: profile.nom || '',
-        s1: { village: name, cluster: cluster, region: document.getElementById('vf_region').value.trim(),
-              departement: document.getElementById('vf_dept').value.trim(),
-              sousPrefecture: document.getElementById('vf_sp').value.trim(),
-              gpsLat: lat ? Number(lat) : null, gpsLng: lng ? Number(lng) : null,
-              distanceHub: n(document.getElementById('vf_dist').value) || null,
-              enqueteur: profile.nom || '', dateVisite: new Date().toISOString().slice(0, 10) },
-        s3: { potentielMT: n(document.getElementById('vf_pot').value) || null,
-              potentielSecuriseMT: n(document.getElementById('vf_sec').value) || null,
-              nbProducteurs: n(document.getElementById('vf_nbprod').value) || null },
-        s4: { dominant: document.getElementById('vf_conc').value.trim() },
-        s5: { typeAcces: document.getElementById('vf_route').value,
-              camion10T: document.getElementById('vf_camion').value === '10T' || document.getElementById('vf_camion').value === '30T',
-              camion30T: document.getElementById('vf_camion').value === '30T' },
-        s8: { risques: document.getElementById('vf_risques').value.trim() }
+        s1: { village: name, cluster: cluster, region: val('vf_region'), departement: val('vf_dept'),
+              sousPrefecture: val('vf_sp'), dateVisite: val('vf_date'), enqueteur: val('vf_enq'),
+              gpsLat: numVal('vf_lat'), gpsLng: numVal('vf_lng'), distanceHub: numVal('vf_dist') },
+        s2: { chef: { nom: val('vf_chef'), telephone: val('vf_chef_tel'), influence: val('vf_chef_inf') },
+              leader: { nom: val('vf_lead'), telephone: val('vf_lead_tel') },
+              president: { nom: val('vf_pres'), cooperative: val('vf_coop') } },
+        s3: { nbProducteurs: numVal('vf_nbprod'), prodMoyenneKg: numVal('vf_prodmoy'),
+              potentielMT: numVal('vf_pot'), potentielSecuriseMT: numVal('vf_sec'), periodeForte: val('vf_periode') },
+        s4: { acheteurs: acheteurs,
+              dominant: { nom: val('vf_dom_nom'), telephone: val('vf_dom_tel'), commentaires: val('vf_dom_com') } },
+        s5: { typeAcces: val('vf_acces'), noteRoute: numVal('vf_noteroute'),
+              routeBitumee: chk('vf_bitume'), pistePraticable: chk('vf_piste'), accessiblePluies: chk('vf_pluies'),
+              camion10T: chk('vf_c10'), camion30T: chk('vf_c30') },
+        s6: { reseau: { Orange: chk('vf_ro'), MTN: chk('vf_rm'), Moov: chk('vf_rv') },
+              mobileMoney: { OrangeMoney: chk('vf_mo'), Wave: chk('vf_mw'), MTNMoney: chk('vf_mm') },
+              banque: { nom: val('vf_banque'), distance: numVal('vf_banque_km') },
+              preference: val('vf_pref') },
+        s7: { candidats: candidats },
+        s8: { zoneCluster: chk('vf_zone_ok'), cartePisteur: chk('vf_carte'),
+              pasConflitFoncier: chk('vf_foncier'), pasConflitCommunautaire: chk('vf_commu') },
+        s9: { potentiel20: numVal('vf_s9_pot'), route20: numVal('vf_s9_route'), dispoRT20: numVal('vf_s9_rt'),
+              risqueConcurrentiel20: numVal('vf_s9_conc'), faisabilitePaiement20: numVal('vf_s9_pay'),
+              decision: val('vf_decision') },
+        completude: refresh()
       };
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Création en cours…';
       client().then(function (cl) {
         return cl.from('villages').insert({
           id: id, village: name, cluster: cluster, statut: 'Brouillon',
           region: data.s1.region || null, departement: data.s1.departement || null,
-          gps_lat: data.s1.gpsLat, gps_lng: data.s1.gpsLng, data: data
+          gps_lat: data.s1.gpsLat, gps_lng: data.s1.gpsLng, score: score, data: data
         });
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
-        msg.className = 'ops-ok-text'; msg.textContent = 'Village créé : ' + name + '. Visible dans RT & Villages, la carte et le Command Center.';
+        msg.className = 'ops-ok-text';
+        msg.textContent = 'Village créé : ' + name + ' (dossier ' + data.completude + ' %). Visible dans RT & Villages, la carte et le Command Center.';
         FBStore.invalidate('base');
-        setTimeout(function () { closeForm(); render(); }, 900);
+        setTimeout(function () { closeForm(); render(); }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
         msg.textContent = err && err.message ? err.message : 'Création impossible.';
@@ -505,7 +732,35 @@ function openVillageForm() {
   });
 }
 
-/* --- Formulaire RT : réutilise la table rt et son anti-doublon serveur. --- */
+/* Liste dynamique des acheteurs concurrents — reprise de l'ancien s4. */
+var acheteurSeq = 0;
+function addAcheteur() {
+  var box = document.getElementById('vf_acheteurs');
+  if (!box) return;
+  var i = ++acheteurSeq;
+  var row = document.createElement('div');
+  row.className = 'ops-form-grid ops-acheteur';
+  row.innerHTML = field('Acheteur concurrent', '<input id="va' + i + '_nom" data-c placeholder="Nom">') +
+    field('Volume estimé (MT)', '<input id="va' + i + '_vol" data-c type="number" step="any" min="0">') +
+    field('&nbsp;', '<button class="btn secondary" type="button" onclick="this.closest(\'.ops-acheteur\').remove()">Retirer</button>');
+  box.appendChild(row);
+}
+function collectAcheteurs() {
+  return [].slice.call(document.querySelectorAll('#vf_acheteurs .ops-acheteur')).map(function (row) {
+    var inp = row.querySelectorAll('input');
+    return { nom: String(inp[0].value || '').trim(), volumeEstime: inp[1].value === '' ? null : n(inp[1].value) };
+  }).filter(function (a) { return a.nom; });
+}
+function calcPotentiel() {
+  var nb = numVal('vf_nbprod'), moy = numVal('vf_prodmoy');
+  var out = document.getElementById('vf_pot');
+  if (out && nb != null && moy != null) {
+    out.value = Math.round(nb * moy / 1000 * 10) / 10;
+    out.closest('form').dispatchEvent(new Event('input'));
+  }
+}
+
+/* ---------------------------------- RT — dossier complet ---------------------- */
 
 function openRtForm(prefill) {
   var host = formHost();
@@ -514,57 +769,116 @@ function openRtForm(prefill) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau RT</h2>' +
-      '<p>Le RT est rattaché à un village ; son cluster en découle.</p></div></div>' +
-      '<form id="rtForm"><div class="ops-form-grid">' +
-      field('Nom du RT *', '<input id="rf_nom" required maxlength="120">', true) +
-      field('Téléphone', '<input id="rf_tel" inputmode="tel" placeholder="Ex. 07 00 00 00 00">') +
-      field('Village *', '<select id="rf_village" required><option value="">Choisir…</option>' + villageOpts + '</select>') +
-      field('Statut', '<select id="rf_statut"><option>Pressenti</option><option>Confirmé</option><option>Actif</option></select>') +
-      field('Activité', '<select id="rf_act"><option value="">—</option><option>Producteur</option><option>Pisteur</option><option>Commerçant</option><option>Autre</option></select>') +
-      '</div><div id="rf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
+    var reput = selOptions([['', '—'], ['Excellente', 'Excellente'], ['Bonne', 'Bonne'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
+
+    host.innerHTML = '<div class="card-head"><div><h2>Nouveau RT — dossier complet</h2>' +
+      '<p>Nom, téléphone et village suffisent pour créer le RT (minimum opérationnel) ; ' +
+      'le reste construit la fiche exploitable par le Branch Manager.</p></div></div>' +
+      '<form id="rtForm">' + completenessBar('rtForm') +
+
+      section('1. Identité', '<div class="ops-form-grid">' +
+        field('Nom du RT *', '<input id="rf_nom" data-c required maxlength="120">', true) +
+        field('Téléphone principal *', '<input id="rf_tel" data-c required inputmode="tel" placeholder="10 chiffres — clé de dédoublonnage">') +
+        field('Téléphone secondaire', '<input id="rf_tel2" data-c inputmode="tel">') +
+        field('Village *', '<select id="rf_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
+        field('Cluster / zone', '<input id="rf_cluster_ro" readonly class="mono" placeholder="dérivés du village">') +
+        '</div>', true) +
+
+      section('2. Activité', '<div class="ops-form-grid">' +
+        field('Activité principale', '<select id="rf_act" data-c><option value="">—</option><option>Producteur</option><option>Pisteur</option><option>Commerçant</option><option>Planteur</option><option>Autre</option></select>') +
+        field('Producteur lui-même', '<select id="rf_prod" data-c><option value="">—</option><option value="OUI">OUI — pourra être enrôlé comme producteur</option><option value="NON">NON</option></select>') +
+        field('Instruction', '<select id="rf_ins" data-c><option value="">—</option><option>Lit et écrit</option><option>Lit seulement</option><option>Aucune</option></select>') +
+        field('Moyen de déplacement', '<select id="rf_depl" data-c><option value="">—</option><option>Moto</option><option>Vélo</option><option>Véhicule</option><option>Aucun</option></select>') +
+        '</div>', false) +
+
+      section('3. Capacité & terrain', '<div class="ops-form-grid">' +
+        field('Expérience achat RCN (années)', '<input id="rf_exp" data-c type="number" min="0">') +
+        field('Producteurs connus / mobilisables', '<input id="rf_nbprod" data-c type="number" min="0">') +
+        field('Volume potentiel (MT)', '<input id="rf_vol" data-c type="number" step="any" min="0">') +
+        field('Zone d’influence', '<input id="rf_zone_inf" data-c placeholder="Villages ou campements couverts">') +
+        field('Disponibilité', '<select id="rf_dispo" data-c><option value="">—</option><option>Temps plein</option><option>Temps partiel</option><option>Saisonnier</option></select>') +
+        '</div>', false) +
+
+      section('4. Finance & paiement', '<div class="ops-form-grid">' +
+        field('Équipement', checkbox('rf_smart', 'Smartphone') + checkbox('rf_bank', 'Compte bancaire') + checkbox('rf_wave', 'Compte Wave'), true) +
+        field('Tonnage engagé (MT)', '<input id="rf_teng" data-c type="number" step="any" min="0">') +
+        field('Tonnage livré historique (MT)', '<input id="rf_tliv" data-c type="number" step="any" min="0">') +
+        field('Avances historiques (FCFA)', '<input id="rf_av" data-c type="number" min="0">') +
+        '</div><p class="muted">Les avances réelles et leur réconciliation restent gérées dans Caisse & Avances.</p>', false) +
+
+      section('5. Évaluation', '<div class="ops-form-grid">' +
+        field('Réputation', '<select id="rf_rep" data-c>' + reput + '</select>') +
+        field('Score (/100)', '<input id="rf_score" data-c type="number" min="0" max="100">') +
+        field('Statut', '<select id="rf_statut" data-c><option>Pressenti</option><option>Confirmé</option><option>Actif</option><option>Écarté</option></select>') +
+        field('Recommandation / observations', '<textarea id="rf_notes" data-c></textarea>', true) +
+        '</div>', false) +
+
+      '<div id="rf_dup"></div><div class="ops-actions" style="margin-top:12px">' +
       '<button class="btn primary" type="submit" id="rf_submit">Créer le RT</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="rf_msg" class="muted" style="margin-top:10px"></div></form>';
 
+    var refresh = bindCompleteness('rtForm');
     var nom = document.getElementById('rf_nom'), tel = document.getElementById('rf_tel');
+    var villageSel = document.getElementById('rf_village');
     if (prefill && prefill.nom) nom.value = prefill.nom;
     nom.focus();
+    function syncCluster() {
+      var v = c.vm[villageSel.value] || {};
+      document.getElementById('rf_cluster_ro').value = v.cluster
+        ? v.cluster + ' — ' + zoneOfCluster(c, v.cluster) : '';
+    }
+    villageSel.addEventListener('change', syncCluster);
+    syncCluster();
     function checkDup() {
       var k = normName(nom.value), t = normPhone(tel.value);
       var hit = c.rts.filter(function (r) {
-        return (k && normName(r.nom) === k) || (t && t.length >= 8 && normPhone(r.telephone) === t);
+        return (t && t.length >= 8 && normPhone(r.telephone) === t) ||
+               (k && normName(r.nom) === k && r.village_id === villageSel.value);
       })[0];
       document.getElementById('rf_dup').innerHTML = hit
         ? '<div class="notice danger"><b>Un RT très proche existe déjà :</b> ' + esc(hit.nom) +
-          ' · ' + esc(hit.village_nom || '—') + '. Vérifiez avant de créer un doublon.</div>' : '';
+          ' · ' + esc(hit.village_nom || '—') + ' · ' + esc(hit.telephone || '—') + '.</div>' : '';
     }
     nom.addEventListener('input', checkDup);
     tel.addEventListener('input', checkDup);
+    villageSel.addEventListener('change', checkDup);
 
     document.getElementById('rtForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = document.getElementById('rf_msg'), btn = document.getElementById('rf_submit');
-      var name = nom.value.trim(), vid = document.getElementById('rf_village').value;
-      if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont obligatoires.'; return; }
+      var name = val('rf_nom'), vid = villageSel.value, phone = normPhone(val('rf_tel'));
+      if (!name || !vid || !phone) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom, téléphone et village sont le minimum opérationnel.'; return; }
+      if (phone.length !== 10) { msg.className = 'ops-danger-text'; msg.textContent = 'Le téléphone doit comporter 10 chiffres — c’est la clé de dédoublonnage.'; return; }
       var v = c.vm[vid] || {};
       var id = uid();
-      var data = { id: id, nom: name, telephone: tel.value.trim(), villageId: vid, villageNom: v.village || '',
-        cluster: v.cluster || '', statut: document.getElementById('rf_statut').value,
-        activite: document.getElementById('rf_act').value, createdAt: new Date().toISOString(), createdBy: profile.nom || '' };
+      var data = {
+        id: id, nom: name, telephone: phone, telephoneSecondaire: val('rf_tel2'),
+        villageId: vid, villageNom: v.village || '', cluster: v.cluster || '',
+        statut: val('rf_statut'), activite: val('rf_act'), estProducteur: val('rf_prod'),
+        instruction: val('rf_ins'), deplacement: val('rf_depl'),
+        experienceAnnees: numVal('rf_exp'), nbProducteurs: numVal('rf_nbprod'),
+        volumePotentielMT: numVal('rf_vol'), zoneInfluence: val('rf_zone_inf'), disponibilite: val('rf_dispo'),
+        smartphone: chk('rf_smart'), compteBancaire: chk('rf_bank'), compteWave: chk('rf_wave'),
+        perf: { tonnageEngage: numVal('rf_teng'), tonnageLivre: numVal('rf_tliv'), avances: numVal('rf_av') },
+        reputation: val('rf_rep'), score: numVal('rf_score'), notes: val('rf_notes'),
+        completude: refresh(), createdAt: new Date().toISOString(), createdBy: profile.nom || ''
+      };
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Création en cours…';
       client().then(function (cl) {
         return cl.from('rt').insert({
-          id: id, nom: name, telephone: tel.value.trim() || null, village_id: vid,
+          id: id, nom: name, telephone: phone, village_id: vid,
           village_nom: v.village || null, cluster: v.cluster || null,
-          statut: document.getElementById('rf_statut').value, data: data
+          statut: val('rf_statut'), score: numVal('rf_score'), data: data
         });
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
-        msg.className = 'ops-ok-text'; msg.textContent = 'RT créé : ' + name + '.';
+        msg.className = 'ops-ok-text';
+        msg.textContent = 'RT créé : ' + name + ' (dossier ' + data.completude + ' %).' +
+          (data.estProducteur === 'OUI' ? ' Il pourra être enrôlé comme producteur depuis RT & Villages.' : '');
         FBStore.invalidate('base');
-        setTimeout(function () { closeForm(); render(); }, 900);
+        setTimeout(function () { closeForm(); render(); }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
         msg.textContent = err && err.message ? err.message : 'Création impossible.';
@@ -573,7 +887,7 @@ function openRtForm(prefill) {
   });
 }
 
-/* --- Formulaire producteur : Farmer Registry existant, code auto, anti-doublon serveur. --- */
+/* ------------------------ PRODUCTEUR — porte d'entrée du Farmer Passport ------ */
 
 function openFarmerForm(prefill) {
   var host = formHost();
@@ -582,39 +896,90 @@ function openFarmerForm(prefill) {
     var c = rs[0];
     if (!guardTerrain(host)) return;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
-    host.innerHTML = '<div class="card-head"><div><h2>Nouveau producteur</h2>' +
-      '<p>Le Farmer ID est généré automatiquement par village. La parcelle/GPS est facultative et ne bloque jamais.</p></div></div>' +
-      '<form id="farmerForm"><div class="ops-form-grid">' +
-      field('Nom *', '<input id="ff_nom" required maxlength="120">') +
-      field('Prénoms', '<input id="ff_prenoms" maxlength="120">') +
-      field('Téléphone', '<input id="ff_tel" inputmode="tel">') +
-      field('Village *', '<select id="ff_village" required><option value="">Choisir…</option>' + villageOpts + '</select>') +
-      field('RT', '<select id="ff_rt"><option value="">Aucun / à rattacher</option></select>') +
-      field('Sexe', '<select id="ff_sexe"><option value="">—</option><option value="H">Homme</option><option value="F">Femme</option></select>') +
-      '</div>' +
-      '<div class="notice info">Parcelle à compléter après campagne : l’absence de parcelle/GPS n’empêche ni la création, ni l’achat, ni le lot.</div>' +
+    var anneeMax = new Date().getFullYear() - 16;
+
+    host.innerHTML = '<div class="card-head"><div><h2>Nouveau producteur — enrôlement Farmer Passport</h2>' +
+      '<p>Création rapide : identité + village suffisent. Les sections suivantes enrichissent le dossier ' +
+      'maintenant ou plus tard, depuis le Farmer Passport.</p></div></div>' +
+      '<form id="farmerForm">' + completenessBar('farmerForm') +
+
+      section('1. Création rapide — identité', '<div class="ops-form-grid">' +
+        field('Nom *', '<input id="ff_nom" data-c required maxlength="120">') +
+        field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
+        field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
+        field('RT référent', '<select id="ff_rt" data-c><option value="">Aucun / à rattacher</option></select>') +
+        field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option>Homme</option><option>Femme</option></select>') +
+        field('Année de naissance', '<input id="ff_annee" data-c type="number" min="1930" max="' + anneeMax + '" placeholder="1930 – ' + anneeMax + '">') +
+        field('Téléphone', '<input id="ff_tel" data-c inputmode="tel" placeholder="10 chiffres">') +
+        field('Titulaire du téléphone', '<select id="ff_teltit" data-c><option value="">—</option><option>Propre</option><option>Famille</option><option>Voisin</option><option>RT</option></select>') +
+        field('Téléphone alternatif', '<input id="ff_tel2" data-c inputmode="tel">') +
+        field('Campement / localité', '<input id="ff_camp" data-c>') +
+        '</div>', true) +
+
+      section('2. Pièce d’identité', '<div class="ops-form-grid">' +
+        field('Type de pièce', '<select id="ff_piece" data-c><option value="">—</option><option>CNI</option><option>Attestation</option><option>Passeport</option><option>Aucune</option></select>') +
+        field('Numéro de pièce', '<input id="ff_piece_num" data-c>') +
+        '</div>', false) +
+
+      section('3. Profil agricole', '<div class="ops-form-grid">' +
+        field('Années dans l’anacarde', '<input id="ff_exp" data-c type="number" min="0" max="80">') +
+        field('Superficie déclarée (ha)', '<input id="ff_ha" data-c type="number" step="any" min="0" max="100">') +
+        field('Nombre d’arbres', '<input id="ff_arbres" data-c type="number" min="0">') +
+        field('Âge de la plantation (années)', '<input id="ff_age_pl" data-c type="number" min="0" max="80">') +
+        field('Production campagne précédente (kg)', '<input id="ff_prodprec" data-c type="number" min="0" max="1000000">') +
+        field('Potentiel campagne 2027 (kg)', '<input id="ff_pot27" data-c type="number" min="0">') +
+        field('Engagement ANAGROCI (kg)', '<input id="ff_eng" data-c type="number" min="0">') +
+        field('Coopérative', '<input id="ff_coop" data-c>') +
+        field('Autres cultures', '<input id="ff_cultures" data-c placeholder="Ex. Igname, coton">') +
+        field('Acheteur habituel', '<input id="ff_ach_hab" data-c>') +
+        field('Prix campagne précédente (FCFA/kg)', '<input id="ff_prix_prec" data-c type="number" min="0">') +
+        '</div>', false) +
+
+      section('4. Paiement', '<div class="ops-form-grid">' +
+        field('Mode de paiement préféré', '<select id="ff_pay" data-c><option value="">—</option><option>Cash</option><option>Wave</option><option>Orange Money</option><option>MTN Money</option><option>Virement</option></select>') +
+        field('Numéro mobile money', '<input id="ff_mm_num" data-c inputmode="tel">') +
+        field('Titulaire du compte', '<input id="ff_mm_tit" data-c>') +
+        '</div>', false) +
+
+      section('5. Parcelle (facultative — règle 2027)', '<div class="notice ok"><b>Parcelle à compléter après campagne :</b> ' +
+        'son absence n’empêche ni l’enrôlement, ni l’achat, ni le lot. Si vous avez les informations, ' +
+        'elles alimentent directement le registre des parcelles (farmer_plots).</div>' +
+        '<div class="ops-form-grid">' +
+        field('Nom local de la parcelle', '<input id="ff_plot_nom" data-c>') +
+        field('Superficie déclarée (ha)', '<input id="ff_plot_ha" data-c type="number" step="any" min="0">') +
+        field('Latitude', '<input id="ff_plot_lat" data-c type="number" step="any">') +
+        field('Longitude', '<input id="ff_plot_lng" data-c type="number" step="any">') +
+        field('&nbsp;', geoButton('ff_plot_lat', 'ff_plot_lng')) +
+        '</div>', false) +
+
+      section('6. Observations', '<div class="ops-form-grid">' +
+        field('Notes', '<textarea id="ff_notes" data-c></textarea>', true) +
+        '</div>', false) +
+
       '<div id="ff_dup"></div><div class="ops-actions" style="margin-top:12px">' +
       '<button class="btn primary" type="submit" id="ff_submit">Créer le producteur</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="ff_msg" class="muted" style="margin-top:10px"></div></form>';
 
+    var refresh = bindCompleteness('farmerForm');
     var nom = document.getElementById('ff_nom'), tel = document.getElementById('ff_tel');
     var villageSel = document.getElementById('ff_village'), rtSel = document.getElementById('ff_rt');
     if (prefill) {
       if (prefill.nom) nom.value = prefill.nom;
       if (prefill.telephone) tel.value = prefill.telephone;
+      if (prefill.activite) document.getElementById('ff_notes').value = 'Enrôlement initié depuis la fiche RT' + (prefill.id_rt ? ' ' + prefill.id_rt : '') + '.';
     }
     function syncRt() {
       var vid = villageSel.value;
-      var list = c.rts.filter(function (r) { return r.village_id === vid; });
-      rtSel.innerHTML = '<option value="">Aucun / à rattacher</option>' +
-        selOptions(list.map(function (r) { return [r.id, r.nom]; }), prefill && prefill.rt_id || '');
+      rtSel.innerHTML = '<option value="">Aucun / à rattacher</option>' + selOptions(
+        c.rts.filter(function (r) { return r.village_id === vid; }).map(function (r) { return [r.id, r.nom]; }),
+        prefill && prefill.rt_id || '');
     }
     villageSel.addEventListener('change', syncRt);
     syncRt();
+    refresh();
     nom.focus();
 
-    /* Anti-doublon : d'abord local (instantané), puis la routine serveur avant l'envoi. */
     function checkDupLocal() {
       var k = normName(nom.value), t = normPhone(tel.value);
       var hit = c.farmers.filter(function (f) {
@@ -631,13 +996,19 @@ function openFarmerForm(prefill) {
     document.getElementById('farmerForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = document.getElementById('ff_msg'), btn = document.getElementById('ff_submit');
-      var name = nom.value.trim(), vid = villageSel.value;
-      if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont obligatoires.'; return; }
+      var name = val('ff_nom'), vid = villageSel.value;
+      if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont le minimum opérationnel.'; return; }
+      var phone = normPhone(val('ff_tel'));
+      if (phone && phone.length !== 10) { msg.className = 'ops-danger-text'; msg.textContent = 'Le téléphone doit comporter 10 chiffres (ou rester vide).'; return; }
+      var annee = numVal('ff_annee');
+      if (annee != null && (annee < 1930 || annee > anneeMax)) {
+        msg.className = 'ops-danger-text'; msg.textContent = 'Année de naissance entre 1930 et ' + anneeMax + '.'; return;
+      }
       var v = c.vm[vid] || {};
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Contrôle des doublons…';
       client().then(function (cl) {
         return cl.rpc('farmer_possible_duplicates', {
-          p_nom: name, p_telephone: tel.value.trim() || null, p_village_id: vid, p_exclude_id: null
+          p_nom: name, p_telephone: phone || null, p_village_id: vid, p_exclude_id: null
         }).then(function (dup) {
           var hits = (dup.data || []);
           if (!dup.error && hits.length) {
@@ -647,18 +1018,54 @@ function openFarmerForm(prefill) {
           }
           msg.textContent = 'Création en cours…';
           var id = uid();
+          var pct = refresh();
+          var data = {
+            id: id, source: prefill && prefill.sourceRtId ? 'RT_TO_PRODUCER' : 'OPERATIONS_FIELD_BUYING',
+            sourceRtId: prefill && prefill.sourceRtId || null,
+            campement: val('ff_camp'), cooperative: val('ff_coop'),
+            anneesAnacarde: numVal('ff_exp'), superficieHa: numVal('ff_ha'),
+            nbArbres: numVal('ff_arbres'), agePlantation: numVal('ff_age_pl'),
+            prodPrecKg: numVal('ff_prodprec'), potentiel2027Kg: numVal('ff_pot27'),
+            engagementKg: numVal('ff_eng'), autresCultures: val('ff_cultures'),
+            acheteurHabituel: val('ff_ach_hab'), prixPrecedent: numVal('ff_prix_prec'),
+            paiementMode: val('ff_pay'), mobileMoneyNum: val('ff_mm_num'), mobileMoneyTitulaire: val('ff_mm_tit'),
+            telTitulaire: val('ff_teltit'), notes: val('ff_notes'), completude: pct
+          };
           return cl.from('producteurs').insert({
-            id: id, nom: name, prenoms: document.getElementById('ff_prenoms').value.trim() || null,
-            telephone: tel.value.trim() || null, village_id: vid, village_nom: v.village || null,
-            rt_id: rtSel.value || null, sexe: document.getElementById('ff_sexe').value || null,
-            statut: 'Identifié', data: { id: id, source: 'OPERATIONS_FIELD_BUYING' }
+            id: id, nom: name, prenoms: val('ff_prenoms') || null,
+            sexe: val('ff_sexe') || null, birth_year: annee,
+            telephone: phone || null, telephone_alt: normPhone(val('ff_tel2')) || null,
+            id_document_type: val('ff_piece') || null, id_document_number: val('ff_piece_num') || null,
+            village_id: vid, village_nom: v.village || null,
+            rt_id: rtSel.value || null, statut: 'Identifié', data: data
           }).then(function (r) {
+            if (r.error) throw new Error(r.error.message);
+            /* Parcelle facultative : registre canonique farmer_plots, jamais data. */
+            var plotNom = val('ff_plot_nom'), plotHa = numVal('ff_plot_ha');
+            var plotLat = numVal('ff_plot_lat'), plotLng = numVal('ff_plot_lng');
+            if (!plotNom && plotHa == null && plotLat == null) return { id: id, pct: pct, plot: false };
+            return cl.from('farmer_plots').insert({
+              id: uid(), producteur_id: id, village_id: vid,
+              local_name: plotNom || 'PARCELLE PRINCIPALE',
+              declared_area: plotHa, area_unit: 'HA',
+              latitude: plotLat, longitude: plotLng,
+              gps_status: (plotLat != null && plotLng != null) ? 'POINT_CAPTURED' : 'DEFERRED',
+              gps_captured_at: (plotLat != null && plotLng != null) ? new Date().toISOString() : null,
+              area_source: 'DECLARED', evidence_level: 'DECLARED', status: 'ACTIVE'
+            }).then(function (pr) {
+              if (pr.error) return { id: id, pct: pct, plot: false, plotError: pr.error.message };
+              return { id: id, pct: pct, plot: true };
+            });
+          }).then(function (res) {
             btn.disabled = false;
-            if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
+            if (!res) return;
             msg.className = 'ops-ok-text';
-            msg.textContent = 'Producteur créé : ' + name + '. Le Farmer ID est attribué par le référentiel.';
+            msg.textContent = 'Producteur créé : ' + name + ' — Opérationnel ✓ · Passport ' + res.pct + ' %' +
+              (res.plot ? ' · parcelle enregistrée.' : ' · parcelle à compléter après campagne.') +
+              (res.plotError ? ' (parcelle non enregistrée : ' + res.plotError + ')' : '');
             FBStore.invalidate('base');
-            setTimeout(function () { closeForm(); location.hash = '#farmers'; render(); }, 900);
+            var newId = res.id;
+            setTimeout(function () { closeForm(); location.hash = '#farmers/' + encodeURIComponent(newId); render(); }, 1200);
           });
         });
       }).catch(function (err) {
@@ -698,8 +1105,8 @@ function closeForm() {
 
 var farmerFilter = { q: '', village: '', statut: '' };
 
-function renderFarmers(id) {
-  if (id) return renderFarmerPassport(id);
+function renderFarmers(id, tab) {
+  if (id) return renderFarmerPassport(id, tab);
   paint(head('Producteurs', 'Farmer Registry : identité, passeport et activité de chaque producteur.',
     '<button class="btn primary ops-cta-create" id="newFarmerBtn" type="button" onclick="ANAGROCI_FB.openFarmerForm()">+ Nouveau producteur</button>') +
     createHost() + skeletonPage(4));
@@ -731,7 +1138,7 @@ function renderFarmers(id) {
                (t.length >= 4 && normPhone(f.telephone).indexOf(t) >= 0);
       });
       document.getElementById('farmerTable').innerHTML = table(
-        ['Farmer ID', 'Nom', 'Téléphone', 'Village', 'RT', 'Cluster', 'Statut', 'Parcelle', 'Dernier achat'],
+        ['Farmer ID', 'Nom', 'Téléphone', 'Village', 'RT', 'Cluster', 'Statut', 'Niveau', 'Parcelle', 'Dernier achat'],
         list.slice(0, 200).map(function (f) {
           return '<tr class="ops-click" onclick="location.hash=\'#farmers/' + encodeURIComponent(f.producteur_id) + '\'">' +
             '<td class="mono">' + esc(f.farmer_id || '—') + '</td>' +
@@ -739,6 +1146,7 @@ function renderFarmers(id) {
             '<td>' + esc(f.telephone || '—') + '</td><td>' + esc(f.village_nom || '—') + '</td>' +
             '<td>' + esc(f.rt_nom || '—') + '</td><td>' + esc(f.cluster_label || f.cluster_code || '—') + '</td>' +
             '<td>' + badge(f.operational_status || 'Enrôlé') + '</td>' +
+            '<td>' + badge('Opérationnel ✓') + ' <span class="muted">Passport ' + n(f.passport_completion) + ' %</span></td>' +
             '<td>' + (n(f.gps_mapped_count) > 0 ? badge('GPS levé') : '<span class="muted">à compléter après campagne</span>') + '</td>' +
             '<td>' + date(f.last_purchase_date) + '</td></tr>';
         }));
@@ -749,61 +1157,214 @@ function renderFarmers(id) {
   });
 }
 
-/* Farmer Passport — le passeport existant, rendu dans le shell Operations. */
-function renderFarmerPassport(id) {
+/* Farmer Passport — fiche 360° du producteur, 12 sections dans le shell.
+   Chaque rubrique lit sa table canonique ; le dossier lourd (parcelles,
+   sustainability, visites, inspections, consentements, actions, historique)
+   ne se charge que lorsqu'on ouvre le passeport, en un seul Promise.all. */
+
+function passportData(pid) {
+  return FBStore.get('passport:' + pid, function () {
+    function tq(tableName, cols, col) {
+      return q(tableName, cols, 200, function (r) { return r.eq(col || 'producteur_id', pid); })
+        .catch(function () { return []; });
+    }
+    return Promise.all([
+      tq('farmer_plots', 'id,local_name,declared_area,area_unit,land_tenure_status,orchard_age_years,tree_count,productive_tree_count,latitude,longitude,gps_status,gps_verified_area,area_source,evidence_level,status,deleted'),
+      tq('farmer_production_baselines', 'id,campaign,productive_area_ha,previous_production_kg,forecast_kg,productive_tree_count,previous_sales_channel,already_anagroci_supplier,status,created_at'),
+      tq('farmer_sustainability_baselines', 'id,campaign,inspection_date,catalog_version,status,risk_profile,created_at'),
+      tq('farmer_consents', 'id,status,scopes,consent_at,agent_name,text_version,method'),
+      tq('farmer_visits', 'id,visit_type,visit_date,agent_name,purpose,outcome,next_action'),
+      tq('farmer_inspections', 'id,inspection_type,inspection_date,status,notes'),
+      tq('farmer_action_plans_effective_v', '*'),
+      q('farmer_change_log', 'id,table_name,record_id,operation,actor_email,actor_role,reason,created_at', 100,
+        function (r) { return r.eq('record_id', pid).order('created_at', { ascending: false }); })
+        .catch(function () { return []; })
+    ]).then(function (rs) {
+      return { plots: rs[0].filter(function (x) { return !x.deleted; }), baselines: rs[1],
+               sustainability: rs[2], consents: rs[3], visits: rs[4],
+               inspections: rs[5], actions: rs[6], changes: rs[7] };
+    });
+  });
+}
+
+var PASSPORT_TABS = [
+  ['overview', 'Overview'], ['identity', 'Identité'], ['farm', 'Exploitation'],
+  ['plots', 'Parcelles'], ['production', 'Production'], ['sustainability', 'Sustainability'],
+  ['consents', 'Consentements'], ['visits', 'Visites'], ['inspections', 'Inspections'],
+  ['purchases', 'Achats'], ['actions', 'Actions'], ['history', 'Historique']
+];
+
+function renderFarmerPassport(id, tab) {
+  tab = PASSPORT_TABS.some(function (t) { return t[0] === tab; }) ? tab : 'overview';
   paint(head('Farmer Passport', 'Chargement du producteur…',
     '<a class="btn secondary" href="#farmers">← Producteurs</a>') + skeletonPage(8));
 
-  return Promise.all([base(), client()]).then(function (rs) {
-    var c = rs[0];
+  return base().then(function (c) {
     var f = c.farmers.filter(function (x) { return x.producteur_id === id || x.farmer_id === id; })[0];
     if (!f) {
       paint(head('Farmer Passport', 'Producteur introuvable.',
         '<a class="btn secondary" href="#farmers">← Producteurs</a>') + empty('Aucun producteur ne porte cet identifiant.'));
       return;
     }
-    var mine = c.achats.filter(function (a) { return a.producteur_id === f.producteur_id || a.producteur_code === f.farmer_id; });
-    var kg = mine.reduce(function (t, a) { return t + n(a.poids_net); }, 0);
-    var val = mine.reduce(function (t, a) { return t + n(a.montant); }, 0);
+    var pid = f.producteur_id;
+    return Promise.all([passportData(pid),
+      q('producteurs', 'id,data,sexe,birth_year,telephone_alt,id_document_type,id_document_number,consent_status,consent_date', 1,
+        function (r) { return r.eq('id', pid); }).catch(function () { return []; })
+    ]).then(function (rs) {
+      var p = rs[0];
+      var row = (rs[1] || [])[0] || {};
+      var extra = row.data || {};
+      var mine = c.achats.filter(function (a) { return a.producteur_id === pid || a.producteur_code === f.farmer_id; });
+      var kg = mine.reduce(function (t, a) { return t + n(a.poids_net); }, 0);
+      var valAch = mine.reduce(function (t, a) { return t + n(a.montant); }, 0);
 
-    paint(head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
-      'Farmer Passport · identité, achats, sacherie, sustainability et traçabilité.',
-      '<a class="btn secondary" href="#purchases/new/' + encodeURIComponent(f.producteur_id) + '">+ Nouvel achat</a>' +
-      '<a class="btn secondary" href="#farmers">← Producteurs</a>') +
+      function tabs() {
+        return '<div class="ops-passport-tabs">' + PASSPORT_TABS.map(function (t) {
+          return '<a class="' + (tab === t[0] ? 'active' : '') + '" href="#farmers/' +
+            encodeURIComponent(pid) + '/' + t[0] + '">' + esc(t[1]) + '</a>';
+        }).join('') + '</div>';
+      }
+      function defGrid(pairs) {
+        return '<div class="ops-def-grid">' + pairs.map(function (d) {
+          return '<div><small>' + esc(d[0]) + '</small><b>' + esc(d[1] == null || d[1] === '' ? '—' : d[1]) + '</b></div>';
+        }).join('') + '</div>';
+      }
+      var parcelleEtat = p.plots.length
+        ? p.plots.length + ' parcelle(s)' + (p.plots.some(function (x) { return x.latitude != null; }) ? ' · GPS' : '')
+        : 'À compléter après campagne';
 
-      '<section class="card"><div class="card-head"><div><h2>Identité</h2></div></div><div class="ops-def-grid">' +
-      [['Farmer ID', f.farmer_id || '—'], ['Nom', f.nom + (f.prenoms ? ' ' + f.prenoms : '')],
-       ['Téléphone', f.telephone || '—'], ['Village', f.village_nom || '—'],
-       ['Cluster', f.cluster_label || f.cluster_code || '—'], ['Zone', f.zone_label || f.zone_code || '—'],
-       ['RT', f.rt_nom || '—'], ['Statut', f.operational_status || 'Enrôlé']].map(function (d) {
-        return '<div><small>' + esc(d[0]) + '</small><b>' + esc(d[1]) + '</b></div>';
-      }).join('') + '</div></section>' +
+      var body = '';
+      if (tab === 'overview') {
+        body = kpis([
+          ['Statut', 'Opérationnel ✓', esc(f.operational_status || 'Identifié')],
+          ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
+          ['Parcelle', parcelleEtat, 'jamais bloquante en 2027', p.plots.length ? '' : 'warn'],
+          ['Achats campagne', mt(kg), mine.length + ' achat(s) · ' + money(valAch)],
+          ['Risque', esc(f.risk_profile || 'NON ÉVALUÉ'), f.review_required ? 'revue requise' : '', f.review_required ? 'warn' : ''],
+          ['Actions ouvertes', String(p.actions.filter(function (a) { return /OPEN|IN_PROGRESS|OVERDUE/i.test(String(a.status || '')); }).length), 'plans correctifs']
+        ]) +
+        '<section class="card"><div class="card-head"><div><h2>Résumé</h2></div></div>' +
+        defGrid([['Farmer ID', f.farmer_id], ['Nom', (f.nom + ' ' + (f.prenoms || '')).trim()],
+          ['Village', f.village_nom], ['Cluster', f.cluster_label || f.cluster_code],
+          ['Zone', f.zone_label || f.zone_code], ['RT', f.rt_nom],
+          ['Baselines production', String(p.baselines.length)], ['Baselines durabilité', String(p.sustainability.length)],
+          ['Visites', String(p.visits.length)], ['Inspections', String(p.inspections.length)],
+          ['Consentements', String(p.consents.length)], ['Dernier achat', date(f.last_purchase_date)]]) + '</section>';
+      } else if (tab === 'identity') {
+        body = '<section class="card"><div class="card-head"><div><h2>Identité</h2></div></div>' +
+          defGrid([['Farmer ID', f.farmer_id], ['Nom', f.nom], ['Prénoms', f.prenoms],
+            ['Sexe', row.sexe], ['Année de naissance', row.birth_year],
+            ['Téléphone', f.telephone], ['Téléphone alternatif', row.telephone_alt],
+            ['Titulaire téléphone', extra.telTitulaire],
+            ['Pièce', row.id_document_type], ['N° de pièce', row.id_document_number ? '••• (protégé)' : '—'],
+            ['Campement', extra.campement], ['Village', f.village_nom],
+            ['RT', f.rt_nom], ['Cluster', f.cluster_label || f.cluster_code],
+            ['Consentement', row.consent_status], ['Date consentement', date(row.consent_date)]]) + '</section>';
+      } else if (tab === 'farm') {
+        body = '<section class="card"><div class="card-head"><div><h2>Exploitation</h2>' +
+          '<p>Profil agricole déclaré à l’enrôlement — les mesures GPS vivent dans Parcelles.</p></div></div>' +
+          defGrid([['Années dans l’anacarde', extra.anneesAnacarde],
+            ['Superficie déclarée', extra.superficieHa != null ? num(extra.superficieHa, 2) + ' ha' : null],
+            ['Nombre d’arbres', extra.nbArbres], ['Âge plantation', extra.agePlantation != null ? extra.agePlantation + ' ans' : null],
+            ['Production précédente', extra.prodPrecKg != null ? num(extra.prodPrecKg) + ' kg' : null],
+            ['Potentiel 2027', extra.potentiel2027Kg != null ? num(extra.potentiel2027Kg) + ' kg' : null],
+            ['Engagement ANAGROCI', extra.engagementKg != null ? num(extra.engagementKg) + ' kg' : null],
+            ['Coopérative', extra.cooperative], ['Autres cultures', extra.autresCultures],
+            ['Acheteur habituel', extra.acheteurHabituel],
+            ['Prix précédent', extra.prixPrecedent != null ? num(extra.prixPrecedent) + ' F/kg' : null],
+            ['Paiement préféré', extra.paiementMode]]) + '</section>';
+      } else if (tab === 'plots') {
+        body = '<div class="notice ok"><b>Règle 2027 :</b> la parcelle et son GPS sont facultatifs — « à compléter après campagne ».</div>' +
+          '<section class="card">' + table(['Parcelle', 'Superficie', 'Arbres', 'GPS', 'Statut GPS', 'Source', 'Niveau de preuve'],
+          p.plots.map(function (x) {
+            return '<tr><td><b>' + esc(x.local_name || '—') + '</b></td>' +
+              '<td>' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
+              '<td>' + (x.tree_count != null ? num(x.tree_count) : '—') + '</td>' +
+              '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
+              '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
+              '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'production') {
+        body = '<section class="card">' + table(['Campagne', 'Surface productive', 'Production précédente', 'Prévision', 'Arbres productifs', 'Canal précédent', 'Déjà fournisseur', 'Statut'],
+          p.baselines.map(function (x) {
+            return '<tr><td><b>' + esc(x.campaign) + '</b></td>' +
+              '<td>' + (x.productive_area_ha != null ? num(x.productive_area_ha, 2) + ' ha' : '—') + '</td>' +
+              '<td>' + (x.previous_production_kg != null ? num(x.previous_production_kg) + ' kg' : '—') + '</td>' +
+              '<td>' + (x.forecast_kg != null ? num(x.forecast_kg) + ' kg' : '—') + '</td>' +
+              '<td>' + (x.productive_tree_count != null ? num(x.productive_tree_count) : '—') + '</td>' +
+              '<td>' + esc(x.previous_sales_channel || '—') + '</td>' +
+              '<td>' + (x.already_anagroci_supplier ? 'Oui' : 'Non') + '</td>' +
+              '<td>' + badge(x.status) + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'sustainability') {
+        body = '<div class="notice info">La durabilité documente les pratiques : elle ne vaut pas certification automatique.</div>' +
+          '<section class="card">' + table(['Campagne', 'Date', 'Catalogue', 'Risque', 'Statut'],
+          p.sustainability.map(function (x) {
+            return '<tr><td><b>' + esc(x.campaign || '—') + '</b></td><td>' + date(x.inspection_date) + '</td>' +
+              '<td class="mono">' + esc(x.catalog_version || '—') + '</td>' +
+              '<td>' + badge(x.risk_profile || 'NON ÉVALUÉ') + '</td><td>' + badge(x.status) + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'consents') {
+        body = '<section class="card">' + table(['Date', 'Statut', 'Périmètres', 'Méthode', 'Agent', 'Version du texte'],
+          p.consents.map(function (x) {
+            return '<tr><td>' + date(x.consent_at) + '</td><td>' + badge(x.status) + '</td>' +
+              '<td>' + esc(Array.isArray(x.scopes) ? x.scopes.join(', ') : (x.scopes || '—')) + '</td>' +
+              '<td>' + esc(x.method || '—') + '</td><td>' + esc(x.agent_name || '—') + '</td>' +
+              '<td class="mono">' + esc(x.text_version || '—') + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'visits') {
+        body = '<section class="card">' + table(['Date', 'Type', 'Agent', 'Objet', 'Résultat', 'Prochaine action'],
+          p.visits.map(function (x) {
+            return '<tr><td>' + date(x.visit_date) + '</td><td>' + badge(x.visit_type) + '</td>' +
+              '<td>' + esc(x.agent_name || '—') + '</td><td>' + esc(x.purpose || '—') + '</td>' +
+              '<td>' + esc(x.outcome || '—') + '</td><td>' + esc(x.next_action || '—') + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'inspections') {
+        body = '<section class="card">' + table(['Date', 'Type', 'Statut', 'Notes'],
+          p.inspections.map(function (x) {
+            return '<tr><td>' + date(x.inspection_date) + '</td><td>' + badge(x.inspection_type) + '</td>' +
+              '<td>' + badge(x.status) + '</td><td>' + esc(x.notes || '—') + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'purchases') {
+        body = '<section class="card"><div class="card-head"><div><h2>Achats Bord Champ</h2></div>' +
+          '<div class="ops-route-actions"><a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">+ Nouvel achat</a></div></div>' +
+          table(['Date', 'Poids net', 'Sacs', 'Prix', 'Montant', 'Paiement', 'Reçu', 'Validation', 'Stock'],
+          mine.map(function (a) {
+            return '<tr><td>' + date(a.date) + '</td><td>' + num(a.poids_net) + ' kg</td>' +
+              '<td>' + n(a.nb_sacs) + '</td><td>' + num(a.prix_kg) + ' /kg</td>' +
+              '<td>' + money(a.montant) + '</td><td>' + esc(a.mode_paiement || '—') + '</td>' +
+              '<td class="mono">' + esc(a.numero_recu || '—') + '</td>' +
+              '<td>' + badge(a.statut_validation) + '</td><td>' + badge(a.stock_statut) + '</td></tr>';
+          })) + '</section>' +
+          '<section class="card"><div class="card-head"><div><h2>Traceability</h2></div></div>' +
+          '<p class="muted">Chaîne Farmer → Achat → Sacs → Lot → Warehouse → Factory.</p>' +
+          '<div class="ops-actions"><a class="btn secondary" href="#traceability/' + encodeURIComponent(f.farmer_id || f.nom) + '">Tracer ce producteur</a></div></section>';
+      } else if (tab === 'actions') {
+        body = '<section class="card">' + table(['Catégorie', 'Problème', 'Action corrective', 'Responsable', 'Échéance', 'Priorité', 'Statut'],
+          p.actions.map(function (x) {
+            return '<tr><td>' + badge(x.category || '—') + '</td><td>' + esc(x.issue || '—') + '</td>' +
+              '<td>' + esc(x.corrective_action || '—') + '</td><td>' + esc(x.responsible_name || '—') + '</td>' +
+              '<td>' + date(x.due_date) + '</td><td>' + badge(x.priority || '—') + '</td>' +
+              '<td>' + badge(x.status) + '</td></tr>';
+          })) + '</section>';
+      } else if (tab === 'history') {
+        body = '<section class="card"><div class="card-head"><div><h2>Historique</h2>' +
+          '<p>Journal immuable du Farmer Registry pour ce dossier.</p></div></div>' +
+          table(['Date', 'Opération', 'Table', 'Acteur', 'Motif'],
+          p.changes.slice(0, 60).map(function (x) {
+            return '<tr><td>' + date(x.created_at) + '</td><td>' + badge(x.operation || '—') + '</td>' +
+              '<td class="mono">' + esc(x.table_name || '—') + '</td>' +
+              '<td>' + esc(x.actor_email || x.actor_role || '—') + '</td>' +
+              '<td>' + esc(x.reason || '—') + '</td></tr>';
+          })) + '</section>';
+      }
 
-      kpis([
-        ['Passeport', esc(f.passport_stage || '—'), n(f.passport_completion) + ' % complet'],
-        ['Parcelles', String(n(f.plot_count)), n(f.gps_mapped_count) > 0 ? n(f.gps_mapped_count) + ' GPS levée(s)' : 'parcelle à compléter après campagne'],
-        ['Achats campagne', mt(kg), mine.length + ' achat(s)'],
-        ['Montant', money(val), 'Achat Bord Champ'],
-        ['Risque', esc(f.risk_profile || '—'), f.review_required ? 'revue requise' : 'aucune revue demandée', f.review_required ? 'warn' : ''],
-        ['Dernier achat', date(f.last_purchase_date), f.last_purchase_kg ? num(f.last_purchase_kg) + ' kg' : '']
-      ]) +
-
-      '<section class="card"><div class="card-head"><div><h2>Achats Bord Champ</h2>' +
-      '<p>Volet commercial du producteur — le détail complet est dans la rubrique Achat Bord Champ.</p></div></div>' +
-      table(['Date', 'Poids net', 'Sacs', 'Prix', 'Montant', 'Paiement', 'Validation', 'Stock'],
-        mine.slice(0, 15).map(function (a) {
-          return '<tr><td>' + date(a.date) + '</td><td>' + num(a.poids_net) + ' kg</td>' +
-            '<td>' + n(a.nb_sacs) + '</td><td>' + num(a.prix_kg) + ' /kg</td>' +
-            '<td>' + money(a.montant) + '</td><td>' + esc(a.mode_paiement || '—') + '</td>' +
-            '<td>' + badge(a.statut_validation) + '</td><td>' + badge(a.stock_statut) + '</td></tr>';
-        })) + '</section>' +
-
-      '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Sustainability</h2></div></div>' +
-      '<p class="muted">Baselines et formations du producteur — vue détaillée dans la rubrique Sustainability.</p>' +
-      '<div class="ops-actions"><a class="btn secondary" href="#sustainability">Ouvrir Sustainability</a></div></section>' +
-      '<section class="card"><div class="card-head"><div><h2>Traceability</h2></div></div>' +
-      '<p class="muted">Chaîne Farmer → Achat → Sacs → Lot → Warehouse → Factory.</p>' +
-      '<div class="ops-actions"><a class="btn secondary" href="#traceability/' + encodeURIComponent(f.farmer_id || f.nom) + '">Tracer ce producteur</a></div></section></div>');
+      paint(head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
+        'Farmer Passport · fiche 360° — Opérationnel ✓ · Passport ' + n(f.passport_completion) + ' % · Parcelle : ' + parcelleEtat + '.',
+        '<a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">+ Nouvel achat</a>' +
+        '<a class="btn secondary" href="#farmers">← Producteurs</a>') +
+        tabs() + body);
+    });
   });
 }
 
@@ -864,13 +1425,13 @@ function renderRt(sub) {
           ['RT ID', 'Nom', 'Téléphone', 'Village', 'Cluster', 'Activité', 'Statut', 'Producteurs', 'Achats', 'Dernière activité', ''],
           list2.map(function (r) {
             var act = (r.data && r.data.activite) || '—';
-            var isProd = /producteur/i.test(String(act));
+            var isProd = /producteur/i.test(String(act)) || (r.data && r.data.estProducteur === 'OUI');
             return '<tr><td class="mono">' + esc(r.id_rt || '—') + '</td><td><b>' + esc(r.nom) + '</b></td>' +
               '<td>' + esc(r.telephone || '—') + '</td><td>' + esc(r.village_nom || '—') + '</td>' +
               '<td>' + esc(r.cluster || '—') + '</td><td>' + esc(act) + '</td><td>' + badge(r.statut) + '</td>' +
               '<td>' + (d.farmersByRt[r.id] || 0) + '</td><td>' + mt(d.byRtBuy[r.id] || 0) + '</td>' +
               '<td>' + date(d.lastRtBuy[r.id]) + '</td>' +
-              '<td>' + (isProd ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">→ Producteur</button>' : '') + '</td></tr>';
+              '<td>' + (isProd ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">Enrôler comme producteur</button>' : '') + '</td></tr>';
           })) + '</section>';
       } else if (rtTab === 'assign') {
         var rows = c.rts.filter(function (r) { return !rtFilter.cluster || r.cluster === rtFilter.cluster; })
@@ -913,9 +1474,22 @@ function rtToFarmer(rtId) {
   base().then(function (c) {
     var r = c.rm[rtId];
     if (!r) return;
+    /* Même règle que shared/rt-to-producer.js : si la personne existe déjà
+       (même RT source, ou même village + même téléphone + même nom), on OUVRE
+       sa fiche au lieu de recréer une deuxième personne. */
+    var t = normPhone(r.telephone), k = normName(r.nom);
+    var existing = c.farmers.filter(function (f) {
+      var fd = null;
+      return (f.village_id === r.village_id && t && t.length >= 8 && normPhone(f.telephone) === t && normName(f.nom + ' ' + (f.prenoms || '')) === k);
+    })[0];
+    if (existing) {
+      location.hash = '#farmers/' + encodeURIComponent(existing.producteur_id);
+      return;
+    }
     location.hash = '#farmers';
     setTimeout(function () {
-      openFarmerForm({ nom: r.nom, telephone: r.telephone, village_id: r.village_id, rt_id: r.id });
+      openFarmerForm({ nom: r.nom, telephone: r.telephone, village_id: r.village_id, rt_id: r.id,
+        sourceRtId: r.id, id_rt: r.id_rt, activite: (r.data && r.data.activite) || '' });
     }, 250);
   });
 }
@@ -1737,7 +2311,7 @@ var ROUTES = {
   overview: function () { return renderOverview(); },
   purchases: function (p) { return renderPurchases(p[1], p[2]); },
   census: function () { return renderCensus(); },
-  farmers: function (p) { return renderFarmers(p[1]); },
+  farmers: function (p) { return renderFarmers(p[1], p[2]); },
   rt: function (p) { return renderRt(p[1]); },
   hubs: function (p) { return renderHubs(p[1]); },
   bags: function (p) { return renderBags(p[1]); },
@@ -1796,6 +2370,9 @@ global.ANAGROCI_FB = {
   openBagRequest: openBagRequest,
   rtToFarmer: rtToFarmer,
   closeForm: closeForm,
+  fillGps: fillGps,
+  addAcheteur: addAcheteur,
+  calcPotentiel: calcPotentiel,
   store: FBStore
 };
 
