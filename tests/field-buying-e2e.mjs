@@ -1,0 +1,448 @@
+#!/usr/bin/env node
+/**
+ * FIELD BUYING — contrôle en navigateur réel.
+ *
+ * Vérifie que la restauration fonctionnelle est réellement visible :
+ *   · les 11 rubriques de la sidebar rendent dans le shell Operations, sans
+ *     jamais quitter operations/field-buying.html ;
+ *   · les actions critiques (+ Nouveau village / producteur / RT, + Nouvel
+ *     achat, + Nouvelle demande RT) sont visibles, ≥ 44 px, dans l'écran ;
+ *   · les formulaires s'ouvrent et portent leurs champs ; l'anti-doublon
+ *     réagit ; un achat au prix hors barème exige un motif ;
+ *   · la carte s'initialise (Leaflet réel en local) et les villages géolocalisés
+ *     produisent des marqueurs ;
+ *   · le cache partagé évite de relancer les référentiels à chaque rubrique ;
+ *   · aucune erreur console, aucun débordement horizontal, à 7 largeurs.
+ *
+ * Données FICTIVES servies par une doublure locale — aucun nom réel, aucun
+ * montant réel, aucune coordonnée réelle de parcelle.
+ *
+ * Usage : node tests/field-buying-e2e.mjs [--screenshots dossier]
+ */
+import { createServer } from 'node:http';
+import { existsSync, readFileSync, statSync, mkdirSync } from 'node:fs';
+import { extname, join, normalize } from 'node:path';
+import { chromium } from 'playwright';
+
+const RACINE = process.cwd();
+const PORT = Number(process.env.PORT_FBMS ?? 4331);
+const SEUIL_TACTILE = 44;
+const LARGEURS = [1920, 1440, 1366, 1024, 768, 390, 360];
+
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml',
+};
+
+function servir() {
+  return createServer((req, res) => {
+    const chemin = decodeURIComponent((req.url || '/').split('?')[0]);
+    let cible = normalize(join(RACINE, chemin));
+    if (!cible.startsWith(RACINE)) { res.writeHead(403).end(); return; }
+    if (existsSync(cible) && statSync(cible).isDirectory()) cible = join(cible, 'index.html');
+    if (!existsSync(cible)) { res.writeHead(404).end('introuvable'); return; }
+    res.writeHead(200, { 'content-type': TYPES[extname(cible)] ?? 'application/octet-stream' });
+    res.end(readFileSync(cible));
+  });
+}
+
+/* Doublure de données : mêmes formes que les tables réelles, contenu inventé. */
+const DOUBLURE = `
+(function () {
+  'use strict';
+  window.__lectures = [];
+  var CL = [
+    { code: 'DJEBONOUA', label: 'Djébonoua', zone_code: 'GBEKE_1', active: true },
+    { code: 'BROBO', label: 'Brobo', zone_code: 'GBEKE_1', active: true },
+    { code: 'SAKASSOU', label: 'Sakassou', zone_code: 'GBEKE_1', active: true },
+    { code: 'BEOUMI', label: 'Béoumi', zone_code: 'GBEKE_2', active: true },
+    { code: 'BOTRO', label: 'Botro', zone_code: 'GBEKE_2', active: true },
+    { code: 'DIABO', label: 'Diabo', zone_code: 'GBEKE_2', active: true }
+  ];
+  var ZN = [
+    { code: 'GBEKE_1', label: 'GBEKE 1', region: 'Gbêkê', active: true },
+    { code: 'GBEKE_2', label: 'GBEKE 2', region: 'Gbêkê', active: true }
+  ];
+  var VILLAGES = [], RTS = [], FARMERS = [], ACHATS = [];
+  for (var i = 1; i <= 12; i++) {
+    var cl = CL[i % 6].label;
+    VILLAGES.push({ id: 'v_test_' + i, village: 'VILLAGE FICTIF ' + i, region: 'Gbêkê',
+      departement: 'Bouaké', cluster: cl, cluster_code: CL[i % 6].code,
+      statut: i % 3 ? 'Approuvé BM' : 'Brouillon', score: 60 + i,
+      gps_lat: i % 4 ? (7.4 + i * 0.02) : null, gps_lng: i % 4 ? (-5.1 + i * 0.02) : null,
+      deleted: false,
+      data: { s1: { village: 'VILLAGE FICTIF ' + i, cluster: cl, distanceHub: 10 + i,
+                    distanceHubRoutiere: i % 2 ? 12 + i : null },
+              s3: { potentielMT: 20 + i, potentielSecuriseMT: 10 + i, nbProducteurs: 30 },
+              s5: { typeAcces: i % 5 ? 'Piste' : 'Enclavé', noteRoute: (i % 10) + 1, camion10T: true } } });
+    if (i <= 10) RTS.push({ id: 'rt_test_' + i, id_rt: 'RT-FIC-' + i, nom: 'RT FICTIF ' + i,
+      telephone: '07000000' + String(10 + i), village_id: 'v_test_' + i,
+      village_nom: 'VILLAGE FICTIF ' + i, cluster: cl,
+      statut: i % 4 ? 'Confirmé' : 'Pressenti', score: 70, deleted: false,
+      data: { activite: i % 3 ? 'Producteur' : 'Pisteur' } });
+    FARMERS.push({ producteur_id: 'p_test_' + i, farmer_id: 'FICT-' + String(1000 + i),
+      nom: 'PRODUCTEUR FICTIF ' + i, prenoms: '', telephone: '05000000' + String(10 + i),
+      village_id: 'v_test_' + i, village_nom: 'VILLAGE FICTIF ' + i,
+      rt_id: i <= 10 ? 'rt_test_' + i : null, rt_nom: i <= 10 ? 'RT FICTIF ' + i : null,
+      cluster_code: CL[i % 6].code, cluster_label: cl, zone_code: CL[i % 6].zone_code,
+      zone_label: CL[i % 6].zone_code.replace('_', ' '), operational_status: 'Enrôlé',
+      passport_stage: 'BASIC', passport_completion: 40, risk_profile: 'LOW',
+      possible_duplicate: false, review_required: false, plot_count: i % 2,
+      gps_mapped_count: i % 2, last_purchase_date: i % 2 ? '2026-08-20' : null,
+      last_purchase_kg: 100, deleted: false });
+    ACHATS.push({ id: 'a_test_' + i, date: '2026-08-2' + (i % 9), cluster: cl,
+      village_id: 'v_test_' + i, village_nom: 'VILLAGE FICTIF ' + i,
+      rt_id: 'rt_test_' + Math.min(i, 10), rt_nom: 'RT FICTIF ' + Math.min(i, 10),
+      producteur_id: 'p_test_' + i, producteur_code: 'FICT-' + String(1000 + i),
+      producteur_nom: 'PRODUCTEUR FICTIF ' + i, poids_net: 500, nb_sacs: 6, prix_kg: 400,
+      montant: 200000, mode_paiement: 'Wave', numero_recu: i % 3 ? 'RC-' + i : null,
+      qualite_statut: i % 5 ? 'OK' : 'À sécher', statut_validation: i % 5 ? 'À valider' : 'À contrôler',
+      stock_statut: 'Entrée RT', cash_statut: null, rejet: false, kor: 47, humidite: 8,
+      created_at: '2026-08-2' + (i % 9) + 'T09:00:00Z' });
+  }
+  var TABLES = {
+    villages: VILLAGES, rt: RTS, farmer_passport_summary_v: FARMERS, achats: ACHATS,
+    aflp_zones: ZN, aflp_clusters: CL,
+    avances: [{ id: 'av1', date: '2026-08-20', cluster: 'Brobo', rt_id: 'rt_test_2',
+      rt_nom: 'RT FICTIF 2', source: 'Finance', montant: 500000, motif: 'CAMPAGNE',
+      statut: 'Active', cycle_id: 'CYC-1', cycle_statut: 'Ouvert', created_at: '2026-08-20' }],
+    reconciliations: [],
+    sacherie_ct_cluster_stock: CL.map(function (c, k) {
+      return { cluster: c.label, stock_cluster_vide: 400 - k * 60, stock_cluster_plein: 40,
+        stock_chez_rt: 120, stock_chez_producteur: 30, stock_hub_plein: 0,
+        dechires: 2, a_reparer: 1, repares: 0, rebut: 0, transit: 5, total_reseau: 600 };
+    }),
+    sacherie_ct_rt_stock: RTS.map(function (r, k) {
+      return { cluster: r.cluster, rt_id: r.id, rt_nom: r.nom,
+        total_sous_responsabilite: 20 + k, vides: 15, pleins: 5, dechires: 0,
+        a_reparer: 0, repares: 0, rebut: 0,
+        derniere_activite: k % 2 ? '2026-08-25' : '2026-06-01' };
+    }),
+    ops_bag_requests: [{ id: 'br1', request_code: 'BAG-2027-001', channel: 'AFLP',
+      campaign: '2027', cluster: 'Brobo', rt_id: 'rt_test_2', requested_qty: 200,
+      approved_qty: 200, released_qty: 120, received_qty: 120, status: 'PARTIAL',
+      requested_at: '2026-08-20', approved_at: '2026-08-21', expires_at: '2026-09-30',
+      source_location_code: 'CLUSTER:Brobo', destination_location_code: 'RT:rt_test_2' }],
+    aflp_bag_envelopes: [{ id: 'env1', campaign: '2027', approved_qty: 5000, status: 'APPROVED', approved_at: '2026-08-01' }],
+    aflp_bag_cluster_allocations: CL.map(function (c, k) {
+      return { id: 'al' + k, envelope_id: 'env1', cluster: c.label, allocated_qty: 700 };
+    }),
+    log_hubs: CL.map(function (c) {
+      return { cluster: c.label, zone: c.zone_code, hub_nom: c.label, statut_hub: 'Actif',
+        potentiel_mt: 300, distance_km: 40, etat_route: 'Praticable', commentaire: '' };
+    }),
+    hubs_clusters: CL.map(function (c, k) {
+      return { id_hub: 'h' + k, nom: c.label, region: 'Gbêkê', departement: 'Bouaké',
+        localite: c.label, gps_lat: 7.5 + k * 0.05, gps_lng: -5.2 + k * 0.05,
+        distance_usine_gps: 60 + k, distance_usine_routiere: k % 2 ? 70 + k : null,
+        statut: 'Approuvé Branch Manager', deleted: false };
+    }),
+    farmer_sustainability_dashboard_v: VILLAGES.map(function (v, k) {
+      return { zone_code: 'GBEKE_1', zone_label: 'GBEKE 1', cluster_code: v.cluster_code,
+        cluster_label: v.cluster, village_id: v.id, village_nom: v.village,
+        producers_registered: 8, sustainability_baseline_completed: 4, trained_farmers: 3,
+        open_corrective_actions: k % 3, high_risk_farmers: 0 };
+    }),
+    parametres_calcul: [{ cle: 'usine_lat', valeur: '6.741972' }, { cle: 'usine_lng', valeur: '-5.34575' }],
+    profils: { nom: 'PROFIL DE TEST', role: 'Procurement Officer', actif: true }
+  };
+  function requete(nom) {
+    window.__lectures.push(nom);
+    var data = TABLES[nom];
+    var liste = Array.isArray(data) ? data : [];
+    var unique = Array.isArray(data) ? null : (data || null);
+    var c = {
+      select: f, insert: function (row) { window.__lectures.push('insert:' + nom); return c; },
+      update: f, upsert: f, delete: f, eq: f, neq: f, in: f, like: f, ilike: f,
+      gte: f, lte: f, order: f, limit: f, range: f,
+      single: function () { return Promise.resolve({ data: unique, error: null }); },
+      maybeSingle: function () { return Promise.resolve({ data: unique, error: null }); },
+      then: function (r) { return Promise.resolve({ data: liste, error: null }).then(r); }
+    };
+    function f() { return c; }
+    return c;
+  }
+  window.supabase = {
+    createClient: function () {
+      return {
+        auth: {
+          getSession: function () { return Promise.resolve({ data: { session: { user: { id: 'utilisateur-de-test' } } }, error: null }); },
+          getUser: function () { return Promise.resolve({ data: { user: { id: 'utilisateur-de-test' } }, error: null }); },
+          onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
+          signOut: function () { return Promise.resolve({ data: null, error: null }); }
+        },
+        from: requete,
+        rpc: function (nom, args) {
+          window.__lectures.push('rpc:' + nom);
+          if (nom === 'farmer_possible_duplicates') return Promise.resolve({ data: [], error: null });
+          if (nom === 'field_traceability_search') {
+            return Promise.resolve({ data: [{ farmer_id: 'FICT-1001', producteur_nom: 'PRODUCTEUR FICTIF 1',
+              achat_id: 'a_test_1', achat_local_id: 'a_test_1', achat_poids_net_kg: 500,
+              lot_code: 'LOT-20260820-000001', shipment_code: 'SHP-1', vehicle_plate: 'TEST 01',
+              reception_id: 'REC-1', bags: ['BAG-1', 'BAG-2'] }], error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        storage: { from: function () { return { list: function () { return Promise.resolve({ data: [], error: null }); } }; } },
+        channel: function () { return { on: function () { return this; }, subscribe: function () { return this; } }; },
+        removeChannel: function () {}
+      };
+    }
+  };
+  window.ANAGROCI_SUPABASE_URL = 'https://doublure.local';
+  window.ANAGROCI_SUPABASE_ANON = 'doublure';
+})();
+`;
+
+const echecs = [];
+const notes = [];
+function verifier(condition, message) {
+  if (condition) notes.push('  ok   ' + message);
+  else { echecs.push(message); notes.push('  ÉCHEC ' + message); }
+}
+
+async function allerA(page, hash) {
+  await page.evaluate((h) => { location.hash = h; }, hash);
+  await page.waitForFunction(() => !document.querySelector('#opsRouteView .skeleton'), null, { timeout: 15000 });
+}
+async function mesurerBouton(page, id) {
+  return page.evaluate((sel) => {
+    const b = document.getElementById(sel.id) ||
+      [...document.querySelectorAll('.ops-route-actions .btn')].find((x) => x.textContent.includes(sel.txt));
+    if (!b) return { present: false };
+    const r = b.getBoundingClientRect();
+    const s = getComputedStyle(b);
+    return { present: true, hauteur: Math.round(r.height), assezHaut: r.height >= 44,
+      visible: s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0,
+      dansEcran: r.left >= -1 && r.right <= window.innerWidth + 1,
+      debordement: document.documentElement.scrollWidth > window.innerWidth + 1 };
+  }, id);
+}
+
+async function main() {
+  const dossierCaptures = process.argv.includes('--screenshots')
+    ? process.argv[process.argv.indexOf('--screenshots') + 1] : null;
+  if (dossierCaptures) mkdirSync(dossierCaptures, { recursive: true });
+
+  const serveur = servir();
+  await new Promise((r) => serveur.listen(PORT, r));
+  const navigateur = await chromium.launch();
+  const base = `http://127.0.0.1:${PORT}/operations/field-buying.html`;
+
+  try {
+    for (const largeur of LARGEURS) {
+      const hauteur = largeur < 500 ? 844 : 900;
+      const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur } });
+      const page = await contexte.newPage();
+      const erreurs = [];
+      page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text()); });
+      page.on('pageerror', (e) => erreurs.push('JS: ' + e.message));
+      await page.addInitScript(DOUBLURE);
+      /* Leaflet local est REEL (servi par ce serveur) ; les autres CDN sont neutralisés. */
+      await page.route('**/*', (route) => {
+        const url = route.request().url();
+        if (/tile\.openstreetmap\.org/.test(url)) {
+          return route.fulfill({ status: 200, contentType: 'image/png',
+            body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') });
+        }
+        if (/leaflet/.test(url) && /cdn\.jsdelivr/.test(url)) {
+          const isCss = /\.css/.test(url);
+          const local = isCss ? 'node_modules/leaflet/dist/leaflet.css' : 'node_modules/leaflet/dist/leaflet.js';
+          if (existsSync(join(RACINE, local))) {
+            return route.fulfill({ status: 200,
+              contentType: isCss ? 'text/css' : 'text/javascript',
+              body: readFileSync(join(RACINE, local)) });
+          }
+          return route.fulfill({ status: 200, contentType: isCss ? 'text/css' : 'text/javascript', body: '/* absent */' });
+        }
+        if (/supabase|jsdelivr|cdnjs|tailwindcss|fonts\.(googleapis|gstatic)/i.test(url)) {
+          return route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: '/* doublure */' });
+        }
+        return route.continue();
+      });
+
+      notes.push(`\n── ${largeur} px ──`);
+
+      // 1. Vue d'ensemble : action + Nouvel achat visible
+      await page.goto(base + '#overview', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.querySelector('#opsRouteView .skeleton'), null, { timeout: 20000 });
+      let b = await mesurerBouton(page, { id: '', txt: '+ Nouvel achat' });
+      verifier(b.present && b.visible, `${largeur}px · Vue d'ensemble : « + Nouvel achat » visible`);
+      verifier(!b.debordement, `${largeur}px · Vue d'ensemble : aucun défilement horizontal`);
+      const kpiObjectif = await page.evaluate(() => {
+        const k = [...document.querySelectorAll('.kpi small')].find((x) => /Objectif campagne/i.test(x.textContent));
+        return k ? k.parentElement.textContent : '';
+      });
+      verifier(/3\s*000\s*MT/.test(kpiObjectif), `${largeur}px · objectif campagne 3 000 MT affiché`);
+
+      // 2. Recensement : les 3 actions critiques visibles
+      await allerA(page, '#census');
+      const actions = await page.evaluate(() =>
+        [...document.querySelectorAll('.ops-route-actions .btn')].map((x) => x.textContent.trim()));
+      for (const a of ['+ Nouveau village', '+ Nouveau producteur', '+ Nouveau RT']) {
+        verifier(actions.some((t) => t.includes(a)), `${largeur}px · Recensement : « ${a} » visible`);
+      }
+      b = await mesurerBouton(page, { id: '', txt: '+ Nouveau village' });
+      verifier(b.assezHaut, `${largeur}px · Recensement : bouton ${b.hauteur}px ≥ 44px`);
+      verifier(b.dansEcran && !b.debordement, `${largeur}px · Recensement : dans l'écran, sans débordement`);
+
+      // 3. Navigation complète : 11 rubriques, jamais hors du shell
+      if (largeur === 1440 || largeur === 360) {
+        for (const [hash, attendu] of [
+          ['#purchases', 'Achat Bord Champ'], ['#census', 'Recensement'], ['#farmers', 'Producteurs'],
+          ['#rt', 'RT & Villages'], ['#hubs', 'Hubs & Cartographie'], ['#bags', 'Sacherie AFLP'],
+          ['#cash', 'Caisse & Avances'], ['#command', 'Command Center'],
+          ['#sustainability', 'Sustainability'], ['#traceability', 'Traceability'], ['#overview', 'Vue d’ensemble']]) {
+          await allerA(page, hash);
+          const etat = await page.evaluate(() => ({
+            titre: (document.querySelector('.ops-route-head h1') || {}).textContent || '',
+            path: location.pathname,
+            shell: !!document.getElementById('opsSidebar') && !!document.getElementById('opsTopbar')
+          }));
+          verifier(etat.titre.indexOf(attendu) >= 0,
+            `${largeur}px · ${hash} rend « ${attendu} » (vu « ${etat.titre.trim() || '∅'} »)`);
+          verifier(etat.path.endsWith('/operations/field-buying.html') && etat.shell,
+            `${largeur}px · ${hash} reste dans le shell Operations`);
+        }
+      }
+
+      if (largeur === 1440) {
+        // 4. Formulaire village
+        await allerA(page, '#census');
+        await page.evaluate(() => { ANAGROCI_FB.openVillageForm(); });
+        await page.waitForSelector('#villageForm', { timeout: 15000 });
+        const vf = await page.evaluate(() => ({
+          champs: ['vf_nom', 'vf_cluster', 'vf_region', 'vf_dept', 'vf_lat', 'vf_lng', 'vf_pot', 'vf_route', 'vf_camion'].filter((i) => document.getElementById(i)).length,
+          clusters: document.querySelectorAll('#vf_cluster option').length
+        }));
+        verifier(vf.champs === 9, `formulaire village : 9 champs clés (vu ${vf.champs})`);
+        verifier(vf.clusters >= 6, `formulaire village : clusters AFLP proposés (${vf.clusters - 1})`);
+        await page.fill('#vf_nom', 'VILLAGE FICTIF 3');
+        await page.waitForTimeout(120);
+        const dupV = await page.evaluate(() => (document.getElementById('vf_dup') || {}).innerHTML || '');
+        verifier(/existe déjà/i.test(dupV), 'formulaire village : alerte anti-doublon sur nom existant');
+        await page.evaluate(() => ANAGROCI_FB.closeForm());
+
+        // 5. Formulaire producteur : parcelle jamais exigée
+        await page.evaluate(() => { ANAGROCI_FB.openFarmerForm(); });
+        await page.waitForSelector('#farmerForm', { timeout: 15000 });
+        const ff = await page.evaluate(() => ({
+          requis: [...document.querySelectorAll('#farmerForm [required]')].map((x) => x.id),
+          parcelle: /parcelle à compléter après campagne/i.test(document.getElementById('fbFormHost').textContent)
+        }));
+        verifier(ff.requis.length === 2 && ff.requis.includes('ff_nom') && ff.requis.includes('ff_village'),
+          'formulaire producteur : seuls nom et village sont requis (parcelle jamais bloquante)');
+        verifier(ff.parcelle, 'formulaire producteur : mention « parcelle à compléter après campagne »');
+        await page.evaluate(() => ANAGROCI_FB.closeForm());
+
+        // 6. Formulaire achat : prix 400 par défaut, motif exigé hors barème
+        await allerA(page, '#purchases');
+        await page.click('#newBuyBtn');
+        await page.waitForSelector('#buyForm', { timeout: 15000 });
+        await page.selectOption('#bf_village', 'v_test_2');
+        await page.selectOption('#bf_farmer', 'p_test_2');
+        await page.fill('#bf_brut', '500');
+        await page.fill('#bf_sacs', '6');
+        const prixDefaut = await page.evaluate(() => document.getElementById('bf_prix').value);
+        verifier(prixDefaut === '400', `formulaire achat : prix campagne 400 par défaut (vu ${prixDefaut})`);
+        await page.fill('#bf_prix', '450');
+        await page.waitForTimeout(80);
+        const motifVisible = await page.evaluate(() => !document.getElementById('bf_motif_prix').closest('.ops-field').hidden);
+        verifier(motifVisible, 'formulaire achat : motif exigé quand le prix sort du barème');
+        await page.fill('#bf_prix', '400');
+        await page.click('#bf_submit');
+        await page.waitForTimeout(200);
+        const msgRecu = await page.evaluate(() => document.getElementById('bf_msg').textContent);
+        verifier(/reçu/i.test(msgRecu), 'formulaire achat : le n° de reçu est exigé pour un achat complet');
+        await page.evaluate(() => ANAGROCI_FB.closeForm());
+
+        // 7. Carte : Leaflet initialisé, marqueurs villages présents
+        await allerA(page, '#hubs');
+        await page.waitForTimeout(600);
+        const carte = await page.evaluate(() => ({
+          leaflet: !!window.L,
+          conteneur: !!document.querySelector('#fbMap.leaflet-container'),
+          marqueurs: document.querySelectorAll('#fbMap path.leaflet-interactive').length,
+          usine: document.querySelectorAll('#fbMap .leaflet-marker-icon').length
+        }));
+        verifier(carte.leaflet && carte.conteneur, 'carte : Leaflet initialisé dans le shell');
+        verifier(carte.marqueurs >= 9, `carte : villages et hubs dessinés (${carte.marqueurs} éléments)`);
+        verifier(carte.usine >= 1, 'carte : marqueur usine Yamoussoukro présent');
+
+        // 8. Sacherie : demande RT + règle approval ≠ sortie
+        await allerA(page, '#bags');
+        const sac = await page.evaluate(() => ({
+          action: [...document.querySelectorAll('.ops-route-actions .btn')].some((x) => /Nouvelle demande RT/.test(x.textContent)),
+          regle: /l’approbation n’est pas la sortie physique/i.test(document.getElementById('opsRouteView').textContent),
+          multi: /700 \+ 500 \+ 800/.test(document.getElementById('opsRouteView').textContent),
+          rtAccount: /RT Bag Account/i.test(document.getElementById('opsRouteView').textContent)
+        }));
+        verifier(sac.action, 'sacherie : « + Nouvelle demande RT » visible');
+        verifier(sac.regle && sac.multi, 'sacherie : règle approbation ≠ sortie et multi-release affichées');
+        verifier(sac.rtAccount, 'sacherie : RT Bag Account présent');
+
+        // 9. Command Center : alertes cliquables
+        await allerA(page, '#command');
+        const cmd = await page.evaluate(() => ({
+          lignes: document.querySelectorAll('#cmdTable tbody tr').length,
+          liens: document.querySelectorAll('#cmdTable a.btn').length,
+          sansRecu: /Achat sans reçu/.test(document.getElementById('cmdTable').textContent)
+        }));
+        verifier(cmd.lignes > 0 && cmd.liens > 0, `command center : ${cmd.lignes} alerte(s), chacune avec lien`);
+        verifier(cmd.sansRecu, 'command center : alerte « Achat sans reçu » héritée du cockpit BM');
+
+        // 10. Traceability : la routine E2E répond
+        await allerA(page, '#traceability');
+        await page.fill('#fbTraceQ', 'FICT-1001');
+        await page.click('#fbTraceForm button[type=submit]');
+        await page.waitForTimeout(300);
+        const trace = await page.evaluate(() => document.getElementById('fbTraceOut').textContent);
+        verifier(/LOT-20260820-000001/.test(trace), 'traceability : chaîne Farmer → Lot → Expédition restituée');
+
+        // 11. Cache : retour sur 4 rubriques sans relire les référentiels
+        await allerA(page, '#overview');
+        await page.evaluate(() => { window.__lectures.length = 0; });
+        const chrono = {};
+        for (const [lib, h] of [['Vue d’ensemble → Recensement', '#census'],
+                                ['Recensement → Achats', '#purchases'],
+                                ['Achats → RT & Villages', '#rt'],
+                                ['RT & Villages → Vue d’ensemble', '#overview']]) {
+          const t0 = Date.now();
+          await allerA(page, h);
+          chrono[lib] = Date.now() - t0;
+        }
+        const lectures = await page.evaluate(() => window.__lectures.filter((x) => x === 'villages' || x === 'achats').length);
+        notes.push('  chronos (cache chaud) : ' + JSON.stringify(chrono));
+        verifier(lectures === 0, `cache : référentiels non relus au changement de rubrique (relus ${lectures} fois)`);
+        for (const [lib, ms] of Object.entries(chrono)) {
+          verifier(ms < 300, `changement « ${lib} » en ${ms} ms (< 300 ms)`);
+        }
+      }
+
+      // Captures
+      if (dossierCaptures && (largeur === 1440 || largeur === 390 || largeur === 360)) {
+        for (const [nom, hash] of [['overview', '#overview'], ['census', '#census'],
+                                   ['purchases', '#purchases'], ['hubs', '#hubs'], ['bags', '#bags']]) {
+          await allerA(page, hash);
+          if (hash === '#hubs') await page.waitForTimeout(600);
+          await page.screenshot({ path: join(dossierCaptures, `fb-${nom}-${largeur}.png`) });
+        }
+      }
+
+      const dures = erreurs.filter((e) => !/favicon|manifest|Failed to load resource|leaflet/i.test(e));
+      verifier(dures.length === 0, `${largeur}px · aucune erreur console` + (dures.length ? ' — ' + dures[0] : ''));
+      await contexte.close();
+    }
+  } finally {
+    await navigateur.close();
+    serveur.close();
+  }
+
+  console.log(notes.join('\n'));
+  console.log('\n' + (echecs.length ? `${echecs.length} ÉCHEC(S)\n- ` + echecs.join('\n- ')
+    : `FIELD BUYING E2E : PASS (${LARGEURS.length} largeurs)`));
+  process.exit(echecs.length ? 1 : 0);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

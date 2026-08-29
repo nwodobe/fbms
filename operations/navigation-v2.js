@@ -3,7 +3,7 @@
 'use strict';
 var page=(document.body&&document.body.dataset&&document.body.dataset.workspace)||'';
 var defs={
- field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['rt','RT & Villages'],['logistics','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability']]},
+ field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['rt','RT & Villages'],['hubs','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability']]},
  lba:{title:'LBA PURCHASE',routes:[['overview','Vue d’ensemble'],['registry','LBA Registry'],['purchases','Achats RCN'],['limits','Limites de financement'],['financing','Financements'],['cycles','Cycles de financement'],['deliveries','Livraisons RCN'],['bags','Gestion sacherie'],['balances','Balances'],['aging','Aging & Alertes'],['performance','Performance'],['documents','Documents'],['audit','Audit']]},
  warehouse:{title:'WAREHOUSE OPERATIONS',routes:[['overview','Overview'],['inbound','Inbound'],['quality','Quality'],['lots','RCN Lots'],['bins','Stock & BIN'],['drying','Drying / Sorting'],['bags','Bag Management'],['inventory','Inventory'],['audit','Audit']]},
  transfer:{title:'STOCK TRANSFER',routes:[['overview','Overview'],['requests','Requests'],['ready','Ready to Load'],['transit','In Transit'],['arrivals','Arrivals'],['reconciliation','Reconciliation'],['audit','Audit']]},

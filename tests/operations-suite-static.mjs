@@ -27,34 +27,59 @@ const field = read('operations/field-buying.html');
 assert.ok(/parcelle\/GPS ne bloque jamais/i.test(field), '2027 parcel non-blocking rule missing');
 assert.ok(field.includes('Achat Bord Champ'), 'Field Buying page must expose Achat Bord Champ');
 
-// FIELD BUYING : un seul shell, un seul moteur, 11 rubriques Operations natives.
-assert.ok(/field-buying\.js\?v=[0-9A-Za-z-]+/.test(field), 'restored FIELD BUYING engine missing');
-assert.ok(!field.includes('field-buying-v2.js'), 'obsolete thin FIELD BUYING engine must not be loaded');
-assert.ok(!field.includes('../terrain/') && !field.includes('../fbms/') && !field.includes('../rcntrace/'),
-  'FIELD BUYING must never jump to a legacy shell');
-for (const label of ['Vue d’ensemble','Achat Bord Champ','Recensement','Producteurs','RT & Villages','Hubs & Cartographie','Sacherie AFLP','Caisse & Avances','Command Center','Sustainability','Traceability']) {
-  assert.ok(nav.includes(label), `FIELD BUYING navigation missing ${label}`);
-}
-const fieldJs = read('operations/field-buying.js');
-assert.ok(fieldJs.includes('FieldBuyingStore'), 'FIELD BUYING shared store missing');
-assert.ok(fieldJs.includes('Promise.all'), 'FIELD BUYING base data must load in parallel');
-assert.ok(fieldJs.includes("FieldBuyingStore.get('bags'"), 'bag domain must be lazy loaded');
-assert.ok(fieldJs.includes("FieldBuyingStore.get('trace'"), 'traceability domain must be lazy loaded');
-assert.ok(fieldJs.includes("rows('villages'"), 'village canonical source missing');
-assert.ok(fieldJs.includes("rows('rt'"), 'RT canonical source missing');
-assert.ok(fieldJs.includes("rows('producteurs'"), 'Farmer Registry canonical source missing');
-assert.ok(fieldJs.includes("rows('achats'"), 'Achat Bord Champ canonical source missing');
-assert.ok(fieldJs.includes("rows('ops_bag_requests'"), 'central bag request source missing');
-assert.ok(fieldJs.includes("rows('ops_bag_releases'"), 'central physical bag releases missing');
-assert.ok(fieldJs.includes('farmer_possible_duplicates'), 'Farmer duplicate guard must be reused');
-assert.ok(fieldJs.includes('+ Nouveau village') && fieldJs.includes('+ Nouveau producteur') && fieldJs.includes('+ Nouveau RT'),
-  'Recensement critical create actions must stay visible');
-assert.ok(fieldJs.includes('+ Nouvel achat'), 'Achat Bord Champ critical action missing');
-assert.ok(fieldJs.includes('+ Nouvelle demande RT'), 'bag request critical action missing');
-assert.ok(/approval ≠ release/i.test(fieldJs), 'bag approval/release separation missing');
-assert.ok(/parcelle\/GPS facultatif/i.test(fieldJs), '2027 optional parcel rule missing from create flow');
-assert.ok(fieldJs.includes('3 000 MT'), 'campaign target must remain 3 000 MT');
+// --- FIELD BUYING : un seul moteur, capacites metier reintegrees -----------------
+const fbEngines = ['field-buying.js', 'field-buying-v2.js']
+  .filter(name => new RegExp(`src="\\./${name.replace('.', '\\.')}\\?`).test(field));
+assert.deepEqual(fbEngines, ['field-buying.js'],
+  `Field Buying must load exactly one rendering engine, found: ${fbEngines.join(', ') || 'none'}`);
+assert.ok(/leaflet@1\.9\.4/.test(field), 'Field Buying must load Leaflet for the operational map');
 
+const fb = read('operations/field-buying.js');
+// Routeur publie avant le demarrage — la lecon du defaut LBA.
+const fbPublish = fb.indexOf('global.ANAGROCI_OPS_ROUTE = render;');
+const fbBoot = fb.indexOf("document.readyState === 'loading'");
+assert.ok(fbPublish > 0 && fbPublish < fbBoot, 'FB router must be published before boot');
+
+// Les 11 rubriques cibles existent dans le routeur.
+for (const r of ['overview', 'purchases', 'census', 'farmers', 'rt', 'hubs', 'bags',
+                 'cash', 'command', 'sustainability', 'traceability']) {
+  assert.ok(new RegExp(`\\b${r}: function`).test(fb), `FB route missing: ${r}`);
+}
+const nav2 = read('operations/navigation-v2.js');
+for (const label of ['Recensement', 'Producteurs', 'Hubs & Cartographie', 'Sacherie AFLP',
+                     'Caisse & Avances', 'Command Center']) {
+  assert.ok(nav2.includes(label), `FB sidebar missing: ${label}`);
+}
+
+// Reutilisation des moteurs existants — jamais de deuxieme base.
+for (const t of ["q('villages'", "from('rt')", "from('producteurs')", "from('achats')",
+                 "q('avances'", "q('reconciliations'", "from('ops_bag_requests')",
+                 "rpc('farmer_possible_duplicates'", "rpc('field_traceability_search'",
+                 'farmer_passport_summary_v', 'sacherie_ct_rt_stock', 'sacherie_ct_cluster_stock',
+                 'aflp_zones', 'aflp_clusters', 'hubs_clusters', 'log_hubs']) {
+  assert.ok(fb.includes(t), `FB must reuse existing engine: ${t}`);
+}
+// Bareme de l'ancien moteur d'achats conserve.
+assert.ok(fb.includes('PRIX_CAMPAGNE = 400'), 'campaign price 400 missing');
+assert.ok(fb.includes("'Validation BM requise'"), 'off-scale price BM validation missing');
+assert.ok(fb.includes("'Entrée RT'"), 'stock release rule missing');
+// Regle 2027 : parcelle jamais bloquante — le formulaire d'achat n'exige aucune parcelle.
+assert.ok(/parcelle à compléter après campagne/i.test(fb), '2027 parcel-optional wording missing');
+assert.ok(!/gps_mapped_count[^\n]*required/.test(fb), 'parcel must never be required');
+// Actions critiques rendues dans l'en-tete, jamais injectees apres coup.
+for (const label of ['+ Nouveau village', '+ Nouveau producteur', '+ Nouveau RT',
+                     '+ Nouvel achat', '+ Nouvelle demande RT']) {
+  assert.ok(fb.includes(label), `FB critical action missing: ${label}`);
+}
+// Performance : chargement groupe, cache partage, prechargement.
+assert.ok(fb.includes('FBStore'), 'FB shared store missing');
+assert.ok(fb.includes('Promise.all'), 'FB parallel base load missing');
+assert.ok(fb.includes('requestIdleCallback'), 'FB idle preload missing');
+// Terminologie officielle.
+assert.ok(!/Achat Direct|Direct Purchase|Direct Buying|Farmgate/i.test(fb), 'forbidden terminology in FB engine');
+// Aucun saut vers l'ancien shell.
+assert.ok(!/fbms\/index\.html|terrain\/achats\.html|terrain\/cash\.html|rcntrace\/index\.html/.test(fb),
+  'FB engine must not link back to legacy shells');
 // --- LBA Purchase : un seul moteur, un bouton qui ne peut pas disparaitre -------
 // Ces assertions datent d'un defaut reel : lba-purchase-v2.js publiait
 // ANAGROCI_OPS_ROUTE a la fin de son init() asynchrone et ecrasait le routeur du
@@ -112,8 +137,8 @@ for (const file of ['lba-purchase.html', 'reports.html', 'traceability.html',
                     'lba-purchase.js', 'workspace.js', 'traceability-search.js']) {
   const src = read('operations/' + file);
   const visible = src
-    .replace(/https?:\/\/[^"'\s)]+/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/https?:\/\/[^"'\s)]+/g, '')          // URLs de CDN et de projet
+    .replace(/\/\*[\s\S]*?\*\//g, '')               // commentaires de code
     .replace(/ANAGROCI_SUPABASE_[A-Z]+/g, '')
     .replace(/global\.supabase|window\.supabase/g, '');
   for (const word of ['Supabase', 'PostgreSQL', 'RLS', 'RPC', 'serveur autoritaire']) {
