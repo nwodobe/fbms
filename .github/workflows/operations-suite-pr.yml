@@ -6,11 +6,12 @@ on:
     paths:
       - 'index.html'
       - 'operations/**'
-      - 'supabase/20260829_field_buying_sensitive_media.sql'
+      - 'supabase/**'
       - 'tests/operations-suite-static.mjs'
       - 'tests/field-buying-profiles-static.mjs'
       - 'tests/field-buying-prefilled-edit-static.mjs'
       - 'tests/field-buying-performance-static.mjs'
+      - 'tests/sacherie-operational-p1-static.mjs'
 
 permissions:
   contents: read
@@ -32,12 +33,15 @@ jobs:
         run: node tests/field-buying-prefilled-edit-static.mjs
       - name: Assertions performance FIELD BUYING
         run: node tests/field-buying-performance-static.mjs
+      - name: Assertions Sacherie opérationnelle P1
+        run: node tests/sacherie-operational-p1-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
           node --check operations/navigation-v2.js
           node --check operations/field-buying-performance-bootstrap.js
           node --check operations/field-buying.js
+          node --check operations/sacherie-operational-p1.js
           node --check operations/field-buying-profiles.js
           node --check operations/field-buying-prefilled-edit.js
           node --check operations/field-buying-v2.js
