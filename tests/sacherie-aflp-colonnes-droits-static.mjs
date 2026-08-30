@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const js = fs.readFileSync('operations/field-buying.js', 'utf8');
-const sql = fs.readFileSync('docs/migrations/sacherie_ct_views_grants_20260830.sql', 'utf8');
+const sql = fs.readFileSync('supabase/20260830_sacherie_ct_views_grants.sql', 'utf8');
 
 /* --- 1. ops_bag_releases : released_at est la seule colonne canonique ----- */
 const selectReleases = js.match(/q\('ops_bag_releases',\s*'([^']*)'/);
