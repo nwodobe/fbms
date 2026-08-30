@@ -12,6 +12,11 @@ on:
       - 'tests/field-buying-prefilled-edit-static.mjs'
       - 'tests/field-buying-performance-static.mjs'
       - 'tests/sacherie-operational-p1-static.mjs'
+      - 'tests/sacherie-aflp-colonnes-droits-static.mjs'
+      # Le workflow se surveille lui-même : sans cette entrée, une pull request
+      # qui ne toucherait QUE ce fichier ne déclencherait pas le job, et une
+      # régression introduite ici passerait sans aucun contrôle.
+      - '.github/workflows/operations-suite-pr.yml'
 
 permissions:
   contents: read
@@ -35,6 +40,11 @@ jobs:
         run: node tests/field-buying-performance-static.mjs
       - name: Assertions Sacherie opérationnelle P1
         run: node tests/sacherie-operational-p1-static.mjs
+      # Incident du 30/08/2026 : colonne inexistante lue sur ops_bag_releases,
+      # et droits manquants sur les vues sacherie_ct_*. Cette assertion garde
+      # les deux, plus la structure qui isole les requêtes les unes des autres.
+      - name: Assertions Sacherie AFLP — colonnes, droits et tolérance
+        run: node tests/sacherie-aflp-colonnes-droits-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
