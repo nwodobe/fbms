@@ -13,6 +13,10 @@ on:
       - 'tests/field-buying-performance-static.mjs'
       - 'tests/sacherie-operational-p1-static.mjs'
       - 'tests/sacherie-aflp-colonnes-droits-static.mjs'
+      # Le workflow se surveille lui-même : sans cette entrée, une pull request
+      # qui ne toucherait QUE ce fichier ne déclencherait pas le job, et une
+      # régression introduite ici passerait sans aucun contrôle.
+      - '.github/workflows/operations-suite-pr.yml'
 
 permissions:
   contents: read
