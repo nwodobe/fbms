@@ -248,8 +248,12 @@ function bagsData() {
       /* Registre des locations : les codes réels (AFLP-CL-…, AFLP-RT-…) sont
          la clé de voûte — une demande sans code réel ne peut pas se libérer. */
       q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,nom,actif', 400),
-      q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,created_at', 60,
-        function (r) { return r.order('created_at', { ascending: false }); }),
+      /* Colonne canonique de la sortie : released_at (défaut now()). La table
+         n'a jamais porté de created_at ; l'ancien nom renvoyait un 400 qui
+         faisait échouer tout le Promise.all — donc TOUTE la rubrique Sacherie,
+         Pilotage compris, pas seulement « Demandes & sorties ». */
+      q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,released_at', 60,
+        function (r) { return r.order('released_at', { ascending: false }); }),
       q('sacherie_ct_global_stock', '*', 1),
       q('rcn_jute_loss_requests', 'id,location_code,state,qty,motif,statut,submitted_at', 50,
         function (r) { return r.order('submitted_at', { ascending: false }); }),
@@ -2330,7 +2334,7 @@ function renderBags(sub) {
       table(['Date', 'Demande', 'Qté', 'Trajet', 'Preuve'],
         (b.releases || []).slice(0, 12).map(function (x) {
           var req = bagReqById(b, x.request_id) || {};
-          return '<tr><td>' + date(x.created_at) + '</td><td class="mono">' + esc(req.request_code || x.request_id || '—') + '</td>' +
+          return '<tr><td>' + date(x.released_at) + '</td><td class="mono">' + esc(req.request_code || x.request_id || '—') + '</td>' +
             '<td>' + num(x.qty) + '</td><td class="mono">' + esc(x.source_location_code || '—') + ' → ' + esc(x.destination_location_code || '—') + '</td>' +
             '<td>' + (x.proof_url ? '<a href="#bags" class="ops-link" onclick="ANAGROCI_FB.openBagProof(\'' + esc(x.proof_url) + '\');return false;"><b>voir</b></a>' : '—') + '</td></tr>';
         })) + '</section></div>' +
