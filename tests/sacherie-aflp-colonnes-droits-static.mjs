@@ -27,6 +27,29 @@ assert.match(blocReleases.slice(0, 400), /\.order\('released_at',\s*\{\s*ascendi
 assert.doesNotMatch(js, /date\(x\.created_at\)[^]{0,200}source_location_code/,
   'le tableau des sorties physiques doit afficher released_at');
 
+/* --- 1 bis. Une requete en echec ne doit plus vider toute la rubrique ----- */
+/* Le comportement lui-meme est verifie dans un navigateur par
+   tests/sacherie-tolerance-pannes.mjs ; ici on garde la structure qui le rend
+   possible, pour que sa disparition se voie meme sans Playwright. */
+assert.doesNotMatch(js, /return Promise\.all\(\[\s*\n\s*q\('sacherie_ct_cluster_stock'/,
+  'bagsData() ne doit plus enchainer les requetes brutes dans un Promise.all nu');
+assert.match(js, /function tolerant\(pannes, source, promesse, repli\)/,
+  'le garde-fou tolerant() doit exister');
+const blocBags = js.slice(js.indexOf('function bagsData()'), js.indexOf('function bagsPannesNotice'));
+for (const source of ['sacherie_ct_cluster_stock', 'sacherie_ct_rt_stock', 'ops_bag_requests',
+  'aflp_bag_envelopes', 'aflp_bag_cluster_allocations', 'rcn_jute_locations', 'ops_bag_releases',
+  'sacherie_ct_global_stock', 'rcn_jute_loss_requests', 'sacherie_ct_latest_inventory']) {
+  assert.ok(blocBags.includes("t('" + source + "'"),
+    `la requete ${source} doit etre isolee : une panne ne fait tomber qu'elle`);
+}
+assert.match(blocBags, /pannes: pannes/, 'les pannes doivent remonter jusqu\'a l\'ecran');
+assert.match(blocBags, /FBStore\.invalidate\('bags'\)/,
+  'un chargement degrade ne doit pas etre mis en cache');
+assert.match(js, /Données partielles/,
+  'l\'ecran doit nommer les jeux de donnees manquants, pas afficher un tableau vide muet');
+assert.match(js, /createHost\(\) \+ bagsPannesNotice\(b\)/,
+  'le bandeau doit etre peint dans la rubrique Sacherie');
+
 /* --- 2. Migration : les QUATRE vues de pilotage, pas seulement deux ------- */
 const vues = ['sacherie_ct_global_stock', 'sacherie_ct_cluster_stock',
   'sacherie_ct_rt_stock', 'sacherie_ct_latest_inventory'];

@@ -235,34 +235,78 @@ function zoneOfCluster(c, cluster) {
 }
 
 /* Chargements à la demande. */
+
+/* Isole une requête de la rubrique entière.
+   Avant, les dix requêtes de la sacherie partageaient un seul Promise.all :
+   une seule en échec rejetait l'ensemble et vidait les SIX sous-onglets, en
+   affichant un message qui ne désignait même pas la requête fautive. C'est ce
+   qui s'est produit le 30/08/2026 — une colonne mal nommée dans la lecture des
+   sorties a fait tomber le Pilotage, qui n'y touche pas.
+   La panne est retenue, jamais avalée : `pannes` remonte jusqu'à l'écran. */
+function tolerant(pannes, source, promesse, repli) {
+  return promesse.catch(function (e) {
+    var msg = (e && e.message) || String(e);
+    pannes.push({ source: source, message: msg });
+    try { console.warn('[FB sacherie] ' + source + ' : ' + msg); } catch (x) {}
+    return repli;
+  });
+}
+
 function bagsData() {
   return FBStore.get('bags', function () {
+    var pannes = [];
+    function t(source, promesse, repli) { return tolerant(pannes, source, promesse, repli); }
     return Promise.all([
-      q('sacherie_ct_cluster_stock', '*', 50),
-      q('sacherie_ct_rt_stock', '*', 400),
+      t('sacherie_ct_cluster_stock', q('sacherie_ct_cluster_stock', '*', 50), []),
+      t('sacherie_ct_rt_stock', q('sacherie_ct_rt_stock', '*', 400), []),
       /* Demandes triées côté serveur : jamais « récentes » par hasard. */
-      q('ops_bag_requests', 'id,request_code,channel,campaign,cluster,rt_id,requested_qty,approved_qty,released_qty,received_qty,status,requested_at,approved_at,expires_at,closed_reason,notes,destination_location_code,source_location_code', 100,
-        function (r) { return r.order('requested_at', { ascending: false }); }),
-      q('aflp_bag_envelopes', 'id,campaign,approved_qty,status,approved_at', 20),
-      q('aflp_bag_cluster_allocations', 'id,envelope_id,cluster,allocated_qty', 60),
+      t('ops_bag_requests', q('ops_bag_requests', 'id,request_code,channel,campaign,cluster,rt_id,requested_qty,approved_qty,released_qty,received_qty,status,requested_at,approved_at,expires_at,closed_reason,notes,destination_location_code,source_location_code', 100,
+        function (r) { return r.order('requested_at', { ascending: false }); }), []),
+      t('aflp_bag_envelopes', q('aflp_bag_envelopes', 'id,campaign,approved_qty,status,approved_at', 20), []),
+      t('aflp_bag_cluster_allocations', q('aflp_bag_cluster_allocations', 'id,envelope_id,cluster,allocated_qty', 60), []),
       /* Registre des locations : les codes réels (AFLP-CL-…, AFLP-RT-…) sont
          la clé de voûte — une demande sans code réel ne peut pas se libérer. */
-      q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,nom,actif', 400),
+      t('rcn_jute_locations', q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,nom,actif', 400), []),
       /* Colonne canonique de la sortie : released_at (défaut now()). La table
-         n'a jamais porté de created_at ; l'ancien nom renvoyait un 400 qui
-         faisait échouer tout le Promise.all — donc TOUTE la rubrique Sacherie,
-         Pilotage compris, pas seulement « Demandes & sorties ». */
-      q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,released_at', 60,
-        function (r) { return r.order('released_at', { ascending: false }); }),
-      q('sacherie_ct_global_stock', '*', 1),
-      q('rcn_jute_loss_requests', 'id,location_code,state,qty,motif,statut,submitted_at', 50,
-        function (r) { return r.order('submitted_at', { ascending: false }); }),
-      q('sacherie_ct_latest_inventory', 'id,location_code,state,theoretical_qty,counted_qty,difference_qty,motif,reconciliation_status,counted_at', 60)
+         n'a jamais porté de created_at. */
+      t('ops_bag_releases', q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,released_at', 60,
+        function (r) { return r.order('released_at', { ascending: false }); }), []),
+      t('sacherie_ct_global_stock', q('sacherie_ct_global_stock', '*', 1), []),
+      t('rcn_jute_loss_requests', q('rcn_jute_loss_requests', 'id,location_code,state,qty,motif,statut,submitted_at', 50,
+        function (r) { return r.order('submitted_at', { ascending: false }); }), []),
+      t('sacherie_ct_latest_inventory', q('sacherie_ct_latest_inventory', 'id,location_code,state,theoretical_qty,counted_qty,difference_qty,motif,reconciliation_status,counted_at', 60), [])
     ]).then(function (rs) {
       return { clusterStock: rs[0], rtStock: rs[1], requests: rs[2], envelopes: rs[3], allocations: rs[4],
-        locations: rs[5], releases: rs[6], global: rs[7][0] || {}, pertes: rs[8], inventaires: rs[9] };
+        locations: rs[5], releases: rs[6], global: rs[7][0] || {}, pertes: rs[8], inventaires: rs[9],
+        pannes: pannes };
     });
+  }).then(function (b) {
+    /* Un chargement dégradé ne se met pas en cache : sur une liaison de terrain,
+       une coupure d'une seconde figerait sinon un écran amputé pendant 45 s.
+       FBStore.get a déjà rangé la valeur quand on arrive ici — d'où l'oubli
+       après coup plutôt qu'avant. Aucune relance automatique : c'est la
+       navigation suivante qui retentera. */
+    if (b && b.pannes && b.pannes.length) FBStore.invalidate('bags');
+    return b;
   });
+}
+
+/* Nomme ce qui manque. Un tableau vide parce que la requête a échoué se lit
+   sinon exactement comme un tableau vide parce qu'il n'y a rien à montrer :
+   c'est la confusion qui a fait passer l'incident du 30/08 pour un écran
+   « sans données » plutôt que pour une panne. */
+function bagsPannesNotice(b) {
+  var p = (b && b.pannes) || [];
+  if (!p.length) return '';
+  /* .notice est un conteneur flex : tout le corps tient dans UN seul enfant,
+     sinon la liste se range en colonne à côté du libellé au lieu d'en dessous. */
+  return '<div class="notice danger"><b>Données partielles :</b><div>' +
+    p.length + (p.length > 1 ? ' jeux de données n’ont' : ' jeu de données n’a') +
+    ' pas pu être chargé. Les tableaux concernés sont vides parce que la lecture ' +
+    'a échoué, pas parce qu’il n’y a rien : les chiffres affichés sont incomplets.' +
+    '<ul class="ops-pannes">' + p.map(function (x) {
+      return '<li><code>' + esc(x.source) + '</code> — ' + esc(x.message) + '</li>';
+    }).join('') + '</ul></div></div>';
 }
 function cashData() {
   return FBStore.get('cash', function () {
@@ -2290,7 +2334,7 @@ function renderBags(sub) {
     }
 
     paint(head('Sacherie AFLP', 'Enveloppe GM → allocations clusters → demandes RT → approbation → sorties multi-release → réception → balances.',
-      actions) + createHost() +
+      actions) + createHost() + bagsPannesNotice(b) +
       kpis([
         ['Parc total', g.total != null ? num(g.total) : '—', 'vides ' + num(g.vides) + ' · pleins ' + num(g.pleins)],
         ['Enveloppe ' + BAG_CAMPAGNE, env.approved_qty != null ? num(env.approved_qty) : '—', num(allocated) + ' alloués', env.approved_qty == null ? 'danger' : ''],
@@ -2859,7 +2903,7 @@ var cmdFilter = { cluster: '', sev: '' };
 function renderCommand() {
   paint(head('Command Center', 'Supervision Field Buying : chaque alerte renvoie vers l’objet concerné.') + skeletonPage(4));
   return Promise.all([base(),
-    bagsData().catch(function () { return { clusterStock: [], rtStock: [], requests: [], envelopes: [], allocations: [], locations: [], releases: [], global: {}, pertes: [], inventaires: [] }; }),
+    bagsData().catch(function () { return { clusterStock: [], rtStock: [], requests: [], envelopes: [], allocations: [], locations: [], releases: [], global: {}, pertes: [], inventaires: [], pannes: [] }; }),
     cashData().catch(function () { return { avances: [], recons: [] }; })])
     .then(function (rs) {
       var c = rs[0], b = rs[1], cash = rs[2];
