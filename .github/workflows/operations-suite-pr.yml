@@ -48,7 +48,7 @@ jobs:
           node --check operations/navigation-v2.js
           node --check operations/field-buying-performance-bootstrap.js
           node --check operations/field-buying.js
-          node --check operations/field-buying-rt-farmer-rights.js
+          node --check operations/rt-farmer-rights.js
           node --check operations/sacherie-operational-p1.js
           node --check operations/field-buying-profiles.js
           node --check operations/field-buying-prefilled-edit.js
