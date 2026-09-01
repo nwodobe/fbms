@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const html = fs.readFileSync('operations/field-buying.html','utf8');
-const js = fs.readFileSync('operations/field-buying-rt-farmer-rights.js','utf8');
+const js = fs.readFileSync('operations/rt-farmer-rights.js','utf8');
 const sql = fs.readFileSync('supabase/20260901_rt_farmer_edit_rights_no_delete.sql','utf8');
 
-assert.match(html,/field-buying-rt-farmer-rights\.js\?v=20260901-1/,'module droits ciblés non chargé');
+assert.match(html,/rt-farmer-rights\.js\?v=20260901-1/,'module droits ciblés non chargé');
 assert.match(js,/role \|\| ''\)\.toLowerCase\(\) === 'zonal head'/,'Zonal Head non reconnu');
 assert.match(js,/from\('rt'\)\.update/,'édition RT absente');
 assert.match(js,/from\('producteurs'\)\.update/,'édition Producteur absente');
