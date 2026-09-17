@@ -44,7 +44,7 @@
      terrain pour être appariés aux fiches villages sans double saisie. */
   var ZONES = [
     { code: "GBEKE_1", label: "GBEKE 1", region: "Gbêkê", alias: ["gbeke1", "gbeke a", "zone a"], clusters: [
-      { code: "DJEBONOUA", label: "Djébonoua", alias: ["djebonoua", "djebounou", "djebonoa"] },
+      { code: "DJEBONOUA", label: "Djébonoua", alias: ["djebonoua", "djebounou", "djebonoa", "n'djebonoua", "ndjebonoua", "n djebonoua", "n’djebonoua"] },
       { code: "BROBO",     label: "Brobo",     alias: ["brobo"] },
       { code: "SAKASSOU",  label: "Sakassou",  alias: ["sakassou"] },
     ]},
