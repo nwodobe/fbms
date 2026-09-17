@@ -24,10 +24,6 @@
   <div class="ops-top-actions">
     <span class="ops-pill light">Campagne 2027</span>
     <span class="ops-pill"><span class="dot"></span>Plateforme en ligne</span>
-    <button type="button" class="ops-settings-btn" id="ops-settings-toggle" aria-expanded="false" aria-controls="ops-settings-panel" title="Paramètres">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.67 1.1 1.31 1.1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-      <span>Paramètres</span>
-    </button>
     <!-- Sélecteur de langue : rempli par shared/i18n.js (injecté par auth-gate.js).
          Le portail ne crée PAS son propre toggle — un second mécanisme écrirait
          dans une clé localStorage distincte de « anagroci_lang » et ne
@@ -36,6 +32,10 @@
     <!-- Utilisateur : rempli par shared/auth-gate.js (injectChip), qui remplace
          intégralement le contenu de ce slot par nom, rôle, accès admin si
          Branch Manager et déconnexion. Laisser vide. -->
+    <button type="button" class="ops-settings-btn" id="ops-settings-toggle" aria-expanded="false" aria-controls="ops-settings-panel" title="Paramètres">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.67 1.1 1.31 1.1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span>Paramètres</span>
+    </button>
     <span id="anagroci-userslot"></span>
   </div>
 
@@ -80,6 +80,12 @@
       <div class="portal-card-media">
         <img src="assets/operations/modules/field-buying-cashew-adult-worker.webp" alt="Producteur adulte dans un verger d’anacardiers manipulant des noix de cajou" width="1200" height="675" fetchpriority="high" decoding="async">
         <span class="media-badge"><i></i>01 · ACHAT BORD CHAMP</span><span class="media-rule duo"></span>
+        <!-- TODO visuel : field-buying-cashew-adult-worker.webp est un WebP
+             valide mais sans contenu (une seule couleur, rien à l'écran).
+             En attendant une photo terrain ANAGROCI validée — producteur
+             adulte en verger d'anacardiers, sacherie jute — le cadre média
+             affiche un repli charté. Remplacer le .webp suffit : ce repli
+             passe automatiquement derrière l'image. -->
       </div>
       <div class="portal-card-body">
         <h2>FIELD BUYING</h2>
