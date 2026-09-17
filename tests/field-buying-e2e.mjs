@@ -345,6 +345,31 @@ async function allerA(page, hash) {
   await page.evaluate((h) => { location.hash = h; }, hash);
   await page.waitForFunction(() => !document.querySelector('#opsRouteView .skeleton'), null, { timeout: 15000 });
 }
+/* Refonte « Jute Bag Control Tower » : la sacherie n'est plus une page unique
+   mais cinq ecrans. Les assertions suivent donc l'ecran qui porte desormais
+   chaque information, et les decisions d'un dossier se prennent dans son
+   detail (#bags/flow/{id}), plus dans une liste geante. */
+async function texteEcran(page, hash) {
+  await allerA(page, hash);
+  await page.waitForTimeout(350);
+  return page.evaluate(() => document.getElementById('opsRouteView').textContent);
+}
+async function ouvrirDossierSacherie(page, motifBouton) {
+  await allerA(page, '#bags/flows');
+  const liens = await page.evaluate(() => [...document.querySelectorAll('#opsRouteView a')]
+    .map((x) => x.getAttribute('href') || '').filter((h) => /#bags\/flow\//.test(h)));
+  if (!liens.length) throw new Error('aucun dossier sacherie liste dans Flux');
+  for (const href of liens) {
+    await page.evaluate((h) => { location.hash = h; }, href);
+    await page.waitForFunction(() => !document.querySelector('#opsRouteView .skeleton'), null, { timeout: 15000 });
+    await page.waitForTimeout(200);
+    if (!motifBouton) return;
+    const trouve = await page.evaluate((m) => [...document.querySelectorAll('#opsRouteView button')]
+      .some((b) => new RegExp(m).test(b.textContent)), motifBouton);
+    if (trouve) return;
+  }
+  throw new Error('aucun dossier ne propose l\'action ' + motifBouton);
+}
 async function mesurerBouton(page, id) {
   return page.evaluate((sel) => {
     const b = document.getElementById(sel.id) ||
@@ -873,42 +898,58 @@ async function main() {
         verifier(apresRetour.cartes === 1 && apresRetour.labels === geoAttendu && apresRetour.controles === 1,
           `carte : aucun doublon après aller-retour (${apresRetour.cartes} carte, ${apresRetour.labels} étiquettes)`);
 
-        // 8. Sacherie : demande RT + règle approval ≠ sortie
+        // 8. Sacherie — Control Tower : cinq ecrans, chacun porte sa question
+        const tCockpit = await texteEcran(page, '#bags');
+        const tFlux = await texteEcran(page, '#bags/flows');
+        const tRt = await texteEcran(page, '#bags/rt');
+        const tControl = await texteEcran(page, '#bags/control');
         await allerA(page, '#bags');
-        const sac = await page.evaluate(() => ({
-          action: [...document.querySelectorAll('.ops-route-actions .btn')].some((x) => /Nouvelle demande RT/.test(x.textContent)),
-          regle: /l’approbation n’est pas la sortie physique/i.test(document.getElementById('opsRouteView').textContent),
-          multi: /700 \+ 500 \+ 800/.test(document.getElementById('opsRouteView').textContent),
-          rtAccount: /RT Bag Account/i.test(document.getElementById('opsRouteView').textContent)
+        const nav = await page.evaluate(() => ({
+          onglets: [...document.querySelectorAll('.ops-sacherie-tabs a')].map((x) => x.textContent.trim()),
+          barres: document.querySelectorAll('.ops-sacherie-tabs').length,
+          action: [...document.querySelectorAll('.ops-route-actions .btn')].some((x) => /Nouvelle demande/.test(x.textContent)),
+          recherche: !!document.getElementById('bagSearch'),
+          kpis: document.querySelectorAll('.kpi-grid .kpi').length,
+          kpisCliquables: document.querySelectorAll('.kpi-grid .kpi-link').length
         }));
-        verifier(sac.action, 'sacherie : « + Nouvelle demande RT » visible');
-        verifier(sac.regle && sac.multi, 'sacherie : règle approbation ≠ sortie et multi-release affichées');
-        verifier(sac.rtAccount, 'sacherie : RT Bag Account présent');
+        verifier(nav.barres === 1, `sacherie : une seule barre de navigation (${nav.barres})`);
+        verifier(nav.onglets.length === 5 && /Cockpit/.test(nav.onglets[0]),
+          'sacherie : cinq rubriques — ' + nav.onglets.join(' | '));
+        verifier(nav.action, 'sacherie : « + Nouvelle demande » visible dans l’en-tete du Cockpit');
+        verifier(nav.recherche, 'sacherie : recherche universelle presente');
+        verifier(nav.kpis === 6 && nav.kpisCliquables === 6,
+          `sacherie : six KPI, tous cliquables (${nav.kpis} KPI, ${nav.kpisCliquables} cliquables)`);
+        verifier(/Parc total/.test(tCockpit) && /À contrôler/.test(tCockpit),
+          'SB1 · Cockpit : parc total et « À contrôler »');
+        verifier(/À traiter/.test(tCockpit), 'SB1b · Cockpit : carte des exceptions presente');
+        verifier(/l’approbation n’est pas la sortie physique/i.test(tFlux) && /700 \+ 500 \+ 800/.test(tFlux),
+          'sacherie : regle approbation ≠ sortie et multi-release affichees dans Flux');
+        verifier(/Comptes sacherie RT/i.test(tRt), 'sacherie : comptes RT sur leur propre ecran');
+        verifier(/Pertes déclarées/.test(tControl) && /Derniers inventaires/.test(tControl),
+          'SB2 · Controle : pertes et inventaires presents');
+        verifier(/Sortie partielle/.test(tFlux) && /Décision BM/.test(tFlux),
+          'SB3 · Flux : etapes du workflow en clair');
+        verifier(/codes location invalides/.test(tFlux),
+          'SB4 · demande heritee a codes de location invalides signalee');
+        verifier(/−\s*2|−2/.test(tFlux.replace(/ /g, ' ')),
+          'SB5 · ecart libere/recu (60 vs 58) affiche en rouge dans Flux');
+        verifier(/HOLD/.test(tControl), 'SB6 · inventaire en ecart affiche HOLD, jamais ajuste en silence');
+        verifier(!/Préparation campagne incomplète/.test(tCockpit),
+          'SB7 · initialisation READY : aucun bandeau de preparation');
 
-        // 8b. SACHERIE P0 — workflow, comptabilité physique, contrôles
+        // Anciennes URL : aucune ne doit casser.
+        for (const [ancienne, attendu] of [['#bags/requests', 'Dossiers sacherie'],
+                                           ['#bags/network', 'Sacherie AFLP'],
+                                           ['#bags/transfers', 'Sacherie AFLP'],
+                                           ['#bags/history', 'Sacherie AFLP'],
+                                           ['#bags/closure', 'Exceptions prioritaires']]) {
+          const t = await texteEcran(page, ancienne);
+          verifier(new RegExp(attendu).test(t), `ancienne route ${ancienne} toujours servie`);
+        }
+
+        // SB8 — revue d'une demande REQUESTED (transition serveur par UPDATE garde)
+        await ouvrirDossierSacherie(page, 'Marquer revue');
         await page.evaluate(() => { window.__writes = []; window.__releases = []; window.__rpcArgs = []; });
-        const sb1 = await page.evaluate(() => {
-          const t = document.getElementById('opsRouteView').textContent;
-          return {
-            kpiParc: /Parc total/.test(t), kpiEcart: /Écarts de réception/.test(t),
-            sorties: /Dernières sorties physiques/.test(t),
-            pertes: /Pertes déclarées/.test(t), inv: /Derniers inventaires/.test(t),
-            statutFr: /Sortie partielle/.test(t) && /Consolidée/.test(t),
-            legacyBadge: /codes location invalides/.test(t),
-            ecartBadge: /−\s*2|−2/.test(t.replace(/ /g, ' ')),
-            invHold: /HOLD/.test(t),
-            initCard: /Initialisation campagne/.test(t)
-          };
-        });
-        verifier(sb1.kpiParc && sb1.kpiEcart, 'SB1 · cockpit sacherie : parc total et écarts de réception');
-        verifier(sb1.sorties && sb1.pertes && sb1.inv, 'SB2 · sections sorties / pertes / inventaires présentes');
-        verifier(sb1.statutFr, 'SB3 · statuts du workflow traduits (Sortie partielle, Consolidée)');
-        verifier(sb1.legacyBadge, 'SB4 · demande héritée à codes de location invalides signalée');
-        verifier(sb1.ecartBadge, 'SB5 · écart libéré/reçu (60 vs 58) affiché en rouge');
-        verifier(sb1.invHold, 'SB6 · inventaire en écart affiché HOLD, jamais ajusté en silence');
-        verifier(!sb1.initCard, 'SB7 · initialisation READY : la carte d’initialisation ne s’affiche pas');
-
-        // SB8 — revue d'une demande REQUESTED (transition serveur par UPDATE gardé)
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Marquer revue/.test(x.textContent));
           if (btn) btn.click();
@@ -919,7 +960,7 @@ async function main() {
         verifier(sb8 === 1, 'SB8 · « Marquer revue » écrit status=REVIEWED (arbitré par le trigger serveur)');
 
         // SB9/SB10 — décision BM : partielle sans motif bloquée, puis approbation 24 h
-        await allerA(page, '#bags');
+        await ouvrirDossierSacherie(page, 'Décision BM');
         await page.evaluate(() => { window.__writes = []; });
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Décision BM/.test(x.textContent));
@@ -940,7 +981,7 @@ async function main() {
         verifier(sb10 === 1, 'SB10 · approbation BM partielle : quantité réduite + expiration posée');
 
         // SB11/SB12/SB13 — sortie multi-release : reste autorisé, dépassement bloqué, idempotence double clic
-        await allerA(page, '#bags');
+        await ouvrirDossierSacherie(page, '^Libérer$');
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /^Libérer$/.test(x.textContent.trim()));
           if (btn) btn.click();
@@ -969,7 +1010,7 @@ async function main() {
         await page.waitForTimeout(1000);
 
         // SB14/SB15 — réception : écart sans observation bloqué, puis confirmation cumulée
-        await allerA(page, '#bags');
+        await ouvrirDossierSacherie(page, 'Confirmer réception');
         await page.evaluate(() => { window.__writes = []; });
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Confirmer réception/.test(x.textContent));
@@ -989,7 +1030,7 @@ async function main() {
         verifier(sb15 === 1, 'SB15 · réception confirmée en cumul (58 + 1 = 59), écart restant visible');
 
         // SB16 — rejet : motif obligatoire
-        await allerA(page, '#bags');
+        await ouvrirDossierSacherie(page, 'Rejeter');
         await page.evaluate(() => {
           window.__writes = []; window.__prompts = ['', 'HORS PLAFOND CLUSTER TEST'];
           window.prompt = () => window.__prompts.shift();
@@ -1106,8 +1147,8 @@ async function main() {
           'SB21 · transition d’état DECHIRE → A_REPARER envoyée au registre canonique');
         await page.waitForTimeout(1200);
 
-        // SB22 — décision de perte BM (approbation = diminution du stock canonique)
-        await allerA(page, '#bags');
+        // SB22 — décision de perte BM : la décision vit desormais dans Controle
+        await allerA(page, '#bags/control');
         await page.evaluate(() => {
           window.__rpcArgs = []; window.confirm = () => true;
           const btn = [...document.querySelectorAll('#opsRouteView button')].find((x) => /Examiner/.test(x.textContent));
@@ -1184,7 +1225,10 @@ async function main() {
       // Captures
       if (dossierCaptures && (largeur === 1440 || largeur === 390 || largeur === 360)) {
         for (const [nom, hash] of [['overview', '#overview'], ['census', '#census'],
-                                   ['purchases', '#purchases'], ['hubs', '#hubs'], ['bags', '#bags']]) {
+                                   ['purchases', '#purchases'], ['hubs', '#hubs'],
+                                   ['bags-cockpit', '#bags'], ['bags-flux', '#bags/flows'],
+                                   ['bags-rt', '#bags/rt'], ['bags-stock', '#bags/stock'],
+                                   ['bags-controle', '#bags/control']]) {
           await allerA(page, hash);
           if (hash === '#hubs') await page.waitForTimeout(600);
           await page.screenshot({ path: join(dossierCaptures, `fb-${nom}-${largeur}.png`) });

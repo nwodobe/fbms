@@ -7,7 +7,14 @@ const recv = fs.readFileSync('supabase/20260829_sacherie_operational_p1_receive.
 const html = fs.readFileSync('operations/field-buying.html','utf8');
 
 assert.match(html,/sacherie-operational-p1\.js/,'module P1 doit etre charge');
-for (const route of ['network','transfers','history','closure']) assert.match(js,new RegExp("bags/"+route),'onglet '+route+' requis');
+/* Un seul routeur : les sous-routes P1 sont declarees dans field-buying.js
+   (table d'alias) et le module P1 n'expose plus que ses rendus. */
+const fb = fs.readFileSync('operations/field-buying.js','utf8');
+for (const route of ['network','transfers','history','closure'])
+  assert.match(fb,new RegExp("'"+route+"':"),'ancienne route '+route+' doit rester prise en charge');
+assert.match(js,/ANAGROCI_SACHERIE_P1\s*=\s*\{/,'le module P1 doit exposer ses rendus au routeur unique');
+assert.ok(!/global\.ANAGROCI_OPS_ROUTE\s*=/.test(js),'le module P1 ne doit plus detourner le routeur');
+assert.ok(!/addEventListener\('hashchange'/.test(js),'le module P1 ne doit plus ecouter hashchange');
 for (const rpc of ['sacherie_ops_network_move','sacherie_ops_create_transfer','sacherie_ops_receive_transfer','sacherie_ops_closure_readiness','sacherie_ops_ensure_locations']) assert.match(js,new RegExp(rpc),'RPC '+rpc+' doit etre utilise');
 assert.match(js,/localStorage/,'brouillons locaux requis');
 assert.match(js,/limit\(300\)/,'historique doit rester borne');

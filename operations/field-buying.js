@@ -92,9 +92,12 @@ function table(headers, rows) {
     '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
 }
 function kpis(items) {
+  /* x = [libelle, valeur, detail, ton, href]. Le 5e element rend la tuile
+     cliquable : un KPI qui ne mene nulle part oblige a chercher ailleurs. */
   return '<section class="kpi-grid">' + items.map(function (x) {
-    return '<div class="kpi ' + (x[3] || '') + '"><small>' + esc(x[0]) + '</small><b>' +
-      esc(x[1]) + '</b><span>' + esc(x[2] || '') + '</span></div>';
+    var inner = '<small>' + esc(x[0]) + '</small><b>' + esc(x[1]) + '</b><span>' + esc(x[2] || '') + '</span>';
+    if (x[4]) return '<a class="kpi kpi-link ' + (x[3] || '') + '" href="' + esc(x[4]) + '">' + inner + '</a>';
+    return '<div class="kpi ' + (x[3] || '') + '">' + inner + '</div>';
   }).join('') + '</section>';
 }
 function skeletonKpis(count) {
@@ -274,10 +277,22 @@ function bagsData() {
       t('sacherie_ct_global_stock', q('sacherie_ct_global_stock', '*', 1), []),
       t('rcn_jute_loss_requests', q('rcn_jute_loss_requests', 'id,location_code,state,qty,motif,statut,submitted_at', 50,
         function (r) { return r.order('submitted_at', { ascending: false }); }), []),
-      t('sacherie_ct_latest_inventory', q('sacherie_ct_latest_inventory', 'id,location_code,state,theoretical_qty,counted_qty,difference_qty,motif,reconciliation_status,counted_at', 60), [])
+      t('sacherie_ct_latest_inventory', q('sacherie_ct_latest_inventory', 'id,location_code,state,theoretical_qty,counted_qty,difference_qty,motif,reconciliation_status,counted_at', 60), []),
+      /* Stock physique par emplacement et par etat : seule source permettant
+         de calculer une disponibilite emplacement par emplacement (§ DISPONIBLE).
+         Un disponible global calcule en « physique global - reserve global »
+         masquerait une indisponibilite locale. */
+      t('rcn_jute_v_stock', q('rcn_jute_v_stock', 'location_code,state,qty', 1000), []),
+      /* Demandes ENCORE OUVERTES, filtrees COTE SERVEUR : le reserve ne doit
+         jamais se calculer sur une liste frontale tronquee (100 lignes). */
+      t('ops_bag_requests (ouvertes)', q('ops_bag_requests', 'id,request_code,cluster,rt_id,requested_qty,approved_qty,released_qty,received_qty,status,expires_at,source_location_code,destination_location_code', 500,
+        function (r) { return r.in('status', ['GM_APPROVED', 'BM_APPROVED', 'READY_FOR_RELEASE', 'PARTIALLY_RELEASED']); }), []),
+      t('rcn_jute_transfers', q('rcn_jute_transfers', 'id,from_location,to_location,state,qty_sent,qty_received,statut,sent_at,received_at,ecart,motif_ecart,document_ref', 100,
+        function (r) { return r.order('sent_at', { ascending: false }); }), [])
     ]).then(function (rs) {
       return { clusterStock: rs[0], rtStock: rs[1], requests: rs[2], envelopes: rs[3], allocations: rs[4],
         locations: rs[5], releases: rs[6], global: rs[7][0] || {}, pertes: rs[8], inventaires: rs[9],
+        stockParLieu: rs[10], ouvertes: rs[11], transferts: rs[12],
         pannes: pannes };
     });
   }).then(function (b) {
@@ -2406,158 +2421,601 @@ function bagStatusFr(s) {
   return m[s] || s || '—';
 }
 
-function renderBags(sub) {
-  var actions = '<button class="btn primary ops-cta-create" id="newBagReqBtn" type="button" onclick="ANAGROCI_FB.openBagRequest()">+ Nouvelle demande RT</button>' +
-    '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'inventaire\')">Inventaire</button>' +
-    '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'etat\')">Sacs abîmés</button>' +
-    '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'perte\')">Déclarer une perte</button>';
-  paint(head('Sacherie AFLP', 'Enveloppe GM → allocations clusters → demandes RT → approbation → sorties → balances.',
-    actions) + createHost() + skeletonPage(6));
+/* ============================================================================
+   SACHERIE AFLP — JUTE BAG CONTROL TOWER
+   ----------------------------------------------------------------------------
+   Un seul routeur, cinq ecrans, aucun moteur metier duplique. Les tables, vues
+   et RPC restent celles du backend existant : rcn_jute_movements reste le
+   registre physique canonique, ops_bag_requests le workflow, les vues
+   sacherie_ct_* les agregats. Ce fichier ne fait que reorganiser l'acces.
 
+   Logique UX : Resume -> Alerte -> Drill-down -> Transaction.
+   ========================================================================== */
+
+var BAG_TABS = [
+  ['overview', 'Cockpit',              '#bags/overview'],
+  ['flows',    'Flux',                 '#bags/flows'],
+  ['rt',       'Comptes RT',           '#bags/rt'],
+  ['stock',    'Stocks & Mouvements',  '#bags/stock'],
+  ['control',  'Contrôle',             '#bags/control']
+];
+/* Aucune ancienne URL ne doit casser : elles sont redirigees, pas supprimees. */
+var BAG_ALIAS = {
+  '': 'overview', 'pilotage': 'overview', 'overview': 'overview',
+  'requests': 'flows', 'flows': 'flows',
+  'rt': 'rt',
+  'network': 'stock', 'transfers': 'stock', 'history': 'stock', 'stock': 'stock',
+  'closure': 'control', 'control': 'control'
+};
+
+function bagNav(active) {
+  return '<div class="ops-passport-tabs ops-sacherie-tabs">' + BAG_TABS.map(function (t) {
+    return '<a class="' + (active === t[0] ? 'active' : '') + '" href="' + t[2] + '">' + esc(t[1]) + '</a>';
+  }).join('') + '</div>';
+}
+
+/* Barre de recherche + filtres globaux. Quatre filtres seulement : le reste
+   releve des filtres avances de chaque ecran. */
+function bagBar(active, q0) {
+  return '<div class="ops-sacherie-bar">' +
+    '<input id="bagSearch" class="ops-sacherie-search" type="search" autocomplete="off" ' +
+    'placeholder="Rechercher RT, référence, cluster, emplacement, mouvement…" value="' + esc(q0 || '') + '">' +
+    '<div class="ops-sacherie-filters" id="bagFilters">' +
+    '<span class="ops-chip">Campagne ' + esc(BAG_CAMPAGNE) + '</span>' +
+    '<select id="bagFZone" class="ops-mini-select"><option value="">Toutes zones</option></select>' +
+    '<select id="bagFCluster" class="ops-mini-select"><option value="">Tous clusters</option></select>' +
+    '<select id="bagFLoc" class="ops-mini-select"><option value="">Tous emplacements</option></select>' +
+    '</div></div>' +
+    '<div id="bagSearchOut" class="ops-sacherie-results" hidden></div>';
+}
+
+function bagShell(active, sousTitre, actions, corps, q0) {
+  paint(head('Sacherie AFLP', sousTitre, actions) + createHost() +
+    '<div class="ops-sacherie">' + bagNav(active) + bagBar(active, q0) + corps + '</div>');
+}
+
+/* ---- Calculs de stock ---------------------------------------------------- */
+
+/* Etat physiquement utilisable : la valeur canonique du backend est
+   UTILISABLE (rcn_jute_v_stock.state). On ne suppose jamais VIDE = UTILISABLE :
+   « vide » est une situation de remplissage, pas un etat de sante du sac. */
+var BAG_ETAT_UTILISABLE = 'UTILISABLE';
+
+function bagUsableByLocation(b) {
+  var m = {};
+  (b.stockParLieu || []).forEach(function (r) {
+    if (String(r.state || '').toUpperCase() !== BAG_ETAT_UTILISABLE) return;
+    m[r.location_code] = n(m[r.location_code]) + n(r.qty);
+  });
+  return m;
+}
+/* Reserve = approuve encore valide et pas encore physiquement sorti.
+   L'approbation ne bouge aucun stock : elle immobilise une quantite. */
+function bagReservedByLocation(b) {
+  var m = {}, total = 0, maintenant = Date.now();
+  (b.ouvertes || []).forEach(function (r) {
+    if (r.expires_at && new Date(r.expires_at).getTime() < maintenant) return;
+    var reste = n(r.approved_qty) - n(r.released_qty);
+    if (reste <= 0) return;
+    total += reste;
+    var code = r.source_location_code || '__SANS_EMPLACEMENT__';
+    m[code] = n(m[code]) + reste;
+  });
+  return { parLieu: m, total: total };
+}
+function bagAvailability(b) {
+  var usable = bagUsableByLocation(b), res = bagReservedByLocation(b);
+  var totalUsable = 0, dispo = 0, lieux = {};
+  Object.keys(usable).forEach(function (code) {
+    totalUsable += usable[code];
+    var d = Math.max(0, usable[code] - n(res.parLieu[code]));
+    lieux[code] = { usable: usable[code], reserve: n(res.parLieu[code]), dispo: d };
+    dispo += d;
+  });
+  /* Une reservation attachee a un emplacement sans stock utilisable reste
+     comptee dans le reserve global : elle ne doit pas disparaitre du bilan. */
+  Object.keys(res.parLieu).forEach(function (code) {
+    if (lieux[code]) return;
+    lieux[code] = { usable: 0, reserve: res.parLieu[code], dispo: 0 };
+  });
+  return { lieux: lieux, totalUsable: totalUsable, totalReserve: res.total, totalDispo: dispo };
+}
+
+/* ---- Exceptions : le coeur du pilotage par exception --------------------- */
+function bagExceptions(b) {
+  var out = [];
+  var ecarts = (b.requests || []).filter(function (r) {
+    return n(r.released_qty) > 0 && n(r.received_qty) < n(r.released_qty) && /RELEASED/i.test(String(r.status || ''));
+  });
+  var aDecider = (b.requests || []).filter(function (r) { return String(r.status || '') === 'CONSOLIDATED'; });
+  var aRevoir = (b.requests || []).filter(function (r) { return /^(REQUESTED|REVIEWED)$/.test(String(r.status || '')); });
+  var pertes = (b.pertes || []).filter(function (x) { return x.statut === 'SOUMIS'; });
+  var holds = (b.inventaires || []).filter(function (x) { return x.reconciliation_status === 'HOLD'; });
+  var transits = (b.transferts || []).filter(function (x) { return /EXPED|TRANSIT|PART/i.test(String(x.statut || '')); });
+  var abimes = (b.clusterStock || []).reduce(function (t, x) { return t + n(x.dechires) + n(x.a_reparer); }, 0);
+
+  if (ecarts.length) out.push(['danger', ecarts.length + ' écart(s) de réception', '#bags/flows?f=ecart']);
+  if (aDecider.length) out.push(['warn', aDecider.length + ' demande(s) attendent une décision BM', '#bags/flows?f=approuver']);
+  if (pertes.length) out.push(['danger', pertes.length + ' perte(s) attendent une décision', '#bags/control']);
+  if (holds.length) out.push(['warn', holds.length + ' inventaire(s) en HOLD', '#bags/control']);
+  if (transits.length) out.push(['info', transits.length + ' transfert(s) attendent une réception', '#bags/stock']);
+  if (aRevoir.length) out.push(['warn', aRevoir.length + ' demande(s) en revue / consolidation', '#bags/flows']);
+  if (abimes) out.push(['warn', num(abimes) + ' sac(s) abîmés ou à réparer', '#bags/control']);
+  return out;
+}
+function bagAlertRows(list) {
+  if (!list.length) return '<div class="ops-empty ops-empty-ok">Rien à traiter. Aucun écart, aucune décision en attente.</div>';
+  return '<div class="ops-alert-list">' + list.map(function (x) {
+    return '<a class="ops-alert-row ' + x[0] + '" href="' + x[2] + '"><span class="ops-dot ' +
+      (x[0] === 'danger' ? 'danger' : x[0] === 'warn' ? 'warn' : 'info') + '"></span>' +
+      '<b>' + esc(x[1]) + '</b><em>Voir</em></a>';
+  }).join('') + '</div>';
+}
+
+/* ---- Routeur unique de la sacherie --------------------------------------- */
+function renderBags(sub, id) {
+  var cle = BAG_ALIAS[String(sub || '')] || null;
+  /* Routes de detail : #bags/flow/{id}, #bags/rt/{id}, #bags/location/{id} */
+  if (sub === 'flow' && id) return renderBagFlowDetail(id);
+  if (sub === 'rt' && id) return renderBagRtAccount(id);
+  if (sub === 'location' && id) return renderBagStock('positions', id);
+  if (sub === 'movement' && id) return renderBagStock('journal', null, id);
+  if (!cle) cle = 'overview';
+  if (cle === 'overview') return renderBagOverview();
+  if (cle === 'flows') return renderBagFlows();
+  if (cle === 'rt') return renderBagRtList();
+  if (cle === 'control') return renderBagControl();
+  /* #bags/network, #bags/transfers, #bags/history gardent leur sous-vue. */
+  var vue = sub === 'transfers' ? 'transferts' : sub === 'history' ? 'journal' : sub === 'network' ? 'reseau' : 'positions';
+  return renderBagStock(vue);
+}
+
+function bagCta() {
+  return '<button class="btn primary ops-cta-create" id="newBagReqBtn" type="button" onclick="ANAGROCI_FB.openBagRequest()">+ Nouvelle demande</button>';
+}
+function bagLoading(active, sousTitre) {
+  paint(head('Sacherie AFLP', sousTitre, bagCta()) + createHost() + bagNav(active) + skeletonPage(6));
+}
+
+/* ---- ECRAN 1 : COCKPIT --------------------------------------------------- */
+function renderBagOverview() {
+  bagLoading('overview', 'Où sont les sacs, combien sont disponibles, que faut-il traiter ?');
   return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
     var c = rs[0], b = rs[1];
-    var env = bagEnv(b) || {};
-    var allocated = b.allocations.reduce(function (t, a) { return t + n(a.allocated_qty); }, 0);
-    var pending = b.requests.filter(function (r) { return /REQUESTED|REVIEWED|CONSOLIDATED/i.test(String(r.status || '')); });
-    var approved = b.requests.filter(function (r) { return /APPROVED|PARTIALLY_RELEASED/i.test(String(r.status || '')); });
-    var expiring = approved.filter(function (r) {
-      return r.expires_at && new Date(r.expires_at) - Date.now() < 3 * 86400000;
-    });
-    var ecartsReception = b.requests.filter(function (r) {
-      return n(r.released_qty) > 0 && n(r.received_qty) < n(r.released_qty) &&
-        /RELEASED/i.test(String(r.status || ''));
-    });
-    var pertesADecider = (b.pertes || []).filter(function (p) { return p.statut === 'SOUMIS'; });
-    var invHold = (b.inventaires || []).filter(function (i) { return i.reconciliation_status === 'HOLD'; });
-    var withRt = b.rtStock.reduce(function (t, s) { return t + n(s.total_sous_responsabilite); }, 0);
-    var aging = b.rtStock.filter(function (s) { return s.derniere_activite && daysSince(s.derniere_activite) > 30 && n(s.total_sous_responsabilite) > 0; });
     var g = b.global || {};
+    var av = bagAvailability(b);
+    var mesure = (b.stockParLieu || []).length > 0;
+    var withRt = (b.rtStock || []).reduce(function (t, s) { return t + n(s.total_sous_responsabilite); }, 0);
+    var abimes = n(g.dechires) + n(g.a_reparer);
+    var ex = bagExceptions(b);
+    var anomalies = ex.filter(function (x) { return x[0] !== 'info'; }).length;
+    var env = bagEnv(b) || {};
 
-    /* Initialisation campagne : READY / PARTIAL / MISSING, constaté — jamais supposé. */
+    /* Preparation campagne : un bandeau compact, jamais un grand tableau. */
     var clustersRef = c.clusters.map(function (x) { return x.label; });
+    var manque = [];
+    if (!(env.approved_qty > 0)) manque.push('enveloppe campagne');
     var allocOk = clustersRef.filter(function (l) {
       return b.allocations.some(function (a) { return normName(a.cluster) === normName(l); });
-    });
-    var locOk = clustersRef.filter(function (l) { return !!bagLoc(b, 'CLUSTER', l); });
-    var rtLocCount = (b.locations || []).filter(function (l) { return l.scope_type === 'RT' && l.actif; }).length;
-    function etat3(okN, totalN) { return okN >= totalN ? ['READY', 'ok'] : okN > 0 ? ['PARTIAL', 'warn'] : ['MISSING', 'danger']; }
-    var e1 = env.approved_qty > 0 ? ['READY', 'ok'] : ['MISSING', 'danger'];
-    var e2 = etat3(allocOk.length, clustersRef.length);
-    var e3 = etat3(locOk.length, clustersRef.length);
-    var e4 = etat3(rtLocCount, Math.min(c.rts.length, 1) === 0 ? 0 : c.rts.length);
-    var initReady = e1[0] === 'READY' && e2[0] === 'READY' && e3[0] === 'READY';
+    }).length;
+    if (allocOk < clustersRef.length) manque.push('allocations clusters (' + allocOk + '/' + clustersRef.length + ')');
+    var locOk = clustersRef.filter(function (l) { return !!bagLoc(b, 'CLUSTER', l); }).length;
+    if (locOk < clustersRef.length) manque.push('emplacements clusters (' + locOk + '/' + clustersRef.length + ')');
 
-    var initCard = '<section class="card"><div class="card-head"><div><h2>Initialisation campagne ' + BAG_CAMPAGNE + '</h2>' +
-      '<p>Sans enveloppe, allocations et locations, aucune sortie physique n’est possible.</p></div>' +
-      (bagRole(BAG_ROLES.gm) ? '<div class="ops-route-actions">' +
-        (e1[0] !== 'READY' ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openBagEnvelope()">Créer l’enveloppe</button>' : '') +
-        '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagAllocation()">Allouer un cluster</button></div>' : '') + '</div>' +
-      table(['Composant', 'État', 'Détail'], [
-        '<tr><td>Enveloppe campagne</td><td><span class="badge ' + e1[1] + '">' + e1[0] + '</span></td><td>' + (env.approved_qty != null ? num(env.approved_qty) + ' sacs · ' + esc(env.status || '') : 'aucune enveloppe ' + BAG_CAMPAGNE) + '</td></tr>',
-        '<tr><td>Allocations clusters</td><td><span class="badge ' + e2[1] + '">' + e2[0] + '</span></td><td>' + allocOk.length + ' / ' + clustersRef.length + ' clusters alloués · ' + num(allocated) + ' sacs</td></tr>',
-        '<tr><td>Locations clusters</td><td><span class="badge ' + e3[1] + '">' + e3[0] + '</span></td><td>' + locOk.length + ' / ' + clustersRef.length + ' codes AFLP-CL présents</td></tr>',
-        '<tr><td>Locations RT</td><td><span class="badge ' + e4[1] + '">' + e4[0] + '</span></td><td>' + rtLocCount + ' / ' + c.rts.length + ' RT — créées automatiquement à la première demande</td></tr>'
-      ]) + '</section>';
+    var initNotice = manque.length
+      ? '<div class="notice warn ops-inline-notice"><b>Préparation campagne incomplète :</b>&nbsp; ' +
+        manque.length + ' élément(s) à configurer — ' + esc(manque.join(', ')) +
+        (bagRole(BAG_ROLES.gm) ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagEnvelope()">Examiner</button>' : '') +
+        '</div>' : '';
 
-    function actionsFor(r) {
-      var s = String(r.status || ''), btns = [];
-      var expired = r.expires_at && new Date(r.expires_at) < new Date();
-      function btn2(label, fn, primary) {
-        btns.push('<button class="btn ' + (primary ? 'primary' : 'secondary') + '" type="button" onclick="ANAGROCI_FB.' + fn + '(\'' + esc(r.id) + '\')">' + label + '</button>');
-      }
-      if (s === 'REQUESTED' && bagRole(BAG_ROLES.revoir)) btn2('Marquer revue', 'bagReview');
-      if (s === 'REVIEWED' && bagRole(BAG_ROLES.consolider)) btn2('Consolider', 'bagConsolidate');
-      if (s === 'CONSOLIDATED' && bagRole(BAG_ROLES.approuver)) btn2('Décision BM', 'openBagApprove', true);
-      if (/^(BM_APPROVED|GM_APPROVED|PARTIALLY_RELEASED)$/.test(s)) {
-        if (expired) { if (bagRole(BAG_ROLES.cloturer)) btn2('Marquer expirée', 'bagMarkExpired'); }
-        else if (bagRole(BAG_ROLES.liberer)) btn2('Libérer', 'openBagRelease', true);
-      }
-      if (/RELEASED/.test(s) && n(r.received_qty) < n(r.released_qty) && bagRole(BAG_ROLES.recevoir)) btn2('Confirmer réception', 'openBagReceipt');
-      if (/^(REQUESTED|REVIEWED|CONSOLIDATED)$/.test(s) && bagRole(BAG_ROLES.cloturer)) btn2('Rejeter', 'openBagReject');
-      return btns.join(' ');
-    }
-
-    paint(head('Sacherie AFLP', 'Enveloppe GM → allocations clusters → demandes RT → approbation → sorties multi-release → réception → balances.',
-      actions) + createHost() + bagsPannesNotice(b) +
+    var corps = bagsPannesNotice(b) + initNotice +
       kpis([
-        ['Parc total', g.total != null ? num(g.total) : '—', 'vides ' + num(g.vides) + ' · pleins ' + num(g.pleins)],
-        ['Enveloppe ' + BAG_CAMPAGNE, env.approved_qty != null ? num(env.approved_qty) : '—', num(allocated) + ' alloués', env.approved_qty == null ? 'danger' : ''],
-        ['Sacs chez les RT', num(withRt), b.rtStock.length + ' RT'],
-        ['Demandes à traiter', String(pending.length), 'revue → consolidation → BM', pending.length ? 'warn' : ''],
-        ['Écarts de réception', String(ecartsReception.length), 'libéré ≠ reçu', ecartsReception.length ? 'danger' : ''],
-        ['Pertes à décider', String(pertesADecider.length), invHold.length + ' inventaire(s) en écart', (pertesADecider.length || invHold.length) ? 'warn' : ''],
-        ['Approbations actives', String(approved.length), expiring.length + ' expire(nt) sous 3 j', expiring.length ? 'warn' : ''],
-        ['RT sans mouvement 30 j', String(aging.length), 'balance non nulle', aging.length ? 'warn' : '']
+        ['Parc total', g.total != null ? num(g.total) : '—', 'patrimoine ANAGROCI', '', '#bags/stock'],
+        /* Une source muette n'est pas un stock nul : sans aucune ligne de stock
+           par emplacement on affiche « — » plutôt qu'un zéro trompeur. */
+        ['Stock utilisable', mesure ? num(av.totalUsable) : '—', mesure ? 'état ' + BAG_ETAT_UTILISABLE : 'stock par emplacement indisponible', mesure ? '' : 'warn', '#bags/stock'],
+        ['Réservé', num(av.totalReserve), 'approuvé non sorti', av.totalReserve ? 'warn' : '', '#bags/flows'],
+        ['Disponible', mesure ? num(av.totalDispo) : '—', mesure ? 'somme par emplacement' : 'calcul impossible sans les emplacements', mesure ? '' : 'warn', '#bags/stock'],
+        ['Chez les RT', num(withRt), (b.rtStock || []).length + ' RT', '', '#bags/rt'],
+        ['À contrôler', num(abimes) + ' sacs', anomalies + ' anomalie(s)', anomalies ? 'danger' : '', '#bags/control']
       ]) +
-      (initReady ? '' : initCard) +
-      '<div class="notice info"><b>Règle :</b> l’approbation n’est pas la sortie physique. Une approbation de 2 000 sacs peut se libérer ' +
-      'en plusieurs sorties (700 + 500 + 800) sans jamais se clôturer après la première. La réception est confirmée par le terrain : ' +
-      'tout écart libéré / reçu reste visible jusqu’à justification.</div>' +
-      '<section class="card"><div class="card-head"><div><h2>Demandes & workflow</h2>' +
-      '<p>' + b.requests.length + ' demande(s) chargée(s), plus récentes d’abord. Chaque étape est contrôlée par le serveur.</p></div></div>' +
-      table(['Référence', 'Cluster / RT', 'Demandé', 'Approuvé', 'Libéré', 'Reçu', 'Écart', 'Statut', 'Actions'],
-        b.requests.slice(0, 20).map(function (r) {
+      '<section class="card"><div class="card-head"><div><h2>À traiter</h2>' +
+      '<p>Pilotage par exception : ce qui est normal ne s’affiche pas.</p></div></div>' +
+      bagAlertRows(ex) + '</section>' +
+      '<div class="grid-2">' +
+      '<section class="card"><div class="card-head"><div><h2>État physique</h2>' +
+      '<p>Santé du sac, indépendante de sa localisation.</p></div></div>' +
+      table(['État', 'Sacs'], [
+        '<tr><td>Utilisable</td><td><b>' + num(av.totalUsable) + '</b></td></tr>',
+        '<tr><td>Endommagé / déchiré</td><td>' + num(g.dechires) + '</td></tr>',
+        '<tr><td>À réparer</td><td>' + num(g.a_reparer) + '</td></tr>',
+        '<tr><td>Réparé</td><td>' + num(g.repares) + '</td></tr>',
+        '<tr><td>Réforme / rebut</td><td>' + num(g.rebut) + '</td></tr>'
+      ]) + '</section>' +
+      '<section class="card"><div class="card-head"><div><h2>Position réseau</h2>' +
+      '<p>Où se trouve le sac. « Chez RT » est une position, jamais un état.</p></div></div>' +
+      table(['Position', 'Sacs'], [
+        '<tr><td>Entrepôts et clusters</td><td>' + num((b.clusterStock || []).reduce(function (t, x) { return t + n(x.stock_cluster_vide) + n(x.stock_cluster_plein); }, 0)) + '</td></tr>',
+        '<tr><td>Chez les RT</td><td><b>' + num(withRt) + '</b></td></tr>',
+        '<tr><td>Chez les producteurs</td><td>' + num((b.clusterStock || []).reduce(function (t, x) { return t + n(x.stock_chez_producteur); }, 0)) + '</td></tr>',
+        '<tr><td>En transit</td><td>' + num(g.transit) + '</td></tr>'
+      ]) + '</section></div>' +
+      '<section class="card"><div class="card-head"><div><h2>Situation par cluster</h2>' +
+      '<p>Cliquez un cluster pour ouvrir son détail.</p></div></div>' +
+      table(['Cluster', 'Disponible', 'Chez RT', 'Transit', 'Écart', 'Statut'],
+        (b.clusterStock || []).map(function (x) {
+          var code = (bagLoc(b, 'CLUSTER', x.cluster) || {}).code;
+          var d = code && av.lieux[code] ? av.lieux[code].dispo : n(x.stock_cluster_vide);
+          var ec = (b.inventaires || []).filter(function (i) { return code && i.location_code === code; })
+            .reduce(function (t, i) { return t + (n(i.counted_qty) - n(i.theoretical_qty)); }, 0);
+          var ton = ec < 0 ? 'danger' : ec > 0 ? 'warn' : 'ok';
+          return '<tr class="ops-click" onclick="location.hash=\'#bags/location/' + encodeURIComponent(code || x.cluster) + '\'">' +
+            '<td><b>' + esc(x.cluster) + '</b></td><td>' + num(d) + '</td>' +
+            '<td>' + num(x.stock_chez_rt) + '</td><td>' + num(x.transit) + '</td>' +
+            '<td>' + (ec ? (ec > 0 ? '+' : '') + num(ec) : '0') + '</td>' +
+            '<td><span class="ops-dot ' + ton + '"></span></td></tr>';
+        })) + '</section>';
+
+    bagShell('overview', 'Où sont les sacs, combien sont disponibles, que faut-il traiter ?', bagCta(), corps);
+    bagWireBar(c, b);
+  });
+}
+
+/* ---- ECRAN 2 : FLUX ------------------------------------------------------ */
+var BAG_FLOW_FILTERS = [
+  ['', 'Tous'], ['approuver', 'À approuver'], ['sortir', 'À sortir'],
+  ['transit', 'En transit'], ['recevoir', 'À recevoir'], ['ecart', 'Avec écart'], ['clos', 'Clôturés']
+];
+function bagFlowMatch(r, f) {
+  var s = String(r.status || '');
+  if (!f) return true;
+  if (f === 'approuver') return /^(REQUESTED|REVIEWED|CONSOLIDATED)$/.test(s);
+  if (f === 'sortir') return /^(GM_APPROVED|BM_APPROVED|READY_FOR_RELEASE|PARTIALLY_RELEASED)$/.test(s);
+  if (f === 'transit') return /RELEASED/.test(s) && n(r.received_qty) === 0 && n(r.released_qty) > 0;
+  if (f === 'recevoir') return /RELEASED/.test(s) && n(r.received_qty) < n(r.released_qty);
+  if (f === 'ecart') return n(r.released_qty) > 0 && n(r.received_qty) < n(r.released_qty);
+  if (f === 'clos') return /^(RECEIVED|CLOSED|REJECTED|CANCELLED|EXPIRED)$/.test(s);
+  return true;
+}
+function bagEtapeFr(r) {
+  var s = String(r.status || '');
+  if (/^(REQUESTED)$/.test(s)) return 'Revue';
+  if (/^(REVIEWED)$/.test(s)) return 'Consolidation';
+  if (/^(CONSOLIDATED)$/.test(s)) return 'Décision BM';
+  if (/^(GM_APPROVED|BM_APPROVED|READY_FOR_RELEASE)$/.test(s)) return 'Sortie';
+  if (s === 'PARTIALLY_RELEASED') return 'Sortie partielle';
+  if (s === 'FULLY_RELEASED') return 'Réception';
+  return bagStatusFr(s);
+}
+function renderBagFlows(filtre) {
+  bagLoading('flows', 'Où en est chaque dossier de sacherie ?');
+  var f = filtre != null ? filtre : (location.hash.split('?f=')[1] || '');
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var liste = (b.requests || []).filter(function (r) { return bagFlowMatch(r, f); });
+    var chips = '<div class="ops-filter-chips">' + BAG_FLOW_FILTERS.map(function (x) {
+      return '<a class="' + (f === x[0] ? 'active' : '') + '" href="#bags/flows' + (x[0] ? '?f=' + x[0] : '') + '">' + esc(x[1]) + '</a>';
+    }).join('') + '</div>';
+
+    var corps = bagsPannesNotice(b) +
+      '<div class="notice info"><b>Règle :</b>&nbsp; l’approbation n’est pas la sortie physique. Elle réserve une quantité ; ' +
+      'seul un mouvement confirmé modifie le registre canonique. Une approbation de 2 000 sacs peut se libérer ' +
+      'en plusieurs sorties (700 + 500 + 800) sans se clôturer après la première.</div>' +
+      '<section class="card"><div class="card-head"><div><h2>Dossiers sacherie</h2>' +
+      '<p>' + liste.length + ' dossier(s) sur ' + (b.requests || []).length + ' chargé(s).</p></p></div></div>' + chips +
+      table(['Référence', 'RT', 'Demandé', 'Approuvé', 'Sorti', 'Reçu', 'Écart', 'Étape', 'Action'],
+        liste.map(function (r) {
           var ecart = n(r.released_qty) - n(r.received_qty);
+          /* Une demande heritee dont les codes de location ne sont pas des codes
+             AFLP ne peut pas se liberer : on le dit sur la ligne, pas dans un log. */
           var locBad = r.source_location_code && !/^AFLP-/.test(String(r.source_location_code));
           return '<tr><td class="mono">' + esc(r.request_code || r.id) +
             (locBad ? '<br><span class="badge danger">codes location invalides — recréer</span>' : '') + '</td>' +
-            '<td>' + esc(r.cluster || '—') + (r.rt_id ? '<br><span class="muted">' + esc((c.rm[r.rt_id] || {}).nom || r.rt_id) + '</span>' : '') + '</td>' +
+            '<td>' + esc((c.rm[r.rt_id] || {}).nom || r.rt_id || '—') + '<br><span class="muted">' + esc(r.cluster || '') + '</span></td>' +
             '<td>' + num(r.requested_qty) + '</td><td>' + num(r.approved_qty) + '</td>' +
             '<td>' + num(r.released_qty) + '</td><td>' + num(r.received_qty) + '</td>' +
             '<td>' + (n(r.released_qty) > 0 && ecart > 0 ? '<span class="badge danger">−' + num(ecart) + '</span>' : (n(r.released_qty) > 0 ? '0' : '—')) + '</td>' +
-            '<td>' + badge(bagStatusFr(r.status)) + (r.expires_at ? '<br><span class="muted">expire ' + date(r.expires_at) + '</span>' : '') + '</td>' +
-            '<td>' + (actionsFor(r) || '—') + '</td></tr>';
+            '<td>' + badge(bagEtapeFr(r)) + '</td>' +
+            '<td><a class="btn secondary" href="#bags/flow/' + encodeURIComponent(r.id) + '">Examiner</a></td></tr>';
+        })) + '</section>';
+    bagShell('flows', 'Où en est chaque dossier de sacherie ?', bagCta(), corps);
+    bagWireBar(c, b);
+  });
+}
+
+function renderBagFlowDetail(id) {
+  bagLoading('flows', 'Dossier sacherie');
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var r = bagReqById(b, id) || (b.ouvertes || []).filter(function (x) { return String(x.id) === String(id); })[0];
+    if (!r) {
+      bagShell('flows', 'Dossier sacherie', '', '<div class="ops-empty">Dossier introuvable parmi les dossiers chargés.</div>' +
+        '<div class="ops-actions"><a class="btn secondary" href="#bags/flows">← Flux</a></div>');
+      return;
+    }
+    var etapes = [
+      ['Demande', true],
+      ['Revue', /REVIEWED|CONSOLIDATED|APPROVED|RELEASED|RECEIVED|CLOSED/i.test(String(r.status))],
+      ['Approbation', /APPROVED|RELEASED|RECEIVED|CLOSED/i.test(String(r.status))],
+      ['Sortie', n(r.released_qty) > 0],
+      ['Reception', n(r.received_qty) > 0 && n(r.received_qty) >= n(r.released_qty)],
+      ['Cloture', /CLOSED|RECEIVED/i.test(String(r.status))]
+    ];
+    var timeline = '<div class="ops-timeline">' + etapes.map(function (e, i) {
+      var precedentOk = i === 0 || etapes[i - 1][1];
+      var etat = e[1] ? 'ok' : (precedentOk ? 'now' : '');
+      return '<span class="ops-timeline-step ' + etat + '"><b>' + (e[1] ? '✓' : (precedentOk ? '!' : '·')) + '</b>' + esc(e[0]) + '</span>';
+    }).join('') + '</div>';
+    var ecart = n(r.released_qty) - n(r.received_qty);
+    var sorties = (b.releases || []).filter(function (x) { return String(x.request_id) === String(r.id); });
+
+    var corps = '<div class="ops-actions"><a class="btn secondary" href="#bags/flows">← Flux</a></div>' +
+      '<section class="card"><div class="card-head"><div><h2>' + esc(r.request_code || r.id) + '</h2>' +
+      '<p>' + esc((c.rm[r.rt_id] || {}).nom || r.rt_id || '—') + ' · ' + esc(r.cluster || '—') + '</p></div>' +
+      '<div class="ops-route-actions">' + bagFlowActions(r) + '</div></div>' + timeline +
+      table(['Demandé', 'Approuvé', 'Sorti', 'Reçu', 'Écart'], ['<tr><td>' + num(r.requested_qty) + '</td><td>' + num(r.approved_qty) +
+        '</td><td>' + num(r.released_qty) + '</td><td>' + num(r.received_qty) + '</td><td>' +
+        (ecart > 0 ? '<span class="badge danger">−' + num(ecart) + '</span>' : '0') + '</td></tr>']) + '</section>' +
+      '<section class="card"><div class="card-head"><div><h2>Sorties physiques</h2>' +
+      '<p>Chaque sortie est un mouvement du registre canonique.</p></div></div>' +
+      table(['Date', 'Qté', 'Trajet', 'Preuve'], sorties.map(function (x) {
+        return '<tr><td>' + date(x.released_at) + '</td><td>' + num(x.qty) + '</td>' +
+          '<td class="mono">' + esc(x.source_location_code || '—') + ' → ' + esc(x.destination_location_code || '—') + '</td>' +
+          '<td>' + (x.proof_url ? '<a href="#bags" class="ops-link" onclick="ANAGROCI_FB.openBagProof(\'' + esc(x.proof_url) + '\');return false;"><b>voir</b></a>' : '—') + '</td></tr>';
+      })) + '</section>';
+    bagShell('flows', 'Dossier sacherie', '', corps);
+    bagWireBar(c, b);
+  });
+}
+function bagFlowActions(r) {
+  var s = String(r.status || ''), btns = [];
+  var expire = r.expires_at && new Date(r.expires_at) < new Date();
+  function btn2(label, fn, primary) {
+    btns.push('<button class="btn ' + (primary ? 'primary' : 'secondary') + '" type="button" onclick="ANAGROCI_FB.' + fn + '(\'' + esc(r.id) + '\')">' + label + '</button>');
+  }
+  if (s === 'REQUESTED' && bagRole(BAG_ROLES.revoir)) btn2('Marquer revue', 'bagReview');
+  if (s === 'REVIEWED' && bagRole(BAG_ROLES.consolider)) btn2('Consolider', 'bagConsolidate');
+  if (s === 'CONSOLIDATED' && bagRole(BAG_ROLES.approuver)) btn2('Décision BM', 'openBagApprove', true);
+  if (/^(BM_APPROVED|GM_APPROVED|PARTIALLY_RELEASED)$/.test(s)) {
+    if (expire) { if (bagRole(BAG_ROLES.cloturer)) btn2('Marquer expirée', 'bagMarkExpired'); }
+    else if (bagRole(BAG_ROLES.liberer)) btn2('Libérer', 'openBagRelease', true);
+  }
+  if (/RELEASED/.test(s) && n(r.received_qty) < n(r.released_qty) && bagRole(BAG_ROLES.recevoir)) btn2('Confirmer réception', 'openBagReceipt', true);
+  if (/^(REQUESTED|REVIEWED|CONSOLIDATED)$/.test(s) && bagRole(BAG_ROLES.cloturer)) btn2('Rejeter', 'openBagReject');
+  return btns.join(' ');
+}
+
+/* ---- ECRAN 3 : COMPTES RT ------------------------------------------------ */
+function renderBagRtList() {
+  bagLoading('rt', 'Qui détient les sacs ANAGROCI et pourquoi ?');
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var corps = bagsPannesNotice(b) +
+      '<section class="card"><div class="card-head"><div><h2>Comptes sacherie RT</h2>' +
+      '<p>' + (b.rtStock || []).length + ' RT porteurs d’une balance.</p></div></div>' +
+      table(['RT', 'Cluster', 'Sous responsabilité', 'Utilisables', 'Abîmés', 'Dernière activité', 'Ancienneté', 'Statut'],
+        (b.rtStock || []).map(function (s2) {
+          var age = daysSince(s2.derniere_activite);
+          var abim = n(s2.dechires) + n(s2.a_reparer);
+          var ton = abim ? 'warn' : 'ok';
+          return '<tr class="ops-click" onclick="location.hash=\'#bags/rt/' + encodeURIComponent(s2.rt_id) + '\'">' +
+            '<td><b>' + esc(s2.rt_nom || s2.rt_id) + '</b></td><td>' + esc(s2.cluster || '—') + '</td>' +
+            '<td>' + num(s2.total_sous_responsabilite) + '</td><td>' + num(s2.vides) + '</td>' +
+            '<td>' + (abim ? '<span class="badge warn">' + num(abim) + '</span>' : '0') + '</td>' +
+            '<td>' + date(s2.derniere_activite) + '</td>' +
+            '<td>' + (age == null ? '—' : (age > 30 ? '<span class="badge warn">' + age + ' j</span>' : age + ' j')) + '</td>' +
+            '<td><span class="ops-dot ' + ton + '"></span></td></tr>';
+        })) + '</section>';
+    bagShell('rt', 'Qui détient les sacs ANAGROCI et pourquoi ?', bagCta(), corps);
+    bagWireBar(c, b);
+  });
+}
+
+function renderBagRtAccount(rtId) {
+  bagLoading('rt', 'Compte sacherie RT');
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var s2 = (b.rtStock || []).filter(function (x) { return String(x.rt_id) === String(rtId); })[0];
+    var rt = c.rm[rtId] || {};
+    if (!s2 && !rt.id) {
+      bagShell('rt', 'Compte sacherie RT', '', '<div class="ops-empty">RT introuvable.</div>' +
+        '<div class="ops-actions"><a class="btn secondary" href="#bags/rt">← Comptes RT</a></div>');
+      return;
+    }
+    s2 = s2 || {};
+    var recus = (b.releases || []).filter(function (x) {
+      var req = bagReqById(b, x.request_id) || {};
+      return String(req.rt_id) === String(rtId);
+    });
+    var totalRecu = recus.reduce(function (t, x) { return t + n(x.qty); }, 0);
+    var theorique = n(s2.total_sous_responsabilite);
+    var dossiers = (b.requests || []).filter(function (x) { return String(x.rt_id) === String(rtId); });
+
+    var corps = '<div class="ops-actions"><a class="btn secondary" href="#bags/rt">← Comptes RT</a></div>' +
+      '<section class="card"><div class="card-head"><div><h2>' + esc(s2.rt_nom || rt.nom || rtId) + '</h2>' +
+      '<p>' + esc(s2.cluster || rt.cluster || '—') + ' · ' + esc(rt.village_nom || '') + '</p></div></div>' +
+      table(['Poste', 'Sacs'], [
+        '<tr><td>Sorties reçues sur la campagne</td><td>' + num(totalRecu) + '</td></tr>',
+        '<tr><td>Utilisables détenus</td><td>' + num(s2.vides) + '</td></tr>',
+        '<tr><td>Pleins détenus</td><td>' + num(s2.pleins) + '</td></tr>',
+        '<tr><td>Déchirés</td><td>' + num(s2.dechires) + '</td></tr>',
+        '<tr><td>À réparer</td><td>' + num(s2.a_reparer) + '</td></tr>',
+        '<tr><td><b>Solde théorique (vue serveur)</b></td><td><b>' + num(theorique) + '</b></td></tr>'
+      ]) + '</section>' +
+      '<section class="card"><div class="card-head"><div><h2>Historique du compte</h2>' +
+      '<p>Chaque ligne explique le solde. Aucun solde n’est posé sans mouvement.</p></div></div>' +
+      table(['Date', 'Mouvement', 'Origine', 'Destination', 'Entrée', 'Sortie'],
+        recus.map(function (x) {
+          return '<tr><td>' + date(x.released_at) + '</td><td>Sortie magasin</td>' +
+            '<td class="mono">' + esc(x.source_location_code || '—') + '</td>' +
+            '<td class="mono">' + esc(x.destination_location_code || '—') + '</td>' +
+            '<td>' + num(x.qty) + '</td><td>—</td></tr>';
         })) + '</section>' +
-      '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Stock par cluster</h2></div></div>' +
-      table(['Cluster', 'Vides', 'Pleins', 'Chez RT', 'Chez producteur', 'Transit', 'Déchirés', 'À réparer', 'Total réseau'],
-        b.clusterStock.map(function (s) {
-          return '<tr><td><b>' + esc(s.cluster) + '</b></td><td>' + num(s.stock_cluster_vide) + '</td>' +
-            '<td>' + num(s.stock_cluster_plein) + '</td><td>' + num(s.stock_chez_rt) + '</td>' +
-            '<td>' + num(s.stock_chez_producteur) + '</td><td>' + num(s.transit) + '</td>' +
-            '<td>' + num(s.dechires) + '</td><td>' + num(s.a_reparer) + '</td>' +
-            '<td>' + num(s.total_reseau) + '</td></tr>';
-        })) +
-      '</section><section class="card"><div class="card-head"><div><h2>Dernières sorties physiques</h2>' +
-      '<p>Chaque libération est un mouvement du registre canonique.</p></div></div>' +
-      table(['Date', 'Demande', 'Qté', 'Trajet', 'Preuve'],
-        (b.releases || []).slice(0, 12).map(function (x) {
-          var req = bagReqById(b, x.request_id) || {};
-          return '<tr><td>' + date(x.released_at) + '</td><td class="mono">' + esc(req.request_code || x.request_id || '—') + '</td>' +
-            '<td>' + num(x.qty) + '</td><td class="mono">' + esc(x.source_location_code || '—') + ' → ' + esc(x.destination_location_code || '—') + '</td>' +
-            '<td>' + (x.proof_url ? '<a href="#bags" class="ops-link" onclick="ANAGROCI_FB.openBagProof(\'' + esc(x.proof_url) + '\');return false;"><b>voir</b></a>' : '—') + '</td></tr>';
-        })) + '</section></div>' +
-      '<section class="card"><div class="card-head"><div><h2>RT Bag Account</h2>' +
-      '<p>Balance sacherie sous la responsabilité de chaque RT (' + b.rtStock.length + ' RT).</p></div></div>' +
-      table(['Cluster', 'RT', 'Sous responsabilité', 'Vides', 'Pleins', 'Déchirés', 'À réparer', 'Dernière activité', 'Ancienneté'],
-        b.rtStock.slice(0, 60).map(function (s) {
-          var age = daysSince(s.derniere_activite);
-          return '<tr><td>' + esc(s.cluster || '—') + '</td><td><b>' + esc(s.rt_nom || s.rt_id) + '</b></td>' +
-            '<td>' + num(s.total_sous_responsabilite) + '</td><td>' + num(s.vides) + '</td>' +
-            '<td>' + num(s.pleins) + '</td><td>' + num(s.dechires) + '</td><td>' + num(s.a_reparer) + '</td>' +
-            '<td>' + date(s.derniere_activite) + '</td>' +
-            '<td>' + (age == null ? '—' : (age > 30 ? '<span class="badge warn">' + age + ' j</span>' : age + ' j')) + '</td></tr>';
-        })) + '</section>' +
-      '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Pertes déclarées</h2>' +
-      '<p>Une perte ne diminue le stock qu’après décision du Branch Manager.</p></div></div>' +
-      table(['Date', 'Location', 'État', 'Qté', 'Motif', 'Statut', 'Décision'],
-        (b.pertes || []).slice(0, 10).map(function (p) {
-          return '<tr><td>' + date(p.submitted_at) + '</td><td class="mono">' + esc(p.location_code) + '</td>' +
-            '<td>' + esc(p.state) + '</td><td>' + num(p.qty) + '</td><td>' + esc(p.motif || '—') + '</td>' +
-            '<td>' + badge(p.statut) + '</td>' +
-            '<td>' + (p.statut === 'SOUMIS' && bagRole(BAG_ROLES.bm)
-              ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagLossDecision(\'' + esc(p.id) + '\')">Examiner</button>' : '—') + '</td></tr>';
-        })) +
-      '</section><section class="card"><div class="card-head"><div><h2>Derniers inventaires</h2>' +
-      '<p>Théorique vs compté — un écart reste en HOLD jusqu’à justification, jamais ajusté en silence.</p></div></div>' +
-      table(['Date', 'Location', 'État', 'Théorique', 'Compté', 'Écart', 'Statut'],
-        (b.inventaires || []).slice(0, 10).map(function (i) {
+      '<section class="card"><div class="card-head"><div><h2>Dossiers du RT</h2></div></div>' +
+      table(['Référence', 'Demandé', 'Approuvé', 'Sorti', 'Reçu', 'Étape'],
+        dossiers.map(function (r) {
+          return '<tr class="ops-click" onclick="location.hash=\'#bags/flow/' + encodeURIComponent(r.id) + '\'">' +
+            '<td class="mono">' + esc(r.request_code || r.id) + '</td><td>' + num(r.requested_qty) + '</td>' +
+            '<td>' + num(r.approved_qty) + '</td><td>' + num(r.released_qty) + '</td>' +
+            '<td>' + num(r.received_qty) + '</td><td>' + badge(bagEtapeFr(r)) + '</td></tr>';
+        })) + '</section>';
+    bagShell('rt', 'Compte sacherie RT', '', corps);
+    bagWireBar(c, b);
+  });
+}
+
+/* ---- ECRAN 4 : STOCKS & MOUVEMENTS -------------------------------------- */
+var BAG_STOCK_VUES = [['positions', 'Positions'], ['transferts', 'Transferts'], ['journal', 'Journal'], ['reseau', 'Réseau terrain']];
+function renderBagStock(vue, lieu) {
+  vue = vue || 'positions';
+  bagLoading('stock', 'Où sont physiquement les sacs ?');
+  /* Les sous-vues heritees du module P1 gardent leur moteur : on ne reecrit
+     pas un second systeme de transferts ni un second journal. */
+  if (vue !== 'positions' && global.ANAGROCI_SACHERIE_P1) {
+    var fn = global.ANAGROCI_SACHERIE_P1[vue === 'transferts' ? 'transfers' : vue === 'journal' ? 'history' : 'network'];
+    if (fn) return Promise.resolve(fn()).then(function () { bagDecorate('stock', vue); });
+  }
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var av = bagAvailability(b);
+    var codes = Object.keys(av.lieux).filter(function (k) { return k !== '__SANS_EMPLACEMENT__'; });
+    if (lieu) codes = codes.filter(function (k) { return k === lieu; });
+    var locByCode = {};
+    (b.locations || []).forEach(function (l) { locByCode[l.code] = l; });
+
+    var corps = bagsPannesNotice(b) + bagStockVues(vue) +
+      (lieu ? '<div class="ops-actions"><a class="btn secondary" href="#bags/stock">← Toutes les positions</a></div>' : '') +
+      '<section class="card"><div class="card-head"><div><h2>Positions' + (lieu ? ' · ' + esc(lieu) : '') + '</h2>' +
+      '<p>Emplacements issus de rcn_jute_locations. Disponible = utilisable − réservé, emplacement par emplacement.</p></div></div>' +
+      table(['Emplacement', 'Type', 'Utilisable', 'Réservé', 'Disponible'],
+        codes.map(function (code) {
+          var x = av.lieux[code], l = locByCode[code] || {};
+          return '<tr class="ops-click" onclick="location.hash=\'#bags/location/' + encodeURIComponent(code) + '\'">' +
+            '<td class="mono"><b>' + esc(code) + '</b>' + (l.nom ? '<br><span class="muted">' + esc(l.nom) + '</span>' : '') + '</td>' +
+            '<td>' + esc(l.scope_type || '—') + '</td><td>' + num(x.usable) + '</td>' +
+            '<td>' + (x.reserve ? '<span class="badge warn">' + num(x.reserve) + '</span>' : '0') + '</td>' +
+            '<td><b>' + num(x.dispo) + '</b></td></tr>';
+        })) + '</section>';
+    bagShell('stock', 'Où sont physiquement les sacs ?', bagCta(), corps);
+    bagWireBar(c, b);
+  });
+}
+function bagStockVues(actif) {
+  return '<div class="ops-filter-chips">' + BAG_STOCK_VUES.map(function (v) {
+    var href = v[0] === 'positions' ? '#bags/stock' : v[0] === 'transferts' ? '#bags/transfers' : v[0] === 'journal' ? '#bags/history' : '#bags/network';
+    return '<a class="' + (actif === v[0] ? 'active' : '') + '" href="' + href + '">' + esc(v[1]) + '</a>';
+  }).join('') + '</div>';
+}
+/* Les rendus P1 peignent leur propre page : on y re-injecte la navigation
+   unique pour qu’il n’existe qu’une seule barre d’onglets dans l’application. */
+function bagDecorate(active, vue) {
+  var host = document.getElementById('opsRouteView');
+  if (!host) return;
+  var vieux = host.querySelectorAll('.ops-sacherie-tabs');
+  for (var i = 0; i < vieux.length; i++) vieux[i].remove();
+  var h = host.querySelector('.ops-route-head');
+  if (h) h.insertAdjacentHTML('afterend', bagNav(active) + bagStockVues(vue));
+}
+
+/* ---- ECRAN 5 : CONTROLE & RECONCILIATION -------------------------------- */
+function renderBagControl() {
+  bagLoading('control', 'Quelles anomalies doivent être contrôlées, justifiées ou décidées ?');
+  return Promise.all([base(), bagsData(), loadProfile()]).then(function (rs) {
+    var c = rs[0], b = rs[1];
+    var g = b.global || {};
+    var holds = (b.inventaires || []).filter(function (x) { return x.reconciliation_status === 'HOLD'; });
+    var pertes = (b.pertes || []).filter(function (x) { return x.statut === 'SOUMIS'; });
+    var ecarts = (b.requests || []).filter(function (r) {
+      return n(r.released_qty) > 0 && n(r.received_qty) < n(r.released_qty);
+    });
+    var actions = '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'inventaire\')">Inventaire</button>' +
+      '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'etat\')">Sacs abîmés</button>' +
+      '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'perte\')">Déclarer une perte</button>';
+
+    var corps = bagsPannesNotice(b) +
+      kpis([
+        ['Inventaires à faire', String((b.locations || []).filter(function (l) { return l.actif; }).length - (b.inventaires || []).length), 'emplacements sans comptage récent'],
+        ['Écarts ouverts', String(ecarts.length + holds.length), 'réception et inventaire', (ecarts.length + holds.length) ? 'danger' : ''],
+        ['Sacs endommagés', num(n(g.dechires) + n(g.a_reparer)), 'déchirés + à réparer', (n(g.dechires) + n(g.a_reparer)) ? 'warn' : ''],
+        ['Pertes à décider', String(pertes.length), 'décision Branch Manager', pertes.length ? 'warn' : '']
+      ]) +
+      '<section class="card"><div class="card-head"><div><h2>Exceptions prioritaires</h2></div>' +
+      '<div class="ops-route-actions">' + actions + '</div></div>' +
+      bagAlertRows(bagExceptions(b)) + '</section>' +
+      '<div class="notice info"><b>Aucun ajustement silencieux :</b>&nbsp; un inventaire en écart passe en HOLD. ' +
+      'Le stock n’est jamais aligné automatiquement sur le comptage.</div>' +
+      '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Derniers inventaires</h2></div></div>' +
+      table(['Date', 'Emplacement', 'État', 'Théorique', 'Compté', 'Écart', 'Statut'],
+        (b.inventaires || []).map(function (i) {
           var d = n(i.counted_qty) - n(i.theoretical_qty);
           return '<tr><td>' + date(i.counted_at) + '</td><td class="mono">' + esc(i.location_code) + '</td>' +
             '<td>' + esc(i.state) + '</td><td>' + num(i.theoretical_qty) + '</td><td>' + num(i.counted_qty) + '</td>' +
             '<td>' + (d ? '<span class="badge ' + (i.reconciliation_status === 'HOLD' ? 'danger' : 'warn') + '">' + (d > 0 ? '+' : '') + num(d) + '</span>' : '0') + '</td>' +
-            '<td>' + badge(i.reconciliation_status || i.statut || '—') + '</td></tr>';
-        })) + '</section></div>');
+            '<td>' + badge(i.reconciliation_status || '—') + '</td></tr>';
+        })) + '</section>' +
+      '<section class="card"><div class="card-head"><div><h2>Pertes déclarées</h2>' +
+      '<p>Une perte ne diminue le stock qu’après décision du Branch Manager.</p></div></div>' +
+      table(['Date', 'Emplacement', 'État', 'Qté', 'Motif', 'Statut', 'Décision'],
+        (b.pertes || []).map(function (x) {
+          return '<tr><td>' + date(x.submitted_at) + '</td><td class="mono">' + esc(x.location_code) + '</td>' +
+            '<td>' + esc(x.state) + '</td><td>' + num(x.qty) + '</td><td>' + esc(x.motif || '—') + '</td>' +
+            '<td>' + badge(x.statut) + '</td>' +
+            '<td>' + (x.statut === 'SOUMIS' && bagRole(BAG_ROLES.bm)
+              ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagLossDecision(\'' + esc(x.id) + '\')">Examiner</button>' : '—') + '</td></tr>';
+        })) + '</section></div>';
+    bagShell('control', 'Quelles anomalies doivent être contrôlées, justifiées ou décidées ?', actions, corps);
+    bagWireBar(c, b);
   });
+}
+
+/* ---- Recherche universelle et filtres ------------------------------------ */
+function bagWireBar(c, b) {
+  var zs = document.getElementById('bagFZone'), cs = document.getElementById('bagFCluster'),
+      ls = document.getElementById('bagFLoc'), inp = document.getElementById('bagSearch'),
+      out = document.getElementById('bagSearchOut');
+  if (zs) c.zones.forEach(function (z) { zs.insertAdjacentHTML('beforeend', '<option>' + esc(z.label) + '</option>'); });
+  if (cs) c.clusters.forEach(function (x) { cs.insertAdjacentHTML('beforeend', '<option>' + esc(x.label) + '</option>'); });
+  if (ls) (b.locations || []).filter(function (l) { return l.actif; })
+    .forEach(function (l) { ls.insertAdjacentHTML('beforeend', '<option>' + esc(l.code) + '</option>'); });
+  function filtrerTables() {
+    var cl = cs ? cs.value : '', lc = ls ? ls.value : '', zn = zs ? zs.value : '';
+    var lignes = document.querySelectorAll('.ops-route-view .card table tbody tr, #opsRouteView .card table tbody tr');
+    for (var i = 0; i < lignes.length; i++) {
+      var t = lignes[i].textContent;
+      var ok = (!cl || t.indexOf(cl) >= 0) && (!lc || t.indexOf(lc) >= 0) && (!zn || t.indexOf(zn) >= 0);
+      lignes[i].style.display = ok ? '' : 'none';
+    }
+  }
+  [zs, cs, ls].forEach(function (el) { if (el) el.onchange = filtrerTables; });
+  if (!inp || !out) return;
+  inp.oninput = function () {
+    var v = normName(inp.value);
+    if (v.length < 2) { out.hidden = true; out.innerHTML = ''; return; }
+    var res = [];
+    (b.rtStock || []).forEach(function (s2) {
+      if (normName((s2.rt_nom || '') + ' ' + (s2.rt_id || '')).indexOf(v) >= 0)
+        res.push(['RT', s2.rt_nom || s2.rt_id, (s2.cluster || '') + ' · ' + num(s2.total_sous_responsabilite) + ' sacs', '#bags/rt/' + encodeURIComponent(s2.rt_id)]);
+    });
+    (b.requests || []).forEach(function (r) {
+      if (normName((r.request_code || '') + ' ' + (r.id || '') + ' ' + (r.cluster || '')).indexOf(v) >= 0)
+        res.push(['Dossier', r.request_code || r.id, bagEtapeFr(r), '#bags/flow/' + encodeURIComponent(r.id)]);
+    });
+    (b.locations || []).forEach(function (l) {
+      if (normName((l.code || '') + ' ' + (l.nom || '')).indexOf(v) >= 0)
+        res.push(['Emplacement', l.code, l.scope_type || '', '#bags/location/' + encodeURIComponent(l.code)]);
+    });
+    c.clusters.forEach(function (x) {
+      if (normName(x.label).indexOf(v) >= 0) res.push(['Cluster', x.label, x.zone_code || '', '#bags/stock']);
+    });
+    out.hidden = false;
+    out.innerHTML = res.length
+      ? res.slice(0, 12).map(function (r) {
+          return '<a class="ops-sacherie-result" href="' + r[3] + '"><span class="badge info">' + esc(r[0]) + '</span>' +
+            '<b>' + esc(r[1]) + '</b><span class="muted">' + esc(r[2]) + '</span></a>';
+        }).join('')
+      : '<div class="ops-empty">Aucun résultat parmi les données chargées. ' +
+        'La recherche des mouvements anciens passe par le Journal.</div>';
+  };
 }
 
 /* --- Demande RT : contrôles SOP restaurés (plafond serveur 80 kg / +10 %). */
@@ -2812,7 +3270,12 @@ function openBagReceipt(id) {
       if (qty <= 0 || qty > attendu) { msg.className = 'ops-danger-text'; msg.textContent = 'Quantité invalide (maximum ' + num(attendu) + ').'; return; }
       if (qty < attendu && !note) { msg.className = 'ops-danger-text'; msg.textContent = 'Écart de ' + num(attendu - qty) + ' sac(s) : observation obligatoire.'; return; }
       var total = n(r.received_qty) + qty;
-      bagStep(id, { received_qty: total, notes: note ? ('Réception: ' + note) : r.notes || null }, 'sacs_reception_confirmee')
+      /* Le motif d'ecart part dans sa propre colonne : le serveur le REFUSE
+         vide quand recu < libere (ops_bag_request_guard). Le formulaire n'est
+         plus le seul garde-fou, il ne fait que devancer le refus. */
+      var payload = { received_qty: total, notes: note ? ('Réception: ' + note) : r.notes || null };
+      if (total < n(r.released_qty)) payload.receipt_gap_reason = note;
+      bagStep(id, payload, 'sacs_reception_confirmee')
         .then(function (ok) { if (ok) closeForm(); });
     });
   });
@@ -3876,7 +4339,7 @@ var ROUTES = {
   rt: function (p) { return renderRt(p[1], p[2]); },
   villages: function (p) { return renderVillageFiche(p[1], p[2]); },
   hubs: function (p) { return renderHubs(p[1]); },
-  bags: function (p) { return renderBags(p[1]); },
+  bags: function (p) { return renderBags(p[1], p[2]); },
   cash: function () { return renderCash(); },
   command: function () { return renderCommand(); },
   sustainability: function () { return renderSustainability(); },
@@ -3925,6 +4388,10 @@ global.ANAGROCI_OPS_ROUTE = render;
 global.ANAGROCI_FB = {
   render: render,
   reload: reload,
+  /* Navigation sacherie unique : le module P1 la consomme au lieu de definir
+     sa propre barre d'onglets. Une seule source, un seul routeur. */
+  bagNav: bagNav,
+  bagDecorate: bagDecorate,
   openVillageForm: openVillageForm,
   openRtForm: openRtForm,
   openFarmerForm: openFarmerForm,
