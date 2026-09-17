@@ -86,3 +86,32 @@
   .ops-avatar{width:68px;height:68px}
   .ops-gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 }
+
+/* ---- Carte opérationnelle : étiquettes de villages, hubs et usine ---------
+   Tooltips Leaflet permanents. La visibilité est pilotée par la classe
+   .fb-label-off (opacité), jamais par un bind/unbind : pas de recréation,
+   pas de clignotement. Le tooltipPane de Leaflet (z-index 650) passe déjà
+   au-dessus de l'overlayPane des polylignes (400) : les traits Village→Hub
+   et Hub→Usine ne peuvent pas masquer un nom. */
+.fb-map-label{background:rgba(255,255,255,.93);border:1px solid #CBD9CE;border-radius:5px;
+  box-shadow:0 1px 3px rgba(5,59,35,.18);color:#0B3A22;padding:2px 6px;
+  font-family:var(--font-body,inherit);font-weight:600;line-height:1.25;
+  white-space:normal;max-width:124px;transition:opacity .12s ease,box-shadow .12s ease}
+.fb-map-label::before{display:none!important}
+.fb-village-label{font-size:10.5px}
+.fb-hub-label{font-size:11px;font-weight:800;color:#053B23;background:rgba(255,255,255,.97);
+  border-color:#053B23;max-width:150px;letter-spacing:.01em}
+.fb-usine-label{font-size:11px;font-weight:800;color:#fff;background:#053B23;border-color:#053B23;max-width:150px}
+.fb-usine-label span{display:block;font-weight:600;font-size:9.5px;opacity:.85}
+.fb-base-label{font-size:10px;font-weight:700;color:#053B23;background:rgba(255,255,255,.9)}
+.fb-label-off{opacity:0!important;visibility:hidden;pointer-events:none}/* Leaflet applique une opacite en style inline sur chaque tooltip :
+   sans !important la classe ne masque rien. visibility conserve la
+   boite mesurable pour le calcul anti-chevauchement. */
+.fb-label-hot{background:#fff;border-color:#1F9D6E;box-shadow:0 2px 7px rgba(5,59,35,.3);z-index:900}
+.fb-labels-ctl{background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 1px 4px rgba(5,59,35,.16);padding:5px 8px}
+.fb-labels-ctl label{display:flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:11px;font-weight:600;color:#0B3A22;white-space:nowrap}
+.fb-labels-ctl input{margin:0;cursor:pointer}
+@media(max-width:520px){.fb-village-label{font-size:9.5px;max-width:96px;padding:1px 4px}
+  .fb-labels-ctl label{font-size:10px}}

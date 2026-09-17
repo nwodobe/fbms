@@ -2096,30 +2096,108 @@ function renderHubs(clusterCode) {
             '<td>' + badge(g.hub.statut || 'À géolocaliser') + '</td></tr>';
         })) + '</section>');
 
-    drawMap(c, d, hubPos, usine);
+    drawMap(c, d, hubPos, usine, hubRow);
   });
 }
 
-function drawMap(c, d, hubPos, usine) {
+/* Instance courante : une seule carte vivante a la fois. Rejouer la rubrique
+   detruit la precedente, sinon les marqueurs, les etiquettes et les ecouteurs
+   se superposent a chaque aller-retour de navigation. */
+var FB_MAP = null;
+
+function fbDestroyMap() {
+  if (!FB_MAP) return;
+  try { FB_MAP.remove(); } catch (e) { /* conteneur deja retire du DOM */ }
+  FB_MAP = null;
+}
+
+/* Placement des etiquettes de village.
+   Principe : toutes les etiquettes sont liees une fois pour toutes (tooltip
+   permanent Leaflet) ; leur visibilite se joue ensuite par une simple classe
+   CSS, jamais par un bind/unbind — pas de recreation, pas de clignotement.
+   Les villages sont traites par potentiel decroissant : en cas de collision,
+   c'est le village le plus important qui garde son nom. */
+function fbBoite(el, ref, marge) {
+  var r = el.getBoundingClientRect();
+  if (!r.width && !r.height) return null;
+  return { x1: r.left - ref.left - marge, y1: r.top - ref.top - marge,
+           x2: r.right - ref.left + marge, y2: r.bottom - ref.top + marge };
+}
+function fbChevauche(b, liste) {
+  for (var i = 0; i < liste.length; i++) {
+    var o = liste[i];
+    if (!(b.x2 < o.x1 || b.x1 > o.x2 || b.y2 < o.y1 || b.y1 > o.y2)) return true;
+  }
+  return false;
+}
+function fbPlaceLabels(map, labels, fixes, actif) {
+  if (!map || !labels) return;
+  var cont = map.getContainer();
+  if (!cont) return;
+  var ref = cont.getBoundingClientRect();
+  var z = map.getZoom();
+  var petitEcran = (global.innerWidth || 1280) < 820;
+  var toutAfficher = z >= (petitEcran ? 14 : 13);
+  var marge = 3, boites = [];
+
+  /* Les reperes structurants (usine, base, hubs) sont toujours affiches et
+     reservent leur place en premier : un nom de village ne vient jamais
+     recouvrir un hub ou l'usine. */
+  (fixes || []).forEach(function (el) {
+    if (!el) return;
+    el.classList.remove('fb-label-off');
+    var b = fbBoite(el, ref, marge);
+    if (b) boites.push(b);
+  });
+
+  labels.forEach(function (it) {
+    var tip = it.marker.getTooltip();
+    var el = tip && tip.getElement();
+    if (!el) return;
+    if (!actif) { el.classList.add('fb-label-off'); return; }
+    el.classList.remove('fb-label-off');
+    var b = fbBoite(el, ref, marge);
+    if (!b) return;
+    if (!toutAfficher && fbChevauche(b, boites)) el.classList.add('fb-label-off');
+    else boites.push(b);
+  });
+}
+
+function drawMap(c, d, hubPos, usine, hubRow) {
   var el = document.getElementById('fbMap');
   if (!el || !global.L) return;
+  fbDestroyMap();
   try {
     var map = L.map('fbMap').setView([7.52, -5.08], 9);
+    FB_MAP = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(map);
 
-    L.marker([usine.lat, usine.lng]).addTo(map).bindPopup('<b>Usine ANAGROCI</b><br>Yamoussoukro');
-    L.circleMarker([BOUAKE.lat, BOUAKE.lng], { radius: 8, fillColor: '#053B23', color: '#fff', weight: 2, fillOpacity: 0.9 })
-      .addTo(map).bindPopup('<b>Bouaké</b><br>Base opérationnelle');
+    /* Usine : marqueur distinct (epingle Leaflet) + etiquette permanente. */
+    L.marker([usine.lat, usine.lng]).addTo(map)
+      .bindPopup('<b>Usine ANAGROCI</b><br>Yamoussoukro')
+      .bindTooltip('Usine ANAGROCI<br><span>Yamoussoukro</span>',
+        { permanent: true, direction: 'right', offset: [12, 0], className: 'fb-map-label fb-usine-label' });
 
+    L.circleMarker([BOUAKE.lat, BOUAKE.lng], { radius: 8, fillColor: '#053B23', color: '#fff', weight: 2, fillOpacity: 0.9 })
+      .addTo(map).bindPopup('<b>Bouaké</b><br>Base opérationnelle')
+      .bindTooltip('Bouaké', { permanent: true, direction: 'right', offset: [10, 0], className: 'fb-map-label fb-base-label' });
+
+    /* Hubs : marqueur plus gros + etiquette au vrai libelle du cluster. */
     Object.keys(hubPos).forEach(function (k) {
       var pos = hubPos[k];
+      var row = (hubRow && hubRow[k]) || {};
+      var nomHub = row.nom || k;
       L.circleMarker(pos, { radius: 13, fillColor: '#053B23', color: '#fff', weight: 3, fillOpacity: 0.95 })
-        .addTo(map).bindPopup('<b>' + esc(k) + '</b><br>Hub relais');
+        .addTo(map).bindPopup('<b>' + esc(nomHub) + '</b><br>Hub relais')
+        .bindTooltip('Hub ' + esc(nomHub),
+          { permanent: true, direction: 'top', offset: [0, -13], className: 'fb-map-label fb-hub-label' });
       L.polyline([pos, [usine.lat, usine.lng]],
         { color: '#EE9E00', weight: 3, dashArray: '8 7', opacity: 0.8 }).addTo(map);
     });
 
+    /* Villages : le nom vient de la donnee FBMS (v.village), jamais d'une liste. */
+    var labels = [];
     c.villages.forEach(function (v) {
       var pos = villageCoords(v);
       if (!pos) return;
@@ -2127,6 +2205,7 @@ function drawMap(c, d, hubPos, usine) {
       var hub = hubPos[k] || null;
       var dist = villageDistance(v, hub);
       var s5 = (v.data && v.data.s5) || {};
+      var s3 = (v.data && v.data.s3) || {};
       var rts = (d.rtByVillage[v.id] || []);
       var m = L.circleMarker(pos, {
         radius: 7, weight: 2, color: '#fff', fillOpacity: 0.95, fillColor: villageColor(v, d)
@@ -2135,18 +2214,83 @@ function drawMap(c, d, hubPos, usine) {
         'Zone : ' + esc(zoneOfCluster(c, v.cluster)) + ' · Cluster : ' + esc(v.cluster || '—') + '<br>' +
         'RT : ' + (rts.length ? rts.map(function (r) { return esc(r.nom); }).join(', ') : '<b>aucun</b>') + '<br>' +
         'Producteurs : ' + (d.farmersByVillage[v.id] || 0) + '<br>' +
-        'Potentiel : ' + num(((v.data || {}).s3 || {}).potentielMT || 0, 1) + ' MT · ' +
-        'Sécurisé : ' + num(((v.data || {}).s3 || {}).potentielSecuriseMT || 0, 1) + ' MT<br>' +
+        'Potentiel : ' + num(s3.potentielMT || 0, 1) + ' MT · ' +
+        'Sécurisé : ' + num(s3.potentielSecuriseMT || 0, 1) + ' MT<br>' +
         'Acheté : ' + mt(d.byVillageBuy[v.id] || 0) + '<br>' +
         'Route : ' + esc(s5.typeAcces || '—') +
         ' · Camion : ' + (s5.camion30T ? '30T' : s5.camion10T ? '10T' : '—') + '<br>' +
         (dist ? 'Distance hub : ' + num(dist.km, 1) + ' km (' + dist.src + ')' : 'Distance hub : —'));
+
+      var nom = String(v.village == null ? '' : v.village).trim();
+      if (nom) {
+        m.bindTooltip(esc(nom), {
+          permanent: true, direction: 'right', offset: [9, 0],
+          className: 'fb-map-label fb-village-label', interactive: false
+        });
+        labels.push({ marker: m, poids: n(s3.potentielMT) });
+        /* Appariement point <-> etiquette trace dans le DOM : sert au
+           diagnostic et aux tests automatises, sans effet sur le rendu. */
+        var pel = m.getElement && m.getElement();
+        if (pel) pel.setAttribute('data-village', v.id);
+        var tel0 = m.getTooltip() && m.getTooltip().getElement();
+        if (tel0) tel0.setAttribute('data-village', v.id);
+        /* Survol : le nom devient visible meme s'il a ete masque par le
+           calcul anti-chevauchement, et le point est mis en evidence sans
+           changer sa couleur de statut. */
+        m.on('mouseover', function () {
+          var tip = m.getTooltip(), tel = tip && tip.getElement();
+          if (tel) { tel.classList.remove('fb-label-off'); tel.classList.add('fb-label-hot'); }
+          m.setStyle({ radius: 9, weight: 3 });
+        });
+        m.on('mouseout', function () {
+          var tip = m.getTooltip(), tel = tip && tip.getElement();
+          if (tel) tel.classList.remove('fb-label-hot');
+          m.setStyle({ radius: 7, weight: 2 });
+          fbPlaceLabels(map, labels, fbFixes, fbLabelsOn);
+        });
+      }
+
       if (hub) {
         L.polyline([pos, hub], dist && dist.src === 'validée'
           ? { color: '#1F9D6E', weight: 3, opacity: 0.8 }
           : { color: '#1d6fa5', weight: 2, dashArray: '7 6', opacity: 0.7 }).addTo(map);
       }
     });
+
+    /* Les villages a fort potentiel gardent leur nom en cas de collision. */
+    labels.sort(function (a, b) { return b.poids - a.poids; });
+
+    /* Reperes structurants : leurs etiquettes sont prioritaires. */
+    var fbFixes = [];
+    map.eachLayer(function (ly) {
+      var tip = ly.getTooltip && ly.getTooltip();
+      var el = tip && tip.getElement();
+      if (!el) return;
+      /* Usine et hubs sont des reperes : toujours affiches. La base de
+         Bouake reste utile mais cede la place a un hub si elle le touche. */
+      if (el.classList.contains('fb-usine-label') || el.classList.contains('fb-hub-label')) fbFixes.push(el);
+      else if (el.classList.contains('fb-base-label')) labels.unshift({ marker: ly, poids: Infinity });
+    });
+
+    var fbLabelsOn = true;
+    var ctl = L.control({ position: 'topright' });
+    ctl.onAdd = function () {
+      var box = L.DomUtil.create('div', 'fb-labels-ctl');
+      box.innerHTML = '<label><input type="checkbox" checked> Noms des villages</label>';
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.disableScrollPropagation(box);
+      box.querySelector('input').addEventListener('change', function (ev) {
+        fbLabelsOn = !!ev.target.checked;
+        fbPlaceLabels(map, labels, fbFixes, fbLabelsOn);
+      });
+      return box;
+    };
+    ctl.addTo(map);
+
+    map.on('zoomend moveend resize', function () { fbPlaceLabels(map, labels, fbFixes, fbLabelsOn); });
+    fbPlaceLabels(map, labels, fbFixes, fbLabelsOn);
+    /* Les tooltips ne sont mesurables qu'une fois peints. */
+    setTimeout(function () { fbPlaceLabels(map, labels, fbFixes, fbLabelsOn); }, 0);
   } catch (e) { console.warn('[FB carte]', e.message); }
 }
 

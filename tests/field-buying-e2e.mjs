@@ -118,6 +118,8 @@ const DOUBLURE = `
     { path: 'v_test_2/gallery/a.jpg', legende: 'ENTREE TEST', categorie: 'Entrée du village', date: '2026-08-20', agent: 'AGENT TEST' },
     { path: 'v_test_2/gallery/b.jpg', legende: 'ROUTE TEST', categorie: 'Route d’accès', date: '2026-08-21', agent: 'AGENT TEST' }
   ];
+  /* Expose le jeu de villages a l'assertion des etiquettes de carte. */
+  window.__FB_VILLAGES = VILLAGES;
   var TABLES = {
     villages: VILLAGES, rt: RTS,
     /* Les vues LIGHT servent les mêmes lignes que les tables (la doublure
@@ -818,6 +820,58 @@ async function main() {
         verifier(carte.leaflet && carte.conteneur, 'carte : Leaflet initialisé dans le shell');
         verifier(carte.marqueurs >= 9, `carte : villages et hubs dessinés (${carte.marqueurs} éléments)`);
         verifier(carte.usine >= 1, 'carte : marqueur usine Yamoussoukro présent');
+
+        /* Étiquettes de villages : un nom lisible à côté de chaque point, issu
+           de la donnée FBMS, sans doublon et sans recouvrir hubs ni usine. */
+        await page.waitForTimeout(400);
+        const etiq = await page.evaluate(() => {
+          const tips = [...document.querySelectorAll('#fbMap .fb-village-label')];
+          const pts = [...document.querySelectorAll('#fbMap path[data-village]')];
+          const noms = {};
+          (window.__FB_VILLAGES || []).forEach((v) => { noms[v.id] = String(v.village).trim(); });
+          const discordances = tips.filter((t) => {
+            const id = t.getAttribute('data-village');
+            return !id || (noms[id] && noms[id] !== t.textContent);
+          }).length;
+          const orphelines = tips.filter((t) =>
+            !document.querySelector('#fbMap path[data-village="' + CSS.escape(t.getAttribute('data-village') || 'x') + '"]')).length;
+          const z = (sel) => {
+            const el = document.querySelector('#fbMap ' + sel) || document.querySelector(sel);
+            return el ? Number(getComputedStyle(el).zIndex) || 0 : -1;
+          };
+          return {
+            labels: tips.length, points: pts.length, discordances, orphelines,
+            hub: document.querySelectorAll('#fbMap .fb-hub-label').length,
+            usine: document.querySelectorAll('#fbMap .fb-usine-label').length,
+            controle: !!document.querySelector('#fbMap .fb-labels-ctl'),
+            zTooltip: z('.leaflet-tooltip-pane'), zOverlay: z('.leaflet-overlay-pane'),
+            accents: tips.some((t) => /[À-ÿ']/.test(t.textContent))
+          };
+        });
+        const geoAttendu = await page.evaluate(() =>
+          (window.__FB_VILLAGES || []).filter((v) => v.gps_lat != null && v.gps_lng != null).length);
+        verifier(etiq.labels === geoAttendu && etiq.points === geoAttendu,
+          `carte : ${etiq.labels} étiquettes pour ${geoAttendu} villages géolocalisés`);
+        verifier(etiq.discordances === 0 && etiq.orphelines === 0,
+          'carte : chaque nom est apparié à son propre point (identifiant village)');
+        verifier(etiq.hub >= 1 && etiq.usine === 1,
+          `carte : hubs (${etiq.hub}) et usine étiquetés distinctement des villages`);
+        verifier(etiq.controle, 'carte : contrôle « Noms des villages » présent');
+        verifier(etiq.zTooltip > etiq.zOverlay,
+          `carte : les noms passent au-dessus des lignes (tooltip ${etiq.zTooltip} > lignes ${etiq.zOverlay})`);
+
+        /* Aller-retour de rubrique : ni carte ni étiquette dupliquée. */
+        await allerA(page, '#villages');
+        await page.waitForTimeout(400);
+        await allerA(page, '#hubs');
+        await page.waitForTimeout(900);
+        const apresRetour = await page.evaluate(() => ({
+          cartes: document.querySelectorAll('.leaflet-container').length,
+          labels: document.querySelectorAll('#fbMap .fb-village-label').length,
+          controles: document.querySelectorAll('#fbMap .fb-labels-ctl').length
+        }));
+        verifier(apresRetour.cartes === 1 && apresRetour.labels === geoAttendu && apresRetour.controles === 1,
+          `carte : aucun doublon après aller-retour (${apresRetour.cartes} carte, ${apresRetour.labels} étiquettes)`);
 
         // 8. Sacherie : demande RT + règle approval ≠ sortie
         await allerA(page, '#bags');
