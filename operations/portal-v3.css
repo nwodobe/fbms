@@ -1,0 +1,111 @@
+/* ANAGROCI Operations Portal — v3
+   Cadre média (scrim, badge de module, liseré), sélecteur de langue habillé et
+   panneau Paramètres. Complète operations.css, operations-v2.css et
+   portal-visual.css : ce fichier ne redéfinit que ce qu'il ajoute ou surcharge.
+   Aucune couleur hors charte : tout passe par les jetons de operations.css. */
+
+/* --- Cadre média : scrim, badge de module, liseré -------------------------- */
+.portal-card-media::after{background:linear-gradient(180deg,rgba(5,59,35,.34) 0%,rgba(5,59,35,0) 34%,rgba(5,59,35,0) 52%,rgba(5,59,35,.46) 100%)}
+.portal-card-media img{filter:saturate(1) contrast(1.03)}
+/* Cadrage propre au visuel Field Buying : classe explicite, jamais un
+   sélecteur positionnel — auth-gate.js sait insérer des cartes dans une grille. */
+.portal-card.field-buying .portal-card-media img{object-position:center 38%}
+
+/* portal-visual.css applique « .portal-card span{padding-top:16px;margin-top:auto;
+   font-size:10.5px} » et « .portal-card span::after{content:'›'} » a TOUS les
+   span de la carte : sans reinitialisation, le badge herite du chevron du CTA,
+   de sa couleur et de son decalage. D'ou le prefixe .portal-card, necessaire
+   pour depasser la specificite de « .portal-card span ». */
+.portal-card .media-badge,.portal-card .media-rule{padding:0;margin:0;font-size:inherit}
+.portal-card .media-badge::after,.portal-card .media-rule::after{content:none}
+.media-badge{position:absolute;top:12px;left:12px;z-index:2;display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(5,59,35,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--white);font-size:9.5px;font-weight:800;letter-spacing:.12em}
+.portal-card .media-badge{padding:6px 10px;color:var(--white);font-size:9.5px}
+.media-badge i{width:6px;height:6px;border-radius:50%;background:var(--orange);display:block;flex:0 0 auto}
+.media-rule{position:absolute;bottom:0;left:0;right:0;height:3px;z-index:2;background:var(--lime)}
+.media-rule.signal{background:var(--orange)}
+.media-rule.duo{background:linear-gradient(90deg,var(--orange) 0 22%,var(--lime) 22% 100%)}
+
+/* --- Sélecteur de langue --------------------------------------------------
+   Le portail n'embarque PAS son propre sélecteur. shared/i18n.js — injecté par
+   shared/auth-gate.js — crée #anagroci-lang-toggle dans #anagroci-lang-slot et
+   détient seul la clé localStorage « anagroci_lang ». Un second sélecteur
+   afficherait quatre boutons FR/EN et n'écrirait que dans une clé morte.
+   On habille donc le toggle existant au lieu de le doubler.
+   La spécificité .portal-page est nécessaire : i18n.js injecte sa propre
+   feuille (#anagroci-i18n-css) APRÈS celle-ci, à spécificité égale. */
+.portal-page #anagroci-lang-toggle{gap:2px;padding:2px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);box-shadow:none}
+.portal-page #anagroci-lang-toggle button{height:28px;padding:0 11px;font:800 10px var(--font-body);letter-spacing:.06em;color:#BFD6C6;transition:background .16s ease,color .16s ease}
+.portal-page #anagroci-lang-toggle button.on{background:var(--lime);color:var(--forest)}
+
+/* --- Bouton Paramètres ---------------------------------------------------- */
+.ops-settings-btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:var(--white);font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer}
+.ops-settings-btn:hover{background:rgba(255,255,255,.18);border-color:rgba(141,197,86,.55)}
+
+/* --- Panneau Paramètres ---------------------------------------------------
+   Ancré en absolu DANS .ops-topbar (elle est en position:sticky, donc bloc
+   conteneur des absolus) : top:100% suit la hauteur réelle de la barre, qui
+   passe de 68 px à ~110 px sous 820 px quand operations-v2.css la fait wrapper.
+   Une valeur fixe en pixels ferait disparaître le panneau derrière la barre. */
+.ops-settings-layer{position:absolute;top:100%;right:24px;z-index:5;width:min(300px,calc(100vw - 32px))}
+.ops-settings-layer[hidden]{display:none}
+.ops-settings-panel{margin-top:10px;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 22px 44px rgba(5,59,35,.18);padding:14px 16px 16px;color:var(--ink)}
+.ops-settings-panel header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ops-settings-panel strong{font-family:var(--font-display);font-size:12px;letter-spacing:.1em;color:var(--forest)}
+.ops-settings-panel .close{border:0;background:transparent;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:7px}
+.ops-settings-panel .close:hover{background:var(--mist)}
+
+.ops-settings-list{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.ops-settings-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:38px;padding:9px 10px;border:0;border-radius:9px;background:transparent;text-align:left;font-family:inherit;font-size:12px;font-weight:600;color:var(--forest);text-decoration:none;cursor:pointer}
+.ops-settings-item:hover{background:var(--pale)}
+/* display:flex ecrase l'attribut hidden (display:none a specificite 0) :
+   sans cette regle, l'entree reservee aux Branch Managers reste affichee
+   pour tous les roles. */
+.ops-settings-item[hidden]{display:none}
+.ops-settings-item .chevron{color:var(--muted)}
+.ops-settings-item .tag{font-family:var(--font-mono);font-size:10px;font-weight:500;color:var(--muted)}
+/* Entrée sans destination : signalée, focusable, sans action. Voir le TODO du
+   panneau dans index.html — aucune page Profil / Sites n'existe à ce jour. */
+.ops-settings-item[aria-disabled="true"]{color:var(--muted);cursor:not-allowed}
+.ops-settings-item[aria-disabled="true"]:hover{background:transparent}
+.ops-settings-item[aria-disabled="true"] .tag{font-family:var(--font-body);font-weight:700;letter-spacing:.06em;font-size:9px;text-transform:uppercase}
+
+.ops-settings-foot{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--muted)}
+.ops-settings-foot b{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--forest)}
+
+@media(max-width:820px){.ops-settings-layer{right:14px;left:14px;width:auto}}
+@media(max-width:520px){.ops-settings-btn span{display:none}.ops-settings-btn{padding:0 9px}}
+
+/* --- Barre supérieure : séparation marque / titre -------------------------- */
+.portal-page .ops-title{border-left:1px solid rgba(255,255,255,.18);padding-left:16px;min-width:0}
+.portal-page .ops-title small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* --- Bloc utilisateur : avatar à initiales --------------------------------
+   index.html reconstruit #anagroci-userslot en avatar après l'événement
+   « anagroci:authenticated » ; administration et déconnexion passent dans son
+   menu. Le préfixe .portal-page est nécessaire : shared/auth-gate.js injecte
+   sa propre feuille APRÈS celle-ci et y stylait le slot. */
+.portal-page #anagroci-userslot{position:relative;display:inline-flex;align-items:center}
+.portal-page .ops-avatar-badge{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:var(--lime);color:var(--forest);font-family:var(--font-body);font-size:12px;font-weight:800;letter-spacing:.02em;cursor:pointer}
+.portal-page .ops-avatar-badge:hover{background:var(--sprout)}
+.ops-user-menu{position:absolute;top:calc(100% + 12px);right:0;z-index:6;min-width:212px;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 22px 44px rgba(5,59,35,.18);padding:6px;display:flex;flex-direction:column;gap:2px}
+.ops-user-menu[hidden]{display:none}
+.ops-user-id{padding:9px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.ops-user-id b{display:block;font-size:12px;font-weight:700;color:var(--forest)}
+.ops-user-id small{display:block;margin-top:2px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--emerald)}
+.ops-user-menu a,.ops-user-menu button{display:block;width:100%;padding:9px 10px;border:0;border-radius:9px;background:transparent;text-align:left;font-family:inherit;font-size:12px;font-weight:600;color:var(--forest);text-decoration:none;cursor:pointer}
+.ops-user-menu a:hover,.ops-user-menu button:hover{background:var(--pale)}
+.ops-user-menu button.danger{color:var(--danger)}
+.ops-user-menu button.danger:hover{background:var(--danger-pale)}
+
+/* --- Repli du cadre média Field Buying ------------------------------------
+   field-buying-cashew-adult-worker.webp est un WebP valide mais vide : une
+   seule couleur, rien de visible. Tant qu'aucune photo terrain validée ne le
+   remplace, la carte afficherait un rectangle gris de « page cassée ». Ce
+   repli charté tient la place ; il repasse derrière dès que le fichier porte
+   une vraie image. Voir le TODO de index.html. */
+.portal-card.field-buying .portal-card-media{background:
+  radial-gradient(120% 90% at 18% 8%,rgba(141,197,86,.34),transparent 58%),
+  radial-gradient(90% 80% at 88% 96%,rgba(238,158,0,.16),transparent 60%),
+  linear-gradient(152deg,var(--deep) 0%,var(--forest) 52%,#03301C 100%)}
+.portal-card.field-buying .portal-card-media::before{content:'';position:absolute;inset:0;z-index:0;
+  background-image:radial-gradient(rgba(255,255,255,.16) 1px,transparent 1px);background-size:15px 15px;opacity:.5}
