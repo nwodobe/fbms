@@ -115,9 +115,15 @@
   var P = {
     BRANCH_MANAGER: ["*:*"],
 
+    /* Chef de Zone : porteée géographique GLOBALE sur les données terrain
+       (voir porteeTerrainGlobale ci-dessous), création et modification de
+       villages, RT et producteurs sur toutes les zones. AUCUN ":delete" ici,
+       et aucun "utilisateurs:admin" : global géographiquement n'est pas
+       administrateur fonctionnellement. */
     ZONAL_HEAD: [
-      "villages:read", "villages:update", "villages:validate",
-      "producteurs:read", "rt:read", "rt:update", "rt:validate",
+      "villages:read", "villages:create", "villages:update", "villages:validate",
+      "producteurs:read", "producteurs:create", "producteurs:update",
+      "rt:read", "rt:create", "rt:update", "rt:validate",
       "achats:read", "achats:validate", "avances:read", "avances:validate",
       "caisse:read", "stock:read", "sacs:read", "evacuations:read",
       "reconciliation:read", "reconciliation:validate",
@@ -206,9 +212,9 @@
       detail: "Visibilité et autorité sur les 2 zones, 6 clusters, villages, RT, achats, avances, caisse, stocks, sacs, réconciliations, performances, risques et utilisateurs." },
 
     { code: "ZONAL_HEAD", label: "Zonal Head",
-      authority: "ZONE", scope: ["zone"], effectif: 2,
-      resume: "Accès limité à sa zone",
-      detail: "Supervision des clusters de sa zone : volumes, prix, qualité, fonds, performance des Unit Heads, incidents majeurs." },
+      authority: "ZONE", porteeTerrainGlobale: true, scope: [], effectif: 2,
+      resume: "Toutes les zones · création et modification terrain · aucune suppression",
+      detail: "Supervision de l'ensemble du programme : consulte, crée et modifie villages, RT et producteurs sur toutes les zones, existantes ou créées ultérieurement. Ne supprime rien, n'administre aucun compte." },
 
     { code: "LOGISTICS_COORDINATOR", label: "Logistics Coordinator",
       authority: "TRANSVERSE", scope: [], effectif: 1,
@@ -333,6 +339,7 @@
       permissions: (r.permissions || []).concat(profil.permissions || []),
       status: actif ? "actif" : "inactif",
       authorityLevel: r.authority,
+      porteeTerrainGlobale: !!r.porteeTerrainGlobale,
     };
   }
 
@@ -349,6 +356,13 @@
      restriction s'applique pleinement. */
   function scopeOf(user) {
     var u = user && user.authorityLevel ? user : normalizeUser(user);
+    /* Portée terrain globale par rôle (Chef de Zone). Dynamique : vaut pour
+       toute zone présente ou ajoutée ensuite dans ZONES, sans liste en dur.
+       Miroir exact de public.portee_terrain_globale() côté PostgreSQL. */
+    if (u.porteeTerrainGlobale) {
+      return { level: "GLOBAL", unset: false, zones: ZONES.map(function (z) { return z.code; }),
+               clusters: allClusters().map(function (c) { return c.code; }), villages: null };
+    }
     if (u.authorityLevel === "GLOBAL" || u.authorityLevel === "TRANSVERSE") {
       return { level: u.authorityLevel, unset: false, zones: ZONES.map(function (z) { return z.code; }),
                clusters: allClusters().map(function (c) { return c.code; }), villages: null };

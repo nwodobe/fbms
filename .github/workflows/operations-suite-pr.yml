@@ -14,6 +14,8 @@ on:
       - 'tests/sacherie-operational-p1-static.mjs'
       - 'tests/sacherie-aflp-colonnes-droits-static.mjs'
       - 'tests/rt-farmer-edit-rights-static.mjs'
+      - 'tests/zonal-head-portee-globale.mjs'
+      - 'shared/aflp-access.js'
       - '.github/workflows/operations-suite-pr.yml'
 
 permissions:
@@ -42,6 +44,8 @@ jobs:
         run: node tests/sacherie-aflp-colonnes-droits-static.mjs
       - name: Assertions droits RT/Producteurs — édition sans suppression
         run: node tests/rt-farmer-edit-rights-static.mjs
+      - name: Assertions Chef de Zone — portée globale sans suppression
+        run: node tests/zonal-head-portee-globale.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
