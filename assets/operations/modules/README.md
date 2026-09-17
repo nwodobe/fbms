@@ -1,10 +1,10 @@
 # Photos du portail ANAGROCI Operations
 
-Les images de ce dossier sont des photographies Pexels téléchargées puis converties localement en WebP 1200×675. Elles ne sont pas hotlinkées en production.
+Les images de ce dossier sont des photographies sous licence (Pexels, Adobe Stock) téléchargées puis converties localement en WebP 1200×675. Elles ne sont pas hotlinkées en production.
 
-| Fichier | Photo Pexels | Auteur indiqué par Pexels | Licence |
+| Fichier | Source | Auteur / crédit | Licence |
 |---|---|---|---|
-| `field-buying.webp` | https://www.pexels.com/photo/33054043/ | Claire | Pexels License |
+| `field-buying-cashew-adult-worker.webp` | Adobe Stock 290936163 | Adobe Stock | Licence Adobe Stock standard |
 | `lba-purchase.webp` | https://www.pexels.com/photo/13795516/ | Monica Gaitan | Pexels License |
 | `warehouse.webp` | https://www.pexels.com/photo/19052799/ | Christian Dala | Pexels License |
 | `stock-transfer.webp` | https://www.pexels.com/photo/15733306/ | mahalaxmi electricals and motor riwainding | Pexels License |
