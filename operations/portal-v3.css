@@ -77,21 +77,25 @@
 
 /* --- Barre supérieure : séparation marque / titre -------------------------- */
 .portal-page .ops-title{border-left:1px solid rgba(255,255,255,.18);padding-left:16px;min-width:0}
-/* Le bloc utilisateur d'auth-gate.js (nom + rôle + deux commandes) est plus
-   large qu'un simple avatar : sans cela le sous-titre passe à deux lignes
-   et fait grandir la barre. */
 .portal-page .ops-title small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* --- Bloc utilisateur -----------------------------------------------------
-   shared/auth-gate.js remplit #anagroci-userslot (nom, rôle, accès admin si
-   Branch Manager, déconnexion) et injecte sa feuille APRÈS celle-ci : d'où le
-   préfixe .portal-page, nécessaire pour la dépasser. On habille le bloc en
-   pilule cohérente avec la barre sans lui retirer aucune de ses commandes. */
-.portal-page #anagroci-userslot:not(:empty){gap:8px;padding:3px 4px 3px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08)}
-.portal-page #anagroci-userslot .ag-name{font:700 11px var(--font-body);color:var(--white)}
-.portal-page #anagroci-userslot .ag-role{color:var(--lime);font-weight:800}
-.portal-page #anagroci-userslot .ag-cog,.portal-page #anagroci-userslot .ag-out{width:26px;height:26px}
-@media(max-width:820px){.portal-page #anagroci-userslot:not(:empty){padding-left:10px}}
+/* --- Bloc utilisateur : avatar à initiales --------------------------------
+   index.html reconstruit #anagroci-userslot en avatar après l'événement
+   « anagroci:authenticated » ; administration et déconnexion passent dans son
+   menu. Le préfixe .portal-page est nécessaire : shared/auth-gate.js injecte
+   sa propre feuille APRÈS celle-ci et y stylait le slot. */
+.portal-page #anagroci-userslot{position:relative;display:inline-flex;align-items:center}
+.portal-page .ops-avatar-badge{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:var(--lime);color:var(--forest);font-family:var(--font-body);font-size:12px;font-weight:800;letter-spacing:.02em;cursor:pointer}
+.portal-page .ops-avatar-badge:hover{background:var(--sprout)}
+.ops-user-menu{position:absolute;top:calc(100% + 12px);right:0;z-index:6;min-width:212px;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 22px 44px rgba(5,59,35,.18);padding:6px;display:flex;flex-direction:column;gap:2px}
+.ops-user-menu[hidden]{display:none}
+.ops-user-id{padding:9px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.ops-user-id b{display:block;font-size:12px;font-weight:700;color:var(--forest)}
+.ops-user-id small{display:block;margin-top:2px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--emerald)}
+.ops-user-menu a,.ops-user-menu button{display:block;width:100%;padding:9px 10px;border:0;border-radius:9px;background:transparent;text-align:left;font-family:inherit;font-size:12px;font-weight:600;color:var(--forest);text-decoration:none;cursor:pointer}
+.ops-user-menu a:hover,.ops-user-menu button:hover{background:var(--pale)}
+.ops-user-menu button.danger{color:var(--danger)}
+.ops-user-menu button.danger:hover{background:var(--danger-pale)}
 
 /* --- Repli du cadre média Field Buying ------------------------------------
    field-buying-cashew-adult-worker.webp est un WebP valide mais vide : une
@@ -105,7 +109,3 @@
   linear-gradient(152deg,var(--deep) 0%,var(--forest) 52%,#03301C 100%)}
 .portal-card.field-buying .portal-card-media::before{content:'';position:absolute;inset:0;z-index:0;
   background-image:radial-gradient(rgba(255,255,255,.16) 1px,transparent 1px);background-size:15px 15px;opacity:.5}
-/* Sous 1366 px le bloc utilisateur ne laisse plus la place au sous-titre :
-   mesuré tronqué à 1280, entier à partir de 1366. Le masquer vaut mieux qu'un
-   « … » sur la page d'accueil ; « Operations Portal » reste affiché. */
-@media(max-width:1365px){.portal-page .ops-title small{display:none}}
