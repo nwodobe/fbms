@@ -4,7 +4,6 @@
 <title>Administration · ANAGROCI</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="./auth-gate.js" data-module="admin"></script>
-<script src="./aflp-access.js"></script>
 <style>
   :root{--forest:#053B23;--emerald:#1F5B3F;--green:#00712C;--lime:#8DC556;--orange:#EE9E00;
     --mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--ink:#132A22;--muted:#5b6b62;--line:#e6e2d6;--danger:#C0392B;}
@@ -49,28 +48,33 @@
   <section class="card">
     <h2>Créer un accès</h2>
     <div class="body">
-      <p class="muted">Le compte est créé côté Supabase (authentification) et le profil (rôle, activation) est enregistré. L'utilisateur pourra se connecter immédiatement avec l'email et le mot de passe définis ci-dessous.</p>
+      <p class="muted">Le compte d'authentification est créé côté serveur, puis le profil (rôle, affectation, statut) est enregistré <b>avec vos droits de Branch Manager</b> : les règles serveur (rôles reconnus, cluster valide, journal des habilitations) s'appliquent à la création comme à la modification.</p>
       <div class="row">
-        <div><label>Nom complet</label><input id="nNom" placeholder="Ex. Awa Koné"></div>
-        <div><label>Email</label><input id="nEmail" type="email" placeholder="awa@anagroci.ci"></div>
+        <div><label for="nNom">Nom complet</label><input id="nNom" placeholder="Ex. Awa Koné"></div>
+        <div><label for="nEmail">Email</label><input id="nEmail" type="email" placeholder="awa@anagroci.ci"></div>
       </div>
       <div class="row">
-        <div><label>Mot de passe provisoire</label><input id="nPass" type="text" placeholder="min. 8 caractères"></div>
-        <div><label>Rôle</label><select id="nRole"></select></div>
+        <div><label for="nPass">Mot de passe provisoire</label><input id="nPass" type="text" placeholder="min. 8 caractères"></div>
+        <div><label for="nRole">Rôle</label><select id="nRole"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="nCluster">Cluster d'affectation</label><select id="nCluster"></select></div>
+        <div><p class="muted" id="nRoleNote" style="margin-top:30px"></p></div>
       </div>
       <p><button class="btn" id="btnCreate" onclick="createUser()">Créer l'accès</button></p>
-      <div id="cMsg" class="alert"></div>
+      <div id="cMsg" class="alert" role="status"></div>
     </div>
   </section>
 
   <section class="card">
     <h2>Comptes et rôles</h2>
     <div class="body">
-      <div id="uMsg" class="alert"></div>
+      <p class="muted">Les rôles proposés sont ceux que le serveur reconnaît <b>et</b> que vous pouvez attribuer. La valeur enregistrée est la valeur canonique du serveur ; le libellé n'est qu'un affichage. Un poste limité à un cluster (Chef d'Unité, Magasinier) ne peut rien mouvementer tant que son cluster n'est pas renseigné.</p>
+      <div id="uMsg" class="alert" role="status"></div>
       <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead>
-          <tbody id="rows"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
+          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Affectation</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
         </table>
       </div>
       <p style="margin-top:12px"><button class="btn ghost sm" onclick="loadProfils()">Actualiser</button></p>
@@ -82,77 +86,129 @@
 <script>
 const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
 const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
-/* AFLP 2027 : la liste des rôles vient de shared/aflp-access.js. Les rôles
-   historiques restent proposés tant que des comptes en dépendent. Le
-   périmètre (zone / cluster / village) se gère dans FBMS > Administration. */
-const ROLES=(window.AFLP_ACCESS
-  ? window.AFLP_ACCESS.ROLES.map(r=>r.label).concat(window.AFLP_ACCESS.LEGACY.map(r=>r.label))
-  : ["Branch Manager","Assistant Branch Manager","Head of Field","Procurement Officer","Supervisor","Agent Recenseur","Consultation uniquement"]);
+/* Référentiel des rôles : fourni par le SERVEUR (public.fbms_roles_attribuables,
+   dérivé de la contrainte profils_role_check). Plus aucune liste locale : un
+   libellé affiché ne peut plus diverger de la valeur acceptée par la base. */
+let ROLES=[], CLUSTERS=[];
 const $=i=>document.getElementById(i);
 let SB, ME=null;
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function msg(el,t,k){el.className="alert show "+(k||"ok");el.textContent=t;}
-function hide(el){el.className="alert";}
+function hide(el){el.className="alert";el.textContent="";}
+/* Message compréhensible + détail technique conservé (l'échec n'est jamais masqué). */
+function msg(el,t,k,tech){
+  el.className="alert show "+(k||"ok");
+  el.innerHTML=esc(t)+(tech?'<details style="margin-top:6px"><summary>Détail technique</summary><code>'+esc(tech)+'</code></details>':'');
+}
+function humain(err){
+  const code=err&&err.code, m=(err&&err.message)||String(err||"");
+  if(code==="23514"||/check constraint/i.test(m)){
+    if(/profils_role_check/.test(m)) return "Rôle refusé par le serveur : cette valeur n'est pas un rôle reconnu.";
+    if(/Cluster/.test(m)) return m;
+    return "Valeur refusée par le serveur (contrôle d'intégrité).";
+  }
+  if(code==="42501"||/permission denied|row-level security/i.test(m)){
+    return /[éèàù]/.test(m)&&!/permission denied/i.test(m) ? m : "Action non autorisée pour votre compte.";
+  }
+  if(/Failed to fetch|NetworkError|network/i.test(m)) return "Serveur injoignable : vérifiez la connexion puis réessayez.";
+  return "L'opération a échoué côté serveur.";
+}
+function roleDe(v){return ROLES.find(r=>r.valeur===v)||null;}
+function optionsRoles(courant){
+  let h=ROLES.filter(r=>r.attribuable||r.valeur===courant).map(r=>
+    '<option value="'+esc(r.valeur)+'"'+(r.valeur===courant?' selected':'')+(r.attribuable?'':' disabled')+'>'+esc(r.libelle)+(r.attribuable?'':' (non attribuable ici)')+'</option>').join("");
+  if(courant&&!roleDe(courant)) h='<option selected disabled>'+esc(courant)+' (inconnu du serveur)</option>'+h;
+  return h;
+}
+function optionsClusters(courant){
+  const norm=x=>String(x||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const c=CLUSTERS.find(k=>norm(k.code)===norm(courant)||norm(k.label)===norm(courant));
+  return '<option value="">— aucun —</option>'+CLUSTERS.map(k=>'<option value="'+esc(k.code)+'"'+(c&&c.code===k.code?' selected':'')+'>'+esc(k.label)+'</option>').join("")
+    +(courant&&!c?'<option selected value="'+esc(courant)+'">'+esc(courant)+' (inconnu)</option>':'');
+}
+function noteRole(v){const r=roleDe(v);return r?(r.note||"")+(r.cluster_requis?" Cluster obligatoire.":""):"";}
 
-// La page n'affiche ses données qu'une fois l'accès BM validé par auth-gate.
-document.addEventListener("anagroci:authenticated",function(e){
+document.addEventListener("anagroci:authenticated",async function(e){
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
-  $("nRole").innerHTML=ROLES.map(r=>'<option>'+esc(r)+'</option>').join("");
-  $("nRole").value=ROLES[3]||ROLES[0];
+  const [r,c]=await Promise.all([SB.rpc("fbms_roles_attribuables"),SB.from("aflp_clusters").select("code,label,active").order("label")]);
+  if(r.error){msg($("uMsg"),"Référentiel des rôles indisponible : "+humain(r.error)+" (migration serveur 20260918b non appliquée ?)","err",r.error.message);ROLES=[];}
+  else ROLES=r.data||[];
+  CLUSTERS=(c.data||[]).filter(k=>k.active!==false);
+  $("nRole").innerHTML=optionsRoles(null);
+  const defaut=ROLES.find(x=>x.valeur==="Consultation uniquement")||ROLES.find(x=>x.attribuable);
+  if(defaut)$("nRole").value=defaut.valeur;
+  $("nCluster").innerHTML=optionsClusters(null);
+  const sync=()=>{$("nRoleNote").textContent=noteRole($("nRole").value);};
+  $("nRole").addEventListener("change",sync); sync();
   loadProfils();
 });
 
 async function loadProfils(){
   const box=$("rows");
-  const r=await SB.from("profils").select("*").order("nom");
-  if(r.error){box.innerHTML='<tr><td colspan="5" class="muted">Erreur: '+esc(r.error.message)+'</td></tr>';return;}
+  const r=await SB.from("profils").select("user_id,nom,email,role,actif,cluster,authority_level").order("nom");
+  if(r.error){box.innerHTML='<tr><td colspan="6" class="muted">'+esc(humain(r.error))+'</td></tr>';return;}
   const rows=r.data||[];
-  if(!rows.length){box.innerHTML='<tr><td colspan="5" class="muted">Aucun compte.</td></tr>';return;}
+  if(!rows.length){box.innerHTML='<tr><td colspan="6" class="muted">Aucun compte.</td></tr>';return;}
   box.innerHTML=rows.map(p=>{
-    const uid=p.user_id, self=ME&&p.user_id===ME.user_id;
-    const roleSel='<select onchange="setRole(\''+uid+'\',this.value)">'+ROLES.map(r=>'<option'+(r===p.role?' selected':'')+'>'+esc(r)+'</option>').join("")+'</select>';
+    const uid=p.user_id, self=ME&&p.user_id===ME.user_id, ro=roleDe(p.role);
+    const dis=self?' disabled title="Vos propres habilitations ne se modifient pas depuis votre compte"':'';
+    const roleSel='<select id="r_'+uid+'" aria-label="Rôle de '+esc(p.nom)+'"'+dis+'>'+optionsRoles(p.role)+'</select>';
+    const clSel='<select id="c_'+uid+'" aria-label="Cluster de '+esc(p.nom)+'"'+dis+'>'+optionsClusters(p.cluster)+'</select>';
+    const manque=ro&&ro.cluster_requis&&!p.cluster&&p.authority_level!=="GLOBAL"
+      ?'<div class="badge off" style="margin-top:4px">Affectation manquante : aucune action physique possible</div>':'';
+    const glob=p.authority_level==="GLOBAL"&&ro&&ro.cluster_requis?'<div class="badge on" style="margin-top:4px">Portée globale explicite</div>':'';
     const stat=p.actif?'<span class="badge on">Actif</span>':'<span class="badge off">Désactivé</span>';
-    const toggle=self?'<span class="muted">— vous —</span>':
+    const actions=self?'<span class="muted">— vous —</span>':
+      '<button class="btn sm" onclick="enregistrer(\''+uid+'\')">Enregistrer</button> '+
       '<button class="btn sm '+(p.actif?'danger':'')+'" onclick="setActif(\''+uid+'\','+(!p.actif)+')">'+(p.actif?'Désactiver':'Activer')+'</button>';
-    return '<tr><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+'</td><td>'+stat+'</td><td>'+toggle+'</td></tr>';
+    return '<tr><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+'</td><td>'+clSel+manque+glob+'</td><td>'+stat+'</td><td>'+actions+'</td></tr>';
   }).join("");
 }
 
-async function setRole(uid,role){
+/* Écriture directe sur profils avec la session du BM : RLS (BM seulement),
+   garde serveur trg_profils_garde_habilitations et journal
+   trg_profils_journal s'appliquent. .select() rend visible un refus
+   silencieux (0 ligne modifiée). */
+async function ecrire(uid,patch,ok){
   hide($("uMsg"));
-  const r=await SB.from("profils").update({role}).eq("user_id",uid);
-  if(r.error)return msg($("uMsg"),r.error.message,"err");
-  msg($("uMsg"),"Rôle mis à jour.","ok");loadProfils();
+  const r=await SB.from("profils").update(patch).eq("user_id",uid).select("user_id");
+  if(r.error) return msg($("uMsg"),humain(r.error),"err",r.error.message);
+  if(!r.data||!r.data.length) return msg($("uMsg"),"Aucune modification enregistrée : seul un Branch Manager actif peut modifier ce compte.","err");
+  msg($("uMsg"),ok,"ok"); loadProfils();
 }
-async function setActif(uid,actif){
-  hide($("uMsg"));
-  const r=await SB.from("profils").update({actif}).eq("user_id",uid);
-  if(r.error)return msg($("uMsg"),r.error.message,"err");
-  msg($("uMsg"),actif?"Compte activé.":"Compte désactivé.","ok");loadProfils();
+function enregistrer(uid){
+  const role=$("r_"+uid).value, cluster=$("c_"+uid).value||null, ro=roleDe(role);
+  if(ro&&ro.cluster_requis&&!cluster){
+    if(!confirm("Ce rôle exige un cluster. Sans cluster, le compte ne pourra réaliser aucune action physique. Enregistrer quand même ?")) return;
+  }
+  ecrire(uid,{role,cluster},"Rôle et affectation enregistrés (changement journalisé).");
 }
+function setActif(uid,actif){ ecrire(uid,{actif},actif?"Compte activé.":"Compte désactivé : toutes ses actions sont refusées par le serveur."); }
 
 async function createUser(){
   const btn=$("btnCreate"),m=$("cMsg");
   const nom=$("nNom").value.trim(), email=$("nEmail").value.trim().toLowerCase(),
-        pass=$("nPass").value, role=$("nRole").value;
+        pass=$("nPass").value, role=$("nRole").value, cluster=$("nCluster").value||null;
   if(!nom||!email||pass.length<8)return msg(m,"Nom, email et mot de passe (8+ caractères) requis.","err");
+  const ro=roleDe(role);
+  if(ro&&ro.cluster_requis&&!cluster)return msg(m,"Ce rôle exige un cluster d'affectation.","err");
   btn.disabled=true;btn.textContent="Création…";
   try{
     const{data:{session}}=await SB.auth.getSession();
     const resp=await fetch(SUPABASE_URL+"/functions/v1/admin-create-user",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session&&session.access_token),"apikey":SUPABASE_ANON},
-      body:JSON.stringify({nom,email,password:pass,role})
+      body:JSON.stringify({nom,email,password:pass,role,cluster})
     });
     const out=await resp.json().catch(()=>({}));
-    if(!resp.ok){throw new Error(out.error||("Échec ("+resp.status+"). La fonction admin-create-user est-elle déployée ?"));}
-    msg(m,"Accès créé pour "+esc(nom)+".","ok");
+    if(resp.status===404) throw Object.assign(new Error("La création de compte n'est pas activée sur le serveur (fonction admin-create-user non déployée). Créez le compte dans Supabase > Authentication, puis attribuez le rôle ici."),{tech:"HTTP 404"});
+    if(!resp.ok) throw Object.assign(new Error(out.error||"Création refusée par le serveur."),{tech:"HTTP "+resp.status});
+    msg(m,"Accès créé pour "+nom+".","ok");
     $("nNom").value="";$("nEmail").value="";$("nPass").value="";
     loadProfils();
   }catch(e){
-    msg(m,e.message,"err");
+    msg(m,e.tech?e.message:humain(e),"err",e.tech||e.message);
   }finally{btn.disabled=false;btn.textContent="Créer l'accès";}
 }
 </script>

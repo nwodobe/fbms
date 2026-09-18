@@ -2390,19 +2390,34 @@ function renderClusterPassport(label) {
 var BAG_CAMPAGNE = '2027';
 var BUCKET_SACHERIE = 'rcn-jute-proofs';
 var BAG_ROLES = {
-  demander: ['Unit Head', 'Assistant Unit Head', 'Branch Manager', 'General Manager',
-    'Procurement Officer', 'Field Buying Operations Officer', 'Zonal Head', 'Administrateur'],
-  revoir: ['Zonal Head', 'Branch Manager', 'Administrateur'],
-  consolider: ['Field Buying Operations Officer', 'Branch Manager', 'Administrateur'],
-  approuver: ['Branch Manager', 'Administrateur'],
-  liberer: ['Warehouse Manager', 'Storekeeper', 'Procurement Officer', 'Branch Manager',
-    'Warehouse Keeper', 'Assistant Unit Head', 'Administrateur'],
-  recevoir: ['Unit Head', 'Field Buying Operations Officer', 'Branch Manager', 'Administrateur'],
+  /* Valeurs CANONIQUES de profils.role uniquement (profils_role_check).
+     Les anciennes valeurs 'Warehouse Keeper', 'Assistant Unit Head' et
+     'Administrateur' n'existent pas en base : retirees du miroir. */
+  demander: ['Unit Head', 'Branch Manager', 'General Manager',
+    'Procurement Officer', 'Field Buying Operations Officer', 'Zonal Head'],
+  revoir: ['Zonal Head', 'Branch Manager'],
+  consolider: ['Field Buying Operations Officer', 'Branch Manager'],
+  approuver: ['Branch Manager'],
+  liberer: ['Warehouse Manager', 'Storekeeper', 'Procurement Officer', 'Branch Manager'],
+  recevoir: ['Unit Head', 'Field Buying Operations Officer', 'Branch Manager'],
   cloturer: ['General Manager', 'Branch Manager', 'Procurement Officer',
-    'Field Buying Operations Officer', 'Zonal Head', 'Administrateur'],
-  bm: ['Branch Manager', 'Administrateur'],
-  gm: ['General Manager', 'Branch Manager', 'Administrateur']
+    'Field Buying Operations Officer', 'Zonal Head'],
+  bm: ['Branch Manager'],
+  gm: ['General Manager', 'Branch Manager'],
+  /* Gestes physiques sur emplacement (inventaire, etat, perte) : le serveur
+     (sacherie_ct_assert_location_access) borne ensuite au cluster du compte. */
+  physique: ['Branch Manager', 'Unit Head', 'Storekeeper']
 };
+/* Garde d'ouverture des formulaires Sacherie. Avant : guardTerrain(), qui
+   reserve la saisie aux roles du REFERENTIEL terrain (ROLES_TERRAIN) et
+   excluait donc le Unit Head et le magasinier de leurs propres gestes. */
+function guardBag(host, roles, action) {
+  if (bagRole(roles)) return true;
+  host.innerHTML = '<div class="notice danger"><b>Action non autorisée.</b> Votre rôle (' +
+    esc(profile.role || 'non identifié') + ') ne permet pas de ' + esc(action) + '.</div>' +
+    '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+  return false;
+}
 /* Miroir client des rôles ; le serveur (RLS + triggers + RPC) reste l'arbitre. */
 function bagRole(list) { return list.indexOf(profile.role) >= 0; }
 
@@ -3123,7 +3138,7 @@ function openBagRequest() {
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
   Promise.all([base(), bagsData(), cashData(), loadProfile()]).then(function (rs) {
     var c = rs[0], b = rs[1], cash = rs[2];
-    if (!guardTerrain(host)) return;
+    if (!guardBag(host, BAG_ROLES.demander, 'créer une demande de sacs')) return;
     /* Idempotence : la clé est fixée à l'ouverture du formulaire — un double
        clic ou un retry après timeout rejoue LA MÊME demande, jamais deux. */
     var clientRequestId = 'bagreq-' + uid();
@@ -3216,7 +3231,9 @@ function openBagRequest() {
       client().then(function (cl) {
         var dst = bagLoc(b, 'RT', rt.id);
         var ensure = dst ? Promise.resolve(dst.code)
-          : cl.rpc('sacherie_ct_location', { p_scope: 'RT', p_cluster: cluster, p_rt_id: rt.id, p_rt_nom: rt.nom, p_producteur_id: null, p_producteur_nom: null })
+          /* RPC controlee (role + perimetre + RT du referentiel) : l'appel direct
+             au helper interne sacherie_ct_location est retire cote serveur. */
+          : cl.rpc('sacherie_ct_location_rt', { p_rt_id: rt.id })
             .then(function (r) { if (r.error) throw new Error(r.error.message); return typeof r.data === 'string' ? r.data : (r.data && r.data.code); });
         return ensure.then(function (dstCode) {
           if (!dstCode) throw new Error('Location RT introuvable et non créable.');
@@ -3389,7 +3406,7 @@ function openBagControl(mode, lieu) {
   host.innerHTML = '<p class="muted">Ouverture…</p>';
   Promise.all([bagsData(), loadProfile()]).then(function (rs) {
     var b = rs[0];
-    if (!guardTerrain(host)) return;
+    if (!guardBag(host, BAG_ROLES.physique, 'réaliser un contrôle physique des sacs')) return;
     var locOpts = selOptions((b.locations || []).filter(function (l) { return l.actif; })
       .map(function (l) { return [l.code, l.code + ' · ' + (l.nom || '')]; }), '');
     var titres = { inventaire: 'Inventaire physique', etat: 'Traiter des sacs abîmés', perte: 'Déclarer une perte' };
