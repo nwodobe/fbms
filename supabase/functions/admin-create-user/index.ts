@@ -5,6 +5,8 @@
 // Flux : le BM connecté appelle cette fonction (avec son jeton). On vérifie
 // qu'il est bien Branch Manager, puis on crée le compte Auth + le profil.
 //
+// ÉTAT AU 18/09/2026 : fonction NON déployée sur le projet de production
+// (list_edge_functions). Dépend de la migration 20260918b.
 // DÉPLOIEMENT :
 //   supabase functions deploy admin-create-user
 //   supabase secrets set SERVICE_ROLE_KEY=<clé service_role du projet>
@@ -55,22 +57,26 @@ Deno.serve(async (req) => {
     return json({ error: "Action réservée au Branch Manager." }, 403);
   }
 
-  // 3) Valider l'entrée.
-  let payload: { nom?: string; email?: string; password?: string; role?: string };
+  // 3) Valider l'entrée. Le rôle est validé par le SERVEUR (référentiel
+  //    public.fbms_roles_attribuables, appelé avec le jeton du BM) : plus
+  //    aucune liste codée ici qui pourrait diverger de profils_role_check.
+  let payload: { nom?: string; email?: string; password?: string; role?: string; cluster?: string | null };
   try { payload = await req.json(); } catch { return json({ error: "Corps de requête invalide." }, 400); }
   const nom = (payload.nom ?? "").trim();
   const email = (payload.email ?? "").trim().toLowerCase();
   const password = payload.password ?? "";
   const role = (payload.role ?? "").trim();
-  const ROLES = [
-    "Branch Manager", "Assistant Branch Manager", "Head of Field",
-    "Procurement Officer", "Supervisor", "Agent Recenseur", "Consultation uniquement",
-  ];
-  if (!nom || !email || password.length < 8 || !ROLES.includes(role)) {
-    return json({ error: "Nom, email, mot de passe (8+ caractères) et rôle valides requis." }, 400);
+  const cluster = (payload.cluster ?? "").toString().trim() || null;
+  if (!nom || !email || password.length < 8 || !role) {
+    return json({ error: "Nom, email, mot de passe (8+ caractères) et rôle requis." }, 400);
   }
+  const { data: roles, error: rolesErr } = await asCaller.rpc("fbms_roles_attribuables");
+  if (rolesErr) return json({ error: "Référentiel des rôles indisponible : " + rolesErr.message }, 400);
+  const ref = (roles ?? []).find((r: { valeur: string }) => r.valeur === role);
+  if (!ref || !ref.attribuable) return json({ error: "Rôle non attribuable depuis l'écran : " + role }, 400);
+  if (ref.cluster_requis && !cluster) return json({ error: "Ce rôle exige un cluster d'affectation." }, 400);
 
-  // 4) Créer le compte Auth (email confirmé d'office) puis le profil.
+  // 4) Créer le compte Auth (clé service_role : seule opération privilégiée).
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email, password, email_confirm: true, user_metadata: { nom },
   });
@@ -78,13 +84,16 @@ Deno.serve(async (req) => {
     return json({ error: createErr?.message ?? "Échec de création du compte." }, 400);
   }
 
-  const { error: profErr } = await admin.from("profils").insert({
-    user_id: created.user.id, nom, email, role, actif: true,
+  // 5) Le PROFIL est inséré avec le jeton du BM (pas la clé service_role) :
+  //    RLS profils_ins_bm, garde trg_profils_garde_habilitations (rôle,
+  //    cluster) et journal trg_profils_journal s'appliquent comme à l'écran.
+  const { error: profErr } = await asCaller.from("profils").insert({
+    user_id: created.user.id, nom, email, role, cluster, actif: true,
   });
   if (profErr) {
     // Compensation : retirer le compte Auth si le profil échoue, pour rester cohérent.
     await admin.auth.admin.deleteUser(created.user.id);
-    return json({ error: "Compte créé mais profil refusé : " + profErr.message }, 400);
+    return json({ error: "Compte refusé par les règles serveur : " + profErr.message }, 400);
   }
 
   return json({ ok: true, user_id: created.user.id, email, role });
