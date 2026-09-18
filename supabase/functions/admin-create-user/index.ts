@@ -1,100 +1,36 @@
-// ============================================================================
-// ANAGROCI — Fonction Edge : création de comptes réservée au Branch Manager
-// ----------------------------------------------------------------------------
-// La clé service_role reste ICI (côté serveur), jamais dans le navigateur.
-// Flux : le BM connecté appelle cette fonction (avec son jeton). On vérifie
-// qu'il est bien Branch Manager, puis on crée le compte Auth + le profil.
-//
-// ÉTAT AU 18/09/2026 : fonction NON déployée sur le projet de production
-// (list_edge_functions). Dépend de la migration 20260918b.
-// DÉPLOIEMENT :
-//   supabase functions deploy admin-create-user
-//   supabase secrets set SERVICE_ROLE_KEY=<clé service_role du projet>
-//   (SUPABASE_URL est fourni automatiquement par la plateforme)
-// ============================================================================
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Creation reservee au BM actif. A deployer apres recette et accord explicite.
+// Garder verify_jwt=true. Aucun secret ni jeton n'est journalise.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { creerGestionnaire, type Profil, type Role } from './handler.ts';
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "POST") return json({ error: "Méthode non autorisée." }, 405);
-
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE = Deno.env.get("SERVICE_ROLE_KEY")!;
-  const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token) return json({ error: "Jeton d'authentification manquant." }, 401);
-
-  // 1) Identifier l'appelant à partir de son jeton.
-  const asCaller = createClient(SUPABASE_URL, ANON, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: userData, error: userErr } = await asCaller.auth.getUser();
-  if (userErr || !userData.user) return json({ error: "Session invalide." }, 401);
-
-  // 2) Vérifier que l'appelant est un Branch Manager actif.
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const { data: prof } = await admin
-    .from("profils")
-    .select("role, actif")
-    .eq("user_id", userData.user.id)
-    .single();
-  if (!prof || !prof.actif || prof.role !== "Branch Manager") {
-    return json({ error: "Action réservée au Branch Manager." }, 403);
+Deno.serve(creerGestionnaire({
+  env: (nom) => Deno.env.get(nom),
+  reference: () => crypto.randomUUID(),
+  journal: (evenement) => console.error(JSON.stringify(evenement)),
+  services: (config, token) => {
+    const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
+    const appelant = createClient(config.url, config.publique, {
+      ...options, global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    const admin = createClient(config.url, config.privee, options);
+    const colonnes = 'user_id,nom,email,role,cluster,actif';
+    return {
+      identite: async () => { const r = await appelant.auth.getUser(token); return { data: r.data.user, error: r.error }; },
+      appelant: async (id) => await appelant.from('profils').select('role,actif').eq('user_id',id).maybeSingle(),
+      roles: async () => { const r = await appelant.rpc('fbms_roles_attribuables'); return { data: r.data as Role[] | null, error: r.error }; },
+      cluster: async (code) => await appelant.from('aflp_clusters').select('code,active').eq('code',code).maybeSingle(),
+      creerAuth: async (s, reference, acteur) => {
+        // Politique email_confirm existante conservee : remise d'identifiants hors bande a valider.
+        const r = await admin.auth.admin.createUser({ email: s.email, password: s.password, email_confirm: true,
+          user_metadata: { nom: s.nom }, app_metadata: { fbms_creation_request: reference, fbms_created_by: acteur } });
+        return { data: r.data.user, error: r.error };
+      },
+      // Ne jamais inserer le profil avec le client admin : RLS + garde + audit du BM.
+      insererProfil: async (p) => { const r = await appelant.from('profils').insert(p).select(colonnes).single(); return { data: r.data as Profil | null, error: r.error }; },
+      // Ces trois operations ne recoivent que l'UUID retourne par NOTRE createUser.
+      verifierProfil: async (id) => { const r = await admin.from('profils').select(colonnes).eq('user_id',id).maybeSingle(); return { data: r.data as Profil | null, error: r.error }; },
+      supprimerAuth: async (id) => { const r = await admin.auth.admin.deleteUser(id); return { data: r.data, error: r.error }; },
+      verifierAuth: async (id) => { const r = await admin.auth.admin.getUserById(id); return { data: r.data.user, error: r.error }; }
+    };
   }
-
-  // 3) Valider l'entrée. Le rôle est validé par le SERVEUR (référentiel
-  //    public.fbms_roles_attribuables, appelé avec le jeton du BM) : plus
-  //    aucune liste codée ici qui pourrait diverger de profils_role_check.
-  let payload: { nom?: string; email?: string; password?: string; role?: string; cluster?: string | null };
-  try { payload = await req.json(); } catch { return json({ error: "Corps de requête invalide." }, 400); }
-  const nom = (payload.nom ?? "").trim();
-  const email = (payload.email ?? "").trim().toLowerCase();
-  const password = payload.password ?? "";
-  const role = (payload.role ?? "").trim();
-  const cluster = (payload.cluster ?? "").toString().trim() || null;
-  if (!nom || !email || password.length < 8 || !role) {
-    return json({ error: "Nom, email, mot de passe (8+ caractères) et rôle requis." }, 400);
-  }
-  const { data: roles, error: rolesErr } = await asCaller.rpc("fbms_roles_attribuables");
-  if (rolesErr) return json({ error: "Référentiel des rôles indisponible : " + rolesErr.message }, 400);
-  const ref = (roles ?? []).find((r: { valeur: string }) => r.valeur === role);
-  if (!ref || !ref.attribuable) return json({ error: "Rôle non attribuable depuis l'écran : " + role }, 400);
-  if (ref.cluster_requis && !cluster) return json({ error: "Ce rôle exige un cluster d'affectation." }, 400);
-
-  // 4) Créer le compte Auth (clé service_role : seule opération privilégiée).
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email, password, email_confirm: true, user_metadata: { nom },
-  });
-  if (createErr || !created.user) {
-    return json({ error: createErr?.message ?? "Échec de création du compte." }, 400);
-  }
-
-  // 5) Le PROFIL est inséré avec le jeton du BM (pas la clé service_role) :
-  //    RLS profils_ins_bm, garde trg_profils_garde_habilitations (rôle,
-  //    cluster) et journal trg_profils_journal s'appliquent comme à l'écran.
-  const { error: profErr } = await asCaller.from("profils").insert({
-    user_id: created.user.id, nom, email, role, cluster, actif: true,
-  });
-  if (profErr) {
-    // Compensation : retirer le compte Auth si le profil échoue, pour rester cohérent.
-    await admin.auth.admin.deleteUser(created.user.id);
-    return json({ error: "Compte refusé par les règles serveur : " + profErr.message }, 400);
-  }
-
-  return json({ ok: true, user_id: created.user.id, email, role });
-});
+}));
