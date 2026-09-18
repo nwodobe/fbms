@@ -104,14 +104,169 @@ function renderTransfers(){
   }).catch(function(e){shell('Sacherie AFLP','Transferts','transfers',notice('danger','<b>Erreur :</b> '+esc(e.message)));});
 }
 
-function renderHistory(){
-  shell('Sacherie AFLP','Journal borné des mouvements du registre canonique.','history','<div class="empty">Chargement…</div>');
-  return q('rcn_jute_movements','id,event_key,movement_type,qty,from_location,to_location,from_state,to_state,cluster,rt_id,producteur_id,reference,note,proof_url,movement_at,source_type',function(r){return r.eq('ledger','INTERNE').order('movement_at',{ascending:false}).limit(300);}).then(function(rows){
-    var body='<div class="ops-form-grid"><div class="ops-field"><label>Recherche</label><input id="histQ" placeholder="RT, producteur, référence, lieu…"></div><div class="ops-field"><label>Type</label><select id="histType"><option value="">Tous</option><option>TRANSFERT</option><option>CLASSEMENT</option><option>PERTE_APPROUVEE</option></select></div></div><div id="histRows"></div>';
-    shell('Sacherie AFLP','Journal borné des 300 derniers mouvements du registre canonique.','history',card('Historique & traçabilité',body));
-    function draw(){var qv=(document.getElementById('histQ').value||'').toLowerCase(),typ=document.getElementById('histType').value;var list=rows.filter(function(x){var txt=[x.event_key,x.reference,x.from_location,x.to_location,x.cluster,x.rt_id,x.producteur_id,x.note,x.source_type].join(' ').toLowerCase();return (!qv||txt.indexOf(qv)>=0)&&(!typ||x.movement_type===typ);});document.getElementById('histRows').innerHTML=table(['Date','Type','Quantité','Origine → Destination','État','Cluster','RT','Producteur','Référence'],list.map(function(x){return '<tr><td>'+dt(x.movement_at)+'</td><td>'+badge(x.movement_type)+'</td><td>'+num(x.qty)+'</td><td class="mono">'+esc(x.from_location||'—')+' → '+esc(x.to_location||'—')+'</td><td>'+esc(x.from_state||'—')+' → '+esc(x.to_state||'—')+'</td><td>'+esc(x.cluster||'—')+'</td><td class="mono">'+esc(x.rt_id||'—')+'</td><td class="mono">'+esc(x.producteur_id||'—')+'</td><td>'+esc(x.reference||'—')+'</td></tr>'; }));}
-    document.getElementById('histQ').oninput=draw;document.getElementById('histType').onchange=draw;draw();
-  }).catch(function(e){shell('Sacherie AFLP','Historique','history',notice('danger','<b>Erreur :</b> '+esc(e.message)));});
+/* ---- JOURNAL : recherche et pagination SERVEUR ---------------------------
+   Le registre canonique reste rcn_jute_movements. La page n'en charge
+   jamais plus de HIST.taille lignes : filtres, recherche et pagination
+   sont executes par PostgreSQL (RPC sacherie_search_movements), qui
+   applique aussi le perimetre de l'utilisateur. Un filtre frontal n'est
+   pas un controle de securite.
+   Pagination par curseur (movement_at, id) : un mouvement insere pendant
+   la navigation ne provoque ni doublon ni ligne sautee. */
+var HIST = { taille: 50, lignes: [], curseur: null, fini: false, charge: false, lieux: null };
+
+function histFiltres() {
+  function v(id) { var e = document.getElementById(id); return e && e.value ? e.value : null; }
+  return {
+    p_query: v('histQ'), p_from_date: v('histDu'), p_to_date: v('histAu'),
+    p_movement_type: v('histType'), p_from_location: v('histDe'), p_to_location: v('histVers'),
+    p_cluster: v('histCluster'), p_rt_id: v('histRt'), p_state: v('histEtat'),
+    p_limit: HIST.taille
+  };
+}
+
+function histLigne(x) {
+  return '<tr>' +
+    '<td>' + dt(x.movement_at) + '</td>' +
+    '<td>' + esc(x.reference || '—') + '</td>' +
+    '<td>' + badge(x.movement_type) + '</td>' +
+    '<td class="mono">' + esc(x.from_location || '—') + '</td>' +
+    '<td class="mono">' + esc(x.to_location || '—') + '</td>' +
+    '<td>' + num(x.qty) + '</td>' +
+    '<td>' + esc(x.from_state || '—') + ' → ' + esc(x.to_state || '—') + '</td>' +
+    '<td class="mono">' + esc(x.rt_id || x.producteur_id || '—') + '</td>' +
+    '<td>' + esc(x.cluster || '—') + '</td>' +
+    '<td>' + esc(x.source_type || '—') + '</td>' +
+    '</tr>';
+}
+
+function histDessine() {
+  var corps = document.getElementById('histRows');
+  var pied = document.getElementById('histPied');
+  if (!corps) return;
+  corps.innerHTML = HIST.lignes.length
+    ? table(['Date', 'Référence', 'Mouvement', 'De', 'Vers', 'Quantité', 'État', 'RT / acteur', 'Cluster', 'Origine'],
+        HIST.lignes.map(histLigne))
+    : '<div class="ops-empty">Aucun mouvement ne correspond à cette recherche.</div>';
+  if (pied) {
+    pied.innerHTML = '<span class="muted">' + num(HIST.lignes.length) + ' mouvement' +
+      (HIST.lignes.length > 1 ? 's' : '') + ' affiché' + (HIST.lignes.length > 1 ? 's' : '') +
+      (HIST.fini ? ' · fin du journal' : '') + '</span>' +
+      (HIST.fini ? '' : '<button class="btn secondary" id="histPlus"' + (HIST.charge ? ' disabled' : '') + '>' +
+        (HIST.charge ? 'Chargement…' : 'Charger ' + HIST.taille + ' de plus') + '</button>');
+    var b = document.getElementById('histPlus');
+    if (b) b.onclick = function () { histCharge(false); };
+  }
+}
+
+function histCharge(reinit) {
+  if (HIST.charge) return Promise.resolve();
+  if (reinit) { HIST.lignes = []; HIST.curseur = null; HIST.fini = false; }
+  if (HIST.fini) return Promise.resolve();
+  HIST.charge = true; histDessine();
+  var args = histFiltres();
+  args.p_limit = HIST.taille;
+  args.p_cursor_date = HIST.curseur ? HIST.curseur.d : null;
+  args.p_cursor_id = HIST.curseur ? HIST.curseur.id : null;
+  return rpc('sacherie_search_movements', args).then(function (rows) {
+    rows = rows || [];
+    HIST.lignes = HIST.lignes.concat(rows);
+    if (rows.length < HIST.taille) HIST.fini = true;
+    else { var d = rows[rows.length - 1]; HIST.curseur = { d: d.movement_at, id: d.id }; }
+    HIST.charge = false; histDessine();
+  }).catch(function (e) {
+    HIST.charge = false;
+    var corps = document.getElementById('histRows');
+    /* Panne du journal : on ne fait jamais croire qu'aucun mouvement
+       n'existe. Les autres ecrans Sacherie restent fonctionnels. */
+    if (corps) corps.innerHTML = notice('warn',
+      '<b>Journal momentanément indisponible.</b> Le registre des mouvements n’a pas pu être interrogé ' +
+      '(' + esc(e.message) + '). Les autres écrans Sacherie restent utilisables. Réessayez dans un instant.') +
+      '<div class="ops-actions"><button class="btn secondary" id="histRetry">Réessayer</button></div>';
+    var r = document.getElementById('histRetry');
+    if (r) r.onclick = function () { histCharge(true); };
+    var pied = document.getElementById('histPied'); if (pied) pied.innerHTML = '';
+  });
+}
+
+function histOptions(lieux) {
+  return (lieux || []).map(function (l) {
+    return '<option value="' + esc(l.code) + '">' + esc(l.code) + (l.nom ? ' · ' + esc(l.nom) : '') + '</option>';
+  }).join('');
+}
+
+function renderHistory() {
+  shell('Sacherie AFLP', 'Journal du registre canonique : recherche et pagination serveur.', 'history',
+    '<div class="empty">Chargement…</div>');
+  var pLieux = HIST.lieux
+    ? Promise.resolve(HIST.lieux)
+    : q('rcn_jute_locations', 'code,nom,cluster,scope_type,actif',
+        function (r) { return r.eq('actif', true).order('code').limit(500); })
+        .then(function (rows) { HIST.lieux = rows; return rows; })
+        .catch(function () { return []; });
+
+  return pLieux.then(function (lieux) {
+    var clusters = [];
+    (lieux || []).forEach(function (l) { if (l.cluster && clusters.indexOf(l.cluster) < 0) clusters.push(l.cluster); });
+    clusters.sort();
+
+    var corps =
+      '<div class="ops-sacherie-bar">' +
+        '<input class="ops-sacherie-search" id="histQ" type="search" ' +
+          'placeholder="Rechercher une référence, un RT, un producteur, un emplacement, un cluster…">' +
+        '<select class="ops-mini-select" id="histTaille">' +
+          '<option value="25">25 / page</option><option value="50" selected>50 / page</option>' +
+          '<option value="100">100 / page</option></select>' +
+        '<button class="btn secondary" id="histReset" type="button">Réinitialiser</button>' +
+      '</div>' +
+      '<details class="ops-hist-filtres"><summary>Filtres avancés</summary>' +
+        '<div class="ops-form-grid">' +
+          '<div class="ops-field"><label for="histDu">Date début</label><input id="histDu" type="date"></div>' +
+          '<div class="ops-field"><label for="histAu">Date fin</label><input id="histAu" type="date"></div>' +
+          '<div class="ops-field"><label for="histType">Type de mouvement</label><select id="histType">' +
+            '<option value="">Tous</option><option>TRANSFERT</option><option>CLASSEMENT</option>' +
+            '<option>ACHAT</option><option>PERTE_APPROUVEE</option></select></div>' +
+          '<div class="ops-field"><label for="histEtat">État (origine ou destination)</label><select id="histEtat">' +
+            '<option value="">Tous</option><option>UTILISABLE</option><option>PLEIN</option>' +
+            '<option>DECHIRE</option><option>A_REPARER</option><option>REPARE</option>' +
+            '<option>REFORME</option><option>EN_TRANSIT</option></select></div>' +
+          '<div class="ops-field"><label for="histDe">Origine</label><select id="histDe">' +
+            '<option value="">Toutes</option>' + histOptions(lieux) + '</select></div>' +
+          '<div class="ops-field"><label for="histVers">Destination</label><select id="histVers">' +
+            '<option value="">Toutes</option>' + histOptions(lieux) + '</select></div>' +
+          '<div class="ops-field"><label for="histCluster">Cluster</label><select id="histCluster">' +
+            '<option value="">Tous</option>' +
+            clusters.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select></div>' +
+          '<div class="ops-field"><label for="histRt">Identifiant RT</label><input id="histRt" placeholder="rt_…"></div>' +
+        '</div>' +
+      '</details>' +
+      '<div id="histRows"><div class="empty">Chargement…</div></div>' +
+      '<div class="ops-hist-pied" id="histPied"></div>';
+
+    shell('Sacherie AFLP', 'Journal du registre canonique : recherche et pagination serveur.', 'history',
+      card('Historique & traçabilité', corps));
+
+    var minuteur = null;
+    function relance() { histCharge(true); }
+    function differe() { if (minuteur) clearTimeout(minuteur); minuteur = setTimeout(relance, 350); }
+
+    var qEl = document.getElementById('histQ');
+    if (qEl) qEl.oninput = differe;
+    ['histDu', 'histAu', 'histType', 'histEtat', 'histDe', 'histVers', 'histCluster'].forEach(function (id) {
+      var e = document.getElementById(id); if (e) e.onchange = relance;
+    });
+    var rtEl = document.getElementById('histRt'); if (rtEl) rtEl.oninput = differe;
+    var tEl = document.getElementById('histTaille');
+    if (tEl) tEl.onchange = function () { HIST.taille = Number(tEl.value) || 50; relance(); };
+    var rEl = document.getElementById('histReset');
+    if (rEl) rEl.onclick = function () {
+      ['histQ', 'histDu', 'histAu', 'histType', 'histEtat', 'histDe', 'histVers', 'histCluster', 'histRt']
+        .forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+      relance();
+    };
+    return histCharge(true);
+  }).catch(function (e) {
+    shell('Sacherie AFLP', 'Historique', 'history', notice('danger', '<b>Erreur :</b> ' + esc(e.message)));
+  });
 }
 
 function renderClosure(){
