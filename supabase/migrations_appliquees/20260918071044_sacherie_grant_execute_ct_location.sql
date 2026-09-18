@@ -1,0 +1,32 @@
+-- =====================================================================
+-- ENREGISTREMENT — NE PAS REJOUER EN PRODUCTION
+-- Version      : 20260918071044
+-- Nom          : sacherie_grant_execute_ct_location
+-- Statut       : APPLIQUEE en production le 18/09/2026 07:10:44 UTC
+--                (supabase_migrations.schema_migrations, created_by = compte BM)
+-- Source       : copie verbatim de schema_migrations.statements (lecture seule)
+-- Reapplication: sans effet (GRANT idempotent) ; neutralisee par la migration
+--                20260918_sacherie_identite_acces_perimetres.sql qui retire
+--                ce droit et le remplace par une RPC controlee.
+-- Constat      : le commentaire ci-dessous affirme que la fonction « applique
+--                ses propres controles de role et de perimetre ». C'est FAUX :
+--                public.sacherie_ct_location ne verifie ni auth.uid(), ni role,
+--                ni perimetre, et fait un INSERT ... ON CONFLICT DO UPDATE
+--                (reactivation/renommage d'un emplacement existant).
+-- =====================================================================
+-- ANAGROCI FBMS - Sacherie AFLP
+-- Defaut bloquant : public.sacherie_ct_location() n'etait executable que par
+-- postgres et service_role. Or le formulaire « Nouvelle demande RT » l'appelle
+-- depuis le navigateur (operations/field-buying.js) pour creer l'emplacement
+-- AFLP-RT-... du RT destinataire lorsqu'il n'existe pas encore.
+--
+-- Consequence : la PREMIERE demande de chaque RT echouait avec
+-- « permission denied for function sacherie_ct_location », donc aucune demande
+-- ne pouvait etre creee. Le defaut est passe inapercu parce que la table
+-- ops_bag_requests est vide : personne n'avait encore traverse ce chemin.
+--
+-- Toutes les autres RPC sacherie_ct_* et sacherie_ops_* portent deja ce grant.
+-- La fonction est SECURITY DEFINER et applique ses propres controles de role
+-- et de perimetre : le grant n'elargit aucun droit metier.
+
+grant execute on function public.sacherie_ct_location(text, text, text, text, text, text) to authenticated;
