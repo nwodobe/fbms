@@ -246,6 +246,25 @@ function zoneOfCluster(c, cluster) {
    qui s'est produit le 30/08/2026 — une colonne mal nommée dans la lecture des
    sorties a fait tomber le Pilotage, qui n'y touche pas.
    La panne est retenue, jamais avalée : `pannes` remonte jusqu'à l'écran. */
+/* Appel RPC tolerant : meme contrat que q() cote appelant (toujours un
+   tableau), pour que bagsData() puisse melanger tables et fonctions. */
+function rpcq(nom, args) {
+  return client().then(function (c) {
+    if (!c) return [];
+    return c.rpc(nom, args || {}).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      return r.data || [];
+    });
+  });
+}
+
+/* Une source en panne ne doit jamais etre presentee comme un zero mesure. */
+function bagPanne(b, source) {
+  var p = (b && b.pannes) || [];
+  for (var i = 0; i < p.length; i++) if (p[i].source === source) return true;
+  return false;
+}
+
 function tolerant(pannes, source, promesse, repli) {
   return promesse.catch(function (e) {
     var msg = (e && e.message) || String(e);
@@ -288,11 +307,16 @@ function bagsData() {
       t('ops_bag_requests (ouvertes)', q('ops_bag_requests', 'id,request_code,cluster,rt_id,requested_qty,approved_qty,released_qty,received_qty,status,expires_at,source_location_code,destination_location_code', 500,
         function (r) { return r.in('status', ['GM_APPROVED', 'BM_APPROVED', 'READY_FOR_RELEASE', 'PARTIALLY_RELEASED']); }), []),
       t('rcn_jute_transfers', q('rcn_jute_transfers', 'id,from_location,to_location,state,qty_sent,qty_received,statut,sent_at,received_at,ecart,motif_ecart,document_ref', 100,
-        function (r) { return r.order('sent_at', { ascending: false }); }), [])
+        function (r) { return r.order('sent_at', { ascending: false }); }), []),
+      /* Etat d'inventaire calcule PAR LE SERVEUR sur la date du dernier
+         comptage. Le front ne deduit plus « inventorie » de l'existence
+         d'une ligne d'inventaire quelque part dans l'historique. */
+      t('sacherie_ct_inventaires_dus', rpcq('sacherie_ct_inventaires_dus',
+        { p_scope: null, p_code: null, p_pertinents_seulement: true }), [])
     ]).then(function (rs) {
       return { clusterStock: rs[0], rtStock: rs[1], requests: rs[2], envelopes: rs[3], allocations: rs[4],
         locations: rs[5], releases: rs[6], global: rs[7][0] || {}, pertes: rs[8], inventaires: rs[9],
-        stockParLieu: rs[10], ouvertes: rs[11], transferts: rs[12],
+        stockParLieu: rs[10], ouvertes: rs[11], transferts: rs[12], inventairesDus: rs[13],
         pannes: pannes };
     });
   }).then(function (b) {
@@ -2537,7 +2561,15 @@ function bagExceptions(b) {
   if (ecarts.length) out.push(['danger', ecarts.length + ' écart(s) de réception', '#bags/flows?f=ecart']);
   if (aDecider.length) out.push(['warn', aDecider.length + ' demande(s) attendent une décision BM', '#bags/flows?f=approuver']);
   if (pertes.length) out.push(['danger', pertes.length + ' perte(s) attendent une décision', '#bags/control']);
-  if (holds.length) out.push(['warn', holds.length + ' inventaire(s) en HOLD', '#bags/control']);
+  if (holds.length) out.push(['danger', holds.length + ' inventaire(s) en HOLD', '#bags/control']);
+  /* Periodicite : un emplacement compte il y a six mois n'est pas « inventorie ». */
+  var dus = b.inventairesDus || [];
+  var enRetard = dus.filter(function (x) { return x.statut === 'EN_RETARD'; });
+  var aFaire = dus.filter(function (x) { return x.statut === 'A_FAIRE'; });
+  var jamais = dus.filter(function (x) { return x.statut === 'JAMAIS_INVENTORIE'; });
+  if (enRetard.length) out.push(['danger', enRetard.length + ' inventaire(s) en retard', '#bags/control']);
+  if (jamais.length) out.push(['warn', jamais.length + ' emplacement(s) jamais inventorié(s)', '#bags/control']);
+  if (aFaire.length) out.push(['warn', aFaire.length + ' inventaire(s) à faire', '#bags/control']);
   if (transits.length) out.push(['info', transits.length + ' transfert(s) attendent une réception', '#bags/stock']);
   if (aRevoir.length) out.push(['warn', aRevoir.length + ' demande(s) en revue / consolidation', '#bags/flows']);
   if (abimes) out.push(['warn', num(abimes) + ' sac(s) abîmés ou à réparer', '#bags/control']);
@@ -2917,6 +2949,57 @@ function bagDecorate(active, vue) {
   if (h) h.insertAdjacentHTML('afterend', bagNav(active) + bagStockVues(vue));
 }
 
+/* Etat d'inventaire de chaque emplacement, base sur la DATE du dernier
+   comptage. Les seuils derivent de la frequence configuree (table
+   rcn_jute_settings) : < f a jour, f a 2f a faire, >= 2f en retard.
+   Aucun seuil n'est code ici. */
+var BAG_INV_STATUTS = {
+  EN_RETARD:         ['EN RETARD', 'danger'],
+  JAMAIS_INVENTORIE: ['JAMAIS INVENTORIÉ', 'warn'],
+  A_FAIRE:           ['À FAIRE', 'warn'],
+  A_JOUR:            ['À JOUR', 'ok']
+};
+function bagInventaireTable(b, dus, mesure, freq) {
+  var entete = '<section class="card"><div class="card-head"><div><h2>Périodicité des inventaires</h2>' +
+    '<p>Fréquence appliquée : ' + num(freq) + ' jours. À faire à partir de ' + num(freq) +
+    ' jours, en retard à partir de ' + num(freq * 2) + ' jours. Emplacements portant du stock, ' +
+    'déjà comptés ou en HOLD.</p></div></div>';
+  if (!mesure) {
+    return entete + '<div class="notice warn"><b>État d’inventaire indisponible :</b>&nbsp;' +
+      'le calcul serveur n’a pas répondu. Ce tableau est vide parce que la lecture a échoué, ' +
+      'pas parce que tous les emplacements sont à jour.</div></section>';
+  }
+  if (!dus.length) {
+    return entete + '<div class="ops-empty ops-empty-ok">Aucun emplacement à enjeu : ' +
+      'rien à compter aujourd’hui.</div></section>';
+  }
+  return entete + table(
+    ['Localisation', 'Type', 'Dernier inventaire', 'Jours écoulés', 'Fréquence',
+     'Prochaine échéance', 'Statut', 'Écart dernier inventaire', 'Action'],
+    dus.map(function (x) {
+      var st = BAG_INV_STATUTS[x.statut] || [x.statut, 'info'];
+      var ec = x.ecart_dernier == null ? '—'
+        : (n(x.ecart_dernier) === 0 ? '0'
+           : '<span class="badge ' + (x.hold ? 'danger' : 'warn') + '">' +
+             (n(x.ecart_dernier) > 0 ? '+' : '') + num(x.ecart_dernier) + '</span>');
+      var code = String(x.location_code || '');
+      return '<tr class="ops-click" onclick="location.hash=\'#bags/location/' + encodeURIComponent(code) + '\'">' +
+        '<td class="mono"><b>' + esc(code) + '</b>' +
+          (x.nom ? '<br><span class="muted">' + esc(x.nom) + '</span>' : '') + '</td>' +
+        '<td>' + esc(x.scope_type || '—') + '</td>' +
+        '<td>' + (x.dernier_inventaire ? date(x.dernier_inventaire) : '<span class="muted">Jamais</span>') + '</td>' +
+        '<td>' + (x.jours_ecoules == null ? '—' : num(x.jours_ecoules) + ' j') + '</td>' +
+        '<td>' + num(x.frequence_jours) + ' j</td>' +
+        '<td>' + (x.prochaine_echeance ? date(x.prochaine_echeance) : '—') + '</td>' +
+        '<td><span class="badge ' + st[1] + '">' + esc(st[0]) + '</span>' +
+          (x.hold ? ' <span class="badge danger">HOLD</span>' : '') + '</td>' +
+        '<td>' + ec + '</td>' +
+        '<td><button class="btn secondary" type="button" onclick="event.stopPropagation();' +
+          'ANAGROCI_FB.openBagControl(\'inventaire\',\'' + esc(code) + '\')">' +
+          (x.statut === 'A_JOUR' ? 'Voir' : 'Inventorier') + '</button></td></tr>';
+    })) + '</section>';
+}
+
 /* ---- ECRAN 5 : CONTROLE & RECONCILIATION -------------------------------- */
 function renderBagControl() {
   bagLoading('control', 'Quelles anomalies doivent être contrôlées, justifiées ou décidées ?');
@@ -2928,13 +3011,28 @@ function renderBagControl() {
     var ecarts = (b.requests || []).filter(function (r) {
       return n(r.released_qty) > 0 && n(r.received_qty) < n(r.released_qty);
     });
+    /* Periodicite d'inventaire : calculee par le serveur sur la DATE du
+       dernier comptage (RPC sacherie_ct_inventaires_dus). L'ancienne
+       approximation « nombre de locations moins nombre de lignes
+       d'inventaire » comptait 43 emplacements a faire des qu'un seul
+       avait ete compte une fois, il y a six mois. */
+    var dus = b.inventairesDus || [];
+    var mesureInv = !bagPanne(b, 'sacherie_ct_inventaires_dus');
+    var enRetard = dus.filter(function (x) { return x.statut === 'EN_RETARD'; });
+    var aFaire = dus.filter(function (x) { return x.statut === 'A_FAIRE'; });
+    var jamais = dus.filter(function (x) { return x.statut === 'JAMAIS_INVENTORIE'; });
+    var duus = enRetard.concat(jamais).concat(aFaire);
+    var freq = dus.length ? n(dus[0].frequence_jours) : 7;
     var actions = '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'inventaire\')">Inventaire</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'etat\')">Sacs abîmés</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openBagControl(\'perte\')">Déclarer une perte</button>';
 
     var corps = bagsPannesNotice(b) +
       kpis([
-        ['Inventaires à faire', String((b.locations || []).filter(function (l) { return l.actif; }).length - (b.inventaires || []).length), 'emplacements sans comptage récent'],
+        ['Inventaires à faire', mesureInv ? String(duus.length) : '—',
+          mesureInv ? (freq + ' j · ' + enRetard.length + ' en retard, ' + jamais.length + ' jamais comptés')
+                    : 'source indisponible',
+          enRetard.length ? 'danger' : duus.length ? 'warn' : '', '#bags/control'],
         ['Écarts ouverts', String(ecarts.length + holds.length), 'réception et inventaire', (ecarts.length + holds.length) ? 'danger' : ''],
         ['Sacs endommagés', num(n(g.dechires) + n(g.a_reparer)), 'déchirés + à réparer', (n(g.dechires) + n(g.a_reparer)) ? 'warn' : ''],
         ['Pertes à décider', String(pertes.length), 'décision Branch Manager', pertes.length ? 'warn' : '']
@@ -2944,6 +3042,7 @@ function renderBagControl() {
       bagAlertRows(bagExceptions(b)) + '</section>' +
       '<div class="notice info"><b>Aucun ajustement silencieux :</b>&nbsp; un inventaire en écart passe en HOLD. ' +
       'Le stock n’est jamais aligné automatiquement sur le comptage.</div>' +
+      bagInventaireTable(b, dus, mesureInv, freq) +
       '<div class="grid-2"><section class="card"><div class="card-head"><div><h2>Derniers inventaires</h2></div></div>' +
       table(['Date', 'Emplacement', 'État', 'Théorique', 'Compté', 'Écart', 'Statut'],
         (b.inventaires || []).map(function (i) {
@@ -3285,7 +3384,7 @@ function openBagReceipt(id) {
 var BAG_STATES = ['UTILISABLE', 'PLEIN', 'DECHIRE', 'A_REPARER', 'REPARE', 'REFORME'];
 var BAG_TRANSITIONS = [['DECHIRE', 'A_REPARER'], ['DECHIRE', 'REFORME'], ['A_REPARER', 'REPARE'],
   ['A_REPARER', 'REFORME'], ['REPARE', 'UTILISABLE']];
-function openBagControl(mode) {
+function openBagControl(mode, lieu) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture…</p>';
   Promise.all([bagsData(), loadProfile()]).then(function (rs) {
@@ -3314,6 +3413,8 @@ function openBagControl(mode) {
       '<button class="btn primary" type="submit" id="bx_submit">Enregistrer</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="bx_msg" class="muted" style="margin-top:10px"></div></form>';
+    /* Appel depuis le tableau des inventaires dus : l'emplacement est deja connu. */
+    if (lieu) { var preLoc = document.getElementById('bx_loc'); if (preLoc) preLoc.value = lieu; }
     document.getElementById('bagCtlForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = document.getElementById('bx_msg'), btn = document.getElementById('bx_submit');
@@ -3510,7 +3611,7 @@ var cmdFilter = { cluster: '', sev: '' };
 function renderCommand() {
   paint(head('Command Center', 'Supervision Field Buying : chaque alerte renvoie vers l’objet concerné.') + skeletonPage(4));
   return Promise.all([base(),
-    bagsData().catch(function () { return { clusterStock: [], rtStock: [], requests: [], envelopes: [], allocations: [], locations: [], releases: [], global: {}, pertes: [], inventaires: [], pannes: [] }; }),
+    bagsData().catch(function () { return { clusterStock: [], rtStock: [], requests: [], envelopes: [], allocations: [], locations: [], releases: [], global: {}, pertes: [], inventaires: [], inventairesDus: [], pannes: [] }; }),
     cashData().catch(function () { return { avances: [], recons: [] }; })])
     .then(function (rs) {
       var c = rs[0], b = rs[1], cash = rs[2];
