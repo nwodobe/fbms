@@ -17,7 +17,11 @@ assert.ok(!/global\.ANAGROCI_OPS_ROUTE\s*=/.test(js),'le module P1 ne doit plus 
 assert.ok(!/addEventListener\('hashchange'/.test(js),'le module P1 ne doit plus ecouter hashchange');
 for (const rpc of ['sacherie_ops_network_move','sacherie_ops_create_transfer','sacherie_ops_receive_transfer','sacherie_ops_closure_readiness','sacherie_ops_ensure_locations']) assert.match(js,new RegExp(rpc),'RPC '+rpc+' doit etre utilise');
 assert.match(js,/localStorage/,'brouillons locaux requis');
-assert.match(js,/limit\(300\)/,'historique doit rester borne');
+/* Le journal n'est plus borne a 300 lignes chargees dans le navigateur :
+   la recherche et la pagination sont faites par PostgreSQL. */
+assert.doesNotMatch(js,/limit\(300\)/,'le journal ne doit plus charger 300 lignes en bloc');
+assert.match(js,/sacherie_search_movements/,'le journal doit passer par la RPC de recherche serveur');
+assert.match(js,/p_cursor_date/,'pagination par curseur requise');
 assert.match(js,/p_client_operation_id/,'idempotence client requise');
 assert.match(sql,/rcn_jute_movements/,'ledger canonique requis');
 assert.match(sql,/JUTE-TRANSIT/,'location transit requise');

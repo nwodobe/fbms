@@ -15,6 +15,9 @@ on:
       - 'tests/sacherie-aflp-colonnes-droits-static.mjs'
       - 'tests/rt-farmer-edit-rights-static.mjs'
       - 'tests/zonal-head-portee-globale.mjs'
+      - 'tests/sacherie-rls-dotation-rt.mjs'
+      - 'tests/sacherie-inventaires-periodicite.mjs'
+      - 'tests/sacherie-journal-recherche.mjs'
       - 'shared/aflp-access.js'
       - '.github/workflows/operations-suite-pr.yml'
 
@@ -46,6 +49,12 @@ jobs:
         run: node tests/rt-farmer-edit-rights-static.mjs
       - name: Assertions Chef de Zone — portée globale sans suppression
         run: node tests/zonal-head-portee-globale.mjs
+      - name: Durcissement RLS du registre historique des sacs
+        run: node tests/sacherie-rls-dotation-rt.mjs
+      - name: Periodicite des inventaires Sacherie
+        run: node tests/sacherie-inventaires-periodicite.mjs
+      - name: Recherche et pagination serveur du journal
+        run: node tests/sacherie-journal-recherche.mjs
       - name: Syntaxe JavaScript Operations
         run: |
           node --check operations/workspace.js
