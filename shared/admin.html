@@ -50,11 +50,11 @@
     <div class="body">
       <p class="muted">Le compte d'authentification est créé côté serveur, puis le profil (rôle, affectation, statut) est enregistré <b>avec vos droits de Branch Manager</b> : les règles serveur (rôles reconnus, cluster valide, journal des habilitations) s'appliquent à la création comme à la modification.</p>
       <div class="row">
-        <div><label for="nNom">Nom complet</label><input id="nNom" placeholder="Ex. Awa Koné"></div>
-        <div><label for="nEmail">Email</label><input id="nEmail" type="email" placeholder="awa@anagroci.ci"></div>
+        <div><label for="nNom">Nom complet</label><input id="nNom" maxlength="200" placeholder="Ex. Awa Koné"></div>
+        <div><label for="nEmail">Email</label><input id="nEmail" type="email" maxlength="254" autocomplete="email" placeholder="awa@anagroci.ci"></div>
       </div>
       <div class="row">
-        <div><label for="nPass">Mot de passe provisoire</label><input id="nPass" type="text" placeholder="min. 8 caractères"></div>
+        <div><label for="nPass">Mot de passe provisoire</label><input id="nPass" type="password" autocomplete="new-password" maxlength="1024" placeholder="min. 8 caractères"><button type="button" id="togglePass" class="btn ghost sm" style="margin-top:6px" aria-controls="nPass" aria-pressed="false" onclick="afficherMotDePasse()">Afficher</button></div>
         <div><label for="nRole">Rôle</label><select id="nRole"></select></div>
       </div>
       <div class="row">
@@ -186,30 +186,85 @@ function enregistrer(uid){
 }
 function setActif(uid,actif){ ecrire(uid,{actif},actif?"Compte activé.":"Compte désactivé : toutes ses actions sont refusées par le serveur."); }
 
+// Protection ergonomique contre les doubles clics. Le serveur reste l'arbitre.
+let creationEnCours=false;
+const MESSAGES_CREATION={
+  CONFIGURATION_INCOMPLETE:"Le service de cr\u00e9ation des comptes est mal configur\u00e9.",
+  SESSION_INVALIDE:"Votre session a expir\u00e9 ou est invalide. Reconnectez-vous.",
+  ACCES_REFUSE:"Vous n'\u00eates pas autoris\u00e9 \u00e0 cr\u00e9er cet acc\u00e8s.",
+  DONNEES_INVALIDES:"V\u00e9rifiez les informations saisies et le mot de passe.",
+  CORPS_TROP_VOLUMINEUX:"La demande est trop volumineuse.",
+  REFERENTIEL_INDISPONIBLE:"Le r\u00e9f\u00e9rentiel des r\u00f4les est momentan\u00e9ment indisponible.",
+  ROLE_NON_ATTRIBUABLE:"Ce r\u00f4le ne peut pas \u00eatre attribu\u00e9 depuis votre compte.",
+  CLUSTER_REQUIS:"S\u00e9lectionnez un cluster pour ce poste.",
+  CLUSTER_INVALIDE:"Le cluster choisi est inconnu ou inactif.",
+  EMAIL_EXISTANT:"Un compte existe d\u00e9j\u00e0 avec cette adresse email. Aucun compte existant n'a \u00e9t\u00e9 modifi\u00e9.",
+  MOT_DE_PASSE_REFUSE:"Le mot de passe ne respecte pas les exigences du serveur.",
+  AUTH_REFUSE:"Le service d'authentification a refus\u00e9 la cr\u00e9ation.",
+  PROFIL_REFUSE_COMPENSE:"Le profil a \u00e9t\u00e9 refus\u00e9. Le compte de connexion cr\u00e9\u00e9 par cette tentative a \u00e9t\u00e9 supprim\u00e9.",
+  COHERENCE_A_VERIFIER:"Cr\u00e9ation incompl\u00e8te : une v\u00e9rification administrateur est n\u00e9cessaire. Ne recr\u00e9ez pas ce compte.",
+  CREATION_INCERTAINE:"Le r\u00e9sultat de la cr\u00e9ation n'a pas pu \u00eatre confirm\u00e9. V\u00e9rifiez le compte avant une nouvelle tentative.",
+  SERVICE_INDISPONIBLE:"Le service de cr\u00e9ation est momentan\u00e9ment indisponible.",
+  ORIGINE_REFUSEE:"Cette origine n'est pas autoris\u00e9e \u00e0 appeler le service."
+};
+function afficherMotDePasse(){
+  const champ=$("nPass"),bouton=$("togglePass"),visible=champ.type==="password";
+  champ.type=visible?"text":"password";bouton.textContent=visible?"Masquer":"Afficher";
+  bouton.setAttribute("aria-pressed",String(visible));
+}
 async function createUser(){
-  const btn=$("btnCreate"),m=$("cMsg");
-  const nom=$("nNom").value.trim(), email=$("nEmail").value.trim().toLowerCase(),
-        pass=$("nPass").value, role=$("nRole").value, cluster=$("nCluster").value||null;
-  if(!nom||!email||pass.length<8)return msg(m,"Nom, email et mot de passe (8+ caractères) requis.","err");
-  const ro=roleDe(role);
-  if(ro&&ro.cluster_requis&&!cluster)return msg(m,"Ce rôle exige un cluster d'affectation.","err");
-  btn.disabled=true;btn.textContent="Création…";
+  if(creationEnCours)return;
+  const btn=$("btnCreate"),m=$("cMsg");hide(m);
+  const nom=$("nNom").value.trim(),email=$("nEmail").value.trim().toLowerCase(),
+    pass=$("nPass").value,role=$("nRole").value,cluster=$("nCluster").value||null,ro=roleDe(role);
+  if(!nom||!email||!$("nEmail").checkValidity()||pass.length<8)return msg(m,"Nom, email valide et mot de passe (8+ caract\u00e8res) requis.","err");
+  if(!SB||!ME||ME.actif!==true||ME.role!=="Branch Manager")return msg(m,MESSAGES_CREATION.ACCES_REFUSE,"err");
+  if(!ro||ro.attribuable!==true)return msg(m,MESSAGES_CREATION.ROLE_NON_ATTRIBUABLE,"err");
+  if(ro.cluster_requis&&!cluster)return msg(m,MESSAGES_CREATION.CLUSTER_REQUIS,"err");
+  if(cluster&&!CLUSTERS.some(c=>c.code===cluster))return msg(m,MESSAGES_CREATION.CLUSTER_INVALIDE,"err");
+  creationEnCours=true;btn.disabled=true;btn.textContent="Cr\u00e9ation de l'acc\u00e8s\u2026";
+  let delai,postLance=false;
   try{
-    const{data:{session}}=await SB.auth.getSession();
+    let r=await SB.auth.getSession(),session=r.data&&r.data.session;
+    if(r.error||!session||!session.access_token)return msg(m,MESSAGES_CREATION.SESSION_INVALIDE,"err","SESSION_ABSENTE");
+    if(session.expires_at&&session.expires_at<=Math.floor(Date.now()/1000)+60){
+      r=await SB.auth.refreshSession();session=r.data&&r.data.session;
+      if(r.error||!session||!session.access_token)return msg(m,MESSAGES_CREATION.SESSION_INVALIDE,"err","SESSION_EXPIREE");
+    }
+    const abort=new AbortController();delai=setTimeout(()=>abort.abort(),30000);
+    postLance=true;
     const resp=await fetch(SUPABASE_URL+"/functions/v1/admin-create-user",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session&&session.access_token),"apikey":SUPABASE_ANON},
+      method:"POST",signal:abort.signal,
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":SUPABASE_ANON},
       body:JSON.stringify({nom,email,password:pass,role,cluster})
     });
-    const out=await resp.json().catch(()=>({}));
-    if(resp.status===404) throw Object.assign(new Error("La création de compte n'est pas activée sur le serveur (fonction admin-create-user non déployée). Créez le compte dans Supabase > Authentication, puis attribuez le rôle ici."),{tech:"HTTP 404"});
-    if(!resp.ok) throw Object.assign(new Error(out.error||"Création refusée par le serveur."),{tech:"HTTP "+resp.status});
-    msg(m,"Accès créé pour "+nom+".","ok");
-    $("nNom").value="";$("nEmail").value="";$("nPass").value="";
-    loadProfils();
+    const out=await resp.json().catch(()=>null);
+    const code=out&&Object.prototype.hasOwnProperty.call(MESSAGES_CREATION,out.code)?out.code:null;
+    const reference=out&&typeof out.request_id==="string"&&/^[0-9a-f-]{36}$/i.test(out.request_id)?out.request_id:null;
+    const technique="HTTP "+resp.status+(code?" / "+code:"")+(reference?" / R\u00e9f. "+reference:"");
+    if(!resp.ok){
+      let message=code?MESSAGES_CREATION[code]:"La cr\u00e9ation a \u00e9t\u00e9 refus\u00e9e par le serveur.";
+      if(!code&&resp.status===404)message="Le service de cr\u00e9ation des comptes n'est pas disponible.";
+      else if(!code&&resp.status===401)message=MESSAGES_CREATION.SESSION_INVALIDE;
+      else if(!code&&resp.status===403)message=MESSAGES_CREATION.ACCES_REFUSE;
+      else if(!code&&resp.status>=500)message=MESSAGES_CREATION.CREATION_INCERTAINE;
+      // Jamais out.error en clair : une erreur distante peut contenir des donnees sensibles.
+      return msg(m,message,"err",technique);
+    }
+    if(!out||out.ok!==true||out.profile_verified!==true||
+       typeof out.user_id!=="string"||!/^[0-9a-f-]{36}$/i.test(out.user_id)||
+       out.email!==email||out.role!==role||(out.cluster||null)!==cluster){
+      return msg(m,MESSAGES_CREATION.CREATION_INCERTAINE,"err",technique+" / REPONSE_INCOMPLETE");
+    }
+    msg(m,"Acc\u00e8s cr\u00e9\u00e9 pour "+nom+". Profil enregistr\u00e9. R\u00f4le : "+ro.libelle+". Affectation : "+(cluster||"aucun cluster requis")+".","ok",reference?"R\u00e9f. "+reference:null);
+    $("nNom").value="";$("nEmail").value="";$("nPass").value="";$("nPass").type="password";
+    $("togglePass").textContent="Afficher";$("togglePass").setAttribute("aria-pressed","false");
+    // Un echec du rafraichissement de liste ne transforme pas une creation reussie en echec.
+    loadProfils().catch(()=>msg($("uMsg"),"L'acc\u00e8s est cr\u00e9\u00e9, mais la liste n'a pas pu \u00eatre actualis\u00e9e.","warn"));
   }catch(e){
-    msg(m,e.tech?e.message:humain(e),"err",e.tech||e.message);
-  }finally{btn.disabled=false;btn.textContent="Créer l'accès";}
+    msg(m,postLance?"Impossible de contacter le service ou de lire sa r\u00e9ponse. Le r\u00e9sultat reste inconnu : v\u00e9rifiez le compte avant de r\u00e9essayer.":"Impossible de v\u00e9rifier votre session. Reconnectez-vous.","err",
+      postLance?(e&&e.name==="AbortError"?"DELAI_DEPASSE":"RESEAU_OU_CORS"):"SESSION_NON_VERIFIEE");
+  }finally{clearTimeout(delai);creationEnCours=false;btn.disabled=false;btn.textContent="Cr\u00e9er l'acc\u00e8s";}
 }
 </script>
 </body></html>
