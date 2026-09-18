@@ -115,3 +115,71 @@
 .fb-labels-ctl input{margin:0;cursor:pointer}
 @media(max-width:520px){.fb-village-label{font-size:9.5px;max-width:96px;padding:1px 4px}
   .fb-labels-ctl label{font-size:10px}}
+
+/* ---- Sacherie AFLP — Jute Bag Control Tower ------------------------------
+   Semantique operationnelle stricte : vert normal, orange action requise,
+   rouge anomalie, bleu processus en cours, gris clos. Aucune couleur
+   decorative. */
+.ops-sacherie-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0 14px}
+.ops-sacherie-search{flex:1 1 320px;min-width:220px;border:1px solid var(--line);border-radius:10px;
+  padding:9px 12px;font-family:var(--font-body,inherit);font-size:13px;background:#fff;color:var(--ink,#132F1F)}
+.ops-sacherie-search:focus{outline:2px solid #1F9D6E33;border-color:#1F9D6E}
+.ops-sacherie-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ops-mini-select{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:11.5px;
+  font-weight:600;background:#fff;color:#0B3A22;max-width:190px}
+.ops-chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;
+  padding:6px 11px;font-size:11.5px;font-weight:700;color:#0B3A22;background:rgba(255,255,255,.75)}
+.ops-sacherie-results{display:grid;gap:6px;margin:-4px 0 14px;max-height:320px;overflow:auto}
+.ops-sacherie-result{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;
+  padding:8px 11px;background:#fff;text-decoration:none;color:inherit}
+.ops-sacherie-result:hover{border-color:#1F9D6E;background:#F4FAF6}
+.ops-sacherie-result b{font-size:12.5px}
+.ops-sacherie-result .muted{margin-left:auto;font-size:11px}
+
+.kpi-link{text-decoration:none;color:inherit;display:block;transition:border-color .14s ease,transform .14s ease}
+.kpi-link:hover{border-color:#1F9D6E;transform:translateY(-1px)}
+
+.ops-alert-list{display:grid;gap:8px}
+.ops-alert-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-left-width:4px;
+  border-radius:10px;padding:11px 13px;background:#fff;text-decoration:none;color:inherit}
+.ops-alert-row.danger{border-left-color:#C0392B}
+.ops-alert-row.warn{border-left-color:#EE9E00}
+.ops-alert-row.info{border-left-color:#1d6fa5}
+.ops-alert-row b{font-size:13px;font-weight:600}
+.ops-alert-row em{margin-left:auto;font-style:normal;font-size:11.5px;font-weight:700;color:#1F9D6E}
+.ops-alert-row:hover{background:#F6FAF7}
+.ops-empty-ok{color:#1F7A55;background:#F1FAF5;border:1px solid #CFE8DA;border-radius:10px}
+
+.ops-filter-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
+.ops-filter-chips a{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:11.5px;
+  font-weight:600;color:#0B3A22;background:#fff;text-decoration:none}
+.ops-filter-chips a.active{background:#053B23;color:#fff;border-color:#053B23}
+
+.ops-timeline{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.ops-timeline-step{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:600;color:#6B7B71;background:#fff}
+.ops-timeline-step b{font-size:12px}
+.ops-timeline-step.ok{color:#1F7A55;border-color:#BFE3D0;background:#F1FAF5}
+.ops-timeline-step.now{color:#A96B00;border-color:#F2D9A8;background:#FFF8EC}
+.ops-inline-notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ops-inline-notice .btn{margin-left:auto}
+
+@media(max-width:820px){
+  .ops-sacherie-bar{gap:8px}
+  .ops-mini-select{max-width:none;flex:1 1 140px}
+  .ops-alert-row{align-items:flex-start;flex-wrap:wrap}
+  .ops-alert-row em{margin-left:0;width:100%}
+}
+@media(max-width:520px){
+  .ops-sacherie-search{flex-basis:100%}
+  .ops-filter-chips a{font-size:11px;padding:5px 10px}
+  .ops-sacherie-result{flex-wrap:wrap}
+  .ops-sacherie-result .muted{margin-left:0;width:100%}
+}
+
+/* Six KPI de la control tower : une seule rangee sur grand ecran, jamais
+   « cinq plus un » qui laisse une tuile orpheline. */
+.ops-sacherie .kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1250px){.ops-sacherie .kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:820px){.ops-sacherie .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:400px){.ops-sacherie .kpi-grid{grid-template-columns:1fr}}

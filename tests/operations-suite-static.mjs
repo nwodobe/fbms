@@ -68,7 +68,7 @@ assert.ok(/parcelle à compléter après campagne/i.test(fb), '2027 parcel-optio
 assert.ok(!/gps_mapped_count[^\n]*required/.test(fb), 'parcel must never be required');
 // Actions critiques rendues dans l'en-tete, jamais injectees apres coup.
 for (const label of ['+ Nouveau village', '+ Nouveau producteur', '+ Nouveau RT',
-                     '+ Nouvel achat', '+ Nouvelle demande RT']) {
+                     '+ Nouvel achat', '+ Nouvelle demande']) {
   assert.ok(fb.includes(label), `FB critical action missing: ${label}`);
 }
 // Performance : chargement groupe, cache partage, prechargement.

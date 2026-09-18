@@ -47,8 +47,11 @@ assert.match(blocBags, /FBStore\.invalidate\('bags'\)/,
   'un chargement degrade ne doit pas etre mis en cache');
 assert.match(js, /Données partielles/,
   'l\'ecran doit nommer les jeux de donnees manquants, pas afficher un tableau vide muet');
-assert.match(js, /createHost\(\) \+ bagsPannesNotice\(b\)/,
-  'le bandeau doit etre peint dans la rubrique Sacherie');
+/* La sacherie est desormais decoupee en cinq ecrans : le bandeau de panne
+   doit etre compose par CHACUN d'eux, pas par une page unique. */
+assert.ok((js.match(/bagsPannesNotice\(b\)/g) || []).length >= 4,
+  'chaque ecran de la sacherie doit composer le bandeau de donnees partielles');
+assert.match(js, /function bagShell\(/, 'les ecrans doivent passer par la coquille commune');
 
 /* --- 2. Migration : les QUATRE vues de pilotage, pas seulement deux ------- */
 const vues = ['sacherie_ct_global_stock', 'sacherie_ct_cluster_stock',

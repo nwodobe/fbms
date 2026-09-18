@@ -130,11 +130,26 @@ try {
   const corps = await page.textContent('#opsRouteView')
   assert.match(corps, /Sacherie AFLP/, 'la rubrique doit être peinte')
   assert.match(corps, /CLUSTER-TEST-A/, 'le stock cluster doit rendre malgré la panne voisine')
-  assert.match(corps, /RT Fictif Un/, 'le RT Bag Account doit rendre malgré la panne voisine')
+  /* Depuis la refonte control tower, les comptes RT ont leur propre ecran :
+     la tolerance aux pannes se verifie donc sur les DEUX ecrans. Un ecran
+     amute ne doit jamais faire disparaitre l'autre. */
+  assert.match(corps, /À traiter/, 'le cockpit doit peindre la carte des exceptions malgré la panne')
   /* Intl.NumberFormat('fr-FR') sépare les milliers par une espace insécable
      (U+00A0 ou U+202F selon l'ICU) : on compare sans aucune espace. */
   const kpis = (await page.textContent('.kpi-grid')).replace(/[\s  ]+/g, '')
   assert.match(kpis, /1200/, 'le parc total (vue globale) doit rendre malgré la panne voisine')
+
+  /* Ecran Comptes RT : meme panne, meme exigence. */
+  /* Le harnais ne charge que field-buying.js : l'ecouteur hashchange vit dans
+     navigation-v2.js. On appelle donc le routeur directement, ce qui teste
+     exactement ce qui doit l'etre : le rendu de l'ecran, pas la navigation. */
+  await page.evaluate(() => { location.hash = '#bags/rt'; return window.ANAGROCI_OPS_ROUTE(); })
+  await page.waitForFunction(() => /Comptes sacherie RT/.test(document.getElementById('opsRouteView').textContent), null, { timeout: 15000 })
+  const corpsRt = await page.textContent('#opsRouteView')
+  assert.match(corpsRt, /RT Fictif Un/, 'le compte RT doit rendre malgré la panne voisine')
+  assert.match(corpsRt, /Données partielles/, "l'écran Comptes RT doit lui aussi nommer la panne")
+  await page.evaluate(() => { location.hash = '#bags'; return window.ANAGROCI_OPS_ROUTE(); })
+  await page.waitForFunction(() => /À traiter/.test(document.getElementById('opsRouteView').textContent), null, { timeout: 15000 })
 
   /* 3. Le bandeau tient sur une colonne : .notice est un conteneur flex, une
         liste posée en frère du libellé se rangerait à côté au lieu d'en dessous. */
