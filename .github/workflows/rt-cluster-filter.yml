@@ -1,0 +1,88 @@
+name: RT cluster regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'operations/**'
+      - 'tests/rt-cluster-filter-*.mjs'
+      - '.github/workflows/rt-cluster-filter.yml'
+  workflow_run:
+    workflows: ['pages build and deployment']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    name: RT clusters - canonical codes and browser regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.49.1-noble@sha256:70e367e0cbf60340a5b5fd562f6247a34eb3196efab9f88a3dd56482d9fe09d2
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser test dependency
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+      - name: Verify the deployed HTML and JavaScript bytes
+        if: github.event_name == 'workflow_run'
+        env:
+          CHECK_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const base='https://nwodobe.github.io/fbms/';
+          const paths=['operations/field-buying.html','operations/field-buying.js'];
+          const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const result={commit:process.env.CHECK_SHA,checked_at:new Date().toISOString(),authenticated_session:false,files:[]};
+          for(const path of paths){
+            const expected=digest(fs.readFileSync(path));
+            const url=base+path+'?rt_verify='+process.env.CHECK_SHA;
+            let verified=false;
+            for(let attempt=1;attempt<=12;attempt++){
+              try{
+                const response=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{'Cache-Control':'no-cache'}});
+                const bytes=Buffer.from(await response.arrayBuffer());
+                const actual=digest(bytes);
+                if(response.ok&&actual===expected){
+                  result.files.push({path,url,status:response.status,bytes:bytes.length,sha256:actual,attempt});
+                  verified=true;break;
+                }
+                console.log('Waiting for published bytes',path,response.status,attempt);
+              }catch(error){console.log('Publication check retry',path,attempt,error.message);}
+              if(attempt<12)await new Promise(r=>setTimeout(r,10000));
+            }
+            if(!verified)throw new Error('Published file does not match deployed commit: '+path);
+          }
+          fs.mkdirSync('rt-cluster-test-results',{recursive:true});
+          fs.writeFileSync('rt-cluster-test-results/production-assets.json',JSON.stringify(result,null,2));
+          console.log(JSON.stringify(result));
+          NODE
+      - name: Test normalization and run existing related static checks
+        run: |
+          node --check operations/field-buying.js
+          node tests/rt-cluster-filter-static.mjs
+          node tests/field-buying-profiles-static.mjs
+          node tests/field-buying-prefilled-edit-static.mjs
+          node tests/field-buying-performance-static.mjs
+          node tests/farmer-registry-complete.mjs
+      - name: Exercise all six clusters and four tabs in Chromium with synthetic data
+        run: node tests/rt-cluster-filter-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rt-cluster-verification
+          path: rt-cluster-test-results/
+          if-no-files-found: ignore
+          retention-days: 14
