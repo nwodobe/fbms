@@ -1624,7 +1624,8 @@ function renderFarmerPassport(id, tab) {
               editButton(finalisee ? 'Consulter' : 'Modifier', "openSustainabilityBaselineForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'consents') {
-        body = '<section class="card">' + table(['Date', 'Statut', 'Périmètres', 'Méthode', 'Agent', 'Version du texte'],
+        body = '<div class="notice info"><b>Consentement historisé :</b> un consentement existant ne se réécrit pas. Une nouvelle décision crée un nouvel événement afin de conserver la preuve et l’historique.</div>' +
+          '<section class="card">' + table(['Date', 'Statut', 'Périmètres', 'Méthode', 'Agent', 'Version du texte'],
           p.consents.map(function (x) {
             return '<tr><td>' + date(x.consent_at) + '</td><td>' + badge(x.status) + '</td>' +
               '<td>' + esc(Array.isArray(x.scopes) ? x.scopes.join(', ') : (x.scopes || '—')) + '</td>' +
