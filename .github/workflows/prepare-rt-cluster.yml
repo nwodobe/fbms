@@ -1,0 +1,57 @@
+name: Prepare exact RT cluster patch
+on:
+  push:
+    branches: [prepare/rt-cluster-20260919]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply guarded patch and test
+        run: |
+          node .github/scripts/prepare-rt-cluster.cjs
+          node --check operations/field-buying.js
+          node tests/rt-cluster-filter-static.mjs
+          node tests/field-buying-profiles-static.mjs
+          node tests/field-buying-prefilled-edit-static.mjs
+          node tests/field-buying-performance-static.mjs
+          node tests/farmer-registry-complete.mjs
+      - name: Store exact reviewed blobs without updating any branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const files={
+            'operations/field-buying.js':'a73304f66f174e872b889113c6991fbef743e7c4',
+            'operations/field-buying.html':'3078de0241394d81926c055ad7660839395cd7ff'
+          };
+          const results={};
+          for(const [path,expected] of Object.entries(files)) {
+            const bytes=fs.readFileSync(path);
+            const sha=crypto.createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
+            assert.equal(sha,expected,'Patch differs from locally reviewed version');
+            const response=await fetch('https://api.github.com/repos/nwodobe/fbms/git/blobs',{
+              method:'POST',headers:{'Authorization':'Bearer '+process.env.GH_TOKEN,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+              body:JSON.stringify({encoding:'base64',content:bytes.toString('base64')})
+            });
+            assert.equal(response.status,201,'Blob upload failed');
+            const result=await response.json();assert.equal(result.sha,expected);
+            results[path]={sha:result.sha,bytes:bytes.length};
+          }
+          fs.writeFileSync('rt-prepared.json',JSON.stringify(results,null,2));
+          console.log(JSON.stringify(results));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rt-prepared-manifest
+          path: rt-prepared.json
+          retention-days: 7
