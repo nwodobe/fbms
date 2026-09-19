@@ -164,8 +164,11 @@ function loadProfile() {
 }
 /* Miroir client de peut_editer_terrain() ; la base reste l'arbitre. */
 var ROLES_TERRAIN = ['Branch Manager', 'Assistant Branch Manager', 'Head of Field',
-  'Procurement Officer', 'Supervisor', 'Agent Recenseur', "Chef d'equipe", "Chef d'équipe", 'Administrateur'];
-function canEditTerrain() { return ROLES_TERRAIN.indexOf(profile.role) >= 0; }
+  'Procurement Officer', 'Zonal Head', 'Supervisor', 'Agent Recenseur', "Chef d'equipe", "Chef d'équipe", 'Administrateur'];
+function currentRole() {
+  return profile.role || (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile && global.ANAGROCI_AUTH.profile.role) || '';
+}
+function canEditTerrain() { return ROLES_TERRAIN.indexOf(currentRole()) >= 0; }
 
 /* --------------------------------------------------------------------- FBStore */
 
@@ -1459,20 +1462,23 @@ function passportData(pid) {
         .catch(function () { return []; });
     }
     return Promise.all([
-      tq('farmer_plots', 'id,local_name,declared_area,area_unit,land_tenure_status,orchard_age_years,tree_count,productive_tree_count,latitude,longitude,gps_status,gps_verified_area,area_source,evidence_level,status,deleted'),
-      tq('farmer_production_baselines', 'id,campaign,productive_area_ha,previous_production_kg,forecast_kg,productive_tree_count,previous_sales_channel,already_anagroci_supplier,status,created_at'),
-      tq('farmer_sustainability_baselines', 'id,campaign,inspection_date,catalog_version,status,risk_profile,created_at'),
-      tq('farmer_consents', 'id,status,scopes,consent_at,agent_name,text_version,method'),
-      tq('farmer_visits', 'id,visit_type,visit_date,agent_name,purpose,outcome,next_action'),
-      tq('farmer_inspections', 'id,inspection_type,inspection_date,status,notes'),
+      tq('farmer_plots', '*'),
+      tq('farmer_production_baselines', '*'),
+      tq('farmer_sustainability_baselines', '*'),
+      tq('farmer_consents', '*'),
+      tq('farmer_visits', '*'),
+      tq('farmer_inspections', '*'),
       tq('farmer_action_plans_effective_v', '*'),
       q('farmer_change_log', 'id,table_name,record_id,operation,actor_email,actor_role,reason,created_at', 100,
         function (r) { return r.eq('record_id', pid).order('created_at', { ascending: false }); })
-        .catch(function () { return []; })
+        .catch(function () { return []; }),
+      q('sustainability_question_catalog', '*', 200, function (r) {
+        return r.eq('active', true).order('sequence_no', { ascending: true });
+      }).catch(function () { return []; })
     ]).then(function (rs) {
       return { plots: rs[0].filter(function (x) { return !x.deleted; }), baselines: rs[1],
                sustainability: rs[2], consents: rs[3], visits: rs[4],
-               inspections: rs[5], actions: rs[6], changes: rs[7] };
+               inspections: rs[5], actions: rs[6], changes: rs[7], catalog: rs[8] };
     });
   });
 }
@@ -1508,6 +1514,15 @@ function renderFarmerPassport(id, tab) {
       var kg = mine.reduce(function (t, a) { return t + n(a.poids_net); }, 0);
       var valAch = mine.reduce(function (t, a) { return t + n(a.montant); }, 0);
 
+      if (global.ANAGROCI_FARMER_EDIT_BRIDGE && typeof global.ANAGROCI_FARMER_EDIT_BRIDGE.sync === 'function') {
+        global.ANAGROCI_FARMER_EDIT_BRIDGE.sync({ pid: pid, tab: tab, summary: f, data: p });
+      }
+
+      function editButton(label, handler, disabled, title) {
+        if (!canEditTerrain()) return '';
+        return '<button class="btn secondary" type="button" ' + (disabled ? 'disabled ' : '') +
+          (title ? 'title="' + esc(title) + '" ' : '') + 'onclick="' + handler + '">' + esc(label) + '</button>';
+      }
       function tabs() {
         return '<div class="ops-passport-tabs">' + PASSPORT_TABS.map(function (t) {
           return '<a class="' + (tab === t[0] ? 'active' : '') + '" href="#farmers/' +
@@ -1541,7 +1556,8 @@ function renderFarmerPassport(id, tab) {
           ['Visites', String(p.visits.length)], ['Inspections', String(p.inspections.length)],
           ['Consentements', String(p.consents.length)], ['Dernier achat', date(f.last_purchase_date)]]) + '</section>';
       } else if (tab === 'identity') {
-        body = '<section class="card"><div class="card-head"><div><h2>Identité</h2></div></div>' +
+        body = '<section class="card"><div class="card-head"><div><h2>Identité</h2><p>Données maître du producteur.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('Modifier l’identité', "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
           defGrid([['Farmer ID', f.farmer_id], ['Nom', f.nom], ['Prénoms', f.prenoms],
             ['Sexe', sexeLabel(row.sexe)], ['Année de naissance', row.birth_year],
             ['Téléphone', f.telephone], ['Téléphone alternatif', row.telephone_alt],
@@ -1552,7 +1568,8 @@ function renderFarmerPassport(id, tab) {
             ['Consentement', row.consent_status], ['Date consentement', date(row.consent_date)]]) + '</section>';
       } else if (tab === 'farm') {
         body = '<section class="card"><div class="card-head"><div><h2>Exploitation</h2>' +
-          '<p>Profil agricole déclaré à l’enrôlement — les mesures GPS vivent dans Parcelles.</p></div></div>' +
+          '<p>Profil agricole déclaré à l’enrôlement — les mesures GPS vivent dans Parcelles.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('Modifier l’exploitation', "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
           defGrid([['Années dans l’anacarde', extra.anneesAnacarde],
             ['Superficie déclarée', extra.superficieHa != null ? num(extra.superficieHa, 2) + ' ha' : null],
             ['Nombre d’arbres', extra.nbArbres], ['Âge plantation', extra.agePlantation != null ? extra.agePlantation + ' ans' : null],
@@ -1565,18 +1582,24 @@ function renderFarmerPassport(id, tab) {
             ['Paiement préféré', extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
         body = '<div class="notice ok"><b>Règle 2027 :</b> la parcelle et son GPS sont facultatifs — « à compléter après campagne ».</div>' +
-          '<section class="card">' + table(['Parcelle', 'Superficie', 'Arbres', 'GPS', 'Statut GPS', 'Source', 'Niveau de preuve'],
+          '<section class="card"><div class="card-head"><div><h2>Parcelles</h2><p>Chaque parcelle reste une entité distincte du producteur.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Ajouter une parcelle', 'openFarmerPlotForm()') + '</div></div>' +
+          table(['Parcelle', 'Superficie', 'Arbres', 'GPS', 'Statut GPS', 'Source', 'Niveau de preuve', ''],
           p.plots.map(function (x) {
             return '<tr><td><b>' + esc(x.local_name || '—') + '</b></td>' +
               '<td>' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
               '<td>' + (x.tree_count != null ? num(x.tree_count) : '—') + '</td>' +
               '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
               '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
-              '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td></tr>';
+              '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td>' +
+              '<td>' + editButton('Modifier', "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'production') {
-        body = '<section class="card">' + table(['Campagne', 'Surface productive', 'Production précédente', 'Prévision', 'Arbres productifs', 'Canal précédent', 'Déjà fournisseur', 'Statut'],
+        body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Nouvelle baseline', 'openProductionBaselineForm()') + '</div></div>' +
+          table(['Campagne', 'Surface productive', 'Production précédente', 'Prévision', 'Arbres productifs', 'Canal précédent', 'Déjà fournisseur', 'Statut', ''],
           p.baselines.map(function (x) {
+            var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td><b>' + esc(x.campaign) + '</b></td>' +
               '<td>' + (x.productive_area_ha != null ? num(x.productive_area_ha, 2) + ' ha' : '—') + '</td>' +
               '<td>' + (x.previous_production_kg != null ? num(x.previous_production_kg) + ' kg' : '—') + '</td>' +
@@ -1584,15 +1607,21 @@ function renderFarmerPassport(id, tab) {
               '<td>' + (x.productive_tree_count != null ? num(x.productive_tree_count) : '—') + '</td>' +
               '<td>' + esc(x.previous_sales_channel || '—') + '</td>' +
               '<td>' + (x.already_anagroci_supplier ? 'Oui' : 'Non') + '</td>' +
-              '<td>' + badge(x.status) + '</td></tr>';
+              '<td>' + badge(x.status) + '</td><td>' +
+              editButton(finalisee ? 'Consulter' : 'Modifier', "openProductionBaselineForm('" + esc(x.id) + "')", false,
+                finalisee ? 'Baseline finalisée : consultation uniquement.' : '') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'sustainability') {
         body = '<div class="notice info">La durabilité documente les pratiques : elle ne vaut pas certification automatique.</div>' +
-          '<section class="card">' + table(['Campagne', 'Date', 'Catalogue', 'Risque', 'Statut'],
+          '<section class="card"><div class="card-head"><div><h2>Sustainability</h2><p>Les brouillons restent modifiables ; les évaluations finalisées restent historisées.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Nouvelle baseline', 'openSustainabilityBaselineForm()') + '</div></div>' +
+          table(['Campagne', 'Date', 'Catalogue', 'Risque', 'Statut', ''],
           p.sustainability.map(function (x) {
+            var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td><b>' + esc(x.campaign || '—') + '</b></td><td>' + date(x.inspection_date) + '</td>' +
               '<td class="mono">' + esc(x.catalog_version || '—') + '</td>' +
-              '<td>' + badge(x.risk_profile || 'NON ÉVALUÉ') + '</td><td>' + badge(x.status) + '</td></tr>';
+              '<td>' + badge(x.risk_profile || 'NON ÉVALUÉ') + '</td><td>' + badge(x.status) + '</td><td>' +
+              editButton(finalisee ? 'Consulter' : 'Modifier', "openSustainabilityBaselineForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'consents') {
         body = '<section class="card">' + table(['Date', 'Statut', 'Périmètres', 'Méthode', 'Agent', 'Version du texte'],
@@ -1603,17 +1632,23 @@ function renderFarmerPassport(id, tab) {
               '<td class="mono">' + esc(x.text_version || '—') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'visits') {
-        body = '<section class="card">' + table(['Date', 'Type', 'Agent', 'Objet', 'Résultat', 'Prochaine action'],
+        body = '<section class="card"><div class="card-head"><div><h2>Visites</h2><p>Une visite est un événement terrain historisé ; on ajoute une nouvelle visite plutôt que réécrire le passé.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Nouvelle visite', 'openFarmerVisitForm()') + '</div></div>' +
+          table(['Date', 'Type', 'Agent', 'Objet', 'Résultat', 'Prochaine action'],
           p.visits.map(function (x) {
             return '<tr><td>' + date(x.visit_date) + '</td><td>' + badge(x.visit_type) + '</td>' +
               '<td>' + esc(x.agent_name || '—') + '</td><td>' + esc(x.purpose || '—') + '</td>' +
               '<td>' + esc(x.outcome || '—') + '</td><td>' + esc(x.next_action || '—') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'inspections') {
-        body = '<section class="card">' + table(['Date', 'Type', 'Statut', 'Notes'],
+        body = '<section class="card"><div class="card-head"><div><h2>Inspections</h2><p>Les brouillons sont modifiables ; une inspection FINAL reste immuable.</p></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Nouvelle inspection', 'openFarmerInspectionForm()') + '</div></div>' +
+          table(['Date', 'Type', 'Statut', 'Notes', ''],
           p.inspections.map(function (x) {
+            var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td>' + date(x.inspection_date) + '</td><td>' + badge(x.inspection_type) + '</td>' +
-              '<td>' + badge(x.status) + '</td><td>' + esc(x.notes || '—') + '</td></tr>';
+              '<td>' + badge(x.status) + '</td><td>' + esc(x.notes || '—') + '</td><td>' +
+              editButton(finalisee ? 'Consulter' : 'Modifier', "openFarmerInspectionForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'purchases') {
         body = '<section class="card"><div class="card-head"><div><h2>Achats Bord Champ</h2></div>' +
@@ -1630,12 +1665,14 @@ function renderFarmerPassport(id, tab) {
           '<p class="muted">Chaîne Farmer → Achat → Sacs → Lot → Warehouse → Factory.</p>' +
           '<div class="ops-actions"><a class="btn secondary" href="#traceability/' + encodeURIComponent(f.farmer_id || f.nom) + '">Tracer ce producteur</a></div></section>';
       } else if (tab === 'actions') {
-        body = '<section class="card">' + table(['Catégorie', 'Problème', 'Action corrective', 'Responsable', 'Échéance', 'Priorité', 'Statut'],
+        body = '<section class="card"><div class="card-head"><div><h2>Actions correctives</h2></div>' +
+          '<div class="ops-route-actions">' + editButton('+ Nouvelle action', 'openFarmerActionForm()') + '</div></div>' +
+          table(['Catégorie', 'Problème', 'Action corrective', 'Responsable', 'Échéance', 'Priorité', 'Statut', ''],
           p.actions.map(function (x) {
             return '<tr><td>' + badge(x.category || '—') + '</td><td>' + esc(x.issue || '—') + '</td>' +
               '<td>' + esc(x.corrective_action || '—') + '</td><td>' + esc(x.responsible_name || '—') + '</td>' +
               '<td>' + date(x.due_date) + '</td><td>' + badge(x.priority || '—') + '</td>' +
-              '<td>' + badge(x.status) + '</td></tr>';
+              '<td>' + badge(x.status) + '</td><td>' + editButton('Ouvrir', "openFarmerActionForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'history') {
         body = '<section class="card"><div class="card-head"><div><h2>Historique</h2>' +
@@ -4562,7 +4599,12 @@ global.ANAGROCI_FB = {
   fillGps: fillGps,
   addAcheteur: addAcheteur,
   calcPotentiel: calcPotentiel,
-  store: FBStore
+  store: FBStore,
+  refreshFarmerPassport: function (pid, tab) {
+    if (pid) FBStore.invalidate('passport:' + pid);
+    FBStore.invalidate('base');
+    return renderFarmerPassport(pid, tab);
+  }
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
