@@ -1,0 +1,55 @@
+name: Verify published RT cluster correction
+on:
+  push:
+    branches: [verify/rt-cluster-production-20260919]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read production files and compare to the deployed commit
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const commit='3f25c185a0d212d7cd1f4a29f379cb6e889992b2';
+          const base='https://nwodobe.github.io/fbms/';
+          const specs=[['operations/field-buying.html','?rt_verify='+commit],['operations/field-buying.js','?v=20260919-rt-cluster-1']];
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const result={commit,checked_at:new Date().toISOString(),authenticated_session:false,files:[]};
+          for(const [path,query] of specs){
+            const expected=sha(fs.readFileSync(path));
+            let ok=false;
+            for(let attempt=1;attempt<=12;attempt++){
+              try{
+                const url=base+path+query;
+                const response=await fetch(url,{signal:AbortSignal.timeout(15000),headers:{'Cache-Control':'no-cache'}});
+                const bytes=Buffer.from(await response.arrayBuffer());
+                if(response.ok&&sha(bytes)===expected){
+                  result.files.push({path,url,status:response.status,bytes:bytes.length,sha256:sha(bytes),attempt});
+                  ok=true;break;
+                }
+                console.log('Retry',path,response.status,attempt);
+              }catch(error){console.log('Retry',path,attempt,error.message);}
+              if(attempt<12)await new Promise(r=>setTimeout(r,10000));
+            }
+            assert.ok(ok,'Production bytes do not match deployed commit: '+path);
+          }
+          assert.match(fs.readFileSync(specs[0][0],'utf8'),/field-buying\.js\?v=20260919-rt-cluster-1/);
+          fs.writeFileSync('production-assets.json',JSON.stringify(result,null,2));
+          console.log(JSON.stringify(result));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rt-production-proof
+          path: production-assets.json
+          retention-days: 14
