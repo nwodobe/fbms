@@ -204,12 +204,21 @@ function ensureButton() {
   if (type !== 'rt' && type !== 'farmers') return;
   var actions = document.querySelector('#opsRouteView .ops-route-actions');
   if (!actions || actions.querySelector('[data-zonal-edit]')) return;
+  /* Le moteur principal sait maintenant éditer le Producteur pour Zonal Head.
+     Ne pas injecter un second éditeur simplifié quand son CTA canonique existe. */
+  if (type === 'farmers' && actions.querySelector('[data-farmer-master-edit]')) return;
   var b = document.createElement('button');
   b.type = 'button';
   b.className = 'btn secondary';
   b.setAttribute('data-zonal-edit', '1');
   b.textContent = 'Modifier';
-  b.onclick = function () { if (type === 'rt') openRt(id); else openFarmer(id); };
+  b.onclick = function () {
+    if (type === 'rt') return openRt(id);
+    if (global.ANAGROCI_FB && typeof global.ANAGROCI_FB.openFarmerForm === 'function') {
+      return global.ANAGROCI_FB.openFarmerForm(null, id);
+    }
+    return openFarmer(id);
+  };
   actions.insertBefore(b, actions.firstChild || null);
 }
 function install() {
