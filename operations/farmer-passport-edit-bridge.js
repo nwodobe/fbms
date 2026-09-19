@@ -6,6 +6,33 @@
 
 var FR = global.AFLP_FARMER_REGISTRY = global.AFLP_FARMER_REGISTRY || {};
 
+/* Les anciens modules Farmer Registry utilisent les globals SB/AUTH.
+   Operations Suite travaille avec ANAGROCI_AUTH et les mêmes credentials publics.
+   Ce bridge ne contourne rien : la session Supabase et les RLS restent l'arbitre. */
+function ensureLegacyRuntime() {
+  if (!global.SB && global.supabase && global.ANAGROCI_SUPABASE_URL && global.ANAGROCI_SUPABASE_ANON) {
+    global.SB = global.supabase.createClient(
+      global.ANAGROCI_SUPABASE_URL,
+      global.ANAGROCI_SUPABASE_ANON,
+      { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }
+    );
+  }
+  global.AUTH = global.AUTH || {};
+  if (typeof global.AUTH.isConnected !== 'function') {
+    global.AUTH.isConnected = function () {
+      return !!(global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile);
+    };
+  }
+  if (!global.AUTH.session && global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile) {
+    global.AUTH.session = global.ANAGROCI_AUTH.profile;
+  }
+}
+ensureLegacyRuntime();
+document.addEventListener('anagroci:authenticated', function (ev) {
+  ensureLegacyRuntime();
+  if (ev && ev.detail && ev.detail.profile) global.AUTH.session = ev.detail.profile;
+});
+
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"]/g, function (c) {
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
