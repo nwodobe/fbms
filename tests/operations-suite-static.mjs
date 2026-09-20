@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
-const workspaces = ['field-buying.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
-for (const label of ['FIELD BUYING','LBA PURCHASE','WAREHOUSE OPERATIONS','STOCK TRANSFER','FACTORY','TRACEABILITY 360','REPORTS & EXPORT']) {
+const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
+for (const label of ['FIELD BUYING','PROCUREMENT','LBA PURCHASE','WAREHOUSE OPERATIONS','STOCK TRANSFER','FACTORY','TRACEABILITY 360','REPORTS & EXPORT']) {
   assert.ok(portal.includes(label), `portal missing ${label}`);
 }
 assert.ok(portal.includes('ACHAT BORD CHAMP'), 'portal must use Achat Bord Champ');
@@ -59,8 +59,9 @@ for (const t of ["q('villages_light_v'", "q('rt_light_v'", "from('villages')", "
                  'aflp_zones', 'aflp_clusters', 'hubs_clusters', 'log_hubs']) {
   assert.ok(fb.includes(t), `FB must reuse existing engine: ${t}`);
 }
-// Bareme de l'ancien moteur d'achats conserve.
-assert.ok(fb.includes('PRIX_CAMPAGNE = 400'), 'campaign price 400 missing');
+// Le barème n'est plus hardcodé dans le frontend : il vient du Master Procurement versionné.
+assert.ok(fb.includes('procurement_active_rule'), 'Field Buying must load the active Procurement rule');
+assert.ok(!fb.includes('PRIX_CAMPAGNE = 400'), 'legacy hardcoded campaign price must not return');
 assert.ok(fb.includes("'Validation BM requise'"), 'off-scale price BM validation missing');
 assert.ok(fb.includes("'Entrée RT'"), 'stock release rule missing');
 // Regle 2027 : parcelle jamais bloquante — le formulaire d'achat n'exige aucune parcelle.
