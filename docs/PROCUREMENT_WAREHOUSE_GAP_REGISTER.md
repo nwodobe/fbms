@@ -47,7 +47,7 @@ Branch: `feature/procurement-field-buying-warehouse`
 | GAP-027 | Producer already paid | Traitement financier d'un écart découvert après paiement producteur. | P0 business | BUSINESS_DECISION_REQUIRED — ne jamais réécrire le paiement. |
 | GAP-028 | Required documents | Documents obligatoires peuvent varier par canal. | P1 business | BUSINESS_DECISION_REQUIRED — champs disponibles, matrice documentaire à valider. |
 | GAP-029 | Kg/bag | Ancienne contrainte terrain 40–120 kg/sac est encore une règle technique héritée. | P1 business | À VALIDER — ne pas supprimer sans règle officielle. |
-| GAP-030 | Campaign legacy values | Règle migrée: prix 400, commission 10, Moisture max 10, KOR min 45. | P0 business | BUSINESS_DECISION_REQUIRED — source marquée LEGACY, à superséder après validation. |
+| GAP-030 | Campaign legacy values | Règle migrée: prix 400, commission 10, Moisture max 10, KOR min 45. | P0 business | BUSINESS_DECISION_REQUIRED — source marquée LEGACY, à superséder après validation. |\n| GAP-031 | Bonus legacy | Une contrainte historique `bonus_diff = poids_net × 5` existe encore en base et n'est pas reliée à un Master Procurement. | P1 business | BUSINESS_DECISION_REQUIRED — confirmer si le bonus 5 FCFA/kg reste valide, doit devenir paramétrable, ou doit être retiré. |
 
 ## Business Decisions Required avant exploitation complète
 
@@ -59,7 +59,7 @@ Branch: `feature/procurement-field-buying-warehouse`
 6. Définir le catalogue officiel de Rejection Disposition.
 7. Définir les documents obligatoires par canal.
 8. Valider la fourchette kg/sac ou la rendre paramétrable.
-9. Définir la stratégie de conflits offline multi-device.
+9. Définir la stratégie de conflits offline multi-device.\n10. Valider la règle historique de bonus `5 FCFA/kg` avant de la rendre dynamique ou de la retirer.
 
 ## Quality Gate
 
