@@ -990,12 +990,23 @@
     // Les entrepôts de Bouaké ne font pas de calibrage (usine à Yamoussoukro).
     if (meta.destinationType === "calibrage" && !calibrageAutorise(cycle.binId))
       throw new Error("Les entrepôts de " + (locationOfBin(cycle.binId) || "cette localité") + " ne font pas de calibrage. Transférez d'abord vers un entrepôt de Yamoussoukro.");
-    var parts = allocateFromCycle(cycle, poids);
-    // Débit des contributeurs.
-    parts.forEach(function (p) {
-      var c = cycle.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
-      if (c) c.sorti = round2(c.sorti + p.qty);
+    // PREPARE = réservation logique uniquement. Les anciens transferts RCNTRACE
+    // débitaient déjà le BIN ici ; le WMS canonique impose désormais que le
+    // mouvement physique n'intervienne qu'au Dispatch/shipTransfer.
+    var reservedByLot = {};
+    transfers().forEach(function (t) {
+      if (!t || t.cycleId !== cycle.id || [ETAT_TRF.PREPARE, ETAT_TRF.CONTROLE].indexOf(t.etat) < 0) return;
+      if (t.reservationOnly !== true || t.stockDebited === true) return;
+      (t.contributors || []).forEach(function (c) {
+        reservedByLot[c.lotId] = round2((reservedByLot[c.lotId] || 0) + (num(c.qty) || 0));
+      });
     });
+    var virtualCycle = {
+      contributors: cycle.contributors.map(function (c) {
+        return { lotId: c.lotId, entree: c.entree, sorti: round2(c.sorti + (reservedByLot[c.lotId] || 0)), qualite: c.qualite };
+      })
+    };
+    var parts = allocateFromCycle(virtualCycle, poids);
     meta = meta || {};
     var trf = {
       id: genId("TRF"), createdAt: nowISO(),
@@ -1011,16 +1022,15 @@
       contributors: parts.map(function (p) { return { lotId: p.lotId, share: round2(p.share * 100), qty: p.qty, qualite: (getLot(p.lotId) || {}).etat }; }),
       etat: ETAT_TRF.PREPARE,
       validations: { entrepot: { ok: true, at: nowISO(), auteur: (loadDb().user || {}).nom }, qa: null, calibrage: null },
-      voyages: []
+      voyages: [],
+      // Marqueur de compatibilité : les nouveaux transferts ne sont pas débités
+      // au PREPARE. Les objets historiques sans ce marqueur restent inchangés.
+      reservationOnly: true,
+      stockDebited: false
     };
     trf.finance = computeTransferFinance(trf);   // valorisation au départ (§6)
     loadDb().transfers.unshift(trf);
-    var mov = { id: genId("MOV"), type: "sortie_bin", cycleId: cycle.id, binId: cycle.binId, trfId: trf.id, qty: poids, at: nowISO() };
-    loadDb().movements.unshift(mov);
-    trf.contributors.forEach(function (c) {
-      var lot = getLot(c.lotId); if (lot) lot.children.push({ type: "trf", ref: trf.id, qty: c.qty, at: nowISO() });
-    });
-    audit(trf.id, "transfert", null, ETAT_TRF.PREPARE, "Préparation transfert depuis " + cycle.id);
+    audit(trf.id, "transfert", null, ETAT_TRF.PREPARE, "Préparation/réservation transfert depuis " + cycle.id + " — stock physique inchangé");
     saveDb();
     return trf;
   }
@@ -1041,8 +1051,28 @@
   function shipTransfer(trfId) {
     var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
     if (!trf.validations.qa || !trf.validations.qa.ok) throw new Error("Contrôle QA requis avant expédition.");
+    if (trf.etat === ETAT_TRF.EXPEDIE) return trf;
+    if (trf.etat !== ETAT_TRF.CONTROLE) throw new Error("Expédition possible uniquement après contrôle QA.");
+    // Compatibilité : seuls les transferts créés avec reservationOnly=true
+    // doivent être débités ici. Les objets historiques ont déjà été débités
+    // au PREPARE dans l'ancien moteur et ne doivent jamais l'être deux fois.
+    if (trf.reservationOnly === true && trf.stockDebited !== true) {
+      var cycle = getCycle(trf.cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+      (trf.contributors || []).forEach(function (p) {
+        var c = cycle.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
+        var dispo = c ? round2(c.entree - c.sorti) : 0;
+        if (!c || dispo + 0.001 < p.qty) throw new Error("Stock insuffisant au Dispatch pour le lot " + p.lotId + ".");
+      });
+      (trf.contributors || []).forEach(function (p) {
+        var c = cycle.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
+        c.sorti = round2(c.sorti + p.qty);
+        var lot = getLot(p.lotId); if (lot) lot.children.push({ type: "trf", ref: trf.id, qty: p.qty, at: nowISO() });
+      });
+      loadDb().movements.unshift({ id: genId("MOV"), type: "sortie_bin", cycleId: cycle.id, binId: cycle.binId, trfId: trf.id, qty: trf.poidsEnvoye, at: nowISO() });
+      trf.stockDebited = true;
+    }
     trf.etat = ETAT_TRF.EXPEDIE;
-    audit(trf.id, "transfert", ETAT_TRF.CONTROLE, ETAT_TRF.EXPEDIE, "Expédition");
+    audit(trf.id, "transfert", ETAT_TRF.CONTROLE, ETAT_TRF.EXPEDIE, "Expédition — débit physique confirmé");
     saveDb();
     return trf;
   }
