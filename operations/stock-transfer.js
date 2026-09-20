@@ -256,6 +256,11 @@
         selectField('Resolution Type','resolution_type',[['REWEIGH_CORRECTION','Reweigh correction'],['STOCK_GAIN','Stock gain'],['COMPENSATION','Compensation'],['WRITE_OFF','Write off']],'REWEIGH_CORRECTION') +
         '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Submit Resolution</button></div></form>';
     }
+    if (context === 'reconciliation' && t.status === 'RESOLUTION_PENDING' && can('transfer_resolve_approve')) {
+      html += '<section class="card"><h2>Resolution Approval</h2><div class="ops-form-grid" style="margin-top:12px">' + field('Approval Comment','resolution_comment','text','') + '</div><div class="ops-actions" style="margin-top:12px">' +
+        '<button class="btn primary" data-action-button="resolution-approve" data-id="'+esc(t.id)+'">Approve Resolution</button>' +
+        '<button class="btn signal" data-action-button="resolution-reject" data-id="'+esc(t.id)+'">Reject Resolution</button></div></section>';
+    }
     if (context === 'reconciliation' && t.status === 'RECONCILED' && can('transfer_close')) {
       html += '<form class="card" data-action="close" data-id="'+esc(t.id)+'"><h2>Close Transfer</h2><div class="ops-form-grid" style="margin-top:12px">'+field('Close Note','note','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Close & Lock</button></div></form>';
     }
@@ -337,6 +342,8 @@
       if(action==='reject'){var r=document.querySelector('[name="comment"]');if(!r||!r.value.trim())throw new Error('Motif obligatoire pour Reject.');await doRpc('wms_trf_reject',id,{p_id:id,p_reason:r.value},'REJECT');}
       if(action==='cancel'){var x=document.querySelector('[name="comment"]');if(!x||!x.value.trim())throw new Error('Motif obligatoire pour Cancel.');await doRpc('wms_trf_cancel',id,{p_id:id,p_reason:x.value},'CANCEL');}
       if(action==='dispatch'){await doRpc('wms_trf_confirm_dispatch',id,{p_id:id},'DISPATCH');}
+      if(action==='resolution-approve'){var ac=document.querySelector('[name="resolution_comment"]');await doRpc('wms_trf_decide_resolution',id,{p_id:id,p_approve:true,p_comment:ac?ac.value:''},'RESOLVE_DECISION');}
+      if(action==='resolution-reject'){var rc=document.querySelector('[name="resolution_comment"]');if(!rc||!rc.value.trim())throw new Error('Commentaire obligatoire pour refuser une resolution.');await doRpc('wms_trf_decide_resolution',id,{p_id:id,p_approve:false,p_comment:rc.value},'RESOLVE_DECISION');}
       await render();
     }catch(e){errorBox(e);}finally{b.disabled=false;}
   }
