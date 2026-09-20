@@ -22,6 +22,11 @@ function field(label,name,type,value,extra){var i=id(name);return'<div class="op
 function textarea(label,name,value,extra){var i=id(name);return'<div class="ops-field"><label for="'+i+'">'+esc(label)+'</label><textarea id="'+i+'" name="'+esc(name)+'" '+(extra||'')+'>'+esc(value||'')+'</textarea></div>';}
 function select(label,name,opts,value,extra){var i=id(name);return'<div class="ops-field"><label for="'+i+'">'+esc(label)+'</label><select id="'+i+'" name="'+esc(name)+'" '+(extra||'')+'>'+opts.map(function(o){return'<option value="'+esc(o[0])+'"'+(String(o[0])===String(value||'')?' selected':'')+'>'+esc(o[1])+'</option>';}).join('')+'</select></div>';}
 function can(a){return !!((state.permissions.actions||{})[a]);}
+function waitAuth(){return new Promise(function(resolve){
+ if(global.ANAGROCI_AUTH&&global.ANAGROCI_AUTH.profile)return resolve(global.ANAGROCI_AUTH);
+ function ready(ev){document.removeEventListener('anagroci:authenticated',ready);resolve((ev&&ev.detail)||global.ANAGROCI_AUTH||null);}
+ document.addEventListener('anagroci:authenticated',ready);
+});}
 function waitClient(){return new Promise(function(resolve){var k=0,t=setInterval(function(){k++;if(global.supabase&&global.ANAGROCI_SUPABASE_URL&&global.ANAGROCI_SUPABASE_ANON){clearInterval(t);resolve(global.supabase.createClient(global.ANAGROCI_SUPABASE_URL,global.ANAGROCI_SUPABASE_ANON));}else if(k>120){clearInterval(t);resolve(null);}},80);});}
 async function q(name,cols,build){var x=sb.from(name).select(cols||'*');if(build)x=build(x);var r=await x;if(r.error)throw new Error(r.error.message||name);return r.data||[];}
 async function rpc(name,args){var r=await sb.rpc(name,args||{});if(r.error)throw new Error(r.error.message||name);return r.data;}
@@ -274,8 +279,12 @@ async function click(ev){
  }catch(e){err(e);}finally{b.disabled=false;}
 }
 async function init(){
- root=document.getElementById('opsRouteView');sb=await waitClient();
+ root=document.getElementById('opsRouteView');
+ await waitAuth();
+ sb=await waitClient();
  if(!sb){if(root)root.innerHTML=notice('danger','Connexion Supabase indisponible.');return;}
+ var sess=await sb.auth.getSession();
+ if(!sess||sess.error||!sess.data||!sess.data.session){if(root)root.innerHTML=notice('danger','Session utilisateur non disponible. Reconnectez-vous.');return;}
  root.addEventListener('submit',submit);root.addEventListener('click',click);root.addEventListener('keydown',function(ev){var row=ev.target.closest('[data-href]');if(row&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();location.hash=row.dataset.href;}});
  global.ANAGROCI_OPS_ROUTE=function(){render().catch(err);};
  await render();
