@@ -4,7 +4,7 @@
 if(!document.body || document.body.dataset.workspace!=='warehouse') return;
 
 var root=null,sb=null,seq=0;
-var state={permissions:{},warehouses:[],areas:[],suppliers:[],receptions:[],lots:[],bins:[],quality:[],postDry:[],dryings:[],inventory:[],transfers:[],bagStock:[],bagDebt:[],locations:[],audit:[],overview:{},closings:[]};
+var state={permissions:{},warehouses:[],areas:[],suppliers:[],receptions:[],lots:[],bins:[],quality:[],postDry:[],dryings:[],inventory:[],transfers:[],bagMovements:[],bagStock:[],bagDebt:[],locations:[],audit:[],overview:{},closings:[]};
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function num(v,d){var x=Number(v);return Number.isFinite(x)?x.toLocaleString('fr-FR',{maximumFractionDigits:d==null?2:d}):'-';}
@@ -62,6 +62,7 @@ async function overview(){
   state.dryings=await q('wms_dryings','*',function(x){return x.gte('created_at',today+'T00:00:00Z').order('created_at',{ascending:false}).limit(300);}).catch(function(){return[];});
   state.inventory=await q('wms_inventory_counts','*',function(x){return x.gte('counted_at',today+'T00:00:00Z').order('counted_at',{ascending:false}).limit(300);}).catch(function(){return[];});
   state.transfers=await q('wms_v_transfers','*',function(x){return x.eq('is_test',false).gte('requested_at',today+'T00:00:00Z').order('requested_at',{ascending:false}).limit(300);}).catch(function(){return[];});
+  state.bagMovements=await q('rcn_jute_movements','id,movement_type,qty,movement_at,source_type',function(x){return x.eq('source_type','WMS').gte('movement_at',today+'T00:00:00Z').order('movement_at',{ascending:false}).limit(500);}).catch(function(){return[];});
   var o=state.overview,att=state.receptions.filter(function(r){return['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;}).sort(function(a,b){return Number(b.age_hours||0)-Number(a.age_hours||0);}).slice(0,15);
   root.innerHTML=head('Warehouse Operations','Control Tower RCN : exceptions, décisions et prochaines actions.',can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ New Reception</a>':'')+
   '<div class="kpi-grid">'+
@@ -81,12 +82,16 @@ async function overview(){
   '<div class="ops-def-grid"><div><small>Trucks received</small><b>'+state.receptions.filter(function(r){return String(r.arrival_at||'').slice(0,10)===today;}).length+'</b></div>'+
   '<div><small>Trucks rejected</small><b>'+state.receptions.filter(function(r){return r.status==='REJECTED'&&String(r.decided_at||'').slice(0,10)===today;}).length+'</b></div>'+
   '<div><small>Total kg received</small><b>'+kg(state.receptions.filter(function(r){return String(r.offloaded_at||'').slice(0,10)===today;}).reduce(function(t,r){return t+Number(r.net_kg||0);},0))+'</b></div>'+
+  '<div><small>Average Final KOR</small><b>'+num((function(){var a=state.quality.filter(function(q){return q.type==='FINAL'&&String(q.created_at||'').slice(0,10)===today&&q.kor_exact!=null;});return a.length?a.reduce(function(t,q){return t+Number(q.kor_exact);},0)/a.length:0;})(),2)+'</b></div>'+
+  '<div><small>Average Moisture</small><b>'+num((function(){var a=state.quality.filter(function(q){return q.type==='FINAL'&&String(q.created_at||'').slice(0,10)===today&&q.moisture_pct!=null;});return a.length?a.reduce(function(t,q){return t+Number(q.moisture_pct);},0)/a.length:0;})(),2)+' %</b></div>'+
   '<div><small>Drying input</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.input_kg||0);},0))+'</b></div>'+
   '<div><small>Drying output</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.output_kg||0);},0))+'</b></div>'+
   '<div><small>Process loss</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.process_loss_kg||0);},0))+'</b></div>'+
   '<div><small>Inventory variances</small><b>'+state.inventory.filter(function(i){return Math.abs(Number(i.variance_kg||0))>0.001;}).length+'</b></div>'+
   '<div><small>Transfers prepared</small><b>'+state.transfers.length+'</b></div>'+
   '<div><small>Transfers dispatched</small><b>'+state.transfers.filter(function(t){return t.departed_at;}).length+'</b></div>'+
+  '<div><small>Bag movements</small><b>'+state.bagMovements.length+'</b></div>'+
+  '<div><small>Stock WET / DRY / HOLD</small><b>'+kg(state.closings.reduce(function(t,c){return t+Number(c.stock_wet_kg||0);},0))+' / '+kg(state.closings.reduce(function(t,c){return t+Number(c.stock_dry_kg||0);},0))+' / '+kg(state.closings.reduce(function(t,c){return t+Number(c.stock_hold_kg||0);},0))+'</b></div>'+
   '<div><small>Pending actions</small><b>'+att.length+'</b></div></div></section>';
 }
 
