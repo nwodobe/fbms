@@ -167,6 +167,26 @@ const wh = read('operations/module-router-v2.js');
 assert.ok(/LOT = identité/i.test(wh) && /BIN = localisation/i.test(wh), 'LOT/BIN rule missing');
 const transfer = read('operations/stock-transfer.html');
 assert.ok(/LBA direct Factory/i.test(transfer), 'direct LBA factory transfer boundary missing');
+assert.ok(/stock-transfer\.js\?v=/.test(transfer), 'Stock Transfer dedicated controller must be loaded');
+assert.ok(!/module-router-v2\.js/.test(transfer), 'Stock Transfer must not fall back to the generic read-only router');
+const trf = read('operations/stock-transfer.js');
+for (const rpc of ['wms_trf_create_request','wms_trf_approve','wms_trf_save_load','wms_trf_confirm_dispatch',
+                   'wms_trf_register_arrival','wms_trf_confirm_receipt','wms_trf_resolve_discrepancy',
+                   'wms_trf_decide_resolution','wms_trf_close']) {
+  assert.ok(trf.includes(rpc), `Stock Transfer RPC missing: ${rpc}`);
+}
+for (const route of ['overview','requests','ready','transit','arrivals','reconciliation','audit']) {
+  assert.ok(trf.includes(route), `Stock Transfer route missing: ${route}`);
+}
+assert.ok(!trf.includes("from('rcn_state')") && !trf.includes('from("rcn_state")'),
+  'Stock Transfer must use the WMS ledger, not rcn_state as a second stock source');
+assert.ok(trf.includes('Reservation != mouvement physique') && trf.includes('Arrival != Receipt'),
+  'Stock Transfer critical stock boundaries must stay visible');
+const legacyRcn = read('rcntrace/rcntrace.js');
+assert.ok(legacyRcn.includes('reservationOnly: true') && legacyRcn.includes('stockDebited: false'),
+  'Legacy RCN prepareTransfer must reserve without physical debit');
+assert.ok(/function shipTransfer[\s\S]{0,3000}stockDebited = true/.test(legacyRcn),
+  'Legacy RCN physical debit must occur at shipTransfer');
 const factory = read('operations/factory.html');
 assert.ok(/Arrival ≠ Process/i.test(factory), 'factory warehouse/process boundary missing');
 const reports = read('operations/reports-export.js');
