@@ -163,8 +163,12 @@ for (const file of ['lba-purchase.html', 'reports.html', 'traceability.html',
       `${file}: technical wording "${word}" must not reach the user interface`);
   }
 }
-const wh = read('operations/module-router-v2.js');
-assert.ok(/LOT = identité/i.test(wh) && /BIN = localisation/i.test(wh), 'LOT/BIN rule missing');
+const whHtml = read('operations/warehouse.html');
+const wh = read('operations/warehouse.js');
+assert.ok(/LOT = identité/i.test(whHtml) && /BIN = localisation/i.test(whHtml), 'LOT/BIN rule missing');
+assert.ok(/warehouse\.js\?v=/.test(whHtml), 'Warehouse dedicated controller must be loaded');
+assert.ok(!/module-router-v2\.js/.test(whHtml), 'Warehouse must not fall back to the generic router');
+assert.ok(/wms_overview/.test(wh) && /wms_create_reception/.test(wh) && /wms_save_quality/.test(wh), 'Warehouse WMS RPC wiring missing');
 const transfer = read('operations/stock-transfer.html');
 assert.ok(/LBA direct Factory/i.test(transfer), 'direct LBA factory transfer boundary missing');
 assert.ok(/stock-transfer\.js\?v=/.test(transfer), 'Stock Transfer dedicated controller must be loaded');
