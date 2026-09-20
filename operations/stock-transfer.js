@@ -4,7 +4,7 @@
 
   if (!document.body || document.body.dataset.workspace !== 'transfer') return;
 
-  var root = null, sb = null;
+  var root = null, sb = null, fieldSeq = 0;
   var state = { permissions: {}, settings: {}, transfers: [], warehouses: [], stock: [] };
 
   function esc(v) {
@@ -41,14 +41,15 @@
     return '<div class="table-wrap"><table><thead><tr>' + headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
       '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
   }
+  function nextFieldId(name) { fieldSeq += 1; return 'trf_' + String(name || 'field').replace(/[^A-Za-z0-9_-]/g, '_') + '_' + fieldSeq; }
   function field(label, name, type, value, extra) {
-    extra = extra || '';
-    if (type === 'textarea') return '<div class="ops-field"><label>' + esc(label) + '</label><textarea name="' + esc(name) + '" ' + extra + '>' + esc(value || '') + '</textarea></div>';
-    return '<div class="ops-field"><label>' + esc(label) + '</label><input name="' + esc(name) + '" type="' + esc(type || 'text') + '" value="' + esc(value || '') + '" ' + extra + '></div>';
+    extra = extra || ''; var id = nextFieldId(name);
+    if (type === 'textarea') return '<div class="ops-field"><label for="' + id + '">' + esc(label) + '</label><textarea id="' + id + '" name="' + esc(name) + '" ' + extra + '>' + esc(value || '') + '</textarea></div>';
+    return '<div class="ops-field"><label for="' + id + '">' + esc(label) + '</label><input id="' + id + '" name="' + esc(name) + '" type="' + esc(type || 'text') + '" value="' + esc(value || '') + '" ' + extra + '></div>';
   }
   function selectField(label, name, options, value, extra) {
-    extra = extra || '';
-    return '<div class="ops-field"><label>' + esc(label) + '</label><select name="' + esc(name) + '" ' + extra + '>' +
+    extra = extra || ''; var id = nextFieldId(name);
+    return '<div class="ops-field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '" name="' + esc(name) + '" ' + extra + '>' +
       options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(value || '') ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') +
       '</select></div>';
   }
@@ -116,7 +117,7 @@
   function transferById(id) { return state.transfers.filter(function (x) { return x.id === id; })[0] || null; }
 
   function rowTransfer(t, target) {
-    return '<tr class="ops-click" data-href="#' + esc(target) + '/' + encodeURIComponent(t.id) + '">' +
+    return '<tr class="ops-click" tabindex="0" role="link" aria-label="Ouvrir le transfert ' + esc(t.id) + '" data-href="#' + esc(target) + '/' + encodeURIComponent(t.id) + '">' +
       '<td class="mono"><b>' + esc(t.id) + '</b><br><span class="muted">' + esc(t.priority || '') + '</span></td>' +
       '<td>' + esc(t.origin_code || '-') + '</td><td>' + esc(t.dest_code || '-') + '</td>' +
       '<td>' + mt(t.planned_qty) + '</td><td>' + (t.dispatched_qty == null ? '-' : mt(t.dispatched_qty)) + '</td>' +
@@ -355,6 +356,10 @@
     if(!sb){ if(root)root.innerHTML=notice('danger','Connexion Supabase indisponible.'); return; }
     root.addEventListener('submit',handleSubmit);
     root.addEventListener('click',handleClick);
+    root.addEventListener('keydown',function(ev){
+      var row=ev.target.closest('[data-href]');
+      if(row && (ev.key==='Enter' || ev.key===' ')){ ev.preventDefault(); location.hash=row.dataset.href; }
+    });
     global.ANAGROCI_OPS_ROUTE=function(){render().catch(errorBox);};
     await render();
   }
