@@ -2050,7 +2050,7 @@ function openBuyForm(farmerId) {
       var montant = Math.round(net * prix);
       client().then(function (cl) {
         return cl.from('achats').insert({
-          local_id: uid(), date: document.getElementById('bf_date').value,
+          local_id: uid(), campaign: String(rule.campaign || '2027'), date: document.getElementById('bf_date').value,
           cluster: v.cluster || f.cluster_label || null,
           village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
           rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
