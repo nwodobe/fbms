@@ -44,8 +44,22 @@ function overview(){
  '<section class="card"><h2>Architecture</h2><div class="notice info"><b>Field Buying</b> = achat terrain · <b>Procurement</b> = vérité commerciale · <b>Warehouse</b> = vérité physique · <b>Movement Ledger</b> = vérité stock.</div><div class="ops-actions" style="margin-top:12px"><a class="btn secondary" href="field-buying.html#purchases">Achat Bord Champ</a><a class="btn secondary" href="lba-purchase.html#registry">LBA</a><a class="btn secondary" href="warehouse.html#inbound">Warehouse</a></div></section></div>';
 }
 function purchases(){
- root.innerHTML=head('Purchases','Flux consolidé Field Buying + LBA + Cooperative + Direct.')+
- '<section class="card">'+table(['Date','Canal','Counterparty','RT','Village','kg','Paid kg','Prix','Montant','Paiement','Statut'],state.purchases.map(function(x){return'<tr><td>'+dt(x.purchase_at)+'</td><td>'+badge(x.procurement_channel)+'</td><td><b>'+esc(x.counterparty_code||'—')+'</b><br>'+esc(x.counterparty_name||'—')+'</td><td>'+esc(x.rt_id||'—')+'</td><td>'+esc(x.village_nom||'—')+'</td><td>'+kg(x.field_or_net_kg)+'</td><td>'+kg(x.paid_weight_kg)+'</td><td>'+money(x.unit_price)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||x.payment_status||'—')+'</td><td>'+badge(x.status)+'</td></tr>'; }))+'</section>';
+ var supplierTypes=(state.types||[]).filter(function(x){return x.channel_code!=='FIELD_BUYING';});
+ var activeSup=state.suppliers.filter(function(x){return String(x.statut).toUpperCase()==='ACTIF';});
+ root.innerHTML=head('Purchases','Flux consolidé Field Buying + LBA + Cooperative + Direct.','<button class="btn primary" onclick="ANAGROCI_PROC.toggleArrival()">+ Planned Supplier Arrival</button>')+
+ '<section id="arrivalFormHost" class="ops-form-card" hidden><h2>Plan LBA / Direct / Cooperative Arrival</h2><p class="muted">Ce dossier devient une Procurement Reference sélectionnable dans Warehouse / New Reception.</p><form id="arrivalForm"><div class="ops-form-grid">'+
+ select('Purchase Type','purchase_type',[['','Choisir…']].concat(supplierTypes.map(function(x){return[x.code,x.label+' · '+x.channel_code];})),'','required')+
+ select('Supplier','supplier_code',[['','Choisir…']].concat(activeSup.map(function(x){return[x.code,x.code+' - '+x.nom];})),'','required')+
+ field('Origin','origin','text','','required')+
+ select('Destination Warehouse','warehouse_id',[['','Choisir…']].concat(state.warehouses.map(function(w){return[w.id,w.code+' - '+w.name];})),'','required')+
+ field('Expected kg','expected_kg','number','','required min="0.001" step="0.001"')+
+ field('Expected bags','expected_bags','number','','min="0"')+
+ field('Expected Date / Time','expected_at','datetime-local','')+
+ field('Truck','truck','text','')+field('Driver','driver','text','')+field('Transporter','transporter','text','')+field('Reference','reference','text','')+
+ '</div><div class="ops-actions"><button class="btn primary">Create Planned Arrival</button></div><div id="arrivalMsg" class="muted"></div></form></section>'+
+ '<section class="card"><h2>Purchases / Commercial Feed</h2>'+table(['Date','Canal','Counterparty','RT','Village','kg','Paid kg','Prix','Montant','Paiement','Statut'],state.purchases.map(function(x){return'<tr><td>'+dt(x.purchase_at)+'</td><td>'+badge(x.procurement_channel)+'</td><td><b>'+esc(x.counterparty_code||'—')+'</b><br>'+esc(x.counterparty_name||'—')+'</td><td>'+esc(x.rt_id||'—')+'</td><td>'+esc(x.village_nom||'—')+'</td><td>'+kg(x.field_or_net_kg)+'</td><td>'+kg(x.paid_weight_kg)+'</td><td>'+money(x.unit_price)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||x.payment_status||'—')+'</td><td>'+badge(x.status)+'</td></tr>'; }))+'</section>'+
+ '<section class="card"><h2>Pending Supplier Arrivals</h2>'+table(['Reference','Channel','Supplier','Origin','Truck','Expected','Warehouse','Date'],state.pending.filter(function(x){return x.source_type!=='FIELD_SHIPMENT';}).map(function(x){return'<tr><td class="mono">'+esc(x.source_ref)+'</td><td>'+badge(x.procurement_channel)+'</td><td>'+esc((x.supplier_code||'')+' '+(x.supplier_name||''))+'</td><td>'+esc(x.origin||'—')+'</td><td>'+esc(x.truck||'À compléter')+'</td><td>'+kg(x.expected_kg)+'</td><td>'+esc(x.warehouse_code||'—')+'</td><td>'+dt(x.source_date)+'</td></tr>'; }))+'</section>';
+ bindArrival();
 }
 function fieldBuying(){
  var p=state.purchases.filter(function(x){return x.procurement_channel==='FIELD_BUYING';});
@@ -87,6 +101,16 @@ async function audit(){
  var rows=await q('rcn_audit','id,objet,champ,motif,auteur,role,created_at',function(x){return x.order('created_at',{ascending:false}).limit(300);});
  root.innerHTML=head('Procurement Audit','Historique transverse des actions Procurement/Warehouse.')+'<section class="card">'+table(['Date','Object','Action','Reason','User','Role'],rows.map(function(x){return'<tr><td>'+dt(x.created_at)+'</td><td class="mono">'+esc(x.objet||'—')+'</td><td>'+esc(x.champ||'—')+'</td><td>'+esc(x.motif||'—')+'</td><td>'+esc(x.auteur||'—')+'</td><td>'+esc(x.role||'—')+'</td></tr>'; }))+'</section>';
 }
+function bindArrival(){
+ var f=document.getElementById('arrivalForm');if(!f)return;
+ f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('arrivalMsg');try{
+   m.className='muted';m.textContent='Planification…';
+   await rpc('procurement_schedule_supplier_arrival',{p:{purchase_type:d.purchase_type,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags||null,expected_at:d.expected_at||null,truck:d.truck||null,driver:d.driver||null,transporter:d.transporter||null,reference:d.reference||null}});
+   m.className='ops-ok-text';m.textContent='Arrivage planifié; la référence est disponible dans Warehouse.';
+   await load();purchases();
+ }catch(err){m.className='ops-danger-text';m.textContent=err.message;}
+ };
+}
 function bindLba(){
  var f=document.getElementById('lbaForm');if(!f)return;f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('lbaMsg');try{m.textContent='Création…';await rpc('lba_create',{p_nom:d.nom,p_code:d.code,p_origine:d.origine,p_site:d.site||null,p_contrat:d.contrat==='true'});m.className='ops-ok-text';m.textContent='LBA créé.';await load();lba();}catch(err){m.className='ops-danger-text';m.textContent=err.message;}};
 }
@@ -97,7 +121,7 @@ function bindEvac(){
 var ROUTES={overview:overview,field:fieldBuying,lba:lba,purchases:purchases,suppliers:suppliers,evacuations:evacuations,reconciliation:reconciliation,settings:settings,audit:audit};
 async function render(){root=document.getElementById('opsRouteView');try{if(!state.purchases)await load();(ROUTES[route()]||overview)();}catch(e){root.innerHTML=head('Rubrique indisponible','Erreur Procurement')+'<div class="notice danger">'+esc(e.message)+'</div>';}}
 global.ANAGROCI_OPS_ROUTE=render;
-global.ANAGROCI_PROC={render:render,toggleLba:function(){var x=document.getElementById('procLbaForm');if(x)x.hidden=!x.hidden;}};
+global.ANAGROCI_PROC={render:render,toggleLba:function(){var x=document.getElementById('procLbaForm');if(x)x.hidden=!x.hidden;},toggleArrival:function(){var x=document.getElementById('arrivalFormHost');if(x)x.hidden=!x.hidden;}};
 async function boot(){root=document.getElementById('opsRouteView');sb=await waitClient();if(!sb){root.innerHTML='<div class="notice danger">Supabase indisponible.</div>';return;}await render();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })(window);
