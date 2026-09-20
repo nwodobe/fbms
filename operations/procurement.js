@@ -75,8 +75,14 @@ function lba(){
  bindLba();
 }
 function suppliers(){
- root.innerHTML=head('Suppliers','Supplier Master unique utilisé par Procurement et Warehouse.')+
+ root.innerHTML=head('Suppliers','Supplier Master unique utilisé par Procurement et Warehouse.','<button class="btn primary" onclick="ANAGROCI_PROC.toggleSupplier()">+ New Supplier</button>')+
+ '<section id="supplierFormHost" class="ops-form-card" hidden><h2>Créer Direct / Cooperative Supplier</h2><p class="muted">Les LBA sont créés dans la rubrique LBA pour conserver leur codification dédiée.</p><form id="supplierForm"><div class="ops-form-grid">'+
+ field('Supplier Code','code','text','','required')+field('Supplier Name','name','text','','required')+
+ select('Category','category',[['DIRECT','Direct'],['COOPERATIVE','Cooperative']],'DIRECT','required')+
+ field('Origin','origin','text','')+field('Site','site','text','')+select('Contract','contract',[['false','No'],['true','Yes']],'false')+
+ '</div><div class="ops-actions"><button class="btn primary">Create Supplier</button></div><div id="supplierMsg" class="muted"></div></form></section>'+
  '<section class="card">'+table(['Code','Name','Category','Origins','Sites','Delivered','KOR','Moisture','Status'],state.suppliers.map(function(x){return'<tr><td class="mono"><b>'+esc(x.code)+'</b></td><td>'+esc(x.nom)+'</td><td>'+esc(x.categorie)+'</td><td>'+esc((x.origines||[]).join(', ')||'—')+'</td><td>'+esc((x.sites||[]).join(', ')||'—')+'</td><td>'+mt(x.volume_livre_kg)+'</td><td>'+esc(x.kor_moyen==null?'—':x.kor_moyen)+'</td><td>'+esc(x.humidite_moyenne==null?'—':x.humidite_moyenne+' %')+'</td><td>'+badge(x.statut)+'</td></tr>'; }))+'</section>';
+ bindSupplier();
 }
 function usedMap(){var m={};state.contributors.forEach(function(c){m[c.achat_id]=(m[c.achat_id]||0)+n(c.qty_kg);});return m;}
 function evacuations(){
@@ -101,6 +107,16 @@ async function audit(){
  var rows=await q('rcn_audit','id,objet,champ,motif,auteur,role,created_at',function(x){return x.order('created_at',{ascending:false}).limit(300);});
  root.innerHTML=head('Procurement Audit','Historique transverse des actions Procurement/Warehouse.')+'<section class="card">'+table(['Date','Object','Action','Reason','User','Role'],rows.map(function(x){return'<tr><td>'+dt(x.created_at)+'</td><td class="mono">'+esc(x.objet||'—')+'</td><td>'+esc(x.champ||'—')+'</td><td>'+esc(x.motif||'—')+'</td><td>'+esc(x.auteur||'—')+'</td><td>'+esc(x.role||'—')+'</td></tr>'; }))+'</section>';
 }
+function bindSupplier(){
+ var f=document.getElementById('supplierForm');if(!f)return;
+ f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('supplierMsg');try{
+   m.className='muted';m.textContent='Création…';
+   await rpc('procurement_create_supplier',{p:{code:d.code,name:d.name,category:d.category,origin:d.origin||null,site:d.site||null,contract:d.contract==='true'}});
+   m.className='ops-ok-text';m.textContent='Supplier créé.';
+   await load();suppliers();
+ }catch(err){m.className='ops-danger-text';m.textContent=err.message;}
+ };
+}
 function bindArrival(){
  var f=document.getElementById('arrivalForm');if(!f)return;
  f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('arrivalMsg');try{
@@ -121,7 +137,7 @@ function bindEvac(){
 var ROUTES={overview:overview,field:fieldBuying,lba:lba,purchases:purchases,suppliers:suppliers,evacuations:evacuations,reconciliation:reconciliation,settings:settings,audit:audit};
 async function render(){root=document.getElementById('opsRouteView');try{if(!state.purchases)await load();(ROUTES[route()]||overview)();}catch(e){root.innerHTML=head('Rubrique indisponible','Erreur Procurement')+'<div class="notice danger">'+esc(e.message)+'</div>';}}
 global.ANAGROCI_OPS_ROUTE=render;
-global.ANAGROCI_PROC={render:render,toggleLba:function(){var x=document.getElementById('procLbaForm');if(x)x.hidden=!x.hidden;},toggleArrival:function(){var x=document.getElementById('arrivalFormHost');if(x)x.hidden=!x.hidden;}};
+global.ANAGROCI_PROC={render:render,toggleLba:function(){var x=document.getElementById('procLbaForm');if(x)x.hidden=!x.hidden;},toggleArrival:function(){var x=document.getElementById('arrivalFormHost');if(x)x.hidden=!x.hidden;},toggleSupplier:function(){var x=document.getElementById('supplierFormHost');if(x)x.hidden=!x.hidden;}};
 async function boot(){root=document.getElementById('opsRouteView');sb=await waitClient();if(!sb){root.innerHTML='<div class="notice danger">Supabase indisponible.</div>';return;}await render();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })(window);
