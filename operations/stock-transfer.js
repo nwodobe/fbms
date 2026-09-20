@@ -308,9 +308,10 @@
 
   async function handleSubmit(ev) {
     var form = ev.target.closest('form[data-action]'); if (!form) return;
-    ev.preventDefault(); setBusy(form,true);
+    ev.preventDefault();
+    var d=formObj(form), submitter=ev.submitter, act=form.dataset.action, id=form.dataset.id, r;
+    setBusy(form,true);
     try {
-      var act=form.dataset.action, id=form.dataset.id, d=formObj(form), r;
       if (act==='create-request') {
         var lines=[]; form.querySelectorAll('.trf-line').forEach(function(row){
           var ref=row.querySelector('[name="stock_ref"]').value.split('||'); var qty=row.querySelector('[name="qty"]').value;
@@ -320,7 +321,7 @@
         var k=opKey('REQUEST','NEW'); r=await rpc('wms_trf_create_request',{p:payload,p_idempotency_key:k.key}); doneKey(k); location.hash='#requests/'+encodeURIComponent(r.id); return;
       }
       if (act==='save-load') {
-        var submitter=ev.submitter && ev.submitter.value; var confirm=submitter==='confirm';
+        var submitMode=submitter && submitter.value; var confirm=submitMode==='confirm';
         var p={truck_plate:d.truck_plate,transporter:d.transporter,driver_name:d.driver_name,driver_phone:d.driver_phone,seal_no:d.seal_no,bags_loaded:d.bags_loaded||null,gross_kg:d.gross_kg||null,tare_kg:d.tare_kg||null,net_kg:d.net_kg||null,weighbridge_ref:d.weighbridge_ref,load_doc_ref:d.load_doc_ref,load_diff_reason:d.load_diff_reason,loading_start:d.loading_start||null,loading_end:d.loading_end||null,load_notes:d.load_notes};
         var kk=opKey(confirm?'LOAD_CONFIRM':'LOAD_SAVE',id); await rpc('wms_trf_save_load',{p_id:id,p:p,p_confirm:confirm,p_idempotency_key:kk.key}); doneKey(kk); await render(); return;
       }
