@@ -1957,10 +1957,11 @@ function openBuyForm(farmerId) {
       field('Tare (kg)', '<input id="bf_tare" type="number" step="any" min="0" value="0">') +
       field('Poids net (kg)', '<input id="bf_net" type="number" step="any" readonly class="mono">') +
       field('Nombre de sacs *', '<input id="bf_sacs" type="number" min="0" required>') +
+      field('Source du poids *', '<select id="bf_weight_source" required><option value="SCALE">Balance terrain</option><option value="ESTIMATED">Estimation</option><option value="BAG_STANDARD">Standard sacs</option></select>') +
       field('Prix (FCFA/kg) *', '<input id="bf_prix" type="number" step="any" min="0" required value="' + prixCampagne + '">') +
       field('Montant (FCFA)', '<input id="bf_montant" type="number" readonly class="mono">') +
       field('Motif prix hors barème', '<input id="bf_motif_prix" placeholder="Obligatoire si prix ≠ ' + prixCampagne + '" hidden>') +
-      field('Mode de paiement', '<select id="bf_pay"><option>Wave</option><option>Mobile Money</option><option>Espèces exceptionnel</option><option>Autre validé BM</option></select>') +
+      field('Mode de paiement', '<select id="bf_pay"><option value="WAVE">Wave</option><option value="CASH">Cash</option><option value="BANK">Bank</option><option value="OTHER">Other approved method</option></select>') +
       field('N° de reçu', '<input id="bf_ref" placeholder="Obligatoire pour un achat complet">') +
       field('Humidité (%)', '<input id="bf_hum" type="number" step="any" min="0" max="100" placeholder="Facultatif">') +
       field('KOR', '<input id="bf_kor" type="number" step="any" min="0" placeholder="Facultatif">') +
@@ -2060,6 +2061,7 @@ function openBuyForm(farmerId) {
           prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
           nb_sacs: n(document.getElementById('bf_sacs').value),
           mode_paiement: document.getElementById('bf_pay').value,
+          weight_source: document.getElementById('bf_weight_source').value,
           numero_recu: recu, humidite: hum, kor: kor,
           observation: document.getElementById('bf_obs').value.trim() || null,
           prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
