@@ -45,6 +45,9 @@ async function loadBase(){
   state.lots=await q('wms_v_lots','*',function(x){return x.order('created_at',{ascending:false}).limit(500);});
   state.bins=await q('wms_v_bins','*',function(x){return x.order('opened_at',{ascending:false}).limit(500);});
   state.quality=await q('wms_v_quality_current','*',function(x){return x.order('created_at',{ascending:false}).limit(1000);});
+  state.purchaseTypes=await q('procurement_purchase_types','code,label,channel_code',function(x){return x.eq('active',true).order('code');}).catch(function(){return[];});
+  state.pendingProcurement=await q('procurement_v_pending_receptions','*',function(x){return x.order('source_date',{ascending:false}).limit(500);}).catch(function(){return[];});
+  state.paymentMethods=await q('procurement_payment_methods','code,label',function(x){return x.eq('active',true).order('code');}).catch(function(){return[];});
 }
 function whOpts(all){return[['','Sélectionner...']].concat(state.warehouses.filter(function(w){return all||w.status==='ACTIVE';}).map(function(w){return[w.id,w.code+' - '+w.name+(w.status!=='ACTIVE'?' ['+w.status+']':'')];}));}
 function whById(v){return state.warehouses.filter(function(w){return String(w.id)===String(v);})[0];}
@@ -103,22 +106,49 @@ function inboundList(){
 }
 function inboundNew(){
  var nowLocal=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
- root.innerHTML=head('New Reception','Dossier camion RCN · données obligatoires validées côté serveur.','<a class="btn secondary" href="#inbound">Retour</a>')+
- '<form class="ops-form-card" data-action="reception-create"><h2>Truck & Supplier</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ var srcOpts=[['','Manual / Direct / Cooperative / Ad-Hoc']].concat((state.pendingProcurement||[]).map(function(x){
+   return[x.source_type+'|'+x.source_id,x.source_ref+' · '+x.procurement_channel+' · '+(x.truck||'truck à compléter')+' · '+(x.origin||'origine à compléter')];
+ }));
+ var typeOpts=[['','Sélectionner...']].concat((state.purchaseTypes||[]).map(function(x){return[x.code,x.label+' · '+x.channel_code];}));
+ root.innerHTML=head('New Reception','Procurement Reference → camion → qualité → décision → pesée. Les données déjà connues ne sont pas ressaisies.','<a class="btn secondary" href="#inbound">Retour</a>')+
+ '<form class="ops-form-card" data-action="reception-create"><h2>Procurement Source</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ select('Procurement Reference','procurement_source',srcOpts,'','')+
+ select('Purchase Type','purchase_type',typeOpts,'','required')+
+ select('Ad-Hoc Reception','ad_hoc',[['false','No'],['true','Yes · unplanned exception']],'false','required')+
+ field('Reason for Ad-Hoc','ad_hoc_reason','text','')+
+ '</div><h2 style="margin-top:18px">Truck & Counterparty</h2><div class="ops-form-grid" style="margin-top:12px">'+
  field('Truck Number','truck','text','','required')+
- select('Supplier','supplier_code',[['','Sélectionner un fournisseur actif...']].concat(state.suppliers.map(function(x){return[x.code,x.code+' - '+x.nom];})),'','required')+
+ select('Supplier','supplier_code',[['','Sélectionner un fournisseur actif...']].concat(state.suppliers.map(function(x){return[x.code,x.code+' - '+x.nom];})),'','')+
+ field('Supplier Code','supplier_code_display','text','','readonly aria-readonly="true"')+
  field('Origin','origin','text','','required')+
  select('Warehouse','warehouse_id',whOpts(false),'','required')+
  field('Arrival Date / Time','arrival_at','datetime-local',nowLocal,'required')+
- field('Purchase Type','purchase_type','text','','required')+
- '</div><h2 style="margin-top:18px">Document Check</h2><p class="muted">Contrôle rapide avant traitement : les pièces peuvent être complétées par correction contrôlée.</p>'+
+ '</div><h2 style="margin-top:18px">Document Check</h2><p class="muted">La Procurement Reference et les documents restent distincts. Un Field Shipment conserve ses producteurs contributeurs.</p>'+
  '<div class="ops-form-grid" style="margin-top:12px">'+
  field('Delivery Note','delivery_note','text','')+field('Weighbridge Ticket','weighbridge_ticket','text','')+
- field('Driver','driver','text','','required')+field('Transporter','transporter','text','','required')+
+ field('Driver','driver','text','','required')+field('Transporter','transporter','text','')+
  field('Expected Weight kg','expected_kg','number','','step="0.001" min="0"')+field('Expected Bags','expected_bags','number','','min="0"')+
  field('Reference','reference','text','')+
- '</div><div class="ops-actions" style="margin-top:14px"><button class="btn primary">Create Reception</button></div></form>';
+ '</div><div class="notice info" id="procurementSourceInfo" style="margin-top:12px">Sélectionnez une Procurement Reference pour préremplir les données connues, ou utilisez le mode manuel contrôlé.</div>'+
+ '<div class="ops-actions" style="margin-top:14px"><button class="btn primary">Create Reception</button></div></form>';
+ syncReceptionSource('');
 }
+function syncReceptionSource(value){
+ var form=root&&root.querySelector('form[data-action="reception-create"]');if(!form)return;
+ var row=(state.pendingProcurement||[]).filter(function(x){return x.source_type+'|'+x.source_id===value;})[0];
+ function set(n,v){var e=form.querySelector('[name="'+n+'"]');if(e&&v!=null)e.value=v;}
+ if(row){
+   set('purchase_type',row.purchase_type);set('supplier_code',row.supplier_code||'');set('supplier_code_display',row.supplier_code||'MULTI-PRODUCER');
+   set('origin',row.origin||'');set('warehouse_id',row.warehouse_id||'');set('truck',row.truck||'');
+   set('driver',row.driver||'');set('transporter',row.transporter||'');set('expected_kg',row.expected_kg==null?'':row.expected_kg);
+   set('expected_bags',row.expected_bags==null?'':row.expected_bags);set('reference',row.source_ref||'');set('ad_hoc','false');set('ad_hoc_reason','');
+   var info=document.getElementById('procurementSourceInfo');if(info)info.innerHTML='<b>'+esc(row.source_ref)+'</b> · '+esc(row.procurement_channel)+' · '+esc(row.source_type)+' · la généalogie Procurement sera liée à cette réception.';
+ }else{
+   var sup=form.querySelector('[name="supplier_code"]'),disp=form.querySelector('[name="supplier_code_display"]');if(disp)disp.value=sup?sup.value:'';
+   var info2=document.getElementById('procurementSourceInfo');if(info2)info2.textContent='Mode manuel : Supplier obligatoire pour Direct/Cooperative; utilisez Ad-Hoc = Yes si le camion n’était pas planifié.';
+ }
+}
+
 function timelineRec(r){
  var arr=[['Arrival',r.arrival_at,r.created_by_name],['Sampling',r.sampling_at,'Quality'],['Decision',r.decided_at,r.decided_by_name],['Offloading',r.offloaded_at,'Warehouse'],['Final QA',r.final_at,'Quality']].filter(function(x){return x[1];});
  return'<div class="ops-timeline">'+arr.map(function(x){return'<div class="ops-timeline-item"><time>'+dt(x[1])+'</time><div><b>'+esc(x[0])+'</b><small>'+esc(x[2]||'-')+'</small></div></div>';}).join('')+'</div>';
@@ -138,11 +168,12 @@ function inboundDetail(r){
  select('Field','field',[['truck','Truck'],['supplier_code','Supplier Code'],['origin','Origin'],['expected_kg','Expected Weight'],['expected_bags','Expected Bags'],['driver','Driver'],['transporter','Transporter'],['reference','Reference'],['weighbridge_ticket','Weighbridge Ticket'],['delivery_note','Delivery Note']],'','required')+
  field('New Value','new_value','text','','required')+field('Reason','reason','text','','required')+field('Approver','approver','text','','required')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Apply Controlled Correction</button></div></form>':'';
+ var settlement=(r.net_kg!=null)?'<form class="card" data-action="procurement-settlement" data-id="'+esc(r.id)+'"><h2>Commercial Settlement</h2><p class="muted">Physical Net Weight reste la vérité Warehouse. Refraction et Paid Weight sont commerciaux et ne diminuent pas le stock physique.</p><div class="ops-form-grid">'+select('Refraction Mode','refraction_mode',[['NONE','None'],['KG','kg'],['PERCENT','%']],r.refraction_mode||'NONE')+field('Refraction Value','refraction_value','number',r.refraction_value||0,'step="0.001" min="0"')+field('Warehouse Net kg','net_snapshot','number',r.net_kg,'readonly')+field('Paid Weight kg','paid_preview','number',r.paid_weight_kg==null?r.net_kg:r.paid_weight_kg,'readonly')+field('Price / kg','price_per_kg','number',r.price_per_kg||'','step="0.01" min="0"')+select('Payment Method','payment_method',[['','—']].concat((state.paymentMethods||[]).map(function(x){return[x.code,x.label];})),r.payment_method||'')+select('Payment Status','payment_status',[['UNPAID','Unpaid'],['PENDING','Pending'],['PARTIAL','Partial'],['PAID','Paid'],['FAILED','Failed'],['REVERSED','Reversed']],r.payment_status||'UNPAID')+field('Note','note','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Commercial Settlement</button></div></form>':'';
  root.innerHTML=head(r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#inbound">Retour</a><a class="btn secondary" href="#quality/'+encodeURIComponent(r.id)+'">Open Quality</a>')+
  '<div class="ops-def-grid"><div><small>Status</small><b>'+badge(r.status)+'</b></div><div><small>Warehouse</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Supplier</small><b>'+esc(r.supplier_code+' · '+r.supplier_name)+'</b></div><div><small>Origin</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Expected</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Next action</small><b>'+esc(r.next_action||'-')+'</b></div></div>'+
  '<section class="card"><div class="card-head"><div><h2>Document Check</h2><p>Delivery Note · Weighbridge · Driver · Transporter · Purchase Type.</p></div>'+badge(docsOk?'DOCUMENTS COMPLETE':'DOCUMENTS INCOMPLETE')+'</div>'+
  '<div class="ops-def-grid"><div><small>Delivery Note</small><b>'+esc(r.delivery_note||'-')+'</b></div><div><small>Weighbridge Ticket</small><b>'+esc(r.weighbridge_ticket||'-')+'</b></div><div><small>Driver</small><b>'+esc(r.driver||'-')+'</b></div><div><small>Transporter</small><b>'+esc(r.transporter||'-')+'</b></div><div><small>Purchase Type</small><b>'+esc(r.purchase_type||'-')+'</b></div><div><small>Expected Bags</small><b>'+esc(r.expected_bags==null?'-':r.expected_bags)+'</b></div></div></section>'+
- '<section class="card"><h2>Timeline</h2>'+timelineRec(r)+'</section>'+offloadForm(r)+corr;
+ '<section class="card"><h2>Procurement Link</h2><div class="ops-def-grid"><div><small>Channel</small><b>'+esc(r.procurement_channel||'-')+'</b></div><div><small>Source</small><b>'+esc(r.procurement_source_type||'-')+'</b></div><div><small>Source ID</small><b>'+esc(r.procurement_source_id||'-')+'</b></div><div><small>Paid Weight</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Refraction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div><div><small>Commercial status</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div></div></section>'+ '<section class="card"><h2>Timeline</h2>'+timelineRec(r)+'</section>'+offloadForm(r)+settlement+corr;
 }
 
 function qualityList(){
@@ -335,8 +366,9 @@ async function render(){
 async function submit(ev){
  var f=ev.target.closest('form[data-action]');if(!f)return;ev.preventDefault();var d=formObj(f),a=f.dataset.action,k,r;busy(f,true);
  try{
-  if(a==='reception-create'){k=opKey('RECEPTION','NEW');r=await rpc('wms_create_reception',{p:{truck:d.truck,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags,arrival_at:d.arrival_at,purchase_type:d.purchase_type,reference:d.reference,driver:d.driver,transporter:d.transporter,delivery_note:d.delivery_note,weighbridge_ticket:d.weighbridge_ticket},p_idempotency_key:k.key});doneKey(k);location.hash='#inbound/'+encodeURIComponent(r.id);return;}
+  if(a==='reception-create'){k=opKey('RECEPTION','NEW');var ps=String(d.procurement_source||'').split('|');r=await rpc('wms_create_reception',{p:{truck:d.truck,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags,arrival_at:d.arrival_at,purchase_type:d.purchase_type,reference:d.reference,driver:d.driver,transporter:d.transporter,delivery_note:d.delivery_note,weighbridge_ticket:d.weighbridge_ticket,procurement_source_type:ps.length>1?ps[0]:null,procurement_source_id:ps.length>1?ps.slice(1).join('|'):null,ad_hoc:d.ad_hoc==='true',ad_hoc_reason:d.ad_hoc_reason},p_idempotency_key:k.key});doneKey(k);location.hash='#inbound/'+encodeURIComponent(r.id);return;}
   if(a==='offload'){await rpc('wms_record_offload',{p_id:f.dataset.id,p:d});await render();return;}
+  if(a==='procurement-settlement'){await rpc('procurement_set_reception_settlement',{p_reception_id:f.dataset.id,p:{refraction_mode:d.refraction_mode,refraction_value:d.refraction_value,price_per_kg:d.price_per_kg,payment_method:d.payment_method,payment_status:d.payment_status,note:d.note,status:'DRAFT'}});await render();return;}
   if(a==='reception-correct'){await rpc('wms_correct_reception',{p_id:f.dataset.id,p_field:d.field,p_value:d.new_value,p_reason:d.reason,p_approver:d.approver});await render();return;}
   if(a==='quality'){k=opKey('QUALITY-'+f.dataset.type,f.dataset.id);d.idempotency_key=k.key;await rpc('wms_save_quality',{p_reception_id:f.dataset.id,p_type:f.dataset.type,p:d});doneKey(k);await render();return;}
   if(a==='warehouse-save'){var payload={id:f.dataset.id||undefined,site_code:d.site_code,code:d.code,name:d.name,location:d.location,capacity_kg:d.capacity_kg,is_factory:d.is_factory==='true',reason:d.reason};await rpc('wms_upsert_warehouse',{p:payload});location.hash='#bins/warehouses';return;}
@@ -391,7 +423,8 @@ async function init(){
  var sess=await sb.auth.getSession();
  if(!sess||sess.error||!sess.data||!sess.data.session){if(root)root.innerHTML=notice('danger','Session utilisateur non disponible. Reconnectez-vous.');return;}
  root.addEventListener('submit',submit);root.addEventListener('click',click);
- root.addEventListener('input',function(ev){var f=ev.target.closest('form[data-action="offload"]');if(!f)return;if(ev.target.name==='gross_kg'||ev.target.name==='tare_kg'){var g=Number(f.querySelector('[name="gross_kg"]').value),t=Number(f.querySelector('[name="tare_kg"]').value),n=f.querySelector('[name="net_kg"]');n.value=(Number.isFinite(g)&&Number.isFinite(t)&&g>t)?(g-t).toFixed(3):'';}});
+ root.addEventListener('change',function(ev){if(ev.target.name==='procurement_source')syncReceptionSource(ev.target.value);if(ev.target.name==='supplier_code'){var f=ev.target.closest('form[data-action="reception-create"]'),d=f&&f.querySelector('[name="supplier_code_display"]');if(d)d.value=ev.target.value;}});
+ root.addEventListener('input',function(ev){var f=ev.target.closest('form');if(!f)return;if(f.dataset.action==='offload'&&(ev.target.name==='gross_kg'||ev.target.name==='tare_kg')){var g=Number(f.querySelector('[name="gross_kg"]').value),t=Number(f.querySelector('[name="tare_kg"]').value),nn=f.querySelector('[name="net_kg"]');nn.value=(Number.isFinite(g)&&Number.isFinite(t)&&g>t)?(g-t).toFixed(3):'';}if(f.dataset.action==='procurement-settlement'&&(ev.target.name==='refraction_mode'||ev.target.name==='refraction_value')){var net=Number(f.querySelector('[name="net_snapshot"]').value||0),mode=f.querySelector('[name="refraction_mode"]').value,val=Number(f.querySelector('[name="refraction_value"]').value||0),ref=mode==='KG'?val:mode==='PERCENT'?net*val/100:0,p=f.querySelector('[name="paid_preview"]');p.value=Math.max(0,net-ref).toFixed(3);}});
  root.addEventListener('keydown',function(ev){var row=ev.target.closest('[data-href]');if(row&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();location.hash=row.dataset.href;}});
  global.ANAGROCI_OPS_ROUTE=function(){render().catch(err);};
  await render();
