@@ -36,15 +36,15 @@
     warehouse: {
       title: 'WAREHOUSE OPERATIONS', subtitle: 'Entrepôts externes · réception, lots, BIN et stock',
       nav: [
-        ['overview','Overview','../operations/warehouse.html'],
-        ['inbound','Inbound','../rcntrace/index.html'],
-        ['quality','Quality','../rcntrace/index.html'],
-        ['lots','RCN Lots','../rcntrace/index.html'],
-        ['stock','Stock & BIN','../rcntrace/index.html'],
-        ['drying','Drying / Sorting','../rcntrace/index.html'],
-        ['bags','Bags','../rcntrace/index.html#jute'],
-        ['inventory','Inventory','../rcntrace/index.html'],
-        ['audit','Audit','../rcntrace/index.html']
+        ['overview','Overview','../operations/warehouse.html#overview'],
+        ['inbound','Inbound','../operations/warehouse.html#inbound'],
+        ['quality','Quality','../operations/warehouse.html#quality'],
+        ['lots','RCN Lots','../operations/warehouse.html#lots'],
+        ['bins','Stock & BIN','../operations/warehouse.html#bins'],
+        ['drying','Drying / Sorting','../operations/warehouse.html#drying'],
+        ['bags','Bags','../operations/warehouse.html#bags'],
+        ['inventory','Inventory','../operations/warehouse.html#inventory'],
+        ['audit','Audit','../operations/warehouse.html#audit']
       ]
     },
     transfer: {
@@ -97,7 +97,7 @@
   function routeName() {
     var path = location.pathname.split('/').pop() || '';
     var hash = location.hash.replace('#','');
-    if (hash) return hash;
+    if (hash) return hash.split('/')[0].split('?')[0];
     if (/field-buying/.test(path)) return 'overview';
     if (/lba-purchase/.test(path)) return 'overview';
     if (/warehouse/.test(path)) return 'overview';
