@@ -37,7 +37,7 @@ assert.ok(procurement.includes('procurement_submit_bap'), 'BAP submit RPC missin
 assert.ok(procurement.includes('procurement_record_payment'), 'Finance payment RPC missing');
 assert.ok(procurement.includes('PURCHASE PASSPORT'), 'Purchase Passport missing');
 assert.ok(/function arrivals\(\)[\s\S]*Planned Supplier Arrival/.test(procurement), 'Planned Supplier Arrival must live under Arrivals');
-assert.ok(/function purchases\(\)\{[^}]*purchasePassport/.test(procurement), 'Purchases route must open canonical register/passport, not planning');
+assert.ok(/async function purchases\(\)\{[^}]*purchasePassport/.test(procurement), 'Purchases route must open canonical register/passport, not planning');
 
 const warehouseOps = read('operations/warehouse.js');
 assert.ok(!warehouseOps.includes('data-action="procurement-settlement"'), 'Warehouse must not edit commercial settlements');
