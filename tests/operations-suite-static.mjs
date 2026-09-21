@@ -23,6 +23,26 @@ for (const route of ['#registry','#limits','#financing','#cycles','#deliveries',
   assert.ok(nav.includes(route.slice(1)), `LBA route missing ${route}`);
 }
 assert.ok(nav.includes('Achat Bord Champ'), 'FR terminology missing');
+assert.ok(nav.includes('Arrivages prévus'), 'Procurement planned arrivals route missing');
+assert.ok(nav.includes('Achat RCN'), 'Procurement Achat RCN route missing');
+
+const procurement = read('operations/procurement.js');
+assert.ok(procurement.includes('procurement_v_supplier_purchase_register'), 'Achat RCN must use canonical supplier purchase register');
+assert.ok(procurement.includes('procurement_v_purchase_action_queue'), 'Achat RCN action queue missing');
+assert.ok(procurement.includes('procurement_v_purchase_kpis'), 'Achat RCN KPI projection missing');
+assert.ok(procurement.includes('procurement_save_purchase_draft'), 'canonical Purchase draft RPC missing');
+assert.ok(procurement.includes('procurement_submit_purchase'), 'Purchase submit RPC missing');
+assert.ok(procurement.includes('procurement_approve_purchase'), 'Purchase approval RPC missing');
+assert.ok(procurement.includes('procurement_submit_bap'), 'BAP submit RPC missing');
+assert.ok(procurement.includes('procurement_record_payment'), 'Finance payment RPC missing');
+assert.ok(procurement.includes('PURCHASE PASSPORT'), 'Purchase Passport missing');
+assert.ok(/function arrivals\(\)[\s\S]*Planned Supplier Arrival/.test(procurement), 'Planned Supplier Arrival must live under Arrivals');
+assert.ok(/function purchases\(\)\{[^}]*purchasePassport/.test(procurement), 'Purchases route must open canonical register/passport, not planning');
+
+const warehouseOps = read('operations/warehouse.js');
+assert.ok(!warehouseOps.includes('data-action="procurement-settlement"'), 'Warehouse must not edit commercial settlements');
+assert.ok(warehouseOps.includes('Procurement > Achat RCN'), 'Warehouse must point commercial actions to Procurement');
+
 const field = read('operations/field-buying.html');
 assert.ok(/parcelle\/GPS ne bloque jamais/i.test(field), '2027 parcel non-blocking rule missing');
 assert.ok(field.includes('Achat Bord Champ'), 'Field Buying page must expose Achat Bord Champ');
