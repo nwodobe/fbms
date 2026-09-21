@@ -20,6 +20,21 @@
         ['sustainability','Sustainability','../terrain/sustainability.html']
       ]
     },
+    procurement: {
+      title: 'PROCUREMENT', subtitle: 'Achat Bord Champ, LBA, fournisseurs et évacuations',
+      nav: [
+        ['overview','Overview','../operations/procurement.html#overview'],
+        ['field','Achat Bord Champ','../operations/procurement.html#field'],
+        ['lba','LBA','../operations/procurement.html#lba'],
+        ['suppliers','Suppliers','../operations/procurement.html#suppliers'],
+        ['arrivals','Arrivages prévus','../operations/procurement.html#arrivals'],
+        ['purchases','Achat RCN','../operations/procurement.html#purchases'],
+        ['evacuations','Evacuations','../operations/procurement.html#evacuations'],
+        ['reconciliation','Reconciliation','../operations/procurement.html#reconciliation'],
+        ['settings','Settings','../operations/procurement.html#settings'],
+        ['audit','Audit','../operations/procurement.html#audit']
+      ]
+    },
     lba: {
       title: 'LBA PURCHASE', subtitle: 'Financement, LBA, livraisons et performance',
       nav: [

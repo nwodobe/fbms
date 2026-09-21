@@ -22,8 +22,8 @@
 'use strict';
 
 var OBJECTIF_CAMPAGNE_MT = 3000; /* objectif global campagne 2027 */
-/* Barème de l'ancien moteur d'achats, conservé à l'identique. */
-var PRIX_CAMPAGNE = 400, COMMISSION_RT = 10, SEUIL_HUMIDITE = 10, SEUIL_KOR = 45;
+/* Les règles d'achat sont désormais versionnées dans procurement_campaign_rules. */
+var FIELD_RULE_CACHE = null;
 
 /* ------------------------------------------------------------------ utilitaires */
 
@@ -76,6 +76,11 @@ function sexeLabel(v) {
   return c === 'M' ? 'M · Homme' : c === 'F' ? 'F · Femme' : (v || '');
 }
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+function activeFieldRule(){
+  if(FIELD_RULE_CACHE) return Promise.resolve(FIELD_RULE_CACHE);
+  return client().then(function(cl){return cl.rpc('procurement_active_rule',{p_campaign:'2027',p_channel:'FIELD_BUYING',p_zone:null,p_date:new Date().toISOString().slice(0,10)});})
+    .then(function(r){if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error('Aucune règle Procurement ACTIVE pour FIELD_BUYING / campagne 2027.');FIELD_RULE_CACHE=r.data;return r.data;});
+}
 
 /* --------------------------------------------------------------------- fragments */
 
@@ -645,8 +650,10 @@ var NOTE20 = [['', '—'], ['0', '0'], ['5', '5'], ['10', '10'], ['15', '15'], [
 function openVillageForm(editId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
-  Promise.all([base(), loadProfile()]).then(function (rs) {
-    var c = rs[0];
+  Promise.all([base(), loadProfile(), activeFieldRule()]).then(function (rs) {
+    var c = rs[0], rule = rs[2];
+    var prixCampagne = Number(rule.price_per_kg), commissionRt = Number(rule.rt_commission_per_kg), seuilHumidite = Number(rule.max_moisture_pct), seuilKor = Number(rule.min_kor);
+    if(!isFinite(prixCampagne)||prixCampagne<=0||!isFinite(commissionRt)||!isFinite(seuilHumidite)||!isFinite(seuilKor)){throw new Error('Règle Procurement FIELD_BUYING incomplète : prix, commission et seuils qualité sont requis.');}
     if (!guardTerrain(host)) return;
     /* Mode édition : mêmes sections, valeurs préremplies, MÊME ligne mise à jour. */
     var editRow = editId ? c.vm[editId] : null;
@@ -1950,10 +1957,11 @@ function openBuyForm(farmerId) {
       field('Tare (kg)', '<input id="bf_tare" type="number" step="any" min="0" value="0">') +
       field('Poids net (kg)', '<input id="bf_net" type="number" step="any" readonly class="mono">') +
       field('Nombre de sacs *', '<input id="bf_sacs" type="number" min="0" required>') +
-      field('Prix (FCFA/kg) *', '<input id="bf_prix" type="number" step="any" min="0" required value="' + PRIX_CAMPAGNE + '">') +
+      field('Source du poids *', '<select id="bf_weight_source" required><option value="SCALE">Balance terrain</option><option value="ESTIMATED">Estimation</option><option value="BAG_STANDARD">Standard sacs</option></select>') +
+      field('Prix (FCFA/kg) *', '<input id="bf_prix" type="number" step="any" min="0" required value="' + prixCampagne + '">') +
       field('Montant (FCFA)', '<input id="bf_montant" type="number" readonly class="mono">') +
-      field('Motif prix hors barème', '<input id="bf_motif_prix" placeholder="Obligatoire si prix ≠ ' + PRIX_CAMPAGNE + '" hidden>') +
-      field('Mode de paiement', '<select id="bf_pay"><option>Wave</option><option>Mobile Money</option><option>Espèces exceptionnel</option><option>Autre validé BM</option></select>') +
+      field('Motif prix hors barème', '<input id="bf_motif_prix" placeholder="Obligatoire si prix ≠ ' + prixCampagne + '" hidden>') +
+      field('Mode de paiement', '<select id="bf_pay"><option value="WAVE">Wave</option><option value="CASH">Cash</option><option value="BANK">Bank</option><option value="OTHER">Other approved method</option></select>') +
       field('N° de reçu', '<input id="bf_ref" placeholder="Obligatoire pour un achat complet">') +
       field('Humidité (%)', '<input id="bf_hum" type="number" step="any" min="0" max="100" placeholder="Facultatif">') +
       field('KOR', '<input id="bf_kor" type="number" step="any" min="0" placeholder="Facultatif">') +
@@ -1994,7 +2002,7 @@ function openBuyForm(farmerId) {
       var net = Math.max(0, n(document.getElementById('bf_brut').value) - n(document.getElementById('bf_tare').value));
       document.getElementById('bf_net').value = net || '';
       document.getElementById('bf_montant').value = Math.round(net * n(document.getElementById('bf_prix').value)) || '';
-      var horsBareme = n(document.getElementById('bf_prix').value) !== PRIX_CAMPAGNE;
+      var horsBareme = n(document.getElementById('bf_prix').value) !== prixCampagne;
       var motif = document.getElementById('bf_motif_prix');
       motif.hidden = !horsBareme;
       motif.closest('.ops-field').hidden = !horsBareme;
@@ -2024,17 +2032,17 @@ function openBuyForm(farmerId) {
       }
       if (sacs < 1) { msg.className = 'ops-danger-text'; msg.textContent = 'Au moins un sac est requis.'; return; }
       if (!recu) { msg.className = 'ops-danger-text'; msg.textContent = 'Le n° de reçu est obligatoire pour un achat complet.'; return; }
-      var horsBareme = prix !== PRIX_CAMPAGNE;
+      var horsBareme = prix !== prixCampagne;
       if (horsBareme && !motifPrix) {
         msg.className = 'ops-danger-text';
-        msg.textContent = 'Prix hors barème (' + PRIX_CAMPAGNE + ' FCFA/kg) : le motif est obligatoire et l’achat partira en validation BM.';
+        msg.textContent = 'Prix hors barème (' + prixCampagne + ' FCFA/kg) : le motif est obligatoire et l’achat partira en validation BM.';
         return;
       }
       /* Statut qualité et échelle de validation : mêmes règles que l'ancien moteur. */
       var hum = document.getElementById('bf_hum').value ? n(document.getElementById('bf_hum').value) : null;
       var kor = document.getElementById('bf_kor').value ? n(document.getElementById('bf_kor').value) : null;
-      var qualite = (hum != null && hum > SEUIL_HUMIDITE) ? 'À sécher'
-        : (kor != null && kor < SEUIL_KOR) ? 'À trier' : 'OK';
+      var qualite = (hum != null && hum > seuilHumidite) ? 'À sécher'
+        : (kor != null && kor < seuilKor) ? 'À trier' : 'OK';
       var statutValidation = horsBareme ? 'Validation BM requise'
         : (qualite !== 'OK' ? 'À contrôler' : 'À valider');
       var stockOk = qualite === 'OK';
@@ -2042,7 +2050,7 @@ function openBuyForm(farmerId) {
       var montant = Math.round(net * prix);
       client().then(function (cl) {
         return cl.from('achats').insert({
-          id: uid(), local_id: uid(), date: document.getElementById('bf_date').value,
+          local_id: uid(), campaign: String(rule.campaign || '2027'), date: document.getElementById('bf_date').value,
           cluster: v.cluster || f.cluster_label || null,
           village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
           rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
@@ -2053,10 +2061,11 @@ function openBuyForm(farmerId) {
           prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
           nb_sacs: n(document.getElementById('bf_sacs').value),
           mode_paiement: document.getElementById('bf_pay').value,
+          weight_source: document.getElementById('bf_weight_source').value,
           numero_recu: recu, humidite: hum, kor: kor,
           observation: document.getElementById('bf_obs').value.trim() || null,
           prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
-          commission_rt: Math.round(net * COMMISSION_RT),
+          commission_rt: Math.round(net * commissionRt),
           qualite_statut: qualite, statut_validation: statutValidation,
           refinancable: !!recu, stock_libere: stockOk,
           stock_statut: stockOk ? 'Entrée RT' : 'Stock non libéré',

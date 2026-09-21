@@ -178,23 +178,31 @@
     await loadStock();
     var whOpts = [['','Selectionner...']].concat(state.warehouses.map(function (w) { return [w.id, w.code + ' - ' + w.name + (w.is_factory ? ' [Factory]' : '')]; }));
     var stockOpts = state.stock.map(function (s) { return [s.bin_id + '||' + s.lot_id, s.warehouse_code + ' / ' + s.bin_id + ' / ' + s.lot_id + ' / available ' + kg(s.available_kg)]; });
+    var prefill=null; try { prefill=JSON.parse(sessionStorage.getItem('wms_transfer_prefill')||'null'); } catch(e) {}
     root.innerHTML = head('New Transfer Request','Selectionner une origine, une destination et les lignes BIN/Lot. Aucun stock ne bouge a cette etape.', '<a class="btn secondary" href="#requests">Retour</a>') +
+      (prefill ? notice('ok','<b>Préparé depuis Warehouse.</b>&nbsp; Origine / BIN / LOT sont préremplis; choisissez la destination puis confirmez la quantité.') : '') +
       '<form id="trfCreate" class="ops-form-card" data-action="create-request"><div class="ops-form-grid">' +
-      selectField('Origin Warehouse','origin_warehouse_id',whOpts,'','required') + selectField('Destination Warehouse','dest_warehouse_id',whOpts,'','required') +
+      selectField('Origin Warehouse','origin_warehouse_id',whOpts,prefill&&prefill.origin_warehouse_id||'','required') + selectField('Destination Warehouse','dest_warehouse_id',whOpts,'','required') +
       field('Purpose','purpose','text','','required') + selectField('Priority','priority',[['NORMAL','Normal'],['LOW','Low'],['HIGH','High'],['URGENT','Urgent']],'NORMAL') +
       field('Planned Dispatch','planned_dispatch_at','datetime-local','') + field('Request Document','request_doc_ref','text','') +
       field('Request Note','request_note','text','') + '</div>' +
       '<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Material lines</h3><p>Chaque ligne conserve BIN + Lot + quantite.</p></div><button type="button" class="btn secondary" id="addTrfLine">+ Ajouter ligne</button></div>' +
       '<div id="trfLines" data-stock-options="' + esc(JSON.stringify(stockOpts)) + '"></div></div>' +
       '<div class="ops-actions" style="margin-top:14px"><button class="btn primary" type="submit">Create Request</button></div></form>';
-    addLineRow(stockOpts);
+    addLineRow(stockOpts,prefill);
+    if(prefill) sessionStorage.removeItem('wms_transfer_prefill');
   }
-  function addLineRow(stockOpts) {
+  function addLineRow(stockOpts,prefill) {
     var box = document.getElementById('trfLines'); if (!box) return;
     var i = box.children.length + 1;
     var opts = [['','Selectionner BIN / Lot...']].concat(stockOpts);
     var row = document.createElement('div'); row.className = 'ops-form-grid trf-line'; row.style.marginBottom = '10px';
-    row.innerHTML = selectField('BIN / Lot','stock_ref',opts,'','required') + field('Qty kg','qty','number','','required step="0.001" min="0.001"') +
+    var refVal=prefill&&prefill.bin_id ? prefill.bin_id+'||'+(prefill.lot_id||'') : '';
+    if(prefill&&prefill.bin_id&&!prefill.lot_id){
+      var match=state.stock.filter(function(x){return x.bin_id===prefill.bin_id;})[0];
+      if(match) refVal=match.bin_id+'||'+match.lot_id;
+    }
+    row.innerHTML = selectField('BIN / Lot','stock_ref',opts,refVal,'required') + field('Qty kg','qty','number',prefill&&prefill.available_kg||'','required step="0.001" min="0.001"') +
       '<div class="ops-field"><label>Action</label><button type="button" class="btn secondary trf-remove-line">Retirer ligne ' + i + '</button></div>';
     box.appendChild(row);
   }
@@ -335,7 +343,7 @@
 
   async function handleClick(ev) {
     var row=ev.target.closest('[data-href]'); if(row){location.hash=row.dataset.href; return;}
-    if(ev.target.id==='addTrfLine'){ var box=document.getElementById('trfLines'); var opts=JSON.parse(box.dataset.stockOptions||'[]'); addLineRow(opts); return; }
+    if(ev.target.id==='addTrfLine'){ var box=document.getElementById('trfLines'); var opts=JSON.parse(box.dataset.stockOptions||'[]'); addLineRow(opts,null); return; }
     var rm=ev.target.closest('.trf-remove-line'); if(rm){ var rr=rm.closest('.trf-line'); if(rr&&rr.parentNode.children.length>1) rr.remove(); return; }
     var b=ev.target.closest('[data-action-button]'); if(!b)return;
     var action=b.dataset.actionButton,id=b.dataset.id; b.disabled=true;
