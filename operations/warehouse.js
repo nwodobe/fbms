@@ -63,11 +63,23 @@ async function overview(){
   var activeWh=state.warehouses.filter(function(w){return w.status==='ACTIVE';});
   state.closings=await Promise.all(activeWh.map(function(w){return rpc('wms_daily_closing',{p_warehouse_id:w.id,p_date:today}).then(function(x){x.warehouse_code=w.code;return x;}).catch(function(){return null;});}));
   state.closings=state.closings.filter(Boolean);
-  state.dryings=await q('wms_dryings','*',function(x){return x.gte('created_at',today+'T00:00:00Z').order('created_at',{ascending:false}).limit(300);}).catch(function(){return[];});
+  state.dryings=await q('wms_dryings','*',function(x){return x.order('created_at',{ascending:false}).limit(300);}).catch(function(){return[];});
+  state.postDry=await q('wms_v_post_dry_quality_current','*',function(x){return x.order('created_at',{ascending:false}).limit(500);}).catch(function(){return[];});
   state.inventory=await q('wms_inventory_counts','*',function(x){return x.gte('counted_at',today+'T00:00:00Z').order('counted_at',{ascending:false}).limit(300);}).catch(function(){return[];});
   state.transfers=await q('wms_v_transfers','*',function(x){return x.eq('is_test',false).gte('requested_at',today+'T00:00:00Z').order('requested_at',{ascending:false}).limit(300);}).catch(function(){return[];});
   state.bagMovements=await q('rcn_jute_movements','id,movement_type,qty,movement_at,source_type',function(x){return x.eq('source_type','WMS').gte('movement_at',today+'T00:00:00Z').order('movement_at',{ascending:false}).limit(500);}).catch(function(){return[];});
   var o=state.overview,att=state.receptions.filter(function(r){return['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;}).sort(function(a,b){return Number(b.age_hours||0)-Number(a.age_hours||0);}).slice(0,15);
+  var stagingLots=state.lots.filter(function(l){return Number(l.staging_kg||0)>0.0005;});
+  var nearBins=state.bins.filter(function(b){return b.status!=='CLOSED'&&Number(b.occupancy_pct||0)>=Number(((o.params||{}).binCapacityAlertPct)||90);});
+  var blockedBins=state.bins.filter(function(b){return b.status==='BLOCKED';});
+  var dryingExceptions=state.dryings.filter(function(d){return d.loss_alert||['AWAITING_POST_DRY_QA','QUALITY_HOLD','RE_DRY'].indexOf(d.status)>=0;});
+  var readyTransfer=state.postDry.filter(function(q){return q.disposition==='READY';});
+  var stockActions=[];
+  stagingLots.slice(0,10).forEach(function(l){stockActions.push({priority:'HIGH',object:l.id,status:'STAGING',action:'Allocate to BIN',href:'#lots/'+encodeURIComponent(l.id),age:Number(l.age_hours||0)});});
+  blockedBins.slice(0,10).forEach(function(b){stockActions.push({priority:'CRITICAL',object:b.id,status:'BLOCKED',action:'Resolve BIN block',href:'#bins/'+encodeURIComponent(b.id),age:Number(b.age_hours||0)});});
+  dryingExceptions.slice(0,10).forEach(function(d){stockActions.push({priority:d.loss_alert?'CRITICAL':'HIGH',object:d.id,status:d.status,action:d.status==='RE_DRY'?'Start Re-Dry':d.status==='AWAITING_POST_DRY_QA'?'Post-Dry Quality':'Review Drying exception',href:'#drying/'+encodeURIComponent(d.id),age:0});});
+  readyTransfer.slice(0,10).forEach(function(q){stockActions.push({priority:'NORMAL',object:q.lot_id||q.drying_id,status:'READY',action:'Prepare Stock Transfer',href:q.lot_id?'#lots/'+encodeURIComponent(q.lot_id):'#drying/'+encodeURIComponent(q.drying_id),age:0});});
+  stockActions.sort(function(a,b){var p={CRITICAL:3,HIGH:2,NORMAL:1};return (p[b.priority]||0)-(p[a.priority]||0)||Number(b.age||0)-Number(a.age||0);});
   root.innerHTML=head('Warehouse Operations','Control Tower RCN : exceptions, décisions et prochaines actions.',can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ New Reception</a>':'')+
   '<div class="kpi-grid">'+
   kpi('Awaiting Sampling',o.awaiting_sampling||0,'#quality','')+
@@ -75,10 +87,18 @@ async function overview(){
   kpi('Accepted Waiting Offload',o.accepted_waiting_offload||0,'#inbound',(o.accepted_waiting_offload||0)?'attn':'')+
   kpi('Final QA Pending',o.final_qa_pending||0,'#quality',(o.final_qa_pending||0)?'attn':'')+
   kpi('Quality Hold',o.quality_hold||0,'#quality',(o.quality_hold||0)?'danger':'')+
+  kpi('Staging not allocated',stagingLots.length,'#lots',stagingLots.length?'attn':'')+
+  kpi('BIN near capacity',nearBins.length,'#bins',nearBins.length?'attn':'')+
+  kpi('BIN blocked',blockedBins.length,'#bins',blockedBins.length?'danger':'')+
+  kpi('Drying exceptions',dryingExceptions.length,'#drying',dryingExceptions.length?'danger':'')+
+  kpi('Ready for Transfer',readyTransfer.length,'#lots',readyTransfer.length?'ok':'')+
   '</div><div class="grid-2"><section class="card"><div class="card-head"><div><h2>Actions requiring attention</h2><p>Priorité aux dossiers anciens et bloqués.</p></div></div>'+
   table(['Reception','Truck','Supplier','Warehouse','Age','Status','Next'],att.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+num(r.age_hours,1)+' h</td><td>'+badge(r.status)+'</td><td>'+esc(r.next_action||'-')+'</td></tr>';}))+
   '</section><section class="card"><h2>Stock & controls</h2><div class="ops-def-grid" style="margin-top:12px"><div><small>Wet</small><b>'+mt(o.wet_stock_kg||0)+'</b></div><div><small>Dry</small><b>'+mt(o.dry_stock_kg||0)+'</b></div><div><small>Hold</small><b>'+mt(o.hold_stock_kg||0)+'</b></div><div><small>Active BIN</small><b>'+esc(o.active_bins||0)+'</b></div><div><small>Inventory variance</small><b>'+esc(o.inventory_variances||0)+'</b></div><div><small>Outstanding bags</small><b>'+esc(o.outstanding_bags||0)+'</b></div></div>'+
   notice('info','<b>KOR Factor:</b>&nbsp;'+esc(((o.params||{}).korFactor||{}).factor||'À valider')+' · <b>Tolerance:</b>&nbsp;'+esc(((o.params||{}).korTolerance||{}).value||'À valider'))+'</section></div>'+
+  '<section class="card"><div class="card-head"><div><h2>Warehouse Exception Queue</h2><p>Staging, BIN, drying et stock prêt transfert, triés par criticité.</p></div></div>'+
+  table(['Priority','Object','Status','Next Action'],stockActions.slice(0,25).map(function(a){return'<tr class="ops-click" data-href="'+esc(a.href)+'"><td>'+badge(a.priority)+'</td><td class="mono">'+esc(a.object||'-')+'</td><td>'+badge(a.status)+'</td><td><b>'+esc(a.action)+'</b></td></tr>';}))+
+  '</section>'+
   '<section class="card"><div class="card-head"><div><h2>Daily Warehouse Closing</h2><p>Opening + Receipts + Transfers In − Transfers Out − Process Loss ± Adjustments = Closing.</p></div></div>'+
   table(['Warehouse','Opening','Receipts','Trf In','Trf Out','Process Loss','Adjustments','Closing','Variance','Status'],state.closings.map(function(c){return'<tr><td><b>'+esc(c.warehouse_code)+'</b></td><td>'+kg(c.opening_stock_kg)+'</td><td>'+kg(c.receipts_kg)+'</td><td>'+kg(c.transfers_in_kg)+'</td><td>'+kg(c.transfers_out_kg)+'</td><td>'+kg(c.process_loss_kg)+'</td><td>'+kg(c.inventory_adjustments_kg)+'</td><td>'+kg(c.closing_stock_kg)+'</td><td>'+kg(c.variance_kg)+'</td><td>'+badge(c.mass_balance_status)+'</td></tr>';}))+
   '</section>'+
@@ -88,9 +108,9 @@ async function overview(){
   '<div><small>Total kg received</small><b>'+kg(state.receptions.filter(function(r){return String(r.offloaded_at||'').slice(0,10)===today;}).reduce(function(t,r){return t+Number(r.net_kg||0);},0))+'</b></div>'+
   '<div><small>Average Final KOR</small><b>'+num((function(){var a=state.quality.filter(function(q){return q.type==='FINAL'&&String(q.created_at||'').slice(0,10)===today&&q.kor_exact!=null;});return a.length?a.reduce(function(t,q){return t+Number(q.kor_exact);},0)/a.length:0;})(),2)+'</b></div>'+
   '<div><small>Average Moisture</small><b>'+num((function(){var a=state.quality.filter(function(q){return q.type==='FINAL'&&String(q.created_at||'').slice(0,10)===today&&q.moisture_pct!=null;});return a.length?a.reduce(function(t,q){return t+Number(q.moisture_pct);},0)/a.length:0;})(),2)+' %</b></div>'+
-  '<div><small>Drying input</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.input_kg||0);},0))+'</b></div>'+
-  '<div><small>Drying output</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.output_kg||0);},0))+'</b></div>'+
-  '<div><small>Process loss</small><b>'+kg(state.dryings.reduce(function(t,d){return t+Number(d.process_loss_kg||0);},0))+'</b></div>'+
+  '<div><small>Drying input</small><b>'+kg(state.dryings.filter(function(d){return String(d.created_at||'').slice(0,10)===today;}).reduce(function(t,d){return t+Number(d.input_kg||0);},0))+'</b></div>'+
+  '<div><small>Drying output</small><b>'+kg(state.dryings.filter(function(d){return String(d.created_at||'').slice(0,10)===today;}).reduce(function(t,d){return t+Number(d.output_kg||0);},0))+'</b></div>'+
+  '<div><small>Process loss</small><b>'+kg(state.dryings.filter(function(d){return String(d.created_at||'').slice(0,10)===today;}).reduce(function(t,d){return t+Number(d.process_loss_kg||0);},0))+'</b></div>'+
   '<div><small>Inventory variances</small><b>'+state.inventory.filter(function(i){return Math.abs(Number(i.variance_kg||0))>0.001;}).length+'</b></div>'+
   '<div><small>Transfers prepared</small><b>'+state.transfers.length+'</b></div>'+
   '<div><small>Transfers dispatched</small><b>'+state.transfers.filter(function(t){return t.departed_at;}).length+'</b></div>'+
@@ -174,9 +194,10 @@ function offloadForm(r){
 }
 function inboundDetail(r){
  var docsOk=!!(r.delivery_note&&r.weighbridge_ticket&&r.driver&&r.transporter&&r.purchase_type&&r.supplier_code&&r.origin);
- var corr=can('correction')?'<form class="card" data-action="reception-correct" data-id="'+esc(r.id)+'"><h2>Controlled Correction</h2><p class="muted">Before → After est journalisé. Aucun champ stock n’est modifiable ici.</p><div class="ops-form-grid">'+
+ var corrMap={truck:r.truck||'',supplier_code:r.supplier_code||'',origin:r.origin||'',expected_kg:r.expected_kg==null?'':r.expected_kg,expected_bags:r.expected_bags==null?'':r.expected_bags,driver:r.driver||'',transporter:r.transporter||'',reference:r.reference||'',weighbridge_ticket:r.weighbridge_ticket||'',delivery_note:r.delivery_note||''};
+ var corr=can('correction')?'<form class="card" data-action="reception-correct" data-id="'+esc(r.id)+'" data-current="'+esc(JSON.stringify(corrMap))+'"><h2>Controlled Correction</h2><p class="muted">Before → After est journalisé. Aucun champ stock n’est modifiable ici.</p><div class="ops-form-grid">'+
  select('Field','field',[['truck','Truck'],['supplier_code','Supplier Code'],['origin','Origin'],['expected_kg','Expected Weight'],['expected_bags','Expected Bags'],['driver','Driver'],['transporter','Transporter'],['reference','Reference'],['weighbridge_ticket','Weighbridge Ticket'],['delivery_note','Delivery Note']],'','required')+
- field('New Value','new_value','text','','required')+field('Reason','reason','text','','required')+field('Approver','approver','text','','required')+
+ field('Current Value','current_value','text','','readonly aria-readonly="true"')+field('New Value','new_value','text','','required')+field('Reason','reason','text','','required')+field('Approver','approver','text','','required')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Apply Controlled Correction</button></div></form>':'';
  var rej=(state.rejectedTrucks||[]).filter(function(x){return x.reception_id===r.id;})[0];
  var rejection=(r.status==='REJECTED'&&rej&&rej.disposition_status!=='RESOLVED')?'<form class="card" data-action="resolve-rejection" data-id="'+esc(r.id)+'"><h2>Rejection Disposition</h2><p class="muted">Le rejet ne ferme pas le dossier. Indiquez la destination ou décision réelle prise pour le camion.</p><div class="ops-form-grid">'+field('Disposition / Action','resolution_action','text','','required placeholder="Return to source / reroute / negotiated decision..."')+field('Reason','resolution_reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn signal">Resolve Rejection</button></div></form>':(rej&&rej.disposition_status==='RESOLVED'?'<section class="card"><h2>Rejection Disposition</h2><div class="ops-def-grid"><div><small>Action</small><b>'+esc(rej.resolution_action||'-')+'</b></div><div><small>Reason</small><b>'+esc(rej.resolution_reason||'-')+'</b></div><div><small>Resolved by</small><b>'+esc(rej.resolved_by_name||'-')+'</b></div><div><small>Date</small><b>'+dt(rej.resolved_at)+'</b></div></div></section>':'');
@@ -437,7 +458,11 @@ async function init(){
  var sess=await sb.auth.getSession();
  if(!sess||sess.error||!sess.data||!sess.data.session){if(root)root.innerHTML=notice('danger','Session utilisateur non disponible. Reconnectez-vous.');return;}
  root.addEventListener('submit',submit);root.addEventListener('click',click);
- root.addEventListener('change',function(ev){if(ev.target.name==='procurement_source')syncReceptionSource(ev.target.value);if(ev.target.name==='supplier_code'){var f=ev.target.closest('form[data-action="reception-create"]'),d=f&&f.querySelector('[name="supplier_code_display"]');if(d)d.value=ev.target.value;}});
+ root.addEventListener('change',function(ev){
+   if(ev.target.name==='procurement_source')syncReceptionSource(ev.target.value);
+   if(ev.target.name==='supplier_code'){var f=ev.target.closest('form[data-action="reception-create"]'),d=f&&f.querySelector('[name="supplier_code_display"]');if(d)d.value=ev.target.value;}
+   if(ev.target.name==='field'){var cf=ev.target.closest('form[data-action="reception-correct"]');if(cf){var cur=cf.querySelector('[name="current_value"]'),map={};try{map=JSON.parse(cf.dataset.current||'{}');}catch(e){}if(cur)cur.value=map[ev.target.value]==null?'':map[ev.target.value];}}
+ });
  root.addEventListener('input',function(ev){var f=ev.target.closest('form');if(!f)return;if(f.dataset.action==='offload'&&(ev.target.name==='gross_kg'||ev.target.name==='tare_kg')){var g=Number(f.querySelector('[name="gross_kg"]').value),t=Number(f.querySelector('[name="tare_kg"]').value),nn=f.querySelector('[name="net_kg"]');nn.value=(Number.isFinite(g)&&Number.isFinite(t)&&g>t)?(g-t).toFixed(3):'';}if(f.dataset.action==='procurement-settlement'&&(ev.target.name==='refraction_mode'||ev.target.name==='refraction_value')){var net=Number(f.querySelector('[name="net_snapshot"]').value||0),mode=f.querySelector('[name="refraction_mode"]').value,val=Number(f.querySelector('[name="refraction_value"]').value||0),ref=mode==='KG'?val:mode==='PERCENT'?net*val/100:0,p=f.querySelector('[name="paid_preview"]');p.value=Math.max(0,net-ref).toFixed(3);}});
  root.addEventListener('keydown',function(ev){var row=ev.target.closest('[data-href]');if(row&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();location.hash=row.dataset.href;}});
  global.ANAGROCI_OPS_ROUTE=function(){render().catch(err);};

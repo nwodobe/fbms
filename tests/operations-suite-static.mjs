@@ -190,6 +190,15 @@ assert.ok(/LOT = identité/i.test(whHtml) && /BIN = localisation/i.test(whHtml),
 assert.ok(/warehouse\.js\?v=/.test(whHtml), 'Warehouse dedicated controller must be loaded');
 assert.ok(!/module-router-v2\.js/.test(whHtml), 'Warehouse must not fall back to the generic router');
 assert.ok(/wms_overview/.test(wh) && /wms_create_reception/.test(wh) && /wms_save_quality/.test(wh), 'Warehouse WMS RPC wiring missing');
+for (const feature of ['wms_bin_transfer','wms_set_bin_status','wms_correct_reception','wms_save_post_dry_quality','wms_daily_closing']) {
+  assert.ok(wh.includes(feature), `Warehouse go-live feature missing: ${feature}`);
+}
+for (const label of ['Staging not allocated','BIN near capacity','BIN blocked','Drying exceptions','Ready for Transfer','Warehouse Exception Queue']) {
+  assert.ok(wh.includes(label), `Warehouse Control Tower missing: ${label}`);
+}
+assert.ok(wh.includes('Current Value') && wh.includes('data-current='), 'Controlled Correction must show the current value before change');
+assert.ok(wh.includes('Prepare Stock Transfer') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
+assert.ok(/Net kg = Gross/.test(wh) && /readonly/.test(wh), 'Warehouse Net Weight must be calculated/read-only in UI');
 const transfer = read('operations/stock-transfer.html');
 assert.ok(/LBA direct Factory/i.test(transfer), 'direct LBA factory transfer boundary missing');
 assert.ok(/stock-transfer\.js\?v=/.test(transfer), 'Stock Transfer dedicated controller must be loaded');
