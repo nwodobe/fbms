@@ -64,6 +64,23 @@ assert.ok(/async function purchases\(\)\{[^}]*purchasePassport/.test(procurement
 const warehouseOps = read('operations/warehouse.js');
 assert.ok(!warehouseOps.includes('data-action="procurement-settlement"'), 'Warehouse must not edit commercial settlements');
 assert.ok(warehouseOps.includes('Procurement > Achat RCN'), 'Warehouse must point commercial actions to Procurement');
+assert.ok(warehouseOps.includes('Nouvelle réception'), 'Warehouse New Reception must be French');
+assert.ok(warehouseOps.includes('Référence d’approvisionnement'), 'French procurement reference label missing');
+assert.ok(warehouseOps.includes('Réception planifiée ?'), 'Planned reception question missing');
+assert.ok(warehouseOps.includes('Motif de la réception non planifiée'), 'Unplanned reception reason missing');
+assert.ok(warehouseOps.includes("['FIELD_BUYING','Achat Bord Champ']"), 'Achat Bord Champ option missing');
+assert.ok(warehouseOps.includes("['LBA','Achat LBA']"), 'Achat LBA option missing');
+assert.ok(warehouseOps.includes("['DIRECT','Achat Direct']"), 'Achat Direct option missing');
+assert.ok(!warehouseOps.includes("select('Ad-Hoc Reception'"), 'Ad-Hoc jargon must not be visible in reception UI');
+assert.ok(!warehouseOps.includes("select('Procurement Reference'"), 'Procurement Reference English label must not be visible');
+assert.ok(!warehouseOps.includes('<h2>Document Check</h2>'), 'Document Check English section must be removed');
+assert.ok(warehouseOps.includes('Transport et prévisions'), 'Transport/forecast section missing');
+assert.ok(warehouseOps.includes('Documents à l’arrivée'), 'Arrival documents section missing');
+assert.ok(warehouseOps.includes('Ticket pont-bascule ANAGROCI'), 'ANAGROCI weighbridge ticket must live in weighing/offload');
+assert.ok(warehouseOps.includes('delivery_note_present'), 'Delivery note presence control missing');
+const warehouseInboundNew = (warehouseOps.match(/function inboundNew\(\)\{[\s\S]*?\n\}/)||[''])[0];
+assert.ok(!warehouseInboundNew.includes("field('Reference','reference'"), 'Generic Reference field must be removed from New Reception');
+
 
 const field = read('operations/field-buying.html');
 assert.ok(/parcelle\/GPS ne bloque jamais/i.test(field), '2027 parcel non-blocking rule missing');
@@ -218,9 +235,9 @@ for (const feature of ['wms_bin_transfer','wms_set_bin_status','wms_correct_rece
 for (const label of ['Staging not allocated','BIN near capacity','BIN blocked','Drying exceptions','Ready for Transfer','Warehouse Exception Queue']) {
   assert.ok(wh.includes(label), `Warehouse Control Tower missing: ${label}`);
 }
-assert.ok(wh.includes('Current Value') && wh.includes('data-current='), 'Controlled Correction must show the current value before change');
+assert.ok(wh.includes('Valeur actuelle') && wh.includes("'current_value'") && wh.includes('data-current='), 'Correction contrôlée must show the current value before change');
 assert.ok(wh.includes('Prepare Stock Transfer') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
-assert.ok(/Net kg = Gross/.test(wh) && /readonly/.test(wh), 'Warehouse Net Weight must be calculated/read-only in UI');
+assert.ok(/Poids net = Brut/.test(wh) && /readonly/.test(wh), 'Warehouse Net Weight must remain calculated/read-only in French UI');
 const transfer = read('operations/stock-transfer.html');
 assert.ok(/LBA direct Factory/i.test(transfer), 'direct LBA factory transfer boundary missing');
 assert.ok(/stock-transfer\.js\?v=/.test(transfer), 'Stock Transfer dedicated controller must be loaded');
