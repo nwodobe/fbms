@@ -266,10 +266,108 @@ async function lba(){
  '<section class="card">'+table(['Code','Nom','Origines','Sites','Volume livré','KOR','Moisture','Statut','Dossier'],l.map(function(x){return'<tr><td class="mono"><b>'+esc(x.code)+'</b></td><td><a href="#lba/'+encodeURIComponent(x.supplier_id)+'"><b>'+esc(x.nom)+'</b></a></td><td>'+esc((x.origines||[]).join(', ')||'—')+'</td><td>'+esc((x.sites||[]).join(', ')||'—')+'</td><td>'+mt(x.volume_livre_kg)+'</td><td>'+esc(x.kor_moyen==null?'—':x.kor_moyen)+'</td><td>'+esc(x.humidite_moyenne==null?'—':x.humidite_moyenne+' %')+'</td><td>'+badge(x.statut)+'</td><td><a class="btn secondary" href="#lba/'+encodeURIComponent(x.supplier_id)+'">Ouvrir</a></td></tr>'; }))+'</section>';
  bindLba();
 }
-function suppliers(){
- root.innerHTML=head('Suppliers','Supplier Master unique utilisé par Procurement et Warehouse.','<button class="btn primary" onclick="ANAGROCI_PROC.toggleSupplier()">+ New Supplier</button>')+
- '<section id="supplierFormHost" class="ops-form-card" hidden><h2>Créer Direct / Cooperative Supplier</h2><p class="muted">Les LBA sont créés dans la rubrique LBA.</p><form id="supplierForm"><div class="ops-form-grid">'+field('Supplier Code','code','text','','required')+field('Supplier Name','name','text','','required')+select('Category','category',[['DIRECT','Direct'],['COOPERATIVE','Cooperative']],'DIRECT','required')+field('Origin','origin','text','')+field('Site','site','text','')+select('Contract','contract',[['false','No'],['true','Yes']],'false')+'</div><div class="ops-actions"><button class="btn primary">Create Supplier</button></div><div id="supplierMsg" class="muted"></div></form></section>'+
- '<section class="card">'+table(['Code','Name','Category','Origins','Sites','Delivered','KOR','Moisture','Status'],state.suppliers.map(function(x){return'<tr><td class="mono"><b>'+esc(x.code)+'</b></td><td>'+esc(x.nom)+'</td><td>'+esc(x.categorie)+'</td><td>'+esc((x.origines||[]).join(', ')||'—')+'</td><td>'+esc((x.sites||[]).join(', ')||'—')+'</td><td>'+mt(x.volume_livre_kg)+'</td><td>'+esc(x.kor_moyen==null?'—':x.kor_moyen)+'</td><td>'+esc(x.humidite_moyenne==null?'—':x.humidite_moyenne+' %')+'</td><td>'+badge(x.statut)+'</td></tr>'; }))+'</section>';
+async function supplierProfile(id){
+ var p=await one('procurement_v_supplier_admin_profile','*',function(x){return x.eq('supplier_id',id).limit(1);});
+ if(!p){root.innerHTML=head('Supplier introuvable','Aucune fiche administrative correspondante.','<a class="btn secondary" href="#suppliers">← Suppliers</a>');return;}
+ var docs=await q('procurement_supplier_documents','id,supplier_id,document_type,title,document_number,issue_date,expiry_date,campaign,storage_path,original_file_name,mime_type,size_bytes,status,note,created_at',function(x){return x.eq('supplier_id',id).order('created_at',{ascending:false}).limit(100);}).catch(function(){return[];});
+ var banks=await q('procurement_v_supplier_bank_masked','*',function(x){return x.eq('supplier_id',id).order('created_at',{ascending:false}).limit(20);}).catch(function(){return[];});
+ var primary=banks.filter(function(x){return x.is_primary&&x.status==='ACTIVE';})[0]||null;
+ root.innerHTML=head('SUPPLIER DIGITAL PROFILE',p.current_code+' · '+p.display_name,'<a class="btn secondary" href="#suppliers">← Suppliers</a>')+
+ '<section class="card"><h2>Identité & conformité</h2><div class="ops-def-grid">'+
+ '<div><small>Code Supplier</small><b>'+esc(p.current_code||'—')+'</b></div>'+
+ '<div><small>Code CCAK</small><b>'+esc(p.ccak_code||'—')+'</b></div>'+
+ '<div><small>Nom</small><b>'+esc(p.display_name||'—')+'</b></div>'+
+ '<div><small>Raison sociale</small><b>'+esc(p.legal_name||'—')+'</b></div>'+
+ '<div><small>Type entité</small><b>'+esc(p.entity_type||'—')+'</b></div>'+
+ '<div><small>Mode Procurement</small><b>'+badge(p.procurement_mode)+'</b></div>'+
+ '<div><small>Contact</small><b>'+esc(p.contact_person||'—')+'</b></div>'+
+ '<div><small>Téléphone</small><b>'+esc(p.phone||'—')+'</b></div>'+
+ '<div><small>Téléphone 2</small><b>'+esc(p.phone_alt||'—')+'</b></div>'+
+ '<div><small>Email</small><b>'+esc(p.email||'—')+'</b></div>'+
+ '<div><small>RCCM / Registration</small><b>'+esc(p.registration_no||'—')+'</b></div>'+
+ '<div><small>Identifiant fiscal</small><b>'+esc(p.tax_id||'—')+'</b></div>'+
+ '<div><small>Contrat</small><b>'+badge(p.contract_status)+'</b></div>'+
+ '<div><small>Référence contrat</small><b>'+esc(p.contract_reference||'—')+'</b></div>'+
+ '</div></section>'+
+ '<section class="ops-form-card"><h2>Modifier les informations administratives</h2><form id="supplierAdminForm" data-supplier="'+esc(id)+'" data-version="'+esc(p.row_version)+'"><div class="ops-form-grid">'+
+ field('Nom','display_name','text',p.display_name||'','required')+
+ field('Raison sociale','legal_name','text',p.legal_name||'')+
+ select('Type entité','entity_type',[['COOPERATIVE','Coopérative'],['COMPANY','Société'],['INDIVIDUAL','Individuel'],['OTHER','Autre']],p.entity_type||'OTHER')+
+ field('Code CCAK','ccak_code','text',p.ccak_code||'','placeholder="Code CCAK"')+
+ field('Contact principal','contact_person','text',p.contact_person||'')+
+ field('Téléphone','phone','tel',p.phone||'')+
+ field('Téléphone alternatif','phone_alt','tel',p.phone_alt||'')+
+ field('Email','email','email',p.email||'')+
+ field('RCCM / N° enregistrement','registration_no','text',p.registration_no||'')+
+ field('Identifiant fiscal','tax_id','text',p.tax_id||'')+
+ field('Région','region','text',p.region||'')+
+ field('Adresse','address','text',p.address||'')+
+ select('Statut contrat','contract_status',[['NONE','Aucun'],['ACTIVE','Actif'],['EXPIRED','Expiré'],['CLOSED','Clôturé']],p.contract_status||'NONE')+
+ field('Référence contrat','contract_reference','text',p.contract_reference||'')+
+ field('Validité contrat - début','contract_valid_from','date',p.contract_valid_from||'')+
+ field('Validité contrat - fin','contract_valid_to','date',p.contract_valid_to||'')+
+ '</div><div class="ops-actions"><button class="btn primary">Enregistrer les modifications</button></div><div id="supplierAdminMsg" class="muted"></div></form></section>'+
+ '<section class="card"><h2>RIB / Coordonnées bancaires</h2>'+
+ (primary?'<div class="ops-def-grid"><div><small>Banque</small><b>'+esc(primary.bank_name||'—')+'</b></div><div><small>Titulaire</small><b>'+esc(primary.account_holder||'—')+'</b></div><div><small>Compte</small><b>'+esc(primary.account_number_masked||'—')+'</b></div><div><small>IBAN</small><b>'+esc(primary.iban_masked||'—')+'</b></div><div><small>Clé RIB</small><b>'+esc(primary.rib_key||'—')+'</b></div><div><small>SWIFT/BIC</small><b>'+esc(primary.swift_bic||'—')+'</b></div></div>':'<div class="notice info">Aucun RIB actif enregistré.</div>')+
+ '<form id="supplierBankForm" data-supplier="'+esc(id)+'" style="margin-top:14px"><h3>'+(primary?'Remplacer le RIB actif':'Enregistrer le RIB')+'</h3><div class="ops-form-grid">'+
+ field('Titulaire du compte','account_holder','text',p.display_name||'','required')+
+ field('Banque','bank_name','text','','required')+
+ field('Code banque','bank_code','text','')+
+ field('Code guichet / agence','branch_code','text','')+
+ field('Numéro de compte','account_number','text','','required autocomplete="off"')+
+ field('Clé RIB','rib_key','text','')+
+ field('IBAN','iban','text','')+
+ field('SWIFT / BIC','swift_bic','text','')+
+ field('Devise','currency','text','XOF','required maxlength="3"')+
+ field('Motif','reason','text',primary?'Remplacement du RIB':'Création du RIB','required')+
+ '</div><div class="ops-actions"><button class="btn primary">'+(primary?'Remplacer le RIB':'Enregistrer le RIB')+'</button></div><div id="supplierBankMsg" class="muted"></div></form></section>'+
+ '<section class="card"><h2>Coffre documentaire privé</h2><p class="muted">PDF/JPEG/PNG/WEBP · 15 Mo max · consultation par lien temporaire.</p>'+
+ '<form id="supplierDocForm" data-supplier="'+esc(id)+'"><div class="ops-form-grid">'+
+ select('Type de document','document_type',[['CONTRAT','Contrat'],['RCCM','RCCM'],['PROCURATION','Procuration'],['DELEGATION_POUVOIR','Délégation de pouvoir'],['AUTORISATION_SIGNATURE','Autorisation de signature'],['DFE','DFE'],['RIB','RIB'],['OTHER','Autre']],'CONTRAT','required')+
+ field('Titre','title','text','','required')+
+ field('N° document','document_number','text','')+
+ field('Date émission','issue_date','date','')+
+ field('Date expiration','expiry_date','date','')+
+ field('Campagne','campaign','text','2027')+
+ field('Note','note','text','')+
+ '<div class="ops-field"><label>Fichier</label><input name="file" type="file" accept=".pdf,image/jpeg,image/png,image/webp" required></div>'+
+ '</div><div class="ops-actions"><button class="btn primary">Ajouter le document</button></div><div id="supplierDocMsg" class="muted"></div></form>'+
+ table(['Type','Titre','N°','Campagne','Émission','Expiration','Fichier','Statut','Action'],docs.map(function(x){return'<tr><td>'+badge(x.document_type)+'</td><td>'+esc(x.title)+'</td><td>'+esc(x.document_number||'—')+'</td><td>'+esc(x.campaign||'—')+'</td><td>'+esc(x.issue_date||'—')+'</td><td>'+esc(x.expiry_date||'—')+'</td><td>'+esc(x.original_file_name||'—')+'</td><td>'+badge(x.status)+'</td><td><button class="btn secondary" data-action="view-supplier-doc" data-path="'+esc(x.storage_path)+'">Voir</button> '+(x.status==='ACTIVE'?'<button class="btn secondary" data-action="void-supplier-doc" data-id="'+esc(x.id)+'">Invalider</button>':'')+'</td></tr>'; }))+
+ '</section>';
+ bindSupplierProfile();
+}
+async function suppliers(){
+ var p=parts();if(p[1])return supplierProfile(decodeURIComponent(p[1]));
+ var direct=state.suppliers.filter(function(x){return x.categorie!=='LBA'&&String(x.code).indexOf('LBA-')!==0;});
+ root.innerHTML=head('Suppliers','Supplier Direct / DIS : référentiel, identité administrative, RIB et documents.','<button class="btn primary" onclick="ANAGROCI_PROC.toggleSupplier()">+ Nouveau Supplier</button>')+
+ '<section id="supplierFormHost" class="ops-form-card" hidden><h2>Créer un Supplier Direct / DIS</h2><p class="muted">Le code DIS peut être suggéré automatiquement. Un Supplier Direct n’est pas financé dans le mécanisme LBA.</p><form id="supplierForm"><div class="ops-form-grid">'+
+ field('Supplier Name','name','text','','required')+
+ field('Raison sociale','legal_name','text','')+
+ select('Type entité','entity_type',[['COOPERATIVE','Coopérative'],['COMPANY','Société'],['INDIVIDUAL','Individuel'],['OTHER','Autre']],'COMPANY')+
+ field('Code Supplier','code','text','','placeholder="Laisser vide pour génération DIS automatique"')+
+ '<div class="ops-field"><label>Suggestion code</label><button type="button" class="btn secondary" data-action="suggest-supplier-code">Suggérer DIS</button></div>'+
+ field('Code CCAK','ccak_code','text','','placeholder="Code CCAK"')+
+ field('Contact principal','contact_person','text','')+
+ field('Téléphone','phone','tel','','required')+
+ field('Téléphone alternatif','phone_alt','tel','')+
+ field('Email','email','email','')+
+ field('RCCM / N° enregistrement','registration_no','text','')+
+ field('Identifiant fiscal','tax_id','text','')+
+ field('Adresse','address','text','')+
+ field('Origine','origin','text','')+
+ field('Site de livraison','site','text','')+
+ select('Statut contrat','contract_status',[['NONE','Aucun'],['ACTIVE','Actif'],['EXPIRED','Expiré'],['CLOSED','Clôturé']],'ACTIVE')+
+ field('Référence contrat','contract_reference','text','')+
+ field('Titulaire RIB','account_holder','text','')+
+ field('Banque','bank_name','text','')+
+ field('Code banque','bank_code','text','')+
+ field('Code agence','branch_code','text','')+
+ field('N° compte','account_number','text','','autocomplete="off"')+
+ field('Clé RIB','rib_key','text','')+
+ field('IBAN','iban','text','')+
+ field('SWIFT/BIC','swift_bic','text','')+
+ '</div><div class="ops-actions"><button class="btn primary">Créer le Supplier</button></div><div id="supplierMsg" class="muted"></div></form></section>'+
+ '<section class="card">'+table(['Code','Name','Category','Origins','Sites','Delivered','KOR','Moisture','Status','Dossier'],direct.map(function(x){return'<tr><td class="mono"><b>'+esc(x.code)+'</b></td><td><a href="#suppliers/'+encodeURIComponent(x.supplier_id)+'"><b>'+esc(x.nom)+'</b></a></td><td>'+esc(x.categorie)+'</td><td>'+esc((x.origines||[]).join(', ')||'—')+'</td><td>'+esc((x.sites||[]).join(', ')||'—')+'</td><td>'+mt(x.volume_livre_kg)+'</td><td>'+esc(x.kor_moyen==null?'—':x.kor_moyen)+'</td><td>'+esc(x.humidite_moyenne==null?'—':x.humidite_moyenne+' %')+'</td><td>'+badge(x.statut)+'</td><td><a class="btn secondary" href="#suppliers/'+encodeURIComponent(x.supplier_id)+'">Ouvrir</a></td></tr>'; }))+'</section>';
  bindSupplier();
 }
 function usedMap(){var m={};state.contributors.forEach(function(c){m[c.achat_id]=(m[c.achat_id]||0)+n(c.qty_kg);});return m;}
@@ -308,7 +406,67 @@ function bindPurchaseActions(){
  }catch(err){alert(err.message);}
  };});
 }
-function bindSupplier(){var f=document.getElementById('supplierForm');if(!f)return;f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('supplierMsg');try{await rpc('procurement_create_supplier',{p:{code:d.code,name:d.name,category:d.category,origin:d.origin||null,site:d.site||null,contract:d.contract==='true'}});m.className='ops-ok-text';m.textContent='Supplier créé.';await load();suppliers();}catch(err){m.className='ops-danger-text';m.textContent=err.message;}};}
+function bindSupplier(){
+ var f=document.getElementById('supplierForm');if(!f)return;
+ f.onsubmit=async function(e){
+  e.preventDefault();var d=formObj(f),m=document.getElementById('supplierMsg');
+  try{
+   var bank=null;
+   if(d.account_number||d.bank_name||d.account_holder){
+    if(!d.account_number||!d.bank_name||!d.account_holder)throw new Error('Pour enregistrer un RIB, Titulaire, Banque et N° compte sont obligatoires.');
+    bank={account_holder:d.account_holder,bank_name:d.bank_name,bank_code:d.bank_code||null,branch_code:d.branch_code||null,account_number:d.account_number,rib_key:d.rib_key||null,iban:d.iban||null,swift_bic:d.swift_bic||null,currency:'XOF'};
+   }
+   var r=await rpc('procurement_create_direct_supplier_profile',{p:{
+    name:d.name,legal_name:d.legal_name||null,entity_type:d.entity_type,code:d.code||null,ccak_code:d.ccak_code||null,
+    contact_person:d.contact_person||null,phone:d.phone||null,phone_alt:d.phone_alt||null,email:d.email||null,
+    registration_no:d.registration_no||null,tax_id:d.tax_id||null,address:d.address||null,origin:d.origin||null,site:d.site||null,
+    contract_status:d.contract_status,contract:d.contract_status==='ACTIVE',contract_reference:d.contract_reference||null,bank:bank
+   }});
+   m.className='ops-ok-text';m.textContent='Supplier créé. Ouverture du dossier administratif…';
+   await load();location.hash='#suppliers/'+encodeURIComponent(r.supplier_id);
+  }catch(err){m.className='ops-danger-text';m.textContent=err.message;}
+ };
+}
+function bindSupplierProfile(){
+ var af=document.getElementById('supplierAdminForm');
+ if(af)af.onsubmit=async function(e){e.preventDefault();var d=formObj(af),m=document.getElementById('supplierAdminMsg');try{
+   await rpc('procurement_update_supplier',{p_supplier_id:af.dataset.supplier,p:{
+    row_version:Number(af.dataset.version),display_name:d.display_name,legal_name:d.legal_name||null,entity_type:d.entity_type,
+    ccak_code:d.ccak_code||null,contact_person:d.contact_person||null,phone:d.phone||null,phone_alt:d.phone_alt||null,
+    email:d.email||null,registration_no:d.registration_no||null,tax_id:d.tax_id||null,region:d.region||null,address:d.address||null,
+    contract_status:d.contract_status,contract_reference:d.contract_reference||null,
+    contract_valid_from:d.contract_valid_from||null,contract_valid_to:d.contract_valid_to||null
+   },p_reason:'Mise à jour dossier administratif Supplier Direct'});
+   m.className='ops-ok-text';m.textContent='Dossier mis à jour.';await supplierProfile(af.dataset.supplier);
+ }catch(err){m.className='ops-danger-text';m.textContent=err.message;}};
+
+ var bf=document.getElementById('supplierBankForm');
+ if(bf)bf.onsubmit=async function(e){e.preventDefault();var d=formObj(bf),m=document.getElementById('supplierBankMsg');try{
+   await rpc('procurement_save_supplier_bank_account',{p_supplier_id:bf.dataset.supplier,p:{
+    account_holder:d.account_holder,bank_name:d.bank_name,bank_code:d.bank_code||null,branch_code:d.branch_code||null,
+    account_number:d.account_number,rib_key:d.rib_key||null,iban:d.iban||null,swift_bic:d.swift_bic||null,currency:d.currency||'XOF'
+   },p_reason:d.reason});
+   m.className='ops-ok-text';m.textContent='RIB enregistré et versionné.';await supplierProfile(bf.dataset.supplier);
+ }catch(err){m.className='ops-danger-text';m.textContent=err.message;}};
+
+ var df=document.getElementById('supplierDocForm');
+ if(df)df.onsubmit=async function(e){e.preventDefault();var d=formObj(df),m=document.getElementById('supplierDocMsg'),file=df.querySelector('input[name="file"]').files[0];try{
+   if(!file)throw new Error('Sélectionnez un fichier.');
+   if(file.size>15728640)throw new Error('Fichier supérieur à 15 Mo.');
+   if(['application/pdf','image/jpeg','image/png','image/webp'].indexOf(file.type)<0)throw new Error('Format autorisé : PDF, JPEG, PNG ou WEBP.');
+   var au=await sb.auth.getUser();var uid=au&&au.data&&au.data.user&&au.data.user.id;if(!uid)throw new Error('Session utilisateur introuvable.');
+   var safe=(file.name||'document').replace(/[^a-zA-Z0-9._-]+/g,'_');
+   var path=uid+'/'+df.dataset.supplier+'/'+Date.now()+'_'+safe;
+   var up=await sb.storage.from('procurement-supplier-docs').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+   if(up.error)throw new Error(up.error.message);
+   await rpc('procurement_register_supplier_document',{
+    p_supplier_id:df.dataset.supplier,p_document_type:d.document_type,p_title:d.title,p_storage_path:path,
+    p_document_number:d.document_number||null,p_issue_date:d.issue_date||null,p_expiry_date:d.expiry_date||null,
+    p_campaign:d.campaign||null,p_note:d.note||null
+   });
+   m.className='ops-ok-text';m.textContent='Document ajouté au coffre privé.';await supplierProfile(df.dataset.supplier);
+ }catch(err){m.className='ops-danger-text';m.textContent=err.message;}};
+}
 function bindArrival(){var f=document.getElementById('arrivalForm');if(!f)return;f.onsubmit=async function(e){e.preventDefault();var d=formObj(f),m=document.getElementById('arrivalMsg');try{await rpc('procurement_schedule_supplier_arrival',{p:{purchase_type:d.purchase_type,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags||null,expected_at:d.expected_at||null,truck:d.truck||null,driver:d.driver||null,transporter:d.transporter||null,reference:d.reference||null}});m.className='ops-ok-text';m.textContent='Arrivage planifié; la référence est disponible dans Warehouse.';await load();arrivals();}catch(err){m.className='ops-danger-text';m.textContent=err.message;}};}
 function bindLba(){
  var f=document.getElementById('lbaForm');if(!f)return;
@@ -379,7 +537,10 @@ global.ANAGROCI_OPS_ROUTE=render;
 global.ANAGROCI_PROC={render:render,toggleLba:function(){var x=document.getElementById('procLbaForm');if(x)x.hidden=!x.hidden;},toggleArrival:function(){var x=document.getElementById('arrivalFormHost');if(x)x.hidden=!x.hidden;},toggleSupplier:function(){var x=document.getElementById('supplierFormHost');if(x)x.hidden=!x.hidden;}};
 async function boot(){root=document.getElementById('opsRouteView');sb=await waitClient();if(!sb){root.innerHTML='<div class="notice danger">Supabase indisponible.</div>';return;}
  root.addEventListener('click',async function(e){var t=e.target.closest('[data-href],[data-action]');if(!t)return;if(t.dataset.href){location.hash=t.dataset.href.replace(/^#/,'');return;}var a=t.dataset.action;
-   if(a==='suggest-lba-code'){try{var form=document.getElementById('lbaForm'),name=form&&form.elements.nom&&form.elements.nom.value;if(!name)throw new Error('Saisissez le nom du LBA.');var sg=await rpc('procurement_suggest_supplier_code',{p_name:name,p_mode:'LBA'});form.elements.code.value=sg.code||'';}catch(err){alert(err.message);}}
+   if(a==='suggest-supplier-code'){try{var sf=document.getElementById('supplierForm'),nm=sf&&sf.elements.name&&sf.elements.name.value;if(!nm)throw new Error('Saisissez le nom du Supplier.');var ss=await rpc('procurement_suggest_supplier_code',{p_name:nm,p_mode:'DIRECT'});sf.elements.code.value=ss.code||'';}catch(err){alert(err.message);}}
+   else if(a==='view-supplier-doc'){try{var su2=await sb.storage.from('procurement-supplier-docs').createSignedUrl(t.dataset.path,120);if(su2.error)throw new Error(su2.error.message);window.open(su2.data.signedUrl,'_blank','noopener');}catch(err){alert(err.message);}}
+   else if(a==='void-supplier-doc'){try{var rs=window.prompt('Motif obligatoire pour invalider ce document :');if(!rs)return;await rpc('procurement_void_supplier_document',{p_document_id:t.dataset.id,p_reason:rs});await supplierProfile(parts()[1]);}catch(err){alert(err.message);}}
+   else if(a==='suggest-lba-code'){try{var form=document.getElementById('lbaForm'),name=form&&form.elements.nom&&form.elements.nom.value;if(!name)throw new Error('Saisissez le nom du LBA.');var sg=await rpc('procurement_suggest_supplier_code',{p_name:name,p_mode:'LBA'});form.elements.code.value=sg.code||'';}catch(err){alert(err.message);}}
    else if(a==='view-lba-doc'){try{var su=await sb.storage.from('procurement-supplier-docs').createSignedUrl(t.dataset.path,120);if(su.error)throw new Error(su.error.message);window.open(su.data.signedUrl,'_blank','noopener');}catch(err){alert(err.message);}}
    else if(a==='void-lba-doc'){try{var reason=window.prompt('Motif obligatoire pour invalider ce document :');if(!reason)return;await rpc('procurement_void_supplier_document',{p_document_id:t.dataset.id,p_reason:reason});await lbaProfile(parts()[1]);}catch(err){alert(err.message);}}
    else if(a==='reset-filters'){state.filters={};state.page=0;await purchaseRegister();}
