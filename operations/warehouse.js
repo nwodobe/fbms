@@ -83,10 +83,10 @@ async function overview(){
   root.innerHTML=head('Warehouse Operations','Control Tower RCN : exceptions, décisions et prochaines actions.',can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ New Reception</a>':'')+
   '<div class="kpi-grid">'+
   kpi('Awaiting Sampling',o.awaiting_sampling||0,'#quality','')+
-  kpi('Awaiting Decision',o.awaiting_decision||0,'#quality',(o.awaiting_decision||0)?'attn':'')+
+  kpi('Décision en attente',o.awaiting_decision||0,'#quality',(o.awaiting_decision||0)?'attn':'')+
   kpi('Accepted Waiting Offload',o.accepted_waiting_offload||0,'#inbound',(o.accepted_waiting_offload||0)?'attn':'')+
-  kpi('Final QA Pending',o.final_qa_pending||0,'#quality',(o.final_qa_pending||0)?'attn':'')+
-  kpi('Quality Hold',o.quality_hold||0,'#quality',(o.quality_hold||0)?'danger':'')+
+  kpi('Qualité finale en attente',o.final_qa_pending||0,'#quality',(o.final_qa_pending||0)?'attn':'')+
+  kpi('Blocage qualité',o.quality_hold||0,'#quality',(o.quality_hold||0)?'danger':'')+
   kpi('Staging not allocated',stagingLots.length,'#lots',stagingLots.length?'attn':'')+
   kpi('BIN near capacity',nearBins.length,'#bins',nearBins.length?'attn':'')+
   kpi('BIN blocked',blockedBins.length,'#bins',blockedBins.length?'danger':'')+
@@ -126,7 +126,7 @@ function inboundList(){
  root.innerHTML=head('Inbound','Arrivée physique, autorisation et déchargement.',can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ New Reception</a>':'')+
  notice('ok','<b>Règle:</b>&nbsp; aucun offloading avant décision ACCEPTED.')+
  '<div class="kpi-grid">'+kpi('Arrived / Sampling',a.filter(function(r){return r.status==='ARRIVED';}).length,'#quality','')+
- kpi('Awaiting Decision',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
+ kpi('Décision en attente',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
  kpi('Accepted for Offload',accepted.length,'#inbound',accepted.length?'attn':'')+
  kpi('Rejected / Refoulé',rejected.length,'#inbound',rejected.length?'danger':'')+'</div>'+
  '<div class="grid-2"><section class="card"><h2>Accepted for Offloading</h2>'+table(['Reception','Truck','Supplier / Source','KOR','Moisture','Warehouse','Decision'],accepted.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||r.procurement_source_type||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+dt(r.decided_at)+'</td></tr>'; }))+'</section>'+
@@ -134,107 +134,204 @@ function inboundList(){
  '<section class="card"><h2>All Receptions</h2>'+table(['Reception','Truck','Supplier / Channel','Origin','Warehouse','Expected','Arrival','Status','Next'],a.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||r.procurement_channel||'-')+'</td><td>'+esc(r.origin||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+mt(r.expected_kg||0)+'</td><td>'+dt(r.arrival_at)+'</td><td>'+badge(r.status)+'</td><td>'+esc(r.next_action||'-')+'</td></tr>';}))+'</section>';
 }
 
+function purchaseTypeLabel(v){
+ return v==='FIELD_BUYING'?'Achat Bord Champ':v==='LBA'?'Achat LBA':v==='DIRECT'||v==='COOPERATIVE'?'Achat Direct':(v||'-');
+}
+function receptionSourceRows(type){
+ return (state.pendingProcurement||[]).filter(function(x){
+   var pt=String(x.purchase_type||'').toUpperCase(),ch=String(x.procurement_channel||'').toUpperCase(),st=String(x.source_type||'').toUpperCase();
+   if(type==='FIELD_BUYING')return st==='FIELD_SHIPMENT';
+   if(type==='LBA')return st==='LBA_ARRIVAL'||pt==='LBA'||ch==='LBA';
+   if(type==='DIRECT')return st==='SUPPLIER_ARRIVAL'&&(['DIRECT','COOPERATIVE'].indexOf(pt)>=0||['DIRECT','COOPERATIVE'].indexOf(ch)>=0);
+   return false;
+ });
+}
+function refillReceptionSources(type){
+ var form=root&&root.querySelector('form[data-action="reception-create"]');if(!form)return;
+ var sel=form.querySelector('[name="procurement_source"]');if(!sel)return;
+ var rows=receptionSourceRows(type),old=sel.value;
+ sel.innerHTML='<option value="">Sélectionner une référence...</option>'+rows.map(function(x){
+   var ref=x.source_ref||x.source_id||'-',partner=x.supplier_name||x.supplier_code||x.origin||'';
+   return'<option value="'+esc(x.source_type+'|'+x.source_id)+'">'+esc(ref+' · '+purchaseTypeLabel(x.purchase_type||x.procurement_channel)+' · '+partner+' · '+(x.truck||'camion à compléter'))+'</option>';
+ }).join('');
+ if([].slice.call(sel.options).some(function(o){return o.value===old;}))sel.value=old;
+}
+function refillReceptionSuppliers(type){
+ var form=root&&root.querySelector('form[data-action="reception-create"]');if(!form)return;
+ var sel=form.querySelector('[name="supplier_code"]');if(!sel)return;
+ var old=sel.value,rows=(state.suppliers||[]).filter(function(x){
+   var isLba=x.categorie==='LBA'||String(x.code||'').indexOf('LBA-')===0;
+   return type==='LBA'?isLba:type==='DIRECT'?!isLba:false;
+ });
+ sel.innerHTML='<option value="">Sélectionner...</option>'+rows.map(function(x){return'<option value="'+esc(x.code)+'">'+esc(x.code+' - '+x.nom)+'</option>';}).join('');
+ if(rows.some(function(x){return x.code===old;}))sel.value=old; else sel.value='';
+ var disp=form.querySelector('[name="supplier_code_display"]');if(disp)disp.value=sel.value;
+}
+function refreshReceptionPlanningUI(){
+ var form=root&&root.querySelector('form[data-action="reception-create"]');if(!form)return;
+ var type=form.querySelector('[name="purchase_type"]').value;
+ var planned=form.querySelector('[name="planned"]').value==='true';
+ var source=form.querySelector('[name="procurement_source"]');
+ var sourceWrap=source&&source.closest('.ops-field');
+ var reason=form.querySelector('[name="ad_hoc_reason"]');
+ var reasonWrap=reason&&reason.closest('.ops-field');
+ var supplier=form.querySelector('[name="supplier_code"]');
+ var supplierWrap=supplier&&supplier.closest('.ops-field');
+ var supplierDisplay=form.querySelector('[name="supplier_code_display"]');
+ var supplierDisplayWrap=supplierDisplay&&supplierDisplay.closest('.ops-field');
+
+ refillReceptionSources(type);
+ refillReceptionSuppliers(type);
+
+ if(source){
+   source.required=planned||type==='FIELD_BUYING';
+   source.disabled=!planned&&type!=='FIELD_BUYING';
+ }
+ if(sourceWrap)sourceWrap.style.display=(planned||type==='FIELD_BUYING')?'':'none';
+ if(reason){reason.required=!planned; if(planned)reason.value='';}
+ if(reasonWrap)reasonWrap.style.display=planned?'none':'';
+ if(supplier){supplier.required=!planned&&type!=='FIELD_BUYING';supplier.disabled=type==='FIELD_BUYING'||planned;}
+ if(supplierWrap)supplierWrap.style.display=type==='FIELD_BUYING'?'none':'';
+ if(supplierDisplayWrap)supplierDisplayWrap.style.display=type==='FIELD_BUYING'?'none':'';
+
+ var help=document.getElementById('procurementSourceInfo');
+ if(help){
+   if(type==='FIELD_BUYING'){
+     help.innerHTML='<b>Achat Bord Champ :</b> choisissez l’Evacuation / Field Shipment afin de conserver les lots, achats producteurs et producteurs contributeurs.';
+   }else if(planned){
+     help.textContent='Sélectionnez l’arrivage prévu dans Procurement. Les informations déjà connues seront préremplies automatiquement.';
+   }else{
+     help.textContent='Réception non planifiée : choisissez le Fournisseur / LBA et renseignez obligatoirement le motif. La réception sera auditée comme exception de planning.';
+   }
+ }
+}
 function inboundNew(){
  var nowLocal=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
- var srcOpts=[['','Manual / Direct / Cooperative / Ad-Hoc']].concat((state.pendingProcurement||[]).map(function(x){
-   return[x.source_type+'|'+x.source_id,x.source_ref+' · '+x.procurement_channel+' · '+(x.truck||'truck à compléter')+' · '+(x.origin||'origine à compléter')];
- }));
- var typeOpts=[['','Sélectionner...']].concat((state.purchaseTypes||[]).map(function(x){return[x.code,x.label+' · '+x.channel_code];}));
- root.innerHTML=head('New Reception','Procurement Reference → camion → qualité → décision → pesée. Les données déjà connues ne sont pas ressaisies.','<a class="btn secondary" href="#inbound">Retour</a>')+
- '<form class="ops-form-card" data-action="reception-create"><h2>Procurement Source</h2><div class="ops-form-grid" style="margin-top:12px">'+
- select('Procurement Reference','procurement_source',srcOpts,'','')+
- select('Purchase Type','purchase_type',typeOpts,'','required')+
- select('Ad-Hoc Reception','ad_hoc',[['false','No'],['true','Yes · unplanned exception']],'false','required')+
- field('Reason for Ad-Hoc','ad_hoc_reason','text','')+
- '</div><h2 style="margin-top:18px">Truck & Counterparty</h2><div class="ops-form-grid" style="margin-top:12px">'+
- field('Truck Number','truck','text','','required')+
- select('Supplier','supplier_code',[['','Sélectionner un fournisseur actif...']].concat(state.suppliers.map(function(x){return[x.code,x.code+' - '+x.nom];})),'','')+
- field('Supplier Code','supplier_code_display','text','','readonly aria-readonly="true"')+
- field('Origin','origin','text','','required')+
- select('Warehouse','warehouse_id',whOpts(false),'','required')+
- field('Arrival Date / Time','arrival_at','datetime-local',nowLocal,'required')+
- '</div><h2 style="margin-top:18px">Document Check</h2><p class="muted">La Procurement Reference et les documents restent distincts. Un Field Shipment conserve ses producteurs contributeurs.</p>'+
+ var typeOpts=[['','Sélectionner...'],['FIELD_BUYING','Achat Bord Champ'],['LBA','Achat LBA'],['DIRECT','Achat Direct']];
+ root.innerHTML=head('Nouvelle réception','Origine de l’achat → camion → qualité → décision → pesée / déchargement. Les données déjà connues sont préremplies.','<a class="btn secondary" href="#inbound">Retour</a>')+
+ '<form class="ops-form-card" data-action="reception-create">'+
+ '<h2>1. Origine de l’achat</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ select('Type d’achat','purchase_type',typeOpts,'','required')+
+ select('Réception planifiée ?','planned',[['true','Oui'],['false','Non']],'true','required')+
+ select('Référence d’approvisionnement','procurement_source',[['','Sélectionner une référence...']],'','')+
+ field('Motif de la réception non planifiée','ad_hoc_reason','text','','placeholder="Ex. camion arrivé sans planification, changement de camion, livraison urgente..."')+
+ '</div><div class="notice info" id="procurementSourceInfo" style="margin-top:12px">Choisissez d’abord le type d’achat.</div>'+
+ '<h2 style="margin-top:18px">2. Camion et partenaire</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ field('Immatriculation du camion','truck','text','','required')+
+ select('Fournisseur / LBA','supplier_code',[['','Sélectionner...']],'','')+
+ field('Code fournisseur / LBA','supplier_code_display','text','','readonly aria-readonly="true"')+
+ field('Provenance','origin','text','','required')+
+ select('Entrepôt','warehouse_id',whOpts(false),'','required')+
+ field('Date et heure d’arrivée','arrival_at','datetime-local',nowLocal,'required')+
+ '</div>'+
+ '<h2 style="margin-top:18px">3. Transport et prévisions</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ field('Conducteur','driver','text','','required')+
+ field('Transporteur','transporter','text','')+
+ field('Poids prévu (kg)','expected_kg','number','','step="0.001" min="0"')+
+ field('Nombre de sacs prévu','expected_bags','number','','min="0"')+
+ '</div>'+
+ '<h2 style="margin-top:18px">4. Documents à l’arrivée</h2><p class="muted">La Référence d’approvisionnement n’est pas un document. Le ticket du pont-bascule ANAGROCI sera renseigné à l’étape Pesée / Déchargement.</p>'+
  '<div class="ops-form-grid" style="margin-top:12px">'+
- field('Delivery Note','delivery_note','text','')+field('Weighbridge Ticket','weighbridge_ticket','text','')+
- field('Driver','driver','text','','required')+field('Transporter','transporter','text','')+
- field('Expected Weight kg','expected_kg','number','','step="0.001" min="0"')+field('Expected Bags','expected_bags','number','','min="0"')+
- field('Reference','reference','text','')+
- '</div><div class="notice info" id="procurementSourceInfo" style="margin-top:12px">Sélectionnez une Procurement Reference pour préremplir les données connues, ou utilisez le mode manuel contrôlé.</div>'+
- '<div class="ops-actions" style="margin-top:14px"><button class="btn primary">Create Reception</button></div></form>';
- syncReceptionSource('');
+ select('Bon de livraison présent ?','delivery_note_present',[['false','Non'],['true','Oui']],'false','required')+
+ field('Numéro du bon de livraison','delivery_note','text','','placeholder="À renseigner si le bon est présent"')+
+ '</div>'+
+ '<div class="ops-actions" style="margin-top:14px"><button class="btn primary">Enregistrer la réception</button></div></form>';
+ refreshReceptionPlanningUI();
 }
 function syncReceptionSource(value){
  var form=root&&root.querySelector('form[data-action="reception-create"]');if(!form)return;
  var row=(state.pendingProcurement||[]).filter(function(x){return x.source_type+'|'+x.source_id===value;})[0];
  function set(n,v){var e=form.querySelector('[name="'+n+'"]');if(e&&v!=null)e.value=v;}
  if(row){
-   set('purchase_type',row.purchase_type);set('supplier_code',row.supplier_code||'');set('supplier_code_display',row.supplier_code||'MULTI-PRODUCER');
-   set('origin',row.origin||'');set('warehouse_id',row.warehouse_id||'');set('truck',row.truck||'');
-   set('driver',row.driver||'');set('transporter',row.transporter||'');set('expected_kg',row.expected_kg==null?'':row.expected_kg);
-   set('expected_bags',row.expected_bags==null?'':row.expected_bags);set('reference',row.source_ref||'');set('ad_hoc','false');set('ad_hoc_reason','');
-   var info=document.getElementById('procurementSourceInfo');if(info)info.innerHTML='<b>'+esc(row.source_ref)+'</b> · '+esc(row.procurement_channel)+' · '+esc(row.source_type)+' · la généalogie Procurement sera liée à cette réception.';
+   var type=String(row.purchase_type||row.procurement_channel||'').toUpperCase();
+   if(type==='COOPERATIVE')type='DIRECT';
+   if(row.source_type==='FIELD_SHIPMENT')type='FIELD_BUYING';
+   if(row.source_type==='LBA_ARRIVAL')type='LBA';
+   set('purchase_type',type);
+   set('supplier_code',row.supplier_code||'');
+   set('supplier_code_display',row.supplier_code||'');
+   set('origin',row.origin||'');
+   set('warehouse_id',row.warehouse_id||'');
+   set('truck',row.truck||'');
+   set('driver',row.driver||'');
+   set('transporter',row.transporter||'');
+   set('expected_kg',row.expected_kg==null?'':row.expected_kg);
+   set('expected_bags',row.expected_bags==null?'':row.expected_bags);
+   set('planned','true');
+   set('ad_hoc_reason','');
+   var info=document.getElementById('procurementSourceInfo');
+   if(info)info.innerHTML='<b>'+esc(row.source_ref||row.source_id)+'</b> · '+esc(purchaseTypeLabel(type))+' · '+esc(row.supplier_name||row.supplier_code||row.origin||'')+' · la généalogie Procurement sera liée à cette réception.';
  }else{
-   var sup=form.querySelector('[name="supplier_code"]'),disp=form.querySelector('[name="supplier_code_display"]');if(disp)disp.value=sup?sup.value:'';
-   var info2=document.getElementById('procurementSourceInfo');if(info2)info2.textContent='Mode manuel : Supplier obligatoire pour Direct/Cooperative; utilisez Ad-Hoc = Yes si le camion n’était pas planifié.';
+   var sup=form.querySelector('[name="supplier_code"]'),disp=form.querySelector('[name="supplier_code_display"]');
+   if(disp)disp.value=sup?sup.value:'';
  }
+ refreshReceptionPlanningUI();
 }
-
 function timelineRec(r){
- var arr=[['Arrival',r.arrival_at,r.created_by_name],['Sampling',r.sampling_at,'Quality'],['Decision',r.decided_at,r.decided_by_name],['Offloading',r.offloaded_at,'Warehouse'],['Final QA',r.final_at,'Quality']].filter(function(x){return x[1];});
+ var arr=[['Arrivée',r.arrival_at,r.created_by_name],['Échantillonnage',r.sampling_at,'Qualité'],['Décision',r.decided_at,r.decided_by_name],['Déchargement',r.offloaded_at,'Warehouse'],['Qualité finale',r.final_at,'Qualité']].filter(function(x){return x[1];});
  return'<div class="ops-timeline">'+arr.map(function(x){return'<div class="ops-timeline-item"><time>'+dt(x[1])+'</time><div><b>'+esc(x[0])+'</b><small>'+esc(x[2]||'-')+'</small></div></div>';}).join('')+'</div>';
 }
 function offloadForm(r){
  if(r.status!=='ACCEPTED_WAITING_OFFLOAD'||!can('offload'))return'';
- return'<form class="card" data-action="offload" data-id="'+esc(r.id)+'"><h2>Offloading / Weighing</h2><div class="ops-form-grid" style="margin-top:12px">'+
- field('Gross kg','gross_kg','number','','required step="0.001" min="0.001"')+field('Tare kg','tare_kg','number','','required step="0.001" min="0"')+field('Net kg = Gross − Tare','net_kg','number','','readonly aria-readonly="true" step="0.001"')+
- field('Bags total','bags','number','','min="0"')+field('Bags good','bags_good','number','','min="0"')+field('Bags wet','bags_wet','number','','min="0"')+field('Bags torn','bags_torn','number','','min="0"')+field('Bags reconditioned','bags_recond','number','','min="0"')+
- field('Weighbridge ticket','weighbridge_ticket','text','')+field('Delivery note','delivery_note','text','')+field('Warehouse receipt','warehouse_receipt','text','')+
- field('Offload start','offload_start','datetime-local','')+field('Offload end','offload_end','datetime-local','')+
- '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Record Offloading</button></div></form>';
+ return'<form class="card" data-action="offload" data-id="'+esc(r.id)+'"><h2>Pesée / Déchargement</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ field('Poids brut (kg)','gross_kg','number','','required step="0.001" min="0.001"')+
+ field('Tare (kg)','tare_kg','number','','required step="0.001" min="0"')+
+ field('Poids net = Brut − Tare','net_kg','number','','readonly aria-readonly="true" step="0.001"')+
+ field('Nombre total de sacs','bags','number','','min="0"')+
+ field('Sacs conformes','bags_good','number','','min="0"')+
+ field('Sacs humides','bags_wet','number','','min="0"')+
+ field('Sacs déchirés','bags_torn','number','','min="0"')+
+ field('Sacs reconditionnés','bags_recond','number','','min="0"')+
+ field('Ticket pont-bascule ANAGROCI','weighbridge_ticket','text',r.weighbridge_ticket||'')+
+ field('Bon de livraison','delivery_note','text',r.delivery_note||'')+
+ field('Bon / reçu Warehouse','warehouse_receipt','text','')+
+ field('Début déchargement','offload_start','datetime-local','')+
+ field('Fin déchargement','offload_end','datetime-local','')+
+ '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Enregistrer la pesée et le déchargement</button></div></form>';
 }
 function inboundDetail(r){
- var docsOk=!!(r.delivery_note&&r.weighbridge_ticket&&r.driver&&r.transporter&&r.purchase_type&&r.supplier_code&&r.origin);
- var corrMap={truck:r.truck||'',supplier_code:r.supplier_code||'',origin:r.origin||'',expected_kg:r.expected_kg==null?'':r.expected_kg,expected_bags:r.expected_bags==null?'':r.expected_bags,driver:r.driver||'',transporter:r.transporter||'',reference:r.reference||'',weighbridge_ticket:r.weighbridge_ticket||'',delivery_note:r.delivery_note||''};
- var corr=can('correction')?'<form class="card" data-action="reception-correct" data-id="'+esc(r.id)+'" data-current="'+esc(JSON.stringify(corrMap))+'"><h2>Controlled Correction</h2><p class="muted">Before → After est journalisé. Aucun champ stock n’est modifiable ici.</p><div class="ops-form-grid">'+
- select('Field','field',[['truck','Truck'],['supplier_code','Supplier Code'],['origin','Origin'],['expected_kg','Expected Weight'],['expected_bags','Expected Bags'],['driver','Driver'],['transporter','Transporter'],['reference','Reference'],['weighbridge_ticket','Weighbridge Ticket'],['delivery_note','Delivery Note']],'','required')+
- field('Current Value','current_value','text','','readonly aria-readonly="true"')+field('New Value','new_value','text','','required')+field('Reason','reason','text','','required')+field('Approver','approver','text','','required')+
- '</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Apply Controlled Correction</button></div></form>':'';
+ var docsOk=!!(r.delivery_note_present||r.delivery_note);
+ var corrMap={truck:r.truck||'',supplier_code:r.supplier_code||'',origin:r.origin||'',expected_kg:r.expected_kg==null?'':r.expected_kg,expected_bags:r.expected_bags==null?'':r.expected_bags,driver:r.driver||'',transporter:r.transporter||'',weighbridge_ticket:r.weighbridge_ticket||'',delivery_note:r.delivery_note||''};
+ var corr=can('correction')?'<form class="card" data-action="reception-correct" data-id="'+esc(r.id)+'" data-current="'+esc(JSON.stringify(corrMap))+'"><h2>Correction contrôlée</h2><p class="muted">Avant → Après est journalisé. Aucun champ stock n’est modifiable ici.</p><div class="ops-form-grid">'+
+ select('Field','field',[['truck','Immatriculation'],['supplier_code','Code fournisseur / LBA'],['origin','Provenance'],['expected_kg','Poids prévu'],['expected_bags','Sacs prévus'],['driver','Conducteur'],['transporter','Transporteur'],['weighbridge_ticket','Ticket pont-bascule'],['delivery_note','Bon de livraison']],'','required')+
+ field('Valeur actuelle','current_value','text','','readonly aria-readonly="true"')+field('Nouvelle valeur','new_value','text','','required')+field('Motif','reason','text','','required')+field('Approbateur','approver','text','','required')+
+ '</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Appliquer la correction contrôlée</button></div></form>':'';
  var rej=(state.rejectedTrucks||[]).filter(function(x){return x.reception_id===r.id;})[0];
- var rejection=(r.status==='REJECTED'&&rej&&rej.disposition_status!=='RESOLVED')?'<form class="card" data-action="resolve-rejection" data-id="'+esc(r.id)+'"><h2>Rejection Disposition</h2><p class="muted">Le rejet ne ferme pas le dossier. Indiquez la destination ou décision réelle prise pour le camion.</p><div class="ops-form-grid">'+field('Disposition / Action','resolution_action','text','','required placeholder="Return to source / reroute / negotiated decision..."')+field('Reason','resolution_reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn signal">Resolve Rejection</button></div></form>':(rej&&rej.disposition_status==='RESOLVED'?'<section class="card"><h2>Rejection Disposition</h2><div class="ops-def-grid"><div><small>Action</small><b>'+esc(rej.resolution_action||'-')+'</b></div><div><small>Reason</small><b>'+esc(rej.resolution_reason||'-')+'</b></div><div><small>Resolved by</small><b>'+esc(rej.resolved_by_name||'-')+'</b></div><div><small>Date</small><b>'+dt(rej.resolved_at)+'</b></div></div></section>':'');
- var settlement='<section class="card"><h2>Commercial Settlement</h2><p class="muted">Warehouse est la vérité physique. Refraction, prix, approbation et paiement sont gérés uniquement dans Procurement > Achat RCN.</p><div class="ops-def-grid"><div><small>Commercial status</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div><div><small>Paid Weight</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Refraction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div></div><div class="ops-actions" style="margin-top:12px"><a class="btn secondary" href="procurement.html#purchases">Open Achat RCN</a></div></section>';
- root.innerHTML=head(r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#inbound">Retour</a><a class="btn secondary" href="#quality/'+encodeURIComponent(r.id)+'">Open Quality</a>')+
- '<div class="ops-def-grid"><div><small>Status</small><b>'+badge(r.status)+'</b></div><div><small>Warehouse</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Supplier</small><b>'+esc(r.supplier_code+' · '+r.supplier_name)+'</b></div><div><small>Origin</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Expected</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Next action</small><b>'+esc(r.next_action||'-')+'</b></div></div>'+
- '<section class="card"><div class="card-head"><div><h2>Document Check</h2><p>Delivery Note · Weighbridge · Driver · Transporter · Purchase Type.</p></div>'+badge(docsOk?'DOCUMENTS COMPLETE':'DOCUMENTS INCOMPLETE')+'</div>'+
- '<div class="ops-def-grid"><div><small>Delivery Note</small><b>'+esc(r.delivery_note||'-')+'</b></div><div><small>Weighbridge Ticket</small><b>'+esc(r.weighbridge_ticket||'-')+'</b></div><div><small>Driver</small><b>'+esc(r.driver||'-')+'</b></div><div><small>Transporter</small><b>'+esc(r.transporter||'-')+'</b></div><div><small>Purchase Type</small><b>'+esc(r.purchase_type||'-')+'</b></div><div><small>Expected Bags</small><b>'+esc(r.expected_bags==null?'-':r.expected_bags)+'</b></div></div></section>'+
- '<section class="card"><h2>Procurement Link</h2><div class="ops-def-grid"><div><small>Channel</small><b>'+esc(r.procurement_channel||'-')+'</b></div><div><small>Source</small><b>'+esc(r.procurement_source_type||'-')+'</b></div><div><small>Source ID</small><b>'+esc(r.procurement_source_id||'-')+'</b></div><div><small>Paid Weight</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Refraction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div><div><small>Commercial status</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div></div></section>'+ '<section class="card"><h2>Timeline</h2>'+timelineRec(r)+'</section>'+offloadForm(r)+settlement+rejection+corr;
+ var rejection=(r.status==='REJECTED'&&rej&&rej.disposition_status!=='RESOLVED')?'<form class="card" data-action="resolve-rejection" data-id="'+esc(r.id)+'"><h2>Traitement du camion refoulé</h2><p class="muted">Le refoulement ne ferme pas le dossier. Indiquez la destination ou la décision réelle prise pour le camion.</p><div class="ops-form-grid">'+field('Disposition / Action','resolution_action','text','','required placeholder="Return to source / reroute / negotiated decision..."')+field('Motif','resolution_reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn signal">Clôturer le traitement du refoulement</button></div></form>':(rej&&rej.disposition_status==='RESOLVED'?'<section class="card"><h2>Traitement du camion refoulé</h2><div class="ops-def-grid"><div><small>Action</small><b>'+esc(rej.resolution_action||'-')+'</b></div><div><small>Reason</small><b>'+esc(rej.resolution_reason||'-')+'</b></div><div><small>Resolved by</small><b>'+esc(rej.resolved_by_name||'-')+'</b></div><div><small>Date</small><b>'+dt(rej.resolved_at)+'</b></div></div></section>':'');
+ var settlement='<section class="card"><h2>Règlement commercial</h2><p class="muted">Warehouse est la vérité physique. Réfaction, prix, approbation et paiement sont gérés uniquement dans Procurement > Achat RCN.</p><div class="ops-def-grid"><div><small>Statut commercial</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div><div><small>Poids payé</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Réfaction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div></div><div class="ops-actions" style="margin-top:12px"><a class="btn secondary" href="procurement.html#purchases">Ouvrir Achat RCN</a></div></section>';
+ root.innerHTML=head(r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#inbound">Retour</a><a class="btn secondary" href="#quality/'+encodeURIComponent(r.id)+'">Ouvrir Qualité</a>')+
+ '<div class="ops-def-grid"><div><small>Statut</small><b>'+badge(r.status)+'</b></div><div><small>Entrepôt</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Fournisseur / LBA</small><b>'+esc(r.supplier_code+' · '+r.supplier_name)+'</b></div><div><small>Provenance</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Poids net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Prochaine action</small><b>'+esc(r.next_action||'-')+'</b></div></div>'+
+ '<section class="card"><div class="card-head"><div><h2>Documents à l’arrivée</h2><p>Bon de livraison à l’arrivée. Le ticket pont-bascule ANAGROCI est renseigné lors de la pesée.</p></div>'+badge(docsOk?'DOCUMENTS COMPLETS':'DOCUMENTS INCOMPLETS')+'</div>'+
+ '<div class="ops-def-grid"><div><small>Bon de livraison</small><b>'+esc(r.delivery_note||'-')+'</b></div><div><small>Ticket pont-bascule</small><b>'+esc(r.weighbridge_ticket||'-')+'</b></div><div><small>Conducteur</small><b>'+esc(r.driver||'-')+'</b></div><div><small>Transporteur</small><b>'+esc(r.transporter||'-')+'</b></div><div><small>Type d’achat</small><b>'+esc(r.purchase_type||'-')+'</b></div><div><small>Sacs prévus</small><b>'+esc(r.expected_bags==null?'-':r.expected_bags)+'</b></div></div></section>'+
+ '<section class="card"><h2>Lien d’approvisionnement</h2><div class="ops-def-grid"><div><small>Canal</small><b>'+esc(r.procurement_channel||'-')+'</b></div><div><small>Type de source</small><b>'+esc(r.procurement_source_type||'-')+'</b></div><div><small>Référence d’approvisionnement</small><b>'+esc(r.procurement_source_id||'-')+'</b></div><div><small>Poids payé</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Réfaction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div><div><small>Statut commercial</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div></div></section>'+ '<section class="card"><h2>Historique de la réception</h2>'+timelineRec(r)+'</section>'+offloadForm(r)+settlement+rejection+corr;
 }
 
 function qualityList(){
  var a=state.receptions.filter(function(r){return['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD','RELEASED'].indexOf(r.status)>=0;});
- root.innerHTML=head('Quality','Work Queue Sampling, décision, Final Quality et Hold.')+
- '<div class="kpi-grid">'+kpi('Sampling Pending',a.filter(function(r){return!r.sampling_id&&r.status==='ARRIVED';}).length,'#quality','')+
- kpi('Awaiting Decision',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
- kpi('Final QA Pending',a.filter(function(r){return r.status==='AWAITING_FINAL_QA'&&!r.final_id;}).length,'#quality','attn')+
- kpi('Quality Hold',a.filter(function(r){return r.status==='QUALITY_HOLD';}).length,'#quality','danger')+
+ root.innerHTML=head('Qualité','File de travail : échantillonnage, décision, qualité finale et blocage qualité.')+
+ '<div class="kpi-grid">'+kpi('Échantillonnage en attente',a.filter(function(r){return!r.sampling_id&&r.status==='ARRIVED';}).length,'#quality','')+
+ kpi('Décision en attente',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
+ kpi('Qualité finale en attente',a.filter(function(r){return r.status==='AWAITING_FINAL_QA'&&!r.final_id;}).length,'#quality','attn')+
+ kpi('Blocage qualité',a.filter(function(r){return r.status==='QUALITY_HOLD';}).length,'#quality','danger')+
  '</div><section class="card">'+table(['REC / Truck','Supplier','Sampling KOR','Moisture','Decision','Final KOR','Delta','Lot','Status','Action'],a.map(function(r){return'<tr class="ops-click" data-href="#quality/'+encodeURIComponent(r.id)+'"><td><span class="mono">'+esc(r.id)+'</span><br>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.decision||'-')+'</td><td>'+esc(r.final_kor==null?'-':r.final_kor)+'</td><td>'+esc(r.kor_delta==null?'-':r.kor_delta)+'</td><td class="mono">'+esc(r.lot_id||'-')+'</td><td>'+badge(r.status)+'</td><td>'+esc(r.next_action||'-')+'</td></tr>';}))+'</section>';
 }
 function qForm(r,type){
  var allowed=type==='SAMPLING'?can('sampling')&&['ARRIVED','AWAITING_DECISION'].indexOf(r.status)>=0:can('final_qa')&&['AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;
  if(!allowed)return'';
  return'<form class="card" data-action="quality" data-id="'+esc(r.id)+'" data-type="'+type+'"><h2>'+type+'</h2><div class="ops-form-grid" style="margin-top:12px">'+
- field('Good Kernel g','gk_g','number','','required step="0.001" min="0"')+field('Immature g','imm_g','number','','required step="0.001" min="0"')+field('Spotted g','spotted_g','number','','required step="0.001" min="0"')+
- field('Moisture %','moisture_pct','number','','step="0.01" min="0"')+field('Nut Count','nut_count','number','','min="0"')+textarea('Note','note','')+
+ field('Bonnes amandes (g)','gk_g','number','','required step="0.001" min="0"')+field('Immatûres (g)','imm_g','number','','required step="0.001" min="0"')+field('Tachetées (g)','spotted_g','number','','required step="0.001" min="0"')+
+ field('Humidité (%)','moisture_pct','number','','step="0.01" min="0"')+field('Nombre de noix','nut_count','number','','min="0"')+textarea('Note','note','')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save '+type+'</button></div></form>';
 }
 function decisionPanel(r){
  if(r.status!=='AWAITING_DECISION'||!can('decision'))return'';
- return'<section class="card"><h2>Decision</h2><div class="ops-form-grid" style="margin-top:12px">'+field('Comment / Reject reason','decision_comment','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary" data-action-button="accept" data-id="'+esc(r.id)+'">Accept</button><button class="btn signal" data-action-button="reject" data-id="'+esc(r.id)+'">Reject</button></div></section>';
+ return'<section class="card"><h2>Décision</h2><div class="ops-form-grid" style="margin-top:12px">'+field('Commentaire / Motif de refoulement','decision_comment','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary" data-action-button="accept" data-id="'+esc(r.id)+'">Accepter pour déchargement</button><button class="btn signal" data-action-button="reject" data-id="'+esc(r.id)+'">Refouler le camion</button></div></section>';
 }
 function qualityDetail(r){
  var s=qualityFor(r.id,'SAMPLING'),f=qualityFor(r.id,'FINAL');
  var compare='<div class="grid-2"><section class="card"><h2>Sampling</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(s?s.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(s?s.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(s?s.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(s?s.kor_display:'-')+'</b></div><div><small>Factor</small><b>'+esc(s?s.kor_factor:'-')+'</b></div><div><small>Moisture</small><b>'+esc(s?s.moisture_pct:'-')+'</b></div></div></section><section class="card"><h2>Final Quality</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(f?f.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(f?f.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(f?f.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(f?f.kor_display:'-')+'</b></div><div><small>Delta</small><b>'+esc(f?f.delta_vs_sampling:'-')+'</b></div><div><small>Within tolerance</small><b>'+esc(f?(f.within_tolerance?'YES':'NO'):'-')+'</b></div></div></section></div>';
  var rel=(r.status==='AWAITING_FINAL_QA'&&r.final_id&&can('lot_release'))?'<section class="card"><h2>Lot Release</h2><div class="ops-actions"><button class="btn primary" data-action-button="release-lot" data-id="'+esc(r.id)+'">Release official Lot</button></div></section>':'';
- var hold=can('quality_hold')?'<section class="card"><h2>Quality Hold</h2><div class="ops-form-grid">'+field('Reason','hold_reason','text','')+'</div><div class="ops-actions">'+(r.status==='QUALITY_HOLD'?'<button class="btn primary" data-action-button="unhold" data-id="'+esc(r.id)+'">Release Hold</button>':'<button class="btn secondary" data-action-button="hold" data-id="'+esc(r.id)+'">Place on Hold</button>')+'</div></section>':'';
+ var hold=can('quality_hold')?'<section class="card"><h2>Quality Hold</h2><div class="ops-form-grid">'+field('Motif','hold_reason','text','')+'</div><div class="ops-actions">'+(r.status==='QUALITY_HOLD'?'<button class="btn primary" data-action-button="unhold" data-id="'+esc(r.id)+'">Release Hold</button>':'<button class="btn secondary" data-action-button="hold" data-id="'+esc(r.id)+'">Place on Hold</button>')+'</div></section>':'';
  root.innerHTML=head('Quality · '+r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#quality">Retour</a><a class="btn secondary" href="#inbound/'+encodeURIComponent(r.id)+'">Inbound dossier</a>')+
  compare+qForm(r,'SAMPLING')+decisionPanel(r)+qForm(r,'FINAL')+rel+hold;
 }
@@ -249,7 +346,7 @@ async function lotDetail(l){
  var post=await q('wms_v_post_dry_quality_current','*',function(x){return x.eq('lot_id',l.id).order('created_at',{ascending:false}).limit(50);}).catch(function(){return[];});
  var proc=await q('wms_v_lot_procurement_contributors','*',function(x){return x.eq('wms_lot_id',l.id).order('producer_name').limit(500);}).catch(function(){return[];});
  root.innerHTML=head(l.id,'Lot passport · '+(l.supplier_name||'-'),'<a class="btn secondary" href="#lots">Retour</a>'+transferBtn)+
- '<div class="ops-def-grid"><div><small>Reception</small><b>'+esc(l.reception_id)+'</b></div><div><small>Truck</small><b>'+esc(l.truck||'-')+'</b></div><div><small>Initial</small><b>'+kg(l.initial_kg)+'</b></div><div><small>Current</small><b>'+kg(l.current_kg)+'</b></div><div><small>Final KOR</small><b>'+esc(l.kor_final||'-')+'</b></div><div><small>Status</small><b>'+badge(l.status)+'</b></div></div>'+
+ '<div class="ops-def-grid"><div><small>Reception</small><b>'+esc(l.reception_id)+'</b></div><div><small>Truck</small><b>'+esc(l.truck||'-')+'</b></div><div><small>Initial</small><b>'+kg(l.initial_kg)+'</b></div><div><small>Current</small><b>'+kg(l.current_kg)+'</b></div><div><small>Final KOR</small><b>'+esc(l.kor_final||'-')+'</b></div><div><small>Statut</small><b>'+badge(l.status)+'</b></div></div>'+
  (proc.length?'<section class="card"><h2>Procurement Genealogy</h2><p class="muted">Quantités terrain conservées séparément du Net Warehouse; aucun écart n’est redistribué automatiquement.</p>'+table(['Producer','RT','Village','Field Purchase','Field kg','Bags','Field ↔ Warehouse variance'],proc.map(function(p){return'<tr><td><b>'+esc(p.producer_code||'-')+'</b><br>'+esc(p.producer_name||'-')+'</td><td>'+esc(p.rt_name||p.rt_id||'-')+'</td><td>'+esc(p.village_name||'-')+'</td><td class="mono">'+esc(p.achat_id||'-')+'</td><td>'+kg(p.field_qty_kg)+'</td><td>'+esc(p.field_bag_count==null?'-':p.field_bag_count)+'</td><td>'+kg(p.field_warehouse_variance_kg)+'</td></tr>';}))+'</section>':'')+
  '<section class="card"><h2>Current positions / BIN contributors</h2>'+table(['BIN','Remaining','Supplier','Origin','Truck','KOR'],contrib.map(function(c){return'<tr><td class="mono"><a href="#bins/'+encodeURIComponent(c.bin_id)+'">'+esc(c.bin_id)+'</a></td><td>'+kg(c.remaining_kg)+'</td><td>'+esc(c.supplier_name||'-')+'</td><td>'+esc(c.origin||'-')+'</td><td>'+esc(c.truck||'-')+'</td><td>'+esc(c.kor_final||'-')+'</td></tr>';}))+'</section>'+
  '<section class="card"><h2>Post-Dry Quality</h2>'+table(['Date','Drying','Batch','Cycle','BIN','KOR','Moisture','Disposition'],post.map(function(p){return'<tr><td>'+dt(p.created_at)+'</td><td class="mono">'+esc(p.drying_id)+'</td><td class="mono">'+esc(p.batch_id||'-')+'</td><td>'+esc(p.cycle_no||'-')+'</td><td class="mono">'+esc(p.dest_bin_id||'-')+'</td><td>'+esc(p.kor_display||'-')+'</td><td>'+esc(p.moisture_pct==null?'-':p.moisture_pct+' %')+'</td><td>'+badge(p.disposition||'-')+'</td></tr>';}))+'</section>'+
@@ -281,7 +378,7 @@ function areaEdit(a){
  var openBins=state.bins.filter(function(b){return String(b.physical_area_id)===String(a.id)&&b.status!=='CLOSED';});
  root.innerHTML=head('Edit Physical Area · '+a.code,'Statut protégé par les BIN opérationnels.','<a class="btn secondary" href="#bins/areas/'+encodeURIComponent(a.warehouse_id)+'">Retour</a>')+
  (openBins.length?notice('warn','<b>'+openBins.length+' BIN non fermé(s).</b> La désactivation sera refusée tant qu’ils ne sont pas CLOSED.'):'')+
- '<form class="ops-form-card" data-action="area-save" data-id="'+esc(a.id)+'" data-wh="'+esc(a.warehouse_id)+'"><div class="ops-form-grid">'+field('Area Code','code','text',a.code,'required')+field('Description','description','text',a.description||'')+field('Capacity kg','capacity_kg','number',a.capacity_kg==null?'':a.capacity_kg,'step="0.001" min="0"')+select('Status','status',[['ACTIVE','Active'],['INACTIVE','Inactive']],a.status,'required')+field('Reason','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Area</button></div></form>';
+ '<form class="ops-form-card" data-action="area-save" data-id="'+esc(a.id)+'" data-wh="'+esc(a.warehouse_id)+'"><div class="ops-form-grid">'+field('Area Code','code','text',a.code,'required')+field('Description','description','text',a.description||'')+field('Capacity kg','capacity_kg','number',a.capacity_kg==null?'':a.capacity_kg,'step="0.001" min="0"')+select('Status','status',[['ACTIVE','Active'],['INACTIVE','Inactive']],a.status,'required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Area</button></div></form>';
 }
 function binNew(){
  var activeWh=state.warehouses.filter(function(w){return w.status==='ACTIVE';}),areaOpts=[['','No physical area']].concat(state.areas.filter(function(a){return a.status==='ACTIVE';}).map(function(a){var w=whById(a.warehouse_id);return[a.id,(w?w.code:'')+' / '+a.code];}));
@@ -293,16 +390,16 @@ async function binDetail(b){
  var lots=state.lots.filter(function(l){return Number(l.staging_kg||0)>0&&String(l.warehouse_id)===String(b.warehouse_id);});
  var dests=state.bins.filter(function(x){return x.id!==b.id&&String(x.warehouse_id)===String(b.warehouse_id)&&x.stock_type===b.stock_type&&['CLOSED','BLOCKED'].indexOf(x.status)<0;});
  var alloc=can('bin_ops')&&b.status!=='CLOSED'&&b.status!=='BLOCKED'?'<form class="card" data-action="allocate" data-bin="'+esc(b.id)+'"><h2>Add Lot</h2><div class="ops-form-grid">'+select('Lot','lot_id',[['','Sélectionner...']].concat(lots.map(function(l){return[l.id,l.id+' · staging '+kg(l.staging_kg)];})),'','required')+field('Qty kg','qty','number','','required step="0.001" min="0.001"')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Allocate Lot</button></div></form>':'';
- var transfer=can('bin_ops')&&b.status!=='CLOSED'&&b.status!=='BLOCKED'&&Number(b.balance_kg||0)>0?'<form class="card" data-action="bin-transfer" data-bin="'+esc(b.id)+'"><h2>BIN → BIN Transfer</h2><p class="muted">Les contributeurs LOT sont alloués automatiquement par le ledger.</p><div class="ops-form-grid">'+select('Destination BIN','to_bin',[['','Sélectionner...']].concat(dests.map(function(x){var free=x.capacity_kg==null?'∞':kg(Math.max(0,Number(x.capacity_kg)-Number(x.balance_kg||0)));return[x.id,x.id+' · stock '+kg(x.balance_kg)+' · free '+free];})),'','required')+field('Quantity kg','qty','number','','required step="0.001" min="0.001" max="'+esc(b.balance_kg)+'"')+field('Reason','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Post BIN Transfer</button></div></form>':'';
+ var transfer=can('bin_ops')&&b.status!=='CLOSED'&&b.status!=='BLOCKED'&&Number(b.balance_kg||0)>0?'<form class="card" data-action="bin-transfer" data-bin="'+esc(b.id)+'"><h2>BIN → BIN Transfer</h2><p class="muted">Les contributeurs LOT sont alloués automatiquement par le ledger.</p><div class="ops-form-grid">'+select('Destination BIN','to_bin',[['','Sélectionner...']].concat(dests.map(function(x){var free=x.capacity_kg==null?'∞':kg(Math.max(0,Number(x.capacity_kg)-Number(x.balance_kg||0)));return[x.id,x.id+' · stock '+kg(x.balance_kg)+' · free '+free];})),'','required')+field('Quantity kg','qty','number','','required step="0.001" min="0.001" max="'+esc(b.balance_kg)+'"')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Post BIN Transfer</button></div></form>':'';
  var count=can('inventory_count')&&b.status!=='CLOSED'?'<form class="card" data-action="inventory-count" data-bin="'+esc(b.id)+'"><h2>Inventory Count</h2><div class="ops-form-grid">'+field('Physical kg','physical_kg','number','','required step="0.001" min="0"')+field('Note','note','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Create Count</button></div></form>':'';
- var close=can('bin_close')&&b.status!=='CLOSED'?'<form class="card" data-action="bin-close" data-bin="'+esc(b.id)+'"><h2>Close BIN</h2><div class="ops-form-grid">'+select('Physical Empty','physical_empty',[['false','No'],['true','Yes']],'false','required')+field('Residue kg','residue_kg','number','0','step="0.001" min="0"')+field('Reason','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Close & Lock</button></div></form>':'';
+ var close=can('bin_close')&&b.status!=='CLOSED'?'<form class="card" data-action="bin-close" data-bin="'+esc(b.id)+'"><h2>Close BIN</h2><div class="ops-form-grid">'+select('Physical Empty','physical_empty',[['false','No'],['true','Yes']],'false','required')+field('Residue kg','residue_kg','number','0','step="0.001" min="0"')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Close & Lock</button></div></form>':'';
  var lifecycle='<section class="card"><h2>BIN Controls</h2><div class="ops-actions">'+
    (can('bin_close')&&b.status!=='CLOSED'?(b.status==='BLOCKED'?'<button class="btn secondary" data-action-button="bin-status" data-id="'+esc(b.id)+'" data-status="UNBLOCK">Unblock BIN</button>':'<button class="btn secondary" data-action-button="bin-status" data-id="'+esc(b.id)+'" data-status="BLOCKED">Block BIN</button>'):'')+
    (can('bin_reopen')&&b.status==='CLOSED'?'<button class="btn signal" data-action-button="bin-status" data-id="'+esc(b.id)+'" data-status="REOPEN">Reopen BIN</button>':'')+
    (Number(b.balance_kg||0)>0?'<button class="btn primary" data-action-button="prepare-transfer-bin" data-id="'+esc(b.id)+'">Prepare Stock Transfer</button>':'')+
  '</div></section>';
  root.innerHTML=head(b.id,b.warehouse_code+' · '+b.stock_type,'<a class="btn secondary" href="#bins">Retour</a>'+(Number(b.balance_kg||0)>0&&b.status!=='BLOCKED'&&b.status!=='CLOSED'?'<a class="btn secondary" href="#drying/new">Start Drying</a>':''))+
- '<div class="ops-def-grid"><div><small>Stock</small><b>'+kg(b.balance_kg)+'</b></div><div><small>Capacity</small><b>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</b></div><div><small>Available capacity</small><b>'+(b.capacity_kg==null?'∞':kg(Math.max(0,Number(b.capacity_kg)-Number(b.balance_kg||0))))+'</b></div><div><small>Occupancy</small><b>'+num(b.occupancy_pct,1)+' %</b></div><div><small>Area</small><b>'+esc(b.area_code||'-')+'</b></div><div><small>Contributors</small><b>'+esc(b.contributors||0)+'</b></div><div><small>Status</small><b>'+badge(b.status)+'</b></div><div><small>Reopen count</small><b>'+esc(b.reopen_count||0)+'</b></div></div>'+
+ '<div class="ops-def-grid"><div><small>Stock</small><b>'+kg(b.balance_kg)+'</b></div><div><small>Capacity</small><b>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</b></div><div><small>Available capacity</small><b>'+(b.capacity_kg==null?'∞':kg(Math.max(0,Number(b.capacity_kg)-Number(b.balance_kg||0))))+'</b></div><div><small>Occupancy</small><b>'+num(b.occupancy_pct,1)+' %</b></div><div><small>Area</small><b>'+esc(b.area_code||'-')+'</b></div><div><small>Contributors</small><b>'+esc(b.contributors||0)+'</b></div><div><small>Statut</small><b>'+badge(b.status)+'</b></div><div><small>Reopen count</small><b>'+esc(b.reopen_count||0)+'</b></div></div>'+
  '<section class="card"><h2>Contributors</h2>'+table(['Lot','Supplier','Origin','Truck','IN','OUT','Remaining','KOR'],contrib.map(function(c){return'<tr><td class="mono"><a href="#lots/'+encodeURIComponent(c.lot_id)+'">'+esc(c.lot_id)+'</a></td><td>'+esc(c.supplier_name||'-')+'</td><td>'+esc(c.origin||'-')+'</td><td>'+esc(c.truck||'-')+'</td><td>'+kg(c.qty_in)+'</td><td>'+kg(c.qty_out)+'</td><td>'+kg(c.remaining_kg)+'</td><td>'+esc(c.kor_final||'-')+'</td></tr>';}))+'</section>'+lifecycle+alloc+transfer+count+close;
 }
 
@@ -329,13 +426,13 @@ async function dryingDetail(d){
  var pending=contributors.filter(function(x){return !snapMap[x.lot_id];});
  var form=can('post_dry_qa')&&pending.length?'<form class="card" data-action="post-dry-quality" data-drying="'+esc(d.id)+'"><h2>Post-Dry Quality</h2><p class="muted">Snapshot Quality indépendant du Warehouse Coordinator. Blank ≠ 0.</p><div class="ops-form-grid">'+
  select('LOT','lot_id',pending.map(function(x){return[x.lot_id,x.lot_id+' · '+kg(x.qty_in)];}),'','required')+
- field('Good Kernel g','gk_g','number','','required step="0.001" min="0"')+field('Immature g','imm_g','number','','required step="0.001" min="0"')+field('Spotted g','spotted_g','number','','required step="0.001" min="0"')+
- field('Moisture %','moisture_pct','number','','required step="0.01" min="0"')+field('Nut Count','nut_count','number','','min="0"')+
+ field('Bonnes amandes (g)','gk_g','number','','required step="0.001" min="0"')+field('Immatûres (g)','imm_g','number','','required step="0.001" min="0"')+field('Tachetées (g)','spotted_g','number','','required step="0.001" min="0"')+
+ field('Humidité (%)','moisture_pct','number','','required step="0.01" min="0"')+field('Nombre de noix','nut_count','number','','min="0"')+
  select('Disposition','disposition',[['READY','READY'],['RE_DRY','RE-DRY'],['HOLD','HOLD']],'READY','required')+field('Decision Reason','decision_reason','text','')+textarea('Quality Note','note','')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Post-Dry Quality</button></div></form>':'';
  var redry=d.status==='RE_DRY'&&can('drying')?'<section class="card"><h2>Re-Dry Required</h2><p>Créez le cycle suivant en conservant Batch et généalogie.</p><div class="ops-actions"><button class="btn primary" data-action-button="redry" data-id="'+esc(d.id)+'">Start Re-Dry Cycle</button></div></section>':'';
  root.innerHTML=head(d.id,'Batch '+d.batch_id+' · Cycle '+d.cycle_no,'<a class="btn secondary" href="#drying">Retour</a>')+
- '<div class="ops-def-grid"><div><small>Status</small><b>'+badge(d.status)+'</b></div><div><small>Source</small><b>'+esc(d.source_bin_id)+'</b></div><div><small>Destination</small><b>'+esc(d.dest_bin_id)+'</b></div><div><small>Input</small><b>'+kg(d.input_kg)+'</b></div><div><small>Output</small><b>'+kg(d.output_kg)+'</b></div><div><small>Process Loss</small><b>'+kg(d.process_loss_kg)+' · '+num(d.process_loss_pct,2)+'%</b></div></div>'+
+ '<div class="ops-def-grid"><div><small>Statut</small><b>'+badge(d.status)+'</b></div><div><small>Type de source</small><b>'+esc(d.source_bin_id)+'</b></div><div><small>Destination</small><b>'+esc(d.dest_bin_id)+'</b></div><div><small>Input</small><b>'+kg(d.input_kg)+'</b></div><div><small>Output</small><b>'+kg(d.output_kg)+'</b></div><div><small>Process Loss</small><b>'+kg(d.process_loss_kg)+' · '+num(d.process_loss_pct,2)+'%</b></div></div>'+
  '<section class="card"><h2>Quality genealogy</h2>'+table(['LOT','Qty after','Post-Dry KOR','Moisture','Disposition'],contributors.map(function(x){var ql=snapMap[x.lot_id];return'<tr><td class="mono">'+esc(x.lot_id)+'</td><td>'+kg(x.qty_in)+'</td><td>'+esc(ql?ql.kor_display:'PENDING')+'</td><td>'+esc(ql&&ql.moisture_pct!=null?ql.moisture_pct+' %':'-')+'</td><td>'+badge(ql?ql.disposition:'AWAITING_POST_DRY_QA')+'</td></tr>';}))+'</section>'+form+redry;
 }
 
@@ -359,7 +456,7 @@ async function inventoryRoute(){
  state.inventory=await q('wms_inventory_counts','*',function(x){return x.order('counted_at',{ascending:false}).limit(300);});
  root.innerHTML=head('Inventory','Cycle Count: physical count never changes stock before approval.')+
  '<section class="card">'+table(['Count','BIN','Theoretical','Physical','Variance','Status','Counted by','Approver','Date'],state.inventory.map(function(i){return'<tr><td class="mono">'+esc(i.id)+'</td><td class="mono">'+esc(i.bin_id)+'</td><td>'+kg(i.theoretical_kg)+'</td><td>'+kg(i.physical_kg)+'</td><td>'+kg(i.variance_kg)+'</td><td>'+badge(i.status)+'</td><td>'+esc(i.counted_by_name||'-')+'</td><td>'+esc(i.approved_by_name||'-')+'</td><td>'+dt(i.counted_at)+'</td></tr>';}))+'</section>'+
- (can('inventory_approve')?'<section class="card"><h2>Resolve open variance</h2><form data-action="inventory-resolve"><div class="ops-form-grid">'+select('Count','count_id',[['','Sélectionner...']].concat(state.inventory.filter(function(i){return i.status==='REVIEW_REQUIRED';}).map(function(i){return[i.id,i.id+' · '+i.bin_id+' · variance '+kg(i.variance_kg)];})),'','required')+select('Decision','approve',[['true','Approve adjustment'],['false','Reject count']],'true','required')+field('Reason','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Resolve</button></div></form></section>':'');
+ (can('inventory_approve')?'<section class="card"><h2>Resolve open variance</h2><form data-action="inventory-resolve"><div class="ops-form-grid">'+select('Count','count_id',[['','Sélectionner...']].concat(state.inventory.filter(function(i){return i.status==='REVIEW_REQUIRED';}).map(function(i){return[i.id,i.id+' · '+i.bin_id+' · variance '+kg(i.variance_kg)];})),'','required')+select('Decision','approve',[['true','Approve adjustment'],['false','Reject count']],'true','required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Resolve</button></div></form></section>':'');
 }
 
 async function auditRoute(){
@@ -401,7 +498,7 @@ async function render(){
 async function submit(ev){
  var f=ev.target.closest('form[data-action]');if(!f)return;ev.preventDefault();var d=formObj(f),a=f.dataset.action,k,r;busy(f,true);
  try{
-  if(a==='reception-create'){k=opKey('RECEPTION','NEW');var ps=String(d.procurement_source||'').split('|');r=await rpc('wms_create_reception',{p:{truck:d.truck,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags,arrival_at:d.arrival_at,purchase_type:d.purchase_type,reference:d.reference,driver:d.driver,transporter:d.transporter,delivery_note:d.delivery_note,weighbridge_ticket:d.weighbridge_ticket,procurement_source_type:ps.length>1?ps[0]:null,procurement_source_id:ps.length>1?ps.slice(1).join('|'):null,ad_hoc:d.ad_hoc==='true',ad_hoc_reason:d.ad_hoc_reason},p_idempotency_key:k.key});doneKey(k);location.hash='#inbound/'+encodeURIComponent(r.id);return;}
+  if(a==='reception-create'){k=opKey('RECEPTION','NEW');var ps=String(d.procurement_source||'').split('|'),planned=d.planned==='true';r=await rpc('wms_create_reception',{p:{truck:d.truck,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags,arrival_at:d.arrival_at,purchase_type:d.purchase_type,driver:d.driver,transporter:d.transporter,delivery_note_present:d.delivery_note_present==='true',delivery_note:d.delivery_note,procurement_source_type:ps.length>1?ps[0]:null,procurement_source_id:ps.length>1?ps.slice(1).join('|'):null,ad_hoc:!planned,ad_hoc_reason:d.ad_hoc_reason},p_idempotency_key:k.key});doneKey(k);location.hash='#inbound/'+encodeURIComponent(r.id);return;}
   if(a==='offload'){await rpc('wms_record_offload',{p_id:f.dataset.id,p:d});await render();return;}
   if(a==='resolve-rejection'){await rpc('procurement_resolve_rejection',{p_reception_id:f.dataset.id,p_action:d.resolution_action,p_reason:d.resolution_reason});await render();return;}
   if(a==='reception-correct'){await rpc('wms_correct_reception',{p_id:f.dataset.id,p_field:d.field,p_value:d.new_value,p_reason:d.reason,p_approver:d.approver});await render();return;}
@@ -423,7 +520,7 @@ async function click(ev){
  var row=ev.target.closest('[data-href]');if(row){location.hash=row.dataset.href;return;}
  var b=ev.target.closest('[data-action-button]');if(!b)return;var a=b.dataset.actionButton,idv=b.dataset.id;b.disabled=true;
  try{
-  if(a==='accept'||a==='reject'){var c=document.querySelector('[name="decision_comment"]'),txt=c?c.value:'';if(a==='reject'&&!txt.trim())throw new Error('Motif obligatoire pour Reject.');await rpc('wms_decide_reception',{p_id:idv,p_accept:a==='accept',p_comment:txt});}
+  if(a==='accept'||a==='reject'){var c=document.querySelector('[name="decision_comment"]'),txt=c?c.value:'';if(a==='reject'&&!txt.trim())throw new Error('Motif obligatoire pour refouler le camion.');await rpc('wms_decide_reception',{p_id:idv,p_accept:a==='accept',p_comment:txt});}
   if(a==='release-lot'){var k=opKey('LOT-RELEASE',idv);await rpc('wms_release_lot',{p_reception_id:idv,p_idempotency_key:k.key});doneKey(k);}
   if(a==='hold'||a==='unhold'){var h=document.querySelector('[name="hold_reason"]'),reason=h?h.value:'';if(!reason.trim())throw new Error('Motif obligatoire.');await rpc('wms_set_hold',{p_reception_id:idv,p_hold:a==='hold',p_reason:reason});}
   if(a==='wh-status'){var reason=prompt('Motif du changement de statut :')||'';if(!reason.trim())throw new Error('Motif obligatoire.');await rpc('wms_set_warehouse_status',{p_id:idv,p_status:b.dataset.status,p_reason:reason});}
@@ -460,7 +557,9 @@ async function init(){
  root.addEventListener('submit',submit);root.addEventListener('click',click);
  root.addEventListener('change',function(ev){
    if(ev.target.name==='procurement_source')syncReceptionSource(ev.target.value);
+   if(ev.target.name==='purchase_type'||ev.target.name==='planned')refreshReceptionPlanningUI();
    if(ev.target.name==='supplier_code'){var f=ev.target.closest('form[data-action="reception-create"]'),d=f&&f.querySelector('[name="supplier_code_display"]');if(d)d.value=ev.target.value;}
+   if(ev.target.name==='delivery_note_present'){var rf=ev.target.closest('form[data-action="reception-create"]'),dn=rf&&rf.querySelector('[name="delivery_note"]');if(dn){dn.required=ev.target.value==='true';if(ev.target.value!=='true')dn.value='';}}
    if(ev.target.name==='field'){var cf=ev.target.closest('form[data-action="reception-correct"]');if(cf){var cur=cf.querySelector('[name="current_value"]'),map={};try{map=JSON.parse(cf.dataset.current||'{}');}catch(e){}if(cur)cur.value=map[ev.target.value]==null?'':map[ev.target.value];}}
  });
  root.addEventListener('input',function(ev){var f=ev.target.closest('form');if(!f)return;if(f.dataset.action==='offload'&&(ev.target.name==='gross_kg'||ev.target.name==='tare_kg')){var g=Number(f.querySelector('[name="gross_kg"]').value),t=Number(f.querySelector('[name="tare_kg"]').value),nn=f.querySelector('[name="net_kg"]');nn.value=(Number.isFinite(g)&&Number.isFinite(t)&&g>t)?(g-t).toFixed(3):'';}if(f.dataset.action==='procurement-settlement'&&(ev.target.name==='refraction_mode'||ev.target.name==='refraction_value')){var net=Number(f.querySelector('[name="net_snapshot"]').value||0),mode=f.querySelector('[name="refraction_mode"]').value,val=Number(f.querySelector('[name="refraction_value"]').value||0),ref=mode==='KG'?val:mode==='PERCENT'?net*val/100:0,p=f.querySelector('[name="paid_preview"]');p.value=Math.max(0,net-ref).toFixed(3);}});
