@@ -46,6 +46,17 @@ assert.ok(procurement.includes('AUTORISATION_SIGNATURE'), 'Signature authorizati
 assert.ok(procurement.includes('DFE'), 'DFE document type missing');
 assert.ok(procurement.includes('createSignedUrl'), 'Private documents must be opened with signed URLs');
 assert.ok(procurement.includes('#lba/'), 'LBA registry must link to digital profile');
+assert.ok(procurement.includes('procurement_create_direct_supplier_profile'), 'Enriched Direct Supplier creation RPC missing');
+assert.ok(procurement.includes('suggest-supplier-code'), 'DIS code suggestion action missing');
+assert.ok(procurement.includes("p_mode:'DIRECT'"), 'Supplier code suggestion must request DIRECT/DIS mode');
+assert.ok(procurement.includes('SUPPLIER DIGITAL PROFILE'), 'Supplier digital profile missing');
+assert.ok(procurement.includes('#suppliers/'), 'Supplier registry must link to digital profile');
+assert.ok(procurement.includes('supplierAdminForm'), 'Supplier edit form missing');
+assert.ok(procurement.includes('supplierBankForm'), 'Supplier RIB form missing');
+assert.ok(procurement.includes('supplierDocForm'), 'Supplier private document form missing');
+assert.ok(procurement.includes('view-supplier-doc'), 'Supplier signed document viewing action missing');
+assert.ok(procurement.includes('void-supplier-doc'), 'Supplier document invalidation action missing');
+
 
 assert.ok(/function arrivals\(\)[\s\S]*Planned Supplier Arrival/.test(procurement), 'Planned Supplier Arrival must live under Arrivals');
 assert.ok(/async function purchases\(\)\{[^}]*purchasePassport/.test(procurement), 'Purchases route must open canonical register/passport, not planning');
