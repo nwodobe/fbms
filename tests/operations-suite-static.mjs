@@ -36,6 +36,17 @@ assert.ok(procurement.includes('procurement_approve_purchase'), 'Purchase approv
 assert.ok(procurement.includes('procurement_submit_bap'), 'BAP submit RPC missing');
 assert.ok(procurement.includes('procurement_record_payment'), 'Finance payment RPC missing');
 assert.ok(procurement.includes('PURCHASE PASSPORT'), 'Purchase Passport missing');
+assert.ok(procurement.includes('procurement_create_lba_profile'), 'Enriched LBA creation RPC missing');
+assert.ok(procurement.includes('Code CCAK'), 'LBA CCAK field missing');
+assert.ok(procurement.includes('Téléphone'), 'LBA phone field missing');
+assert.ok(procurement.includes('procurement_save_supplier_bank_account'), 'LBA bank/RIB workflow missing');
+assert.ok(procurement.includes('procurement-supplier-docs'), 'Private LBA document vault missing');
+assert.ok(procurement.includes('DELEGATION_POUVOIR'), 'Delegation de pouvoir document type missing');
+assert.ok(procurement.includes('AUTORISATION_SIGNATURE'), 'Signature authorization document type missing');
+assert.ok(procurement.includes('DFE'), 'DFE document type missing');
+assert.ok(procurement.includes('createSignedUrl'), 'Private documents must be opened with signed URLs');
+assert.ok(procurement.includes('#lba/'), 'LBA registry must link to digital profile');
+
 assert.ok(/function arrivals\(\)[\s\S]*Planned Supplier Arrival/.test(procurement), 'Planned Supplier Arrival must live under Arrivals');
 assert.ok(/async function purchases\(\)\{[^}]*purchasePassport/.test(procurement), 'Purchases route must open canonical register/passport, not planning');
 
