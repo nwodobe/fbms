@@ -64,6 +64,22 @@ assert.ok(/async function purchases\(\)\{[^}]*purchasePassport/.test(procurement
 const warehouseOps = read('operations/warehouse.js');
 assert.ok(!warehouseOps.includes('data-action="procurement-settlement"'), 'Warehouse must not edit commercial settlements');
 assert.ok(warehouseOps.includes('Procurement > Achat RCN'), 'Warehouse must point commercial actions to Procurement');
+assert.ok(warehouseOps.includes('Nouvelle réception'), 'Warehouse New Reception must be French');
+assert.ok(warehouseOps.includes('Référence d’approvisionnement'), 'French procurement reference label missing');
+assert.ok(warehouseOps.includes('Réception planifiée ?'), 'Planned reception question missing');
+assert.ok(warehouseOps.includes('Motif de la réception non planifiée'), 'Unplanned reception reason missing');
+assert.ok(warehouseOps.includes("['FIELD_BUYING','Achat Bord Champ']"), 'Achat Bord Champ option missing');
+assert.ok(warehouseOps.includes("['LBA','Achat LBA']"), 'Achat LBA option missing');
+assert.ok(warehouseOps.includes("['DIRECT','Achat Direct']"), 'Achat Direct option missing');
+assert.ok(!warehouseOps.includes("select('Ad-Hoc Reception'"), 'Ad-Hoc jargon must not be visible in reception UI');
+assert.ok(!warehouseOps.includes("select('Procurement Reference'"), 'Procurement Reference English label must not be visible');
+assert.ok(!warehouseOps.includes('<h2>Document Check</h2>'), 'Document Check English section must be removed');
+assert.ok(warehouseOps.includes('Transport et prévisions'), 'Transport/forecast section missing');
+assert.ok(warehouseOps.includes('Documents à l’arrivée'), 'Arrival documents section missing');
+assert.ok(warehouseOps.includes('Ticket pont-bascule ANAGROCI'), 'ANAGROCI weighbridge ticket must live in weighing/offload');
+assert.ok(warehouseOps.includes('delivery_note_present'), 'Delivery note presence control missing');
+assert.ok(!warehouseOps.includes("field('Reference','reference'"), 'Generic Reference field must be removed from New Reception');
+
 
 const field = read('operations/field-buying.html');
 assert.ok(/parcelle\/GPS ne bloque jamais/i.test(field), '2027 parcel non-blocking rule missing');
