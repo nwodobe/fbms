@@ -235,7 +235,7 @@ assert.ok(/wms_overview/.test(wh) && /wms_create_reception/.test(wh) && /wms_sav
 for (const feature of ['wms_bin_transfer','wms_set_bin_status','wms_correct_reception','wms_save_post_dry_quality','wms_daily_closing']) {
   assert.ok(wh.includes(feature), `Warehouse go-live feature missing: ${feature}`);
 }
-for (const label of ['Staging non affecté','BIN near capacity','BIN blocked','Drying exceptions','Prêt pour transfert','File des exceptions Warehouse']) {
+for (const label of ['Staging non affecté','BIN proche de la capacité','BIN bloqué','Exceptions de séchage','Prêt pour transfert','File des exceptions Warehouse']) {
   assert.ok(wh.includes(label), `Warehouse Control Tower missing: ${label}`);
 }
 assert.ok(wh.includes('Valeur actuelle') && wh.includes("'current_value'") && wh.includes('data-current='), 'Correction contrôlée must show the current value before change');
