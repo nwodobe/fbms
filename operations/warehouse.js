@@ -168,10 +168,10 @@ async function overview(){
   kpi('Acceptés en attente de pesée / déchargement',o.accepted_waiting_offload||0,'#inbound',(o.accepted_waiting_offload||0)?'attn':'')+
   kpi('Qualité finale en attente',o.final_qa_pending||0,'#quality',(o.final_qa_pending||0)?'attn':'')+
   kpi('Blocage qualité',o.quality_hold||0,'#quality',(o.quality_hold||0)?'danger':'')+
-  kpi('Staging not allocated',stagingLots.length,'#lots',stagingLots.length?'attn':'')+
-  kpi('BIN near capacity',nearBins.length,'#bins',nearBins.length?'attn':'')+
-  kpi('BIN blocked',blockedBins.length,'#bins',blockedBins.length?'danger':'')+
-  kpi('Drying exceptions',dryingExceptions.length,'#drying',dryingExceptions.length?'danger':'')+
+  kpi('Staging non affecté',stagingLots.length,'#lots',stagingLots.length?'attn':'')+
+  kpi('BIN proche de la capacité',nearBins.length,'#bins',nearBins.length?'attn':'')+
+  kpi('BIN bloqué',blockedBins.length,'#bins',blockedBins.length?'danger':'')+
+  kpi('Exceptions de séchage',dryingExceptions.length,'#drying',dryingExceptions.length?'danger':'')+
   kpi('Prêt pour transfert',readyTransfer.length,'#lots',readyTransfer.length?'ok':'')+
   '</div><div class="grid-2"><section class="card"><div class="card-head"><div><h2>Actions nécessitant une attention</h2><p>Priorité aux dossiers anciens et bloqués.</p></div></div>'+
   table(['Reception','Truck','Supplier','Warehouse','Age','Status','Next'],att.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+num(r.age_hours,1)+' h</td><td>'+badge(r.status)+'</td><td>'+esc(r.next_action||'-')+'</td></tr>';}))+
