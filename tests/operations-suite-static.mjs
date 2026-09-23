@@ -235,11 +235,11 @@ assert.ok(/wms_overview/.test(wh) && /wms_create_reception/.test(wh) && /wms_sav
 for (const feature of ['wms_bin_transfer','wms_set_bin_status','wms_correct_reception','wms_save_post_dry_quality','wms_daily_closing']) {
   assert.ok(wh.includes(feature), `Warehouse go-live feature missing: ${feature}`);
 }
-for (const label of ['Staging not allocated','BIN near capacity','BIN blocked','Drying exceptions','Ready for Transfer','Warehouse Exception Queue']) {
+for (const label of ['Staging non affecté','BIN near capacity','BIN blocked','Drying exceptions','Prêt pour transfert','File des exceptions Warehouse']) {
   assert.ok(wh.includes(label), `Warehouse Control Tower missing: ${label}`);
 }
 assert.ok(wh.includes('Valeur actuelle') && wh.includes("'current_value'") && wh.includes('data-current='), 'Correction contrôlée must show the current value before change');
-assert.ok(wh.includes('Prepare Stock Transfer') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
+assert.ok(wh.includes('Préparer le transfert') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
 assert.ok(/Poids net = Brut/.test(wh) && /readonly/.test(wh), 'Warehouse Net Weight must remain calculated/read-only in French UI');
 assert.ok(wh.includes('function nextActionForReception'), 'Warehouse Next Action engine missing');
 assert.ok(wh.includes('function workflowStepper'), 'Warehouse workflow stepper missing');
