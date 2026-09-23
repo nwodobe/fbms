@@ -460,11 +460,12 @@ async function lotDetail(l){
 }
 
 function binsList(){
- var manage=can('master_data')?'<a class="btn secondary" href="#bins/warehouses">Manage Warehouses</a>':'';
- var create=can('bin_ops')?'<a class="btn primary ops-cta-create" href="#bins/new">+ Create BIN</a>':'';
- root.innerHTML=head('Stock & BIN','Position physique, capacité, contributeurs et cycle de vie.',manage+create)+
- '<section class="card">'+table(['BIN','Warehouse','Area','Type','Stock','Capacity','Occupancy','Contributors','Age','Status'],state.bins.map(function(b){return'<tr class="ops-click" data-href="#bins/'+encodeURIComponent(b.id)+'"><td class="mono">'+esc(b.id)+'</td><td>'+esc(b.warehouse_code||'-')+'</td><td>'+esc(b.area_code||'-')+'</td><td>'+esc(b.stock_type)+'</td><td>'+kg(b.balance_kg)+'</td><td>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</td><td>'+num(b.occupancy_pct,1)+' %</td><td>'+esc(b.contributors||0)+'</td><td>'+num(b.age_hours,1)+' h</td><td>'+badge(b.status)+'</td></tr>';}))+'</section>';
+ var manage=can('master_data')?'<a class="btn secondary" href="#bins/warehouses">Gérer les entrepôts</a>':'';
+ var create=can('bin_ops')?'<a class="btn primary ops-cta-create" href="#bins/new">+ Créer un BIN</a>':'';
+ var content=state.bins.length?table(['BIN','Entrepôt','Zone','Type','Stock','Capacité','Occupation','Contributeurs','Âge','Statut'],state.bins.map(function(b){return'<tr class="ops-click" data-href="#bins/'+encodeURIComponent(b.id)+'"><td class="mono">'+esc(b.id)+'</td><td>'+esc(b.warehouse_code||'-')+'</td><td>'+esc(b.area_code||'-')+'</td><td>'+esc(b.stock_type)+'</td><td>'+kg(b.balance_kg)+'</td><td>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</td><td>'+num(b.occupancy_pct,1)+' %</td><td>'+esc(b.contributors||0)+'</td><td>'+num(b.age_hours,1)+' h</td><td>'+businessBadge(b.status)+'</td></tr>';})):'<div class="ops-empty"><b>Aucun BIN disponible.</b><br>Un BIN est nécessaire pour stocker un LOT après sa libération.'+(can('bin_ops')?'<div class="ops-actions" style="margin-top:12px"><a class="btn primary" href="#bins/new">Créer le premier BIN</a></div>':'')+'</div>';
+ root.innerHTML=head('Stock & BIN','BIN = localisation physique. Créez et gérez les emplacements de stockage.',manage+create)+'<section class="card">'+content+'</section>';
 }
+
 function warehouseManage(){
  root.innerHTML=head('Manage Warehouses','Créer, modifier, activer/désactiver et gérer les Physical Areas.','<a class="btn secondary" href="#bins">Retour</a><a class="btn primary" href="#bins/warehouse-new">+ Warehouse</a>')+
  '<section class="card">'+table(['Code','Site','Name','Location','Capacity','Status','Action'],state.warehouses.map(function(w){return'<tr><td class="mono">'+esc(w.code)+'</td><td>'+esc(w.site_code)+'</td><td>'+esc(w.name)+'</td><td>'+esc(w.location||'-')+'</td><td>'+(w.capacity_kg==null?'-':kg(w.capacity_kg))+'</td><td>'+badge(w.status)+'</td><td><a href="#bins/warehouse-edit/'+encodeURIComponent(w.id)+'">Edit</a> · <a href="#bins/areas/'+encodeURIComponent(w.id)+'">Areas</a></td></tr>';}))+'</section>';
@@ -487,10 +488,14 @@ function areaEdit(a){
  '<form class="ops-form-card" data-action="area-save" data-id="'+esc(a.id)+'" data-wh="'+esc(a.warehouse_id)+'"><div class="ops-form-grid">'+field('Area Code','code','text',a.code,'required')+field('Description','description','text',a.description||'')+field('Capacity kg','capacity_kg','number',a.capacity_kg==null?'':a.capacity_kg,'step="0.001" min="0"')+select('Status','status',[['ACTIVE','Active'],['INACTIVE','Inactive']],a.status,'required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Area</button></div></form>';
 }
 function binNew(){
- var activeWh=state.warehouses.filter(function(w){return w.status==='ACTIVE';}),areaOpts=[['','No physical area']].concat(state.areas.filter(function(a){return a.status==='ACTIVE';}).map(function(a){var w=whById(a.warehouse_id);return[a.id,(w?w.code:'')+' / '+a.code];}));
- root.innerHTML=head('Create BIN','Operational BIN unique; Physical Area may be reused only after closure.','<a class="btn secondary" href="#bins">Retour</a>')+
- '<form class="ops-form-card" data-action="bin-create"><div class="ops-form-grid">'+select('Warehouse','warehouse_id',[['','Sélectionner...']].concat(activeWh.map(function(w){return[w.id,w.code+' - '+w.name];})),'','required')+select('Physical Area','physical_area_id',areaOpts,'')+select('Stock Type','stock_type',[['WET','WET'],['DRY','DRY'],['HOLD','HOLD']],'WET','required')+field('Capacity kg','capacity_kg','number','','step="0.001" min="0"')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Create BIN</button></div></form>';
+ var activeWh=state.warehouses.filter(function(w){return w.status==='ACTIVE';});
+ var pre=null;try{pre=JSON.parse(sessionStorage.getItem('wms_bin_prefill')||'null');}catch(e){}
+ var areaOpts=[['','Aucune zone physique']].concat(state.areas.filter(function(a){return a.status==='ACTIVE'&&(!pre||!pre.warehouse_id||String(a.warehouse_id)===String(pre.warehouse_id));}).map(function(a){var w=whById(a.warehouse_id);return[a.id,(w?w.code:'')+' / '+a.code];}));
+ var msg=pre&&pre.lot_id?notice('info','Vous créez un BIN pour poursuivre l’affectation du LOT <b>'+esc(pre.lot_id)+'</b>. Après création, l’application vous ramènera automatiquement vers ce LOT.'):'';
+ root.innerHTML=head('Créer un BIN','Un BIN est un emplacement opérationnel unique.','<a class="btn secondary" href="'+(pre&&pre.lot_id?'#lots/'+encodeURIComponent(pre.lot_id):'#bins')+'">Retour</a>')+msg+
+ '<form class="ops-form-card" data-action="bin-create"><div class="ops-form-grid">'+select('Entrepôt','warehouse_id',[['','Sélectionner...']].concat(activeWh.map(function(w){return[w.id,w.code+' - '+w.name];})),pre&&pre.warehouse_id?pre.warehouse_id:'','required')+select('Zone physique','physical_area_id',areaOpts,'')+select('Type de stock','stock_type',[['WET','Humide'],['DRY','Sec'],['HOLD','Bloqué']],'WET','required')+field('Capacité (kg)','capacity_kg','number','','step="0.001" min="0"')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Créer le BIN</button></div></form>';
 }
+
 async function binDetail(b){
  var contrib=await q('wms_v_bin_contributors','*',function(x){return x.eq('bin_id',b.id).gt('remaining_kg',0);});
  var lots=state.lots.filter(function(l){return Number(l.staging_kg||0)>0&&String(l.warehouse_id)===String(b.warehouse_id);});
