@@ -232,8 +232,8 @@ function inboundNew(){
  '</div>'+
  '<h2 style="margin-top:18px">4. Documents à l’arrivée</h2><p class="muted">La Référence d’approvisionnement n’est pas un document. Le ticket du pont-bascule ANAGROCI sera renseigné à l’étape Pesée / Déchargement.</p>'+
  '<div class="ops-form-grid" style="margin-top:12px">'+
- select('Bon de livraison présent ?','delivery_note_present',[['false','Non'],['true','Oui']],'false','required')+
- field('Numéro du bon de livraison','delivery_note','text','','placeholder="À renseigner si le bon est présent"')+
+ select('Fiche de déchargement présente ?','delivery_note_present',[['false','Non'],['true','Oui']],'false','required')+
+ field('Numéro de la fiche de déchargement','delivery_note','text','','placeholder="À renseigner si la fiche est présente"')+
  '</div>'+
  '<div class="ops-actions" style="margin-top:14px"><button class="btn primary">Enregistrer la réception</button></div></form>';
  refreshReceptionPlanningUI();
@@ -283,7 +283,7 @@ function offloadForm(r){
  field('Sacs déchirés','bags_torn','number','','min="0"')+
  field('Sacs reconditionnés','bags_recond','number','','min="0"')+
  field('Ticket pont-bascule ANAGROCI','weighbridge_ticket','text',r.weighbridge_ticket||'')+
- field('Bon de livraison','delivery_note','text',r.delivery_note||'')+
+ field('Fiche de déchargement','delivery_note','text',r.delivery_note||'')+
  field('Bon / reçu Warehouse','warehouse_receipt','text','')+
  field('Début déchargement','offload_start','datetime-local','')+
  field('Fin déchargement','offload_end','datetime-local','')+
@@ -293,7 +293,7 @@ function inboundDetail(r){
  var docsOk=!!(r.delivery_note_present||r.delivery_note);
  var corrMap={truck:r.truck||'',supplier_code:r.supplier_code||'',origin:r.origin||'',expected_kg:r.expected_kg==null?'':r.expected_kg,expected_bags:r.expected_bags==null?'':r.expected_bags,driver:r.driver||'',transporter:r.transporter||'',weighbridge_ticket:r.weighbridge_ticket||'',delivery_note:r.delivery_note||''};
  var corr=can('correction')?'<form class="card" data-action="reception-correct" data-id="'+esc(r.id)+'" data-current="'+esc(JSON.stringify(corrMap))+'"><h2>Correction contrôlée</h2><p class="muted">Avant → Après est journalisé. Aucun champ stock n’est modifiable ici.</p><div class="ops-form-grid">'+
- select('Field','field',[['truck','Immatriculation'],['supplier_code','Code fournisseur / LBA'],['origin','Provenance'],['expected_kg','Poids prévu'],['expected_bags','Sacs prévus'],['driver','Conducteur'],['transporter','Transporteur'],['weighbridge_ticket','Ticket pont-bascule'],['delivery_note','Bon de livraison']],'','required')+
+ select('Field','field',[['truck','Immatriculation'],['supplier_code','Code fournisseur / LBA'],['origin','Provenance'],['expected_kg','Poids prévu'],['expected_bags','Sacs prévus'],['driver','Conducteur'],['transporter','Transporteur'],['weighbridge_ticket','Ticket pont-bascule'],['delivery_note','Fiche de déchargement']],'','required')+
  field('Valeur actuelle','current_value','text','','readonly aria-readonly="true"')+field('Nouvelle valeur','new_value','text','','required')+field('Motif','reason','text','','required')+field('Approbateur','approver','text','','required')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn secondary">Appliquer la correction contrôlée</button></div></form>':'';
  var rej=(state.rejectedTrucks||[]).filter(function(x){return x.reception_id===r.id;})[0];
@@ -302,8 +302,8 @@ function inboundDetail(r){
  root.innerHTML=head(r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#inbound">Retour</a><a class="btn secondary" href="#quality/'+encodeURIComponent(r.id)+'">Ouvrir Qualité</a>')+
  '<div class="ops-def-grid"><div><small>Statut</small><b>'+badge(r.status)+'</b></div><div><small>Entrepôt</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Fournisseur / LBA</small><b>'+esc(r.supplier_code+' · '+r.supplier_name)+'</b></div><div><small>Provenance</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Poids net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Prochaine action</small><b>'+esc(r.next_action||'-')+'</b></div></div>'+
  '<section class="card"><h2>Transport et prévisions</h2><div class="ops-def-grid"><div><small>Type d’achat</small><b>'+esc(purchaseTypeLabel(r.purchase_type))+'</b></div><div><small>Conducteur</small><b>'+esc(r.driver||'-')+'</b></div><div><small>Transporteur</small><b>'+esc(r.transporter||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Sacs prévus</small><b>'+esc(r.expected_bags==null?'-':r.expected_bags)+'</b></div><div><small>Réception planifiée</small><b>'+(r.ad_hoc?'NON':'OUI')+'</b></div></div></section>'+
- '<section class="card"><div class="card-head"><div><h2>Documents à l’arrivée</h2><p>Le bon de livraison est contrôlé à l’arrivée. Le ticket pont-bascule ANAGROCI est renseigné lors de la pesée.</p></div>'+badge(docsOk?'DOCUMENTS COMPLETS':'DOCUMENTS INCOMPLETS')+'</div>'+
- '<div class="ops-def-grid"><div><small>Bon de livraison présent</small><b>'+((r.delivery_note_present||r.delivery_note)?'OUI':'NON')+'</b></div><div><small>Numéro du bon de livraison</small><b>'+esc(r.delivery_note||'-')+'</b></div><div><small>Ticket pont-bascule ANAGROCI</small><b>'+esc(r.weighbridge_ticket||'-')+'</b></div></div></section>'+
+ '<section class="card"><div class="card-head"><div><h2>Documents à l’arrivée</h2><p>La fiche de déchargement est contrôlée à l’arrivée. Le ticket pont-bascule ANAGROCI est renseigné lors de la pesée.</p></div>'+badge(docsOk?'DOCUMENTS COMPLETS':'DOCUMENTS INCOMPLETS')+'</div>'+
+ '<div class="ops-def-grid"><div><small>Fiche de déchargement présente</small><b>'+((r.delivery_note_present||r.delivery_note)?'OUI':'NON')+'</b></div><div><small>Numéro de la fiche de déchargement</small><b>'+esc(r.delivery_note||'-')+'</b></div><div><small>Ticket pont-bascule ANAGROCI</small><b>'+esc(r.weighbridge_ticket||'-')+'</b></div></div></section>'+
  '<section class="card"><h2>Lien d’approvisionnement</h2><div class="ops-def-grid"><div><small>Canal</small><b>'+esc(r.procurement_channel||'-')+'</b></div><div><small>Type de source</small><b>'+esc(r.procurement_source_type||'-')+'</b></div><div><small>Référence d’approvisionnement</small><b>'+esc(r.procurement_source_id||'-')+'</b></div><div><small>Poids payé</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Réfaction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div><div><small>Statut commercial</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div></div></section>'+ '<section class="card"><h2>Historique de la réception</h2>'+timelineRec(r)+'</section>'+offloadForm(r)+settlement+rejection+corr;
 }
 
