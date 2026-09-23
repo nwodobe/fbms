@@ -405,7 +405,7 @@ function qualityList(){
 function qForm(r,type){
  var allowed=type==='SAMPLING'?can('sampling')&&['ARRIVED','AWAITING_DECISION'].indexOf(r.status)>=0:can('final_qa')&&['AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;
  if(!allowed)return'';
- return'<form class="card" data-action="quality" data-id="'+esc(r.id)+'" data-type="'+type+'"><h2>'+(type==='SAMPLING'?'Échantillonnage':'Qualité finale')+'</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ return'<form class="card" id="quality-'+type.toLowerCase()+'-section" data-action="quality" data-id="'+esc(r.id)+'" data-type="'+type+'"><h2>'+(type==='SAMPLING'?'Échantillonnage':'Qualité finale')+'</h2><div class="ops-form-grid" style="margin-top:12px">'+
  field('Bonnes amandes (g)','gk_g','number','','required step="0.001" min="0"')+field('Immatûres (g)','imm_g','number','','required step="0.001" min="0"')+field('Tachetées (g)','spotted_g','number','','required step="0.001" min="0"')+
  field('Humidité (%)','moisture_pct','number','','step="0.01" min="0"')+field('Nombre de noix','nut_count','number','','min="0"')+textarea('Note','note','')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save '+type+'</button></div></form>';
@@ -423,7 +423,7 @@ function qualityDetail(r){
    finalBlock='<section class="card"><h2>Qualité finale</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(f?f.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(f?f.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(f?f.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(f?f.kor_display:'-')+'</b></div><div><small>Écart</small><b>'+esc(f?f.delta_vs_sampling:'-')+'</b></div><div><small>Dans la tolérance</small><b>'+esc(f?(f.within_tolerance?'Oui':'Non'):'-')+'</b></div></div></section>';
  }
  var sample='<section class="card"><h2>Échantillonnage</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(s?s.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(s?s.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(s?s.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(s?s.kor_display:'-')+'</b></div><div><small>Facteur</small><b>'+esc(s?s.kor_factor:'-')+'</b></div><div><small>Humidité</small><b>'+esc(s?s.moisture_pct:'-')+'</b></div></div></section>';
- var rel=(r.status==='AWAITING_FINAL_QA'&&r.final_id&&can('lot_release'))?'<section class="card"><h2>Création du LOT</h2><p>La qualité finale est terminée. Créez maintenant le LOT officiel.</p><div class="ops-actions"><button class="btn primary" data-action-button="release-lot" data-id="'+esc(r.id)+'">Créer et libérer le LOT</button></div></section>':'';
+ var rel=(r.status==='AWAITING_FINAL_QA'&&r.final_id&&can('lot_release'))?'<section class="card" id="lot-release-section"><h2>Création du LOT</h2><p>La qualité finale est terminée. Créez maintenant le LOT officiel.</p><div class="ops-actions"><button class="btn primary" data-action-button="release-lot" data-id="'+esc(r.id)+'">Créer et libérer le LOT</button></div></section>':'';
  var hold=can('quality_hold')?'<section class="card"><h2>Blocage qualité</h2><div class="ops-form-grid">'+field('Motif','hold_reason','text','')+'</div><div class="ops-actions">'+(r.status==='QUALITY_HOLD'?'<button class="btn primary" data-action-button="unhold" data-id="'+esc(r.id)+'">Lever le blocage qualité</button>':'<button class="btn secondary" data-action-button="hold" data-id="'+esc(r.id)+'">Mettre en blocage qualité</button>')+'</div></section>':'';
  root.innerHTML=head('Qualité · '+r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#quality">Retour</a><a class="btn secondary" href="#inbound/'+encodeURIComponent(r.id)+'">Dossier de réception</a>')+
  workflowStepper(r)+nextActionCard(r)+'<div class="grid-2">'+sample+finalBlock+'</div>'+qForm(r,'SAMPLING')+decisionPanel(r)+qForm(r,'FINAL')+rel+hold;
@@ -579,26 +579,53 @@ async function render(){
  if(!root||!sb)return;
  root.innerHTML='<div class="empty">Chargement...</div>';
  await loadBase();
- var p=parts();
+ var p=parts(),seg=(location.hash||'#overview').replace(/^#/,'').split('/');
+
+ function scrollToId(idv){setTimeout(function(){var e=document.getElementById(idv);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},40);}
+
  if(p.route==='overview')return overview();
+
  if(p.route==='inbound'&&!p.id)return inboundList();
- if(p.route==='inbound'&&p.id==='new')return inboundNew();
- if(p.route==='inbound'&&p.id){var r=recById(p.id);return r?inboundDetail(r):root.innerHTML=notice('danger','Réception introuvable.');}
+ if(p.route==='inbound'&&seg[1]==='new')return inboundNew();
+ if(p.route==='inbound'&&seg[1]){
+   var ir=recById(decodeURIComponent(seg[1]));
+   if(!ir){root.innerHTML=notice('danger','Réception introuvable.');return;}
+   inboundDetail(ir);
+   if(seg[2]==='offload')scrollToId('offload-section');
+   return;
+ }
+
  if(p.route==='quality'&&!p.id)return qualityList();
- if(p.route==='quality'&&p.id){var qr=recById(p.id);return qr?qualityDetail(qr):root.innerHTML=notice('danger','Réception introuvable.');}
+ if(p.route==='quality'&&seg[1]){
+   var qr=recById(decodeURIComponent(seg[1]));
+   if(!qr){root.innerHTML=notice('danger','Réception introuvable.');return;}
+   qualityDetail(qr);
+   if(seg[2]==='final')scrollToId('quality-final-section');
+   if(seg[2]==='release')scrollToId('lot-release-section');
+   return;
+ }
+
  if(p.route==='lots'&&!p.id)return lotsList();
- if(p.route==='lots'&&p.id){var l=lotById(p.id);return l?lotDetail(l):root.innerHTML=notice('danger','Lot introuvable.');}
+ if(p.route==='lots'&&seg[1]){
+   var l=lotById(decodeURIComponent(seg[1]));
+   if(!l){root.innerHTML=notice('danger','LOT introuvable.');return;}
+   await lotDetail(l);
+   if(seg[2]==='allocate')scrollToId('lot-allocation-section');
+   return;
+ }
+
  if(p.route==='bins'&&!p.id)return binsList();
  if(p.route==='bins'&&p.id==='warehouses')return warehouseManage();
  if(p.route==='bins'&&p.id==='warehouse-new')return warehouseForm(null);
  if(p.route==='bins'&&p.id.indexOf('warehouse-edit/')===0)return warehouseForm(whById(p.id.split('/')[1]));
  if(p.route==='bins'&&p.id.indexOf('areas/')===0)return areasRoute(p.id.split('/')[1]);
- if(p.route==='bins'&&p.id.indexOf('area-edit/')===0){var ar=state.areas.filter(function(x){return String(x.id)===String(p.id.split('/')[1]);})[0];return ar?areaEdit(ar):root.innerHTML=notice('danger','Physical Area introuvable.');}
+ if(p.route==='bins'&&p.id.indexOf('area-edit/')===0){var ar=state.areas.filter(function(x){return String(x.id)===String(p.id.split('/')[1]);})[0];return ar?areaEdit(ar):root.innerHTML=notice('danger','Zone physique introuvable.');}
  if(p.route==='bins'&&p.id==='new')return binNew();
  if(p.route==='bins'&&p.id){var b=binById(p.id);return b?binDetail(b):root.innerHTML=notice('danger','BIN introuvable.');}
+
  if(p.route==='drying'&&!p.id)return dryingRoute();
  if(p.route==='drying'&&p.id.indexOf('new')===0)return dryingNew();
- if(p.route==='drying'&&p.id){state.dryings=await q('wms_dryings','*',function(x){return x.eq('id',p.id).limit(1);});return state.dryings[0]?dryingDetail(state.dryings[0]):root.innerHTML=notice('danger','Drying introuvable.');}
+ if(p.route==='drying'&&p.id){state.dryings=await q('wms_dryings','*',function(x){return x.eq('id',p.id).limit(1);});return state.dryings[0]?dryingDetail(state.dryings[0]):root.innerHTML=notice('danger','Séchage introuvable.');}
  if(p.route==='bags'&&!p.id)return bagsRoute();
  if(p.route==='bags'&&p.id==='new'){await bagsRoute();return bagNew();}
  if(p.route==='inventory')return inventoryRoute();
@@ -610,14 +637,15 @@ async function submit(ev){
  var f=ev.target.closest('form[data-action]');if(!f)return;ev.preventDefault();var d=formObj(f),a=f.dataset.action,k,r;busy(f,true);
  try{
   if(a==='reception-create'){k=opKey('RECEPTION','NEW');var ps=String(d.procurement_source||'').split('|'),planned=d.planned==='true';r=await rpc('wms_create_reception',{p:{truck:d.truck,supplier_code:d.supplier_code,origin:d.origin,warehouse_id:d.warehouse_id,expected_kg:d.expected_kg,expected_bags:d.expected_bags,arrival_at:d.arrival_at,purchase_type:d.purchase_type,driver:d.driver,transporter:d.transporter,delivery_note_present:d.delivery_note_present==='true',delivery_note:d.delivery_note,procurement_source_type:ps.length>1?ps[0]:null,procurement_source_id:ps.length>1?ps.slice(1).join('|'):null,ad_hoc:!planned,ad_hoc_reason:d.ad_hoc_reason},p_idempotency_key:k.key});doneKey(k);location.hash='#inbound/'+encodeURIComponent(r.id);return;}
-  if(a==='offload'){await rpc('wms_record_offload',{p_id:f.dataset.id,p:d});await render();return;}
+  if(a==='offload'){await rpc('wms_record_offload',{p_id:f.dataset.id,p:d});location.hash='#quality/'+encodeURIComponent(f.dataset.id)+'/final';return;}
   if(a==='resolve-rejection'){await rpc('procurement_resolve_rejection',{p_reception_id:f.dataset.id,p_action:d.resolution_action,p_reason:d.resolution_reason});await render();return;}
   if(a==='reception-correct'){await rpc('wms_correct_reception',{p_id:f.dataset.id,p_field:d.field,p_value:d.new_value,p_reason:d.reason,p_approver:d.approver});await render();return;}
-  if(a==='quality'){k=opKey('QUALITY-'+f.dataset.type,f.dataset.id);d.idempotency_key=k.key;await rpc('wms_save_quality',{p_reception_id:f.dataset.id,p_type:f.dataset.type,p:d});doneKey(k);await render();return;}
+  if(a==='quality'){k=opKey('QUALITY-'+f.dataset.type,f.dataset.id);d.idempotency_key=k.key;await rpc('wms_save_quality',{p_reception_id:f.dataset.id,p_type:f.dataset.type,p:d});doneKey(k);if(f.dataset.type==='FINAL'){location.hash='#quality/'+encodeURIComponent(f.dataset.id)+'/release';return;}await render();return;}
   if(a==='warehouse-save'){var payload={id:f.dataset.id||undefined,site_code:d.site_code,code:d.code,name:d.name,location:d.location,capacity_kg:d.capacity_kg,is_factory:d.is_factory==='true',reason:d.reason};await rpc('wms_upsert_warehouse',{p:payload});location.hash='#bins/warehouses';return;}
   if(a==='area-save'){await rpc('wms_upsert_area',{p:{id:f.dataset.id||undefined,warehouse_id:f.dataset.wh,code:d.code,description:d.description,capacity_kg:d.capacity_kg,status:d.status,reason:d.reason}});if(f.dataset.id){location.hash='#bins/areas/'+encodeURIComponent(f.dataset.wh);}else await render();return;}
-  if(a==='bin-create'){k=opKey('BIN','NEW');await rpc('wms_create_bin',{p:{warehouse_id:d.warehouse_id,physical_area_id:d.physical_area_id,stock_type:d.stock_type,capacity_kg:d.capacity_kg,idempotency_key:k.key}});doneKey(k);location.hash='#bins';return;}
+  if(a==='bin-create'){k=opKey('BIN','NEW');r=await rpc('wms_create_bin',{p:{warehouse_id:d.warehouse_id,physical_area_id:d.physical_area_id,stock_type:d.stock_type,capacity_kg:d.capacity_kg,idempotency_key:k.key}});doneKey(k);var bp=null;try{bp=JSON.parse(sessionStorage.getItem('wms_bin_prefill')||'null');}catch(e){}sessionStorage.removeItem('wms_bin_prefill');if(bp&&bp.lot_id){location.hash='#lots/'+encodeURIComponent(bp.lot_id)+'/allocate';return;}location.hash='#bins/'+encodeURIComponent(r.id||'');return;}
   if(a==='allocate'){k=opKey('ALLOCATE',f.dataset.bin);await rpc('wms_allocate_lot_to_bin',{p_lot_id:d.lot_id,p_bin_id:f.dataset.bin,p_qty:Number(d.qty),p_idempotency_key:k.key});doneKey(k);await render();return;}
+  if(a==='allocate-lot'){k=opKey('ALLOCATE-LOT',f.dataset.lot);await rpc('wms_allocate_lot_to_bin',{p_lot_id:f.dataset.lot,p_bin_id:d.bin_id,p_qty:Number(d.qty),p_idempotency_key:k.key});doneKey(k);location.hash='#lots/'+encodeURIComponent(f.dataset.lot);return;}
   if(a==='bin-transfer'){k=opKey('BIN-TRANSFER',f.dataset.bin);r=await rpc('wms_bin_transfer',{p_from_bin:f.dataset.bin,p_to_bin:d.to_bin,p_qty:Number(d.qty),p_idempotency_key:k.key,p_reason:d.reason});doneKey(k);alert('Movement posted: '+(r.id||'-'));await render();return;}
   if(a==='inventory-count'){k=opKey('COUNT',f.dataset.bin);await rpc('wms_create_inventory_count',{p_bin_id:f.dataset.bin,p_physical_kg:Number(d.physical_kg),p_note:d.note,p_idempotency_key:k.key});doneKey(k);location.hash='#inventory';return;}
   if(a==='inventory-resolve'){await rpc('wms_resolve_inventory_count',{p_count_id:d.count_id,p_approve:d.approve==='true',p_reason:d.reason});await render();return;}
@@ -631,11 +659,15 @@ async function click(ev){
  var row=ev.target.closest('[data-href]');if(row){location.hash=row.dataset.href;return;}
  var b=ev.target.closest('[data-action-button]');if(!b)return;var a=b.dataset.actionButton,idv=b.dataset.id;b.disabled=true;
  try{
-  if(a==='accept'||a==='reject'){var c=document.querySelector('[name="decision_comment"]'),txt=c?c.value:'';if(a==='reject'&&!txt.trim())throw new Error('Motif obligatoire pour refouler le camion.');await rpc('wms_decide_reception',{p_id:idv,p_accept:a==='accept',p_comment:txt});}
-  if(a==='release-lot'){var k=opKey('LOT-RELEASE',idv);await rpc('wms_release_lot',{p_reception_id:idv,p_idempotency_key:k.key});doneKey(k);}
+  if(a==='accept'||a==='reject'){var c=document.querySelector('[name="decision_comment"]'),txt=c?c.value:'';if(a==='reject'&&!txt.trim())throw new Error('Motif obligatoire pour refouler le camion.');await rpc('wms_decide_reception',{p_id:idv,p_accept:a==='accept',p_comment:txt});if(a==='accept'){location.hash='#inbound/'+encodeURIComponent(idv)+'/offload';return;}await render();return;}
+  if(a==='release-lot'){var k=opKey('LOT-RELEASE',idv);var released=await rpc('wms_release_lot',{p_reception_id:idv,p_idempotency_key:k.key});doneKey(k);if(released&&released.id){location.hash='#lots/'+encodeURIComponent(released.id)+'/allocate';return;}await render();return;}
   if(a==='hold'||a==='unhold'){var h=document.querySelector('[name="hold_reason"]'),reason=h?h.value:'';if(!reason.trim())throw new Error('Motif obligatoire.');await rpc('wms_set_hold',{p_reception_id:idv,p_hold:a==='hold',p_reason:reason});}
   if(a==='wh-status'){var reason=prompt('Motif du changement de statut :')||'';if(!reason.trim())throw new Error('Motif obligatoire.');await rpc('wms_set_warehouse_status',{p_id:idv,p_status:b.dataset.status,p_reason:reason});}
   if(a==='bin-status'){var br=prompt('Motif de cette action BIN :')||'';if(!br.trim())throw new Error('Motif obligatoire.');await rpc('wms_set_bin_status',{p_bin_id:idv,p_status:b.dataset.status,p_reason:br});}
+  if(a==='create-bin-for-lot'){
+    sessionStorage.setItem('wms_bin_prefill',JSON.stringify({lot_id:idv,warehouse_id:b.dataset.wh||''}));
+    location.hash='#bins/new';return;
+  }
   if(a==='prepare-transfer-bin'){
     var bb=binById(idv);if(!bb)throw new Error('BIN introuvable.');
     sessionStorage.setItem('wms_transfer_prefill',JSON.stringify({origin_warehouse_id:bb.warehouse_id,bin_id:bb.id,available_kg:Number(bb.balance_kg||0),stock_type:bb.stock_type}));
