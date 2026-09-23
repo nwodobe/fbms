@@ -354,7 +354,7 @@ function timelineRec(r){
 }
 function offloadForm(r){
  if(r.status!=='ACCEPTED_WAITING_OFFLOAD'||!can('offload'))return'';
- return'<form class="card" data-action="offload" data-id="'+esc(r.id)+'"><h2>Pesée / Déchargement</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ return'<form class="card" id="offload-section" data-action="offload" data-id="'+esc(r.id)+'"><h2>Pesée / Déchargement</h2><div class="ops-form-grid" style="margin-top:12px">'+
  field('Poids brut (kg)','gross_kg','number','','required step="0.001" min="0.001"')+
  field('Tare (kg)','tare_kg','number','','required step="0.001" min="0"')+
  field('Poids net = Brut − Tare','net_kg','number','','readonly aria-readonly="true" step="0.001"')+
@@ -390,17 +390,22 @@ function inboundDetail(r){
 
 function qualityList(){
  var a=state.receptions.filter(function(r){return['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD','RELEASED'].indexOf(r.status)>=0;});
- root.innerHTML=head('Qualité','File de travail : échantillonnage, décision, qualité finale et blocage qualité.')+
+ var rows=a.map(function(r){
+   var nx=nextActionForReception(r);
+   return'<tr class="ops-click" data-href="#quality/'+encodeURIComponent(r.id)+'"><td><span class="mono">'+esc(r.id)+'</span><br>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.decision||'-')+'</td><td>'+esc(r.final_kor==null?'-':r.final_kor)+'</td><td>'+esc(r.kor_delta==null?'-':r.kor_delta)+'</td><td class="mono">'+esc(r.lot_id||'-')+'</td><td>'+businessBadge(r.status)+'</td><td><b>'+esc(nx.label||'-')+'</b></td></tr>';
+ });
+ root.innerHTML=head('Qualité','File de travail guidée : échantillonnage, décision, pesée/déchargement, qualité finale et libération du LOT.')+
  '<div class="kpi-grid">'+kpi('Échantillonnage en attente',a.filter(function(r){return!r.sampling_id&&r.status==='ARRIVED';}).length,'#quality','')+
  kpi('Décision en attente',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
+ kpi('Pesée / Déchargement en attente',a.filter(function(r){return r.status==='ACCEPTED_WAITING_OFFLOAD';}).length,'#quality','attn')+
  kpi('Qualité finale en attente',a.filter(function(r){return r.status==='AWAITING_FINAL_QA'&&!r.final_id;}).length,'#quality','attn')+
  kpi('Blocage qualité',a.filter(function(r){return r.status==='QUALITY_HOLD';}).length,'#quality','danger')+
- '</div><section class="card">'+table(['Réception / Camion','Fournisseur','KOR échantillonnage','Humidité','Décision','KOR final','Écart','Lot','Statut','Action'],a.map(function(r){return'<tr class="ops-click" data-href="#quality/'+encodeURIComponent(r.id)+'"><td><span class="mono">'+esc(r.id)+'</span><br>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.decision||'-')+'</td><td>'+esc(r.final_kor==null?'-':r.final_kor)+'</td><td>'+esc(r.kor_delta==null?'-':r.kor_delta)+'</td><td class="mono">'+esc(r.lot_id||'-')+'</td><td>'+badge(r.status)+'</td><td>'+esc(r.next_action||'-')+'</td></tr>';}))+'</section>';
+ '</div><section class="card">'+table(['Réception / Camion','Fournisseur','KOR échantillonnage','Humidité','Décision','KOR final','Écart','LOT','Statut','Prochaine action'],rows)+'</section>';
 }
 function qForm(r,type){
  var allowed=type==='SAMPLING'?can('sampling')&&['ARRIVED','AWAITING_DECISION'].indexOf(r.status)>=0:can('final_qa')&&['AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;
  if(!allowed)return'';
- return'<form class="card" data-action="quality" data-id="'+esc(r.id)+'" data-type="'+type+'"><h2>'+type+'</h2><div class="ops-form-grid" style="margin-top:12px">'+
+ return'<form class="card" data-action="quality" data-id="'+esc(r.id)+'" data-type="'+type+'"><h2>'+(type==='SAMPLING'?'Échantillonnage':'Qualité finale')+'</h2><div class="ops-form-grid" style="margin-top:12px">'+
  field('Bonnes amandes (g)','gk_g','number','','required step="0.001" min="0"')+field('Immatûres (g)','imm_g','number','','required step="0.001" min="0"')+field('Tachetées (g)','spotted_g','number','','required step="0.001" min="0"')+
  field('Humidité (%)','moisture_pct','number','','step="0.01" min="0"')+field('Nombre de noix','nut_count','number','','min="0"')+textarea('Note','note','')+
  '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save '+type+'</button></div></form>';
@@ -411,15 +416,22 @@ function decisionPanel(r){
 }
 function qualityDetail(r){
  var s=qualityFor(r.id,'SAMPLING'),f=qualityFor(r.id,'FINAL');
- var compare='<div class="grid-2"><section class="card"><h2>Échantillonnage</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(s?s.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(s?s.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(s?s.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(s?s.kor_display:'-')+'</b></div><div><small>Facteur</small><b>'+esc(s?s.kor_factor:'-')+'</b></div><div><small>Humidité</small><b>'+esc(s?s.moisture_pct:'-')+'</b></div></div></section><section class="card"><h2>Qualité finale</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(f?f.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(f?f.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(f?f.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(f?f.kor_display:'-')+'</b></div><div><small>Delta</small><b>'+esc(f?f.delta_vs_sampling:'-')+'</b></div><div><small>Dans la tolérance</small><b>'+esc(f?(f.within_tolerance?'YES':'NO'):'-')+'</b></div></div></section></div>';
- var rel=(r.status==='AWAITING_FINAL_QA'&&r.final_id&&can('lot_release'))?'<section class="card"><h2>Libération du lot</h2><div class="ops-actions"><button class="btn primary" data-action-button="release-lot" data-id="'+esc(r.id)+'">Libérer le lot officiel</button></div></section>':'';
- var hold=can('quality_hold')?'<section class="card"><h2>Blocage qualité</h2><div class="ops-form-grid">'+field('Motif','hold_reason','text','')+'</div><div class="ops-actions">'+(r.status==='QUALITY_HOLD'?'<button class="btn primary" data-action-button="unhold" data-id="'+esc(r.id)+'">Release Hold</button>':'<button class="btn secondary" data-action-button="hold" data-id="'+esc(r.id)+'">Place on Hold</button>')+'</div></section>':'';
- root.innerHTML=head('Quality · '+r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#quality">Retour</a><a class="btn secondary" href="#inbound/'+encodeURIComponent(r.id)+'">Inbound dossier</a>')+
- compare+qForm(r,'SAMPLING')+decisionPanel(r)+qForm(r,'FINAL')+rel+hold;
+ var finalBlock='';
+ if(!r.offloaded_at){
+   finalBlock='<section class="card"><h2>Qualité finale</h2>'+notice('info','🔒 <b>Étape non encore disponible.</b><br>La qualité finale sera disponible après la pesée et le déchargement du camion.')+'</section>';
+ }else{
+   finalBlock='<section class="card"><h2>Qualité finale</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(f?f.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(f?f.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(f?f.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(f?f.kor_display:'-')+'</b></div><div><small>Écart</small><b>'+esc(f?f.delta_vs_sampling:'-')+'</b></div><div><small>Dans la tolérance</small><b>'+esc(f?(f.within_tolerance?'Oui':'Non'):'-')+'</b></div></div></section>';
+ }
+ var sample='<section class="card"><h2>Échantillonnage</h2><div class="ops-def-grid"><div><small>GK</small><b>'+esc(s?s.gk_g:'-')+'</b></div><div><small>IMM</small><b>'+esc(s?s.imm_g:'-')+'</b></div><div><small>SP</small><b>'+esc(s?s.spotted_g:'-')+'</b></div><div><small>KOR</small><b>'+esc(s?s.kor_display:'-')+'</b></div><div><small>Facteur</small><b>'+esc(s?s.kor_factor:'-')+'</b></div><div><small>Humidité</small><b>'+esc(s?s.moisture_pct:'-')+'</b></div></div></section>';
+ var rel=(r.status==='AWAITING_FINAL_QA'&&r.final_id&&can('lot_release'))?'<section class="card"><h2>Création du LOT</h2><p>La qualité finale est terminée. Créez maintenant le LOT officiel.</p><div class="ops-actions"><button class="btn primary" data-action-button="release-lot" data-id="'+esc(r.id)+'">Créer et libérer le LOT</button></div></section>':'';
+ var hold=can('quality_hold')?'<section class="card"><h2>Blocage qualité</h2><div class="ops-form-grid">'+field('Motif','hold_reason','text','')+'</div><div class="ops-actions">'+(r.status==='QUALITY_HOLD'?'<button class="btn primary" data-action-button="unhold" data-id="'+esc(r.id)+'">Lever le blocage qualité</button>':'<button class="btn secondary" data-action-button="hold" data-id="'+esc(r.id)+'">Mettre en blocage qualité</button>')+'</div></section>':'';
+ root.innerHTML=head('Qualité · '+r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#quality">Retour</a><a class="btn secondary" href="#inbound/'+encodeURIComponent(r.id)+'">Dossier de réception</a>')+
+ workflowStepper(r)+nextActionCard(r)+'<div class="grid-2">'+sample+finalBlock+'</div>'+qForm(r,'SAMPLING')+decisionPanel(r)+qForm(r,'FINAL')+rel+hold;
 }
 
 function lotsList(){
- root.innerHTML=head('RCN Lots','Passeport matière et généalogie.')+'<section class="card">'+table(['Lot','Reception','Supplier','Origin','Initial','Current','Staging','BIN','Drying','BIN count','Status'],state.lots.map(function(l){return'<tr class="ops-click" data-href="#lots/'+encodeURIComponent(l.id)+'"><td class="mono">'+esc(l.id)+'</td><td class="mono">'+esc(l.reception_id)+'</td><td>'+esc(l.supplier_name||'-')+'</td><td>'+esc(l.origin||'-')+'</td><td>'+kg(l.initial_kg)+'</td><td>'+kg(l.current_kg)+'</td><td>'+kg(l.staging_kg)+'</td><td>'+kg(l.bin_kg)+'</td><td>'+kg(l.drying_kg)+'</td><td>'+esc(l.bin_count||0)+'</td><td>'+badge(l.status)+'</td></tr>';}))+'</section>';
+ var content=state.lots.length?table(['LOT','Réception','Fournisseur','Provenance','Initial','Actuel','Staging','BIN','Séchage','Nb BIN','Statut'],state.lots.map(function(l){return'<tr class="ops-click" data-href="#lots/'+encodeURIComponent(l.id)+'"><td class="mono">'+esc(l.id)+'</td><td class="mono">'+esc(l.reception_id)+'</td><td>'+esc(l.supplier_name||'-')+'</td><td>'+esc(l.origin||'-')+'</td><td>'+kg(l.initial_kg)+'</td><td>'+kg(l.current_kg)+'</td><td>'+kg(l.staging_kg)+'</td><td>'+kg(l.bin_kg)+'</td><td>'+kg(l.drying_kg)+'</td><td>'+esc(l.bin_count||0)+'</td><td>'+businessBadge(l.status)+'</td></tr>';})):contextualLotsEmpty();
+ root.innerHTML=head('Lots RCN','Passeport matière et généalogie. Un LOT n’existe qu’après déchargement, qualité finale et libération.')+'<section class="card">'+content+'</section>';
 }
 async function lotDetail(l){
  var contrib=await q('wms_v_bin_contributors','*',function(x){return x.eq('lot_id',l.id).gt('remaining_kg',0);});
