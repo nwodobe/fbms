@@ -235,12 +235,27 @@ assert.ok(/wms_overview/.test(wh) && /wms_create_reception/.test(wh) && /wms_sav
 for (const feature of ['wms_bin_transfer','wms_set_bin_status','wms_correct_reception','wms_save_post_dry_quality','wms_daily_closing']) {
   assert.ok(wh.includes(feature), `Warehouse go-live feature missing: ${feature}`);
 }
-for (const label of ['Staging not allocated','BIN near capacity','BIN blocked','Drying exceptions','Ready for Transfer','Warehouse Exception Queue']) {
+for (const label of ['Staging non affecté','BIN proche de la capacité','BIN bloqué','Exceptions de séchage','Prêt pour transfert','File des exceptions Warehouse']) {
   assert.ok(wh.includes(label), `Warehouse Control Tower missing: ${label}`);
 }
 assert.ok(wh.includes('Valeur actuelle') && wh.includes("'current_value'") && wh.includes('data-current='), 'Correction contrôlée must show the current value before change');
-assert.ok(wh.includes('Prepare Stock Transfer') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
+assert.ok(wh.includes('Préparer le transfert') && wh.includes('wms_transfer_prefill'), 'Warehouse → Stock Transfer handoff missing');
 assert.ok(/Poids net = Brut/.test(wh) && /readonly/.test(wh), 'Warehouse Net Weight must remain calculated/read-only in French UI');
+assert.ok(wh.includes('function nextActionForReception'), 'Warehouse Next Action engine missing');
+assert.ok(wh.includes('function workflowStepper'), 'Warehouse workflow stepper missing');
+assert.ok(wh.includes('#inbound/') && wh.includes('/offload'), 'Warehouse deep link to Pesée / Déchargement missing');
+assert.ok(wh.includes('/final') && wh.includes('/release') && wh.includes('/allocate'), 'Warehouse guided deep links Final/Release/Allocate missing');
+assert.ok(wh.includes('Étape non encore disponible') && wh.includes('qualité finale sera disponible après la pesée et le déchargement'), 'Final Quality locked-state guidance missing');
+assert.ok(wh.includes('Aucun LOT n’a encore été créé'), 'Contextual empty LOT state missing');
+assert.ok(wh.includes('Aucun BIN disponible') && wh.includes('Créer un BIN puis affecter ce LOT'), 'Contextual empty BIN state / return flow missing');
+assert.ok(wh.includes('wms_bin_prefill') && wh.includes('lot-allocation-section'), 'Create-BIN then return-to-LOT allocation context missing');
+for (const forbidden of ['Inbound dossier','Place on Hold','Release Hold','Prepare Stock Transfer','Start Drying','New Reception','Accepted Waiting Offload','Ready for Transfer','Drying / Sorting','Create BIN','Allocate Lot']) {
+  assert.ok(!wh.includes(forbidden), `Warehouse French UI still exposes English wording: ${forbidden}`);
+}
+const whWorkspace = read('operations/workspace.js');
+for (const label of ['OPÉRATIONS ENTREPÔT','Vue d’ensemble','Réceptions','Qualité','Lots RCN','Séchage / Tri','Sacherie','Inventaire']) {
+  assert.ok(whWorkspace.includes(label), `Warehouse French navigation missing: ${label}`);
+}
 const transfer = read('operations/stock-transfer.html');
 assert.ok(/LBA direct Factory/i.test(transfer), 'direct LBA factory transfer boundary missing');
 assert.ok(/stock-transfer\.js\?v=/.test(transfer), 'Stock Transfer dedicated controller must be loaded');
