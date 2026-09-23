@@ -56,6 +56,87 @@ function recById(v){return state.receptions.filter(function(x){return x.id===v;}
 function lotById(v){return state.lots.filter(function(x){return x.id===v;})[0];}
 function binById(v){return state.bins.filter(function(x){return x.id===v;})[0];}
 function qualityFor(rec,type){return state.quality.filter(function(x){return x.reception_id===rec&&x.type===type;})[0]||null;}
+function statusLabelFr(v){
+ var m={
+  ARRIVED:'Arrivé · Échantillonnage à effectuer',
+  AWAITING_DECISION:'En attente de décision qualité',
+  ACCEPTED_WAITING_OFFLOAD:'Accepté · En attente de pesée / déchargement',
+  AWAITING_FINAL_QA:'En attente de qualité finale',
+  QUALITY_HOLD:'Bloqué pour contrôle qualité',
+  RELEASED:'LOT créé et libéré',
+  REJECTED:'Réception rejetée',
+  CLOSED:'Clôturé',
+  BLOCKED:'Bloqué',
+  READY:'Prêt pour transfert',
+  RE_DRY:'Nouveau séchage requis',
+  AWAITING_POST_DRY_QA:'En attente de qualité après séchage',
+  ACTIVE:'Actif',
+  INACTIVE:'Inactif'
+ };
+ return m[String(v||'').toUpperCase()]||String(v||'-').replace(/_/g,' ');
+}
+function businessBadge(v){return badge(statusLabelFr(v));}
+function workflowSteps(r){
+ var released=!!(r.lot_id||r.status==='RELEASED');
+ return[
+  {label:'Réception',done:!!r.arrival_at},
+  {label:'Échantillonnage',done:!!r.sampling_id},
+  {label:'Décision',done:!!r.decision||['ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD','RELEASED','REJECTED'].indexOf(r.status)>=0,blocked:r.status==='REJECTED'},
+  {label:'Pesée & Déchargement',done:!!r.offloaded_at,current:r.status==='ACCEPTED_WAITING_OFFLOAD'},
+  {label:'Qualité finale',done:!!r.final_id,current:r.status==='AWAITING_FINAL_QA'&&!r.final_id,locked:!r.offloaded_at},
+  {label:'Création LOT',done:released,current:r.status==='AWAITING_FINAL_QA'&&!!r.final_id,locked:!r.final_id},
+  {label:'Affectation BIN',done:released&&Number((lotById(r.lot_id)||{}).bin_kg||0)>0,current:released&&Number((lotById(r.lot_id)||{}).staging_kg||0)>0,locked:!released}
+ ];
+}
+function workflowStepper(r){
+ var steps=workflowSteps(r);
+ return'<section class="card"><div class="card-head"><div><h2>Progression du dossier</h2><p>'+esc(r.id)+' · '+esc(r.truck||'-')+' · '+esc(r.supplier_name||'-')+'</p></div></div><div class="ops-actions" style="gap:8px;flex-wrap:wrap">'+
+ steps.map(function(x){
+   var icon=x.blocked?'⚠':x.done?'✓':x.current?'●':x.locked?'🔒':'○';
+   var cls=x.blocked?'signal':x.done?'primary':x.current?'secondary':'';
+   return'<span class="btn '+cls+'" aria-label="'+esc(x.label+' '+(x.done?'terminé':x.current?'en cours':x.locked?'verrouillé':'à venir'))+'" style="pointer-events:none">'+icon+' '+esc(x.label)+'</span>';
+ }).join('')+'</div></section>';
+}
+function nextActionForReception(r){
+ if(r.status==='REJECTED')return{terminal:true,label:'Réception rejetée',explanation:'Aucun déchargement ni LOT ne peut être créé pour cette réception.',route:'#inbound/'+encodeURIComponent(r.id),allowed:true};
+ if(r.status==='ARRIVED'&&!r.sampling_id)return{label:'Effectuer l’échantillonnage',explanation:'La réception est enregistrée. Effectuez maintenant le contrôle qualité d’échantillonnage.',route:'#quality/'+encodeURIComponent(r.id),allowed:can('sampling'),owner:'Qualité'};
+ if(r.status==='AWAITING_DECISION')return{label:'Prendre la décision qualité',explanation:'L’échantillonnage est terminé. Acceptez ou refoulez le camion.',route:'#quality/'+encodeURIComponent(r.id),allowed:can('decision'),owner:'Responsable autorisé'};
+ if(r.status==='ACCEPTED_WAITING_OFFLOAD')return{label:'Continuer vers Pesée / Déchargement',explanation:'Le camion est accepté. Procédez maintenant à la pesée et au déchargement.',route:'#inbound/'+encodeURIComponent(r.id)+'/offload',allowed:can('offload'),owner:'Warehouse'};
+ if(r.status==='QUALITY_HOLD')return{label:'Résoudre le blocage qualité',explanation:'Le dossier est bloqué pour contrôle qualité. Aucune libération de LOT n’est autorisée.',route:'#quality/'+encodeURIComponent(r.id),allowed:can('quality_hold')||can('final_qa'),owner:'Qualité / Branch Manager'};
+ if(r.status==='AWAITING_FINAL_QA'&&!r.final_id)return{label:'Effectuer la qualité finale',explanation:'La pesée et le déchargement sont terminés. Effectuez maintenant la qualité finale.',route:'#quality/'+encodeURIComponent(r.id)+'/final',allowed:can('final_qa'),owner:'Quality Cutter'};
+ if(r.status==='AWAITING_FINAL_QA'&&r.final_id&&!r.lot_id)return{label:'Créer et libérer le LOT',explanation:'La qualité finale est terminée. Créez le LOT officiel pour poursuivre vers le stockage.',route:'#quality/'+encodeURIComponent(r.id)+'/release',allowed:can('lot_release'),owner:'Responsable autorisé'};
+ if(r.lot_id||r.status==='RELEASED'){
+   var l=lotById(r.lot_id);
+   if(l&&Number(l.staging_kg||0)>0){
+     var hasBin=state.bins.some(function(b){return String(b.warehouse_id)===String(l.warehouse_id)&&['CLOSED','BLOCKED'].indexOf(b.status)<0;});
+     return hasBin?
+       {label:'Affecter le LOT à un BIN',explanation:'Le LOT est créé et du stock reste en staging. Affectez-le à un emplacement de stockage.',route:'#lots/'+encodeURIComponent(l.id)+'/allocate',allowed:can('bin_ops'),owner:'Warehouse'}:
+       {label:'Créer un BIN pour ce LOT',explanation:'Le LOT est prêt mais aucun BIN disponible n’existe dans cet entrepôt.',route:'#bins/new',allowed:can('bin_ops'),owner:'Warehouse',lot_id:l.id,warehouse_id:l.warehouse_id};
+   }
+   if(l&&Number(l.bin_kg||0)>0)return{label:'Consulter le LOT',explanation:'Le LOT est stocké en BIN. Le séchage ou le transfert peut maintenant être préparé selon le besoin.',route:'#lots/'+encodeURIComponent(l.id),allowed:true,owner:'Warehouse'};
+ }
+ return{label:'Consulter le dossier',explanation:'Aucune action automatique supplémentaire n’a été déterminée.',route:'#inbound/'+encodeURIComponent(r.id),allowed:true};
+}
+function nextActionCard(r){
+ var a=nextActionForReception(r),btn='';
+ if(a.lot_id&&a.warehouse_id){
+   btn=a.allowed?'<button class="btn primary" data-action-button="create-bin-for-lot" data-id="'+esc(a.lot_id)+'" data-wh="'+esc(a.warehouse_id)+'">'+esc(a.label)+'</button>':'';
+ }else if(a.allowed){
+   btn='<a class="btn primary" href="'+esc(a.route)+'">'+esc(a.label)+'</a>';
+ }
+ return'<section class="card"><div class="card-head"><div><h2>'+(a.terminal?'État du dossier':'Prochaine étape')+'</h2><p>'+esc(a.explanation)+'</p></div></div>'+
+ (a.owner?'<div class="ops-def-grid"><div><small>Responsable</small><b>'+esc(a.owner)+'</b></div><div><small>Statut</small><b>'+businessBadge(r.status)+'</b></div></div>':'')+
+ '<div class="ops-actions" style="margin-top:12px">'+btn+(!a.allowed&&!a.terminal?'<span class="muted">Action non disponible pour votre rôle.</span>':'')+'</div></section>';
+}
+function contextualLotsEmpty(){
+ var candidates=state.receptions.filter(function(r){return r.status!=='REJECTED'&&!r.lot_id&&['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;});
+ if(!candidates.length)return'<div class="ops-empty"><b>Aucun LOT n’a encore été créé.</b><br>Les LOT apparaîtront après déchargement, qualité finale et libération du LOT.</div>';
+ return'<div class="grid-2">'+candidates.slice(0,8).map(function(r){
+   var a=nextActionForReception(r);
+   return'<section class="card"><h3>'+esc(r.id)+'</h3><p>'+esc(r.truck||'-')+' · '+esc(r.supplier_name||'-')+'</p><p><b>Étape actuelle :</b> '+esc(statusLabelFr(r.status))+'</p><div class="ops-actions">'+(a.allowed?'<a class="btn primary" href="'+esc(a.route)+'">Continuer le traitement du camion</a>':'<span class="muted">Prochaine action : '+esc(a.label)+'</span>')+'</div></section>';
+ }).join('')+'</div>';
+}
+
 
 async function overview(){
   state.overview=await rpc('wms_overview',{p_warehouse_id:null})||{};
