@@ -78,6 +78,9 @@ assert.ok(warehouseOps.includes('Transport et prévisions'), 'Transport/forecast
 assert.ok(warehouseOps.includes('Documents à l’arrivée'), 'Arrival documents section missing');
 assert.ok(warehouseOps.includes('Ticket pont-bascule ANAGROCI'), 'ANAGROCI weighbridge ticket must live in weighing/offload');
 assert.ok(warehouseOps.includes('delivery_note_present'), 'Delivery note presence control missing');
+assert.ok(warehouseOps.includes('Fiche de déchargement présente ?'), 'Fiche de déchargement presence label missing');
+assert.ok(warehouseOps.includes('Numéro de la fiche de déchargement'), 'Fiche de déchargement number label missing');
+assert.ok(!warehouseOps.includes('Bon de livraison'), 'Legacy Bon de livraison wording must not remain in Warehouse UI');
 const warehouseInboundNew = (warehouseOps.match(/function inboundNew\(\)\{[\s\S]*?\n\}/)||[''])[0];
 assert.ok(!warehouseInboundNew.includes("field('Reference','reference'"), 'Generic Reference field must be removed from New Reception');
 
