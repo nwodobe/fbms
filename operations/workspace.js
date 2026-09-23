@@ -49,16 +49,16 @@
       ]
     },
     warehouse: {
-      title: 'WAREHOUSE OPERATIONS', subtitle: 'Entrepôts externes · réception, lots, BIN et stock',
+      title: 'OPÉRATIONS ENTREPÔT', subtitle: 'Entrepôts externes · réception, lots, BIN et stock',
       nav: [
-        ['overview','Overview','../operations/warehouse.html#overview'],
-        ['inbound','Inbound','../operations/warehouse.html#inbound'],
-        ['quality','Quality','../operations/warehouse.html#quality'],
-        ['lots','RCN Lots','../operations/warehouse.html#lots'],
+        ['overview','Vue d’ensemble','../operations/warehouse.html#overview'],
+        ['inbound','Réceptions','../operations/warehouse.html#inbound'],
+        ['quality','Qualité','../operations/warehouse.html#quality'],
+        ['lots','Lots RCN','../operations/warehouse.html#lots'],
         ['bins','Stock & BIN','../operations/warehouse.html#bins'],
-        ['drying','Drying / Sorting','../operations/warehouse.html#drying'],
-        ['bags','Bags','../operations/warehouse.html#bags'],
-        ['inventory','Inventory','../operations/warehouse.html#inventory'],
+        ['drying','Séchage / Tri','../operations/warehouse.html#drying'],
+        ['bags','Sacherie','../operations/warehouse.html#bags'],
+        ['inventory','Inventaire','../operations/warehouse.html#inventory'],
         ['audit','Audit','../operations/warehouse.html#audit']
       ]
     },
