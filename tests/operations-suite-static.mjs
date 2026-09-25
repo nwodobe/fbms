@@ -320,3 +320,35 @@ for (const label of ['Prévisualiser', 'Exporter Excel', 'Exporter CSV', 'Export
   assert.ok(rapJs.includes(label), `Activity report button missing: ${label}`);
 }
 assert.ok((nav.match(/'activity-report','Rapports d’activité','activity-report\.html'/g) || []).length >= 3, 'Activity report must be reachable from Warehouse, Procurement and Reports navigation');
+
+// AFLP DATA (programme AFLP 2027) : écran, 16 onglets, vues aflp_v_* et contrôles
+const afHtml = read('operations/aflp-data.html');
+const afJs = read('operations/aflp-data.js');
+assert.ok(/aflp-data\.js\?v=/.test(afHtml) && afHtml.includes('auth-gate.js'), 'AFLP DATA page must load its controller behind the auth gate');
+const afOrder = ['AFLP Overview', 'Zones & Clusters', 'Villages Master Data', 'Producers Registry', 'RT & Field Teams', 'Field Missions & Village Visits',
+  'AFLP Daily Purchases', 'Cash Advances & Payments', 'AFLP Jute Bags Ledger', 'Field Stock - Village Stock', 'Evacuations & Transport',
+  'Warehouse Relay AFLP', 'Quality & Traceability', 'Incidents, Risks & Compliance', 'AFLP Performance Dashboard', 'AFLP Audit Log'];
+let afPos = -1;
+for (const name of afOrder) {
+  const i = afJs.indexOf("name: '" + name + "'");
+  assert.ok(i > afPos, `AFLP DATA sheet missing or out of order: ${name}`);
+  assert.ok(name.length <= 31 && !/[\\/?*\[\]:]/.test(name), `AFLP DATA sheet name invalid for Excel: ${name}`);
+  afPos = i;
+}
+for (const src of ['aflp_rpt_overview', 'aflp_rpt_zones_clusters', 'aflp_v_villages', 'aflp_rpt_producers', 'aflp_rpt_field_teams', 'aflp_v_missions',
+  'aflp_v_daily_purchases', 'aflp_v_cash_advances', 'aflp_v_jute_bags_ledger', 'aflp_v_field_stock', 'aflp_v_evacuations', 'aflp_rpt_warehouse_relay',
+  'aflp_v_quality_traceability', 'aflp_v_incidents', 'aflp_rpt_performance', 'aflp_v_audit_log', 'aflp_rpt_controls']) {
+  assert.ok(afJs.includes("'" + src + "'"), `AFLP DATA must read ${src}`);
+}
+assert.ok(afJs.includes("'ANAGROCI_AFLP_DATA_'"), 'AFLP DATA file name must be ANAGROCI_AFLP_DATA_<campagne>_YYYYMMDD.xlsx');
+assert.ok(afJs.includes('.range(from, from + PAGE - 1)'), 'AFLP DATA must paginate server-side');
+assert.ok(!/\.(insert|update|upsert|delete)\(/.test(afJs), 'AFLP DATA must not write tables directly (incidents go through RPC)');
+assert.ok(afJs.includes("'aflp_declare_incident'") && afJs.includes("'aflp_update_incident'"), 'AFLP incidents must use the guarded RPC');
+for (const label of ['Prévisualiser', 'Exporter Excel', 'Exporter CSV', 'Exporter résumé PDF', 'Réinitialiser']) {
+  assert.ok(afJs.includes(label), `AFLP DATA button missing: ${label}`);
+}
+for (const k of ["name: 'campaign'", "'zone'", "'cluster'", "'village'", "'rt'", "'unit_head'", "'zone_head'", "'producer'", "'payment'", "'stock'", "'evac'", "'incident'"]) {
+  assert.ok(afJs.includes(k.startsWith('name:') ? "'campaign'" : k), `AFLP DATA filter missing: ${k}`);
+}
+assert.ok((nav.match(/'aflp-data','AFLP DATA','aflp-data\.html'/g) || []).length >= 2, 'AFLP DATA must be reachable from Field Buying and Reports navigation');
+console.log('AFLP DATA static assertions: PASS');

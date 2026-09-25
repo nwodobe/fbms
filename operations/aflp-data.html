@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#053B23">
-<title>Rapports d'activité · ANAGROCI</title>
+<title>AFLP DATA · ANAGROCI</title>
 <link rel="icon" href="../assets/logo-pjs-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,22 +12,23 @@
 <link rel="stylesheet" href="./operations.css?v=20260830-1">
 <link rel="stylesheet" href="./operations-v2.css?v=20260829-4">
 <link rel="stylesheet" href="./activity-report.css?v=20260925-rap-1">
+<link rel="stylesheet" href="./aflp-data.css?v=20260926-aflp-1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script defer src="../shared/auth-gate.js?v=82bca416" data-module="rcntrace"></script>
+<script defer src="../shared/auth-gate.js?v=82bca416" data-module="portail"></script>
 <script defer src="./workspace.js?v=20260828-1"></script>
 <script defer src="./navigation-v2.js?v=20260926-aflp-1"></script>
-<script defer src="./activity-report.js?v=20260925-rap-1"></script>
+<script defer src="./aflp-data.js?v=20260926-aflp-1"></script>
 </head>
 <body data-workspace="reports">
 <header class="ops-topbar" id="opsTopbar"></header>
 <div class="ops-shell">
 <aside class="ops-sidebar" id="opsSidebar"></aside>
 <main class="ops-main">
-<div class="ops-contextbar"><span>Warehouse et Procurement</span><span>Lecture seule</span><span>Export Excel au format du modèle</span></div>
+<div class="ops-contextbar"><span>Programme AFLP 2027</span><span>Village → Producteur → RT → Achat → Paiement → Sacs → Stock → Évacuation → Relais → Usine</span><span>Export Excel 16 onglets</span></div>
 <div id="opsRouteView" class="ops-route-view"><div class="empty">Chargement…</div></div>
 </main>
 </div>
 <div id="rapPrint" class="rap-print" aria-hidden="true"></div>
-<footer class="ops-footer">ANAGROCI Operations Suite · RAPPORTS D'ACTIVITÉ</footer>
+<footer class="ops-footer">ANAGROCI Operations Suite · AFLP DATA</footer>
 </body>
 </html>
