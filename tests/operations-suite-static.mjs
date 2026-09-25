@@ -248,6 +248,13 @@ assert.ok(wh.includes('/final') && wh.includes('/release') && wh.includes('/allo
 assert.ok(wh.includes('Étape non encore disponible') && wh.includes('qualité finale sera disponible après la pesée et le déchargement'), 'Final Quality locked-state guidance missing');
 assert.ok(wh.includes('Aucun LOT n’a encore été créé'), 'Contextual empty LOT state missing');
 assert.ok(wh.includes('Aucun BIN disponible') && wh.includes('Créer un BIN puis affecter ce LOT'), 'Contextual empty BIN state / return flow missing');
+const whBinCreate = (wh.match(/function binNew\(\)\{[\s\S]*?\n\}/)||[''])[0];
+assert.ok(!whBinCreate.includes('Capacité (kg)'), 'BIN creation must not ask for a capacity that is unknown at creation time');
+assert.ok(!/stock_type:d\.stock_type,capacity_kg:d\.capacity_kg/.test(wh), 'BIN creation payload must not send a user-entered capacity');
+assert.ok(!/name="'\+esc\('capacity_kg'\)|field\([^)]*'capacity_kg'/.test(whBinCreate), 'BIN creation form must not contain any capacity_kg input');
+assert.ok(whBinCreate.includes('reprise automatiquement (lecture seule)'), 'BIN creation must explain that area capacity is read-only');
+assert.ok(!wh.includes('esc(r.next_action'), 'Reception lists must show the French, stock-aware next step, not the raw next_action code');
+assert.ok(wh.includes('Aucune (LOT stocké en BIN)'), 'A released LOT already stored in BIN must not be shown as waiting for BIN allocation');
 assert.ok(wh.includes('wms_bin_prefill') && wh.includes('lot-allocation-section'), 'Create-BIN then return-to-LOT allocation context missing');
 for (const forbidden of ['Inbound dossier','Place on Hold','Release Hold','Prepare Stock Transfer','Start Drying','New Reception','Accepted Waiting Offload','Ready for Transfer','Drying / Sorting','Create BIN','Allocate Lot']) {
   assert.ok(!wh.includes(forbidden), `Warehouse French UI still exposes English wording: ${forbidden}`);
@@ -263,12 +270,13 @@ assert.ok(!/module-router-v2\.js/.test(transfer), 'Stock Transfer must not fall 
 const trf = read('operations/stock-transfer.js');
 for (const rpc of ['wms_trf_create_request','wms_trf_approve','wms_trf_save_load','wms_trf_confirm_dispatch',
                    'wms_trf_register_arrival','wms_trf_confirm_receipt','wms_trf_resolve_discrepancy',
-                   'wms_trf_decide_resolution','wms_trf_close']) {
+                   'wms_trf_decide_resolution','wms_trf_close','wms_trf_resolve_bag_gap']) {
   assert.ok(trf.includes(rpc), `Stock Transfer RPC missing: ${rpc}`);
 }
 for (const route of ['overview','requests','ready','transit','arrivals','reconciliation','audit']) {
   assert.ok(trf.includes(route), `Stock Transfer route missing: ${route}`);
 }
+assert.ok(trf.includes('Écart de sacs à régulariser') && trf.includes('bagGapOpen(t)'), 'Transfer bag gap must be visible and block closure until regularised');
 assert.ok(!trf.includes("from('rcn_state')") && !trf.includes('from("rcn_state")'),
   'Stock Transfer must use the WMS ledger, not rcn_state as a second stock source');
 assert.ok(trf.includes('Reservation != mouvement physique') && trf.includes('Arrival != Receipt'),

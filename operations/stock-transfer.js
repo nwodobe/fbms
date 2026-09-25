@@ -218,13 +218,22 @@
     root.innerHTML = head(t.id, (t.origin_code || '-') + ' -> ' + (t.dest_code || '-') + ' | ' + (t.purpose || ''), actions) +
       '<div class="ops-def-grid"><div><small>Status</small><b>' + badge(t.status) + '</b></div><div><small>Planned</small><b>' + mt(t.planned_qty) + '</b></div>' +
       '<div><small>Reserved</small><b>' + mt(t.reserved_qty) + '</b></div><div><small>Dispatched</small><b>' + (t.dispatched_qty == null ? '-' : mt(t.dispatched_qty)) + '</b></div>' +
-      '<div><small>Received</small><b>' + (t.received_qty == null ? '-' : mt(t.received_qty)) + '</b></div><div><small>Variance</small><b>' + (t.variance_kg == null ? '-' : kg(t.variance_kg)) + '</b></div></div>' +
+      '<div><small>Received</small><b>' + (t.received_qty == null ? '-' : mt(t.received_qty)) + '</b></div><div><small>Variance</small><b>' + (t.variance_kg == null ? '-' : kg(t.variance_kg)) + '</b></div>' +
+      '<div><small>Sacs chargés / reçus</small><b>' + (t.bags_loaded == null ? '-' : esc(t.bags_loaded)) + ' / ' + (t.bags_received == null ? '-' : esc(t.bags_received)) + '</b></div>' +
+      '<div><small>Écart de sacs</small><b>' + bagGapText(t) + '</b></div></div>' +
       '<section class="card" style="margin-top:14px"><h2>Genealogie matiere</h2><div style="margin-top:12px">' +
       table(['#','Source BIN','Lot','Supplier','Origin','Available at request','Requested','Reserved','Dispatched','Received'], lines.map(function(l){return '<tr><td>'+l.line_no+'</td><td class="mono">'+esc(l.source_bin_id)+'</td><td class="mono">'+esc(l.lot_id)+'</td><td>'+esc(l.supplier_name||'-')+'</td><td>'+esc(l.lot_origin||'-')+'</td><td>'+kg(l.available_at_request)+'</td><td>'+kg(l.requested_qty)+'</td><td>'+kg(l.reserved_qty)+'</td><td>'+kg(l.dispatched_qty)+'</td><td>'+kg(l.received_qty)+'</td></tr>';})) + '</div></section>' +
       '<section class="card"><h2>Timeline</h2><div style="margin-top:12px">' + timeline(t) + '</div></section>' +
       actionPanel(t, context);
   }
 
+  function bagGapOpen(t) { return Number(t.bag_gap || 0) !== 0 && !t.bag_gap_resolved_at; }
+  function bagGapText(t) {
+    var g = Number(t.bag_gap || 0);
+    if (t.bag_gap == null || g === 0) return t.received_at ? 'Aucun' : '-';
+    var lib = g > 0 ? g + ' sac(s) manquant(s)' : Math.abs(g) + ' sac(s) en surplus';
+    return esc(lib) + (t.bag_gap_resolved_at ? ' · régularisé' : ' · à régulariser');
+  }
   function actionPanel(t, context) {
     var html = '';
     if (context === 'requests' && t.status === 'REQUESTED') {
@@ -257,7 +266,7 @@
         selectField('Destination Type','dest_type',[['BIN','BIN'],['STAGING','Controlled Staging']],'BIN','required') + selectField('Destination BIN','dest_bin_id',bop,'') + field('Note','note','text','') +
         '</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Confirm Receipt</button></div></form>';
     }
-    if (context === 'reconciliation' && t.status === 'DISCREPANCY' && can('transfer_resolve')) {
+    if (context === 'reconciliation' && t.status === 'DISCREPANCY' && Number(t.variance_kg || 0) !== 0 && can('transfer_resolve')) {
       var cats = (state.settings.reasonCategories || []).map(function(x){return[x,x.replace(/_/g,' ')];});
       html += '<form class="card" data-action="resolve" data-id="'+esc(t.id)+'"><h2>Resolve Discrepancy</h2><div class="ops-form-grid" style="margin-top:12px">' +
         selectField('Reason Category','category',[['','Selectionner...']].concat(cats),'','required') + field('Detailed Reason','detailed_reason','text','','required') + field('Responsible','responsible','text','','required') +
@@ -269,6 +278,18 @@
       html += '<section class="card"><h2>Resolution Approval</h2><div class="ops-form-grid" style="margin-top:12px">' + field('Approval Comment','resolution_comment','text','') + '</div><div class="ops-actions" style="margin-top:12px">' +
         '<button class="btn primary" data-action-button="resolution-approve" data-id="'+esc(t.id)+'">Approve Resolution</button>' +
         '<button class="btn signal" data-action-button="resolution-reject" data-id="'+esc(t.id)+'">Reject Resolution</button></div></section>';
+    }
+    if (context === 'reconciliation' && bagGapOpen(t)) {
+      html += '<section class="card"><h2>Écart de sacs à régulariser</h2>' +
+        notice('danger', '<b>' + esc(t.bags_loaded) + ' sacs chargés, ' + esc(t.bags_received) + ' sacs reçus.</b>&nbsp;Le transfert ne peut pas être clôturé tant que cet écart n’est pas régularisé. La régularisation met à jour le stock de sacs (manquants sortis du transit, surplus ajoutés au magasin de destination) et reste tracée.') +
+        (can('transfer_resolve_approve') ?
+          '<form data-action="bag-gap" data-id="'+esc(t.id)+'"><div class="ops-form-grid" style="margin-top:12px">' + field('Motif de la régularisation','reason','text','','required minlength="5"') + '</div>' +
+          '<div class="ops-actions" style="margin-top:12px"><button class="btn primary">Régulariser l’écart de sacs</button></div></form>' :
+          '<p class="muted" style="margin-top:8px">Régularisation réservée à un responsable habilité (Branch Manager ou délégué), différent de la personne qui a réceptionné.</p>') +
+        '</section>';
+    }
+    if (context === 'reconciliation' && t.status === 'RECONCILED' && bagGapOpen(t)) {
+      return html;
     }
     if (context === 'reconciliation' && t.status === 'RECONCILED' && can('transfer_close')) {
       html += '<form class="card" data-action="close" data-id="'+esc(t.id)+'"><h2>Close Transfer</h2><div class="ops-form-grid" style="margin-top:12px">'+field('Close Note','note','text','')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Close & Lock</button></div></form>';
@@ -337,6 +358,7 @@
       if (act==='arrival') { await doRpc('wms_trf_register_arrival',id,{p_id:id,p:{warehouse_id:transferById(id).dest_warehouse_id,receiver:d.receiver,truck:d.truck,seal_status:d.seal_status,seal_observed:d.seal_observed,gate_ref:d.gate_ref,comment:d.comment}},'ARRIVAL'); await render(); return; }
       if (act==='receipt') { await doRpc('wms_trf_confirm_receipt',id,{p_id:id,p:{gross_kg:d.gross_kg||null,tare_kg:d.tare_kg||null,net_kg:d.net_kg,bags_received:d.bags_received||null,ticket:d.ticket,quality_ref:d.quality_ref,dest_type:d.dest_type,dest_bin_id:d.dest_bin_id,note:d.note}},'RECEIPT'); await render(); return; }
       if (act==='resolve') { await doRpc('wms_trf_resolve_discrepancy',id,{p_id:id,p:{category:d.category,detailed_reason:d.detailed_reason,responsible:d.responsible,investigation:d.investigation,evidence_ref:d.evidence_ref,resolution:d.resolution,resolution_type:d.resolution_type}},'RESOLVE'); await render(); return; }
+      if (act==='bag-gap') { await doRpc('wms_trf_resolve_bag_gap',id,{p_id:id,p_reason:d.reason},'BAG_GAP'); await render(); return; }
       if (act==='close') { await doRpc('wms_trf_close',id,{p_id:id,p_note:d.note},'CLOSE'); await render(); return; }
     } catch(e) { errorBox(e); } finally { setBusy(form,false); }
   }
