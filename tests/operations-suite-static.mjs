@@ -251,6 +251,8 @@ assert.ok(wh.includes('Aucun BIN disponible') && wh.includes('Créer un BIN puis
 const whBinCreate = (wh.match(/function binNew\(\)\{[\s\S]*?\n\}/)||[''])[0];
 assert.ok(!whBinCreate.includes('Capacité (kg)'), 'BIN creation must not ask for a capacity that is unknown at creation time');
 assert.ok(!/stock_type:d\.stock_type,capacity_kg:d\.capacity_kg/.test(wh), 'BIN creation payload must not send a user-entered capacity');
+assert.ok(!/name="'\+esc\('capacity_kg'\)|field\([^)]*'capacity_kg'/.test(whBinCreate), 'BIN creation form must not contain any capacity_kg input');
+assert.ok(whBinCreate.includes('reprise automatiquement (lecture seule)'), 'BIN creation must explain that area capacity is read-only');
 assert.ok(wh.includes('wms_bin_prefill') && wh.includes('lot-allocation-section'), 'Create-BIN then return-to-LOT allocation context missing');
 for (const forbidden of ['Inbound dossier','Place on Hold','Release Hold','Prepare Stock Transfer','Start Drying','New Reception','Accepted Waiting Offload','Ready for Transfer','Drying / Sorting','Create BIN','Allocate Lot']) {
   assert.ok(!wh.includes(forbidden), `Warehouse French UI still exposes English wording: ${forbidden}`);
