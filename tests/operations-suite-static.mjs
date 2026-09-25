@@ -270,12 +270,13 @@ assert.ok(!/module-router-v2\.js/.test(transfer), 'Stock Transfer must not fall 
 const trf = read('operations/stock-transfer.js');
 for (const rpc of ['wms_trf_create_request','wms_trf_approve','wms_trf_save_load','wms_trf_confirm_dispatch',
                    'wms_trf_register_arrival','wms_trf_confirm_receipt','wms_trf_resolve_discrepancy',
-                   'wms_trf_decide_resolution','wms_trf_close']) {
+                   'wms_trf_decide_resolution','wms_trf_close','wms_trf_resolve_bag_gap']) {
   assert.ok(trf.includes(rpc), `Stock Transfer RPC missing: ${rpc}`);
 }
 for (const route of ['overview','requests','ready','transit','arrivals','reconciliation','audit']) {
   assert.ok(trf.includes(route), `Stock Transfer route missing: ${route}`);
 }
+assert.ok(trf.includes('Écart de sacs à régulariser') && trf.includes('bagGapOpen(t)'), 'Transfer bag gap must be visible and block closure until regularised');
 assert.ok(!trf.includes("from('rcn_state')") && !trf.includes('from("rcn_state")'),
   'Stock Transfer must use the WMS ledger, not rcn_state as a second stock source');
 assert.ok(trf.includes('Reservation != mouvement physique') && trf.includes('Arrival != Receipt'),
