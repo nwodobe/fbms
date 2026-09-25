@@ -106,6 +106,8 @@ begin
     x := jsonb_build_object('D7_resolve',coalesce(r->>'status',r::text));
     perform set_config('request.jwt.claims',json_build_object('sub',u_bm,'role','authenticated')::text,true);
     r := public.wms_trf_decide_resolution(trf,true,'Valide','SIM2-TRF-DEC'); x := x || jsonb_build_object('D8_decision',coalesce(r->>'status',r::text));
+    -- depuis le 25/09/2026 : l'écart de sacs (125 chargés, 124 reçus) doit être régularisé avant la clôture
+    r := public.wms_trf_resolve_bag_gap(trf,'1 sac dechire jete a l arrivee','SIM2-TRF-BG'); x := x || jsonb_build_object('D8b_ecart_sacs',r->'bags_missing_written_off');
     r := public.wms_trf_close(trf,'Cloture','SIM2-TRF-CLOSE'); x := x || jsonb_build_object('D9_close',r->>'status');
     x := x || jsonb_build_object('stock_origine_bin',(select sum(qty) from public.wms_v_balances where location_type='BIN' and location_id=bin_a),
                                  'stock_dest_bin',(select sum(qty) from public.wms_v_balances where location_type='BIN' and location_id=bin_b),

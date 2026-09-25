@@ -4,12 +4,12 @@
 var page=(document.body&&document.body.dataset&&document.body.dataset.workspace)||'';
 var defs={
  field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['rt','RT & Villages'],['hubs','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability']]},
- procurement:{title:'PROCUREMENT',routes:[['overview','Vue d’ensemble'],['field','Achat Bord Champ'],['lba','LBA'],['suppliers','Suppliers'],['arrivals','Arrivages prévus'],['purchases','Achat RCN'],['evacuations','Evacuations'],['reconciliation','Reconciliation'],['settings','Settings'],['audit','Audit']]},
+ procurement:{title:'PROCUREMENT',routes:[['overview','Vue d’ensemble'],['field','Achat Bord Champ'],['lba','LBA'],['suppliers','Suppliers'],['arrivals','Arrivages prévus'],['purchases','Achat RCN'],['evacuations','Evacuations'],['reconciliation','Reconciliation'],['settings','Settings'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
  lba:{title:'LBA PURCHASE',routes:[['overview','Vue d’ensemble'],['registry','LBA Registry'],['purchases','Achats RCN'],['limits','Limites de financement'],['financing','Financements'],['cycles','Cycles de financement'],['deliveries','Livraisons RCN'],['bags','Gestion sacherie'],['balances','Balances'],['aging','Aging & Alertes'],['performance','Performance'],['documents','Documents'],['audit','Audit']]},
- warehouse:{title:'OPÉRATIONS WAREHOUSE',routes:[['overview','Vue d’ensemble'],['inbound','Réceptions'],['quality','Qualité'],['lots','Lots RCN'],['bins','Stock & BIN'],['movements','Journal des mouvements'],['drying','Séchage / Tri'],['bags','Gestion sacherie'],['inventory','Inventaire'],['parameters','Paramètres'],['audit','Audit']]},
+ warehouse:{title:'OPÉRATIONS WAREHOUSE',routes:[['overview','Vue d’ensemble'],['inbound','Réceptions'],['quality','Qualité'],['lots','Lots RCN'],['bins','Stock & BIN'],['movements','Journal des mouvements'],['drying','Séchage / Tri'],['bags','Gestion sacherie'],['inventory','Inventaire'],['parameters','Paramètres'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
  transfer:{title:'STOCK TRANSFER',routes:[['overview','Overview'],['requests','Requests'],['ready','Ready to Load'],['transit','In Transit'],['arrivals','Arrivals'],['reconciliation','Reconciliation'],['audit','Audit']]},
  factory:{title:'FACTORY',routes:[['overview','Overview'],['reception','Factory Reception'],['warehouse','Factory Warehouse'],['bins','Factory BIN'],['processing','Processing'],['calibration','Calibration'],['mass-balance','Mass Balance'],['audit','Audit']]},
- trace:{title:'TRACEABILITY 360',routes:[]},reports:{title:'REPORTS & EXPORT',routes:[]}
+ trace:{title:'TRACEABILITY 360',routes:[]},reports:{title:'REPORTS & EXPORT',routes:[['activity-report','Rapports d’activité','activity-report.html'],['consolidated','Export consolidé','reports.html'],['warehouse','Warehouse','warehouse.html'],['procurement','Procurement','procurement.html']]}
 };
 function esc(v){return String(v==null?'':v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function route(){return (location.hash||'#overview').slice(1).split('/')[0]||'overview';}
@@ -25,8 +25,8 @@ function ensureChrome(){
 function renderNav(){
  var d=defs[page]; if(!d)return;
  var side=document.getElementById('opsSidebar');
- if(side&&d.routes.length){var r=route();side.innerHTML='<div class="ops-side-head">'+esc(d.title)+'</div><nav class="ops-nav">'+d.routes.map(function(x){return '<a class="'+(r===x[0]?'active':'')+'" href="#'+x[0]+'"><span class="nav-dot"></span>'+esc(x[1])+'</a>';}).join('')+'</nav>';}
- var bc=document.getElementById('opsBreadcrumbs'); if(bc){var label=(d.routes.filter(function(x){return x[0]===route();})[0]||['',d.title])[1];bc.innerHTML='<a href="../index.html">Portail</a><span class="sep">›</span><a href="#overview">'+esc(d.title)+'</a>'+(label&&label!==d.title?'<span class="sep">›</span><strong>'+esc(label)+'</strong>':'');}
+ if(side&&d.routes.length){var r=route();var file=(location.pathname.split('/').pop()||'');side.innerHTML='<div class="ops-side-head">'+esc(d.title)+'</div><nav class="ops-nav">'+d.routes.map(function(x){var ext=!!x[2],act=ext?file===x[2]:r===x[0];return '<a class="'+(act?'active':'')+'" href="'+(ext?x[2]:'#'+x[0])+'"><span class="nav-dot"></span>'+esc(x[1])+'</a>';}).join('')+'</nav>';}
+ var bc=document.getElementById('opsBreadcrumbs'); if(bc){var file2=(location.pathname.split('/').pop()||''),ext2=d.routes.filter(function(x){return x[2]&&x[2]===file2;})[0];var label=(ext2||d.routes.filter(function(x){return x[0]===route();})[0]||['',d.title])[1];bc.innerHTML='<a href="../index.html">Portail</a><span class="sep">›</span><a href="#overview">'+esc(d.title)+'</a>'+(label&&label!==d.title?'<span class="sep">›</span><strong>'+esc(label)+'</strong>':'');}
 }
 function harmonizeActions(){
  document.querySelectorAll('.ops-actions a[href*="rcntrace/index.html"],.ops-actions a[href*="terrain/traceability.html"]').forEach(function(a){
