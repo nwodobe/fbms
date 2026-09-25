@@ -296,3 +296,27 @@ assert.ok(!reportsHtml.includes('../rcntrace/index.html'), 'Reports must not jum
 const trace = read('operations/traceability-search.js');
 assert.ok(trace.includes('operations_traceability_search_v'), 'cross-domain traceability view not used');
 console.log('Operations Suite static assertions: PASS');
+
+// Rapports d'activité (Warehouse / Procurement) : écran, onglets du modèle et garde-fous
+const rapHtml = read('operations/activity-report.html');
+const rapJs = read('operations/activity-report.js');
+assert.ok(/activity-report\.js\?v=/.test(rapHtml) && rapHtml.includes('data-workspace="reports"'), 'Activity report page must load its controller in the reports workspace');
+const rapOrder = ['Suppliers', 'Delivery Plan', 'Truck Reception', 'Warehouse Receiving', 'Quality Inspection', 'Drying Batch', 'Warehouse Activity Ledger', 'Jute Bags Movement'];
+let rapPos = -1;
+for (const name of rapOrder) {
+  const i = rapJs.indexOf("name: '" + name + "'");
+  assert.ok(i > rapPos, `Activity report sheet missing or out of model order: ${name}`);
+  rapPos = i;
+}
+for (const view of ['reports_v_suppliers', 'reports_v_delivery_plan', 'reports_v_truck_reception', 'reports_v_warehouse_receiving', 'reports_v_quality_inspection',
+  'reports_v_drying_batch', 'reports_v_warehouse_activity_ledger', 'reports_v_jute_bags_movement', 'reports_v_activity_summary', 'reports_activity_summary']) {
+  assert.ok(rapJs.includes(view), `Activity report must read ${view}`);
+}
+assert.ok(rapJs.includes("'C' + n + '+D' + n + '+E' + n + '-F' + n + '-G' + n + '-H' + n"), 'Jute closing must be an Excel formula Opening + Receipts + Transfers In - Issues - Damaged - Transfers Out');
+assert.ok(rapJs.includes('.range(from, from + PAGE - 1)') && !/limit\(500\)/.test(rapJs), 'Activity report must paginate server-side without a blocking limit');
+assert.ok(rapJs.includes('ANAGROCI_Activity_Report_'), 'Activity report file name must follow ANAGROCI_Activity_Report_YYYYMMDD_warehouse');
+assert.ok(!/\.(insert|update|upsert|delete)\(/.test(rapJs), 'Activity report must stay read-only');
+for (const label of ['Prévisualiser', 'Exporter Excel', 'Exporter CSV', 'Exporter résumé PDF', 'Réinitialiser']) {
+  assert.ok(rapJs.includes(label), `Activity report button missing: ${label}`);
+}
+assert.ok((nav.match(/'activity-report','Rapports d’activité','activity-report\.html'/g) || []).length >= 3, 'Activity report must be reachable from Warehouse, Procurement and Reports navigation');
