@@ -67,6 +67,8 @@ begin
        'resolution','Perte transport acceptee','resolution_type','WRITE_OFF'),'SIM2-TRF-RES');
   perform set_config('request.jwt.claims',json_build_object('sub',u_bm,'role','authenticated')::text,true);
   perform public.wms_trf_decide_resolution(trf,true,'Valide','SIM2-TRF-DEC');
+  -- depuis le 25/09/2026 : l'écart de sacs (125 chargés, 124 reçus) doit être régularisé avant la clôture
+  perform public.wms_trf_resolve_bag_gap(trf,'1 sac dechire jete a l arrivee','SIM2-TRF-BG');
   perform public.wms_trf_close(trf,'Cloture','SIM2-TRF-CLOSE');
   log := log || jsonb_build_object('s','V2-D1 Cloture BKE-002','res',(select jsonb_build_object('statut',x->>'mass_balance_status','ecart',x->'variance_kg','ajust',x->'inventory_adjustments_kg','transit_ajust',x->'transit_adjustments_kg','cloture',x->'closing_stock_kg') from (select public.wms_daily_closing(wh,current_date) x) z));
   log := log || jsonb_build_object('s','V2-D2 Cloture BKE-003','res',(select jsonb_build_object('statut',x->>'mass_balance_status','ecart',x->'variance_kg','ajust',x->'inventory_adjustments_kg','transit_ajust',x->'transit_adjustments_kg','cloture',x->'closing_stock_kg','attendu',x->'expected_closing_kg') from (select public.wms_daily_closing(wh2,current_date) x) z));
