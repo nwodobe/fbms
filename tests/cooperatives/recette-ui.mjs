@@ -72,7 +72,7 @@ const BRUTS = /\b(cooperative_id|membership_status|producer_id|sourcing_channel|
 /* Libellés français restés en anglais (module coopératives uniquement). */
 const FR_EN = /(Enrôler|Associer un producteur|À vérifier|Qualité des données|Complétude|NON COLLECTÉ|Producteurs membres|Formations|Livraisons de la coopérative|Coopérative principale|Correspondance|Village du référentiel|Classement proposé|Livraisons coopératives|Tous|Identité|Parcelles|Consentements|Opérationnel|Résumé|Baselines durabilité|Dernier achat|Règle campagne|ne bloque never)/
 const bilan = []
-const browser = await chromium.launch()
+const browser = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {})
 for (const lang of ['fr', 'en']) {
   for (const vp of VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } })
