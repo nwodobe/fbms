@@ -155,11 +155,21 @@ begin
      and (select enrollment_channel from public.aflp_producer_channel_v where producer_id = p1) = 'COOPERATIVE'));
   r := public.aflp_coop_transfer_member((r->'nouvelle'->>'id')::uuid, ca, 'Retour en coopérative A (QA)', 'QA-M-001B', sec);
 
-  -- 16. achat mode A d'un membre : canal + coopérative portés par l'achat
+  -- 16. achat mode A d'un membre : canal + coopérative portés par l'achat.
+  -- Finalisation 2027 : sans RT de suivi, l'achat mode A est refusé (contrôle de caisse) ; avec RT de suivi, accepté.
+  begin
+    insert into public.achats(date, village_id, producteur_id, poids_net, prix_kg, montant, created_by, campaign, rejet)
+    values (current_date, vrt, p1, 850, 1, 850, bm, '2027', false);
+    res := res || jsonb_build_array(jsonb_build_object('t','16a achat mode A sans RT de suivi refuse','ok', false));
+  exception when others then res := res || jsonb_build_array(jsonb_build_object('t','16a achat mode A sans RT de suivi refuse','ok', sqlerrm like 'Un RT de suivi est requis%')); end;
+  update public.aflp_coop_memberships set followup_rt_id = rt_rt where producer_id = p1 and status <> 'ENDED';
+  execute 'reset role';
+  insert into public.avances(rt_id, rt_nom, montant, statut, date) values (rt_rt, (select nom from public.rt where id = rt_rt), 850, 'Active', current_date);
+  execute 'set local role authenticated';
   insert into public.achats(date, village_id, producteur_id, poids_net, prix_kg, montant, created_by, campaign, rejet)
   values (current_date, vrt, p1, 850, 1, 850, bm, '2027', false) returning id into a1;
-  res := res || jsonb_build_array(jsonb_build_object('t','16 achat mode A trace la cooperative','ok',
-     (select sourcing_channel = 'COOPERATIVE' and cooperative_id = ca from public.achats where id = a1)));
+  res := res || jsonb_build_array(jsonb_build_object('t','16 achat mode A trace la cooperative et son RT de suivi','ok',
+     (select sourcing_channel = 'COOPERATIVE' and cooperative_id = ca and rt_id = rt_rt from public.achats where id = a1)));
 
   -- 17-20. livraison mode B : planification (camion, chauffeur), réception WMS, allocation
   r := public.aflp_coop_plan_delivery(jsonb_build_object('cooperative_id',ca,'planned_date',current_date,'planned_kg',2000,'planned_bags',25,
@@ -198,6 +208,12 @@ begin
   res := res || jsonb_build_array(jsonb_build_object('t','23 Traceability 360 trouve coop et livraison','ok',
      exists (select 1 from public.operations_traceability_search_v where entity_type = 'COOPERATIVE' and entity_id = (select code from public.aflp_cooperatives where id = ca))
      and exists (select 1 from public.operations_traceability_search_v where entity_type = 'COOP_DELIVERY' and entity_id = (select code from public.aflp_coop_deliveries where id = d1))));
+  -- 23c (finalisation 2027) : une seule barre retrouve membre (Member ID), achat (Purchase ID), producteur (téléphone) et RT.
+  res := res || jsonb_build_array(jsonb_build_object('t','23c T360 trouve membre, achat, farmer, RT','ok',
+     exists (select 1 from public.operations_traceability_search_v where entity_type='COOP_MEMBER' and search_text ilike '%QA-M-001B%')
+     and exists (select 1 from public.operations_traceability_search_v where entity_type='PURCHASE' and search_text ilike '%'||a1::text||'%')
+     and exists (select 1 from public.operations_traceability_search_v where entity_type='FARMER' and search_text ilike '%0700000201%')
+     and exists (select 1 from public.operations_traceability_search_v where entity_type='RT' and search_text ilike '%'||rt_rt||'%')));
   r := public.aflp_coop_chain(ca, '2027');
   res := res || jsonb_build_array(jsonb_build_object('t','23b chaine coop -> producteurs -> achats -> livraisons','ok',
      (r->'producteurs'->>'ouverts')::int >= 4 and (r->'achats_mode_a'->>'nombre')::int >= 1));

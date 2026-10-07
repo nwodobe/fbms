@@ -207,7 +207,7 @@ var FBStore = {
     store[key] = { promise: p, at: now };
     return p;
   },
-  invalidate: function () { [].slice.call(arguments).forEach(function (k) { delete store[k]; }); },
+  invalidate: function () { [].slice.call(arguments).forEach(function (k) { delete store[k]; if (k === 'base') delete store.farmerExtras; }); },
   clear: function () { store = Object.create(null); }
 };
 
@@ -1304,8 +1304,9 @@ function openFarmerForm(prefill, editId) {
     nom.addEventListener('input', checkDupLocal);
     tel.addEventListener('input', checkDupLocal);
 
+    var duplicateJustification = '';
     document.getElementById('farmerForm').addEventListener('submit', function (e) {
-      e.preventDefault();
+      e.preventDefault(); duplicateJustification = '';
       var msg = document.getElementById('ff_msg'), btn = document.getElementById('ff_submit');
       var name = val('ff_nom'), vid = villageSel.value;
       if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont le minimum opérationnel.'; return; }
@@ -1329,11 +1330,22 @@ function openFarmerForm(prefill, editId) {
             msg.textContent = 'Contrôle des doublons indisponible (connexion ou serveur). Réessayez avant de créer le producteur.';
             return null;
           }
-          if (hits.length) {
+          /* Finalisation 2027 : un téléphone partagé (téléphone familial) ou un homonyme ne bloque plus définitivement.
+             La correspondance est affichée ; l'utilisateur ouvre la fiche existante ou crée avec une justification
+             (≥ 10 caractères) : le producteur est alors marqué « À vérifier ». Le serveur refuse toujours le doublon
+             fort (même téléphone + même identité) sauf supervision. */
+          var justif = (document.getElementById('ff_justif') || {}).value || '';
+          if (hits.length && !editRow && justif.trim().length < 10) {
             btn.disabled = false; msg.className = 'ops-danger-text';
-            msg.textContent = 'Doublon possible détecté côté référentiel (' + hits.length + '). Vérifiez la liste des producteurs avant de recréer.';
+            msg.textContent = 'Correspondance(s) trouvée(s) dans le registre : vérifiez avant de créer.';
+            var REASONS = { SAME_PHONE_SAME_VILLAGE: 'même téléphone, même village', SAME_PHONE_OTHER_VILLAGE: 'même téléphone, autre village', SAME_NAME_SAME_VILLAGE: 'même nom, même village' };
+            document.getElementById('ff_dup').innerHTML = '<div class="notice danger"><b>Producteur(s) proche(s) déjà enregistré(s) :</b><ul style="margin:6px 0 0 18px">' +
+              hits.map(function (h) { return '<li><a class="ops-link" href="#farmers/' + encodeURIComponent(h.producteur_id) + '">' + esc(h.farmer_id || h.producteur_id) + '</a> · ' + esc(h.nom || '') + ' — ' + esc(REASONS[h.reason] || h.reason) + '</li>'; }).join('') +
+              '</ul><p style="margin:8px 0 4px">S’il s’agit d’une autre personne (téléphone familial, homonyme), justifiez la création ; le dossier sera marqué « À vérifier ».</p>' +
+              '<textarea id="ff_justif" rows="2" maxlength="300" style="width:100%" placeholder="Ex. : épouse du producteur existant, même téléphone familial"></textarea></div>';
             return null;
           }
+          if (hits.length && !editRow) { duplicateJustification = justif.trim(); }
           msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
           var id = editRow ? editRow.id : uid();
           var pct = refresh();
@@ -1359,6 +1371,7 @@ function openFarmerForm(prefill, editId) {
             rt_id: rtSel.value || null, data: data
           };
           /* Édition : id et Farmer ID ne changent JAMAIS ; la même personne est mise à jour. */
+          if (!editRow && duplicateJustification) { row.possible_duplicate = true; row.review_required = true; row.review_reason = 'Créé malgré correspondance : ' + duplicateJustification; }
           var write = editRow
             ? cl.from('producteurs').update(row).eq('id', editRow.id)
             : (row.id = id, row.statut = 'Identifié', cl.from('producteurs').insert(row));
@@ -1428,57 +1441,111 @@ function closeForm() {
 
 /* ------------------------------------------------------------------- producteurs */
 
-var farmerFilter = { q: '', village: '', statut: '' };
-
+var farmerFilter = { q: '', village: '', statut: '', canal: '', coop: '', cluster: '', rt: '', compl: '', flag: '' };
+/* Finalisation 2027 : la liste Producteurs montre le canal 2027, la coopérative principale, le Member ID, la complétude
+   du dossier et le consentement, avec les filtres demandés par le Branch Manager. Les deux vues de canal et de qualité
+   sont lues en parallèle de base() (une seule fois, mises en cache). */
+function farmerExtras() {
+  return FBStore.get('farmerExtras', function () {
+    return Promise.all([
+      q('aflp_producer_channel_v', 'producer_id,campaign,sourcing_channel,primary_cooperative_id,primary_cooperative_code,primary_cooperative_name,member_number,followup_rt_id,enrollment_channel', 5000)
+        .catch(function () { return []; }),
+      q('aflp_producer_quality_v', 'producer_id,has_phone,has_gps,completeness_pct,missing_fields,consent_status,review_required', 5000).catch(function () { return []; })
+    ]).then(function (rs) {
+      var ch = {}, ql = {};
+      rs[0].forEach(function (x) { if (!x.campaign || String(x.campaign) === '2027' || !ch[x.producer_id]) ch[x.producer_id] = x; });
+      rs[1].forEach(function (x) { ql[x.producer_id] = x; });
+      return { ch: ch, ql: ql, ok: rs[0].length > 0 || rs[1].length > 0 };
+    });
+  });
+}
+var CONSENT_FR = { GRANTED: 'Recueilli', PARTIAL: 'Partiel', REFUSED: 'Refusé', NOT_RECORDED: 'Non recueilli', WITHDRAWN: 'Retiré' };
 function renderFarmers(id, tab) {
   if (id) return renderFarmerPassport(id, tab);
-  paint(head('Producteurs', 'Farmer Registry : identité, passeport et activité de chaque producteur.',
-    '<button class="btn primary ops-cta-create" id="newFarmerBtn" type="button" onclick="ANAGROCI_FB.openFarmerForm()">+ Nouveau producteur</button>') +
-    createHost() + skeletonPage(4));
+  var cta = '<button class="btn primary ops-cta-create" id="newFarmerBtn" type="button" onclick="ANAGROCI_FB.openFarmerForm()">+ Nouveau producteur</button>';
+  paint(head('Producteurs', 'Farmer Registry : identité, canal, coopérative, complétude et consentement de chaque producteur.', cta) + createHost() + skeletonPage(4));
 
-  return base().then(function (c) {
-    var villages = selOptions(c.villages.map(function (v) { return [v.id, v.village]; }), farmerFilter.village);
-    paint(head('Producteurs', 'Farmer Registry : identité, passeport et activité de chaque producteur.',
-      '<button class="btn primary ops-cta-create" id="newFarmerBtn" type="button" onclick="ANAGROCI_FB.openFarmerForm()">+ Nouveau producteur</button>') +
+  return Promise.all([base(), farmerExtras()]).then(function (rs) {
+    var c = rs[0], X = rs[1];
+    var coops = {};
+    Object.keys(X.ch).forEach(function (k) { var x = X.ch[k]; if (x.primary_cooperative_id) coops[x.primary_cooperative_id] = (x.primary_cooperative_code || '') + ' · ' + (x.primary_cooperative_name || ''); });
+    var rtsUsed = {}; c.farmers.forEach(function (f) { if (f.rt_id) rtsUsed[f.rt_id] = 1; });
+    var F = farmerFilter;
+    function opt(v, l, cur) { return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(l) + '</option>'; }
+    var nCoop = c.farmers.filter(function (f) { var x = X.ch[f.producteur_id]; return x && x.primary_cooperative_id; }).length;
+    var nLow = c.farmers.filter(function (f) { var x = X.ql[f.producteur_id]; return x && n(x.completeness_pct) < 50; }).length;
+    paint(head('Producteurs', 'Farmer Registry : identité, canal, coopérative, complétude et consentement de chaque producteur.', cta) +
       createHost() +
       kpis([
         ['Producteurs', String(c.farmers.length), 'au référentiel'],
-        ['Parcelle GPS levée', String(c.farmers.filter(function (f) { return n(f.gps_mapped_count) > 0; }).length), 'facultative — jamais bloquante'],
-        ['À revoir', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'contrôle doublon / identité'],
-        ['Avec achats', String(c.farmers.filter(function (f) { return f.last_purchase_date; }).length), 'campagne en cours']
+        ['Membres de coopérative', String(nCoop), 'canal Coopérative 2027'],
+        ['Complétude < 50 %', String(nLow), 'dossiers à compléter'],
+        ['À vérifier', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'doublon possible / identité']
       ]) +
-      '<section class="card"><div class="card-head"><div><h2>Recherche</h2></div></div><div class="ops-form-grid">' +
-      field('Nom, Farmer ID ou téléphone', '<input id="pfQ" value="' + esc(farmerFilter.q) + '" placeholder="Rechercher…">') +
-      field('Village', '<select id="pfVillage"><option value="">Tous</option>' + villages + '</select>') +
+      '<section class="card"><div class="card-head"><div><h2>Recherche et filtres</h2></div><div class="ops-route-actions"><button class="btn secondary" type="button" id="pfReset">Réinitialiser</button></div></div><div class="ops-form-grid pf-filters">' +
+      field('Nom, Farmer ID, Member ID ou téléphone', '<input id="pfQ" value="' + esc(F.q) + '" placeholder="Rechercher…">') +
+      field('Canal 2027', '<select id="pfCanal">' + opt('', 'Tous', F.canal) + opt('AFLP_DIRECT', 'Direct RT', F.canal) + opt('COOPERATIVE', 'Coopérative', F.canal) + opt('NO_COOP', 'Sans coopérative', F.canal) + '</select>') +
+      field('Coopérative', '<select id="pfCoop">' + opt('', 'Toutes', F.coop) + Object.keys(coops).sort(function (a, b) { return coops[a].localeCompare(coops[b]); }).map(function (k) { return opt(k, coops[k], F.coop); }).join('') + '</select>') +
+      field('Village', '<select id="pfVillage"><option value="">Tous</option>' + selOptions(c.villages.map(function (v) { return [v.id, v.village]; }), F.village) + '</select>') +
+      field('Cluster', '<select id="pfCluster">' + opt('', 'Tous', F.cluster) + c.clusters.map(function (k) { return opt(k.code, k.label || k.code, F.cluster); }).join('') + '</select>') +
+      field('RT', '<select id="pfRt">' + opt('', 'Tous', F.rt) + c.rts.filter(function (r) { return rtsUsed[r.id]; }).map(function (r) { return opt(r.id, (r.id_rt || r.id) + ' · ' + r.nom, F.rt); }).join('') + '</select>') +
+      field('Complétude', '<select id="pfCompl">' + opt('', 'Toutes', F.compl) + opt('LT50', 'Moins de 50 %', F.compl) + opt('INCOMPLETE', 'Incomplet (< 100 %)', F.compl) + opt('FULL', 'Complet (100 %)', F.compl) + '</select>') +
+      field('Point à traiter', '<select id="pfFlag">' + opt('', 'Aucun filtre', F.flag) + opt('NO_PHONE', 'Sans téléphone', F.flag) + opt('NO_GPS', 'Sans GPS', F.flag) + opt('NO_CONSENT', 'Consentement non recueilli', F.flag) + opt('REVIEW', 'À vérifier (doublon / identité)', F.flag) + '</select>') +
       '</div></section>' +
-      '<section class="card"><div class="card-head"><div><h2>Producteurs</h2>' +
+      '<section class="card"><div class="card-head"><div><h2>Producteurs <span class="muted" id="pfCount"></span></h2>' +
       '<p>Cliquez sur une ligne pour ouvrir le Farmer Passport.</p></div></div><div id="farmerTable"></div></section>');
 
     function apply() {
-      var k = normName(farmerFilter.q), t = normPhone(farmerFilter.q);
+      var k = normName(F.q), t = normPhone(F.q);
       var list = c.farmers.filter(function (f) {
-        if (farmerFilter.village && f.village_id !== farmerFilter.village) return false;
-        if (!farmerFilter.q) return true;
-        return normName(f.nom + ' ' + (f.prenoms || '') + ' ' + (f.farmer_id || '')).indexOf(k) >= 0 ||
+        var ch = X.ch[f.producteur_id] || {}, ql = X.ql[f.producteur_id] || {};
+        if (F.village && f.village_id !== F.village) return false;
+        if (F.cluster && f.cluster_code !== F.cluster) return false;
+        if (F.rt && f.rt_id !== F.rt) return false;
+        if (F.canal === 'COOPERATIVE' && !ch.primary_cooperative_id) return false;
+        if (F.canal === 'AFLP_DIRECT' && (ch.primary_cooperative_id || !f.rt_id)) return false;
+        if (F.canal === 'NO_COOP' && ch.primary_cooperative_id) return false;
+        if (F.coop && ch.primary_cooperative_id !== F.coop) return false;
+        var cp = ql.completeness_pct == null ? null : n(ql.completeness_pct);
+        if (F.compl === 'LT50' && !(cp != null && cp < 50)) return false;
+        if (F.compl === 'INCOMPLETE' && !(cp != null && cp < 100)) return false;
+        if (F.compl === 'FULL' && cp !== 100) return false;
+        if (F.flag === 'NO_PHONE' && f.telephone) return false;
+        if (F.flag === 'NO_GPS' && n(f.gps_mapped_count) > 0) return false;
+        if (F.flag === 'NO_CONSENT' && (ql.consent_status || f.consent_status) === 'GRANTED') return false;
+        if (F.flag === 'REVIEW' && !(f.review_required || f.possible_duplicate)) return false;
+        if (!F.q) return true;
+        return normName(f.nom + ' ' + (f.prenoms || '') + ' ' + (f.farmer_id || '') + ' ' + (ch.member_number || '')).indexOf(k) >= 0 ||
                (t.length >= 4 && normPhone(f.telephone).indexOf(t) >= 0);
       });
-      document.getElementById('farmerTable').innerHTML = table(
-        ['Farmer ID', 'Nom', 'Téléphone', 'Village', 'RT', 'Cluster', 'Statut', 'Niveau', 'Parcelle', 'Dernier achat'],
-        list.slice(0, 200).map(function (f) {
-          var rr = c.rm[f.rt_id], vv = c.vm[f.village_id];
+      document.getElementById('pfCount').textContent = '· ' + list.length + (list.length > 300 ? ' (300 premiers affichés)' : '');
+      if (!list.length) { document.getElementById('farmerTable').innerHTML = empty('Aucun producteur pour ces filtres.'); return; }
+      document.getElementById('farmerTable').innerHTML = '<div class="table-wrap"><table class="pf-table"><thead><tr>' +
+        ['Farmer ID', 'Nom', 'Village', 'RT', 'Canal 2027', 'Coopérative principale', 'Member ID', 'Complétude', 'Consentement', 'Statut'].map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + list.slice(0, 300).map(function (f) {
+          var rr = c.rm[f.rt_id], vv = c.vm[f.village_id], ch = X.ch[f.producteur_id] || {}, ql = X.ql[f.producteur_id] || {};
+          var coop = ch.primary_cooperative_id, cp = ql.completeness_pct == null ? null : n(ql.completeness_pct);
+          var canal = coop ? badge('Coopérative') : (f.rt_id ? badge('Direct RT') : '<span class="muted">Non rattaché</span>');
+          var consent = ql.consent_status || f.consent_status || 'NOT_RECORDED';
           return '<tr class="ops-click" onclick="location.hash=\'#farmers/' + encodeURIComponent(f.producteur_id) + '\'">' +
-            '<td><a class="ops-link mono" href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' + esc(f.farmer_id || '—') + '</a></td>' +
-            '<td><a class="ops-link" href="#farmers/' + encodeURIComponent(f.producteur_id) + '"><b>' + esc(f.nom) + '</b>' + (f.prenoms ? ' ' + esc(f.prenoms) : '') + '</a></td>' +
-            '<td>' + esc(f.telephone || '—') + '</td><td>' + (vv ? villageLink(vv) : esc(f.village_nom || '—')) + '</td>' +
-            '<td>' + (rr ? rtLink(rr) : esc(f.rt_nom || '—')) + '</td><td>' + esc(f.cluster_label || f.cluster_code || '—') + '</td>' +
-            '<td>' + badge(f.operational_status || 'Enrôlé') + '</td>' +
-            '<td>' + badge('Opérationnel ✓') + ' <span class="muted">Passport ' + n(f.passport_completion) + ' %</span></td>' +
-            '<td>' + (n(f.gps_mapped_count) > 0 ? badge('GPS levé') : '<span class="muted">à compléter après campagne</span>') + '</td>' +
-            '<td>' + date(f.last_purchase_date) + '</td></tr>';
-        }));
+            '<td data-l="Farmer ID"><a class="ops-link mono" href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' + esc(f.farmer_id || '—') + '</a></td>' +
+            '<td data-l="Nom" class="pf-name"><b>' + esc(f.nom) + '</b>' + (f.prenoms ? ' ' + esc(f.prenoms) : '') + (f.review_required || f.possible_duplicate ? ' <span class="badge warn" title="' + esc(f.review_reason || 'Doublon possible ou identité à vérifier') + '">À vérifier</span>' : '') + '</td>' +
+            '<td data-l="Village">' + (vv ? villageLink(vv) : esc(f.village_nom || '—')) + '</td>' +
+            '<td data-l="RT" class="pf-lo">' + (rr ? rtLink(rr) : esc(f.rt_nom || '—')) + '</td>' +
+            '<td data-l="Canal">' + canal + '</td>' +
+            '<td data-l="Coopérative">' + (coop ? '<a class="ops-link" onclick="event.stopPropagation()" href="#cooperatives/' + encodeURIComponent(coop) + '/overview">' + esc(ch.primary_cooperative_code || '') + '</a> <span class="muted">' + esc(ch.primary_cooperative_name || '') + '</span>' : '<span class="muted">—</span>') + '</td>' +
+            '<td data-l="Member ID" class="mono pf-lo">' + esc(ch.member_number || '—') + '</td>' +
+            '<td data-l="Complétude">' + (cp == null ? '—' : '<span class="badge ' + (cp === 100 ? 'ok' : cp < 50 ? 'danger' : 'warn') + '">' + cp + ' %</span>') + '</td>' +
+            '<td data-l="Consentement" class="pf-lo">' + '<span class="badge ' + (consent === 'GRANTED' ? 'ok' : 'warn') + '">' + esc(CONSENT_FR[consent] || consent) + '</span></td>' +
+            '<td data-l="Statut" class="pf-lo">' + badge(f.operational_status || 'Enrôlé') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
     }
-    document.getElementById('pfQ').addEventListener('input', function () { farmerFilter.q = this.value; apply(); });
-    document.getElementById('pfVillage').addEventListener('change', function () { farmerFilter.village = this.value; apply(); });
+    var t = null;
+    document.getElementById('pfQ').addEventListener('input', function () { var v = this.value; clearTimeout(t); t = setTimeout(function () { F.q = v; apply(); }, 200); });
+    [['pfCanal', 'canal'], ['pfCoop', 'coop'], ['pfVillage', 'village'], ['pfCluster', 'cluster'], ['pfRt', 'rt'], ['pfCompl', 'compl'], ['pfFlag', 'flag']].forEach(function (x) {
+      document.getElementById(x[0]).addEventListener('change', function () { F[x[1]] = this.value; apply(); });
+    });
+    document.getElementById('pfReset').addEventListener('click', function () { Object.keys(F).forEach(function (k) { F[k] = ''; }); renderFarmers(); });
     apply();
   });
 }

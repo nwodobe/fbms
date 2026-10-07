@@ -4,6 +4,107 @@
 (function (global) {
   'use strict';
 
+  /* ===================================================================================================
+     Finalisation campagne 2027 — messages d'erreur métier et état réel des données.
+     1. Les erreurs techniques de la base (RLS, contrainte, doublon, délai, session) ne doivent jamais
+        apparaître telles quelles : la réponse de l'API est réécrite AVANT que les modules ne la lisent.
+        Les messages métier déjà rédigés côté serveur (DOUBLON_FORT, « Un RT de suivi est requis… ») sont
+        conservés tels quels ; le message technique reste disponible dans technical_message (console).
+     2. La pastille « Données à jour » reflète désormais la dernière lecture réussie, l'absence de réseau ou
+        l'échec de la dernière requête (avant : texte codé en dur, toujours vert).
+     Le fetch est enveloppé ici, avant que les modules (scripts defer suivants) ne créent leur client. */
+  function lang() { try { return localStorage.getItem('anagroci_lang') === 'en' ? 'en' : 'fr'; } catch (e) { return 'fr'; } }
+  var COLS = { nom: ['nom', 'name'], village_id: ['village', 'village'], producteur_id: ['producteur', 'farmer'], poids_net: ['poids net', 'net weight'],
+    prix_kg: ['prix', 'price'], montant: ['montant', 'amount'], cooperative_id: ['coopérative', 'cooperative'], name: ['nom', 'name'], full_name: ['nom', 'name'],
+    warehouse_id: ['entrepôt', 'warehouse'], truck: ['camion', 'truck'], date: ['date', 'date'] };
+  var UNIQUE = {
+    achats_numero_recu_unique_idx: ['Ce numéro de reçu existe déjà : vérifiez le reçu ou l’achat déjà saisi.', 'This receipt number already exists: check the receipt or the purchase already recorded.'],
+    achats_local_id_key: ['Cet achat a déjà été enregistré (synchronisation déjà faite).', 'This purchase is already recorded (already synchronised).'],
+    producteurs_code_key: ['Ce Farmer ID existe déjà.', 'This Farmer ID already exists.'],
+    aflp_mbr_member_no: ['Ce numéro de membre existe déjà dans cette coopérative.', 'This member number already exists in this cooperative.'],
+    aflp_mbr_one_primary: ['Ce producteur a déjà une coopérative principale pour cette campagne.', 'This farmer already has a main cooperative for this campaign.'],
+    aflp_mbr_one_open: ['Ce producteur est déjà membre de cette coopérative.', 'This farmer is already a member of this cooperative.'],
+    aflp_coop_deliveries_reception_uidx: ['Cette réception est déjà rattachée à une autre livraison coopérative.', 'This reception is already linked to another cooperative delivery.']
+  };
+  var CHECKS = [
+    [/montant|amount/i, ['Montant incohérent : il doit être égal au poids net × prix.', 'Inconsistent amount: it must equal net weight × price.']],
+    [/nb_sacs|bags/i, ['Poids par sac hors norme (40 à 120 kg par sac) : vérifiez le poids ou le nombre de sacs.', 'Weight per bag out of range (40–120 kg): check weight or bag count.']],
+    [/poids_net/i, ['Le poids net doit être supérieur à 0.', 'Net weight must be greater than 0.']],
+    [/prix_kg/i, ['Le prix doit être supérieur à 0.', 'Price must be greater than 0.']],
+    [/periode|end_date/i, ['La date de fin doit être postérieure à la date de début.', 'End date must be after start date.']],
+    [/gps_lat|gps_lng/i, ['Coordonnées GPS invalides.', 'Invalid GPS coordinates.']],
+    [/html/i, ['Caractères < et > interdits dans ce champ.', 'Characters < and > are not allowed in this field.']]
+  ];
+  function pick(pair) { return pair[lang() === 'en' ? 1 : 0]; }
+  function friendlyError(message, code) {
+    var m = String(message || ''), k;
+    if (!m) return m;
+    if (/row-level security|permission denied for|not allowed to|insufficient_privilege/i.test(m) || (code === '42501' && /permission denied/i.test(m)))
+      return pick(['Vous n’avez pas l’autorisation d’effectuer cette opération.', 'You are not allowed to perform this operation.']);
+    if ((k = /duplicate key value violates unique constraint "([^"]+)"/i.exec(m)))
+      return pick(UNIQUE[k[1]] || ['Cet enregistrement existe déjà.', 'This record already exists.']);
+    if ((k = /violates check constraint "([^"]+)"/i.exec(m))) {
+      for (var i = 0; i < CHECKS.length; i++) if (CHECKS[i][0].test(k[1])) return pick(CHECKS[i][1]);
+      return pick(['Une valeur saisie n’est pas acceptée (contrôle de cohérence). Vérifiez les champs du formulaire.', 'A value is not accepted (consistency check). Please check the form fields.']);
+    }
+    if (/violates foreign key constraint/i.test(m))
+      return pick(['Référence introuvable ou encore utilisée ailleurs : opération refusée.', 'Reference not found or still in use elsewhere: operation refused.']);
+    if ((k = /null value in column "([^"]+)"/i.exec(m))) {
+      var c = COLS[k[1]]; return pick(['Champ obligatoire manquant : ' + (c ? c[0] : k[1]) + '.', 'Missing required field: ' + (c ? c[1] : k[1]) + '.']);
+    }
+    if (/statement timeout|canceling statement/i.test(m))
+      return pick(['L’opération a pris trop de temps. Réessayez ; si cela persiste, réduisez la sélection ou le fichier.', 'The operation took too long. Retry; if it persists, reduce the selection or file.']);
+    if (/JWT expired|invalid JWT|JWSError/i.test(m)) return pick(['Session expirée : reconnectez-vous.', 'Session expired: please sign in again.']);
+    if (/invalid input syntax for type/i.test(m)) return pick(['Format de valeur invalide (nombre, date ou identifiant).', 'Invalid value format (number, date or identifier).']);
+    if (/Could not find the (function|table)|schema cache/i.test(m)) return pick(['Fonction momentanément indisponible : rechargez la page.', 'Function temporarily unavailable: reload the page.']);
+    if (/deadlock detected|could not serialize/i.test(m)) return pick(['Conflit d’enregistrement simultané : réessayez.', 'Simultaneous update conflict: please retry.']);
+    if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return pick(['Connexion indisponible : vérifiez le réseau puis réessayez.', 'Connection unavailable: check the network and retry.']);
+    return m;
+  }
+  global.ANAGROCI_ERREUR_METIER = friendlyError;
+  var fresh = { ok: null, at: null, fail: null };
+  function paintFresh() {
+    var en = lang() === 'en', txt, cls;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { txt = en ? 'Offline' : 'Hors ligne'; cls = 'off'; }
+    else if (fresh.fail && (!fresh.ok || fresh.fail > fresh.ok)) { txt = en ? 'Connection error' : 'Erreur de connexion'; cls = 'off'; }
+    else if (fresh.ok) {
+      var d = new Date(fresh.ok), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      txt = (en ? 'Data read at ' : 'Données lues à ') + hh; cls = 'on';
+    } else { txt = en ? 'Loading data…' : 'Chargement des données…'; cls = 'wait'; }
+    [].slice.call(document.querySelectorAll('[data-fresh]')).forEach(function (el) {
+      if (el.getAttribute('data-fresh-txt') === txt) return;
+      el.setAttribute('data-fresh-txt', txt); el.setAttribute('data-state', cls);
+      var t = el.querySelector('.fresh-txt'); if (t) t.textContent = txt; else el.textContent = txt;
+      el.title = en ? 'Status of the last data request' : 'État de la dernière requête de données';
+    });
+  }
+  global.addEventListener && global.addEventListener('online', paintFresh);
+  global.addEventListener && global.addEventListener('offline', paintFresh);
+  if (global.fetch && !global.__anagrociFetchWrapped) {
+    global.__anagrociFetchWrapped = true;
+    var origFetch = global.fetch;
+    global.fetch = function (input, init) {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      var isApi = /\/rest\/v1\//.test(url);
+      return origFetch.apply(this, arguments).then(function (res) {
+        if (!isApi) return res;
+        if (res.ok) { fresh.ok = Date.now(); paintFresh(); return res; }
+        if (res.status >= 500 || res.status === 0) { fresh.fail = Date.now(); paintFresh(); }
+        var ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+        if (ct.indexOf('json') < 0) return res;
+        return res.clone().text().then(function (txt) {
+          var j; try { j = JSON.parse(txt); } catch (e) { return res; }
+          if (!j || typeof j.message !== 'string') return res;
+          var f = friendlyError(j.message, j.code);
+          if (f === j.message) return res;
+          if (global.console) console.info('[ANAGROCI] erreur technique remplacée :', j.message);
+          j.technical_message = j.message; j.message = f;
+          return new Response(JSON.stringify(j), { status: res.status, statusText: res.statusText, headers: res.headers });
+        }).catch(function () { return res; });
+      }, function (err) { if (isApi) { fresh.fail = Date.now(); paintFresh(); } throw err; });
+    };
+  }
+
   var PAGE = document.body && document.body.dataset ? (document.body.dataset.workspace || '') : '';
   var CFG = {
     field: {
@@ -147,7 +248,7 @@
     if (top) top.innerHTML = '<a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a>' +
       '<div class="ops-title"><strong>'+esc(c.title)+'</strong><small>'+esc(c.subtitle)+'</small></div>' +
       wsSwitch() +
-      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
+      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill" data-fresh data-i18n-ignore data-state="wait"><span class="dot"></span><span class="fresh-txt">Chargement des données…</span></span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
     var side = document.getElementById('opsSidebar');
     if (side) {
       var active = routeName();
@@ -310,10 +411,18 @@
 
   async function boot() {
     renderShell();
+    [].slice.call(document.querySelectorAll('.ops-contextbar span')).forEach(function (el) {
+      if (/^\s*(Données à jour|Data up to date)\s*$/i.test(el.textContent)) { el.setAttribute('data-fresh', ''); el.setAttribute('data-i18n-ignore', ''); }
+    });
+    paintFresh();
     adoptUserSlot(); setTimeout(adoptUserSlot, 400); setTimeout(adoptUserSlot, 1500);
     document.addEventListener('anagroci:authenticated', function () { setTimeout(adoptUserSlot, 50); });
     var sb=await waitClient();
     if(!sb){setKpis([{label:'Connexion',value:'Indisponible',note:'Données indisponibles',cls:'danger'}]);return;}
+    /* Finalisation 2027 : ces indicateurs ne sont dessinés que si la page porte un bloc #kpis. Avant, chaque
+       ouverture de Field Buying, Warehouse, Stock Transfer ou Factory lançait quand même 3 à 4 lectures
+       (dont 500 lignes de traçabilité) dont le résultat n'était jamais affiché, en concurrence avec le module. */
+    if(!document.getElementById('kpis') && !document.getElementById('primaryTable') && !document.getElementById('traceForm')) return;
     if(PAGE==='field') return loadField(sb);
     if(PAGE==='lba') return loadLba(sb);
     if(PAGE==='warehouse') return loadWarehouse(sb);

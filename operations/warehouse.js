@@ -7,6 +7,8 @@ var root=null,sb=null,seq=0;
 var state={permissions:{},warehouses:[],areas:[],suppliers:[],receptions:[],lots:[],bins:[],quality:[],postDry:[],dryings:[],inventory:[],transfers:[],bagMovements:[],bagStock:[],bagDebt:[],locations:[],audit:[],overview:{},closings:[],rejectionReasons:[],grns:[],scope:null,loadErrors:[],whFilter:'',recLimit:200,movFilter:{page:0}};
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+/* Finalisation 2027 : libellés FR/EN pilotés par la langue choisie (avant : écrans Warehouse en anglais en mode FR). */
+function L(fr,en){try{return localStorage.getItem('anagroci_lang')==='en'?en:fr;}catch(e){return fr;}}
 function num(v,d){var x=Number(v);return Number.isFinite(x)?x.toLocaleString('fr-FR',{maximumFractionDigits:d==null?2:d}):'-';}
 function kg(v){return num(v,2)+' kg';}
 function mt(v){return num(Number(v||0)/1000,3)+' MT';}
@@ -29,7 +31,9 @@ function waitAuth(){return new Promise(function(resolve){
 });}
 function waitClient(){return new Promise(function(resolve){var k=0,t=setInterval(function(){k++;if(global.supabase&&global.ANAGROCI_SUPABASE_URL&&global.ANAGROCI_SUPABASE_ANON){clearInterval(t);resolve(global.supabase.createClient(global.ANAGROCI_SUPABASE_URL,global.ANAGROCI_SUPABASE_ANON));}else if(k>120){clearInterval(t);resolve(null);}},80);});}
 async function q(name,cols,build){var x=sb.from(name).select(cols||'*');if(build)x=build(x);var r=await x;if(r.error)throw new Error(r.error.message||name);return r.data||[];}
-async function rpc(name,args){var r=await sb.rpc(name,args||{});if(r.error)throw new Error(r.error.message||name);return r.data;}
+/* Finalisation 2027 : toute écriture (RPC hors lecture) invalide le cache des référentiels Warehouse. */
+var READ_RPC=/^(wms_my_permissions|wms_overview|wms_daily_closing)$/;
+async function rpc(name,args){var r=await sb.rpc(name,args||{});if(!READ_RPC.test(name))state.baseAt=0;if(r.error)throw new Error(r.error.message||name);return r.data;}
 function formObj(f){var x={};new FormData(f).forEach(function(v,k){x[k]=String(v).trim();});return x;}
 function busy(f,on){f.querySelectorAll('button,input,select,textarea').forEach(function(e){e.disabled=!!on;});}
 function err(e){root.insertAdjacentHTML('afterbegin',notice('danger','<b>Erreur:</b>&nbsp;'+esc(e&&e.message?e.message:e)));window.scrollTo({top:0,behavior:'smooth'});}
@@ -58,8 +62,10 @@ function whFilterId(){
 }
 async function loadBase(){
   state.loadErrors=[];
-  state.permissions=await rpc('wms_my_permissions')||{};
-  var first=await Promise.all([q('wms_warehouses','*',function(x){return x.order('site_code').order('code');}),loadProfileScope()]);
+  /* Finalisation 2027 : permissions, entrepôts et périmètre en une seule vague (avant : deux allers-retours). */
+  var w0=await Promise.all([rpc('wms_my_permissions'),q('wms_warehouses','*',function(x){return x.order('site_code').order('code');})]);
+  state.permissions=w0[0]||{};
+  var first=[w0[1],await loadProfileScope()];
   state.warehouses=first[0];
   if(state.scope&&state.scope.warehouse_code){var sw=state.warehouses.filter(function(w){return w.code===state.scope.warehouse_code;})[0];state.scope.warehouse_id=sw?sw.id:null;}
   try{state.whFilter=sessionStorage.getItem('wms-wh-filter')||'';}catch(e){state.whFilter='';}
@@ -81,6 +87,7 @@ async function loadBase(){
   ]);
   state.areas=r[0];state.suppliers=r[1];state.receptions=r[2];state.lots=r[3];state.bins=r[4];state.quality=r[5];state.purchaseTypes=r[6];
   state.pendingProcurement=r[7];state.paymentMethods=r[8];state.rejectedTrucks=r[9];state.rejectionReasons=r[10];state.grns=r[11];
+  state.baseAt=Date.now();state.baseErrors=state.loadErrors.slice();
 }
 async function fetchRec(idv){
   var r=recById(idv);if(r)return r;
@@ -195,17 +202,21 @@ function contextualLotsEmpty(){
 
 
 async function overview(){
-  state.overview=await rpc('wms_overview',{p_warehouse_id:null})||{};
+  /* Finalisation 2027 : une seule vague parallèle (avant : 7 allers-retours successifs ; mesuré en production
+     sur réseau 3G : 11 à 80 s pour la vue d'ensemble). */
   var today=new Date().toISOString().slice(0,10);
   var wfo=whFilterId();
   var activeWh=state.warehouses.filter(function(w){return w.status==='ACTIVE'&&(!wfo||String(w.id)===String(wfo));});
-  state.closings=await Promise.all(activeWh.map(function(w){return rpc('wms_daily_closing',{p_warehouse_id:w.id,p_date:today}).then(function(x){x.warehouse_code=w.code;return x;}).catch(function(e){state.loadErrors.push('Clôture '+w.code+' : '+(e&&e.message?e.message:e));return null;});}));
-  state.closings=state.closings.filter(Boolean);
-  state.dryings=await q('wms_dryings','*',function(x){return (wfo?x.eq('warehouse_id',wfo):x).order('created_at',{ascending:false}).limit(300);}).catch(swallow('Séchages'));
-  state.postDry=await q('wms_v_post_dry_quality_current','*',function(x){return x.order('created_at',{ascending:false}).limit(500);}).catch(swallow('Qualité après séchage'));
-  state.inventory=await q('wms_inventory_counts','*',function(x){return (wfo?x.eq('warehouse_id',wfo):x).gte('counted_at',today+'T00:00:00Z').order('counted_at',{ascending:false}).limit(300);}).catch(swallow('Inventaires'));
-  state.transfers=await q('wms_v_transfers','*',function(x){return x.eq('is_test',false).gte('requested_at',today+'T00:00:00Z').order('requested_at',{ascending:false}).limit(300);}).catch(swallow('Transferts'));
-  state.bagMovements=await q('rcn_jute_movements','id,movement_type,qty,movement_at,source_type',function(x){return x.in('source_type',['WMS','WMS_RECEPTION','WMS_TRANSFER']).gte('movement_at',today+'T00:00:00Z').order('movement_at',{ascending:false}).limit(500);}).catch(swallow('Mouvements sacs'));
+  var ov=await Promise.all([
+    rpc('wms_overview',{p_warehouse_id:null}).catch(function(e){state.loadErrors.push('Vue d’ensemble : '+(e&&e.message?e.message:e));return {};}),
+    Promise.all(activeWh.map(function(w){return rpc('wms_daily_closing',{p_warehouse_id:w.id,p_date:today}).then(function(x){x.warehouse_code=w.code;return x;}).catch(function(e){state.loadErrors.push('Clôture '+w.code+' : '+(e&&e.message?e.message:e));return null;});})),
+    q('wms_dryings','*',function(x){return (wfo?x.eq('warehouse_id',wfo):x).order('created_at',{ascending:false}).limit(300);}).catch(swallow('Séchages')),
+    q('wms_v_post_dry_quality_current','*',function(x){return x.order('created_at',{ascending:false}).limit(500);}).catch(swallow('Qualité après séchage')),
+    q('wms_inventory_counts','*',function(x){return (wfo?x.eq('warehouse_id',wfo):x).gte('counted_at',today+'T00:00:00Z').order('counted_at',{ascending:false}).limit(300);}).catch(swallow('Inventaires')),
+    q('wms_v_transfers','*',function(x){return x.eq('is_test',false).gte('requested_at',today+'T00:00:00Z').order('requested_at',{ascending:false}).limit(300);}).catch(swallow('Transferts')),
+    q('rcn_jute_movements','id,movement_type,qty,movement_at,source_type',function(x){return x.in('source_type',['WMS','WMS_RECEPTION','WMS_TRANSFER']).gte('movement_at',today+'T00:00:00Z').order('movement_at',{ascending:false}).limit(500);}).catch(swallow('Mouvements sacs'))
+  ]);
+  state.overview=ov[0]||{};state.closings=(ov[1]||[]).filter(Boolean);state.dryings=ov[2];state.postDry=ov[3];state.inventory=ov[4];state.transfers=ov[5];state.bagMovements=ov[6];
   var o=state.overview,att=state.receptions.filter(function(r){return['ARRIVED','AWAITING_DECISION','ACCEPTED_WAITING_OFFLOAD','AWAITING_FINAL_QA','QUALITY_HOLD'].indexOf(r.status)>=0;}).sort(function(a,b){return Number(b.age_hours||0)-Number(a.age_hours||0);}).slice(0,15);
   var stagingLots=state.lots.filter(function(l){return Number(l.staging_kg||0)>0.0005&&['RELEASED','EXHAUSTED'].indexOf(l.status)>=0;});
   var blockedLots=state.lots.filter(function(l){return['QUARANTINE','HOLD','REQUIRES_DECISION','REJECTED'].indexOf(l.status)>=0&&Number(l.current_kg||0)>0.0005;});
@@ -233,7 +244,7 @@ async function overview(){
   kpi('Exceptions de séchage',dryingExceptions.length,'#drying',dryingExceptions.length?'danger':'')+
   kpi('Prêt pour transfert',readyTransfer.length,'#lots',readyTransfer.length?'ok':'')+
   '</div><div class="grid-2"><section class="card"><div class="card-head"><div><h2>Actions nécessitant une attention</h2><p>Priorité aux dossiers anciens et bloqués.</p></div></div>'+
-  table(['Réception','Camion','Fournisseur','Entrepôt','Âge','Statut','Prochaine étape'],att.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+num(r.age_hours,1)+' h</td><td>'+badge(r.status)+'</td><td>'+esc(nextStepText(r))+'</td></tr>';}))+
+  table(['Réception','Camion','Fournisseur','Entrepôt','Âge','Statut','Prochaine étape'],att.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+num(r.age_hours,1)+' h</td><td>'+businessBadge(r.status)+'</td><td>'+esc(nextStepText(r))+'</td></tr>';}))+
   '</section><section class="card"><h2>Stock & controls</h2><div class="ops-def-grid" style="margin-top:12px"><div><small>Wet</small><b>'+mt(o.wet_stock_kg||0)+'</b></div><div><small>Dry</small><b>'+mt(o.dry_stock_kg||0)+'</b></div><div><small>Hold</small><b>'+mt(o.hold_stock_kg||0)+'</b></div><div><small>Active BIN</small><b>'+esc(o.active_bins||0)+'</b></div><div><small>Inventory variance</small><b>'+esc(o.inventory_variances||0)+'</b></div><div><small>Outstanding bags</small><b>'+esc(o.outstanding_bags||0)+'</b></div></div>'+
   notice('info','<b>KOR Factor:</b>&nbsp;'+esc(((o.params||{}).korFactor||{}).factor||'À valider')+' · <b>Tolerance:</b>&nbsp;'+esc(((o.params||{}).korTolerance||{}).value||'À valider'))+'</section></div>'+
   '<section class="card"><div class="card-head"><div><h2>File des exceptions Warehouse</h2><p>Staging, BIN, drying et stock prêt transfert, triés par criticité.</p></div></div>'+
@@ -263,15 +274,15 @@ function inboundList(){
  var a=state.receptions;
  var accepted=a.filter(function(r){return r.status==='ACCEPTED_WAITING_OFFLOAD';});
  var rejected=(state.rejectedTrucks||[]);
- root.innerHTML=head('Inbound','Arrivée physique, autorisation et déchargement.',can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ Nouvelle réception</a>':'')+
- notice('ok','<b>Règle:</b>&nbsp; aucun offloading avant décision ACCEPTED.')+
+ root.innerHTML=head(L('Réceptions (arrivées camions)','Inbound (truck arrivals)'),L('Arrivée physique, autorisation et déchargement.','Physical arrival, authorisation and offloading.'),can('reception_create')?'<a class="btn primary ops-cta-create" href="#inbound/new">+ Nouvelle réception</a>':'')+
+ notice('ok',L('<b>Règle :</b>&nbsp; aucun déchargement avant la décision « Accepté ».','<b>Rule:</b>&nbsp; no offloading before the “Accepted” decision.'))+
  '<div class="kpi-grid">'+kpi('Arrived / Sampling',a.filter(function(r){return r.status==='ARRIVED';}).length,'#quality','')+
  kpi('Décision en attente',a.filter(function(r){return r.status==='AWAITING_DECISION';}).length,'#quality','attn')+
  kpi('Accepted for Offload',accepted.length,'#inbound',accepted.length?'attn':'')+
  kpi('Rejected / Refoulé',rejected.length,'#inbound',rejected.length?'danger':'')+'</div>'+
  '<div class="grid-2"><section class="card"><h2>Acceptés pour pesée / déchargement</h2>'+table(['Reception','Truck','Supplier / Source','KOR','Moisture','Warehouse','Decision'],accepted.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||r.procurement_source_type||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+dt(r.decided_at)+'</td></tr>'; }))+'</section>'+
  '<section class="card"><h2>Rejected / Refoulé</h2>'+table(['Reception','Truck','Source','KOR','Moisture','Reason','Disposition'],rejected.map(function(r){return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.reception_id)+'"><td class="mono">'+esc(r.reception_id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.procurement_channel||r.supplier_name||'-')+'</td><td>'+esc(r.sampling_kor==null?'-':r.sampling_kor)+'</td><td>'+esc(r.sampling_moisture==null?'-':r.sampling_moisture+' %')+'</td><td>'+esc(r.rejection_reason||'-')+'</td><td>'+badge(r.disposition_status||'OPEN')+'</td></tr>'; }))+'</section></div>'+
- '<section class="card"><h2>Toutes les réceptions</h2>'+table(['Réception','Camion','Fournisseur / Canal','Provenance','Entrepôt','Prévu','Arrivée','Statut','GRN','Prochaine étape'],a.map(function(r){var g=grnFor(r.id);return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||r.procurement_channel||'-')+'</td><td>'+esc(r.origin||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+mt(r.expected_kg||0)+'</td><td>'+dt(r.arrival_at)+'</td><td>'+badge(r.status)+'</td><td class="mono">'+esc(g?g.id:'-')+'</td><td>'+esc(nextStepText(r))+'</td></tr>';}))+
+ '<section class="card"><h2>Toutes les réceptions</h2>'+table(['Réception','Camion','Fournisseur / Canal','Provenance','Entrepôt','Prévu','Arrivée','Statut','GRN','Prochaine étape'],a.map(function(r){var g=grnFor(r.id);return'<tr class="ops-click" data-href="#inbound/'+encodeURIComponent(r.id)+'"><td class="mono">'+esc(r.id)+'</td><td>'+esc(r.truck)+'</td><td>'+esc(r.supplier_name||r.procurement_channel||'-')+'</td><td>'+esc(r.origin||'-')+'</td><td>'+esc(r.warehouse_code||'-')+'</td><td>'+mt(r.expected_kg||0)+'</td><td>'+dt(r.arrival_at)+'</td><td>'+businessBadge(r.status)+'</td><td class="mono">'+esc(g?g.id:'-')+'</td><td>'+esc(nextStepText(r))+'</td></tr>';}))+
  (a.length>=(state.recLimit||200)?'<div class="ops-actions" style="margin-top:12px"><button class="btn secondary" data-action-button="more-receptions">Afficher 200 réceptions de plus</button><span class="muted">'+a.length+' affichées (chargement serveur par tranches)</span></div>':'<p class="muted">'+a.length+' réception(s).</p>')+'</section>';
 }
 
@@ -477,7 +488,7 @@ async function inboundDetail(r){
  var rejection=(r.status==='REJECTED'&&rej&&rej.disposition_status!=='RESOLVED')?'<form class="card" data-action="resolve-rejection" data-id="'+esc(r.id)+'"><h2>Traitement du camion refoulé</h2><p class="muted">Le refoulement ne ferme pas le dossier. Indiquez la destination ou la décision réelle prise pour le camion.</p><div class="ops-form-grid">'+field('Disposition / Action','resolution_action','text','','required placeholder="Retour à la source / réorientation / décision négociée..."')+field('Motif','resolution_reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn signal">Clôturer le traitement du refoulement</button></div></form>':(rej&&rej.disposition_status==='RESOLVED'?'<section class="card"><h2>Traitement du camion refoulé</h2><div class="ops-def-grid"><div><small>Action</small><b>'+esc(rej.resolution_action||'-')+'</b></div><div><small>Motif</small><b>'+esc(rej.resolution_reason||'-')+'</b></div><div><small>Résolu par</small><b>'+esc(rej.resolved_by_name||'-')+'</b></div><div><small>Date</small><b>'+dt(rej.resolved_at)+'</b></div></div></section>':'');
  var settlement='<section class="card"><h2>Règlement commercial</h2><p class="muted">Warehouse est la vérité physique. Réfaction, prix, approbation et paiement sont gérés uniquement dans Procurement > Achat RCN.</p><div class="ops-def-grid"><div><small>Statut commercial</small><b>'+esc(r.procurement_settlement_status||'-')+'</b></div><div><small>Poids payé</small><b>'+(r.paid_weight_kg==null?'-':kg(r.paid_weight_kg))+'</b></div><div><small>Réfaction</small><b>'+(r.refraction_kg==null?'-':kg(r.refraction_kg))+'</b></div></div><div class="ops-actions" style="margin-top:12px"><a class="btn secondary" href="procurement.html#purchases">Ouvrir Achat RCN</a></div></section>';
  root.innerHTML=head(r.id,r.truck+' · '+(r.supplier_name||'-'),'<a class="btn secondary" href="#inbound">Retour</a><a class="btn secondary" href="#quality/'+encodeURIComponent(r.id)+'">Ouvrir Qualité</a>')+
- '<div class="ops-def-grid"><div><small>Statut</small><b>'+badge(r.status)+'</b></div><div><small>Entrepôt</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Fournisseur / LBA</small><b>'+esc((r.supplier_code||'-')+' · '+(r.supplier_name||'-'))+'</b></div><div><small>Provenance</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Poids net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Prochaine action</small><b>'+esc(nextStepText(r))+'</b></div></div>'+
+ '<div class="ops-def-grid"><div><small>Statut</small><b>'+businessBadge(r.status)+'</b></div><div><small>Entrepôt</small><b>'+esc(r.warehouse_code||'-')+'</b></div><div><small>Fournisseur / LBA</small><b>'+esc((r.supplier_code||'-')+' · '+(r.supplier_name||'-'))+'</b></div><div><small>Provenance</small><b>'+esc(r.origin||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Poids net</small><b>'+(r.net_kg==null?'-':kg(r.net_kg))+'</b></div><div><small>Lot</small><b>'+esc(r.lot_id||'-')+'</b></div><div><small>Prochaine action</small><b>'+esc(nextStepText(r))+'</b></div></div>'+
  rejInfo+workflowStepper(r)+nextActionCard(r)+lotStatusSection(r)+grnSection(r)+
  '<section class="card"><h2>Transport et prévisions</h2><div class="ops-def-grid"><div><small>Type d’achat</small><b>'+esc(purchaseTypeLabel(r.purchase_type))+'</b></div><div><small>Conducteur</small><b>'+esc(r.driver||'-')+'</b></div><div><small>Transporteur</small><b>'+esc(r.transporter||'-')+'</b></div><div><small>Poids prévu</small><b>'+kg(r.expected_kg||0)+'</b></div><div><small>Sacs prévus</small><b>'+esc(r.expected_bags==null?'-':r.expected_bags)+'</b></div><div><small>Réception planifiée</small><b>'+(r.ad_hoc?'NON':'OUI')+'</b></div></div></section>'+
  documentsSection(r,ds,dsErr)+
@@ -624,14 +635,14 @@ function warehouseForm(w){
 }
 function areasRoute(wid){
  var w=whById(wid),arr=state.areas.filter(function(a){return String(a.warehouse_id)===String(wid);});
- root.innerHTML=head('Physical Areas · '+(w?w.code:''),'Reusable physical locations; Operational BIN IDs are never reused.','<a class="btn secondary" href="#bins/warehouses">Retour</a>')+
+ root.innerHTML=head(L('Zones physiques · ','Physical areas · ')+(w?w.code:''),L('Emplacements physiques réutilisables ; un identifiant de BIN opérationnel n’est jamais réutilisé.','Reusable physical locations; operational BIN IDs are never reused.'),'<a class="btn secondary" href="#bins/warehouses">Retour</a>')+
  '<form class="card" data-action="area-save" data-wh="'+esc(wid)+'"><h2>New / update area</h2><div class="ops-form-grid">'+field('Area Code','code','text','','required')+field('Description','description','text','')+field('Capacity kg','capacity_kg','number','','step="0.001" min="0"')+select('Status','status',[['ACTIVE','Active'],['INACTIVE','Inactive']],'ACTIVE')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Area</button></div></form>'+
  notice('info','<b>Protection:</b>&nbsp; une Physical Area ne peut pas être désactivée tant qu’un BIN lié n’est pas CLOSED.')+
  '<section class="card">'+table(['Code','Description','Capacity','Status','Action'],arr.map(function(a){return'<tr><td class="mono">'+esc(a.code)+'</td><td>'+esc(a.description||'-')+'</td><td>'+(a.capacity_kg==null?'-':kg(a.capacity_kg))+'</td><td>'+badge(a.status)+'</td><td><a href="#bins/area-edit/'+encodeURIComponent(a.id)+'">Edit</a></td></tr>';}))+'</section>';
 }
 function areaEdit(a){
  var openBins=state.bins.filter(function(b){return String(b.physical_area_id)===String(a.id)&&b.status!=='CLOSED';});
- root.innerHTML=head('Edit Physical Area · '+a.code,'Statut protégé par les BIN opérationnels.','<a class="btn secondary" href="#bins/areas/'+encodeURIComponent(a.warehouse_id)+'">Retour</a>')+
+ root.innerHTML=head(L('Modifier la zone physique · ','Edit physical area · ')+a.code,'Statut protégé par les BIN opérationnels.','<a class="btn secondary" href="#bins/areas/'+encodeURIComponent(a.warehouse_id)+'">Retour</a>')+
  (openBins.length?notice('warn','<b>'+openBins.length+' BIN non fermé(s).</b> La désactivation sera refusée tant qu’ils ne sont pas CLOSED.'):'')+
  '<form class="ops-form-card" data-action="area-save" data-id="'+esc(a.id)+'" data-wh="'+esc(a.warehouse_id)+'"><div class="ops-form-grid">'+field('Area Code','code','text',a.code,'required')+field('Description','description','text',a.description||'')+field('Capacity kg','capacity_kg','number',a.capacity_kg==null?'':a.capacity_kg,'step="0.001" min="0"')+select('Status','status',[['ACTIVE','Active'],['INACTIVE','Inactive']],a.status,'required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Save Area</button></div></form>';
 }
@@ -658,7 +669,7 @@ async function binDetail(b){
    (Number(b.balance_kg||0)>0?'<button class="btn primary" data-action-button="prepare-transfer-bin" data-id="'+esc(b.id)+'">Préparer le transfert</button>':'')+
  '</div></section>';
  root.innerHTML=head(b.id,b.warehouse_code+' · '+b.stock_type,'<a class="btn secondary" href="#bins">Retour</a>'+(Number(b.balance_kg||0)>0&&b.status!=='BLOCKED'&&b.status!=='CLOSED'?'<a class="btn secondary" href="#drying/new">Démarrer un séchage</a>':''))+
- '<div class="ops-def-grid"><div><small>Stock</small><b>'+kg(b.balance_kg)+'</b></div><div><small>Capacity</small><b>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</b></div><div><small>Available capacity</small><b>'+(b.capacity_kg==null?'∞':kg(Math.max(0,Number(b.capacity_kg)-Number(b.balance_kg||0))))+'</b></div><div><small>Occupancy</small><b>'+num(b.occupancy_pct,1)+' %</b></div><div><small>Area</small><b>'+esc(b.area_code||'-')+'</b></div><div><small>Contributors</small><b>'+esc(b.contributors||0)+'</b></div><div><small>Statut</small><b>'+badge(b.status)+'</b></div><div><small>Reopen count</small><b>'+esc(b.reopen_count||0)+'</b></div></div>'+
+ '<div class="ops-def-grid"><div><small>Stock</small><b>'+kg(b.balance_kg)+'</b></div><div><small>'+L('Capacité','Capacity')+'</small><b>'+(b.capacity_kg==null?'-':kg(b.capacity_kg))+'</b></div><div><small>'+L('Capacité disponible','Available capacity')+'</small><b>'+(b.capacity_kg==null?'∞':kg(Math.max(0,Number(b.capacity_kg)-Number(b.balance_kg||0))))+'</b></div><div><small>Occupancy</small><b>'+num(b.occupancy_pct,1)+' %</b></div><div><small>Area</small><b>'+esc(b.area_code||'-')+'</b></div><div><small>Contributors</small><b>'+esc(b.contributors||0)+'</b></div><div><small>Statut</small><b>'+badge(b.status)+'</b></div><div><small>Reopen count</small><b>'+esc(b.reopen_count||0)+'</b></div></div>'+
  '<section class="card"><h2>Contributors</h2>'+table(['Lot','Supplier','Origin','Truck','IN','OUT','Remaining','KOR'],contrib.map(function(c){return'<tr><td class="mono"><a href="#lots/'+encodeURIComponent(c.lot_id)+'">'+esc(c.lot_id)+'</a></td><td>'+esc(c.supplier_name||'-')+'</td><td>'+esc(c.origin||'-')+'</td><td>'+esc(c.truck||'-')+'</td><td>'+kg(c.qty_in)+'</td><td>'+kg(c.qty_out)+'</td><td>'+kg(c.remaining_kg)+'</td><td>'+esc(c.kor_final||'-')+'</td></tr>';}))+'</section>'+lifecycle+alloc+transfer+count+close;
 }
 
@@ -669,7 +680,7 @@ async function dryingRoute(){
 }
 function dryingNew(){
  var avail=state.bins.filter(function(b){return Number(b.balance_kg||0)>0&&['CLOSED','BLOCKED'].indexOf(b.status)<0;}),all=state.bins.filter(function(b){return['CLOSED','BLOCKED'].indexOf(b.status)<0;});
- root.innerHTML=head('New Séchage / Tri','Physical issue + receipt, with declared process loss.','<a class="btn secondary" href="#drying">Retour</a>')+
+ root.innerHTML=head(L('Nouveau séchage / tri','New drying / sorting'),L('Sortie physique + entrée, avec perte de process déclarée.','Physical issue + receipt, with declared process loss.'),'<a class="btn secondary" href="#drying">Retour</a>')+
  '<form class="ops-form-card" data-action="drying-create"><div class="ops-form-grid">'+select('Type','type',[['DRYING','Drying'],['SORTING','Sorting']],'DRYING','required')+select('Source BIN','source_bin_id',[['','Sélectionner...']].concat(avail.map(function(b){return[b.id,b.id+' · '+kg(b.balance_kg)];})),'','required')+select('Destination BIN','dest_bin_id',[['','Same as source']].concat(all.map(function(b){return[b.id,b.id];})),'')+
  field('Input kg','input_kg','number','','required step="0.001" min="0.001"')+field('Output kg','output_kg','number','','required step="0.001" min="0"')+field('Input Bags','input_bags','number','','min="0"')+field('Output Bags','output_bags','number','','min="0"')+
  field('Moisture Before','moisture_before','number','','step="0.01"')+field('Moisture After','moisture_after','number','','step="0.01"')+field('NC Before','nc_before','number','','min="0"')+field('NC After','nc_after','number','','min="0"')+
@@ -738,14 +749,14 @@ function bagNew(){
 
 async function inventoryRoute(){
  state.inventory=await q('wms_inventory_counts','*',function(x){return x.order('counted_at',{ascending:false}).limit(300);});
- root.innerHTML=head('Inventory','Cycle Count: physical count never changes stock before approval.')+
- '<section class="card">'+table(['Count','BIN','Theoretical','Physical','Variance','Status','Counted by','Approver','Date'],state.inventory.map(function(i){return'<tr><td class="mono">'+esc(i.id)+'</td><td class="mono">'+esc(i.bin_id)+'</td><td>'+kg(i.theoretical_kg)+'</td><td>'+kg(i.physical_kg)+'</td><td>'+kg(i.variance_kg)+'</td><td>'+badge(i.status)+'</td><td>'+esc(i.counted_by_name||'-')+'</td><td>'+esc(i.approved_by_name||'-')+'</td><td>'+dt(i.counted_at)+'</td></tr>';}))+'</section>'+
- (can('inventory_approve')?'<section class="card"><h2>Resolve open variance</h2><form data-action="inventory-resolve"><div class="ops-form-grid">'+select('Count','count_id',[['','Sélectionner...']].concat(state.inventory.filter(function(i){return i.status==='REVIEW_REQUIRED';}).map(function(i){return[i.id,i.id+' · '+i.bin_id+' · variance '+kg(i.variance_kg)];})),'','required')+select('Decision','approve',[['true','Approve adjustment'],['false','Reject count']],'true','required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Resolve</button></div></form></section>':'');
+ root.innerHTML=head(L('Inventaire','Inventory'),L('Comptage tournant : le comptage physique ne modifie jamais le stock avant approbation.','Cycle count: a physical count never changes stock before approval.'))+
+ '<section class="card">'+table([L('Comptage','Count'),'BIN',L('Théorique','Theoretical'),L('Physique','Physical'),L('Écart','Variance'),L('Statut','Status'),L('Compté par','Counted by'),L('Approbateur','Approver'),'Date'],state.inventory.map(function(i){return'<tr><td class="mono">'+esc(i.id)+'</td><td class="mono">'+esc(i.bin_id)+'</td><td>'+kg(i.theoretical_kg)+'</td><td>'+kg(i.physical_kg)+'</td><td>'+kg(i.variance_kg)+'</td><td>'+badge(i.status)+'</td><td>'+esc(i.counted_by_name||'-')+'</td><td>'+esc(i.approved_by_name||'-')+'</td><td>'+dt(i.counted_at)+'</td></tr>';}))+'</section>'+
+ (can('inventory_approve')?'<section class="card"><h2>'+L('Traiter un écart ouvert','Resolve open variance')+'</h2><form data-action="inventory-resolve"><div class="ops-form-grid">'+select('Count','count_id',[['','Sélectionner...']].concat(state.inventory.filter(function(i){return i.status==='REVIEW_REQUIRED';}).map(function(i){return[i.id,i.id+' · '+i.bin_id+' · variance '+kg(i.variance_kg)];})),'','required')+select('Decision','approve',[['true','Approve adjustment'],['false','Reject count']],'true','required')+field('Motif','reason','text','','required')+'</div><div class="ops-actions" style="margin-top:12px"><button class="btn primary">Resolve</button></div></form></section>':'');
 }
 
 async function auditRoute(){
  state.audit=await q('wms_v_audit','*',function(x){return x.order('created_at',{ascending:false}).limit(500);});
- root.innerHTML=head('Audit','Read-only append-only journal.')+'<section class="card">'+table(['Date','Object','Type','Field / Action','Reason','Author','Role','Approver'],state.audit.map(function(a){return'<tr><td>'+dt(a.created_at)+'</td><td class="mono">'+esc(a.objet||'-')+'</td><td>'+esc(a.object_type||'-')+'</td><td>'+esc(a.champ||'-')+'</td><td>'+esc(a.motif||'-')+'</td><td>'+esc(a.auteur||'-')+'</td><td>'+esc(a.role||'-')+'</td><td>'+esc(a.approbateur||'-')+'</td></tr>';}))+'</section>';
+ root.innerHTML=head(L('Journal d’audit','Audit log'),L('Journal en lecture seule, sans modification ni suppression possible.','Read-only, append-only journal.'))+'<section class="card">'+table(['Date',L('Objet','Object'),'Type',L('Champ / action','Field / action'),L('Motif','Reason'),L('Auteur','Author'),L('Rôle','Role'),L('Approbateur','Approver')],state.audit.map(function(a){return'<tr><td>'+dt(a.created_at)+'</td><td class="mono">'+esc(a.objet||'-')+'</td><td>'+esc(a.object_type||'-')+'</td><td>'+esc(a.champ||'-')+'</td><td>'+esc(a.motif||'-')+'</td><td>'+esc(a.auteur||'-')+'</td><td>'+esc(a.role||'-')+'</td><td>'+esc(a.approbateur||'-')+'</td></tr>';}))+'</section>';
 }
 
 var MOV_PAGE=50;
@@ -826,8 +837,10 @@ async function parametersRoute(){
 
 async function render(){
  if(!root||!sb)return;
- root.innerHTML='<div class="empty">Chargement...</div>';
- await loadBase();
+ /* Finalisation 2027 : référentiels gardés 90 s entre deux écrans (avant : 15 requêtes rejouées à chaque clic). */
+ var fresh=state.baseAt&&(Date.now()-state.baseAt)<90000;
+ if(!fresh)root.innerHTML='<div class="empty">Chargement...</div>';
+ if(fresh)state.loadErrors=(state.baseErrors||[]).slice();else await loadBase();
  var isList=await route();
  decorate(isList);
 }
@@ -837,7 +850,7 @@ function decorate(isList){
    bar=notice(state.scope.warehouse_code?'info':'danger',state.scope.warehouse_code?'<b>Périmètre :</b>&nbsp;Warehouse '+esc(state.scope.warehouse_code)+' (rattachement de votre profil). Les listes et les actions sont limitées à cet entrepôt.':'<b>Profil sans Warehouse de rattachement :</b>&nbsp;vos actions Warehouse seront refusées. Demandez au Branch Manager de compléter votre profil.');
  }else if(isList){
    var cur=state.whFilter?whById(state.whFilter):null;
-   bar='<form data-action="wh-filter" class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:10px 14px">'+select('Entrepôt affiché','wh',[['','Tous les entrepôts']].concat(state.warehouses.map(function(w){return[w.id,w.code+' - '+w.name];})),state.whFilter||'')+'<button class="btn secondary">Appliquer le filtre</button>'+(cur?'<span class="muted">Filtre actif : '+esc(cur.code)+'</span>':'')+'</form>';
+   bar='<form data-action="wh-filter" class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:10px 14px">'+select('Entrepôt affiché','wh',[['','Tous les entrepôts']].concat(state.warehouses.map(function(w){return[w.id,w.code+' - '+w.name];})),state.whFilter||'')+'<button class="btn secondary">Appliquer le filtre</button>'+(cur?'<span class="muted">Filtre actif : '+esc(cur.code)+'</span>':'')+'<button class="btn secondary" type="button" data-action-button="refresh-base" title="Recharger toutes les données Warehouse">↻ Actualiser</button>'+(state.baseAt?'<span class="muted">Données lues à '+new Date(state.baseAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</span>':'')+'</form>';
  }
  var errs=(state.loadErrors||[]).length?notice('danger','<b>Certaines données n’ont pas pu être chargées :</b><br>'+state.loadErrors.map(esc).join('<br>')):'';
  if(bar||errs)root.insertAdjacentHTML('afterbegin',bar+errs);
@@ -926,7 +939,7 @@ async function submit(ev){
   if(a==='hold-bin-place'){k=opKey('HOLD-BIN',f.dataset.lot);await rpc('wms_place_lot_in_hold_bin',{p_lot_id:f.dataset.lot,p_bin_id:d.bin_id,p_qty:Number(d.qty),p_idempotency_key:k.key});doneKey(k);await render();return;}
   if(a==='lot-return'){k=opKey('LOT-RETURN',f.dataset.lot);await rpc('wms_return_rejected_lot',{p_lot_id:f.dataset.lot,p_qty:Number(d.qty),p_reference:d.reference,p_source_bin:d.source_bin||null,p_idempotency_key:k.key});doneKey(k);await render();return;}
   if(a==='mov-filter'){state.movFilter={page:0,from:d.from,to:d.to,lot:d.lot,bin:d.bin,type:d.type,wh:d.wh};await render();return;}
-  if(a==='wh-filter'){try{if(d.wh)sessionStorage.setItem('wms-wh-filter',d.wh);else sessionStorage.removeItem('wms-wh-filter');}catch(e){}await render();return;}
+  if(a==='wh-filter'){state.baseAt=0;try{if(d.wh)sessionStorage.setItem('wms-wh-filter',d.wh);else sessionStorage.removeItem('wms-wh-filter');}catch(e){}await render();return;}
   if(a==='param-validate'){await rpc('wms_validate_parameter',{p_id:f.dataset.id,p_reason:d.reason});await render();return;}
   if(a==='param-propose'){var pv;try{pv=JSON.parse(d.value);}catch(e){throw new Error('Valeur JSON invalide : '+e.message);}await rpc('wms_set_parameter',{p_key:d.key,p_value:pv,p_reason:d.reason});await render();return;}
   if(a==='doc-requirement'){var chs=new FormData(f).getAll('channels');await rpc('wms_set_document_requirement',{p_doc_type:d.doc_type,p_mandatory_channels:chs,p_reason:d.reason});await render();return;}
@@ -950,7 +963,8 @@ async function click(ev){
   if(a==='open-doc'){var su=await sb.storage.from('wms-reception-docs').createSignedUrl(b.dataset.path,300);if(su.error)throw new Error(su.error.message);window.open(su.data.signedUrl,'_blank','noopener');return;}
   if(a==='generate-grn'){await rpc('wms_generate_grn',{p_reception_id:idv});location.hash='#grn/'+encodeURIComponent(idv);return;}
   if(a==='print-grn'){window.print();return;}
-  if(a==='more-receptions'){state.recLimit=(state.recLimit||200)+200;await render();return;}
+  if(a==='more-receptions'){state.recLimit=(state.recLimit||200)+200;state.baseAt=0;await render();return;}
+  if(a==='refresh-base'){state.baseAt=0;await render();return;}
   if(a==='mov-page'){state.movFilter=Object.assign({},state.movFilter||{},{page:Number(b.dataset.page||0)});await render();return;}
   if(a==='mov-reset'){state.movFilter={page:0};await render();return;}
   if(a==='mov-export'){await movementsExport();return;}
@@ -1003,6 +1017,7 @@ async function init(){
  root.addEventListener('input',function(ev){var f=ev.target.closest('form');if(!f)return;if(f.dataset.action==='offload'&&(ev.target.name==='gross_kg'||ev.target.name==='tare_kg')){var g=Number(f.querySelector('[name="gross_kg"]').value),t=Number(f.querySelector('[name="tare_kg"]').value),nn=f.querySelector('[name="net_kg"]');nn.value=(Number.isFinite(g)&&Number.isFinite(t)&&g>t)?(g-t).toFixed(3):'';}if(f.dataset.action==='procurement-settlement'&&(ev.target.name==='refraction_mode'||ev.target.name==='refraction_value')){var net=Number(f.querySelector('[name="net_snapshot"]').value||0),mode=f.querySelector('[name="refraction_mode"]').value,val=Number(f.querySelector('[name="refraction_value"]').value||0),ref=mode==='KG'?val:mode==='PERCENT'?net*val/100:0,p=f.querySelector('[name="paid_preview"]');p.value=Math.max(0,net-ref).toFixed(3);}});
  root.addEventListener('keydown',function(ev){var row=ev.target.closest('[data-href]');if(row&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();location.hash=row.dataset.href;}});
  global.ANAGROCI_OPS_ROUTE=function(){render().catch(err);};
+ document.addEventListener('anagroci:language',function(){setTimeout(function(){render().catch(err);},60);});
  await render();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){init().catch(err);});else init().catch(err);

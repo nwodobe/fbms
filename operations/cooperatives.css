@@ -120,3 +120,28 @@
 .coop-report-filters{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:1050px){.coop-quality-bars{grid-template-columns:repeat(2,minmax(0,1fr))}.coop-plot{grid-template-columns:repeat(2,minmax(0,1fr))}.coop-attendance{grid-template-columns:1fr 1fr}.coop-report-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:520px){.coop-quality-bars{grid-template-columns:1fr}.coop-plot{grid-template-columns:1fr}.coop-attendance{grid-template-columns:1fr}.coop-report-filters{grid-template-columns:1fr}}
+/* Finalisation 2027 — fiche coopérative : hiérarchie d'actions (2 principales + menu), édition de la structure. */
+.coop-head-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.coop-more{position:relative}
+.coop-more>summary{list-style:none;cursor:pointer}
+.coop-more>summary::-webkit-details-marker{display:none}
+.coop-more>summary::after{content:' ▾';font-size:10px}
+.coop-more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px rgba(5,59,35,.16);min-width:270px;padding:6px;display:flex;flex-direction:column}
+.coop-more-menu a,.coop-more-menu button{display:block;text-align:left;padding:10px 12px;border-radius:8px;background:none;border:0;font:inherit;font-size:12.5px;font-weight:600;color:var(--forest);text-decoration:none;cursor:pointer}
+.coop-more-menu a:hover,.coop-more-menu button:hover{background:var(--mist)}
+.coop-more-menu .danger{color:#B42318}
+.coop-row-acts{display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:6px;vertical-align:middle}
+.coop-row-acts .btn{min-height:30px;padding:5px 9px;font-size:11px}
+.coop-tree-row .coop-row-acts{grid-column:1/-1;margin:2px 0 0}
+.coop-tree-row.off,.coop-history .coop-tree-row{opacity:.72}
+.coop-history{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.coop-history>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted)}
+.coop-check{flex-direction:row!important;align-items:center;gap:8px!important}
+@media(max-width:560px){
+  .coop-head .coop-head-actions{width:100%}
+  .coop-head .coop-head-actions>.btn,.coop-head .coop-head-actions>.coop-more{flex:1 1 calc(50% - 8px)!important;min-width:0}
+  .coop-head .coop-head-actions .btn{padding:9px 10px;font-size:12px;min-height:40px;white-space:normal;text-align:center;justify-content:center}
+  .coop-head .coop-head-actions>a.btn:last-child{flex:1 1 100%!important;background:none;border:0;color:var(--emerald);min-height:28px;padding:2px}
+  .coop-more>summary{width:100%}
+  .coop-more-menu{left:auto;right:0;min-width:0;width:min(320px,calc(100vw - 32px))}
+}
