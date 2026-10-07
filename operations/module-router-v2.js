@@ -20,7 +20,7 @@ async function factory(){var r=route();
  var trf=fids.length?await qf('wms_v_transfers','id,status,origin_code,dest_code,truck_plate,dispatched_qty,received_qty,variance_kg,bags_loaded,bags_received,departed_at,arrived_at,received_at,lot_count,anomaly',function(b){return b.in('dest_warehouse_id',fids).order('updated_at',{ascending:false});},200):{rows:[],err:null};
  var lots=fids.length?await qf('wms_v_lots','id,reception_id,warehouse_code,supplier_name,origin,current_kg,bin_kg,status,kor_final,moisture_final,created_at',function(b){return b.in('warehouse_id',fids);},300):{rows:[],err:null};
  var bins=fids.length?await qf('wms_v_bins','id,warehouse_code,stock_type,balance_kg,capacity_kg,occupancy_pct,contributors,status',function(b){return b.in('warehouse_id',fids);},300):{rows:[],err:null};
- var legacy=await qf('rcn_receptions','id,camion,fournisseur,arrivee_at,poids_annonce,sacs_annonce,etat,lot_id,site_code,warehouse_code,source_type',function(b){return b.or('site_code.eq.YAKRO,warehouse_code.eq.YAK-FWH');},200);
+ var legacy=await qf('rcn_receptions','id,camion,fournisseur,arrivee_at,poids_annonce,sacs_annonce,etat,lot_id,site_code,warehouse_code,source_type',null,200);legacy.rows=legacy.rows.filter(function(x){return x.site_code==='YAKRO'||x.warehouse_code==='YAK-FWH';});
  var errs=[wh,trf,lots,bins].map(function(x){return x.err;}).filter(Boolean);
  var inTransit=trf.rows.filter(function(x){return/IN_TRANSIT|LOADED|ARRIVED/.test(x.status||'');}),received=trf.rows.filter(function(x){return/RECONCILED|CLOSED|DISCREPANCY|RESOLUTION/.test(x.status||'');});
  var stock=bins.rows.reduce(function(t,x){return t+n(x.balance_kg);},0)+lots.rows.reduce(function(t,x){return t+Math.max(0,n(x.current_kg)-n(x.bin_kg));},0);
