@@ -67,13 +67,47 @@ La fiche LOT du Warehouse affiche un panneau « Origine du LOT » (`warehouse-lo
 
 Aucune politique DELETE (sauf correction d'une allocation avant réception) ; trigger de blocage de suppression physique.
 
-## 6. Recette
+## 6. Enrôlement des producteurs depuis une coopérative (lot 7, migrations `20261007060*`)
 
-* SQL : `tests/sql/aflp_cooperatives_scenarios.sql` — 37 contrôles joués sur la base réelle en transaction **annulée** (aucune donnée QA conservée), avec sessions simulées BM / Zonal Head / Supervisor / sans profil.
-* UI : `tests/cooperatives/recette-ui.mjs` — 23 écrans × 3 largeurs (390, 768, 1440) en FR et 6 écrans × 3 largeurs en EN, doublure Supabase avec session et données fictives.
+Trois actions distinctes dans l'onglet Producteurs :
 
-## 7. Points ouverts
+| Action | RPC | Effet |
+|---|---|---|
+| + Enrôler un producteur | `aflp_coop_enroll_producer` | Nouveau producteur dans `public.producteurs` (registre unique), affiliation, baseline DRAFT et parcelles **seulement si déclarées**, consentement **seulement si recueilli** (méthode + date), sinon NON RECUEILLI |
+| Associer un producteur existant | `aflp_coop_add_member` | Affiliation seule : Farmer ID, RT, parcelles, Passport et achats inchangés |
+| Importer Excel | `aflp_coop_import_rows` | Assistant 10 étapes, lots de 200 lignes, 6 catégories, staging dans la file « À vérifier » |
 
-* Photo de la carte Coopératives : photo Pexels déjà présente dans le dépôt (productrice, verger d'anacardiers, sac en jute), recadrée. À remplacer par une photo interne ANAGROCI d'une réunion de coopérative (aucun accès réseau aux banques d'images depuis l'environnement de développement).
+Anti-doublon (`private.aflp_match_core`, exposé par `aflp_coop_match_producers_v2`) :
+
+| Règle | Confiance | Effet |
+|---|---|---|
+| Farmer ID identique | 100 | création impossible, même forcée |
+| Même téléphone (même village / ailleurs) | 95 / 85 | création réservée à la supervision, avec motif |
+| Téléphone secondaire | 80 | idem |
+| Nom + prénoms, même village / même année de naissance / même cluster | 75 / 70 / 65 | motif obligatoire ou file « À vérifier » |
+| Même nom de famille dans le village, prénoms absents d'un côté | 60 | idem |
+
+Deux prénoms renseignés et différents avec le même nom de famille désignent deux personnes (fratrie) : pas de signalement. Un producteur hors périmètre est signalé sans identité (Farmer ID seul).
+
+File « À vérifier » (`aflp_coop_enrollment_reviews`) : candidats qui ne sont pas encore des producteurs. Décisions tracées : associer l'existant, compléter puis enrôler (nouveau contrôle anti-doublon), créer après justification (10 caractères min.), laisser à compléter, ignorer (motif).
+
+Qualité des données : `aflp_producer_quality_v` mesure la **complétude du dossier** sur 8 éléments (téléphone, sexe, âge, village, GPS, superficie, potentiel, consentement), jamais une note du producteur.
+
+Farmer Passport : l'affectation (20 points) accepte un RT **ou** une affiliation coopérative active (migration 7d).
+
+Livraisons mode B : supplier, origine (jamais déduite, migration 7g), entrepôt, poids, sacs, camion, chauffeur, réception WMS, répartition, niveau de traçabilité ; visibles dans la fiche coopérative et dans Procurement › Delivery Plan (filtre Tous / Direct AFLP / Coopératives / LBA / Direct Supplier).
+
+Reports : `aflp_coop_report` combine côté serveur campagne, canal, coopérative, statut, zone, cluster, village, section, producteur et période ; un producteur compté une fois ; QA exclues.
+
+## 7. Recette
+
+* SQL : `tests/sql/aflp_cooperatives_scenarios.sql` (37 contrôles) et `tests/sql/aflp_coop_enrolement_e2e.sql` (43 contrôles) joués sur la base réelle en transaction **annulée** ; empreintes md5 des tables métier identiques avant/après.
+* Charge (registre gonflé de 5 000 producteurs QA, annulé) : import 10 / 100 / 520 / 1 000 lignes en 0,15 / 1,3 / 7,1 / 16,0 s, aucune ligne perdue.
+* UI : `tests/cooperatives/recette-ui.mjs` — 177 écrans (FR et EN × 390, 768, 1440), dont enrôlement, doublon, association, À vérifier, import complet, Delivery Plan, Farmer Passport ; contrôle des libellés français restés en EN.
+
+## 8. Points ouverts
+
+* Photo de la carte Coopératives : aucune photo de réunion de coopérative dans le dépôt (photos disponibles vérifiées : productrice en verger, enfant portant un sac, achat LBA, transfert, entrepôt, rapports, traçabilité, usine). La photo actuelle (productrice, verger d'anacardiers, sac en jute) est conservée. À remplacer par une photo interne ANAGROCI quand elle existera.
 * Préfinancement : non construit ; une coopérative liée à un Supplier peut déjà utiliser les modules Procurement / Financing existants.
-* Les libellés du Farmer Passport hérités restent partiellement en français en mode EN (dette antérieure).
+* Traducteur global (`shared/i18n.js`, zone protégée) : remplacement mot à mot ; les écrans Coopératives, Farmer Passport, Reports coopératives, Delivery Plan coopératives et la navigation utilisent désormais des libellés EN explicites. Les autres modules restent dépendants du traducteur global (dette antérieure).
+* Fonctions `aflp_coop_match_producers` (v1) et `aflp_coop_import_commit` conservées pour compatibilité, plus appelées par l'interface.
