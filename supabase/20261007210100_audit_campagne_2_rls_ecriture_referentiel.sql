@@ -10,13 +10,15 @@
 -- Correctif strictement additif (aucun DROP) : politiques RESTRICTIVES (elles s'ajoutent aux politiques existantes, rien n'est
 -- supprimé). L'écriture exige un rôle terrain : peut_editer_terrain() (BM, ABM, Head of Field,
 -- Procurement Officer, Supervisor, Agent Recenseur, Chef d'équipe) OU peut_modifier_rt_producteur()
--- (ajoute Zonal Head, Unit Head, Assistant Unit Head, Administrateur).
+-- (ajoute Zonal Head, Unit Head, Assistant Unit Head, Administrateur) OU Field Buying Operations Officer /
+-- General Manager (rôles terrain/direction prévus par profils, pour ne bloquer aucun compte futur légitime).
 -- Les fonctions SECURITY DEFINER (enrôlement coopérative, import…) ne sont pas concernées
 -- (propriétaire postgres, BYPASSRLS). La lecture n'est pas modifiée.
 
 create or replace function public.peut_ecrire_referentiel_terrain()
 returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(public.peut_editer_terrain(), false) or coalesce(public.peut_modifier_rt_producteur(), false)
+      or coalesce(public.mon_role() in ('Field Buying Operations Officer','General Manager'), false)
 $$;
 -- Fonction de lecture du rôle de l'appelant uniquement (aucune donnée exposée).
 
