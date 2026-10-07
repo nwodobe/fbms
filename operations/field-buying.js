@@ -1566,7 +1566,7 @@ function renderFarmerPassport(id, tab) {
           ['Baselines production', String(p.baselines.length)], ['Baselines durabilité', String(p.sustainability.length)],
           ['Visites', String(p.visits.length)], ['Inspections', String(p.inspections.length)],
           ['Consentements', String(p.consents.length)], ['Dernier achat', date(f.last_purchase_date)]]) + '</section>' +
-        /* Canal AFLP 2027 (DIRECT RT ou COOPÉRATIVE) : rempli par field-buying-cooperatives.js. */
+        /* Canal AFLP 2027 (DIRECT RT ou COOPÉRATIVE) : rempli par aflp-cooperatives.js. */
         '<section class="card" id="fbCoopChannel" data-pid="' + esc(pid) + '"><div class="skeleton skeleton-row"></div></section>';
       } else if (tab === 'identity') {
         body = '<section class="card"><div class="card-head"><div><h2>Identité</h2><p>Données maître du producteur.</p></div>' +
@@ -4543,7 +4543,7 @@ var ROUTES = {
   command: function () { return renderCommand(); },
   sustainability: function () { return renderSustainability(); },
   traceability: function (p) { return renderTraceability(p[1]); },
-  /* Coopératives AFLP : rubrique de FIELD BUYING, moteur dans field-buying-cooperatives.js
+  /* Coopératives AFLP : rubrique de FIELD BUYING, moteur dans aflp-cooperatives.js
      (mêmes tables producteurs/achats, aucune base parallèle). */
   cooperatives: function (p) {
     if (global.ANAGROCI_COOP && global.ANAGROCI_COOP.render) return global.ANAGROCI_COOP.render(p);
