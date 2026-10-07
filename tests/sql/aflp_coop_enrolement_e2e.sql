@@ -174,9 +174,14 @@ begin
   r := public.aflp_coop_plan_delivery(jsonb_build_object('cooperative_id',ca,'planned_date',current_date,'planned_kg',500,'warehouse_id',wh,'origin','QA ORIGINE'));
   res := res || jsonb_build_array(jsonb_build_object('t','17c origine saisie conservee','ok',
      (select origin = 'QA ORIGINE' from public.aflp_coop_delivery_status_v where id = (r->>'id')::uuid)));
-  r := public.aflp_coop_record_delivery(d1, 1980, 25, rcv, 'RECUE');
-  res := res || jsonb_build_array(jsonb_build_object('t','20 reception WMS reliee, allocation a completer','ok',
-     (select reception_id_resolved = rcv and traceability_level = 'ORGANISATION_SEULEMENT' from public.aflp_coop_delivery_status_v where id = d1)));
+  -- Audit 07/10/2026 : une réception d'un autre canal/fournisseur ({{RCV}} = réception LBA existante) doit être refusée.
+  begin
+    perform public.aflp_coop_record_delivery(d1, 1980, 25, rcv, 'RECUE');
+    res := res || jsonb_build_array(jsonb_build_object('t','20a reception etrangere (LBA) refusee','ok', false));
+  exception when others then res := res || jsonb_build_array(jsonb_build_object('t','20a reception etrangere (LBA) refusee','ok', sqlerrm like '%canal%')); end;
+  r := public.aflp_coop_record_delivery(d1, 1980, 25, null, 'RECUE');
+  res := res || jsonb_build_array(jsonb_build_object('t','20 livraison recue, allocation a completer','ok',
+     (select traceability_level = 'ORGANISATION_SEULEMENT' from public.aflp_coop_delivery_status_v where id = d1)));
   insert into public.aflp_coop_delivery_allocations(delivery_id, producer_id, qty_kg) values (d1, p1, 1180), (d1, prt, 800);
   res := res || jsonb_build_array(jsonb_build_object('t','18 allocation complete : tracable producteur','ok',
      (select fully_traceable and traceability_level = 'TRACABLE_PRODUCTEUR' from public.aflp_coop_delivery_status_v where id = d1)));
@@ -186,11 +191,10 @@ begin
   exception when others then res := res || jsonb_build_array(jsonb_build_object('t','18b sur-allocation refusee','ok', true)); end;
 
   -- 21-23. LOT / origine / Traceability 360
-  res := res || jsonb_build_array(jsonb_build_object('t','21-22 LOT de la reception : origine coop + tracable producteur','ok',
-     (select bool_and(o.origin_channel = 'COOPERATIVE' and o.cooperative_codes like '%' || (select code from public.aflp_cooperatives where id = ca) || '%'
-             and o.traceability_level = 'TRACABLE_PRODUCTEUR' and o.farmers >= 2)
-        from public.aflp_lot_origin_v o where o.reception_id = rcv),
-     'lots', (select count(*) from public.aflp_lot_origin_v o where o.reception_id = rcv)));
+  -- 21-22 : le LOT de la réception LBA refusée ne doit jamais prendre l'origine de la coopérative.
+  res := res || jsonb_build_array(jsonb_build_object('t','21-22 LOT LBA non attribue a la cooperative','ok',
+     not exists (select 1 from public.aflp_lot_origin_v o where o.reception_id = rcv
+                  and o.cooperative_codes like '%' || (select code from public.aflp_cooperatives where id = ca) || '%')));
   res := res || jsonb_build_array(jsonb_build_object('t','23 Traceability 360 trouve coop et livraison','ok',
      exists (select 1 from public.operations_traceability_search_v where entity_type = 'COOPERATIVE' and entity_id = (select code from public.aflp_cooperatives where id = ca))
      and exists (select 1 from public.operations_traceability_search_v where entity_type = 'COOP_DELIVERY' and entity_id = (select code from public.aflp_coop_deliveries where id = d1))));
