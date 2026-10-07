@@ -1,2 +1,31 @@
-{"date":"2026-10-07","environnement":"production, transaction annulée (ROLLBACK)","controles":41,"reussis":41,
-"note":"Passport du producteur enrôlé : INCOMPLETE 65 avant correctif (l'affectation exigeait un RT)"}
+{
+  "date": "2026-10-07",
+  "environnement": "production, transaction annulée (ROLLBACK)",
+  "controles": 43,
+  "reussis": 43,
+  "note": "Recette rejouée après les migrations 7g à 7j : 43/43 (ajout 17b origine non déduite, 17c origine saisie conservée). Exécution en ROLLBACK intégral ; empreintes md5 des tables métier identiques avant/après.",
+  "charge": {
+    "registre_gonfle_qa": 5000,
+    "import_10_ms": 154,
+    "import_100_ms": 1319,
+    "import_520_ms": 7131,
+    "import_1000_ms": 16032,
+    "repartition_1000": "900 nouveaux / 100 doublons à vérifier, 0 ligne perdue",
+    "rapport_global_ms": 166,
+    "page_membres_50_ms": 789,
+    "recherche_doublons_300_lignes_ms": 28
+  },
+  "recette_ui": {
+    "ecrans": 147,
+    "ecarts": 0,
+    "largeurs": [
+      390,
+      768,
+      1440
+    ],
+    "langues": [
+      "fr",
+      "en"
+    ]
+  }
+}

@@ -11,6 +11,11 @@ var defs={
  factory:{title:'FACTORY',routes:[['overview','Overview'],['reception','Factory Reception'],['warehouse','Factory Warehouse'],['bins','Factory BIN'],['processing','Processing'],['calibration','Calibration'],['mass-balance','Mass Balance'],['audit','Audit']]},
  trace:{title:'TRACEABILITY 360',routes:[]},reports:{title:'REPORTS & EXPORT',routes:[['activity-report','Rapports d’activité','activity-report.html'],['coop-report','Coopératives AFLP','reports.html#cooperatives'],['aflp-data','AFLP DATA','aflp-data.html'],['consolidated','Export consolidé','reports.html'],['warehouse','Warehouse','warehouse.html'],['procurement','Procurement','procurement.html']]}
 };
+/* Libellés EN de navigation (évite la traduction mot à mot du traducteur global). */
+var NAV_EN={'Vue d’ensemble':'Overview','Achat Bord Champ':'Field Buying','Recensement':'Census','Producteurs':'Farmers','Coopératives':'Cooperatives',
+ 'Hubs & Cartographie':'Hubs & Mapping','Sacherie AFLP':'AFLP Bags','Caisse & Avances':'Cash & Advances','Arrivages prévus':'Planned arrivals','Achat RCN':'RCN purchases',
+ 'Rapports d’activité':'Activity reports','Coopératives AFLP':'AFLP cooperatives','Export consolidé':'Consolidated export'};
+function navLabel(t){try{if(localStorage.getItem('anagroci_lang')==='en'&&NAV_EN[t])return NAV_EN[t];}catch(e){}return t;}
 function esc(v){return String(v==null?'':v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function route(){return (location.hash||'#overview').slice(1).split('/')[0]||'overview';}
 function ensureChrome(){
@@ -25,8 +30,8 @@ function ensureChrome(){
 function renderNav(){
  var d=defs[page]; if(!d)return;
  var side=document.getElementById('opsSidebar');
- if(side&&d.routes.length){var r=route();var file=(location.pathname.split('/').pop()||'');side.innerHTML='<div class="ops-side-head">'+esc(d.title)+'</div><nav class="ops-nav">'+d.routes.map(function(x){var ext=!!x[2],act=ext?file===x[2]:r===x[0];return '<a class="'+(act?'active':'')+'" href="'+(ext?x[2]:'#'+x[0])+'"><span class="nav-dot"></span>'+esc(x[1])+'</a>';}).join('')+'</nav>';}
- var bc=document.getElementById('opsBreadcrumbs'); if(bc){var file2=(location.pathname.split('/').pop()||''),ext2=d.routes.filter(function(x){return x[2]&&x[2]===file2;})[0];var label=(ext2||d.routes.filter(function(x){return x[0]===route();})[0]||['',d.title])[1];bc.innerHTML='<a href="../index.html">Portail</a><span class="sep">›</span><a href="#overview">'+esc(d.title)+'</a>'+(label&&label!==d.title?'<span class="sep">›</span><strong>'+esc(label)+'</strong>':'');}
+ if(side&&d.routes.length){var r=route();var file=(location.pathname.split('/').pop()||'');side.innerHTML='<div class="ops-side-head">'+esc(d.title)+'</div><nav class="ops-nav">'+d.routes.map(function(x){var ext=!!x[2],act=ext?file===x[2]:r===x[0];return '<a class="'+(act?'active':'')+'" href="'+(ext?x[2]:'#'+x[0])+'"><span class="nav-dot"></span>'+esc(navLabel(x[1]))+'</a>';}).join('')+'</nav>';}
+ var bc=document.getElementById('opsBreadcrumbs'); if(bc){var file2=(location.pathname.split('/').pop()||''),ext2=d.routes.filter(function(x){return x[2]&&x[2]===file2;})[0];var label=(ext2||d.routes.filter(function(x){return x[0]===route();})[0]||['',d.title])[1];bc.innerHTML='<a href="../index.html">Portail</a><span class="sep">›</span><a href="#overview">'+esc(d.title)+'</a>'+(label&&label!==d.title?'<span class="sep">›</span><strong>'+esc(navLabel(label))+'</strong>':'');}
 }
 function harmonizeActions(){
  document.querySelectorAll('.ops-actions a[href*="rcntrace/index.html"],.ops-actions a[href*="terrain/traceability.html"]').forEach(function(a){
@@ -44,6 +49,7 @@ function makeActionOverflow(){
  document.addEventListener('click',function(){document.querySelectorAll('.ops-overflow.open').forEach(function(x){x.classList.remove('open');});},{once:true});
 }
 function init(){ensureChrome();renderNav();harmonizeActions();makeActionOverflow();}
+document.addEventListener('anagroci:language',function(){setTimeout(renderNav,30);});
 window.addEventListener('hashchange',function(){renderNav();if(global.ANAGROCI_OPS_ROUTE)global.ANAGROCI_OPS_ROUTE();});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 global.ANAGROCI_OPS_NAV={route:route,render:renderNav,defs:defs};

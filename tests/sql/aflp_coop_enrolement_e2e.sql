@@ -169,6 +169,11 @@ begin
      (select truck = 'QA-TRUCK-01' and driver = 'QA CHAUFFEUR' and warehouse_code is not null and cooperative_code like 'COOP-%'
         and allocation_status = 'ALLOCATION_A_COMPLETER' and traceability_level = 'EN_ATTENTE_RECEPTION'
         from public.aflp_coop_delivery_status_v where id = d1)));
+  res := res || jsonb_build_array(jsonb_build_object('t','17b origine non saisie : jamais deduite','ok',
+     (select origin is null from public.aflp_coop_delivery_status_v where id = d1)));
+  r := public.aflp_coop_plan_delivery(jsonb_build_object('cooperative_id',ca,'planned_date',current_date,'planned_kg',500,'warehouse_id',wh,'origin','QA ORIGINE'));
+  res := res || jsonb_build_array(jsonb_build_object('t','17c origine saisie conservee','ok',
+     (select origin = 'QA ORIGINE' from public.aflp_coop_delivery_status_v where id = (r->>'id')::uuid)));
   r := public.aflp_coop_record_delivery(d1, 1980, 25, rcv, 'RECUE');
   res := res || jsonb_build_array(jsonb_build_object('t','20 reception WMS reliee, allocation a completer','ok',
      (select reception_id_resolved = rcv and traceability_level = 'ORGANISATION_SEULEMENT' from public.aflp_coop_delivery_status_v where id = d1)));

@@ -29,6 +29,7 @@ language sql stable security definer set search_path = public, private as $$
            nullif(x->>'village_id','') vid,
            case when coalesce(x->>'birth_year','') ~ '^[0-9]{4}$' then (x->>'birth_year')::int end yob,
            nullif(x->>'exclude_id','') excl,
+           nullif(btrim(coalesce(x->>'prenoms','')),'') is not null has_pren,
            (select v.cluster_code from public.villages v where v.id = nullif(x->>'village_id','')) vcl
     from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) x
   ), hits as (
@@ -70,14 +71,19 @@ language sql stable security definer set search_path = public, private as $$
                                  left join public.villages v on v.id = p.village_id
                                  where public.farmer_registry_norm_text(coalesce(p.nom,'') || ' ' || coalesce(p.prenoms,'')) = r.full_n
                                    and not p.deleted) h
-     where r.full_n is not null and position(' ' in r.full_n) > 0
+     -- norm_text retire les espaces : la présence des prénoms se teste sur la saisie brute
+     where r.full_n is not null and r.has_pren
        and (h.village_id = r.vid or (r.yob is not null and h.birth_year = r.yob) or (r.vcl is not null and h.cluster_code = r.vcl))
     union all
     -- même nom de famille dans le même village (index nom normalisé)
+    -- Le nom de famille seul est un indice faible (patronymes très répandus dans un même
+    -- village) : il ne signale un doublon possible que si les prénoms manquent d'un côté
+    -- ou de l'autre. Deux prénoms renseignés et différents = deux personnes (fratrie).
     select r.idx, h.id, 'NOM_MEME_VILLAGE', 60 from r
       cross join lateral (select p.id from public.producteurs p
                           where public.farmer_registry_norm_text(p.nom) = r.nom_n and not p.deleted and p.nom is not null
-                            and p.village_id = r.vid) h
+                            and p.village_id = r.vid
+                            and (not r.has_pren or nullif(btrim(coalesce(p.prenoms,'')),'') is null)) h
      where r.vid is not null and r.nom_n is not null
   )
   select distinct on (h.idx, h.id) h.idx, h.id, h.reason, h.conf

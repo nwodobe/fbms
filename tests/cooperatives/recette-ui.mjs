@@ -64,12 +64,13 @@ const ECRANS = [
     await p.click('#impGo'); await p.waitForSelector('#impRep', { timeout: 10000 }) }],
   ['procurement-delivery-plan', 'operations/procurement.html#arrivals', '#arrFilter', async (p) => { await p.waitForSelector('#arrFilter', { timeout: 10000 }); await p.click('#arrFilter [data-arrf="COOPERATIVE"]'); await p.waitForSelector('#coopDeliveriesHost table') }],
   ['passport-canal', 'operations/field-buying.html#farmers/p-qa-1', '#fbCoopChannel'],
+  ...['identity', 'plots', 'consents', 'sustainability', 'history'].map((t) => ['passport-' + t, `operations/field-buying.html#farmers/p-qa-1/${t}`, '.ops-passport-tabs']),
   ['reports', 'operations/reports.html#cooperatives', '#coopReport table'],
   ['portail', 'index.html', '.portal-card']
 ]
 const BRUTS = /\b(cooperative_id|membership_status|producer_id|sourcing_channel|INDIVIDUAL_FARMER|COOPERATIVE_CONSOLIDATED|ALLOCATION_A_COMPLETER|NON_EVALUE|EN_EVALUATION|DOUBLON_A_VERIFIER|NOUVEAU_ENROLE|TELEPHONE_MEME_VILLAGE|ORGANISATION_SEULEMENT|undefined|NaN|\[object Object\])\b/
 /* Libellés français restés en anglais (module coopératives uniquement). */
-const FR_EN = /(Enrôler|Associer un producteur|À vérifier|Qualité des données|Complétude|NON COLLECTÉ|Producteurs membres|Formations|Livraisons de la coopérative|Coopérative principale|Correspondance|Village du référentiel|Classement proposé|Livraisons coopératives|Tous)/
+const FR_EN = /(Enrôler|Associer un producteur|À vérifier|Qualité des données|Complétude|NON COLLECTÉ|Producteurs membres|Formations|Livraisons de la coopérative|Coopérative principale|Correspondance|Village du référentiel|Classement proposé|Livraisons coopératives|Tous|Identité|Parcelles|Consentements|Opérationnel|Résumé|Baselines durabilité|Dernier achat|Règle campagne|ne bloque never)/
 const bilan = []
 const browser = await chromium.launch()
 for (const lang of ['fr', 'en']) {
@@ -97,7 +98,7 @@ for (const lang of ['fr', 'en']) {
       const m = await page.evaluate(([re, fr]) => {
         const view = document.getElementById('coopReport') || document.getElementById('opsRouteView') || document.body
         const txt = view.innerText || ''
-        const coopTxt = [].slice.call(document.querySelectorAll('[data-i18n-ignore], #coopReport, #coopDeliveriesHost')).map((e) => e.innerText).join(' ')
+        const coopTxt = [].slice.call(document.querySelectorAll('[data-i18n-ignore], #coopReport, #coopDeliveriesHost, .ops-contextbar, .ops-main > .notice')).map((e) => e.innerText).join(' ')
         return { overflow: document.documentElement.scrollWidth - window.innerWidth, brut: (txt.match(new RegExp(re)) || [null])[0], longueur: txt.length,
           fr: (coopTxt.match(new RegExp(fr)) || [null])[0],
           enMarker: /AFLP COOPERATIVES|Cooperative|Farmers|Overview|Members|channel|Arrivals|Delivery|Report/i.test(txt) }
