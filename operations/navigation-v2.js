@@ -7,14 +7,16 @@ var defs={
  procurement:{title:'PROCUREMENT',routes:[['overview','Vue d’ensemble'],['field','Achat Bord Champ'],['lba','LBA'],['suppliers','Suppliers'],['arrivals','Arrivages prévus'],['purchases','Achat RCN'],['evacuations','Evacuations'],['reconciliation','Reconciliation'],['settings','Settings'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
  lba:{title:'LBA PURCHASE',routes:[['overview','Vue d’ensemble'],['registry','LBA Registry'],['purchases','Achats RCN'],['limits','Limites de financement'],['financing','Financements'],['cycles','Cycles de financement'],['deliveries','Livraisons RCN'],['bags','Gestion sacherie'],['balances','Balances'],['aging','Aging & Alertes'],['performance','Performance'],['documents','Documents'],['audit','Audit']]},
  warehouse:{title:'OPÉRATIONS WAREHOUSE',routes:[['overview','Vue d’ensemble'],['inbound','Réceptions'],['quality','Qualité'],['lots','Lots RCN'],['bins','Stock & BIN'],['movements','Journal des mouvements'],['drying','Séchage / Tri'],['bags','Gestion sacherie'],['inventory','Inventaire'],['parameters','Paramètres'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
- transfer:{title:'STOCK TRANSFER',routes:[['overview','Overview'],['requests','Requests'],['ready','Ready to Load'],['transit','In Transit'],['arrivals','Arrivals'],['reconciliation','Reconciliation'],['audit','Audit']]},
- factory:{title:'FACTORY',routes:[['overview','Overview'],['reception','Factory Reception'],['warehouse','Factory Warehouse'],['bins','Factory BIN'],['processing','Processing'],['calibration','Calibration'],['mass-balance','Mass Balance'],['audit','Audit']]},
+ transfer:{title:'STOCK TRANSFER',routes:[['overview','Vue d’ensemble'],['requests','Demandes'],['ready','Prêts au chargement'],['transit','En transit'],['arrivals','Arrivées'],['reconciliation','Réconciliation'],['audit','Audit']]},
+ factory:{title:'FACTORY',routes:[['overview','Vue d’ensemble'],['reception','Réception usine'],['warehouse','Magasin usine'],['bins','BIN usine'],['processing','Process'],['calibration','Calibrage'],['mass-balance','Bilan matière'],['audit','Audit']]},
  trace:{title:'TRACEABILITY 360',routes:[]},reports:{title:'REPORTS & EXPORT',routes:[['activity-report','Rapports d’activité','activity-report.html'],['coop-report','Coopératives AFLP','reports.html#cooperatives'],['aflp-data','AFLP DATA','aflp-data.html'],['consolidated','Export consolidé','reports.html'],['warehouse','Warehouse','warehouse.html'],['procurement','Procurement','procurement.html']]}
 };
 /* Libellés EN de navigation (évite la traduction mot à mot du traducteur global). */
 var NAV_EN={'Vue d’ensemble':'Overview','Achat Bord Champ':'Field Buying','Recensement':'Census','Producteurs':'Farmers','Coopératives':'Cooperatives',
  'Hubs & Cartographie':'Hubs & Mapping','Sacherie AFLP':'AFLP Bags','Caisse & Avances':'Cash & Advances','Arrivages prévus':'Planned arrivals','Achat RCN':'RCN purchases',
- 'Rapports d’activité':'Activity reports','Coopératives AFLP':'AFLP cooperatives','Export consolidé':'Consolidated export'};
+ 'Rapports d’activité':'Activity reports','Coopératives AFLP':'AFLP cooperatives','Export consolidé':'Consolidated export',
+ 'Demandes':'Requests','Prêts au chargement':'Ready to load','En transit':'In transit','Arrivées':'Arrivals','Réconciliation':'Reconciliation',
+ 'Réception usine':'Factory reception','Magasin usine':'Factory warehouse','BIN usine':'Factory BIN','Process':'Processing','Calibrage':'Calibration','Bilan matière':'Mass balance'};
 function navLabel(t){try{if(localStorage.getItem('anagroci_lang')==='en'&&NAV_EN[t])return NAV_EN[t];}catch(e){}return t;}
 function esc(v){return String(v==null?'':v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function route(){return (location.hash||'#overview').slice(1).split('/')[0]||'overview';}

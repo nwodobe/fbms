@@ -316,7 +316,53 @@
       table(['Date','Transfer','Action','Reason','Author','Role','Approver'], rows.map(function(a){return '<tr><td>'+esc(dt(a.created_at))+'</td><td class="mono">'+esc(a.transfer_id||'-')+'</td><td>'+esc(a.action||'-')+'</td><td>'+esc(a.motif||'-')+'</td><td>'+esc(a.auteur||'-')+'</td><td>'+esc(a.role||'-')+'</td><td>'+esc(a.approbateur||'-')+'</td></tr>';})) + '</section>';
   }
 
-  async function render() {
+
+  /* Audit campagne 2027 — libellés FR du module Stock Transfer.
+     Le module est écrit en anglais (et en français sans accents) ; le traducteur global ne traduit que FR → EN,
+     donc l'écran restait en anglais en mode FR. Correspondance EXACTE seulement (jamais en sous-chaîne). */
+  var ST_FR = {
+    'Stock Transfer':'Transferts de stock','Transfer Requests':'Demandes de transfert','New Transfer Request':'Nouvelle demande de transfert','+ New Transfer Request':'+ Nouvelle demande de transfert',
+    'Ready to Load':'Prêts au chargement','In Transit':'En transit','Arrivals':'Arrivées','Reconciliation':'Réconciliation','Transfer':'Transfert','Origin':'Origine','Destination':'Destination',
+    'Planned':'Prévu','Sent':'Envoyé','Received':'Reçu','Variance':'Écart','Truck':'Camion','Status':'Statut','Pending approval':'À approuver','Ready / Loaded':'Prêts / chargés',
+    'Arrival pending':'Arrivée à réceptionner','Discrepancy':'Écart','Actions requiring attention':'Dossiers à traiter','Closed today':'Clôturés aujourd’hui','Role':'Rôle','Warehouse scope':'Périmètre entrepôt',
+    'Approve + Reserve':'Approuver et réserver','Approve Resolution':'Approuver la résolution','Cancel':'Annuler','Close & Lock':'Clôturer et verrouiller','Close Transfer':'Clôturer le transfert',
+    'Confirm Dispatch':'Confirmer le départ','Confirm Loaded':'Confirmer le chargement','Confirm Receipt':'Confirmer la réception','Create Request':'Créer la demande','Decision':'Décision',
+    'Dispatched':'Expédié','Loading':'Chargement','Material lines':'Lignes matière','Register Arrival':'Enregistrer l’arrivée','Reject Resolution':'Refuser la résolution','Reject':'Refuser',
+    'Reserved':'Réservé','Resolution Approval':'Approbation de la résolution','Resolve Discrepancy':'Traiter l’écart','Save Load':'Enregistrer le chargement','Submit Resolution':'Soumettre la résolution',
+    'Timeline':'Historique','Action':'Action','Approver':'Approbateur','Author':'Auteur','Available at request':'Disponible à la demande','BIN / Lot':'BIN / LOT','Bags Received':'Sacs reçus',
+    'Destination BIN':'BIN de destination','Destination Type':'Type de destination','Destination Warehouse':'Entrepôt de destination','Detailed Reason':'Motif détaillé','Driver Name':'Nom du chauffeur',
+    'Driver Phone':'Téléphone du chauffeur','Gross kg':'Poids brut (kg)','Tare kg':'Tare (kg)','Net kg':'Poids net (kg)','Qty kg':'Quantité (kg)','Investigation':'Enquête','Loading Start':'Début du chargement',
+    'Origin Warehouse':'Entrepôt d’origine','Planned Dispatch':'Départ prévu','Priority':'Priorité','Purpose':'Objet','Reason Category':'Catégorie de motif','Reason':'Motif','Receiver':'Réceptionnaire',
+    'Request Note':'Note de demande','Request Document':'Document de demande','Requested':'Demandé','Resolution Type':'Type de résolution','Responsible':'Responsable','Seal observed':'Scellé constaté',
+    'Seal Status':'État du scellé','Seal Number':'N° de scellé','Source BIN':'BIN source','Supplier':'Fournisseur','Ticket':'Ticket','Transporter':'Transporteur','Truck Plate':'Immatriculation',
+    'Truck observed':'Camion constaté','Weighbridge Ref':'Réf. pont-bascule','Write off':'Passer en perte','Stock gain':'Gain de stock','Reweigh correction':'Correction après repesée',
+    'Compensation':'Compensation','Not applicable':'Sans objet','Intact':'Intact','Broken':'Rompu','Mismatch':'Non conforme','Normal':'Normale','Urgent':'Urgente','High':'Haute','Low':'Basse',
+    'Controlled Staging':'Zone de transit contrôlée','Auto':'Auto','Retour':'Retour','Aucun':'Aucun','Date':'Date','Lot':'LOT',
+    'REQUESTED':'DEMANDÉ','APPROVED':'APPROUVÉ','READY_TO_LOAD':'PRÊT AU CHARGEMENT','LOADED':'CHARGÉ','IN_TRANSIT':'EN TRANSIT','ARRIVED':'ARRIVÉ','DISCREPANCY':'ÉCART','RESOLUTION_PENDING':'RÉSOLUTION EN ATTENTE',
+    'RECONCILED':'RÉCONCILIÉ','CLOSED':'CLÔTURÉ','REJECTED':'REFUSÉ','CANCELLED':'ANNULÉ','DISPATCHED':'EXPÉDIÉ','RECEIVED':'REÇU','NORMAL':'NORMALE','URGENT':'URGENTE','HIGH':'HAUTE','LOW':'BASSE',
+    'Aucune donnee disponible.':'Aucune donnée disponible.','Chargement...':'Chargement…','Demandes de transfert et decisions.':'Demandes de transfert et décisions.',
+    'Reservation, chargement et Confirm Dispatch.':'Réservation, chargement et confirmation du départ.','Matiere sortie de la source, non encore creditee a destination.':'Matière sortie de la source, pas encore créditée à destination.',
+    'Arrival enregistre; Receipt reste une operation distincte.':'Arrivée enregistrée ; la réception reste une opération distincte.','Ecarts, resolutions et cloture verrouillee.':'Écarts, résolutions et clôture verrouillée.',
+    'Creer, approuver ou refuser une demande sans mouvement de stock.':'Créer, approuver ou refuser une demande, sans mouvement de stock.',
+    'Selectionner une origine, une destination et les lignes BIN/Lot. Aucun stock ne bouge a cette etape.':'Sélectionnez une origine, une destination et les lignes BIN/LOT. Aucun stock ne bouge à cette étape.',
+    'Journal append-only des operations Stock Transfer.':'Journal non modifiable des opérations de transfert.','Dossiers ouverts tries par recence.':'Dossiers ouverts, du plus récent au plus ancien.',
+    'Regles de stock':'Règles de stock','Genealogie matiere':'Généalogie matière',
+    'Control Tower des mouvements inter-sites. Reservation != mouvement physique; Arrival != Receipt.':'Tour de contrôle des mouvements inter-sites. Réservation ≠ mouvement physique ; arrivée ≠ réception.',
+    'seule etape qui debite physiquement la source et credite IN TRANSIT.':'seule étape qui débite physiquement la source et crédite le stock EN TRANSIT.','seule etape qui credite la destination.':'seule étape qui crédite la destination.',
+    'Dispatch:':'Départ :','Receipt:':'Réception :','Connexion Supabase indisponible.':'Connexion au serveur indisponible.','Transfert introuvable.':'Transfert introuvable.'
+  };
+  function stLang(){ try { return localStorage.getItem('anagroci_lang') === 'en' ? 'en' : 'fr'; } catch (e) { return 'fr'; } }
+  function localizeFR(el) {
+    if (!el || stLang() !== 'fr') return;
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n, list = [];
+    while ((n = w.nextNode())) list.push(n);
+    list.forEach(function (t) { var raw = t.nodeValue, k = raw.replace(/\s+/g, ' ').trim(); if (k && Object.prototype.hasOwnProperty.call(ST_FR, k)) { var v = raw.replace(k, ST_FR[k]); if (v !== raw) t.nodeValue = v; } });
+    el.querySelectorAll('[placeholder],[title],option').forEach(function (e) {
+      ['placeholder','title'].forEach(function (a) { var v = e.getAttribute(a); if (v && ST_FR[v.trim()]) e.setAttribute(a, ST_FR[v.trim()]); });
+    });
+  }
+  async function render() { await renderRoute(); localizeFR(root); }
+  async function renderRoute() {
     if (!root || !sb) return;
     root.innerHTML = '<div class="empty">Chargement...</div>';
     await loadBase();
@@ -365,7 +411,7 @@
 
   async function handleClick(ev) {
     var row=ev.target.closest('[data-href]'); if(row){location.hash=row.dataset.href; return;}
-    if(ev.target.id==='addTrfLine'){ var box=document.getElementById('trfLines'); var opts=JSON.parse(box.dataset.stockOptions||'[]'); addLineRow(opts,null); return; }
+    if(ev.target.id==='addTrfLine'){ var box=document.getElementById('trfLines'); var opts=JSON.parse(box.dataset.stockOptions||'[]'); addLineRow(opts,null); localizeFR(box); return; }
     var rm=ev.target.closest('.trf-remove-line'); if(rm){ var rr=rm.closest('.trf-line'); if(rr&&rr.parentNode.children.length>1) rr.remove(); return; }
     var b=ev.target.closest('[data-action-button]'); if(!b)return;
     var action=b.dataset.actionButton,id=b.dataset.id; b.disabled=true;
@@ -383,7 +429,7 @@
   async function init() {
     root=document.getElementById('opsRouteView');
     sb=await waitClient();
-    if(!sb){ if(root)root.innerHTML=notice('danger','Connexion Supabase indisponible.'); return; }
+    if(!sb){ if(root){root.innerHTML=notice('danger','Connexion Supabase indisponible.'); localizeFR(root);} return; }
     root.addEventListener('submit',handleSubmit);
     root.addEventListener('click',handleClick);
     root.addEventListener('keydown',function(ev){
