@@ -20,7 +20,7 @@ select d.id, d.code, d.cooperative_id, d.campaign, d.payment_model, d.section_id
        coalesce(d.truck, arr.payload->>'truck') as truck,
        coalesce(d.driver, arr.payload->>'driver') as driver,
        coalesce(d.transporter, arr.payload->>'transporter') as transporter,
-       coalesce(d.origin, arr.payload->>'origin', c.locality, c.departement) as origin,
+       coalesce(d.origin, arr.payload->>'origin') as origin,  -- jamais déduite de la localité
        c.supplier_id, ps.display_name as supplier_name,
        (select h.code from public.procurement_supplier_code_history h where h.supplier_id = c.supplier_id and h.is_current limit 1) as supplier_code,
        w.name as warehouse_name, c.is_qa,
@@ -55,6 +55,8 @@ begin
   if v_wh is null then raise exception 'Entrepôt de destination obligatoire'; end if;
   if private.aflp_numv(p,'planned_kg') is null or private.aflp_numv(p,'planned_kg') <= 0 then raise exception 'Quantité prévue (kg) obligatoire'; end if;
   if nullif(p->>'planned_date','') is null then raise exception 'Date de livraison prévue obligatoire'; end if;
+  -- Repli historique (contrat Procurement : origine obligatoire) limité au Delivery Plan ;
+  -- la livraison coopérative ne garde que l'origine réellement saisie.
   v_origin := coalesce(private.aflp_txt(p,'origin'), c.locality, c.departement, 'GBEKE');
 
   if c.supplier_id is not null and coalesce((p->>'to_procurement_plan')::boolean, true) and not c.is_qa then
@@ -71,7 +73,7 @@ begin
   values (v_coop, v_campaign, coalesce(cc.payment_model,'INDIVIDUAL_FARMER'), nullif(p->>'section_id','')::uuid,
      nullif(p->>'collection_point_id','')::uuid, v_wh, (p->>'planned_date')::date, private.aflp_numv(p,'planned_kg'),
      private.aflp_numv(p,'planned_bags')::int, v_arr->>'id', private.aflp_txt(p,'notes'),
-     private.aflp_txt(p,'truck'), private.aflp_txt(p,'driver'), private.aflp_txt(p,'transporter'), v_origin)
+     private.aflp_txt(p,'truck'), private.aflp_txt(p,'driver'), private.aflp_txt(p,'transporter'), private.aflp_txt(p,'origin'))
   returning * into d;
   return to_jsonb(d) || jsonb_build_object('arrival', v_arr);
 end $$;
