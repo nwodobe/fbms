@@ -202,3 +202,6 @@
   .ops-hist-pied{flex-direction:column;align-items:stretch}
   .ops-hist-pied .btn{width:100%}
 }
+
+/* Audit campagne 2027 — mobile : la marque et la pastille utilisateur ne se chevauchent plus. */
+@media(max-width:560px){.ops-topbar{flex-wrap:wrap;row-gap:8px}.ops-brand{flex:1 1 100%;min-width:0}.ops-brand strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.ops-top-actions{flex:1 1 100%;width:100%;justify-content:space-between;gap:8px}#anagroci-userslot .ag-name{max-width:120px}}
