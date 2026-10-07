@@ -289,6 +289,7 @@ function coopCard(r) {
     '<div class="coop-progress"><i style="width:' + p + '%"></i></div></div>' +
     '<div class="coop-card-foot">' + badge(L('compliance', r.compliance_status), complianceTone(r.compliance_status)) +
     (r.is_qa ? badge('QA', 'warn') : '') + (r.archived ? badge(T('Archivée', 'Archived'), 'danger') : '') +
+    (canEdit() && !r.archived ? '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(r.cooperative_id) + '/edit">✎ ' + esc(T('Modifier', 'Edit')) + '</a>' : '') +
     '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(r.cooperative_id) + '/overview">' + esc(T('Ouvrir', 'Open')) + ' →</a></div></article>';
 }
 function coopRow(r) {
@@ -296,7 +297,8 @@ function coopRow(r) {
     '<td class="mono">' + esc(r.code) + '</td><td><b>' + esc(r.name) + '</b>' + (r.is_qa ? ' ' + badge('QA', 'warn') : '') + '</td><td>' + esc(r.locality || '—') + '</td>' +
     '<td>' + stBadge(r.aflp_status) + '</td><td>' + num(r.producers_registered) + '</td><td>' + num(r.producers_verified) + '</td><td>' + num(r.villages_covered) + '</td>' +
     '<td>' + mtv(r.declared_potential_mt) + '</td><td>' + (n(r.farmer_potential_kg) ? mt(r.farmer_potential_kg) : na()) + '</td><td>' + (has(r.target_mt) ? mtv(r.target_mt) : esc(T('non fixée', 'not set'))) + '</td>' +
-    '<td>' + mt(r.purchased_kg) + '</td><td>' + pct(r.achievement_pct) + '</td><td>' + badge(L('compliance', r.compliance_status), complianceTone(r.compliance_status)) + '</td></tr>';
+    '<td>' + mt(r.purchased_kg) + '</td><td>' + pct(r.achievement_pct) + '</td><td>' + badge(L('compliance', r.compliance_status), complianceTone(r.compliance_status)) + '</td>' +
+    '<td>' + (canEdit() && !r.archived ? '<a class="btn secondary" onclick="event.stopPropagation()" href="#cooperatives/' + encodeURIComponent(r.cooperative_id) + '/edit">✎ ' + esc(T('Modifier', 'Edit')) + '</a>' : '') + '</td></tr>';
 }
 function bannerHtml(actions) {
   return '<div class="coop-banner"><img src="' + PHOTO + '" alt="' + esc(T('Productrice de cajou portant un sac en jute dans un verger d’anacardiers', 'Cashew farmer carrying a jute bag in a cashew orchard')) + '" loading="lazy" decoding="async">' +
@@ -332,7 +334,7 @@ function renderDashboard() {
       '<button type="button" class="' + (VIEW === 'table' ? 'on' : '') + '" onclick="ANAGROCI_COOP.view(\'table\')">' + esc(T('Tableau', 'Table')) + '</button></span></span></div>' +
       (shown.length ? (VIEW === 'table'
         ? '<section class="card">' + table([T('Code', 'Code'), T('Coopérative', 'Cooperative'), T('Localité', 'Locality'), T('Statut', 'Status'), T('Producteurs', 'Farmers'), T('Vérifiés', 'Verified'),
-            T('Villages', 'Villages'), T('Potentiel déclaré', 'Declared potential'), T('Potentiel producteurs', 'Farmer potential'), T('Target', 'Target'), T('Acheté', 'Purchased'), T('Réalisation', 'Achievement'), T('Conformité', 'Compliance')], shown.map(coopRow)) + '</section>'
+            T('Villages', 'Villages'), T('Potentiel déclaré', 'Declared potential'), T('Potentiel producteurs', 'Farmer potential'), T('Target', 'Target'), T('Acheté', 'Purchased'), T('Réalisation', 'Achievement'), T('Conformité', 'Compliance'), ''], shown.map(coopRow)) + '</section>'
         : '<div class="coop-grid">' + shown.map(coopCard).join('') + '</div>')
         : '<section class="card"><div class="ops-empty">' + esc(rows.length ? T('Aucune coopérative ne correspond aux filtres.', 'No cooperative matches the filters.')
           : T('Aucune coopérative enregistrée pour le moment. Une coopérative peut être créée avant que la liste de ses producteurs soit disponible.',
@@ -531,13 +533,24 @@ var TABS = [['overview', 'Vue générale', 'Overview'], ['producers', 'Producteu
   ['bags', 'Sacherie', 'Bags'], ['sustainability', 'Durabilité', 'Sustainability'], ['documents', 'Documents', 'Documents'], ['history', 'Historique', 'History']];
 function ficheHead(b, tab) {
   var co = b.coop, s = b.stats, cc = b.campaign || {};
-  var acts = '';
-  if (canEdit() && !co.archived) acts += '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(co.id) + '/edit">' + esc(T('Modifier', 'Edit')) + '</a>';
-  if (canEdit() && !co.archived) acts += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.statusDialog(\'' + co.id + '\')">' + esc(T('Changer le statut', 'Change status')) + '</button>';
-  if (isDirection() && !co.archived) acts += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.archive(\'' + co.id + '\')">' + esc(T('Archiver', 'Archive')) + '</button>';
-  return '<div class="ops-route-head"><div><h1>' + esc(T('Coopérative', 'Cooperative')) + '</h1><p>' + esc(T('Fiche 360° : organisation, producteurs, potentiel, achats, livraisons, stock et traçabilité.',
+  /* Finalisation 2027 : hiérarchie d'actions. Deux actions principales toujours visibles (Modifier la coopérative,
+     Enrôler un producteur) ; les actions secondaires sont regroupées dans « Plus d'actions » pour ne pas empiler
+     six boutons pleine largeur avant le contenu sur mobile. */
+  var cid = encodeURIComponent(co.id), edit = canEdit() && !co.archived, acts = '', more = '';
+  if (edit) acts += '<a class="btn primary" id="coopEditBtn" href="#cooperatives/' + cid + '/edit">✎ ' + esc(T('Modifier la coopérative', 'Edit cooperative')) + '</a>' +
+    '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.enroll(\'' + co.id + '\')">+ ' + esc(T('Enrôler un producteur', 'Enrol a farmer')) + '</button>';
+  if (edit) more += '<button type="button" onclick="ANAGROCI_COOP.linkExisting(\'' + co.id + '\')">' + esc(T('Associer un producteur existant', 'Link an existing farmer')) + '</button>' +
+    '<a href="#cooperatives/' + cid + '/import">' + esc(T('Importer une liste Excel', 'Import an Excel list')) + '</a>' +
+    '<a href="#cooperatives/' + cid + '/villages">' + esc(T('Villages, sections et points de collecte', 'Villages, sections and collection points')) + '</a>' +
+    '<a href="#cooperatives/' + cid + '/contacts">' + esc(T('Responsables', 'Officers')) + '</a>' +
+    '<a href="#cooperatives/' + cid + '/documents">' + esc(T('Documents', 'Documents')) + '</a>' +
+    '<button type="button" onclick="ANAGROCI_COOP.statusDialog(\'' + co.id + '\')">' + esc(T('Changer le statut AFLP', 'Change AFLP status')) + '</button>';
+  more += '<a href="#cooperatives/' + cid + '/history">' + esc(T('Historique des modifications', 'Change history')) + '</a>';
+  if (isDirection() && !co.archived) more += '<button type="button" class="danger" onclick="ANAGROCI_COOP.archive(\'' + co.id + '\')">' + esc(T('Archiver la coopérative…', 'Archive cooperative…')) + '</button>';
+  acts += '<details class="coop-more" data-i18n-ignore><summary class="btn secondary">' + esc(T('Plus d’actions', 'More actions')) + '</summary><div class="coop-more-menu">' + more + '</div></details>';
+  return '<div class="ops-route-head coop-head"><div><h1>' + esc(T('Coopérative', 'Cooperative')) + '</h1><p>' + esc(T('Fiche 360° : organisation, producteurs, potentiel, achats, livraisons, stock et traçabilité.',
       'Full profile: organisation, farmers, potential, purchases, deliveries, stock and traceability.')) + '</p></div>' +
-    '<div class="ops-route-actions">' + acts + '<a class="btn secondary" href="#cooperatives">← ' + esc(T('Coopératives', 'Cooperatives')) + '</a></div></div>' +
+    '<div class="ops-route-actions coop-head-actions">' + acts + '<a class="btn secondary" href="#cooperatives">← ' + esc(T('Coopératives', 'Cooperatives')) + '</a></div></div>' +
     '<div class="coop-fiche"><div class="coop-fiche-top"><div style="min-width:0"><div class="coop-code">' + esc(co.code) + (co.acronym ? ' · ' + esc(co.acronym) : '') + '</div>' +
     '<h1>' + esc(co.name) + '</h1><p>' + esc([co.locality, co.sous_prefecture, co.departement, co.cluster_code].filter(Boolean).join(' · ') || T('Localisation à compléter', 'Location to complete')) + '</p>' +
     '<div class="coop-chip-row"><span class="coop-chip">' + esc(L('status', co.aflp_status).toUpperCase() + ' AFLP') + '</span><span class="coop-chip">' + esc(L('payment', cc.payment_model || 'INDIVIDUAL_FARMER')) + '</span>' +
@@ -707,7 +720,8 @@ function drawMembers(b, c) {
         if (edit && m.status !== 'ENDED') {
           if (!m.verified) a += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.verify(\'' + m.membership_id + '\')">' + esc(T('Vérifier', 'Verify')) + '</button>';
           if (!m.is_primary && m.status === 'ACTIVE') a += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.primary(\'' + m.membership_id + '\')">' + esc(T('Principale', 'Primary')) + '</button>';
-          a += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.transfer(\'' + m.membership_id + '\')">' + esc(T('Changer de coop.', 'Change coop.')) + '</button>' +
+          a += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.editMember(\'' + m.membership_id + '\')">' + esc(T('Modifier', 'Edit')) + '</button>' +
+            '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.transfer(\'' + m.membership_id + '\')">' + esc(T('Changer de coop.', 'Change coop.')) + '</button>' +
             '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.endMember(\'' + m.membership_id + '\')">' + esc(T('Retirer', 'Remove')) + '</button>';
         }
         return '<tr><td class="mono"><a class="ops-link" href="#farmers/' + encodeURIComponent(m.producer_id) + '">' + esc(m.farmer_id || '—') + '</a></td>' +
@@ -1102,7 +1116,9 @@ function commitImport(b, c) {
     return x;
   });
   IMP.step = 9; drawImport(b, c);
-  var size = 200, done = 0, agg = {}, batchId = null;
+  /* Finalisation 2027 : lots de 100 (avant 200) — chaque lot reste loin de la limite serveur de 8 s, même pour
+     un village de plus de 1 000 membres (mesures : 2,2 à 6,4 s par lot de 200 dans le pire cas). */
+  var size = 100, done = 0, agg = {}, batchId = null;
   Object.keys(IMP_CAT).forEach(function (k) { agg[k] = 0; });
   var batches = []; for (var i = 0; i < rows.length; i += size) batches.push(rows.slice(i, i + size));
   batches.reduce(function (p, bt, bi) {
@@ -1157,26 +1173,38 @@ TAB_AFTER.villages = function (b, c) {
       return '<div class="coop-tree-row"><div><b>' + esc(x.village || v.village_name || '—') + '</b>' + (v.village_id ? '' : ' ' + badge(T('hors référentiel', 'not in registry'), 'warn')) +
         '<small>' + esc(T('Déclarés : ', 'Declared: ') + (has(v.declared_producers) ? num(v.declared_producers) : '—') + (v.leader_name ? ' · ' + T('Resp. ', 'Lead ') + v.leader_name : '')) + '</small></div>' +
         '<div><small>' + esc(T('Producteurs', 'Farmers')) + '</small>' + num(s.n) + '</div><div><small>' + esc(T('Superficie', 'Area')) + '</small>' + (s.area ? num(s.area, 1) + ' ha' : na()) + '</div>' +
-        '<div><small>' + esc(T('Potentiel', 'Potential')) + '</small>' + (s.potKnown ? mt(s.pot) : na()) + '</div><div><small>' + esc(T('Acheté', 'Purchased')) + '</small>' + mt(buyV[v.village_id] || 0) + '</div></div>';
+        '<div><small>' + esc(T('Potentiel', 'Potential')) + '</small>' + (s.potKnown ? mt(s.pot) : na()) + '</div><div><small>' + esc(T('Acheté', 'Purchased')) + '</small>' + mt(buyV[v.village_id] || 0) + '</div>' +
+        (edit ? '<div class="coop-row-acts">' + (v.active
+          ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.editVillage(\'' + v.id + '\')">' + esc(T('Modifier', 'Edit')) + '</button><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_villages\',\'' + v.id + '\',false)">' + esc(T('Retirer', 'Remove')) + '</button>'
+          : '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_villages\',\'' + v.id + '\',true)">' + esc(T('Réactiver', 'Reactivate')) + '</button>') + '</div>' : '') + '</div>';
     }
+    var edit = canEdit() && !b.coop.archived;
     var tree = b.sections.filter(function (s) { return s.active; }).map(function (s) {
       var vs = act.filter(function (v) { return v.section_id === s.id; });
-      return '<div class="coop-tree-section"><h3>' + esc(s.name) + (s.code ? ' <span class="coop-code">' + esc(s.code) + '</span>' : '') + ' · ' + num((byS[s.id] || {}).n || 0) + ' ' + esc(T('producteurs', 'farmers')) + '</h3>' +
+      return '<div class="coop-tree-section"><h3>' + esc(s.name) + (s.code ? ' <span class="coop-code">' + esc(s.code) + '</span>' : '') + ' · ' + num((byS[s.id] || {}).n || 0) + ' ' + esc(T('producteurs', 'farmers')) +
+        (edit ? ' <span class="coop-row-acts"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.editSection(\'' + s.id + '\')">' + esc(T('Modifier', 'Edit')) + '</button><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_sections\',\'' + s.id + '\',false)">' + esc(T('Désactiver', 'Deactivate')) + '</button></span>' : '') + '</h3>' +
         (s.leader_name ? '<p class="muted" style="margin:0 0 6px;font-size:11px">' + esc(T('Responsable : ', 'Leader: ') + s.leader_name) + '</p>' : '') + (vs.length ? vs.map(vRow).join('') : '<div class="ops-empty">' + esc(T('Aucun village rattaché à cette section.', 'No village attached to this section.')) + '</div>') + '</div>';
     }).join('');
     var loose = act.filter(function (v) { return !v.section_id; });
     if (loose.length) tree += '<div class="coop-tree-section"><h3>' + esc(T('Villages sans section', 'Villages without section')) + '</h3>' + loose.map(vRow).join('') + '</div>';
-    var edit = canEdit() && !b.coop.archived;
+    /* Historique conservé : sections, villages et points désactivés restent visibles et réactivables. */
+    var offS = b.sections.filter(function (x) { return !x.active; }), offV = b.villages.filter(function (x) { return !x.active; }), offP = b.points.filter(function (x) { return !x.active; });
+    var hist = (offS.length || offV.length || offP.length) ? '<details class="coop-history"><summary>' + esc(T('Éléments retirés ou désactivés (historique)', 'Removed or deactivated items (history)')) + ' · ' + (offS.length + offV.length + offP.length) + '</summary>' +
+      offS.map(function (x) { return '<div class="coop-tree-row off"><div><b>' + esc(T('Section', 'Section') + ' ' + x.name) + '</b><small>' + esc(T('désactivée', 'deactivated')) + '</small></div>' + (edit ? '<div class="coop-row-acts"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_sections\',\'' + x.id + '\',true)">' + esc(T('Réactiver', 'Reactivate')) + '</button></div>' : '') + '</div>'; }).join('') +
+      offV.map(vRow).join('') +
+      offP.map(function (x) { return '<div class="coop-tree-row off"><div><b>' + esc(T('Point', 'Point') + ' ' + x.name) + '</b><small>' + esc(T('désactivé', 'deactivated')) + '</small></div>' + (edit ? '<div class="coop-row-acts"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_collection_points\',\'' + x.id + '\',true)">' + esc(T('Réactiver', 'Reactivate')) + '</button></div>' : '') + '</div>'; }).join('') + '</details>' : '';
+    tree += hist;
     document.getElementById('vsBox').innerHTML = '<div class="grid-2">' +
       card(T('Coopérative → Sections → Villages', 'Cooperative → Sections → Villages'), T('Les sections sont facultatives ; une coopérative couvre autant de villages que nécessaire.', 'Sections are optional; a cooperative covers as many villages as needed.'),
         '<div class="coop-tree">' + (tree || '<div class="ops-empty">' + esc(T('Aucun village couvert pour le moment.', 'No village covered yet.')) + '</div>') + '</div>',
         edit ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.addVillage()">+ ' + esc(T('Village', 'Village')) + '</button><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.addSection()">+ ' + esc(T('Section', 'Section')) + '</button>' : '') +
       card(T('Carte', 'Map'), T('Siège, villages et points de collecte.', 'Head office, villages and collection points.'), '<div id="coopMap" class="coop-map"></div>') + '</div>' +
-      card(T('Points de collecte', 'Collection points'), '', table([T('Point', 'Point'), T('Village', 'Village'), 'GPS', T('Capacité', 'Capacity'), T('Responsable', 'Manager'), T('Entrepôt destination', 'Destination warehouse')],
+      card(T('Points de collecte', 'Collection points'), '', table([T('Point', 'Point'), T('Village', 'Village'), 'GPS', T('Capacité', 'Capacity'), T('Responsable', 'Manager'), T('Entrepôt destination', 'Destination warehouse'), ''],
         b.points.filter(function (p) { return p.active; }).map(function (p) {
           var w = c.warehouses.filter(function (x) { return x.id === p.destination_warehouse_id; })[0];
           return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc((c.vm[p.village_id] || {}).village || p.village_name || '—') + '</td><td>' + (has(p.gps_lat) ? num(p.gps_lat, 5) + ', ' + num(p.gps_lng, 5) : na()) + '</td>' +
-            '<td>' + (has(p.capacity_mt) ? num(p.capacity_mt, 1) + ' MT' : na()) + '</td><td>' + val(p.manager_name) + '</td><td>' + esc(w ? w.code : '—') + '</td></tr>';
+            '<td>' + (has(p.capacity_mt) ? num(p.capacity_mt, 1) + ' MT' : na()) + '</td><td>' + val(p.manager_name) + (p.manager_phone ? '<br><small class="muted">' + esc(maskPhone(p.manager_phone)) + '</small>' : '') + '</td><td>' + esc(w ? w.code : '—') + '</td>' +
+            '<td>' + (edit ? '<div class="coop-actions-cell"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.editPoint(\'' + p.id + '\')">' + esc(T('Modifier', 'Edit')) + '</button><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_collection_points\',\'' + p.id + '\',false)">' + esc(T('Désactiver', 'Deactivate')) + '</button></div>' : '') + '</td></tr>';
         }), T('Aucun point de collecte déclaré.', 'No collection point declared.')), edit ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.addPoint()">+ ' + esc(T('Point de collecte', 'Collection point')) + '</button>' : '');
     drawMap(b, c);
   }).catch(function (e) { document.getElementById('vsBox').innerHTML = errBox(e); });
@@ -1194,6 +1222,134 @@ function simpleForm(title, sub, fieldsHtml, onSave) {
 }
 function insertRow(tableName, row) { return client().then(function (cl) { return cl.from(tableName).insert(row).then(function (r) { if (r.error) throw new Error(r.error.message); }); }); }
 function updateRow(tableName, id, patch) { return client().then(function (cl) { return cl.from(tableName).update(patch).eq('id', id).then(function (r) { if (r.error) throw new Error(r.error.message); }); }); }
+
+/* Finalisation 2027 : modification sûre de la structure. Verrou optimiste par updated_at : si quelqu'un a modifié
+   la ligne entre la lecture et l'enregistrement, aucune ligne n'est mise à jour et l'utilisateur est prévenu
+   (jamais d'écrasement silencieux). Chaque modification est journalisée côté serveur (avant / après, auteur). */
+var CONFLIT = ['Cette fiche a été modifiée par un autre utilisateur. Rechargez les données avant d’enregistrer.', 'This record was changed by another user. Reload the data before saving.'];
+function updateSafe(tableName, row, patch) {
+  return client().then(function (cl) {
+    var r = cl.from(tableName).update(patch).eq('id', row.id);
+    if (row.updated_at) r = r.eq('updated_at', row.updated_at);
+    return r.select('id').then(function (x) {
+      if (x.error) throw new Error(x.error.message);
+      if (!x.data || !x.data.length) throw new Error(T(CONFLIT[0], CONFLIT[1]));
+    });
+  });
+}
+function findIn(b, key, id) { return (b[key] || []).filter(function (x) { return x.id === id; })[0]; }
+var TABLE_KEY = { aflp_coop_villages: 'villages', aflp_coop_sections: 'sections', aflp_coop_collection_points: 'points', aflp_coop_contacts: 'contacts' };
+function toggleRow(tableName, id, active) {
+  var cid = currentCoopId();
+  bundle(cid).then(function (b) {
+    var row = findIn(b, TABLE_KEY[tableName], id); if (!row) return;
+    if (!active && !confirm(T('Désactiver cet élément ? Il reste dans l’historique et pourra être réactivé.', 'Deactivate this item? It stays in history and can be reactivated.'))) return;
+    var patch = { active: !!active };
+    if (tableName === 'aflp_coop_contacts') patch.end_date = active ? null : new Date().toISOString().slice(0, 10);
+    return updateSafe(tableName, row, patch).then(function () { toast(active ? T('Réactivé.', 'Reactivated.') : T('Désactivé (historique conservé).', 'Deactivated (history kept).')); refreshFiche(); });
+  }).catch(function (e) { alert(e.message); });
+}
+function sectionOpts(b, cur) { return '<option value="">—</option>' + b.sections.filter(function (s) { return s.active || s.id === cur; }).map(function (s) { return '<option value="' + s.id + '"' + (s.id === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join(''); }
+function pointOpts(b, cur) { return '<option value="">—</option>' + b.points.filter(function (p) { return p.active || p.id === cur; }).map(function (p) { return '<option value="' + p.id + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join(''); }
+function whOpts(c, cur) { return '<option value="">—</option>' + c.warehouses.map(function (w) { return '<option value="' + w.id + '"' + (w.id === cur ? ' selected' : '') + '>' + esc(w.code + ' · ' + (w.name || '')) + '</option>'; }).join(''); }
+function numOrNullV(v) { return v === '' || v == null ? null : Number(v); }
+function editVillage(id) {
+  var cid = currentCoopId();
+  Promise.all([bundle(cid), refs()]).then(function (rs) {
+    var b = rs[0], c = rs[1], v = findIn(b, 'villages', id); if (!v) return;
+    var x = c.vm[v.village_id] || {};
+    simpleForm(T('Modifier le village couvert', 'Edit covered village') + ' — ' + (x.village || v.village_name || ''), T('Le village du référentiel ne se change pas ici : retirez-le puis ajoutez le bon village (l’historique est conservé).', 'The registry village is not changed here: remove it and add the right one (history is kept).'),
+      selectField(T('Section', 'Section'), 'section_id', sectionOpts(b, v.section_id)) +
+      field(T('Producteurs déclarés', 'Declared farmers'), 'declared_producers', v.declared_producers, 'type="number" min="0"') +
+      field(T('Potentiel déclaré (MT)', 'Declared potential (MT)'), 'declared_potential_mt', v.declared_potential_mt, 'type="number" min="0" step="0.1"') +
+      field(T('Responsable local', 'Local leader'), 'leader_name', v.leader_name) +
+      selectField(T('Point de collecte', 'Collection point'), 'collection_point_id', pointOpts(b, v.collection_point_id)) +
+      field(T('Observations', 'Notes'), 'notes', v.notes, 'maxlength="500"', 'span-3'),
+      function (d) {
+        return updateSafe('aflp_coop_villages', v, { section_id: d.section_id || null, declared_producers: numOrNullV(d.declared_producers), declared_potential_mt: numOrNullV(d.declared_potential_mt),
+          leader_name: d.leader_name || null, collection_point_id: d.collection_point_id || null, notes: d.notes || null });
+      });
+  }).catch(function (e) { alert(e.message); });
+}
+function editSection(id) {
+  var cid = currentCoopId();
+  bundle(cid).then(function (b) {
+    var s = findIn(b, 'sections', id); if (!s) return;
+    simpleForm(T('Modifier / renommer la section', 'Edit / rename section'), '',
+      field(T('Nom *', 'Name *'), 'name', s.name, 'maxlength="80"') + field('Code', 'code', s.code, 'maxlength="20"') +
+      field(T('Responsable', 'Leader'), 'leader_name', s.leader_name) + field(T('Téléphone responsable', 'Leader phone'), 'leader_phone', s.leader_phone, 'inputmode="tel"') +
+      selectField(T('Point de collecte', 'Collection point'), 'collection_point_id', pointOpts(b, s.collection_point_id)) +
+      field(T('Observations', 'Notes'), 'notes', s.notes, 'maxlength="500"', 'span-3'),
+      function (d) {
+        if (!d.name) throw new Error(T('Nom obligatoire.', 'Name required.'));
+        if (d.leader_phone) { d.leader_phone = phoneCI(d.leader_phone); if (!/^0\d{9}$/.test(d.leader_phone)) throw new Error(T('Téléphone : 10 chiffres.', 'Phone: 10 digits.')); }
+        return updateSafe('aflp_coop_sections', s, { name: d.name, code: d.code || null, leader_name: d.leader_name || null, leader_phone: d.leader_phone || null,
+          collection_point_id: d.collection_point_id || null, notes: d.notes || null });
+      });
+  }).catch(function (e) { alert(e.message); });
+}
+function editPoint(id) {
+  var cid = currentCoopId();
+  Promise.all([bundle(cid), refs()]).then(function (rs) {
+    var b = rs[0], c = rs[1], p = findIn(b, 'points', id); if (!p) return;
+    simpleForm(T('Modifier le point de collecte', 'Edit collection point'), '',
+      field(T('Nom *', 'Name *'), 'name', p.name) +
+      selectField(T('Village', 'Village'), 'village_id', '<option value="">—</option>' + c.villages.map(function (v) { return '<option value="' + esc(v.id) + '"' + (v.id === p.village_id ? ' selected' : '') + '>' + esc(v.village) + '</option>'; }).join('')) +
+      field(T('Latitude', 'Latitude'), 'gps_lat', p.gps_lat, 'type="number" step="0.000001" min="-90" max="90"') + field(T('Longitude', 'Longitude'), 'gps_lng', p.gps_lng, 'type="number" step="0.000001" min="-180" max="180"') +
+      '<label>&nbsp;<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.gps(\'sfForm\')">' + esc(T('Capter ma position', 'Use my position')) + '</button></label>' +
+      field(T('Capacité (MT)', 'Capacity (MT)'), 'capacity_mt', p.capacity_mt, 'type="number" min="0" step="0.1"') + field(T('Responsable', 'Manager'), 'manager_name', p.manager_name) +
+      field(T('Téléphone responsable', 'Manager phone'), 'manager_phone', p.manager_phone, 'inputmode="tel"') +
+      selectField(T('Entrepôt destination', 'Destination warehouse'), 'destination_warehouse_id', whOpts(c, p.destination_warehouse_id)) +
+      field(T('Observations', 'Notes'), 'notes', p.notes, 'maxlength="500"', 'span-3'),
+      function (d) {
+        if (!d.name) throw new Error(T('Nom obligatoire.', 'Name required.'));
+        if (d.manager_phone) { d.manager_phone = phoneCI(d.manager_phone); if (!/^0\d{9}$/.test(d.manager_phone)) throw new Error(T('Téléphone : 10 chiffres.', 'Phone: 10 digits.')); }
+        return updateSafe('aflp_coop_collection_points', p, { name: d.name, village_id: d.village_id || null, gps_lat: numOrNullV(d.gps_lat), gps_lng: numOrNullV(d.gps_lng),
+          capacity_mt: numOrNullV(d.capacity_mt), manager_name: d.manager_name || null, manager_phone: d.manager_phone || null,
+          destination_warehouse_id: d.destination_warehouse_id || null, notes: d.notes || null });
+      });
+  }).catch(function (e) { alert(e.message); });
+}
+function editContact(id) {
+  var cid = currentCoopId();
+  bundle(cid).then(function (b) {
+    var x = findIn(b, 'contacts', id); if (!x) return;
+    simpleForm(T('Modifier le responsable', 'Edit officer'), T('Un responsable de coopérative reste un contact : il ne devient jamais RT et n’a pas accès à l’application.', 'A cooperative officer stays a contact: never an RT, no application access.'),
+      selectField(T('Fonction *', 'Role *'), 'role', opts('contact', x.role)) + field(T('Nom complet *', 'Full name *'), 'full_name', x.full_name, 'maxlength="120"') +
+      field(T('Téléphone', 'Phone'), 'phone', x.phone, 'inputmode="tel"') + field('Email', 'email', x.email, 'type="email"') +
+      selectField(T('Section', 'Section'), 'section_id', sectionOpts(b, x.section_id)) +
+      field(T('Début de fonction', 'Start date'), 'start_date', x.start_date, 'type="date"') + field(T('Fin de fonction', 'End date'), 'end_date', x.end_date, 'type="date"') +
+      '<label class="coop-check"><input type="checkbox" name="is_primary"' + (x.is_primary ? ' checked' : '') + '> ' + esc(T('Contact principal', 'Main contact')) + '</label>',
+      function (d) {
+        if (!d.full_name) throw new Error(T('Nom obligatoire.', 'Name required.'));
+        if (d.phone) { d.phone = phoneCI(d.phone); if (!/^0\d{9}$/.test(d.phone)) throw new Error(T('Téléphone : 10 chiffres.', 'Phone: 10 digits.')); }
+        if (d.start_date && d.end_date && d.end_date < d.start_date) throw new Error(T('La date de fin doit être postérieure à la date de début.', 'End date must be after start date.'));
+        return updateSafe('aflp_coop_contacts', x, { role: d.role, full_name: d.full_name.toUpperCase(), phone: d.phone || null, email: d.email || null, section_id: d.section_id || null,
+          start_date: d.start_date || null, end_date: d.end_date || null, is_primary: !!d.is_primary, active: d.end_date ? d.end_date > new Date().toISOString().slice(0, 10) : x.active });
+      });
+  }).catch(function (e) { alert(e.message); });
+}
+var MEMBER_STATUS_EDIT = ['ACTIVE', 'PENDING', 'SUSPENDED'];
+function editMember(mid) {
+  var cid = currentCoopId();
+  Promise.all([bundle(cid), refs(), q('aflp_coop_memberships', '*', function (r) { return r.eq('id', mid).limit(1); })]).then(function (rs) {
+    var b = rs[0], c = rs[1], m = rs[2][0]; if (!m) throw new Error(T('Affiliation introuvable.', 'Membership not found.'));
+    var vids = {}; b.villages.forEach(function (v) { if (v.village_id) vids[v.village_id] = 1; });
+    var rts = c.rts.filter(function (r) { return vids[r.village_id] || r.id === m.followup_rt_id; });
+    if (!rts.length) rts = c.rts;
+    simpleForm(T('Modifier l’affiliation', 'Edit membership'), T('Le Farmer ID ne change jamais. Pour changer de coopérative, utilisez « Changer de coop. » (l’ancienne affiliation est clôturée et conservée).',
+        'The Farmer ID never changes. To change cooperative, use “Change coop.” (the previous membership is closed and kept).'),
+      field('Member ID', 'member_number', m.member_number, 'maxlength="40"') +
+      selectField(T('Section', 'Section'), 'section_id', sectionOpts(b, m.section_id)) +
+      selectField(T('RT de suivi (contrôle de caisse en mode A)', 'Follow-up RT (cash control in mode A)'), 'followup_rt_id', '<option value="">—</option>' + rts.map(function (r) { return '<option value="' + esc(r.id) + '"' + (r.id === m.followup_rt_id ? ' selected' : '') + '>' + esc((r.id_rt || r.id) + ' · ' + r.nom) + '</option>'; }).join(''), 'span-2') +
+      selectField(T('Statut d’adhésion', 'Membership status'), 'status', MEMBER_STATUS_EDIT.map(function (k) { return '<option value="' + k + '"' + (k === m.status ? ' selected' : '') + '>' + esc(L('memberStatus', k)) + '</option>'; }).join('')) +
+      field(T('Observations', 'Notes'), 'notes', m.notes, 'maxlength="500"', 'span-3'),
+      function (d) {
+        return updateSafe('aflp_coop_memberships', m, { member_number: d.member_number || null, section_id: d.section_id || null, followup_rt_id: d.followup_rt_id || null,
+          status: d.status, notes: d.notes || null });
+      });
+  }).catch(function (e) { alert(e.message); });
+}
 function addVillage() {
   var id = currentCoopId();
   Promise.all([bundle(id), refs()]).then(function (rs) {
@@ -1243,12 +1399,14 @@ function addPoint() {
 TAB_RENDER.contacts = function (b, c) {
   var cc = b.campaign || {}, rt = c.rm[cc.referent_rt_id], edit = canEdit() && !b.coop.archived;
   return '<div class="notice info">' + esc(T('Les responsables de la coopérative sont des contacts : ils ne deviennent jamais des RT et n’ont aucun accès à l’application.', 'Cooperative officers are contacts: they never become RTs and have no access to the application.')) + '</div>' +
-    card(T('Responsables de la coopérative', 'Cooperative officers'), '', table([T('Fonction', 'Role'), T('Nom', 'Name'), T('Téléphone', 'Phone'), 'Email', T('Section', 'Section'), T('Statut', 'Status'), ''],
+    card(T('Responsables de la coopérative', 'Cooperative officers'), '', table([T('Fonction', 'Role'), T('Nom', 'Name'), T('Téléphone', 'Phone'), 'Email', T('Section', 'Section'), T('Période', 'Period'), T('Statut', 'Status'), ''],
       b.contacts.map(function (x) {
         var s = b.sections.filter(function (z) { return z.id === x.section_id; })[0];
         return '<tr><td>' + esc(L('contact', x.role)) + (x.is_primary ? ' ' + badge(T('principal', 'main'), 'ok') : '') + '</td><td><b>' + esc(x.full_name) + '</b></td><td>' + val(x.phone) + '</td><td>' + val(x.email) + '</td>' +
-          '<td>' + esc(s ? s.name : '—') + '</td><td>' + badge(x.active ? T('Actif', 'Active') : T('Inactif', 'Inactive'), x.active ? 'ok' : 'info') + '</td>' +
-          '<td>' + (edit && x.active ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.deactivateContact(\'' + x.id + '\')">' + esc(T('Désactiver', 'Deactivate')) + '</button>' : '') + '</td></tr>';
+          '<td>' + esc(s ? s.name : '—') + '</td><td>' + (x.start_date || x.end_date ? esc((x.start_date ? date(x.start_date) : '…') + ' → ' + (x.end_date ? date(x.end_date) : T('en cours', 'ongoing'))) : na()) + '</td>' +
+          '<td>' + badge(x.active ? T('Actif', 'Active') : T('Inactif', 'Inactive'), x.active ? 'ok' : 'info') + '</td>' +
+          '<td>' + (edit ? '<div class="coop-actions-cell"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.editContact(\'' + x.id + '\')">' + esc(T('Modifier', 'Edit')) + '</button>' +
+            (x.active ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.deactivateContact(\'' + x.id + '\')">' + esc(T('Désactiver', 'Deactivate')) + '</button>' : '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.toggleRow(\'aflp_coop_contacts\',\'' + x.id + '\',true)">' + esc(T('Réactiver', 'Reactivate')) + '</button>') + '</div>' : '') + '</td></tr>';
       }), T('Aucun responsable enregistré (président à compléter).', 'No officer recorded (president to complete).')),
       edit ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.addContact()">+ ' + esc(T('Responsable', 'Officer')) + '</button>' : '') +
     card(T('Encadrement AFLP', 'AFLP supervision'), T('Référents ANAGROCI de la coopérative pour la campagne.', 'ANAGROCI referents for this cooperative during the campaign.'),
@@ -1260,15 +1418,16 @@ function addContact() {
   bundle(id).then(function (b) {
     simpleForm(T('Ajouter un responsable', 'Add an officer'), '', selectField(T('Fonction *', 'Role *'), 'role', opts('contact', 'SECRETAIRE')) + field(T('Nom complet *', 'Full name *'), 'full_name', '', 'maxlength="120"') +
       field(T('Téléphone', 'Phone'), 'phone', '', 'inputmode="tel"') + field('Email', 'email', '', 'type="email"') +
-      selectField(T('Section', 'Section'), 'section_id', '<option value="">—</option>' + b.sections.filter(function (s) { return s.active; }).map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join('')),
+      selectField(T('Section', 'Section'), 'section_id', '<option value="">—</option>' + b.sections.filter(function (s) { return s.active; }).map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join('')) +
+      field(T('Début de fonction', 'Start date'), 'start_date', '', 'type="date"'),
       function (d) {
         if (!d.full_name) throw new Error(T('Nom obligatoire.', 'Name required.'));
         if (d.phone) { d.phone = phoneCI(d.phone); if (!/^0\d{9}$/.test(d.phone)) throw new Error(T('Téléphone : 10 chiffres.', 'Phone: 10 digits.')); }
-        return insertRow('aflp_coop_contacts', { cooperative_id: id, role: d.role, full_name: d.full_name.toUpperCase(), phone: d.phone || null, email: d.email || null, section_id: d.section_id || null });
+        return insertRow('aflp_coop_contacts', { cooperative_id: id, role: d.role, full_name: d.full_name.toUpperCase(), phone: d.phone || null, email: d.email || null, section_id: d.section_id || null, start_date: d.start_date || null });
       });
   });
 }
-function deactivateContact(cid) { if (!confirm(T('Désactiver ce responsable ? Il reste dans l’historique.', 'Deactivate this officer? It stays in history.'))) return; updateRow('aflp_coop_contacts', cid, { active: false }).then(refreshFiche).catch(function (e) { alert(e.message); }); }
+function deactivateContact(cid) { toggleRow('aflp_coop_contacts', cid, false); }
 
 /* -------------------------------------------------------- 5. Production & Potentiel */
 TAB_RENDER.potential = function () { return '<div id="ppBox">' + skeleton() + '</div>'; };
@@ -1686,6 +1845,7 @@ global.ANAGROCI_COOP = {
   render: render, fillOverview: fillOverview, fillChannel: fillChannel, view: setView, exportList: exportList, exportMembers: exportMembers,
   addMember: function (id, linkOnly) { enrolMod(linkOnly ? 'link' : 'enroll', id); }, verify: verify, primary: primary, endMember: endMember, transfer: transfer, closeHost: closeHost, gps: gps,
   addVillage: addVillage, addSection: addSection, addPoint: addPoint, addContact: addContact, deactivateContact: deactivateContact,
+  editVillage: editVillage, editSection: editSection, editPoint: editPoint, editContact: editContact, editMember: editMember, toggleRow: toggleRow,
   planDelivery: planDelivery, addTraining: addTraining, attendance: attendance, receive: receive, allocate: allocate, uploadDoc: uploadDoc, openDoc: openDoc,
   statusDialog: statusDialog, archive: archive, createSupplier: createSupplier, linkSupplier: linkSupplier,
   enroll: function (id) { enrolMod('enroll', id); }, linkExisting: function (id) { enrolMod('link', id); }, reviews: function (id) { enrolMod('reviews', id); },
