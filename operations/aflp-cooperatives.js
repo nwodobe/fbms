@@ -17,7 +17,14 @@
 (function (global) {
 'use strict';
 
-var CAMPAIGN = '2027';
+/* Multi-campagnes : campagne active du contexte partagé (workspace.js). Avant : '2027' en dur. */
+var CAMPAIGN = (window.ANAGROCI_CAMPAIGN && window.ANAGROCI_CAMPAIGN.code()) || '';
+function campaignOptions() {
+  var l = window.ANAGROCI_CAMPAIGN ? window.ANAGROCI_CAMPAIGN.list() : [];
+  var o = l.map(function (c) { return [c.code, c.code + ' · ' + (c.name || '')]; });
+  if (!o.some(function (x) { return x[0] === CAMPAIGN; }) && CAMPAIGN) o.unshift([CAMPAIGN, CAMPAIGN]);
+  return o;
+}
 var PHOTO = '../assets/operations/modules/field-buying-real-photo.webp';
 var XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 var DOC_BUCKET = 'aflp-coop-docs';
@@ -259,7 +266,7 @@ function filterBar(rows, c) {
       options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === cur ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>';
   }
   return '<section class="card"><div class="coop-filters">' +
-    sel('campaign', T('Campagne', 'Campaign'), [['2027', '2027'], ['2028', '2028'], ['2026', '2026']], F.campaign).replace('<option value="">' + esc(T('Tous', 'All')) + '</option>', '') +
+    sel('campaign', T('Campagne', 'Campaign'), campaignOptions(), F.campaign).replace('<option value="">' + esc(T('Tous', 'All')) + '</option>', '') +
     sel('zone', T('Zone', 'Zone'), c.zones.map(function (z) { return [z.code, z.label || z.code]; }), F.zone) +
     sel('cluster', T('Cluster', 'Cluster'), c.clusters.filter(function (k) { return !F.zone || k.zone_code === F.zone; }).map(function (k) { return [k.code, k.label]; }), F.cluster) +
     sel('departement', T('Département', 'Department'), uniq('departement').map(function (x) { return [x, x]; }), F.departement) +

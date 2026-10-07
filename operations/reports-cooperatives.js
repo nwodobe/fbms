@@ -14,7 +14,7 @@ function num(v, d) { return new Intl.NumberFormat(lang() === 'en' ? 'en-GB' : 'f
 function na() { return '<span class="coop-na">' + esc(T('NON COLLECTÉ', 'NOT RECORDED')) + '</span>'; }
 var sb = null;
 function client() { if (sb) return Promise.resolve(sb); return new Promise(function (res) { var k = 0, t = setInterval(function () { k++; if (g.supabase && g.ANAGROCI_SUPABASE_URL && g.ANAGROCI_SUPABASE_ANON) { clearInterval(t); sb = g.supabase.createClient(g.ANAGROCI_SUPABASE_URL, g.ANAGROCI_SUPABASE_ANON); res(sb); } else if (k > 120) { clearInterval(t); res(null); } }, 80); }); }
-var F = { campaign: '2027', channel: '', coop: '', coop_status: '', zone: '', cluster: '', village_id: '', section_id: '', producer: '', date_from: '', date_to: '' };
+var F = { campaign: (window.ANAGROCI_CAMPAIGN && window.ANAGROCI_CAMPAIGN.code()) || '', channel: '', coop: '', coop_status: '', zone: '', cluster: '', village_id: '', section_id: '', producer: '', date_from: '', date_to: '' };
 var REF = null, R = null, SECTIONS = [];
 var ST = { PROSPECT: ['Prospect', 'Prospect'], EN_EVALUATION: ['En évaluation', 'Under review'], A_COMPLETER: ['À compléter', 'To complete'], APPROUVEE: ['Approuvée', 'Approved'], ACTIVE: ['Active', 'Active'], SUSPENDUE: ['Suspendue', 'Suspended'], SORTIE: ['Sortie du programme', 'Exited programme'] };
 function st(k) { return ST[k] ? T(ST[k][0], ST[k][1]) : (k || '—'); }
@@ -45,7 +45,7 @@ function filterBar() {
   var clCodes = {}; cl.forEach(function (x) { clCodes[x.code] = 1; });
   var vil = REF.villages.filter(function (v) { return F.cluster ? v.cluster_code === F.cluster : (!F.zone || clCodes[v.cluster_code]); });
   return '<div class="coop-filters coop-report-filters" style="margin-bottom:12px">' +
-    sel('campaign', T('Campagne', 'Campaign'), [['2027', '2027'], ['2028', '2028'], ['2026', '2026']], false) +
+    sel('campaign', T('Campagne', 'Campaign'), (window.ANAGROCI_CAMPAIGN ? window.ANAGROCI_CAMPAIGN.list() : []).map(function (c) { return [c.code, c.code + ' · ' + (c.name || '')]; }), false) +
     sel('channel', T('Canal', 'Channel'), [['AFLP_DIRECT', T('Direct AFLP (RT)', 'Direct AFLP (RT)')], ['COOPERATIVE', T('Coopératives', 'Cooperatives')]]) +
     sel('coop', T('Coopérative', 'Cooperative'), REF.coops.map(function (r) { return [r.id, r.code + ' · ' + r.name]; })) +
     sel('coop_status', T('Statut coopérative', 'Cooperative status'), Object.keys(ST).map(function (k) { return [k, st(k)]; })) +
@@ -102,7 +102,7 @@ function draw() {
       clearTimeout(t); t = setTimeout(load, ev === 'input' ? 400 : 0);
     });
   });
-  var rs = document.getElementById('rfReset'); if (rs) rs.onclick = function () { Object.keys(F).forEach(function (k) { F[k] = k === 'campaign' ? '2027' : ''; }); load(); };
+  var rs = document.getElementById('rfReset'); if (rs) rs.onclick = function () { Object.keys(F).forEach(function (k) { F[k] = k === 'campaign' ? ((window.ANAGROCI_CAMPAIGN && window.ANAGROCI_CAMPAIGN.code()) || '') : ''; }); load(); };
 }
 function load() {
   return client().then(function (c) {

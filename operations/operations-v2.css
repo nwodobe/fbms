@@ -225,3 +225,33 @@
   .pf-table td.pf-name::before{display:none}
   .pf-table td.pf-lo{display:none}
 }
+
+/* Multi-campagnes : campagne active dans l'en-tête, bandeaux clôture / simulation. */
+.ops-camp-slot{display:inline-flex}
+.ops-camp{position:relative;display:inline-flex;align-items:center;gap:6px;color:#eafff2;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 11px;font:700 12px var(--font-body,Arial),sans-serif;white-space:nowrap;background:rgba(255,255,255,.06)}
+details.ops-camp{padding:0;border:0;background:none}
+details.ops-camp>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 11px;background:rgba(255,255,255,.06)}
+details.ops-camp>summary::-webkit-details-marker{display:none}
+details.ops-camp>summary::after{content:"▾";opacity:.8}
+details.ops-camp[open]>summary{background:rgba(255,255,255,.14)}
+.ops-camp .camp-lbl{font-weight:600;opacity:.8;font-size:11px}
+.ops-camp b{font-family:var(--font-mono,monospace);font-size:13px;color:#fff}
+.ops-camp.is-sim>summary,.ops-camp.is-sim:not(details){border-color:#F2B233;background:rgba(242,178,51,.16)}
+.camp-badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;letter-spacing:.03em;background:#8DC556;color:#053B23}
+.camp-badge.sim{background:#F2B233;color:#3D2A00}
+.camp-badge.st-closing{background:#F2D16B;color:#3D2A00}
+.camp-badge.st-closed,.camp-badge.st-archived{background:#E3E8E5;color:#36443C}
+.camp-badge.st-draft,.camp-badge.st-planning,.camp-badge.st-ready{background:#DDEFE3;color:#0D5A31}
+.camp-manage{color:#bff0cf;font-weight:800;font-size:11px;text-decoration:underline}
+.ops-camp-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:290px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #d9e4dc;border-radius:12px;box-shadow:0 14px 34px rgba(5,59,35,.18);padding:6px;display:grid;white-space:normal}
+.ops-camp-menu .camp-grp{padding:8px 10px 4px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6B7A72}
+.ops-camp-menu button{border:0;background:#fff;text-align:left;padding:9px 10px;border-radius:8px;color:#053B23;font-size:12.5px;cursor:pointer}
+.ops-camp-menu button:hover,.ops-camp-menu button.on{background:#eef6e8}
+.ops-camp-menu button.on b::before{content:"● ";color:#8DC556}
+.ops-camp-menu .camp-manage{display:block;padding:10px;color:#00712C;text-decoration:none;border-top:1px solid #edf2ee;margin-top:4px}
+.camp-banner{margin:0 0 14px;padding:11px 14px;border-radius:12px;font-weight:700;font-size:13px;line-height:1.45;border:1px solid}
+.camp-banner.closed{background:#F1F3F2;border-color:#C9D2CD;color:#2F3D35}
+.camp-banner.closing{background:#FFF7E0;border-color:#F2D16B;color:#5C4400}
+.camp-banner.sim{background:#FFF3D6;border-color:#F2B233;color:#5C3D00}
+.camp-banner.closed.sim{background:repeating-linear-gradient(135deg,#FFF3D6 0 14px,#F1F3F2 14px 28px)}
+@media(max-width:560px){.ops-camp .camp-lbl{display:none}.ops-camp-menu{left:0;right:auto;min-width:240px}}

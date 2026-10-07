@@ -263,7 +263,7 @@ async function lbaProfile(id){
  field('N° document','document_number','text','')+
  field('Date émission','issue_date','date','')+
  field('Date expiration','expiry_date','date','')+
- field('Campagne','campaign','text','2027')+
+ field('Campagne','campaign','text',(window.ANAGROCI_CAMPAIGN&&window.ANAGROCI_CAMPAIGN.code())||'')+
  field('Note','note','text','')+
  '<div class="ops-field"><label>Fichier</label><input name="file" type="file" accept=".pdf,image/jpeg,image/png,image/webp" required></div>'+
  '</div><div class="ops-actions"><button class="btn primary">Ajouter le document</button></div><div id="lbaDocMsg" class="muted"></div></form>'+
@@ -367,7 +367,7 @@ async function supplierProfile(id){
  field('N° document','document_number','text','')+
  field('Date émission','issue_date','date','')+
  field('Date expiration','expiry_date','date','')+
- field('Campagne','campaign','text','2027')+
+ field('Campagne','campaign','text',(window.ANAGROCI_CAMPAIGN&&window.ANAGROCI_CAMPAIGN.code())||'')+
  field('Note','note','text','')+
  '<div class="ops-field"><label>Fichier</label><input name="file" type="file" accept=".pdf,image/jpeg,image/png,image/webp" required></div>'+
  '</div><div class="ops-actions"><button class="btn primary">Ajouter le document</button></div><div id="supplierDocMsg" class="muted"></div></form>'+
