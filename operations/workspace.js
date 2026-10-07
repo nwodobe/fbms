@@ -125,7 +125,7 @@
     var top = document.getElementById('opsTopbar');
     if (top) top.innerHTML = '<a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a>' +
       '<div class="ops-title"><strong>'+esc(c.title)+'</strong><small>'+esc(c.subtitle)+'</small></div>' +
-      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-userslot"></span></div>';
+      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
     var side = document.getElementById('opsSidebar');
     if (side) {
       var active = routeName();
