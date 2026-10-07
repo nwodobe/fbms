@@ -25,6 +25,30 @@ var REASON = {
 };
 function reasonLabel(k) { var x = REASON[k]; return x ? K().T(x[0], x[1]) : k; }
 function cleanErr(m) { return String(m || '').replace(/^(DOUBLON_FORT|DOUBLON_POSSIBLE|A_COMPLETER): ?/, ''); }
+/* Motifs serveur connus → libellé dans la langue de l'écran (les autres restent tels quels). */
+var REASON_TXT = [
+  [/^Farmer ID déjà attribué/, 'Farmer ID déjà attribué dans le registre', 'Farmer ID already assigned in the registry'],
+  [/^Correspondance forte/, 'Correspondance forte (téléphone) avec un producteur existant', 'Strong match (phone) with an existing farmer'],
+  [/^Correspondance possible/, 'Correspondance possible (nom / village) avec un producteur existant', 'Possible match (name / village) with an existing farmer'],
+  [/^Correspondance (\d+)/, null, null],
+  [/village manquant ou absent/, 'Village manquant ou absent du référentiel AFLP', 'Village missing or not in the AFLP registry'],
+  [/village inconnu/, 'Village inconnu du référentiel AFLP', 'Village not in the AFLP registry'],
+  [/nom du producteur manquant|^nom manquant/, 'Nom du producteur manquant', 'Farmer name missing'],
+  [/village non rattaché/, 'Village non rattaché au référentiel', 'Village not mapped to the registry'],
+  [/^Données insuffisantes/, 'Données insuffisantes', 'Insufficient data'],
+  [/^Doublon possible à vérifier/, 'Doublon possible à vérifier', 'Possible duplicate to review'],
+  [/^doublon dans le fichier \(ligne (\d+)\)/, null, null]
+];
+function reasonText(m) {
+  var k = K(), t = cleanErr(m);
+  for (var i = 0; i < REASON_TXT.length; i++) {
+    var x = REASON_TXT[i], mm = t.match(x[0]); if (!mm) continue;
+    if (x[1]) return k.T(x[1], x[2]);
+    if (/^Correspondance/.test(t)) return k.T('Correspondance ', 'Match ') + mm[1] + ' % ' + k.T(': à vérifier', ': to review');
+    return k.T('doublon dans le fichier (ligne ', 'duplicate in file (row ') + mm[1] + ')';
+  }
+  return t;
+}
 function opt(list, sel, empty) {
   var k = K();
   return (empty != null ? '<option value="">' + k.esc(empty) + '</option>' : '') + list.map(function (x) {
@@ -305,7 +329,7 @@ function reviews(coopId) {
           '<div>' + k.badge(r.category === 'DOUBLON_A_VERIFIER' ? T('Doublon à vérifier', 'Duplicate to review') : T('À compléter', 'To complete'), 'warn') +
           (r.top_confidence != null ? ' ' + k.badge(T('score ', 'score ') + r.top_confidence + ' %', r.top_confidence >= 85 ? 'danger' : 'warn') : '') +
           ' <small class="muted">' + esc((r.source === 'IMPORT_EXCEL' ? T('Import, ligne ', 'Import, row ') + (r.row_index || '?') : T('Formulaire', 'Form')) + ' · ' + k.date(r.created_at)) + '</small></div></div>' +
-          '<p class="muted" style="margin:6px 0">' + esc(T('Motif : ', 'Reason: ') + cleanErr(r.reason || '—')) + '</p>' +
+          '<p class="muted" style="margin:6px 0">' + esc(T('Motif : ', 'Reason: ') + reasonText(r.reason || '—')) + '</p>' +
           (m.length ? '<div class="coop-review-matches">' + m.map(function (x) {
             return '<label class="coop-review-match"><input type="radio" name="pick-' + r.id + '" value="' + esc(x.producer_id) + '"> <b class="mono">' + esc(x.farmer_id || '—') + '</b> · ' + esc(reasonLabel(x.reason)) + ' · ' + x.confidence + ' %</label>';
           }).join('') + '</div>' : '') +
@@ -370,5 +394,5 @@ function reviews(coopId) {
   }).catch(function (e) { alert(e.message); });
 }
 
-global.ANAGROCI_COOP_ENROL = { enroll: enroll, link: link, reviews: reviews, reviewCount: reviewCount, reasonLabel: reasonLabel, matchesHtml: matchesHtml };
+global.ANAGROCI_COOP_ENROL = { enroll: enroll, link: link, reviews: reviews, reviewCount: reviewCount, reasonLabel: reasonLabel, reasonText: reasonText, matchesHtml: matchesHtml };
 })(window);
