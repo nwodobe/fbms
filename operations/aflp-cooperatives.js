@@ -51,6 +51,7 @@ var LBL = {
   alloc: { ALLOCATION_A_COMPLETER: ['Allocation à compléter', 'Allocation to complete'], ALLOUEE_PREVISION: ['Allouée (prévision)', 'Allocated (planned)'], TRACABLE: ['Traçable producteur', 'Farmer-traceable'], ANNULEE: ['Annulée', 'Cancelled'] },
   channel: { AFLP_DIRECT: ['Direct RT', 'Direct RT'], COOPERATIVE: ['Coopérative', 'Cooperative'], MIXTE: ['Mixte', 'Mixed'], NON_RENSEIGNE: ['Non renseigné', 'Not recorded'] },
   passport: { INCOMPLETE: ['Incomplet', 'Incomplete'], BASIC: ['Basique', 'Basic'], MAPPED: ['Cartographié', 'Mapped'], BASELINE: ['Baseline', 'Baseline'], VERIFIED: ['Vérifié', 'Verified'] },
+  trace: { TRACABLE_PRODUCTEUR: ['Traçable producteur', 'Farmer-traceable'], ORGANISATION_SEULEMENT: ['Organisation seulement', 'Organisation only'], EN_ATTENTE_RECEPTION: ['En attente de réception', 'Awaiting reception'], ANNULEE: ['Annulée', 'Cancelled'] },
   consent: { NOT_RECORDED: ['Non recueilli', 'Not recorded'], GRANTED: ['Accordé', 'Granted'], PARTIAL: ['Partiel', 'Partial'], REFUSED: ['Refusé', 'Refused'], WITHDRAWN: ['Retiré', 'Withdrawn'] }
 };
 var REQUIRED_DOCS = ['AGREMENT', 'STATUTS', 'LISTE_MEMBRES', 'RIB', 'PIECE_PRESIDENT', 'CONTRAT_AFLP'];
@@ -388,8 +389,10 @@ function fillChannel(pid) {
   Promise.all([
     q('aflp_producer_channel_v', '*', function (r) { return r.eq('producer_id', pid).limit(1); }),
     q('aflp_coop_memberships', 'id,campaign,status,is_primary,member_number,membership_start,membership_end,verified,source,cooperative_id,aflp_cooperatives(code,name)', function (r) { return r.eq('producer_id', pid).order('membership_start', { ascending: false }); }),
-    refs()
+    refs(),
+    q('aflp_producer_quality_v', 'completeness_pct,missing_fields', function (r) { return r.eq('producer_id', pid).limit(1); }).catch(function () { return []; })
   ]).then(function (rs) {
+    var qual = rs[3][0];
     box = document.getElementById('fbCoopChannel') || box;
     var ch = rs[0][0] || {}, hist = rs[1] || [], c = rs[2], coop = ch.sourcing_channel === 'COOPERATIVE';
     var rt = c.rm[ch.followup_rt_id];
@@ -401,7 +404,9 @@ function fillChannel(pid) {
         [T('Member ID', 'Member ID'), coop ? ch.member_number : '—'], [T('Section', 'Section'), coop ? ch.section_name : '—'],
         [T('RT de suivi', 'Follow-up RT'), rt ? (rt.id_rt || rt.id) + ' · ' + rt.nom : (ch.followup_rt_id || T('aucun', 'none'))],
         [T('Source d’enrôlement', 'Enrolment source'), L('channel', ch.enrollment_channel)],
-        [T('Affiliations (historique)', 'Affiliations (history)'), String(hist.length)]]) + '</div>' +
+        [T('Affiliations (historique)', 'Affiliations (history)'), String(hist.length)],
+        [T('Complétude du dossier', 'File completeness'), qual ? badge(num(qual.completeness_pct) + ' %', n(qual.completeness_pct) === 100 ? 'ok' : n(qual.completeness_pct) < 50 ? 'danger' : 'warn') +
+          ((qual.missing_fields || []).length ? ' <small class="muted">' + esc(T('manque : ', 'missing: ') + qual.missing_fields.map(missingLabel).join(', ')) + '</small>' : '') : '—', true]]) + '</div>' +
       (hist.length ? '<div style="margin-top:12px">' + table([T('Campagne', 'Campaign'), T('Coopérative', 'Cooperative'), T('Statut', 'Status'), T('Principale', 'Primary'), T('Member ID', 'Member ID'), T('Début', 'Start'), T('Fin', 'End'), T('Vérifiée', 'Verified')],
         hist.map(function (m) {
           var co = m.aflp_cooperatives || {};
@@ -618,7 +623,7 @@ function drawMap(b, c) {
 }
 
 /* ---------------------------------------------------------------- 2. Producteurs */
-var MF = { q: '', section: '', village: '', status: 'OPEN', verified: '', page: 0 };
+var MF = { q: '', section: '', village: '', status: 'OPEN', verified: '', quality: '', page: 0 };
 function membersPage(coopId) {
   return client().then(function (cl) {
     var r = cl.from('aflp_coop_members_v').select('*', { count: 'exact' }).eq('cooperative_id', coopId).eq('campaign', CAMPAIGN);
@@ -626,6 +631,9 @@ function membersPage(coopId) {
     if (MF.section) r = r.eq('section_id', MF.section);
     if (MF.village) r = r.eq('village_id', MF.village);
     if (MF.verified === 'yes') r = r.eq('verified', true); else if (MF.verified === 'no') r = r.eq('verified', false);
+    if (MF.quality === 'LT50') r = r.lt('completeness_pct', 50); else if (MF.quality === 'LT100') r = r.lt('completeness_pct', 100); else if (MF.quality === 'FULL') r = r.eq('completeness_pct', 100);
+    else if (MF.quality === 'NO_PHONE') r = r.contains('missing_fields', ['TELEPHONE']); else if (MF.quality === 'NO_GPS') r = r.contains('missing_fields', ['GPS']);
+    else if (MF.quality === 'NO_CONSENT') r = r.contains('missing_fields', ['CONSENTEMENT']); else if (MF.quality === 'REVIEW') r = r.eq('review_required', true);
     if (MF.q) {
       var s = MF.q.replace(/[%,()]/g, ' ').trim();
       r = r.or('nom.ilike.%' + s + '%,prenoms.ilike.%' + s + '%,farmer_id.ilike.%' + s + '%,member_number.ilike.%' + s + '%' + (digits(s).length >= 4 ? ',telephone.ilike.%' + digits(s) + '%' : ''));
@@ -637,9 +645,11 @@ function membersPage(coopId) {
 }
 TAB_RENDER.producers = function (b, c) {
   var co = b.coop;
-  var acts = canEdit() && !co.archived ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.addMember(\'' + co.id + '\')">+ ' + esc(T('Ajouter producteur', 'Add farmer')) + '</button>' +
+  /* Trois actions distinctes : enrôler (nouveau), associer (existant), importer (lot). */
+  var acts = canEdit() && !co.archived ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.enroll(\'' + co.id + '\')">+ ' + esc(T('Enrôler un producteur', 'Enrol a farmer')) + '</button>' +
+    '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.linkExisting(\'' + co.id + '\')">' + esc(T('Associer un producteur existant', 'Link an existing farmer')) + '</button>' +
     '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(co.id) + '/import">' + esc(T('Importer Excel', 'Import Excel')) + '</a>' +
-    '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.addMember(\'' + co.id + '\',true)">' + esc(T('Associer producteurs existants', 'Link existing farmers')) + '</button>' : '';
+    '<button class="btn secondary" type="button" id="mfReviews" onclick="ANAGROCI_COOP.reviews(\'' + co.id + '\')">' + esc(T('À vérifier', 'To review')) + ' <span id="mfReviewN">…</span></button>' : '';
   acts += '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.exportMembers(\'' + co.id + '\')">' + esc(T('Exporter', 'Export')) + '</button>';
   var secOpts = '<option value="">' + esc(T('Toutes', 'All')) + '</option>' + b.sections.filter(function (x) { return x.active; }).map(function (x) { return '<option value="' + x.id + '"' + (MF.section === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
   var vilOpts = '<option value="">' + esc(T('Tous', 'All')) + '</option>' + b.villages.filter(function (v) { return v.active && v.village_id; }).map(function (v) { var x = c.vm[v.village_id] || {}; return '<option value="' + esc(v.village_id) + '"' + (MF.village === v.village_id ? ' selected' : '') + '>' + esc(x.village || v.village_id) + '</option>'; }).join('');
@@ -650,24 +660,48 @@ TAB_RENDER.producers = function (b, c) {
     '<label>' + esc(T('Section', 'Section')) + '<select id="mfSection">' + secOpts + '</select></label><label>' + esc(T('Village', 'Village')) + '<select id="mfVillage">' + vilOpts + '</select></label>' +
     '<label>' + esc(T('Statut', 'Status')) + '<select id="mfStatus"><option value="OPEN"' + (MF.status === 'OPEN' ? ' selected' : '') + '>' + esc(T('Ouverts', 'Open')) + '</option>' +
       ['ACTIVE', 'PENDING', 'SUSPENDED', 'ENDED'].map(function (k) { return '<option value="' + k + '"' + (MF.status === k ? ' selected' : '') + '>' + esc(L('memberStatus', k)) + '</option>'; }).join('') + '<option value=""' + (MF.status === '' ? ' selected' : '') + '>' + esc(T('Tous (historique)', 'All (history)')) + '</option></select></label>' +
-    '<label>' + esc(T('Vérification', 'Verification')) + '<select id="mfVerified"><option value="">' + esc(T('Tous', 'All')) + '</option><option value="yes"' + (MF.verified === 'yes' ? ' selected' : '') + '>' + esc(T('Vérifiés', 'Verified')) + '</option><option value="no"' + (MF.verified === 'no' ? ' selected' : '') + '>' + esc(T('Non vérifiés', 'Not verified')) + '</option></select></label></div>' +
-    '<div id="mfTable"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>', acts);
+    '<label>' + esc(T('Vérification', 'Verification')) + '<select id="mfVerified"><option value="">' + esc(T('Tous', 'All')) + '</option><option value="yes"' + (MF.verified === 'yes' ? ' selected' : '') + '>' + esc(T('Vérifiés', 'Verified')) + '</option><option value="no"' + (MF.verified === 'no' ? ' selected' : '') + '>' + esc(T('Non vérifiés', 'Not verified')) + '</option></select></label>' +
+    '<label>' + esc(T('Qualité du dossier', 'File quality')) + '<select id="mfQuality">' + [['', T('Tous', 'All')], ['LT50', T('Complétude < 50 %', 'Completeness < 50%')], ['LT100', T('Incomplets (< 100 %)', 'Incomplete (< 100%)')], ['FULL', T('Complets (100 %)', 'Complete (100%)')],
+      ['NO_PHONE', T('Sans téléphone', 'No phone')], ['NO_GPS', T('Sans GPS', 'No GPS')], ['NO_CONSENT', T('Consentement non recueilli', 'Consent not recorded')], ['REVIEW', T('Doublon possible signalé', 'Possible duplicate flagged')]]
+      .map(function (o) { return '<option value="' + o[0] + '"' + (MF.quality === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label></div>' +
+    '<div id="mfQualityPanel"></div><div id="mfTable"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>', acts);
 };
 TAB_AFTER.producers = function (b, c) {
   function reload() { MF.page = MF.page || 0; drawMembers(b, c); }
   var t = null;
   document.getElementById('mfQ').addEventListener('input', function () { var v = this.value; clearTimeout(t); t = setTimeout(function () { MF.q = v; MF.page = 0; reload(); }, 300); });
-  [['mfSection', 'section'], ['mfVillage', 'village'], ['mfStatus', 'status'], ['mfVerified', 'verified']].forEach(function (x) {
+  [['mfSection', 'section'], ['mfVillage', 'village'], ['mfStatus', 'status'], ['mfVerified', 'verified'], ['mfQuality', 'quality']].forEach(function (x) {
     document.getElementById(x[0]).addEventListener('change', function () { MF[x[1]] = this.value; MF.page = 0; reload(); });
   });
   reload();
+  drawQuality(b);
+  var rn = document.getElementById('mfReviewN');
+  if (rn && global.ANAGROCI_COOP_ENROL) global.ANAGROCI_COOP_ENROL.reviewCount(b.coop.id).then(function (k) { rn.textContent = '(' + k + ')'; var bt = document.getElementById('mfReviews'); if (bt && k) bt.className = 'btn primary'; }).catch(function () { rn.textContent = ''; });
 };
+/* Qualité des données : mesure la COMPLÉTUDE du dossier (8 éléments), jamais une note du producteur. */
+var MISSING = { TELEPHONE: ['Téléphone', 'Phone'], SEXE: ['Sexe', 'Sex'], AGE: ['Âge', 'Age'], VILLAGE: ['Village', 'Village'], GPS: ['GPS', 'GPS'], SUPERFICIE: ['Superficie', 'Area'], POTENTIEL: ['Potentiel', 'Potential'], CONSENTEMENT: ['Consentement', 'Consent'] };
+function missingLabel(k) { return MISSING[k] ? T(MISSING[k][0], MISSING[k][1]) : k; }
+function drawQuality(b) {
+  var box = document.getElementById('mfQualityPanel'); if (!box) return;
+  memberAgg(b.coop.id).then(function (A) {
+    var m = A.members, t = m.length; if (!t) { box.innerHTML = ''; return; }
+    var miss = {}; Object.keys(MISSING).forEach(function (k) { miss[k] = 0; });
+    var sum = 0, full = 0, low = 0;
+    m.forEach(function (x) { sum += n(x.completeness_pct); if (n(x.completeness_pct) === 100) full++; if (n(x.completeness_pct) < 50) low++; (x.missing_fields || []).forEach(function (k) { miss[k] = (miss[k] || 0) + 1; }); });
+    box.innerHTML = '<div class="coop-quality"><div class="coop-quality-head"><b>' + esc(T('Qualité des données', 'Data quality')) + '</b> <small class="muted">' + esc(T('complétude du dossier (8 éléments), pas une note du producteur', 'file completeness (8 items), not a farmer rating')) + '</small></div>' +
+      '<div class="coop-quality-kpis"><span><b>' + num(sum / t, 0) + ' %</b>' + esc(T('complétude moyenne', 'average completeness')) + '</span><span><b>' + num(full) + '</b>' + esc(T('dossiers complets', 'complete files')) + '</span><span><b>' + num(low) + '</b>' + esc(T('sous 50 %', 'below 50%')) + '</span></div>' +
+      '<div class="coop-quality-bars">' + Object.keys(MISSING).map(function (k) {
+        var have = t - miss[k], p = Math.round(have / t * 100);
+        return '<div><span>' + esc(missingLabel(k)) + '</span><i><em style="width:' + p + '%"></em></i><b>' + num(have) + ' / ' + num(t) + '</b></div>';
+      }).join('') + '</div></div>';
+  }).catch(function () { box.innerHTML = ''; });
+}
 function drawMembers(b, c) {
   var box = document.getElementById('mfTable'); if (!box) return;
   membersPage(b.coop.id).then(function (res) {
     var edit = canEdit() && !b.coop.archived;
     box.innerHTML = '<div class="coop-wide">' + table([T('Farmer ID', 'Farmer ID'), T('Nom', 'Name'), T('Village', 'Village'), T('Téléphone', 'Phone'), 'Member ID', T('Section', 'Section'), T('Superficie', 'Area'), T('Potentiel', 'Potential'),
-        'Passport', T('Consentement', 'Consent'), T('Statut', 'Status'), T('Dernière activité', 'Last activity'), ''],
+        'Passport', T('Consentement', 'Consent'), T('Complétude', 'Completeness'), T('Statut', 'Status'), T('Dernière activité', 'Last activity'), ''],
       res.rows.map(function (m) {
         var a = '';
         if (edit && m.status !== 'ENDED') {
@@ -682,6 +716,8 @@ function drawMembers(b, c) {
           '<td>' + esc(m.section_name || '—') + '</td><td>' + (has(m.area_ha) ? num(m.area_ha, 2) + ' ha' : na()) + '</td>' +
           '<td>' + (has(m.potential_kg) ? num(m.potential_kg) + ' kg' + (m.potential_source === 'DECLARE' ? ' <small class="muted">' + esc(T('décl.', 'decl.')) + '</small>' : '') : na()) + '</td>' +
           '<td>' + esc(L('passport', m.passport_stage)) + ' · ' + num(m.passport_completion) + '%</td><td>' + badge(L('consent', m.consent_status), m.consent_status === 'GRANTED' ? 'ok' : 'warn') + '</td>' +
+          '<td>' + (has(m.completeness_pct) ? badge(num(m.completeness_pct) + ' %', n(m.completeness_pct) === 100 ? 'ok' : n(m.completeness_pct) < 50 ? 'danger' : 'warn') +
+            ((m.missing_fields || []).length ? '<br><small class="muted">' + esc(T('manque : ', 'missing: ') + m.missing_fields.map(missingLabel).join(', ')) + '</small>' : '') : '—') + '</td>' +
           '<td>' + badge(L('memberStatus', m.status), m.status === 'ACTIVE' ? 'ok' : m.status === 'ENDED' ? 'info' : 'warn') + (m.verified ? ' ' + badge('✓ ' + T('vérifié', 'verified'), 'ok') : '') + '</td>' +
           '<td>' + date(m.last_purchase_date) + '</td><td><div class="coop-actions-cell">' + a + '</div></td></tr>';
       }), T('Aucun producteur pour ces filtres.', 'No farmer for these filters.')) + '</div>' +
@@ -697,77 +733,6 @@ function closeHost() { var h = document.getElementById('coopFormHost'); if (h) h
 function currentCoopId() { var p = routeParts(); return p[0] === 'cooperatives' ? p[1] : null; }
 function refreshFiche() { var id = currentCoopId(); invalidate('coop:' + id, 'dash'); render(routeParts()); }
 
-/* Ajout d'un producteur : recherche d'abord, création ensuite. */
-function addMember(coopId, linkOnly) {
-  Promise.all([bundle(coopId), refs()]).then(function (rs) {
-    var b = rs[0], c = rs[1], h = host(); if (!h) return;
-    var villageIds = b.villages.filter(function (v) { return v.active && v.village_id; }).map(function (v) { return v.village_id; });
-    var vlist = c.villages.slice().sort(function (a, z) { return (villageIds.indexOf(z.id) >= 0) - (villageIds.indexOf(a.id) >= 0) || String(a.village).localeCompare(String(z.village)); });
-    var vOpts = '<option value="">' + esc(T('Choisir…', 'Choose…')) + '</option>' + vlist.map(function (v) { return '<option value="' + esc(v.id) + '">' + esc(v.village + ' · ' + (v.cluster || '')) + (villageIds.indexOf(v.id) >= 0 ? ' ★' : '') + '</option>'; }).join('');
-    var sOpts = '<option value="">—</option>' + b.sections.filter(function (x) { return x.active; }).map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('');
-    h.innerHTML = '<section class="card ops-form-card"><div class="card-head"><div><h2>' + esc(linkOnly ? T('Associer un producteur existant', 'Link an existing farmer') : T('Ajouter un producteur', 'Add a farmer')) + '</h2>' +
-      '<p>' + esc(T('Recherche obligatoire avant création : téléphone, Farmer ID, nom/prénoms et village. Aucun Farmer ID en double.', 'Search is mandatory before creation: phone, Farmer ID, name and village. No duplicate Farmer ID.')) + '</p></div>' +
-      '<div class="ops-route-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.closeHost()">' + esc(T('Fermer', 'Close')) + '</button></div></div>' +
-      '<form id="amForm" class="coop-form" novalidate>' +
-      field(T('Téléphone', 'Phone'), 'telephone', '', 'inputmode="tel" placeholder="07XXXXXXXX"') + field('Farmer ID', 'farmer_id', '', 'placeholder="ex. BROB-0012"') +
-      field(T('Nom *', 'Last name *'), 'nom', '', 'maxlength="120"') + field(T('Prénoms', 'First names'), 'prenoms', '', 'maxlength="120"') +
-      selectField(T('Village * (★ couvert par la coopérative)', 'Village * (★ covered by the cooperative)'), 'village_id', vOpts, 'span-2') +
-      '<div class="span-3" id="amMatches"></div>' +
-      '<h3>' + esc(T('Affiliation', 'Membership')) + '</h3>' +
-      field('Member ID', 'member_number', '', 'maxlength="40"') + selectField(T('Section', 'Section'), 'section_id', sOpts) +
-      '<label>' + esc(T('Vérifiée', 'Verified')) + '<select name="verification_method"><option value="">' + esc(T('Non vérifiée', 'Not verified')) + '</option>' + opts('verif', '') + '</select></label>' +
-      (linkOnly ? '' : '<h3>' + esc(T('Nouveau producteur (si aucun doublon)', 'New farmer (if no duplicate)')) + '</h3>' +
-        '<label>' + esc(T('Sexe', 'Sex')) + '<select name="sexe"><option value="">—</option><option value="M">' + esc(T('Homme', 'Male')) + '</option><option value="F">' + esc(T('Femme', 'Female')) + '</option></select></label>' +
-        field(T('Année de naissance', 'Birth year'), 'birth_year', '', 'type="number" min="1930" max="' + (new Date().getFullYear() - 16) + '"') +
-        field(T('Superficie déclarée (ha)', 'Declared area (ha)'), 'superficie_ha', '', 'type="number" min="0" step="0.01"') +
-        field(T('Potentiel ' + CAMPAIGN + ' déclaré (kg)', 'Declared ' + CAMPAIGN + ' potential (kg)'), 'potentiel_kg', '', 'type="number" min="0" step="1"') +
-        field(T('Motif si création malgré doublon possible', 'Reason if created despite possible duplicate'), 'confirm_reason', '', 'maxlength="200"', 'span-2')) +
-      '</form><div class="coop-form-actions"><button class="btn secondary" type="button" id="amSearch">' + esc(T('Rechercher dans le registre', 'Search the registry')) + '</button>' +
-      (linkOnly ? '' : '<button class="btn primary" type="button" id="amCreate" disabled>' + esc(T('Créer et affilier', 'Create and affiliate')) + '</button>') + '<span id="amMsg" class="muted"></span></div></section>';
-    var f = document.getElementById('amForm'), searched = false, hits = [];
-    function payload() { var d = formData(f); d.telephone = d.telephone ? phoneCI(d.telephone) : ''; return d; }
-    function doSearch() {
-      var d = payload();
-      if (!d.telephone && !d.farmer_id && !(d.nom && d.village_id)) return msg('amMsg', T('Saisissez un téléphone, un Farmer ID, ou un nom avec son village.', 'Enter a phone, a Farmer ID, or a name with its village.'), false);
-      msg('amMsg', T('Recherche…', 'Searching…'), null);
-      rpc('aflp_coop_match_producers', { p_rows: [{ idx: 0, farmer_id: d.farmer_id, nom: d.nom, prenoms: d.prenoms, telephone: d.telephone, village_id: d.village_id }] }).then(function (rows) {
-        hits = rows || []; searched = true;
-        var box = document.getElementById('amMatches');
-        if (!hits.length) { box.innerHTML = '<div class="notice ok">' + esc(T('Aucun producteur correspondant dans le registre.', 'No matching farmer in the registry.')) + '</div>'; }
-        else box.innerHTML = '<div class="coop-match"><h3>' + esc(T('Producteur potentiellement déjà enregistré', 'Farmer possibly already registered')) + ' (' + hits.length + ')</h3>' +
-          hits.map(function (x) {
-            return '<div class="coop-match-row"><span><b class="mono">' + esc(x.farmer_id) + '</b> · ' + esc((x.nom || '') + ' ' + (x.prenoms || '')) + ' · ' + esc(x.village_nom || '') + ' · ' + esc(x.telephone_masque || '—') +
-              ' · ' + badge(x.reason + ' ' + x.confidence + '%', x.confidence >= 85 ? 'danger' : 'warn') + (x.coop_codes ? ' · ' + esc(T('déjà membre : ', 'already member: ') + x.coop_codes) : '') + '</span>' +
-              '<button class="btn primary" type="button" data-link="' + esc(x.producer_id) + '">' + esc(T('Associer le producteur existant à cette coopérative', 'Link this existing farmer to the cooperative')) + '</button></div>';
-          }).join('') + '</div>';
-        box.querySelectorAll('[data-link]').forEach(function (bt) { bt.onclick = function () { save(bt.getAttribute('data-link')); }; });
-        var cr = document.getElementById('amCreate'); if (cr) cr.disabled = false;
-        msg('amMsg', hits.length ? T('Vérifiez les correspondances avant toute création.', 'Check matches before creating.') : T('Vous pouvez créer le producteur.', 'You can create the farmer.'), hits.length ? false : true);
-      }).catch(function (e) { msg('amMsg', e.message, false); });
-    }
-    function save(existingId) {
-      var d = payload();
-      var p = { cooperative_id: coopId, campaign: CAMPAIGN, member_number: d.member_number || null, section_id: d.section_id || null,
-        verified: !!d.verification_method, verification_method: d.verification_method || null };
-      if (existingId) p.producer_id = existingId;
-      else {
-        if (!d.nom || !d.village_id) return msg('amMsg', T('Nom et village sont obligatoires pour créer.', 'Name and village are required to create.'), false);
-        if (d.telephone && !/^0\d{9}$/.test(d.telephone)) return msg('amMsg', T('Téléphone : 10 chiffres.', 'Phone: 10 digits.'), false);
-        if (hits.length && !d.confirm_reason) return msg('amMsg', T('Doublon possible : associez l’existant ou indiquez un motif de création.', 'Possible duplicate: link the existing farmer or give a reason.'), false);
-        Object.assign(p, { nom: d.nom, prenoms: d.prenoms, telephone: d.telephone || null, village_id: d.village_id, sexe: d.sexe, birth_year: d.birth_year,
-          superficie_ha: d.superficie_ha, potentiel_kg: d.potentiel_kg, farmer_id: d.farmer_id, confirm_new: !!d.confirm_reason, confirm_reason: d.confirm_reason || null });
-      }
-      msg('amMsg', T('Enregistrement…', 'Saving…'), null);
-      rpc('aflp_coop_add_member', { p: p }).then(function (r) {
-        msg('amMsg', (r.created ? T('Producteur créé : ', 'Farmer created: ') : T('Producteur associé : ', 'Farmer linked: ')) + r.farmer_id, true);
-        setTimeout(refreshFiche, 700);
-      }).catch(function (e) { msg('amMsg', e.message.replace(/^DOUBLON_POSSIBLE: /, ''), false); });
-    }
-    document.getElementById('amSearch').onclick = doSearch;
-    var cr = document.getElementById('amCreate');
-    if (cr) cr.onclick = function () { if (!searched) return doSearch(); save(null); };
-  });
-}
 function simpleRpc(name, args, okText) {
   return rpc(name, args).then(function () { if (okText) toast(okText); refreshFiche(); }).catch(function (e) { alert(e.message); });
 }
@@ -801,93 +766,193 @@ function transfer(mid) {
 }
 
 /* ================================================================ IMPORT EXCEL */
+/* Assistant en 10 étapes. Aucune ligne n'est perdue : chaque ligne finit dans UNE
+   catégorie (Nouveau enrôlé, Existant associé, À compléter, Doublon à vérifier,
+   Rejeté, Ignoré). « À compléter » et « Doublon à vérifier » rejoignent la file
+   « À vérifier » (staging serveur) et ne deviennent des producteurs qu'après décision. */
 var IMPORT_FIELDS = [
-  ['nom', 'Nom', 'Last name', true], ['prenoms', 'Prénoms', 'First names'], ['telephone', 'Téléphone', 'Phone'], ['farmer_id', 'Farmer ID (si connu)', 'Farmer ID (if known)'],
-  ['village', 'Village', 'Village', true], ['member_number', 'Numéro de membre', 'Member number'], ['section', 'Section', 'Section'],
-  ['sexe', 'Sexe (M/F)', 'Sex (M/F)'], ['birth_year', 'Année de naissance', 'Birth year'], ['superficie_ha', 'Superficie (ha)', 'Area (ha)'], ['potentiel_kg', 'Potentiel (kg)', 'Potential (kg)']
+  ['nom', 'Nom', 'Last name', true], ['prenoms', 'Prénoms', 'First names'], ['sexe', 'Sexe (M/F)', 'Sex (M/F)'], ['birth_year', 'Année de naissance', 'Birth year'],
+  ['age_band', 'Tranche d’âge', 'Age band'], ['telephone', 'Téléphone principal', 'Main phone'], ['telephone_alt', 'Téléphone secondaire', 'Secondary phone'],
+  ['preferred_language', 'Langue', 'Language'], ['farmer_id', 'Farmer ID (si connu)', 'Farmer ID (if known)'], ['village', 'Village', 'Village', true],
+  ['section', 'Section', 'Section'], ['member_number', 'Member ID', 'Member ID'], ['membership_start', 'Date d’adhésion', 'Membership date'],
+  ['cashew_farmer', 'Producteur d’anacarde (OUI/NON)', 'Cashew farmer (YES/NO)'], ['plantation_count', 'Nombre de plantations', 'Number of plantations'],
+  ['total_area_ha', 'Superficie anacarde (ha)', 'Cashew area (ha)'], ['forecast_kg', 'Potentiel (kg)', 'Potential (kg)'], ['previous_production_kg', 'Production précédente (kg)', 'Previous production (kg)'],
+  ['planting_year', 'Année de plantation', 'Planting year'], ['tree_count', 'Nombre d’arbres', 'Number of trees'], ['home_gps_lat', 'GPS latitude', 'GPS latitude'], ['home_gps_lng', 'GPS longitude', 'GPS longitude'],
+  ['consent_status', 'Consentement (ACCORDE/REFUSE)', 'Consent (GRANTED/REFUSED)'], ['consent_method', 'Méthode consentement', 'Consent method'], ['consent_at', 'Date consentement', 'Consent date']
 ];
+var IMP_CAT = {
+  NOUVEAU_ENROLE: ['Nouveau enrôlé', 'New enrolled', 'ok'], EXISTANT_ASSOCIE: ['Producteur existant associé', 'Existing farmer linked', 'ok'],
+  A_COMPLETER: ['À compléter', 'To complete', 'warn'], DOUBLON_A_VERIFIER: ['Doublon à vérifier', 'Duplicate to review', 'warn'], REJETE: ['Rejeté', 'Rejected', 'danger'], IGNORE: ['Ignoré', 'Ignored', 'info']
+};
+var ACTION_CAT = { CREATE: 'NOUVEAU_ENROLE', LINK: 'EXISTANT_ASSOCIE', COMPLETE: 'A_COMPLETER', REVIEW: 'DOUBLON_A_VERIFIER', REJECT: 'REJETE', SKIP: 'IGNORE' };
+function catLabel(k) { var x = IMP_CAT[k]; return x ? T(x[0], x[1]) : k; }
+function catBadge(k) { var x = IMP_CAT[k] || ['', '', 'info']; return badge(catLabel(k), x[2]); }
 var IMP = null;
 function renderImport(id) {
   setRoot(skeleton());
   return Promise.all([bundle(id), refs(), getProfile()]).then(function (rs) {
     var b = rs[0];
     if (!canEdit() || b.coop.archived) { setRoot(ficheHead(b, 'producers') + errBox(T('Import réservé aux rôles d’encadrement terrain, sur une coopérative non archivée.', 'Import is reserved to field supervisors, on a non-archived cooperative.'))); return; }
-    if (!IMP || IMP.coop !== id) IMP = { coop: id, step: 1, rows: [], headers: [], map: {}, file: '' };
+    if (!IMP || IMP.coop !== id) IMP = { coop: id, step: 1, rows: [], headers: [], map: {}, file: '', vmap: {} };
     setRoot(ficheHead(b, 'producers') + '<div id="impBox"></div>');
     drawImport(b, rs[1]);
   }).catch(function (e) { setRoot(errBox(e)); });
 }
 function impSteps() {
-  var s = [T('1 Modèle', '1 Template'), T('2 Fichier', '2 File'), T('3 Colonnes', '3 Columns'), T('4 Contrôle', '4 Check'), T('5 Import', '5 Import'), T('6 Rapport', '6 Report')];
+  var s = [T('1 Modèle', '1 Template'), T('2 Fichier', '2 File'), T('3 Colonnes', '3 Columns'), T('4 Aperçu', '4 Preview'), T('5 Villages', '5 Villages'), T('6 Doublons', '6 Duplicates'),
+    T('7 Classement', '7 Classification'), T('8 Décisions', '8 Decisions'), T('9 Import', '9 Import'), T('10 Rapport', '10 Report')];
   return '<div class="coop-steps">' + s.map(function (x, i) { return '<span class="' + (IMP.step === i + 1 ? 'on' : IMP.step > i + 1 ? 'done' : '') + '">' + esc(x) + '</span>'; }).join('') + '</div>';
+}
+function impBatches(coopId) {
+  return q('aflp_coop_import_batches', 'id,file_name,total_rows,nouveaux,existants_associes,a_completer,doublons_a_verifier,rejetes,ignores,status,created_at,created_by_email',
+    function (r) { return r.eq('cooperative_id', coopId).order('created_at', { ascending: false }).limit(20); }).catch(function () { return []; });
 }
 function drawImport(b, c) {
   var box = document.getElementById('impBox'); if (!box) return;
   var back = '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(b.coop.id) + '/producers">← ' + esc(T('Producteurs', 'Farmers')) + '</a>';
   if (IMP.step <= 2) {
-    box.innerHTML = card(T('Import des producteurs', 'Farmer import'), T('Aucune ligne n’est perdue : chaque ligne finit Importée, Existant associé, À corriger, Rejetée ou Doublon potentiel.',
-        'No row is lost: each row ends Imported, Existing linked, To correct, Rejected or Possible duplicate.'),
+    box.innerHTML = card(T('Import des producteurs', 'Farmer import'), T('Aucune ligne n’est perdue : chaque ligne finit Nouveau enrôlé, Existant associé, À compléter, Doublon à vérifier, Rejeté ou Ignoré.',
+        'No row is lost: each row ends New enrolled, Existing linked, To complete, Duplicate to review, Rejected or Ignored.'),
       impSteps() + '<div class="ops-actions" style="justify-content:flex-start;margin-bottom:12px"><button class="btn secondary" type="button" id="impTpl">' + esc(T('Télécharger le modèle Excel', 'Download Excel template')) + '</button></div>' +
-      '<label class="coop-form" style="display:block"><span style="font-size:11px;font-weight:700;color:var(--forest)">' + esc(T('Fichier Excel (.xlsx, .xls) ou CSV de la coopérative', 'Cooperative Excel (.xlsx, .xls) or CSV file')) + '</span>' +
-      '<input type="file" id="impFile" accept=".xlsx,.xls,.csv" style="margin-top:6px"></label><p id="impMsg" class="muted"></p>', back);
+      '<label class="coop-form" style="display:block"><span style="font-size:11px;font-weight:700;color:var(--forest)">' + esc(T('Fichier Excel (.xlsx, .xls) ou CSV de la coopérative — 5 000 lignes maximum', 'Cooperative Excel (.xlsx, .xls) or CSV file — 5,000 rows max')) + '</span>' +
+      '<input type="file" id="impFile" accept=".xlsx,.xls,.csv" style="margin-top:6px"></label><p id="impMsg" class="muted"></p>', back) +
+      '<div id="impHist"></div>';
     document.getElementById('impTpl').onclick = function () { downloadTemplate(b); };
     document.getElementById('impFile').onchange = function () { readFile(this.files[0], b, c); };
+    impBatches(b.coop.id).then(function (rows) {
+      var hh = document.getElementById('impHist'); if (!hh || !rows.length) return;
+      hh.innerHTML = card(T('Historique des imports', 'Import history'), T('Chaque import garde son détail ligne à ligne.', 'Each import keeps its row-by-row detail.'),
+        table([T('Date', 'Date'), T('Fichier', 'File'), T('Lignes', 'Rows'), catLabel('NOUVEAU_ENROLE'), catLabel('EXISTANT_ASSOCIE'), catLabel('A_COMPLETER'), catLabel('DOUBLON_A_VERIFIER'), catLabel('REJETE'), catLabel('IGNORE'), T('Statut', 'Status'), T('Par', 'By')],
+          rows.map(function (x) {
+            return '<tr><td>' + dtime(x.created_at) + '</td><td>' + esc(x.file_name || '—') + '</td><td>' + num(x.total_rows) + '</td><td>' + num(x.nouveaux) + '</td><td>' + num(x.existants_associes) + '</td><td>' + num(x.a_completer) + '</td>' +
+              '<td>' + num(x.doublons_a_verifier) + '</td><td>' + num(x.rejetes) + '</td><td>' + num(x.ignores) + '</td><td>' + badge(x.status === 'TERMINE' ? T('Terminé', 'Done') : T('Interrompu', 'Interrupted'), x.status === 'TERMINE' ? 'ok' : 'warn') + '</td><td>' + esc(x.created_by_email || '—') + '</td></tr>';
+          })));
+    });
     return;
   }
   if (IMP.step === 3) {
     box.innerHTML = card(T('Correspondance des colonnes', 'Column mapping'), IMP.file + ' · ' + num(IMP.rows.length) + ' ' + T('ligne(s)', 'row(s)'),
       impSteps() + '<form id="impMap" class="coop-form">' + IMPORT_FIELDS.map(function (f) {
-        return selectField(T(f[1], f[2]) + (f[3] ? ' *' : ''), f[0], '<option value="">' + esc(T('— ignorer —', '— ignore —')) + '</option>' +
+        return selectField(T(f[1], f[2]) + (f[3] ? ' *' : ''), f[0], '<option value="">' + esc(T('— non fourni —', '— not provided —')) + '</option>' +
           IMP.headers.map(function (h) { return '<option value="' + esc(h) + '"' + (IMP.map[f[0]] === h ? ' selected' : '') + '>' + esc(h) + '</option>'; }).join(''));
-      }).join('') + '</form><div class="coop-form-actions"><button class="btn primary" type="button" id="impCheck">' + esc(T('Prévisualiser et contrôler', 'Preview and check')) + '</button>' +
+      }).join('') + '</form><div class="coop-form-actions"><button class="btn primary" type="button" id="impNext">' + esc(T('Aperçu', 'Preview')) + ' →</button>' +
       '<button class="btn secondary" type="button" id="impRestart">' + esc(T('Changer de fichier', 'Change file')) + '</button><span id="impMsg"></span></div>', back);
     document.getElementById('impRestart').onclick = function () { IMP.step = 1; drawImport(b, c); };
-    document.getElementById('impCheck').onclick = function () {
+    document.getElementById('impNext').onclick = function () {
       IMP.map = formData(document.getElementById('impMap'));
       if (!IMP.map.nom || !IMP.map.village) return msg('impMsg', T('Les colonnes Nom et Village sont obligatoires.', 'Name and Village columns are required.'), false);
-      checkRows(b, c);
+      prepareRows(b, c); IMP.step = 4; drawImport(b, c);
     };
     return;
   }
   if (IMP.step === 4) {
-    var counts = { CREATE: 0, LINK: 0, SKIP: 0 }, st = { OK: 0, DOUBLON: 0, A_CORRIGER: 0 };
-    IMP.prepared.forEach(function (r) { counts[r.action] = (counts[r.action] || 0) + 1; st[r.check] = (st[r.check] || 0) + 1; });
-    var show = IMP.prepared.slice(0, 300);
-    box.innerHTML = card(T('Contrôle avant import', 'Pre-import check'), T('Choisissez pour chaque doublon : associer l’existant, créer quand même (motif) ou ignorer.', 'For each duplicate choose: link existing, create anyway (reason) or skip.'),
-      impSteps() + '<section class="kpi-grid">' + kpi(T('Lignes', 'Rows'), num(IMP.prepared.length), IMP.file) + kpi(T('Nouveaux', 'New'), num(st.OK), T('aucun doublon trouvé', 'no duplicate found')) +
-        kpi(T('Doublons potentiels', 'Possible duplicates'), num(st.DOUBLON), T('associer de préférence', 'prefer linking'), st.DOUBLON ? 'warn' : '') +
-        kpi(T('À corriger', 'To correct'), num(st.A_CORRIGER), T('village / nom / téléphone', 'village / name / phone'), st.A_CORRIGER ? 'warn' : '') + '</section>' +
-      '<div class="ops-actions" style="justify-content:flex-start;margin-bottom:10px"><button class="btn secondary" type="button" id="impAllLink">' + esc(T('Associer tous les doublons sûrs (≥ 95 %)', 'Link all safe duplicates (≥ 95%)')) + '</button>' +
-      '<button class="btn secondary" type="button" id="impErr">' + esc(T('Télécharger le contrôle (Excel)', 'Download check report (Excel)')) + '</button></div>' +
-      table(['#', T('Nom', 'Name'), T('Village', 'Village'), T('Téléphone', 'Phone'), 'Member ID', T('Contrôle', 'Check'), T('Action', 'Action')],
-        show.map(function (r) {
-          var sel = '<select data-row="' + r.idx + '"><option value="CREATE"' + (r.action === 'CREATE' ? ' selected' : '') + (r.check === 'A_CORRIGER' ? ' disabled' : '') + '>' + esc(T('Créer', 'Create')) + '</option>' +
-            (r.matches || []).map(function (m) { return '<option value="LINK:' + esc(m.producer_id) + '"' + (r.action === 'LINK' && r.producer_id === m.producer_id ? ' selected' : '') + '>' + esc(T('Associer ', 'Link ') + m.farmer_id + ' (' + m.confidence + '%)') + '</option>'; }).join('') +
-            '<option value="SKIP"' + (r.action === 'SKIP' ? ' selected' : '') + '>' + esc(T('Ignorer', 'Skip')) + '</option></select>';
-          return '<tr><td>' + r.idx + '</td><td>' + esc((r.nom || '') + ' ' + (r.prenoms || '')) + '</td><td>' + esc(r.village_label || r.village || '—') + '</td><td>' + esc(r.telephone ? maskPhone(r.telephone) : '—') + '</td>' +
-            '<td class="mono">' + esc(r.member_number || '—') + '</td><td>' + badge(r.check === 'OK' ? T('Nouveau', 'New') : r.check === 'DOUBLON' ? T('Doublon potentiel', 'Possible duplicate') : T('À corriger', 'To correct'), r.check === 'OK' ? 'ok' : 'warn') +
-            (r.problems.length ? '<br><small class="muted">' + esc(r.problems.join(' · ')) + '</small>' : '') + '</td><td>' + sel + '</td></tr>';
-        })) + (IMP.prepared.length > 300 ? '<p class="muted">' + esc(T('Aperçu limité aux 300 premières lignes ; les décisions par défaut s’appliquent aux autres (doublons sûrs associés, autres doublons ignorés, lignes à corriger rejetées).',
-          'Preview limited to the first 300 rows; default decisions apply to the others (safe duplicates linked, other duplicates skipped, rows to correct rejected).')) + '</p>' : '') +
-      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impGo">' + esc(T('Importer', 'Import') + ' ' + num(IMP.prepared.filter(function (r) { return r.action !== 'SKIP'; }).length) + ' ' + T('ligne(s)', 'row(s)')) + '</button>' +
-      '<button class="btn secondary" type="button" id="impBack">' + esc(T('Revoir les colonnes', 'Review columns')) + '</button><span id="impMsg"></span></div>', back);
-    box.querySelectorAll('select[data-row]').forEach(function (s) {
-      s.onchange = function () { var r = IMP.prepared[Number(s.getAttribute('data-row')) - 1]; var v = s.value; if (v.indexOf('LINK:') === 0) { r.action = 'LINK'; r.producer_id = v.slice(5); } else { r.action = v; r.producer_id = null; } };
-    });
-    document.getElementById('impAllLink').onclick = function () { IMP.prepared.forEach(function (r) { if (r.matches && r.matches[0] && r.matches[0].confidence >= 95) { r.action = 'LINK'; r.producer_id = r.matches[0].producer_id; } }); drawImport(b, c); };
-    document.getElementById('impErr').onclick = function () { exportRows('Controle_import_' + b.coop.code, IMP.prepared.map(reportRow)); };
+    var prev = IMP.prepared.slice(0, 20);
+    box.innerHTML = card(T('Aperçu des données lues', 'Preview of the data read'), T('20 premières lignes, telles qu’elles seront envoyées. Une valeur vide reste NON COLLECTÉE.', 'First 20 rows, as they will be sent. An empty value stays NOT RECORDED.'),
+      impSteps() + '<div class="coop-wide">' + table(['#', T('Nom', 'Name'), T('Prénoms', 'First names'), T('Sexe', 'Sex'), T('Âge', 'Age'), T('Téléphone', 'Phone'), T('Village (fichier)', 'Village (file)'), 'Member ID', T('Superficie', 'Area'), T('Potentiel', 'Potential'), T('Remarques', 'Notes')],
+        prev.map(function (r) {
+          return '<tr><td>' + r.idx + '</td><td>' + esc(r.nom || '—') + '</td><td>' + esc(r.prenoms || '—') + '</td><td>' + (r.sexe ? esc(r.sexe) : na()) + '</td><td>' + (r.birth_year || r.age_band ? esc(r.birth_year || r.age_band) : na()) + '</td>' +
+            '<td>' + (r.telephone ? esc(maskPhone(r.telephone)) : na()) + '</td><td>' + esc(r.village || '—') + '</td><td class="mono">' + esc(r.member_number || '—') + '</td>' +
+            '<td>' + (r.total_area_ha != null ? num(r.total_area_ha, 2) + ' ha' : na()) + '</td><td>' + (r.forecast_kg != null ? num(r.forecast_kg) + ' kg' : na()) + '</td><td><small class="muted">' + esc(r.problems.join(' · ')) + '</small></td></tr>';
+        })) + '</div>' +
+      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impNext">' + esc(T('Valider les villages', 'Validate villages')) + ' →</button><button class="btn secondary" type="button" id="impBack">' + esc(T('Revoir les colonnes', 'Review columns')) + '</button></div>', back);
     document.getElementById('impBack').onclick = function () { IMP.step = 3; drawImport(b, c); };
-    document.getElementById('impGo').onclick = function () { commitImport(b, c); };
+    document.getElementById('impNext').onclick = function () { IMP.step = 5; drawImport(b, c); };
     return;
   }
-  if (IMP.step === 5) { box.innerHTML = card(T('Import en cours', 'Import in progress'), '', impSteps() + '<div class="ops-progressline"><div class="ops-progresstrack"><i id="impBar" style="width:0%"></i></div><b id="impPct">0 %</b></div><p id="impMsg" class="muted"></p>'); return; }
+  if (IMP.step === 5) {
+    /* Villages du fichier → référentiel AFLP. Un village non reconnu n'est jamais deviné :
+       on choisit le village du référentiel, ou la ligne part « À compléter ». */
+    var names = {}; IMP.prepared.forEach(function (r) { var k = norm(r.village); if (!k) return; (names[k] = names[k] || { label: r.village, n: 0 }).n++; });
+    var cov = {}; b.villages.forEach(function (v) { if (v.active && v.village_id) cov[v.village_id] = 1; });
+    var keys = Object.keys(names).sort();
+    function auto(k) { var cands = c.vByName[k] || []; if (cands.length > 1) { var inCoop = cands.filter(function (v) { return cov[v.id]; }); if (inCoop.length === 1) return inCoop[0].id; return ''; } return cands[0] ? cands[0].id : ''; }
+    keys.forEach(function (k) { if (!(k in IMP.vmap)) IMP.vmap[k] = auto(k); });
+    var vopts = c.villages.slice().sort(function (a, z) { return (cov[z.id] ? 1 : 0) - (cov[a.id] ? 1 : 0) || String(a.village).localeCompare(String(z.village)); });
+    var unresolved = keys.filter(function (k) { return !IMP.vmap[k]; }).length;
+    box.innerHTML = card(T('Validation des villages', 'Village validation'), T('Chaque village du fichier doit correspondre à un village du référentiel AFLP. Sinon, ses lignes partent « À compléter » (jamais créées sur une supposition).',
+        'Each file village must match an AFLP registry village. Otherwise its rows go “To complete” (never created on a guess).'),
+      impSteps() + '<section class="kpi-grid">' + kpi(T('Villages dans le fichier', 'Villages in file'), num(keys.length), '') + kpi(T('Reconnus', 'Matched'), num(keys.length - unresolved), '') +
+        kpi(T('À rattacher', 'To map'), num(unresolved), T('sinon lignes « À compléter »', 'otherwise rows “To complete”'), unresolved ? 'warn' : '') + '</section>' +
+      table([T('Village (fichier)', 'Village (file)'), T('Lignes', 'Rows'), T('Village du référentiel', 'Registry village')], keys.map(function (k) {
+        var cands = c.vByName[k] || [];
+        return '<tr><td><b>' + esc(names[k].label) + '</b>' + (cands.length > 1 ? ' ' + badge(T('homonymes', 'homonyms') + ' : ' + cands.length, 'warn') : '') + '</td><td>' + num(names[k].n) + '</td><td><select data-vk="' + esc(k) + '"><option value="">' + esc(T('— non rattaché (À compléter) —', '— not mapped (To complete) —')) + '</option>' +
+          vopts.map(function (v) { return '<option value="' + esc(v.id) + '"' + (IMP.vmap[k] === v.id ? ' selected' : '') + '>' + esc(v.village + ' · ' + (v.cluster || '')) + (cov[v.id] ? ' ★' : '') + '</option>'; }).join('') + '</select></td></tr>';
+      }), T('Aucun village dans le fichier.', 'No village in the file.')) +
+      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impNext">' + esc(T('Rechercher les doublons', 'Search duplicates')) + ' →</button><button class="btn secondary" type="button" id="impBack">' + esc(T('Retour', 'Back')) + '</button><span id="impMsg"></span></div>', back);
+    box.querySelectorAll('select[data-vk]').forEach(function (s) { s.onchange = function () { IMP.vmap[s.getAttribute('data-vk')] = s.value; }; });
+    document.getElementById('impBack').onclick = function () { IMP.step = 4; drawImport(b, c); };
+    document.getElementById('impNext').onclick = function () { IMP.step = 6; drawImport(b, c); dedupRows(b, c); };
+    return;
+  }
   if (IMP.step === 6) {
+    box.innerHTML = card(T('Recherche des doublons', 'Duplicate search'), T('Registre complet : Farmer ID, téléphones, nom + prénoms + village, nom + année de naissance, nom + cluster ; et doublons internes au fichier.',
+        'Full registry: Farmer ID, phones, full name + village, name + birth year, name + cluster; and duplicates within the file.'),
+      impSteps() + '<div class="ops-progressline"><div class="ops-progresstrack"><i id="impBar" style="width:0%"></i></div><b id="impPct">0 %</b></div><p id="impMsg" class="muted"></p>', back);
+    return;
+  }
+  if (IMP.step === 7) {
+    var cnt = {}; Object.keys(IMP_CAT).forEach(function (k) { cnt[k] = 0; });
+    IMP.prepared.forEach(function (r) { cnt[ACTION_CAT[r.action]]++; });
+    box.innerHTML = card(T('Classement proposé', 'Proposed classification'), T('Classement automatique, modifiable à l’étape suivante. Aucune création sur un doublon possible sans décision.', 'Automatic classification, editable at the next step. No creation on a possible duplicate without a decision.'),
+      impSteps() + '<section class="kpi-grid">' + Object.keys(IMP_CAT).map(function (k) { return kpi(catLabel(k), num(cnt[k]), '', IMP_CAT[k][2] === 'ok' ? '' : cnt[k] ? 'warn' : ''); }).join('') + '</section>' +
+      '<p class="muted">' + esc(T('Total : ', 'Total: ') + num(IMP.prepared.length) + T(' ligne(s) — aucune ligne perdue.', ' row(s) — no row lost.')) + '</p>' +
+      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impNext">' + esc(T('Revoir les décisions', 'Review decisions')) + ' →</button><button class="btn secondary" type="button" id="impBack">' + esc(T('Villages', 'Villages')) + '</button></div>', back);
+    document.getElementById('impBack').onclick = function () { IMP.step = 5; drawImport(b, c); };
+    document.getElementById('impNext').onclick = function () { IMP.step = 8; IMP.page = 0; drawImport(b, c); };
+    return;
+  }
+  if (IMP.step === 8) {
+    var per = 100, pg = IMP.page || 0, filt = IMP.filter || '';
+    var list = IMP.prepared.filter(function (r) { return !filt || ACTION_CAT[r.action] === filt; });
+    var show = list.slice(pg * per, pg * per + per);
+    box.innerHTML = card(T('Décisions ligne par ligne', 'Row-by-row decisions'), T('Associer l’existant, créer (motif si correspondance faible), envoyer en vérification, compléter plus tard, rejeter ou ignorer.',
+        'Link existing, create (reason if weak match), send for review, complete later, reject or ignore.'),
+      impSteps() + '<div class="coop-filters" style="margin-bottom:10px"><label>' + esc(T('Catégorie', 'Category')) + '<select id="impFilt"><option value="">' + esc(T('Toutes', 'All')) + '</option>' +
+        Object.keys(IMP_CAT).map(function (k) { return '<option value="' + k + '"' + (filt === k ? ' selected' : '') + '>' + esc(catLabel(k)) + '</option>'; }).join('') + '</select></label>' +
+        '<label>&nbsp;<button class="btn secondary" type="button" id="impErr">' + esc(T('Télécharger le contrôle (Excel)', 'Download check (Excel)')) + '</button></label></div>' +
+      '<div class="coop-wide">' + table(['#', T('Nom', 'Name'), T('Village', 'Village'), T('Téléphone', 'Phone'), 'Member ID', T('Correspondances', 'Matches'), T('Décision', 'Decision'), T('Motif', 'Reason')],
+        show.map(function (r) {
+          var top = r.matches[0], strong = top && top.confidence >= 85;
+          var o = [];
+          if (r.check !== 'A_COMPLETER' && !(r.matches.some(function (m) { return m.reason === 'FARMER_ID'; })) && !strong && !r.internalDup) o.push(['CREATE', r.matches.length ? T('Créer (motif obligatoire)', 'Create (reason required)') : T('Créer', 'Create')]);
+          r.matches.forEach(function (m) { if (m.producer_id && m.accessible !== false) o.push(['LINK:' + m.producer_id, T('Associer ', 'Link ') + m.farmer_id + ' (' + m.confidence + ' %)']); });
+          if (r.check !== 'A_COMPLETER') o.push(['REVIEW', T('Envoyer en vérification', 'Send for review')]);
+          o.push(['COMPLETE', T('À compléter', 'To complete')], ['REJECT', T('Rejeter', 'Reject')], ['SKIP', T('Ignorer', 'Ignore')]);
+          var cur = r.action === 'LINK' ? 'LINK:' + r.producer_id : r.action;
+          return '<tr><td>' + r.idx + '</td><td>' + esc((r.nom || '') + ' ' + (r.prenoms || '')) + '</td><td>' + esc(r.village_label || r.village || '—') + '</td><td>' + esc(r.telephone ? maskPhone(r.telephone) : '—') + '</td><td class="mono">' + esc(r.member_number || '—') + '</td>' +
+            '<td>' + (r.matches.length ? r.matches.slice(0, 3).map(function (m) { return '<small>' + esc((m.farmer_id || '?') + ' · ' + (global.ANAGROCI_COOP_ENROL ? global.ANAGROCI_COOP_ENROL.reasonLabel(m.reason) : m.reason) + ' · ' + m.confidence + ' %' + (m.accessible === false ? ' · ' + T('hors périmètre', 'out of scope') : '') + (m.coop_codes ? ' · ' + m.coop_codes : '')) + '</small>'; }).join('<br>') : '—') +
+              (r.internalDup ? '<br><small class="ops-danger-text">' + esc(T('doublon dans le fichier (ligne ', 'duplicate in file (row ') + r.internalDup + ')') + '</small>' : '') +
+              (r.problems.length ? '<br><small class="muted">' + esc(r.problems.join(' · ')) + '</small>' : '') + '</td>' +
+            '<td>' + catBadge(ACTION_CAT[r.action]) + '<br><select data-row="' + r.idx + '">' + o.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (x[0] === cur ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('') + '</select></td>' +
+            '<td><input data-why="' + r.idx + '" value="' + esc(r.why || '') + '" maxlength="200" placeholder="' + esc(T('motif', 'reason')) + '" style="min-width:140px"></td></tr>';
+        }), T('Aucune ligne dans cette catégorie.', 'No row in this category.')) + '</div>' +
+      '<div class="coop-pager"><span>' + esc(num(list.length) + ' ' + T('ligne(s)', 'row(s)') + ' · ' + T('page', 'page') + ' ' + (pg + 1) + ' / ' + Math.max(1, Math.ceil(list.length / per))) + '</span>' +
+      '<span class="ops-actions"><button class="btn secondary" type="button" id="impPrev"' + (pg ? '' : ' disabled') + '>←</button><button class="btn secondary" type="button" id="impNextP"' + ((pg + 1) * per < list.length ? '' : ' disabled') + '>→</button></span></div>' +
+      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impGo">' + esc(T('Importer les ', 'Import the ') + num(IMP.prepared.length) + T(' ligne(s)', ' row(s)')) + '</button>' +
+      '<button class="btn secondary" type="button" id="impBack">' + esc(T('Classement', 'Classification')) + '</button><span id="impMsg"></span></div>', back);
+    box.querySelectorAll('select[data-row]').forEach(function (s) {
+      s.onchange = function () { var r = IMP.prepared[Number(s.getAttribute('data-row')) - 1], v = s.value; if (v.indexOf('LINK:') === 0) { r.action = 'LINK'; r.producer_id = v.slice(5); } else { r.action = v; r.producer_id = null; } drawImport(b, c); };
+    });
+    box.querySelectorAll('input[data-why]').forEach(function (i) { i.oninput = function () { IMP.prepared[Number(i.getAttribute('data-why')) - 1].why = i.value; }; });
+    document.getElementById('impFilt').onchange = function () { IMP.filter = this.value; IMP.page = 0; drawImport(b, c); };
+    document.getElementById('impPrev').onclick = function () { IMP.page = Math.max(0, pg - 1); drawImport(b, c); };
+    document.getElementById('impNextP').onclick = function () { IMP.page = pg + 1; drawImport(b, c); };
+    document.getElementById('impErr').onclick = function () { exportRows('Controle_import_' + b.coop.code, IMP.prepared.map(reportRow)); };
+    document.getElementById('impBack').onclick = function () { IMP.step = 7; drawImport(b, c); };
+    document.getElementById('impGo').onclick = function () {
+      var bad = IMP.prepared.filter(function (r) { return r.action === 'CREATE' && r.matches.length && String(r.why || '').trim().length < 10; });
+      if (bad.length) return msg('impMsg', T('Ligne(s) ', 'Row(s) ') + bad.slice(0, 10).map(function (r) { return r.idx; }).join(', ') + T(' : motif de création obligatoire (10 caractères min.) malgré la correspondance.', ': creation reason required (10 characters min.) despite the match.'), false);
+      commitImport(b, c);
+    };
+    return;
+  }
+  if (IMP.step === 9) { box.innerHTML = card(T('Import en cours', 'Import in progress'), T('Ne fermez pas la page. Chaque lot est enregistré dès son envoi.', 'Do not close the page. Each batch is saved as soon as it is sent.'), impSteps() + '<div class="ops-progressline"><div class="ops-progresstrack"><i id="impBar" style="width:0%"></i></div><b id="impPct">0 %</b></div><p id="impMsg" class="muted"></p>'); return; }
+  if (IMP.step === 10) {
     var R = IMP.result;
-    box.innerHTML = card(T('Rapport d’import', 'Import report'), IMP.file, impSteps() + '<section class="kpi-grid">' +
-      kpi(T('Importés', 'Imported'), num(R.importes), T('nouveaux producteurs', 'new farmers')) + kpi(T('Existants associés', 'Existing linked'), num(R.existants_associes), T('aucun nouveau Farmer ID', 'no new Farmer ID')) +
-      kpi(T('À corriger', 'To correct'), num(R.a_corriger), T('données manquantes', 'missing data'), R.a_corriger ? 'warn' : '') + kpi(T('Rejetés', 'Rejected'), num(R.rejetes), T('voir le motif', 'see reason'), R.rejetes ? 'warn' : '') +
-      kpi(T('Doublons potentiels', 'Possible duplicates'), num(R.doublons), T('non créés', 'not created'), R.doublons ? 'warn' : '') + kpi(T('Ignorés', 'Skipped'), num(R.ignores), T('décision à la revue', 'review decision')) + '</section>' +
-      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impRep">' + esc(T('Télécharger le rapport d’erreurs (Excel)', 'Download error report (Excel)')) + '</button>' +
+    box.innerHTML = card(T('Rapport d’import', 'Import report'), IMP.file + ' · ' + num(IMP.prepared.length) + ' ' + T('ligne(s) — toutes classées', 'row(s) — all classified'), impSteps() + '<section class="kpi-grid">' +
+      Object.keys(IMP_CAT).map(function (k) { return kpi(catLabel(k), num(R[k] || 0), '', IMP_CAT[k][2] === 'ok' ? '' : (R[k] ? 'warn' : '')); }).join('') + '</section>' +
+      ((R.A_COMPLETER || R.DOUBLON_A_VERIFIER) ? '<div class="notice info">' + esc(T('Les lignes « À compléter » et « Doublon à vérifier » sont dans la file « À vérifier » de l’onglet Producteurs.', '“To complete” and “Duplicate to review” rows are in the “To review” queue of the Farmers tab.')) + '</div>' : '') +
+      '<div class="coop-form-actions"><button class="btn primary" type="button" id="impRep">' + esc(T('Télécharger le rapport ligne à ligne (Excel)', 'Download row-by-row report (Excel)')) + '</button>' +
       '<a class="btn secondary" href="#cooperatives/' + encodeURIComponent(b.coop.id) + '/producers">' + esc(T('Voir les producteurs', 'View farmers')) + '</a>' +
       '<button class="btn secondary" type="button" id="impNew">' + esc(T('Nouvel import', 'New import')) + '</button></div>');
     document.getElementById('impRep').onclick = function () { exportRows('Rapport_import_' + b.coop.code, IMP.prepared.map(reportRow)); };
@@ -895,18 +960,21 @@ function drawImport(b, c) {
   }
 }
 function reportRow(r) {
-  return { Ligne: r.idx, Nom: r.nom, Prenoms: r.prenoms, Village: r.village, Telephone: r.telephone, Member_ID: r.member_number, Controle: r.check,
-    Problemes: r.problems.join(' | '), Action: r.action, Producteur_associe: r.producer_id || '', Statut_final: r.final || '', Message: r.message || '', Farmer_ID: r.farmer_id || '' };
+  return { Ligne: r.idx, Nom: r.nom, Prenoms: r.prenoms, Village_fichier: r.village, Village_referentiel: r.village_label || '', Telephone: r.telephone, Member_ID: r.member_number,
+    Correspondances: r.matches.map(function (m) { return (m.farmer_id || '?') + ' ' + m.reason + ' ' + m.confidence + '%'; }).join(' | '), Remarques: r.problems.join(' | '),
+    Decision: catLabel(ACTION_CAT[r.action]), Motif: r.why || '', Categorie_finale: r.final ? catLabel(r.final) : '', Message: r.message || '', Farmer_ID: r.farmer_id_final || '' };
 }
 function downloadTemplate(b) {
   loadScript(XLSX_SRC).then(function () {
     var head = IMPORT_FIELDS.map(function (f) { return T(f[1], f[2]); });
-    var ex = ['EXEMPLE KOUAME', 'YAO', '0700000000', '', 'BROBO', 'M-0001', 'Section 1', 'M', '1980', '2.5', '1500'];
+    var ex = ['EXEMPLE KOUAME', 'YAO', 'M', '1980', '', '0700000000', '', 'BAOULE', '', 'BROBO', 'Section 1', 'M-0001', '2027-01-15', 'OUI', '2', '2.5', '1500', '1200', '2012', '250', '', '', '', '', ''];
     var ws = global.XLSX.utils.aoa_to_sheet([head, ex]); ws['!cols'] = head.map(function () { return { wch: 20 }; });
     var wb = global.XLSX.utils.book_new(); global.XLSX.utils.book_append_sheet(wb, ws, 'Producteurs');
     var info = global.XLSX.utils.aoa_to_sheet([[T('Consignes', 'Instructions')], [T('Une ligne par producteur. Supprimer la ligne EXEMPLE.', 'One row per farmer. Delete the EXEMPLE row.')],
-      [T('Village : nom du village du référentiel AFLP.', 'Village: village name from the AFLP registry.')], [T('Téléphone : 10 chiffres (07…, 05…, 01…).', 'Phone: 10 digits (07…, 05…, 01…).')],
-      [T('Ne pas inventer de données : laisser vide ce qui n’est pas connu.', 'Do not invent data: leave unknown values empty.')], ['Coop : ' + b.coop.code + ' · ' + b.coop.name]]);
+      [T('Obligatoires : Nom et Village (nom du village du référentiel AFLP).', 'Required: Name and Village (AFLP registry village name).')], [T('Téléphone : 10 chiffres (07…, 05…, 01…).', 'Phone: 10 digits (07…, 05…, 01…).')],
+      [T('Âge : année de naissance OU tranche (18-24, 25-34, 35-44, 45-54, 55-64, 65+).', 'Age: birth year OR band (18-24, 25-34, 35-44, 45-54, 55-64, 65+).')],
+      [T('Consentement : seulement s’il a réellement été recueilli (méthode VERBAL, WRITTEN, DIGITAL, WITNESSED + date).', 'Consent: only if actually collected (method VERBAL, WRITTEN, DIGITAL, WITNESSED + date).')],
+      [T('Ne pas inventer de données : laisser vide ce qui n’est pas connu (NON COLLECTÉ).', 'Do not invent data: leave unknown values empty (NOT RECORDED).')], ['Coop : ' + b.coop.code + ' · ' + b.coop.name]]);
     global.XLSX.utils.book_append_sheet(wb, info, 'Consignes');
     global.XLSX.writeFile(wb, 'Modele_import_producteurs_' + b.coop.code + '.xlsx');
   }).catch(function (e) { alert(e.message); });
@@ -924,83 +992,135 @@ function readFile(file, b, c) {
         rows = rows.filter(function (r) { return Object.keys(r).some(function (k) { return String(r[k]).trim() !== ''; }) && !/^EXEMPLE/i.test(String(Object.values(r)[0] || '')); });
         if (!rows.length) return msg('impMsg', T('Aucune ligne exploitable dans la première feuille.', 'No usable row in the first sheet.'), false);
         if (rows.length > 5000) return msg('impMsg', T('Plus de 5 000 lignes : découpez le fichier.', 'More than 5,000 rows: split the file.'), false);
-        IMP.rows = rows; IMP.file = file.name; IMP.headers = Object.keys(rows[0]);
-        IMP.map = {};
-        var guess = { nom: /^(nom|name|last)/, prenoms: /^(prenom|first)/, telephone: /(tel|phone|contact|cel)/, farmer_id: /(farmer|code ?prod|id ?anagroci)/, village: /(village|localit)/,
-          member_number: /(membre|member|matricule|n.?adh)/, section: /section/, sexe: /^(sexe|genre|sex)/, birth_year: /(naiss|birth|annee)/, superficie_ha: /(superf|surface|area|ha$)/, potentiel_kg: /(potent|prod)/ };
-        IMP.headers.forEach(function (h) { var x = norm(h).toLowerCase(); Object.keys(guess).forEach(function (k) { if (!IMP.map[k] && guess[k].test(x)) IMP.map[k] = h; }); });
+        IMP.rows = rows; IMP.file = file.name; IMP.headers = Object.keys(rows[0]); IMP.map = {}; IMP.vmap = {};
+        var guess = { nom: /^(nom|name|last)/, prenoms: /^(prenom|first)/, sexe: /^(sexe|genre|sex)/, birth_year: /(naiss|birth)/, age_band: /(tranche|age band)/,
+          telephone_alt: /(tel|phone).*(2|sec|alt)/, telephone: /(tel|phone|contact|cel)/, preferred_language: /(langue|language)/, farmer_id: /(farmer|code ?prod|id ?anagroci)/,
+          village: /(village|localit)/, section: /section/, member_number: /(membre|member|matricule|n.?adh)/, membership_start: /(adhes|joined|membership date)/,
+          cashew_farmer: /(anacard|cashew)/, plantation_count: /(nombre de plantation|plantation count|nb ?plant)/, total_area_ha: /(superf|surface|area|ha$)/,
+          forecast_kg: /(potent|forecast)/, previous_production_kg: /(prec|previous|derniere)/, planting_year: /(annee de plantation|planting)/, tree_count: /(arbre|tree)/,
+          home_gps_lat: /(lat)/, home_gps_lng: /(lon|lng)/, consent_method: /(methode cons|consent method)/, consent_at: /(date cons|consent date)/, consent_status: /(consent)/ };
+        IMP.headers.forEach(function (h) { var x = norm(h).toLowerCase(); Object.keys(guess).forEach(function (k) { if (!IMP.map[k] && !Object.keys(IMP.map).some(function (z) { return IMP.map[z] === h; }) && guess[k].test(x)) IMP.map[k] = h; }); });
         IMP.step = 3; drawImport(b, c);
       } catch (e) { msg('impMsg', T('Fichier illisible : ', 'Unreadable file: ') + e.message, false); }
     };
     fr.readAsArrayBuffer(file);
   }).catch(function (e) { msg('impMsg', e.message, false); });
 }
-function checkRows(b, c) {
-  msg('impMsg', T('Contrôle des lignes et recherche des doublons…', 'Checking rows and searching duplicates…'), null);
-  var coopVillages = {}; b.villages.forEach(function (v) { if (v.village_id) coopVillages[v.village_id] = 1; });
+/* Lecture des lignes : normalisation prudente, aucune valeur inventée. Une valeur
+   invalide est retirée (et signalée), jamais remplacée par une autre. */
+function prepareRows(b) {
   var secByName = {}; b.sections.forEach(function (s) { if (s.active) secByName[norm(s.name)] = s.id; });
-  var memberSeen = {};
+  var yr = new Date().getFullYear(), memberSeen = {};
+  function numOrNull(v, problems, label) { if (v === '') return null; var x = Number(String(v).replace(/\s/g, '').replace(',', '.')); if (!isFinite(x) || x < 0) { problems.push(label + T(' invalide (ignoré)', ' invalid (ignored)')); return null; } return x; }
   IMP.prepared = IMP.rows.map(function (raw, i) {
     function g(k) { return IMP.map[k] ? String(raw[IMP.map[k]] == null ? '' : raw[IMP.map[k]]).trim() : ''; }
-    var r = { idx: i + 1, nom: g('nom').toUpperCase(), prenoms: g('prenoms').toUpperCase(), telephone: g('telephone') ? phoneCI(g('telephone')) : '', farmer_id: g('farmer_id').toUpperCase(),
-      village: g('village'), member_number: g('member_number'), section: g('section'), sexe: g('sexe').toUpperCase().slice(0, 1), birth_year: g('birth_year'),
-      superficie_ha: g('superficie_ha').replace(',', '.'), potentiel_kg: g('potentiel_kg').replace(/\s/g, '').replace(',', '.'), problems: [], matches: [] };
-    if (!r.nom) r.problems.push(T('nom manquant', 'missing name'));
-    var cands = c.vByName[norm(r.village)] || [];
-    if (cands.length > 1) cands = cands.filter(function (v) { return coopVillages[v.id]; }).concat(cands).slice(0, 1);
-    if (cands.length) { r.village_id = cands[0].id; r.village_label = cands[0].village; } else r.problems.push(r.village ? T('village inconnu du référentiel', 'village not in registry') : T('village manquant', 'missing village'));
-    if (r.telephone && !/^0\d{9}$/.test(r.telephone)) { r.problems.push(T('téléphone invalide', 'invalid phone')); r.telephone = ''; }
-    if (r.section) { r.section_id = secByName[norm(r.section)] || null; if (!r.section_id) r.problems.push(T('section inconnue (ignorée)', 'unknown section (ignored)')); }
-    if (r.birth_year && !/^(19|20)\d\d$/.test(r.birth_year)) { r.problems.push(T('année de naissance invalide (ignorée)', 'invalid birth year (ignored)')); r.birth_year = ''; }
-    if (r.member_number) { var k = norm(r.member_number); if (memberSeen[k]) r.problems.push(T('numéro de membre en double dans le fichier', 'member number duplicated in file')); memberSeen[k] = 1; }
-    r.check = (!r.nom || !r.village_id) ? 'A_CORRIGER' : 'OK';
-    r.action = r.check === 'A_CORRIGER' ? 'SKIP' : 'CREATE';
+    var pb = [];
+    var r = { idx: i + 1, nom: g('nom').toUpperCase(), prenoms: g('prenoms').toUpperCase(), village: g('village'), member_number: g('member_number'), section: g('section'), problems: pb, matches: [] };
+    var sx = g('sexe').toUpperCase().slice(0, 1); r.sexe = sx === 'M' || sx === 'H' ? 'M' : sx === 'F' ? 'F' : null; if (g('sexe') && !r.sexe) pb.push(T('sexe illisible (ignoré)', 'unreadable sex (ignored)'));
+    var by = g('birth_year'); if (by) { if (/^(19|20)\d\d$/.test(by) && Number(by) <= yr - 15 && Number(by) >= 1920) r.birth_year = Number(by); else pb.push(T('année de naissance invalide (ignorée)', 'invalid birth year (ignored)')); }
+    var band = g('age_band').replace(/\s/g, ''); if (band && !r.birth_year) { if (['18-24', '25-34', '35-44', '45-54', '55-64', '65+'].indexOf(band) >= 0) r.age_band = band; else pb.push(T('tranche d’âge invalide (ignorée)', 'invalid age band (ignored)')); }
+    ['telephone', 'telephone_alt'].forEach(function (k) { var t = g(k); if (!t) return; var p = phoneCI(t); if (/^0\d{9}$/.test(p)) r[k] = p; else pb.push((k === 'telephone' ? T('téléphone', 'phone') : T('téléphone secondaire', 'secondary phone')) + T(' invalide (ignoré)', ' invalid (ignored)')); });
+    var lg = norm(g('preferred_language')); if (lg) { var map = { FR: 'FR', FRANCAIS: 'FR', FRENCH: 'FR', BAOULE: 'BAOULE', DIOULA: 'DIOULA', SENOUFO: 'SENOUFO' }; r.preferred_language = map[lg] || 'AUTRE'; }
+    r.farmer_id = g('farmer_id').toUpperCase() || null;
+    if (r.section) { r.section_id = secByName[norm(r.section)] || null; if (!r.section_id) pb.push(T('section inconnue (ignorée)', 'unknown section (ignored)')); }
+    var ms = g('membership_start'); if (ms) { var d = new Date(ms); if (!isNaN(d) && d <= new Date()) r.membership_start = d.toISOString().slice(0, 10); else pb.push(T('date d’adhésion invalide (ignorée)', 'invalid membership date (ignored)')); }
+    var cf = norm(g('cashew_farmer')); r.cashew_farmer = /^(OUI|YES|O|Y|1)$/.test(cf) ? 'OUI' : /^(NON|NO|N|0)$/.test(cf) ? 'NON' : 'NON_COLLECTE';
+    r.plantation_count = numOrNull(g('plantation_count'), pb, T('nombre de plantations', 'plantation count'));
+    r.total_area_ha = numOrNull(g('total_area_ha'), pb, T('superficie', 'area')); if (r.total_area_ha === 0) r.total_area_ha = null;
+    r.forecast_kg = numOrNull(g('forecast_kg'), pb, T('potentiel', 'potential'));
+    r.previous_production_kg = numOrNull(g('previous_production_kg'), pb, T('production précédente', 'previous production'));
+    r.tree_count = numOrNull(g('tree_count'), pb, T('nombre d’arbres', 'tree count'));
+    var py = g('planting_year'); if (py) { if (/^(19|20)\d\d$/.test(py) && Number(py) <= yr && Number(py) >= 1950) r.planting_year = Number(py); else pb.push(T('année de plantation invalide (ignorée)', 'invalid planting year (ignored)')); }
+    var la = g('home_gps_lat'), lo = g('home_gps_lng');
+    if (la || lo) { var a = Number(la.replace(',', '.')), o = Number(lo.replace(',', '.')); if (la && lo && isFinite(a) && isFinite(o) && Math.abs(a) <= 90 && Math.abs(o) <= 180) { r.home_gps_lat = a; r.home_gps_lng = o; } else pb.push(T('GPS incomplet ou invalide (ignoré)', 'incomplete or invalid GPS (ignored)')); }
+    var cs = norm(g('consent_status')), cm = norm(g('consent_method')), ca = g('consent_at');
+    if (cs) {
+      var st = /^(ACCORDE|GRANTED|OUI|YES)$/.test(cs) ? 'GRANTED' : /^(REFUSE|REFUSED|NON|NO)$/.test(cs) ? 'REFUSED' : null;
+      var mth = { VERBAL: 'VERBAL', ORAL: 'VERBAL', WRITTEN: 'WRITTEN', ECRIT: 'WRITTEN', DIGITAL: 'DIGITAL', NUMERIQUE: 'DIGITAL', WITNESSED: 'WITNESSED', TEMOIN: 'WITNESSED' }[cm] || null;
+      var dt = ca ? new Date(ca) : null;
+      if (st && mth && dt && !isNaN(dt) && dt <= new Date()) r.consent = { status: st, method: mth, consent_at: dt.toISOString().slice(0, 10) };
+      else pb.push(T('consentement incomplet (statut, méthode et date requis) : NON RECUEILLI', 'incomplete consent (status, method and date required): NOT RECORDED'));
+    }
+    if (r.member_number) { var k = norm(r.member_number); if (memberSeen[k]) pb.push(T('Member ID en double dans le fichier', 'Member ID duplicated in file')); memberSeen[k] = 1; }
     return r;
   });
-  var payload = IMP.prepared.filter(function (r) { return r.check !== 'A_CORRIGER'; }).map(function (r) { return { idx: r.idx, farmer_id: r.farmer_id, nom: r.nom, prenoms: r.prenoms, telephone: r.telephone, village_id: r.village_id }; });
-  var batches = []; for (var i = 0; i < payload.length; i += 300) batches.push(payload.slice(i, i + 300));
-  batches.reduce(function (p, bt) { return p.then(function () { return rpc('aflp_coop_match_producers', { p_rows: bt }).then(function (hits) {
-    (hits || []).forEach(function (h) { var r = IMP.prepared[h.idx - 1]; if (r && !r.matches.some(function (m) { return m.producer_id === h.producer_id; })) r.matches.push(h); });
-  }); }); }, Promise.resolve()).then(function () {
-    IMP.prepared.forEach(function (r) {
-      if (!r.matches.length) return;
-      r.matches.sort(function (a, z) { return z.confidence - a.confidence; });
-      r.check = 'DOUBLON';
-      if (r.matches[0].confidence >= 95) { r.action = 'LINK'; r.producer_id = r.matches[0].producer_id; } else r.action = 'SKIP';
-    });
-    IMP.step = 4; drawImport(b, c);
-  }).catch(function (e) { msg('impMsg', e.message, false); });
 }
-function commitImport(b, c) {
-  var rows = IMP.prepared.map(function (r) {
-    var x = { idx: r.idx, action: r.action, nom: r.nom, prenoms: r.prenoms || null, telephone: r.telephone || null, village_id: r.village_id || null, member_number: r.member_number || null,
-      section_id: r.section_id || null, sexe: r.sexe || null, birth_year: r.birth_year || null, superficie_ha: r.superficie_ha || null, potentiel_kg: r.potentiel_kg || null, farmer_id: r.farmer_id || null };
-    if (r.action === 'LINK') x.producer_id = r.producer_id;
-    if (r.action === 'CREATE' && r.check === 'DOUBLON') { x.confirm_new = true; x.confirm_reason = T('Création confirmée à la revue d’import', 'Creation confirmed at import review'); }
-    if (r.action === 'SKIP') x.skip_reason = r.check === 'A_CORRIGER' ? T('À corriger : ', 'To correct: ') + r.problems.join(', ') : r.check === 'DOUBLON' ? T('Doublon potentiel non tranché', 'Unresolved possible duplicate') : T('Ignoré à la revue', 'Skipped at review');
-    return x;
+function dedupRows(b, c) {
+  var coopCode = b.coop.code;
+  /* villages validés à l'étape 5 */
+  IMP.prepared.forEach(function (r) {
+    r.matches = []; r.internalDup = null; r.why = r.why || '';
+    r.village_id = IMP.vmap[norm(r.village)] || null; r.village_label = r.village_id && c.vm[r.village_id] ? c.vm[r.village_id].village : '';
+    r.check = (!r.nom || !r.village_id) ? 'A_COMPLETER' : 'OK';
   });
-  IMP.step = 5; drawImport(b, c);
-  var size = 250, done = 0, agg = { importes: 0, existants_associes: 0, rejetes: 0, ignores: 0, doublons: 0, a_corriger: 0 };
-  var batches = []; for (var i = 0; i < rows.length; i += size) batches.push(rows.slice(i, i + size));
+  /* doublons internes au fichier : même téléphone, ou même nom + prénoms + village */
+  var seenTel = {}, seenName = {};
+  IMP.prepared.forEach(function (r) {
+    if (r.check !== 'OK') return;
+    var kt = r.telephone, kn = norm(r.nom + ' ' + (r.prenoms || '')) + '|' + r.village_id;
+    var first = (kt && seenTel[kt]) || seenName[kn];
+    if (first) r.internalDup = first; else { if (kt) seenTel[kt] = r.idx; seenName[kn] = r.idx; }
+  });
+  var payload = IMP.prepared.filter(function (r) { return r.check === 'OK'; }).map(function (r) {
+    return { idx: r.idx, farmer_id: r.farmer_id, nom: r.nom, prenoms: r.prenoms, telephone: r.telephone || null, telephone_alt: r.telephone_alt || null, village_id: r.village_id, birth_year: r.birth_year || null };
+  });
+  var size = 500, batches = []; for (var i = 0; i < payload.length; i += size) batches.push(payload.slice(i, i + size));
+  var done = 0;
   batches.reduce(function (p, bt) {
     return p.then(function () {
-      return rpc('aflp_coop_import_commit', { p_coop: b.coop.id, p_campaign: CAMPAIGN, p_rows: bt }).then(function (r) {
-        (r.details || []).forEach(function (d) {
-          var row = IMP.prepared[Number(d.idx) - 1]; if (!row) return;
-          row.final = d.statut; row.message = d.message || ''; row.farmer_id = d.farmer_id || row.farmer_id;
-          if (d.statut === 'IMPORTE') agg.importes++; else if (d.statut === 'EXISTANT_ASSOCIE') agg.existants_associes++;
-          else if (d.statut === 'DOUBLON_POTENTIEL') agg.doublons++;
-          else if (d.statut === 'IGNORE') { if (row.check === 'A_CORRIGER') agg.a_corriger++; else if (row.check === 'DOUBLON') agg.doublons++; else agg.ignores++; }
-          else agg.rejetes++;
-        });
-        done += bt.length; var pc = Math.round(done / rows.length * 100);
+      return rpc('aflp_coop_match_producers_v2', { p_rows: bt }).then(function (hits) {
+        (hits || []).forEach(function (h) { var r = IMP.prepared[h.idx - 1]; if (r && !r.matches.some(function (m) { return (m.producer_id || m.farmer_id) === (h.producer_id || h.farmer_id); })) r.matches.push(h); });
+        done += bt.length; var pc = payload.length ? Math.round(done / payload.length * 100) : 100;
         var bar = document.getElementById('impBar'), t = document.getElementById('impPct'); if (bar) bar.style.width = pc + '%'; if (t) t.textContent = pc + ' %';
       });
     });
   }, Promise.resolve()).then(function () {
-    IMP.result = agg; IMP.step = 6; invalidate('coop:' + b.coop.id, 'dash'); drawImport(b, c);
-  }).catch(function (e) { msg('impMsg', T('Import interrompu : ', 'Import interrupted: ') + e.message + ' — ' + T('les lots déjà envoyés sont enregistrés ; relancez pour le reste (les doublons seront détectés).', 'batches already sent are saved; rerun for the rest (duplicates will be detected).'), false); });
+    /* classement proposé */
+    IMP.prepared.forEach(function (r) {
+      r.matches.sort(function (a, z) { return z.confidence - a.confidence; });
+      var top = r.matches[0];
+      if (r.check === 'A_COMPLETER') { r.action = 'COMPLETE'; r.why = !r.nom ? T('nom manquant', 'missing name') : T('village non rattaché au référentiel', 'village not mapped to registry'); return; }
+      if (r.internalDup) { r.action = 'REVIEW'; r.why = T('doublon dans le fichier (ligne ', 'duplicate in file (row ') + r.internalDup + ')'; return; }
+      if (!top) { r.action = 'CREATE'; return; }
+      var linkable = top.producer_id && top.accessible !== false;
+      if (linkable && (top.reason === 'FARMER_ID' || top.confidence >= 95 || (top.coop_codes && top.coop_codes.split(', ').indexOf(coopCode) >= 0))) { r.action = 'LINK'; r.producer_id = top.producer_id; return; }
+      r.action = 'REVIEW'; r.why = (global.ANAGROCI_COOP_ENROL ? global.ANAGROCI_COOP_ENROL.reasonLabel(top.reason) : top.reason) + ' · ' + top.confidence + ' %' + (linkable ? '' : ' · ' + T('hors périmètre', 'out of scope'));
+    });
+    IMP.step = 7; drawImport(b, c);
+  }).catch(function (e) { msg('impMsg', e.message, false); });
+}
+function commitImport(b, c) {
+  var FIELDS_OUT = ['nom', 'prenoms', 'sexe', 'birth_year', 'age_band', 'telephone', 'telephone_alt', 'preferred_language', 'farmer_id', 'village_id', 'section_id', 'member_number', 'membership_start',
+    'cashew_farmer', 'plantation_count', 'total_area_ha', 'forecast_kg', 'previous_production_kg', 'planting_year', 'tree_count', 'home_gps_lat', 'home_gps_lng', 'consent'];
+  var rows = IMP.prepared.map(function (r) {
+    var x = { idx: r.idx, action: r.action };
+    FIELDS_OUT.forEach(function (k) { if (r[k] != null && r[k] !== '') x[k] = r[k]; });
+    if (!x.village_id && r.village) x.village = r.village;
+    if (r.action === 'LINK') x.producer_id = r.producer_id;
+    if (r.action === 'CREATE' && r.matches.length) x.confirm_reason = String(r.why || '').trim();
+    if (['SKIP', 'REJECT', 'COMPLETE', 'REVIEW'].indexOf(r.action) >= 0) x.reason = String(r.why || '').trim() || null;
+    return x;
+  });
+  IMP.step = 9; drawImport(b, c);
+  var size = 200, done = 0, agg = {}, batchId = null;
+  Object.keys(IMP_CAT).forEach(function (k) { agg[k] = 0; });
+  var batches = []; for (var i = 0; i < rows.length; i += size) batches.push(rows.slice(i, i + size));
+  batches.reduce(function (p, bt, bi) {
+    return p.then(function () {
+      return rpc('aflp_coop_import_rows', { p_coop: b.coop.id, p_campaign: CAMPAIGN, p_batch: batchId, p_file: IMP.file, p_total: rows.length, p_rows: bt, p_final: bi === batches.length - 1 }).then(function (r) {
+        batchId = r.batch_id;
+        (r.details || []).forEach(function (d) {
+          var row = IMP.prepared[Number(d.idx) - 1]; if (!row) return;
+          row.final = d.statut; row.message = d.message || ''; row.farmer_id_final = d.farmer_id || '';
+          agg[d.statut] = (agg[d.statut] || 0) + 1;
+        });
+        done += bt.length; var pc = Math.round(done / rows.length * 100);
+        var bar = document.getElementById('impBar'), t = document.getElementById('impPct'); if (bar) bar.style.width = pc + '%'; if (t) t.textContent = pc + ' % · ' + num(done) + ' / ' + num(rows.length);
+      });
+    });
+  }, Promise.resolve()).then(function () {
+    IMP.result = agg; IMP.step = 10; invalidate('coop:' + b.coop.id, 'agg:' + b.coop.id, 'dash'); drawImport(b, c);
+  }).catch(function (e) { msg('impMsg', T('Import interrompu : ', 'Import interrupted: ') + e.message + ' — ' + T('les lots déjà envoyés sont enregistrés (historique des imports) ; relancez le fichier : les lignes déjà importées seront reconnues comme existantes.', 'batches already sent are saved (import history); rerun the file: already imported rows will be recognised as existing.'), false); });
 }
 function exportRows(name, rows) {
   loadScript(XLSX_SRC).then(function () {
@@ -1014,7 +1134,7 @@ function memberAgg(coopId) {
   /* Agrégats par village / section, sur l'ensemble des membres ouverts (pagination serveur 1000). */
   return cached('agg:' + coopId, 20000, function () {
     function page(from, acc) {
-      return q('aflp_coop_members_v', 'membership_id,producer_id,village_id,village_nom,section_id,area_ha,potential_kg,verified,is_primary,sexe,birth_year,consent_status,passport_stage,gps_plots,plot_count,telephone',
+      return q('aflp_coop_members_v', 'membership_id,producer_id,village_id,village_nom,section_id,area_ha,potential_kg,verified,is_primary,sexe,birth_year,age_band,consent_status,passport_stage,gps_plots,plot_count,telephone,completeness_pct,missing_fields',
         function (r) { return r.eq('cooperative_id', coopId).eq('campaign', CAMPAIGN).neq('status', 'ENDED').range(from, from + 999); })
         .then(function (rows) { acc = acc.concat(rows); return rows.length === 1000 ? page(from + 1000, acc) : acc; });
     }
@@ -1205,15 +1325,18 @@ TAB_AFTER.purchases = function (b, c) {
       card(T('Chaîne de traçabilité', 'Traceability chain'), T('Coopérative → producteurs → achats → livraisons → lots → BIN → transferts → usine.', 'Cooperative → farmers → purchases → deliveries → lots → BIN → transfers → factory.'), chain,
         '<a class="btn secondary" href="traceability.html#coop=' + encodeURIComponent(b.coop.code) + '">Traceability 360 →</a>') +
       card(T('Livraisons de la coopérative', 'Cooperative deliveries'), T('Une livraison n’est entièrement traçable que lorsque la répartition par producteur égale le poids livré.', 'A delivery is fully traceable only when the per-farmer allocation equals the delivered weight.'),
-        table([T('Livraison', 'Delivery'), T('Date', 'Date'), T('Prévu', 'Planned'), T('Livré', 'Delivered'), T('Alloué', 'Allocated'), T('Répartition', 'Allocation'), T('Arrivage', 'Arrival'), T('Réception WMS', 'WMS reception'), T('Entrepôt', 'Warehouse'), T('Statut', 'Status'), ''],
+        '<div class="coop-wide">' + table([T('Livraison', 'Delivery'), T('Date', 'Date'), 'Supplier', T('Origine', 'Origin'), T('Prévu', 'Planned'), T('Livré', 'Delivered'), T('Sacs', 'Bags'), T('Camion / chauffeur', 'Truck / driver'), T('Alloué', 'Allocated'), T('Répartition', 'Allocation'), T('Arrivage', 'Arrival'), T('Réception WMS', 'WMS reception'), T('Entrepôt', 'Warehouse'), T('Traçabilité', 'Traceability'), T('Statut', 'Status'), ''],
           dl.map(function (d) {
             var a = edit && d.status !== 'ANNULEE' ? '<div class="coop-actions-cell">' + (d.status !== 'RECUE' ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.receive(\'' + d.id + '\')">' + esc(T('Réception', 'Receive')) + '</button>' : '') +
               '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.allocate(\'' + d.id + '\')">' + esc(T('Répartir', 'Allocate')) + '</button></div>' : '';
-            return '<tr><td class="mono">' + esc(d.code) + '</td><td>' + date(d.delivered_at || d.planned_date) + '</td><td>' + (has(d.planned_kg) ? mt(d.planned_kg) : '—') + '</td><td>' + (has(d.delivered_kg) ? mt(d.delivered_kg) : '—') + '</td>' +
+            return '<tr><td class="mono">' + esc(d.code) + '</td><td>' + date(d.delivered_at || d.planned_date) + '</td><td>' + esc(d.supplier_name || T('non lié', 'not linked')) + '</td><td>' + (d.origin ? esc(d.origin) : na()) + '</td>' +
+              '<td>' + (has(d.planned_kg) ? mt(d.planned_kg) : '—') + '</td><td>' + (has(d.delivered_kg) ? mt(d.delivered_kg) : '—') + '</td><td>' + (has(d.delivered_bags) ? num(d.delivered_bags) : has(d.planned_bags) ? num(d.planned_bags) + ' ' + esc(T('prévus', 'planned')) : '—') + '</td>' +
+              '<td>' + esc([d.truck, d.driver].filter(Boolean).join(' · ') || '—') + '</td>' +
               '<td>' + mt(d.allocated_kg) + ' · ' + num(d.allocated_producers) + ' ' + esc(T('prod.', 'farm.')) + '</td><td>' + badge(L('alloc', d.allocation_status), d.allocation_status === 'TRACABLE' ? 'ok' : 'warn') + '</td>' +
               '<td class="mono">' + esc(d.arrival_id || '—') + '</td><td class="mono">' + esc(d.reception_id_resolved || '—') + '</td><td>' + esc(d.warehouse_code || '—') + '</td>' +
+              '<td>' + badge(L('trace', d.traceability_level), d.traceability_level === 'TRACABLE_PRODUCTEUR' ? 'ok' : d.traceability_level === 'ANNULEE' ? 'danger' : 'warn') + '</td>' +
               '<td>' + badge(L('delivery', d.status), d.status === 'RECUE' ? 'ok' : d.status === 'ANNULEE' ? 'danger' : 'info') + '</td><td>' + a + '</td></tr>';
-          }), T('Aucune livraison planifiée.', 'No delivery planned.')),
+          }), T('Aucune livraison planifiée.', 'No delivery planned.')) + '</div>',
         edit && ['APPROUVEE', 'ACTIVE'].indexOf(b.coop.aflp_status) >= 0 ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.planDelivery()">+ ' + esc(T('Planifier une livraison', 'Plan a delivery')) + '</button>' : '') +
       card(T('Lots Warehouse d’origine coopérative', 'Warehouse lots from this cooperative'), '', table(['LOT', T('Réception', 'Reception'), T('Poids', 'Weight'), T('Canal', 'Channel'), T('Producteurs', 'Farmers'), T('Villages', 'Villages'), 'KOR', T('Humidité', 'Moisture'), 'BIN', T('Traçabilité', 'Traceability')],
         lots.map(function (l) {
@@ -1242,7 +1365,8 @@ function planDelivery() {
       selectField(T('Entrepôt *', 'Warehouse *'), 'warehouse_id', c.warehouses.map(function (w) { return '<option value="' + w.id + '"' + (w.id === cc.destination_warehouse_id ? ' selected' : '') + '>' + esc(w.code + ' · ' + (w.name || '')) + '</option>'; }).join('')) +
       selectField(T('Section', 'Section'), 'section_id', '<option value="">—</option>' + b.sections.filter(function (s) { return s.active; }).map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join('')) +
       selectField(T('Point de collecte', 'Collection point'), 'collection_point_id', '<option value="">—</option>' + b.points.filter(function (p) { return p.active; }).map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('')) +
-      field(T('Camion', 'Truck'), 'truck', '') + field(T('Chauffeur', 'Driver'), 'driver', '') + field(T('Transporteur', 'Transporter'), 'transporter', ''),
+      field(T('Camion', 'Truck'), 'truck', '') + field(T('Chauffeur', 'Driver'), 'driver', '') + field(T('Transporteur', 'Transporter'), 'transporter', '') +
+      field(T('Origine (localité de collecte)', 'Origin (collection locality)'), 'origin', '', 'maxlength="120"', 'span-2'),
       function (d) {
         if (!d.planned_date || !d.planned_kg) throw new Error(T('Date et quantité obligatoires.', 'Date and quantity required.'));
         d.cooperative_id = id; d.campaign = CAMPAIGN;
@@ -1311,34 +1435,99 @@ TAB_AFTER.bags = function (b) {
 };
 
 /* ------------------------------------------------------------------ 8. Durabilité */
+var TRN_CAT = { BONNES_PRATIQUES: ['Bonnes pratiques agricoles', 'Good agricultural practices'], QUALITE_POST_RECOLTE: ['Qualité post-récolte', 'Post-harvest quality'],
+  SECURITE_PHYTOSANITAIRE: ['Sécurité phytosanitaire', 'Pesticide safety'], ENVIRONNEMENT: ['Environnement', 'Environment'], SOCIAL_DROITS: ['Social et droits', 'Social and rights'],
+  GOUVERNANCE_COOP: ['Gouvernance coopérative', 'Cooperative governance'], AUTRE: ['Autre', 'Other'] };
+function trnLabel(k) { return TRN_CAT[k] ? T(TRN_CAT[k][0], TRN_CAT[k][1]) : k; }
 TAB_RENDER.sustainability = function () { return '<div id="suBox">' + skeleton() + '</div>'; };
 TAB_AFTER.sustainability = function (b) {
+  var edit = canEdit() && !b.coop.archived;
   memberAgg(b.coop.id).then(function (A) {
     var m = A.members, total = m.length, yr = new Date().getFullYear();
     function cnt(fn) { return m.filter(fn).length; }
     var ids = m.map(function (x) { return x.producer_id; });
     var chunks = []; for (var i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
-    return Promise.all(chunks.map(function (ch) { return q('farmer_inspections', 'producteur_id,status,risk_profile', function (r) { return r.in('producteur_id', ch); }).catch(function () { return []; }); })).then(function (ins) {
-      ins = [].concat.apply([], ins);
-      var risky = {}; ins.forEach(function (x) { if (/HIGH|REVIEW/.test(String(x.risk_profile || ''))) risky[x.producteur_id] = 1; });
-      var sexKnown = cnt(function (x) { return x.sexe === 'M' || x.sexe === 'F'; }), byKnown = cnt(function (x) { return has(x.birth_year); });
-      function ratio(k, d) { return d ? num(k) + ' / ' + num(d) : na(); }
-      document.getElementById('suBox').innerHTML = '<div class="notice info">' + esc(T('Aucune donnée n’est déduite : une information non collectée est comptée « NON COLLECTÉ ».', 'No data is inferred: uncollected information is counted as “NOT RECORDED”.')) + '</div>' +
-        '<section class="kpi-grid">' + kpi(T('Producteurs membres', 'Member farmers'), num(total), '') +
-        kpi('Farmer Passport', ratio(cnt(function (x) { return ['MAPPED', 'BASELINE', 'VERIFIED'].indexOf(x.passport_stage) >= 0; }), total), T('cartographié ou plus', 'mapped or beyond')) +
-        kpi(T('Consentement', 'Consent'), ratio(cnt(function (x) { return x.consent_status === 'GRANTED'; }), total), num(cnt(function (x) { return x.consent_status === 'NOT_RECORDED' || !x.consent_status; })) + ' ' + T('non recueilli(s)', 'not recorded')) +
-        kpi(T('Parcelles GPS', 'GPS plots'), num(m.reduce(function (t, x) { return t + n(x.gps_plots); }, 0)), num(cnt(function (x) { return !n(x.gps_plots); })) + ' ' + T('producteur(s) sans GPS', 'farmer(s) without GPS')) + '</section>' +
-        '<section class="kpi-grid">' + kpi(T('Superficie', 'Area'), cnt(function (x) { return has(x.area_ha); }) ? num(m.reduce(function (t, x) { return t + n(x.area_ha); }, 0), 1) + ' ha' : na(), num(cnt(function (x) { return !has(x.area_ha); })) + ' ' + T('non collectée(s)', 'not recorded')) +
-        kpi(T('Femmes', 'Women'), sexKnown ? num(cnt(function (x) { return x.sexe === 'F'; })) : na(), num(total - sexKnown) + ' ' + T('sexe non collecté', 'sex not recorded')) +
-        kpi(T('Jeunes (< 35 ans)', 'Youth (< 35)'), byKnown ? num(cnt(function (x) { return has(x.birth_year) && n(x.birth_year) >= yr - 35; })) : na(), num(total - byKnown) + ' ' + T('âge non collecté', 'age not recorded')) +
-        kpi(T('Inspections', 'Inspections'), num(ins.length), num(Object.keys(risky).length) + ' ' + T('producteur(s) à risque', 'farmer(s) at risk'), Object.keys(risky).length ? 'warn' : '') + '</section>' +
-        card(T('Dossiers incomplets', 'Incomplete files'), T('Producteurs à compléter en priorité (Farmer Passport incomplet ou consentement absent).', 'Farmers to complete first (incomplete Farmer Passport or missing consent).'),
-          defGrid([[T('Passport incomplet', 'Incomplete passport'), num(cnt(function (x) { return x.passport_stage === 'INCOMPLETE' || x.passport_stage === 'BASIC'; }))],
-            [T('Sans consentement', 'Without consent'), num(cnt(function (x) { return x.consent_status !== 'GRANTED'; }))], [T('Sans téléphone', 'Without phone'), num(cnt(function (x) { return !x.telephone; }))],
-            [T('Formations / pratiques agricoles', 'Training / farming practices'), null]]));
+    function per(tableName, cols, mod) { return Promise.all(chunks.map(function (ch) { return q(tableName, cols, function (r) { r = r.in('producteur_id', ch); return mod ? mod(r) : r; }).catch(function () { return []; }); })).then(function (x) { return [].concat.apply([], x); }); }
+    return Promise.all([
+      per('farmer_inspections', 'producteur_id,status,risk_profile,inspection_date'),
+      per('farmer_sustainability_baselines', 'producteur_id,status,risk_profile,answered_count,required_count,catalog_version', function (r) { return r.eq('status', 'FINAL'); }),
+      per('farmer_action_plans', 'producteur_id,status,priority', function (r) { return r.in('status', ['OPEN', 'IN_PROGRESS', 'OVERDUE']); }),
+      q('aflp_coop_trainings', 'id,topic,category,training_date,trainer,location,active', function (r) { return r.eq('cooperative_id', b.coop.id).eq('active', true).order('training_date', { ascending: false }); }).catch(function () { return []; })
+    ]).then(function (rs) {
+      var ins = rs[0], bas = rs[1], plans = rs[2], trn = rs[3];
+      var tIds = trn.map(function (t) { return t.id; });
+      return (tIds.length ? q('aflp_coop_training_attendance', 'training_id,producer_id', function (r) { return r.in('training_id', tIds); }).catch(function () { return []; }) : Promise.resolve([])).then(function (att) {
+        var trained = {}, perT = {}; att.forEach(function (a) { trained[a.producer_id] = 1; perT[a.training_id] = (perT[a.training_id] || 0) + 1; });
+        var risky = {}; ins.concat(bas).forEach(function (x) { if (/HIGH|REVIEW/.test(String(x.risk_profile || ''))) risky[x.producteur_id] = 1; });
+        var basP = {}; bas.forEach(function (x) { basP[x.producteur_id] = 1; });
+        var insP = {}; ins.forEach(function (x) { insP[x.producteur_id] = 1; });
+        var sexKnown = cnt(function (x) { return x.sexe === 'M' || x.sexe === 'F'; });
+        function young(x) { return has(x.birth_year) ? n(x.birth_year) > yr - 35 : ['18-24', '25-34'].indexOf(x.age_band) >= 0; }
+        var ageKnown = cnt(function (x) { return has(x.birth_year) || (x.age_band && x.age_band !== 'UNKNOWN'); });
+        function ratio(k, d) { return d ? num(k) + ' / ' + num(d) : na(); }
+        function nc(k) { return num(k) + ' ' + T('non collecté(s)', 'not recorded'); }
+        var box = document.getElementById('suBox');
+        box.innerHTML = '<div class="notice info">' + esc(T('Aucune donnée n’est déduite : une information non collectée reste « NON COLLECTÉ ». Pratiques, inspections et risques proviennent du Farmer Passport (baselines finalisées, inspections) ; les formations, des sessions réellement tenues.',
+            'No data is inferred: uncollected information stays “NOT RECORDED”. Practices, inspections and risks come from the Farmer Passport (finalised baselines, inspections); trainings from sessions actually held.')) + '</div>' +
+          '<section class="kpi-grid">' + kpi(T('Producteurs membres', 'Member farmers'), num(total), '') +
+          kpi('Farmer Passport', ratio(cnt(function (x) { return ['MAPPED', 'BASELINE', 'VERIFIED'].indexOf(x.passport_stage) >= 0; }), total), T('cartographié ou plus', 'mapped or beyond')) +
+          kpi(T('Consentement', 'Consent'), ratio(cnt(function (x) { return x.consent_status === 'GRANTED'; }), total), num(cnt(function (x) { return x.consent_status === 'NOT_RECORDED' || !x.consent_status; })) + ' ' + T('non recueilli(s)', 'not recorded')) +
+          kpi(T('GPS', 'GPS'), total ? num(cnt(function (x) { return n(x.gps_plots) > 0; })) : na(), nc(cnt(function (x) { return !n(x.gps_plots); })) + ' · ' + num(m.reduce(function (t, x) { return t + n(x.gps_plots); }, 0)) + ' ' + T('parcelle(s) GPS', 'GPS plot(s)')) + '</section>' +
+          '<section class="kpi-grid">' + kpi(T('Superficie', 'Area'), cnt(function (x) { return has(x.area_ha); }) ? num(m.reduce(function (t, x) { return t + n(x.area_ha); }, 0), 1) + ' ha' : na(), nc(cnt(function (x) { return !has(x.area_ha); }))) +
+          kpi(T('Femmes', 'Women'), sexKnown ? num(cnt(function (x) { return x.sexe === 'F'; })) : na(), num(total - sexKnown) + ' ' + T('sexe non collecté', 'sex not recorded')) +
+          kpi(T('Jeunes (< 35 ans)', 'Youth (< 35)'), ageKnown ? num(cnt(young)) : na(), num(total - ageKnown) + ' ' + T('âge non collecté', 'age not recorded')) +
+          kpi(T('Formés', 'Trained'), trn.length ? ratio(Object.keys(trained).length, total) : na(), num(trn.length) + ' ' + T('session(s)', 'session(s)')) + '</section>' +
+          '<section class="kpi-grid">' + kpi(T('Bonnes pratiques', 'Good practices'), bas.length ? ratio(Object.keys(basP).length, total) : na(), T('baseline durabilité finalisée', 'finalised sustainability baseline') + ' · ' + nc(total - Object.keys(basP).length)) +
+          kpi(T('Inspections', 'Inspections'), ins.length ? num(ins.length) : na(), num(Object.keys(insP).length) + ' ' + T('producteur(s) inspecté(s)', 'farmer(s) inspected')) +
+          kpi(T('Risques', 'Risks'), (ins.length || bas.length) ? num(Object.keys(risky).length) : na(), T('producteur(s) à risque élevé / revue', 'farmer(s) high risk / review'), Object.keys(risky).length ? 'warn' : '') +
+          kpi(T('Plans d’action ouverts', 'Open action plans'), num(plans.length), num(plans.filter(function (p) { return p.priority === 'CRITICAL' || p.priority === 'HIGH'; }).length) + ' ' + T('prioritaire(s)', 'high priority'), plans.length ? 'warn' : '') + '</section>' +
+          card(T('Formations', 'Trainings'), T('Sessions réellement tenues et présences nominatives. Un producteur non listé n’est pas « non formé » : son statut est inconnu.', 'Sessions actually held and named attendance. A farmer not listed is not “untrained”: status is unknown.'),
+            table([T('Date', 'Date'), T('Thème', 'Topic'), T('Catégorie', 'Category'), T('Formateur', 'Trainer'), T('Lieu', 'Location'), T('Présents', 'Attendees'), ''], trn.map(function (t) {
+              return '<tr><td>' + date(t.training_date) + '</td><td><b>' + esc(t.topic) + '</b></td><td>' + esc(trnLabel(t.category)) + '</td><td>' + esc(t.trainer || '—') + '</td><td>' + esc(t.location || '—') + '</td><td>' + num(perT[t.id] || 0) + '</td>' +
+                '<td>' + (edit ? '<button class="btn secondary" type="button" onclick="ANAGROCI_COOP.attendance(\'' + t.id + '\')">' + esc(T('Présences', 'Attendance')) + '</button>' : '') + '</td></tr>';
+            }), T('Aucune formation enregistrée : NON COLLECTÉ.', 'No training recorded: NOT RECORDED.')),
+            edit ? '<button class="btn primary" type="button" onclick="ANAGROCI_COOP.addTraining()">+ ' + esc(T('Enregistrer une formation tenue', 'Record a training held')) + '</button>' : '') +
+          card(T('Dossiers incomplets', 'Incomplete files'), T('À compléter en priorité, dans le Farmer Passport ou par un nouvel enrôlement.', 'To complete first, in the Farmer Passport or through enrolment.'),
+            defGrid([[T('Passport incomplet ou basique', 'Incomplete or basic passport'), num(cnt(function (x) { return x.passport_stage === 'INCOMPLETE' || x.passport_stage === 'BASIC'; }))],
+              [T('Consentement non recueilli', 'Consent not recorded'), num(cnt(function (x) { return !x.consent_status || x.consent_status === 'NOT_RECORDED'; }))], [T('Sans téléphone', 'Without phone'), num(cnt(function (x) { return !x.telephone; }))],
+              [T('Sans GPS', 'Without GPS'), num(cnt(function (x) { return !n(x.gps_plots); }))], [T('Sans superficie', 'Without area'), num(cnt(function (x) { return !has(x.area_ha); }))],
+              [T('Complétude < 50 %', 'Completeness < 50%'), num(cnt(function (x) { return n(x.completeness_pct) < 50; }))]]));
+      });
     });
   }).catch(function (e) { document.getElementById('suBox').innerHTML = errBox(e); });
 };
+function addTraining() {
+  var id = currentCoopId();
+  simpleForm(T('Enregistrer une formation tenue', 'Record a training held'), T('Uniquement une session réellement tenue (pas de formation planifiée ici).', 'Only a session actually held (no planned training here).'),
+    field(T('Thème *', 'Topic *'), 'topic', '', 'maxlength="160"', 'span-2') + selectField(T('Catégorie', 'Category'), 'category', Object.keys(TRN_CAT).map(function (k) { return '<option value="' + k + '">' + esc(trnLabel(k)) + '</option>'; }).join('')) +
+    field(T('Date *', 'Date *'), 'training_date', '', 'type="date" max="' + new Date().toISOString().slice(0, 10) + '"') + field(T('Formateur', 'Trainer'), 'trainer', '') + field(T('Lieu', 'Location'), 'location', ''),
+    function (d) {
+      if (!d.topic || !d.training_date) throw new Error(T('Thème et date obligatoires.', 'Topic and date required.'));
+      return insertRow('aflp_coop_trainings', { cooperative_id: id, campaign: CAMPAIGN, topic: d.topic, category: d.category, training_date: d.training_date, trainer: d.trainer || null, location: d.location || null })
+        .then(function () { invalidate('agg:' + id); });
+    });
+}
+function attendance(tid) {
+  var id = currentCoopId();
+  Promise.all([q('aflp_coop_members_v', 'producer_id,farmer_id,nom,prenoms,member_number', function (r) { return r.eq('cooperative_id', id).eq('campaign', CAMPAIGN).neq('status', 'ENDED').order('nom').limit(5000); }),
+    q('aflp_coop_training_attendance', 'producer_id', function (r) { return r.eq('training_id', tid); })]).then(function (rs) {
+    var here = {}; rs[1].forEach(function (a) { here[a.producer_id] = 1; });
+    var h = host(); if (!h) return;
+    h.innerHTML = '<section class="card ops-form-card"><div class="card-head"><div><h2>' + esc(T('Présences à la formation', 'Training attendance')) + '</h2><p>' + esc(T('Cochez les producteurs présents. Une présence enregistrée n’est pas retirée (journal).', 'Tick attending farmers. A recorded attendance is not removed (log).')) + '</p></div>' +
+      '<div class="ops-route-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_COOP.closeHost()">' + esc(T('Fermer', 'Close')) + '</button></div></div>' +
+      '<div class="coop-filters" style="margin-bottom:8px"><label class="coop-search">' + esc(T('Recherche', 'Search')) + '<input type="search" id="atQ"></label></div>' +
+      '<div class="coop-attendance" id="atList">' + rs[0].map(function (m) {
+        return '<label data-s="' + esc(norm((m.farmer_id || '') + ' ' + m.nom + ' ' + (m.prenoms || '') + ' ' + (m.member_number || ''))) + '"><input type="checkbox" value="' + esc(m.producer_id) + '"' + (here[m.producer_id] ? ' checked disabled' : '') + '> <span class="mono">' + esc(m.farmer_id || '') + '</span> ' + esc(m.nom + ' ' + (m.prenoms || '')) + '</label>';
+      }).join('') + '</div><div class="coop-form-actions"><button class="btn primary" type="button" id="atGo">' + esc(T('Enregistrer les présences', 'Save attendance')) + '</button><span id="atMsg"></span></div></section>';
+    document.getElementById('atQ').oninput = function () { var s = norm(this.value); h.querySelectorAll('#atList label').forEach(function (l) { l.style.display = !s || l.getAttribute('data-s').indexOf(s) >= 0 ? '' : 'none'; }); };
+    document.getElementById('atGo').onclick = function () {
+      var ids = [].slice.call(h.querySelectorAll('#atList input:checked:not(:disabled)')).map(function (i) { return i.value; });
+      if (!ids.length) return msg('atMsg', T('Aucune nouvelle présence cochée.', 'No new attendance ticked.'), false);
+      insertRow('aflp_coop_training_attendance', ids.map(function (p) { return { training_id: tid, producer_id: p }; })).then(function () { toast(num(ids.length) + ' ' + T('présence(s) enregistrée(s).', 'attendance(s) saved.')); invalidate('agg:' + id); refreshFiche(); })
+        .catch(function (e) { msg('atMsg', e.message, false); });
+    };
+  }).catch(function (e) { alert(e.message); });
+}
 
 /* ------------------------------------------------------------------- 9. Documents */
 TAB_RENDER.documents = function () { return '<div id="dcBox">' + skeleton() + '</div>'; };
@@ -1495,12 +1684,21 @@ document.addEventListener('anagroci:language', function () { if (routeParts()[0]
 
 global.ANAGROCI_COOP = {
   render: render, fillOverview: fillOverview, fillChannel: fillChannel, view: setView, exportList: exportList, exportMembers: exportMembers,
-  addMember: addMember, verify: verify, primary: primary, endMember: endMember, transfer: transfer, closeHost: closeHost, gps: gps,
+  addMember: function (id, linkOnly) { enrolMod(linkOnly ? 'link' : 'enroll', id); }, verify: verify, primary: primary, endMember: endMember, transfer: transfer, closeHost: closeHost, gps: gps,
   addVillage: addVillage, addSection: addSection, addPoint: addPoint, addContact: addContact, deactivateContact: deactivateContact,
-  planDelivery: planDelivery, receive: receive, allocate: allocate, uploadDoc: uploadDoc, openDoc: openDoc,
+  planDelivery: planDelivery, addTraining: addTraining, attendance: attendance, receive: receive, allocate: allocate, uploadDoc: uploadDoc, openDoc: openDoc,
   statusDialog: statusDialog, archive: archive, createSupplier: createSupplier, linkSupplier: linkSupplier,
-  _t: T, _labels: LBL
+  enroll: function (id) { enrolMod('enroll', id); }, linkExisting: function (id) { enrolMod('link', id); }, reviews: function (id) { enrolMod('reviews', id); },
+  _t: T, _labels: LBL,
+  /* Boîte à outils partagée avec aflp-cooperatives-enrolement.js (même rendu, mêmes contrôles). */
+  _k: { T: T, L: L, esc: esc, opts: opts, table: table, kpi: kpi, card: card, badge: badge, na: na, date: date, field: field, selectField: selectField, formData: formData,
+    msg: msg, rpc: rpc, q: q, client: client, bundle: bundle, refs: refs, host: host, closeHost: closeHost, refreshFiche: refreshFiche, toast: toast, invalidate: invalidate,
+    phoneCI: phoneCI, maskPhone: maskPhone, norm: norm, canEdit: canEdit, isDirection: isDirection, CAMPAIGN: CAMPAIGN }
 };
+function enrolMod(fn, id) {
+  if (global.ANAGROCI_COOP_ENROL) return global.ANAGROCI_COOP_ENROL[fn](id);
+  alert(T('Module d’enrôlement non chargé : rechargez la page.', 'Enrolment module not loaded: reload the page.'));
+}
 /* Pas de rendu au chargement : le routeur FIELD BUYING (field-buying.js) appelle render(). */
 /* Garde-fou : si une rubrique Field Buying est repeinte par un autre script, les
    emplacements Coopératives vides sont remplis à nouveau (une seule fois par emplacement). */

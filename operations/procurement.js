@@ -61,8 +61,33 @@ function arrivals(){
  field('Expected Date / Time','expected_at','datetime-local','')+
  field('Truck','truck','text','')+field('Driver','driver','text','')+field('Transporter','transporter','text','')+field('Reference','reference','text','')+
  '</div><div class="ops-actions"><button class="btn primary">Create Planned Arrival</button></div><div id="arrivalMsg" class="muted"></div></form></section>'+
- '<section class="card"><h2>Pending Supplier Arrivals</h2>'+table(['Reference','Channel','Supplier','Origin','Truck','Expected','Warehouse','Date'],state.pending.filter(function(x){return x.source_type!=='FIELD_SHIPMENT';}).map(function(x){return'<tr><td class="mono">'+esc(x.source_ref)+'</td><td>'+badge(x.procurement_channel)+'</td><td>'+esc((x.supplier_code||'')+' '+(x.supplier_name||''))+'</td><td>'+esc(x.origin||'—')+'</td><td>'+esc(x.truck||'À compléter')+'</td><td>'+kg(x.expected_kg)+'</td><td>'+esc(x.warehouse_code||'—')+'</td><td>'+dt(x.source_date)+'</td></tr>'; }))+'</section>';
- bindArrival();
+ arrivalFilterBar()+
+ '<section class="card"><h2>Pending Supplier Arrivals</h2>'+table(['Reference','Channel','Supplier','Origin','Truck','Expected','Warehouse','Date'],pendingFiltered().map(function(x){return'<tr><td class="mono">'+esc(x.source_ref)+'</td><td>'+badge(x.procurement_channel)+'</td><td>'+esc((x.supplier_code||'')+' '+(x.supplier_name||''))+'</td><td>'+esc(x.origin||'—')+'</td><td>'+esc(x.truck||'À compléter')+'</td><td>'+kg(x.expected_kg)+'</td><td>'+esc(x.warehouse_code||'—')+'</td><td>'+dt(x.source_date)+'</td></tr>'; }))+'</section>'+
+ '<section class="card" id="coopDeliveriesHost" data-i18n-ignore'+(state.arrFilter&&state.arrFilter!=='COOPERATIVE'?' hidden':'')+'><h2>'+esc(L2('Livraisons coopératives (mode B)','Cooperative deliveries (mode B)'))+'</h2><div class="ops-empty">'+esc(L2('Chargement…','Loading…'))+'</div></section>';
+ bindArrival();bindArrivalFilter();loadCoopDeliveries();
+}
+/* Delivery Plan : filtre métier. Direct AFLP = expéditions Field Buying (FIELD_BUYING) ;
+   Coopératives, LBA et Direct Supplier = canaux Procurement. */
+function L2(fr,en){try{return localStorage.getItem('anagroci_lang')==='en'?en:fr;}catch(e){return fr;}}
+function arrFilters(){return[['',L2('Tous','All')],['FIELD_BUYING','Direct AFLP'],['COOPERATIVE',L2('Coopératives','Cooperatives')],['LBA','LBA'],['DIRECT','Direct Supplier']];}
+function pendingFiltered(){var f=state.arrFilter||'';return(state.pending||[]).filter(function(x){var ch=String(x.procurement_channel||'').toUpperCase();if(!f)return true;if(f==='FIELD_BUYING')return x.source_type==='FIELD_SHIPMENT'||ch==='FIELD_BUYING';return x.source_type!=='FIELD_SHIPMENT'&&ch===f;});}
+function arrivalFilterBar(){var f=state.arrFilter||'';return'<div class="ops-actions" id="arrFilter" data-i18n-ignore style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 12px">'+arrFilters().map(function(o){return'<button type="button" class="btn '+(o[0]===f?'primary':'secondary')+'" data-arrf="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>';}
+function bindArrivalFilter(){document.querySelectorAll('#arrFilter [data-arrf]').forEach(function(b){b.onclick=function(){state.arrFilter=b.getAttribute('data-arrf');arrivals();};});}
+var COOP_LBL={RECUE:['Reçue','Received'],PLANIFIEE:['Planifiée','Planned'],EN_ROUTE:['En route','In transit'],ANNULEE:['Annulée','Cancelled'],ALLOCATION_A_COMPLETER:['Allocation à compléter','Allocation to complete'],ALLOUEE_PREVISION:['Allouée (prévision)','Allocated (planned)'],TRACABLE:['Répartie','Allocated'],
+ TRACABLE_PRODUCTEUR:['Traçable producteur','Farmer-traceable'],ORGANISATION_SEULEMENT:['Organisation seulement','Organisation only'],EN_ATTENTE_RECEPTION:['En attente de réception','Awaiting reception']};
+function coopLbl(k){var x=COOP_LBL[k]?L2(COOP_LBL[k][0],COOP_LBL[k][1]):(k||'—'),tone=/TRACABLE|RECUE/.test(k||'')&&k!=='ALLOCATION_A_COMPLETER'?'ok':/ANNULEE/.test(k||'')?'danger':'warn';return'<span class="badge '+tone+'">'+esc(x)+'</span>';}
+async function loadCoopDeliveries(){
+ var host=document.getElementById('coopDeliveriesHost');if(!host||host.hidden)return;
+ try{
+  var rows=await q('aflp_coop_delivery_status_v','code,cooperative_code,cooperative_name,supplier_name,origin,warehouse_code,planned_kg,delivered_kg,planned_bags,delivered_bags,truck,driver,planned_date,delivered_at,status,reception_id_resolved,allocated_kg,allocation_status,traceability_level,is_qa',function(x){return x.eq('is_qa',false).neq('status','ANNULEE').order('planned_date',{ascending:false}).limit(300);});
+  host=document.getElementById('coopDeliveriesHost');if(!host)return;
+  host.innerHTML='<h2>'+esc(L2('Livraisons coopératives (mode B)','Cooperative deliveries (mode B)'))+'</h2><p class="muted">'+esc(L2('Livraisons consolidées planifiées depuis la fiche coopérative ; traçables producteur seulement quand la répartition égale le poids livré.','Consolidated deliveries planned from the cooperative profile; farmer-traceable only when the allocation equals the delivered weight.'))+'</p>'+
+   table([L2('Livraison','Delivery'),L2('Coopérative','Cooperative'),'Supplier',L2('Origine','Origin'),L2('Entrepôt','Warehouse'),L2('Poids','Weight'),L2('Sacs','Bags'),L2('Camion','Truck'),L2('Chauffeur','Driver'),'Date',L2('Statut','Status'),L2('Réception WMS','WMS reception'),L2('Répartition','Allocation'),L2('Traçabilité','Traceability')],rows.map(function(d){
+    return'<tr><td class="mono">'+esc(d.code)+'</td><td>'+esc((d.cooperative_code||'')+' · '+(d.cooperative_name||''))+'</td><td>'+esc(d.supplier_name||L2('non lié','not linked'))+'</td><td>'+esc(d.origin||L2('NON COLLECTÉ','NOT RECORDED'))+'</td><td>'+esc(d.warehouse_code||'—')+'</td>'+
+     '<td>'+(d.delivered_kg!=null?kg(d.delivered_kg):kg(d.planned_kg)+' '+L2('prévus','planned'))+'</td><td>'+(d.delivered_bags!=null?num(d.delivered_bags):d.planned_bags!=null?num(d.planned_bags)+' '+L2('prévus','planned'):'—')+'</td><td>'+esc(d.truck||'—')+'</td><td>'+esc(d.driver||'—')+'</td>'+
+     '<td>'+dt(d.delivered_at||d.planned_date)+'</td><td>'+coopLbl(d.status)+'</td><td class="mono">'+esc(d.reception_id_resolved||'—')+'</td><td>'+kg(d.allocated_kg)+' · '+coopLbl(d.allocation_status)+'</td><td>'+coopLbl(d.traceability_level)+'</td></tr>';
+   }));
+ }catch(e){host.innerHTML='<h2>'+esc(L2('Livraisons coopératives (mode B)','Cooperative deliveries (mode B)'))+'</h2><div class="notice danger">'+esc(e.message)+'</div>';}
 }
 function filterForm(){
  var f=state.filters||{};

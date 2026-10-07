@@ -135,7 +135,9 @@ jobs:
       - name: Créer la branche de correction
         id: branche
         env:
-          MOTIF: ${{ inputs.motif || format('issue #{0}', github.event.issue.number) }}
+          # Valeur entre guillemets : sans eux, « #{0} » ouvre un commentaire YAML,
+          # l'expression est tronquée et GitHub rejette tout le fichier.
+          MOTIF: "${{ inputs.motif || format('issue #{0}', github.event.issue.number) }}"
         run: |
           set -euo pipefail
           NOM="agent/auto-fix-${{ github.run_id }}"
@@ -175,10 +177,14 @@ jobs:
 
       - name: Vérifier l'éligibilité avant de proposer quoi que ce soit
         if: steps.diff.outputs.modifie == 'true'
+        env:
+          # Titre d'issue = donnée non fiable : passée par l'environnement, jamais
+          # interpolée dans le script (injection de commande).
+          TITRE: ${{ inputs.motif || github.event.issue.title }}
         run: |
           set -euo pipefail
           git add -A
-          git commit -m "correction automatique encadrée : ${{ inputs.motif || github.event.issue.title }}"
+          git commit -m "correction automatique encadrée : ${TITRE}"
           node .github/scripts/verifier-eligibilite-autofix.mjs "origin/${{ github.event.repository.default_branch }}" HEAD
 
       - name: Rejouer les portes qualité statiques
@@ -192,13 +198,14 @@ jobs:
         if: steps.diff.outputs.modifie == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITRE: ${{ inputs.motif || github.event.issue.title }}
         run: |
           set -euo pipefail
           git push -u origin "${{ steps.branche.outputs.nom }}"
           gh pr create --draft \
             --base "${{ github.event.repository.default_branch }}" \
             --head "${{ steps.branche.outputs.nom }}" \
-            --title "[AGENT][HUMAN-REVIEW] ${{ inputs.motif || github.event.issue.title }}" \
+            --title "[AGENT][HUMAN-REVIEW] ${TITRE}" \
             --body "$(printf '%s\n' \
               'Correction préparée automatiquement, **à relire par un humain**.' \
               '' \

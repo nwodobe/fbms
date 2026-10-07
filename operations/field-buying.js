@@ -52,6 +52,22 @@ function routeParts() {
   });
 }
 function route() { return routeParts()[0] || 'overview'; }
+/* Farmer Passport : libellés FR/EN explicites (zone data-i18n-ignore, sans traduction mot à mot). */
+function fbLang() { try { return localStorage.getItem('anagroci_lang') === 'en' ? 'en' : 'fr'; } catch (e) { return 'fr'; } }
+function TT(fr, en) { return fbLang() === 'en' ? en : fr; }
+/* Bandeau de règle et barre de contexte statiques de field-buying.html : texte complet par langue
+   (le traducteur global remplace mot à mot et produisait « ne bloque never l’achat »). */
+function fbShellText() {
+  var bar = document.querySelector('.ops-contextbar'), rule = document.querySelector('.ops-main > .notice.ok');
+  if (bar && /Campagne|Campaign/.test(bar.textContent)) { bar.setAttribute('data-i18n-ignore', ''); bar.innerHTML = '<span>' + TT('Campagne 2027', '2027 campaign') + '</span><span>FR · Achat Bord Champ</span><span>EN · Field Buying</span>'; }
+  if (rule && /2027/.test(rule.textContent)) { rule.setAttribute('data-i18n-ignore', ''); rule.innerHTML = '<b>' + TT('Règle campagne 2027 :', '2027 campaign rule:') + '</b>&nbsp; ' +
+    TT('la parcelle/GPS ne bloque jamais l’achat. Chaîne : Farmer ID → Achat → Sacs → Lot → Warehouse → Transfer → Factory.', 'the plot/GPS never blocks a purchase. Chain: Farmer ID → Purchase → Bags → Lot → Warehouse → Transfer → Factory.'); }
+}
+if (document.readyState !== 'loading') fbShellText(); else document.addEventListener('DOMContentLoaded', fbShellText);
+document.addEventListener('anagroci:language', function () {
+  fbShellText();
+  if (route() === 'farmers' && routeParts()[1]) setTimeout(function () { renderFarmerPassport(routeParts()[1], routeParts()[2]); }, 60);
+});
 function badge(s) {
   var x = String(s || '').toUpperCase();
   var c = /REFUS|BLOQ|ERREUR|REJET|RETIRE|ANNUL|EXPIR|ROUGE/.test(x) ? 'danger'
@@ -1494,23 +1510,23 @@ function passportData(pid) {
   });
 }
 
-var PASSPORT_TABS = [
-  ['overview', 'Overview'], ['identity', 'Identité'], ['farm', 'Exploitation'],
-  ['plots', 'Parcelles'], ['production', 'Production'], ['sustainability', 'Sustainability'],
-  ['consents', 'Consentements'], ['visits', 'Visites'], ['inspections', 'Inspections'],
-  ['purchases', 'Achats'], ['actions', 'Actions'], ['history', 'Historique']
-];
+function passportTabs() { return [
+  ['overview', 'Overview'], ['identity', TT('Identité', 'Identity')], ['farm', TT('Exploitation', 'Farm')],
+  ['plots', TT('Parcelles', 'Plots')], ['production', 'Production'], ['sustainability', 'Sustainability'],
+  ['consents', TT('Consentements', 'Consents')], ['visits', TT('Visites', 'Visits')], ['inspections', 'Inspections'],
+  ['purchases', TT('Achats', 'Purchases')], ['actions', 'Actions'], ['history', TT('Historique', 'History')]
+]; }
 
 function renderFarmerPassport(id, tab) {
-  tab = PASSPORT_TABS.some(function (t) { return t[0] === tab; }) ? tab : 'overview';
-  paint(head('Farmer Passport', 'Chargement du producteur…',
-    '<a class="btn secondary" href="#farmers">← Producteurs</a>') + skeletonPage(8));
+  tab = passportTabs().some(function (t) { return t[0] === tab; }) ? tab : 'overview';
+  paint(head('Farmer Passport', TT('Chargement du producteur…', 'Loading farmer…'),
+    '<a class="btn secondary" href="#farmers">' + TT('← Producteurs', '← Farmers') + '</a>') + skeletonPage(8));
 
   return base().then(function (c) {
     var f = c.farmers.filter(function (x) { return x.producteur_id === id || x.farmer_id === id; })[0];
     if (!f) {
-      paint(head('Farmer Passport', 'Producteur introuvable.',
-        '<a class="btn secondary" href="#farmers">← Producteurs</a>') + empty('Aucun producteur ne porte cet identifiant.'));
+      paint(head('Farmer Passport', TT('Producteur introuvable.', 'Farmer not found.'),
+        '<a class="btn secondary" href="#farmers">' + TT('← Producteurs', '← Farmers') + '</a>') + empty(TT('Aucun producteur ne porte cet identifiant.', 'No farmer has this identifier.')));
       return;
     }
     var pid = f.producteur_id;
@@ -1535,7 +1551,7 @@ function renderFarmerPassport(id, tab) {
           (title ? 'title="' + esc(title) + '" ' : '') + 'onclick="' + handler + '">' + esc(label) + '</button>';
       }
       function tabs() {
-        return '<div class="ops-passport-tabs">' + PASSPORT_TABS.map(function (t) {
+        return '<div class="ops-passport-tabs">' + passportTabs().map(function (t) {
           return '<a class="' + (tab === t[0] ? 'active' : '') + '" href="#farmers/' +
             encodeURIComponent(pid) + '/' + t[0] + '">' + esc(t[1]) + '</a>';
         }).join('') + '</div>';
@@ -1546,58 +1562,58 @@ function renderFarmerPassport(id, tab) {
         }).join('') + '</div>';
       }
       var parcelleEtat = p.plots.length
-        ? p.plots.length + ' parcelle(s)' + (p.plots.some(function (x) { return x.latitude != null; }) ? ' · GPS' : '')
-        : 'À compléter après campagne';
+        ? p.plots.length + TT(' parcelle(s)', ' plot(s)') + (p.plots.some(function (x) { return x.latitude != null; }) ? ' · GPS' : '')
+        : TT('À compléter après campagne', 'To complete after the campaign');
 
       var body = '';
       if (tab === 'overview') {
         body = kpis([
-          ['Statut', 'Opérationnel ✓', esc(f.operational_status || 'Identifié')],
+          [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Identifié', 'Identified'))],
           ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
-          ['Parcelle', parcelleEtat, 'jamais bloquante en 2027', p.plots.length ? '' : 'warn'],
-          ['Achats campagne', mt(kg), mine.length + ' achat(s) · ' + money(valAch)],
-          ['Risque', esc(f.risk_profile || 'NON ÉVALUÉ'), f.review_required ? 'revue requise' : '', f.review_required ? 'warn' : ''],
-          ['Actions ouvertes', String(p.actions.filter(function (a) { return /OPEN|IN_PROGRESS|OVERDUE/i.test(String(a.status || '')); }).length), 'plans correctifs']
+          [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante en 2027', 'never blocking in 2027'), p.plots.length ? '' : 'warn'],
+          [TT('Achats campagne', 'Campaign purchases'), mt(kg), mine.length + TT(' achat(s) · ', ' purchase(s) · ') + money(valAch)],
+          [TT('Risque', 'Risk'), esc(f.risk_profile || TT('NON ÉVALUÉ', 'NOT ASSESSED')), f.review_required ? TT('revue requise', 'review required') : '', f.review_required ? 'warn' : ''],
+          [TT('Actions ouvertes', 'Open actions'), String(p.actions.filter(function (a) { return /OPEN|IN_PROGRESS|OVERDUE/i.test(String(a.status || '')); }).length), TT('plans correctifs', 'corrective plans')]
         ]) +
-        '<section class="card"><div class="card-head"><div><h2>Résumé</h2></div></div>' +
-        defGrid([['Farmer ID', f.farmer_id], ['Nom', (f.nom + ' ' + (f.prenoms || '')).trim()],
+        '<section class="card"><div class="card-head"><div><h2>' + TT('Résumé', 'Summary') + '</h2></div></div>' +
+        defGrid([['Farmer ID', f.farmer_id], [TT('Nom', 'Name'), (f.nom + ' ' + (f.prenoms || '')).trim()],
           ['Village', f.village_nom], ['Cluster', f.cluster_label || f.cluster_code],
           ['Zone', f.zone_label || f.zone_code], ['RT', f.rt_nom],
-          ['Baselines production', String(p.baselines.length)], ['Baselines durabilité', String(p.sustainability.length)],
-          ['Visites', String(p.visits.length)], ['Inspections', String(p.inspections.length)],
-          ['Consentements', String(p.consents.length)], ['Dernier achat', date(f.last_purchase_date)]]) + '</section>' +
+          [TT('Baselines production', 'Production baselines'), String(p.baselines.length)], [TT('Baselines durabilité', 'Sustainability baselines'), String(p.sustainability.length)],
+          [TT('Visites', 'Visits'), String(p.visits.length)], ['Inspections', String(p.inspections.length)],
+          [TT('Consentements', 'Consents'), String(p.consents.length)], [TT('Dernier achat', 'Last purchase'), date(f.last_purchase_date)]]) + '</section>' +
         /* Canal AFLP 2027 (DIRECT RT ou COOPÉRATIVE) : rempli par aflp-cooperatives.js. */
         '<section class="card" id="fbCoopChannel" data-pid="' + esc(pid) + '"><div class="skeleton skeleton-row"></div></section>';
       } else if (tab === 'identity') {
-        body = '<section class="card"><div class="card-head"><div><h2>Identité</h2><p>Données maître du producteur.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('Modifier l’identité', "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
-          defGrid([['Farmer ID', f.farmer_id], ['Nom', f.nom], ['Prénoms', f.prenoms],
-            ['Sexe', sexeLabel(row.sexe)], ['Année de naissance', row.birth_year],
-            ['Téléphone', f.telephone], ['Téléphone alternatif', row.telephone_alt],
-            ['Titulaire téléphone', extra.telTitulaire],
-            ['Pièce', row.id_document_type], ['N° de pièce', row.id_document_number ? '••• (protégé)' : '—'],
-            ['Campement', extra.campement], ['Village', f.village_nom],
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Identité', 'Identity') + '</h2><p>' + TT('Données maître du producteur.', 'Farmer master data.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('Modifier l’identité', 'Edit identity'), "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
+          defGrid([['Farmer ID', f.farmer_id], [TT('Nom', 'Name'), f.nom], [TT('Prénoms', 'First names'), f.prenoms],
+            [TT('Sexe', 'Sex'), sexeLabel(row.sexe)], [TT('Année de naissance', 'Birth year'), row.birth_year],
+            [TT('Téléphone', 'Phone'), f.telephone], [TT('Téléphone alternatif', 'Alternative phone'), row.telephone_alt],
+            [TT('Titulaire téléphone', 'Phone holder'), extra.telTitulaire],
+            [TT('Pièce', 'ID document'), row.id_document_type], [TT('N° de pièce', 'ID number'), row.id_document_number ? TT('••• (protégé)', '••• (protected)') : '—'],
+            [TT('Campement', 'Camp'), extra.campement], ['Village', f.village_nom],
             ['RT', f.rt_nom], ['Cluster', f.cluster_label || f.cluster_code],
-            ['Consentement', row.consent_status], ['Date consentement', date(row.consent_date)]]) + '</section>';
+            [TT('Consentement', 'Consent'), row.consent_status], [TT('Date consentement', 'Consent date'), date(row.consent_date)]]) + '</section>';
       } else if (tab === 'farm') {
-        body = '<section class="card"><div class="card-head"><div><h2>Exploitation</h2>' +
-          '<p>Profil agricole déclaré à l’enrôlement — les mesures GPS vivent dans Parcelles.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('Modifier l’exploitation', "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
-          defGrid([['Années dans l’anacarde', extra.anneesAnacarde],
-            ['Superficie déclarée', extra.superficieHa != null ? num(extra.superficieHa, 2) + ' ha' : null],
-            ['Nombre d’arbres', extra.nbArbres], ['Âge plantation', extra.agePlantation != null ? extra.agePlantation + ' ans' : null],
-            ['Production précédente', extra.prodPrecKg != null ? num(extra.prodPrecKg) + ' kg' : null],
-            ['Potentiel 2027', extra.potentiel2027Kg != null ? num(extra.potentiel2027Kg) + ' kg' : null],
-            ['Engagement ANAGROCI', extra.engagementKg != null ? num(extra.engagementKg) + ' kg' : null],
-            ['Coopérative', extra.cooperative], ['Autres cultures', extra.autresCultures],
-            ['Acheteur habituel', extra.acheteurHabituel],
-            ['Prix précédent', extra.prixPrecedent != null ? num(extra.prixPrecedent) + ' F/kg' : null],
-            ['Paiement préféré', extra.paiementMode]]) + '</section>';
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Exploitation', 'Farm') + '</h2>' +
+          '<p>' + TT('Profil agricole déclaré à l’enrôlement — les mesures GPS vivent dans Parcelles.', 'Farming profile declared at enrolment — GPS measurements live in Plots.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('Modifier l’exploitation', 'Edit farm'), "ANAGROCI_FB.openFarmerForm(null,'" + esc(pid) + "')") + '</div></div>' +
+          defGrid([[TT('Années dans l’anacarde', 'Years in cashew'), extra.anneesAnacarde],
+            [TT('Superficie déclarée', 'Declared area'), extra.superficieHa != null ? num(extra.superficieHa, 2) + ' ha' : null],
+            [TT('Nombre d’arbres', 'Number of trees'), extra.nbArbres], [TT('Âge plantation', 'Plantation age'), extra.agePlantation != null ? extra.agePlantation + TT(' ans', ' years') : null],
+            [TT('Production précédente', 'Previous production'), extra.prodPrecKg != null ? num(extra.prodPrecKg) + ' kg' : null],
+            [TT('Potentiel 2027', '2027 potential'), extra.potentiel2027Kg != null ? num(extra.potentiel2027Kg) + ' kg' : null],
+            [TT('Engagement ANAGROCI', 'ANAGROCI commitment'), extra.engagementKg != null ? num(extra.engagementKg) + ' kg' : null],
+            [TT('Coopérative', 'Cooperative'), extra.cooperative], [TT('Autres cultures', 'Other crops'), extra.autresCultures],
+            [TT('Acheteur habituel', 'Usual buyer'), extra.acheteurHabituel],
+            [TT('Prix précédent', 'Previous price'), extra.prixPrecedent != null ? num(extra.prixPrecedent) + ' F/kg' : null],
+            [TT('Paiement préféré', 'Preferred payment'), extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
-        body = '<div class="notice ok"><b>Règle 2027 :</b> la parcelle et son GPS sont facultatifs — « à compléter après campagne ».</div>' +
-          '<section class="card"><div class="card-head"><div><h2>Parcelles</h2><p>Chaque parcelle reste une entité distincte du producteur.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Ajouter une parcelle', 'openFarmerPlotForm()') + '</div></div>' +
-          table(['Parcelle', 'Superficie', 'Arbres', 'GPS', 'Statut GPS', 'Source', 'Niveau de preuve', ''],
+        body = '<div class="notice ok"><b>' + TT('Règle 2027 :', '2027 rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
+          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur.', 'Each plot stays a separate entity from the farmer.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()') + '</div></div>' +
+          table([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
           p.plots.map(function (x) {
             return '<tr><td><b>' + esc(x.local_name || '—') + '</b></td>' +
               '<td>' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
@@ -1605,12 +1621,12 @@ function renderFarmerPassport(id, tab) {
               '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
               '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
               '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td>' +
-              '<td>' + editButton('Modifier', "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
+              '<td>' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'production') {
-        body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Nouvelle baseline', 'openProductionBaselineForm()') + '</div></div>' +
-          table(['Campagne', 'Surface productive', 'Production précédente', 'Prévision', 'Arbres productifs', 'Canal précédent', 'Déjà fournisseur', 'Statut', ''],
+        body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>' + TT('Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.', 'A FINAL baseline is kept in history and never rewritten; a correction goes through a new version.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle baseline', '+ New baseline'), 'openProductionBaselineForm()') + '</div></div>' +
+          table([TT('Campagne', 'Campaign'), TT('Surface productive', 'Productive area'), TT('Production précédente', 'Previous production'), TT('Prévision', 'Forecast'), TT('Arbres productifs', 'Productive trees'), TT('Canal précédent', 'Previous channel'), TT('Déjà fournisseur', 'Already supplier'), TT('Statut', 'Status'), ''],
           p.baselines.map(function (x) {
             var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td><b>' + esc(x.campaign) + '</b></td>' +
@@ -1619,26 +1635,26 @@ function renderFarmerPassport(id, tab) {
               '<td>' + (x.forecast_kg != null ? num(x.forecast_kg) + ' kg' : '—') + '</td>' +
               '<td>' + (x.productive_tree_count != null ? num(x.productive_tree_count) : '—') + '</td>' +
               '<td>' + esc(x.previous_sales_channel || '—') + '</td>' +
-              '<td>' + (x.already_anagroci_supplier ? 'Oui' : 'Non') + '</td>' +
+              '<td>' + (x.already_anagroci_supplier ? TT('Oui', 'Yes') : TT('Non', 'No')) + '</td>' +
               '<td>' + badge(x.status) + '</td><td>' +
-              editButton(finalisee ? 'Consulter' : 'Modifier', "openProductionBaselineForm('" + esc(x.id) + "')", false,
-                finalisee ? 'Baseline finalisée : consultation uniquement.' : '') + '</td></tr>';
+              editButton(finalisee ? TT('Consulter', 'View') : TT('Modifier', 'Edit'), "openProductionBaselineForm('" + esc(x.id) + "')", false,
+                finalisee ? TT('Baseline finalisée : consultation uniquement.', 'Finalised baseline: view only.') : '') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'sustainability') {
-        body = '<div class="notice info">La durabilité documente les pratiques : elle ne vaut pas certification automatique.</div>' +
-          '<section class="card"><div class="card-head"><div><h2>Sustainability</h2><p>Les brouillons restent modifiables ; les évaluations finalisées restent historisées.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Nouvelle baseline', 'openSustainabilityBaselineForm()') + '</div></div>' +
-          table(['Campagne', 'Date', 'Catalogue', 'Risque', 'Statut', ''],
+        body = '<div class="notice info">' + TT('La durabilité documente les pratiques : elle ne vaut pas certification automatique.', 'Sustainability documents practices: it is not an automatic certification.') + '</div>' +
+          '<section class="card"><div class="card-head"><div><h2>Sustainability</h2><p>' + TT('Les brouillons restent modifiables ; les évaluations finalisées restent historisées.', 'Drafts stay editable; finalised assessments stay in history.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle baseline', '+ New baseline'), 'openSustainabilityBaselineForm()') + '</div></div>' +
+          table([TT('Campagne', 'Campaign'), 'Date', 'Catalogue', TT('Risque', 'Risk'), TT('Statut', 'Status'), ''],
           p.sustainability.map(function (x) {
             var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td><b>' + esc(x.campaign || '—') + '</b></td><td>' + date(x.inspection_date) + '</td>' +
               '<td class="mono">' + esc(x.catalog_version || '—') + '</td>' +
-              '<td>' + badge(x.risk_profile || 'NON ÉVALUÉ') + '</td><td>' + badge(x.status) + '</td><td>' +
-              editButton(finalisee ? 'Consulter' : 'Modifier', "openSustainabilityBaselineForm('" + esc(x.id) + "')") + '</td></tr>';
+              '<td>' + badge(x.risk_profile || TT('NON ÉVALUÉ', 'NOT ASSESSED')) + '</td><td>' + badge(x.status) + '</td><td>' +
+              editButton(finalisee ? TT('Consulter', 'View') : TT('Modifier', 'Edit'), "openSustainabilityBaselineForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'consents') {
-        body = '<div class="notice info"><b>Consentement historisé :</b> un consentement existant ne se réécrit pas. Une nouvelle décision crée un nouvel événement afin de conserver la preuve et l’historique.</div>' +
-          '<section class="card">' + table(['Date', 'Statut', 'Périmètres', 'Méthode', 'Agent', 'Version du texte'],
+        body = '<div class="notice info"><b>' + TT('Consentement historisé :', 'Consent history:') + '</b> ' + TT('un consentement existant ne se réécrit pas. Une nouvelle décision crée un nouvel événement afin de conserver la preuve et l’historique.', 'an existing consent is never rewritten. A new decision creates a new event to keep the evidence and the history.') + '</div>' +
+          '<section class="card">' + table(['Date', TT('Statut', 'Status'), TT('Périmètres', 'Scopes'), TT('Méthode', 'Method'), 'Agent', TT('Version du texte', 'Text version')],
           p.consents.map(function (x) {
             return '<tr><td>' + date(x.consent_at) + '</td><td>' + badge(x.status) + '</td>' +
               '<td>' + esc(Array.isArray(x.scopes) ? x.scopes.join(', ') : (x.scopes || '—')) + '</td>' +
@@ -1646,28 +1662,28 @@ function renderFarmerPassport(id, tab) {
               '<td class="mono">' + esc(x.text_version || '—') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'visits') {
-        body = '<section class="card"><div class="card-head"><div><h2>Visites</h2><p>Une visite est un événement terrain historisé ; on ajoute une nouvelle visite plutôt que réécrire le passé.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Nouvelle visite', 'openFarmerVisitForm()') + '</div></div>' +
-          table(['Date', 'Type', 'Agent', 'Objet', 'Résultat', 'Prochaine action'],
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Visites', 'Visits') + '</h2><p>' + TT('Une visite est un événement terrain historisé ; on ajoute une nouvelle visite plutôt que réécrire le passé.', 'A visit is a logged field event; add a new visit rather than rewrite the past.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle visite', '+ New visit'), 'openFarmerVisitForm()') + '</div></div>' +
+          table(['Date', 'Type', 'Agent', TT('Objet', 'Purpose'), TT('Résultat', 'Outcome'), TT('Prochaine action', 'Next action')],
           p.visits.map(function (x) {
             return '<tr><td>' + date(x.visit_date) + '</td><td>' + badge(x.visit_type) + '</td>' +
               '<td>' + esc(x.agent_name || '—') + '</td><td>' + esc(x.purpose || '—') + '</td>' +
               '<td>' + esc(x.outcome || '—') + '</td><td>' + esc(x.next_action || '—') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'inspections') {
-        body = '<section class="card"><div class="card-head"><div><h2>Inspections</h2><p>Les brouillons sont modifiables ; une inspection FINAL reste immuable.</p></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Nouvelle inspection', 'openFarmerInspectionForm()') + '</div></div>' +
-          table(['Date', 'Type', 'Statut', 'Notes', ''],
+        body = '<section class="card"><div class="card-head"><div><h2>Inspections</h2><p>' + TT('Les brouillons sont modifiables ; une inspection FINAL reste immuable.', 'Drafts are editable; a FINAL inspection stays immutable.') + '</p></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle inspection', '+ New inspection'), 'openFarmerInspectionForm()') + '</div></div>' +
+          table(['Date', 'Type', TT('Statut', 'Status'), 'Notes', ''],
           p.inspections.map(function (x) {
             var finalisee = String(x.status || '').toUpperCase() === 'FINAL';
             return '<tr><td>' + date(x.inspection_date) + '</td><td>' + badge(x.inspection_type) + '</td>' +
               '<td>' + badge(x.status) + '</td><td>' + esc(x.notes || '—') + '</td><td>' +
-              editButton(finalisee ? 'Consulter' : 'Modifier', "openFarmerInspectionForm('" + esc(x.id) + "')") + '</td></tr>';
+              editButton(finalisee ? TT('Consulter', 'View') : TT('Modifier', 'Edit'), "openFarmerInspectionForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'purchases') {
-        body = '<section class="card"><div class="card-head"><div><h2>Achats Bord Champ</h2></div>' +
-          '<div class="ops-route-actions"><a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">+ Nouvel achat</a></div></div>' +
-          table(['Date', 'Poids net', 'Sacs', 'Prix', 'Montant', 'Paiement', 'Reçu', 'Validation', 'Stock'],
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Achats Bord Champ', 'Field Buying purchases') + '</h2></div>' +
+          '<div class="ops-route-actions"><a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">' + TT('+ Nouvel achat', '+ New purchase') + '</a></div></div>' +
+          table(['Date', TT('Poids net', 'Net weight'), TT('Sacs', 'Bags'), TT('Prix', 'Price'), TT('Montant', 'Amount'), TT('Paiement', 'Payment'), TT('Reçu', 'Receipt'), 'Validation', 'Stock'],
           mine.map(function (a) {
             return '<tr><td>' + date(a.date) + '</td><td>' + num(a.poids_net) + ' kg</td>' +
               '<td>' + n(a.nb_sacs) + '</td><td>' + num(a.prix_kg) + ' /kg</td>' +
@@ -1676,22 +1692,22 @@ function renderFarmerPassport(id, tab) {
               '<td>' + badge(a.statut_validation) + '</td><td>' + badge(a.stock_statut) + '</td></tr>';
           })) + '</section>' +
           '<section class="card"><div class="card-head"><div><h2>Traceability</h2></div></div>' +
-          '<p class="muted">Chaîne Farmer → Achat → Sacs → Lot → Warehouse → Factory.</p>' +
-          '<div class="ops-actions"><a class="btn secondary" href="#traceability/' + encodeURIComponent(f.farmer_id || f.nom) + '">Tracer ce producteur</a></div></section>';
+          '<p class="muted">' + TT('Chaîne Farmer → Achat → Sacs → Lot → Warehouse → Factory.', 'Chain Farmer → Purchase → Bags → Lot → Warehouse → Factory.') + '</p>' +
+          '<div class="ops-actions"><a class="btn secondary" href="#traceability/' + encodeURIComponent(f.farmer_id || f.nom) + '">' + TT('Tracer ce producteur', 'Trace this farmer') + '</a></div></section>';
       } else if (tab === 'actions') {
-        body = '<section class="card"><div class="card-head"><div><h2>Actions correctives</h2></div>' +
-          '<div class="ops-route-actions">' + editButton('+ Nouvelle action', 'openFarmerActionForm()') + '</div></div>' +
-          table(['Catégorie', 'Problème', 'Action corrective', 'Responsable', 'Échéance', 'Priorité', 'Statut', ''],
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Actions correctives', 'Corrective actions') + '</h2></div>' +
+          '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle action', '+ New action'), 'openFarmerActionForm()') + '</div></div>' +
+          table([TT('Catégorie', 'Category'), TT('Problème', 'Issue'), TT('Action corrective', 'Corrective action'), TT('Responsable', 'Owner'), TT('Échéance', 'Due date'), TT('Priorité', 'Priority'), TT('Statut', 'Status'), ''],
           p.actions.map(function (x) {
             return '<tr><td>' + badge(x.category || '—') + '</td><td>' + esc(x.issue || '—') + '</td>' +
               '<td>' + esc(x.corrective_action || '—') + '</td><td>' + esc(x.responsible_name || '—') + '</td>' +
               '<td>' + date(x.due_date) + '</td><td>' + badge(x.priority || '—') + '</td>' +
-              '<td>' + badge(x.status) + '</td><td>' + editButton('Ouvrir', "openFarmerActionForm('" + esc(x.id) + "')") + '</td></tr>';
+              '<td>' + badge(x.status) + '</td><td>' + editButton(TT('Ouvrir', 'Open'), "openFarmerActionForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'history') {
-        body = '<section class="card"><div class="card-head"><div><h2>Historique</h2>' +
-          '<p>Journal immuable du Farmer Registry pour ce dossier.</p></div></div>' +
-          table(['Date', 'Opération', 'Table', 'Acteur', 'Motif'],
+        body = '<section class="card"><div class="card-head"><div><h2>' + TT('Historique', 'History') + '</h2>' +
+          '<p>' + TT('Journal immuable du Farmer Registry pour ce dossier.', 'Immutable Farmer Registry log for this file.') + '</p></div></div>' +
+          table(['Date', TT('Opération', 'Operation'), 'Table', TT('Acteur', 'Actor'), TT('Motif', 'Reason')],
           p.changes.slice(0, 60).map(function (x) {
             return '<tr><td>' + date(x.created_at) + '</td><td>' + badge(x.operation || '—') + '</td>' +
               '<td class="mono">' + esc(x.table_name || '—') + '</td>' +
@@ -1700,12 +1716,12 @@ function renderFarmerPassport(id, tab) {
           })) + '</section>';
       }
 
-      paint(head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
-        'Farmer Passport · fiche 360° — Opérationnel ✓ · Passport ' + n(f.passport_completion) + ' % · Parcelle : ' + parcelleEtat + '.',
-        '<a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">+ Nouvel achat</a>' +
-        (canEditTerrain() ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">Modifier</button>' : '') +
-        '<a class="btn secondary" href="#farmers">← Producteurs</a>') +
-        tabs() + '<div id="fbFormHost" class="ops-form-card" hidden></div>' + body);
+      paint('<div data-i18n-ignore>' + head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
+        TT('Farmer Passport · fiche 360° — Opérationnel ✓ · Passport ', 'Farmer Passport · 360° profile — Operational ✓ · Passport ') + n(f.passport_completion) + TT(' % · Parcelle : ', ' % · Plot: ') + parcelleEtat + '.',
+        '<a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">' + TT('+ Nouvel achat', '+ New purchase') + '</a>' +
+        (canEditTerrain() ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">' + TT('Modifier', 'Edit') + '</button>' : '') +
+        '<a class="btn secondary" href="#farmers">' + TT('← Producteurs', '← Farmers') + '</a>') +
+        tabs() + '<div id="fbFormHost" class="ops-form-card" hidden></div>' + body + '</div>');
       if (tab === 'overview' && global.ANAGROCI_COOP && global.ANAGROCI_COOP.fillChannel) global.ANAGROCI_COOP.fillChannel(pid);
     });
   });
