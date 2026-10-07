@@ -46,7 +46,7 @@ for (const f of ['histDu', 'histAu', 'histType', 'histEtat', 'histDe', 'histVers
 assert.match(js, /25 \/ page|50 \/ page|100 \/ page/, 'taille de page reglable requise');
 
 /* 7. Cache-busting : sans lui, le navigateur sert l ancien journal. */
-assert.match(html, /sacherie-operational-p1\.js\?v=20260918-sacherie-2/, 'cache-busting requis');
-assert.match(html, /field-buying\.js\?v=20261008-final-1/, 'cache-busting requis');
+assert.match(html, /sacherie-operational-p1\.js\?v=20261008-campagnes-1/, 'cache-busting requis');
+assert.match(html, /field-buying\.js\?v=20261008-campagnes-1/, 'cache-busting requis');
 
 console.log('Sacherie journal recherche static: PASS');

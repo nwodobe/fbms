@@ -43,5 +43,5 @@ assert.ok(!section.includes('cluster === rtFilter.cluster')); checked++;
 assert.equal((section.match(/return inCluster\(/g) || []).length, 6, 'All four tabs filter rows'); checked++;
 assert.match(section, /rtFilter.cluster = clusterOf\(this.value\)/); checked++;
 assert.match(source, /q\('aflp_clusters', 'code,label,zone_code,aliases,active'/); checked++;
-assert.match(html, /field-buying\.js\?v=20261008-final-1/); checked++;
+assert.match(html, /field-buying\.js\?v=20261008-campagnes-1/); checked++;
 console.log('rt-cluster-filter-static: ' + checked + ' assertions passed');

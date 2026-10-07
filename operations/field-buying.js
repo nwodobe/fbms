@@ -21,7 +21,13 @@
 (function (global) {
 'use strict';
 
-var OBJECTIF_CAMPAGNE_MT = 3000; /* objectif global campagne 2027 */
+/* Multi-campagnes : la campagne vient du contexte partagé (workspace.js, référentiel public.campaigns).
+   Avant : « 2027 » et l'objectif de 3 000 MT étaient écrits en dur ici. */
+function campCtx() { return window.ANAGROCI_CAMPAIGN || null; }
+function campCode() { var c = campCtx(); return (c && c.code()) || ''; }
+function campId() { var c = campCtx(); return (c && c.id()) || null; }
+function campOnly(req) { var id = campId(); return id ? req.eq('campaign_id', id) : req; }
+var OBJECTIF_CAMPAGNE_MT = 0; /* objectif de la campagne active (campaign_targets, niveau CAMPAGNE), chargé avec les référentiels */
 /* Les règles d'achat sont désormais versionnées dans procurement_campaign_rules. */
 var FIELD_RULE_CACHE = null;
 
@@ -59,8 +65,8 @@ function TT(fr, en) { return fbLang() === 'en' ? en : fr; }
    (le traducteur global remplace mot à mot et produisait « ne bloque never l’achat »). */
 function fbShellText() {
   var bar = document.querySelector('.ops-contextbar'), rule = document.querySelector('.ops-main > .notice.ok');
-  if (bar && /Campagne|Campaign/.test(bar.textContent)) { bar.setAttribute('data-i18n-ignore', ''); bar.innerHTML = '<span>' + TT('Campagne 2027', '2027 campaign') + '</span><span>FR · Achat Bord Champ</span><span>EN · Field Buying</span>'; }
-  if (rule && /2027/.test(rule.textContent)) { rule.setAttribute('data-i18n-ignore', ''); rule.innerHTML = '<b>' + TT('Règle campagne 2027 :', '2027 campaign rule:') + '</b>&nbsp; ' +
+  if (bar && /Campagne|Campaign/.test(bar.textContent)) { bar.setAttribute('data-i18n-ignore', ''); bar.innerHTML = '<span>' + TT('Campagne ' + (campCode() || '—'), (campCode() || '—') + ' campaign') + '</span><span>FR · Achat Bord Champ</span><span>EN · Field Buying</span>'; }
+  if (rule && /Règle campagne|campaign rule/.test(rule.textContent)) { rule.setAttribute('data-i18n-ignore', ''); rule.innerHTML = '<b>' + TT('Règle campagne ' + (campCode() || '') + ' :', (campCode() || '') + ' campaign rule:') + '</b>&nbsp; ' +
     TT('la parcelle/GPS ne bloque jamais l’achat. Chaîne : Farmer ID → Achat → Sacs → Lot → Warehouse → Transfer → Factory.', 'the plot/GPS never blocks a purchase. Chain: Farmer ID → Purchase → Bags → Lot → Warehouse → Transfer → Factory.'); }
 }
 if (document.readyState !== 'loading') fbShellText(); else document.addEventListener('DOMContentLoaded', fbShellText);
@@ -94,8 +100,8 @@ function sexeLabel(v) {
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 function activeFieldRule(){
   if(FIELD_RULE_CACHE) return Promise.resolve(FIELD_RULE_CACHE);
-  return client().then(function(cl){return cl.rpc('procurement_active_rule',{p_campaign:'2027',p_channel:'FIELD_BUYING',p_zone:null,p_date:new Date().toISOString().slice(0,10)});})
-    .then(function(r){if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error('Aucune règle Procurement ACTIVE pour FIELD_BUYING / campagne 2027.');FIELD_RULE_CACHE=r.data;return r.data;});
+  return client().then(function(cl){return cl.rpc('procurement_active_rule',{p_campaign:campCode(),p_channel:'FIELD_BUYING',p_zone:null,p_date:new Date().toISOString().slice(0,10)});})
+    .then(function(r){if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error('Aucune règle de prix active pour la campagne ' + (campCode() || '?') + ' : configurez-la dans Campagnes → Règles.');FIELD_RULE_CACHE=r.data;return r.data;});
 }
 
 /* --------------------------------------------------------------------- fragments */
@@ -235,10 +241,13 @@ function base() {
       q('villages_light_v', 'id,village,region,departement,cluster,cluster_code,statut,score,gps_lat,gps_lng,farmer_code_prefix,data,deleted', 500),
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
       q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
-      q('achats', 'id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000),
+      /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
+      q('achats', 'id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
-      q('aflp_clusters', 'code,label,zone_code,aliases,active', 30)
+      q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
+      campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
     ]).then(function (rs) {
+      OBJECTIF_CAMPAGNE_MT = rs[6] && rs[6][0] && rs[6][0].target_mt ? Number(rs[6][0].target_mt) : 0;
       var villages = rs[0].filter(function (x) { return !x.deleted; });
       var rts = rs[1].filter(function (x) { return !x.deleted; });
       var farmers = rs[2].filter(function (x) { return !x.deleted; });
@@ -479,7 +488,7 @@ function renderOverview() {
       'Pilotage de la campagne Achat Bord Champ : recensement, achats, sacherie et alertes.',
       '<a class="btn primary" href="#purchases/new">+ Nouvel achat</a><a class="btn secondary" href="#census">Recensement</a>') +
       kpis([
-        ['Objectif campagne', mt(d.buyKg) + ' / ' + num(OBJECTIF_CAMPAGNE_MT) + ' MT', num(pct, 1) + ' % réalisés'],
+        ['Objectif campagne ' + campCode(), OBJECTIF_CAMPAGNE_MT > 0 ? mt(d.buyKg) + ' / ' + num(OBJECTIF_CAMPAGNE_MT) + ' MT' : mt(d.buyKg), OBJECTIF_CAMPAGNE_MT > 0 ? num(pct, 1) + ' % réalisés' : 'objectif à saisir (Campagnes)'],
         ['Achats du jour', mt(d.dayKg), 'semaine : ' + mt(d.weekKg)],
         ['Montant acheté', money(d.buyVal), c.achats.length + ' achat(s)'],
         ['Villages', String(c.villages.length), activeV + ' approuvé(s) BM'],
@@ -552,7 +561,7 @@ function renderCensus() {
           '<td>' + badge(v.statut) + '</td></tr>';
       })) +
       '</section><section class="card"><div class="card-head"><div><h2>Règles du recensement</h2></div></div>' +
-      '<div class="notice ok"><b>Règle campagne 2027 :</b> la parcelle/GPS est facultative. Son absence ne bloque ' +
+      '<div class="notice ok"><b>Règle campagne ' + esc(campCode()) + ' :</b> la parcelle/GPS est facultative. Son absence ne bloque ' +
       'jamais la création du producteur ni l’achat — afficher « Parcelle à compléter après campagne ».</div>' +
       '<div class="notice info">Le code producteur est généré automatiquement par village. ' +
       'Les doublons (nom, téléphone) sont détectés avant enregistrement.</div></section></div>');
@@ -1213,7 +1222,7 @@ function openFarmerForm(prefill, editId) {
         field('Nombre d’arbres', '<input id="ff_arbres" data-c type="number" min="0">') +
         field('Âge de la plantation (années)', '<input id="ff_age_pl" data-c type="number" min="0" max="80">') +
         field('Production campagne précédente (kg)', '<input id="ff_prodprec" data-c type="number" min="0" max="1000000">') +
-        field('Potentiel campagne 2027 (kg)', '<input id="ff_pot27" data-c type="number" min="0">') +
+        field('Potentiel campagne ' + esc(campCode()) + ' (kg)', '<input id="ff_pot27" data-c type="number" min="0">') +
         field('Engagement ANAGROCI (kg)', '<input id="ff_eng" data-c type="number" min="0">') +
         field('Coopérative déclarée (information libre)', '<input id="ff_coop" data-c placeholder="Texte seul : ne crée pas d’affiliation" title="Pour rattacher ce producteur à une coopérative AFLP : Coopératives › fiche › Associer un producteur existant">') +
         field('Autres cultures', '<input id="ff_cultures" data-c placeholder="Ex. Igname, coton">') +
@@ -1227,7 +1236,7 @@ function openFarmerForm(prefill, editId) {
         field('Titulaire du compte', '<input id="ff_mm_tit" data-c>') +
         '</div>', false) +
 
-      section('5. Parcelle (facultative — règle 2027)', '<div class="notice ok"><b>Parcelle à compléter après campagne :</b> ' +
+      section('5. Parcelle (facultative — règle de campagne)', '<div class="notice ok"><b>Parcelle à compléter après campagne :</b> ' +
         'son absence n’empêche ni l’enrôlement, ni l’achat, ni le lot. Si vous avez les informations, ' +
         'elles alimentent directement le registre des parcelles (farmer_plots).</div>' +
         '<div class="ops-form-grid">' +
@@ -1453,7 +1462,7 @@ function farmerExtras() {
       q('aflp_producer_quality_v', 'producer_id,has_phone,has_gps,completeness_pct,missing_fields,consent_status,review_required', 5000).catch(function () { return []; })
     ]).then(function (rs) {
       var ch = {}, ql = {};
-      rs[0].forEach(function (x) { if (!x.campaign || String(x.campaign) === '2027' || !ch[x.producer_id]) ch[x.producer_id] = x; });
+      rs[0].forEach(function (x) { if (!x.campaign || String(x.campaign) === campCode() || !ch[x.producer_id]) ch[x.producer_id] = x; });
       rs[1].forEach(function (x) { ql[x.producer_id] = x; });
       return { ch: ch, ql: ql, ok: rs[0].length > 0 || rs[1].length > 0 };
     });
@@ -1478,13 +1487,13 @@ function renderFarmers(id, tab) {
       createHost() +
       kpis([
         ['Producteurs', String(c.farmers.length), 'au référentiel'],
-        ['Membres de coopérative', String(nCoop), 'canal Coopérative 2027'],
+        ['Membres de coopérative', String(nCoop), 'canal Coopérative ' + campCode()],
         ['Complétude < 50 %', String(nLow), 'dossiers à compléter'],
         ['À vérifier', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'doublon possible / identité']
       ]) +
       '<section class="card"><div class="card-head"><div><h2>Recherche et filtres</h2></div><div class="ops-route-actions"><button class="btn secondary" type="button" id="pfReset">Réinitialiser</button></div></div><div class="ops-form-grid pf-filters">' +
       field('Nom, Farmer ID, Member ID ou téléphone', '<input id="pfQ" value="' + esc(F.q) + '" placeholder="Rechercher…">') +
-      field('Canal 2027', '<select id="pfCanal">' + opt('', 'Tous', F.canal) + opt('AFLP_DIRECT', 'Direct RT', F.canal) + opt('COOPERATIVE', 'Coopérative', F.canal) + opt('NO_COOP', 'Sans coopérative', F.canal) + '</select>') +
+      field('Canal ' + esc(campCode()), '<select id="pfCanal">' + opt('', 'Tous', F.canal) + opt('AFLP_DIRECT', 'Direct RT', F.canal) + opt('COOPERATIVE', 'Coopérative', F.canal) + opt('NO_COOP', 'Sans coopérative', F.canal) + '</select>') +
       field('Coopérative', '<select id="pfCoop">' + opt('', 'Toutes', F.coop) + Object.keys(coops).sort(function (a, b) { return coops[a].localeCompare(coops[b]); }).map(function (k) { return opt(k, coops[k], F.coop); }).join('') + '</select>') +
       field('Village', '<select id="pfVillage"><option value="">Tous</option>' + selOptions(c.villages.map(function (v) { return [v.id, v.village]; }), F.village) + '</select>') +
       field('Cluster', '<select id="pfCluster">' + opt('', 'Tous', F.cluster) + c.clusters.map(function (k) { return opt(k.code, k.label || k.code, F.cluster); }).join('') + '</select>') +
@@ -1521,7 +1530,7 @@ function renderFarmers(id, tab) {
       document.getElementById('pfCount').textContent = '· ' + list.length + (list.length > 300 ? ' (300 premiers affichés)' : '');
       if (!list.length) { document.getElementById('farmerTable').innerHTML = empty('Aucun producteur pour ces filtres.'); return; }
       document.getElementById('farmerTable').innerHTML = '<div class="table-wrap"><table class="pf-table"><thead><tr>' +
-        ['Farmer ID', 'Nom', 'Village', 'RT', 'Canal 2027', 'Coopérative principale', 'Member ID', 'Complétude', 'Consentement', 'Statut'].map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+        ['Farmer ID', 'Nom', 'Village', 'RT', 'Canal ' + campCode(), 'Coopérative principale', 'Member ID', 'Complétude', 'Consentement', 'Statut'].map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
         '</tr></thead><tbody>' + list.slice(0, 300).map(function (f) {
           var rr = c.rm[f.rt_id], vv = c.vm[f.village_id], ch = X.ch[f.producteur_id] || {}, ql = X.ql[f.producteur_id] || {};
           var coop = ch.primary_cooperative_id, cp = ql.completeness_pct == null ? null : n(ql.completeness_pct);
@@ -1643,7 +1652,7 @@ function renderFarmerPassport(id, tab) {
         body = kpis([
           [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Identifié', 'Identified'))],
           ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
-          [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante en 2027', 'never blocking in 2027'), p.plots.length ? '' : 'warn'],
+          [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante (règle de campagne)', 'never blocking (campaign rule)'), p.plots.length ? '' : 'warn'],
           [TT('Achats campagne', 'Campaign purchases'), mt(kg), mine.length + TT(' achat(s) · ', ' purchase(s) · ') + money(valAch)],
           [TT('Risque', 'Risk'), esc(f.risk_profile || TT('NON ÉVALUÉ', 'NOT ASSESSED')), f.review_required ? TT('revue requise', 'review required') : '', f.review_required ? 'warn' : ''],
           [TT('Actions ouvertes', 'Open actions'), String(p.actions.filter(function (a) { return /OPEN|IN_PROGRESS|OVERDUE/i.test(String(a.status || '')); }).length), TT('plans correctifs', 'corrective plans')]
@@ -1676,14 +1685,14 @@ function renderFarmerPassport(id, tab) {
             [TT('Superficie déclarée', 'Declared area'), extra.superficieHa != null ? num(extra.superficieHa, 2) + ' ha' : null],
             [TT('Nombre d’arbres', 'Number of trees'), extra.nbArbres], [TT('Âge plantation', 'Plantation age'), extra.agePlantation != null ? extra.agePlantation + TT(' ans', ' years') : null],
             [TT('Production précédente', 'Previous production'), extra.prodPrecKg != null ? num(extra.prodPrecKg) + ' kg' : null],
-            [TT('Potentiel 2027', '2027 potential'), extra.potentiel2027Kg != null ? num(extra.potentiel2027Kg) + ' kg' : null],
+            [TT('Potentiel ' + campCode(), campCode() + ' potential'), extra.potentiel2027Kg != null ? num(extra.potentiel2027Kg) + ' kg' : null],
             [TT('Engagement ANAGROCI', 'ANAGROCI commitment'), extra.engagementKg != null ? num(extra.engagementKg) + ' kg' : null],
             [TT('Coopérative', 'Cooperative'), extra.cooperative], [TT('Autres cultures', 'Other crops'), extra.autresCultures],
             [TT('Acheteur habituel', 'Usual buyer'), extra.acheteurHabituel],
             [TT('Prix précédent', 'Previous price'), extra.prixPrecedent != null ? num(extra.prixPrecedent) + ' F/kg' : null],
             [TT('Paiement préféré', 'Preferred payment'), extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
-        body = '<div class="notice ok"><b>' + TT('Règle 2027 :', '2027 rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
+        body = '<div class="notice ok"><b>' + TT('Règle de campagne :', 'Campaign rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
           '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur.', 'Each plot stays a separate entity from the farmer.') + '</p></div>' +
           '<div class="ops-route-actions">' + editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()') + '</div></div>' +
           table([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
@@ -1981,7 +1990,7 @@ function renderPurchases(sub, farmerId) {
       kpis([
         ['Volume jour', mt(d.dayKg), 'dernières 24 h'],
         ['Volume semaine', mt(d.weekKg), '7 derniers jours'],
-        ['Volume campagne', mt(d.buyKg), num((d.buyKg / 1000) / OBJECTIF_CAMPAGNE_MT * 100, 1) + ' % de ' + num(OBJECTIF_CAMPAGNE_MT) + ' MT'],
+        ['Volume campagne ' + campCode(), mt(d.buyKg), OBJECTIF_CAMPAGNE_MT > 0 ? num((d.buyKg / 1000) / OBJECTIF_CAMPAGNE_MT * 100, 1) + ' % de ' + num(OBJECTIF_CAMPAGNE_MT) + ' MT' : 'objectif à saisir (Campagnes)'],
         ['Valeur', money(d.buyVal), c.achats.length + ' achat(s)'],
         ['Producteurs vendeurs', String(Object.keys(c.achats.reduce(function (m, a) { if (a.producteur_id) m[a.producteur_id] = 1; return m; }, {})).length), 'campagne'],
         ['RT actifs', String(Object.keys(d.byRtBuy).length), 'avec au moins un achat']
@@ -2042,8 +2051,11 @@ function openBuyForm(farmerId) {
     var pre = farmerId ? c.farmers.filter(function (f) { return f.producteur_id === farmerId; })[0] : null;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), pre ? pre.village_id : '');
 
+    var campMsg = campCtx() && campCtx().blockedMessage();
     host.innerHTML = '<div class="card-head"><div><h2>Nouvel achat Bord Champ</h2>' +
-      '<p>Village → RT → producteur, puis poids, prix et paiement. La parcelle absente ne bloque jamais.</p></div></div>' +
+      '<p>Village → RT → producteur, puis poids, prix et paiement. La parcelle absente ne bloque jamais.</p></div>' +
+      '<span class="ops-chip">' + esc(TT('Campagne ', 'Campaign ') + (campCode() || '—')) + '</span></div>' +
+      (campMsg ? '<div class="notice warn">' + esc(campMsg) + '</div>' : '') +
       '<form id="buyForm"><div class="ops-form-grid">' +
       field('Village *', '<select id="bf_village" required><option value="">Choisir…</option>' + villageOpts + '</select>') +
       field('RT', '<select id="bf_rt"><option value="">—</option></select>') +
@@ -2142,11 +2154,14 @@ function openBuyForm(farmerId) {
       var statutValidation = horsBareme ? 'Validation BM requise'
         : (qualite !== 'OK' ? 'À contrôler' : 'À valider');
       var stockOk = qualite === 'OK';
+      /* Multi-campagnes : aucun achat dans une campagne non ouverte (le serveur refuse aussi). */
+      var campBlock = campCtx() && campCtx().blockedMessage();
+      if (campBlock) { msg.className = 'ops-danger-text'; msg.textContent = campBlock; return; }
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement…';
       var montant = Math.round(net * prix);
       client().then(function (cl) {
         return cl.from('achats').insert({
-          local_id: uid(), campaign: String(rule.campaign || '2027'), date: document.getElementById('bf_date').value,
+          local_id: uid(), campaign: campCode() || String(rule.campaign || ''), campaign_id: campId(), date: document.getElementById('bf_date').value,
           cluster: v.cluster || f.cluster_label || null,
           village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
           rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
@@ -2557,7 +2572,7 @@ function renderClusterPassport(label) {
    Les contrôles patrimoniaux (pertes, inventaires, états) passent par les
    RPC sacherie_ct_* existants. La base reste l'arbitre de chaque action. */
 
-var BAG_CAMPAGNE = '2027';
+var BAG_CAMPAGNE = campCode(); /* campagne active (contexte partagé), plus de « 2027 » en dur */
 var BUCKET_SACHERIE = 'rcn-jute-proofs';
 var BAG_ROLES = {
   /* Valeurs CANONIQUES de profils.role uniquement (profils_role_check).

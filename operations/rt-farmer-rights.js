@@ -161,8 +161,8 @@ function openFarmer(id) {
       field('Statut', '<input id="zfStatut" value="' + esc(row.statut || '') + '">') +
       field('Statut opérationnel', '<select id="zfOp"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select>') +
       field('Superficie (ha)', '<input id="zfSurf" inputmode="decimal" value="' + esc(d.superficieHa == null ? '' : d.superficieHa) + '">') +
-      field('Engagement 2027 (kg)', '<input id="zfEng" inputmode="decimal" value="' + esc(d.engagementKg == null ? '' : d.engagementKg) + '">') +
-      field('Potentiel 2027 (kg)', '<input id="zfPot" inputmode="decimal" value="' + esc(d.potentiel2027Kg == null ? '' : d.potentiel2027Kg) + '">') +
+      field('Engagement campagne (kg)', '<input id="zfEng" inputmode="decimal" value="' + esc(d.engagementKg == null ? '' : d.engagementKg) + '">') +
+      field('Potentiel campagne (kg)', '<input id="zfPot" inputmode="decimal" value="' + esc(d.potentiel2027Kg == null ? '' : d.potentiel2027Kg) + '">') +
       field('Coopérative', '<input id="zfCoop" value="' + esc(d.cooperative || '') + '">')
     );
     var sx = document.getElementById('zfSexe'); if (sx) sx.value = row.sexe || '';

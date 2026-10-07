@@ -13,7 +13,13 @@
   var EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
   var AC = 'À compléter', ND = 'Non disponible';
   var sb = null, root = null;
-  var state = { refs: { zones: [], clusters: [], villages: [], rts: [], staff: [], producers: [], campaigns: ['2027'] },
+  /* Multi-campagnes : liste issue du référentiel des campagnes (contexte partagé), campagne active en premier. */
+  function aflpCampaigns() {
+    var C = window.ANAGROCI_CAMPAIGN; if (!C) return [];
+    var cur = C.code(), l = C.list().map(function (c) { return c.code; });
+    return cur ? [cur].concat(l.filter(function (x) { return x !== cur; })) : l;
+  }
+  var state = { refs: { zones: [], clusters: [], villages: [], rts: [], staff: [], producers: [], campaigns: aflpCampaigns() },
     result: null, tab: 'overview', busy: false };
 
   /* ---------- onglets (ordre = ordre du classeur) ----------
@@ -140,7 +146,7 @@
   var FILTER_LABELS = { date: 'période', geo: 'zone / cluster / chef', village: 'village', rt: 'RT', producer: 'producteur', payment: 'statut paiement',
     stock: 'statut stock', evac: 'statut évacuation', incident: 'statut incident', campaign: 'campagne' };
   var NOTES = [
-    'Campagne : les enregistrements Field Buying sans campagne sont rattachés au programme AFLP 2027.',
+    'Campagne : chaque enregistrement est rattaché à sa campagne (référentiel des campagnes) ; les anciens enregistrements sans campagne ont été rattachés à la simulation 2027.',
     'Cash : Opening + Received − Paid − Returned = Current balance, par RT (colonne « Control (= 0) »). Les retours de fonds ne sont pas encore saisis dans FBMS : comptés à 0.',
     'Sacs jute : Opening + Received + Returned full + Returned empty + Transferred in − Issued to producers − Damaged unusable − Transferred out = Closing. Utilisés pour achats, abîmés réparables et reconditionnés sont des changements d’état sans effet sur le solde.',
     'Stock terrain : Opening + Purchases + Returns − Evacuated − Loss/adjustment = Closing, par village et par jour. Pas d’inventaire physique terrain dans FBMS : « Last physical check » et « Variance kg » non disponibles.',
@@ -336,7 +342,7 @@
     var uh = headOptions(unitHeads(), 'Aucun Chef d’Unité assigné (à compléter)');
     var zh = headOptions(zoneHeads(), 'Aucun Chef de Zone assigné (à compléter)');
     root.innerHTML =
-      '<div class="ops-pagehead"><div><h1>AFLP DATA</h1><p>Pilotage du programme AFLP 2027 (objectif 3 000 MT) : producteurs, villages, RT, achats, cash, sacs jute, stocks, évacuations, relais, qualité, incidents et performance. Export Excel 16 onglets.</p></div></div>' +
+      '<div class="ops-pagehead"><div><h1>AFLP DATA</h1><p>Pilotage du programme AFLP par campagne : producteurs, villages, RT, achats, cash, sacs jute, stocks, évacuations, relais, qualité, incidents et performance. Export Excel 16 onglets.</p></div></div>' +
       '<form class="card rap-filters" id="afForm" autocomplete="off"><div class="card-head"><div><h2>Filtres</h2><p>Date de début vide = depuis le début de la campagne. Un filtre sans objet pour un onglet est ignoré et signalé dans l’aperçu.</p></div></div>' +
       '<div class="rap-quick"><button type="button" class="btn secondary" data-quick="campaign">Toute la campagne</button><button type="button" class="btn secondary" data-quick="today">Aujourd’hui</button><button type="button" class="btn secondary" data-quick="7d">7 derniers jours</button><button type="button" class="btn secondary" data-quick="month">Mois en cours</button></div>' +
       '<div class="ops-form-grid">' +
@@ -387,7 +393,7 @@
       return '<div class="kpi"><small>' + esc(KPI_FR[k] || k) + '</small><b>' + esc(v) + '</b></div>';
     }).join('');
     var f = r.filters, p = document.getElementById('afKpiPeriod');
-    if (p) p.textContent = 'Campagne ' + (f.campaign || '2027') + ' · ' + (f.start ? 'du ' + fmtDate(f.start, 'd') : 'depuis le début') + ' au ' + fmtDate(f.end, 'd') + scopeText(f);
+    if (p) p.textContent = 'Campagne ' + (f.campaign || aflpCampaigns()[0] || '—') + ' · ' + (f.start ? 'du ' + fmtDate(f.start, 'd') : 'depuis le début') + ' au ' + fmtDate(f.end, 'd') + scopeText(f);
   }
   function scopeText(f) {
     var R = state.refs, parts = [];
@@ -470,7 +476,7 @@
 
   /* ---------- exports ---------- */
   function fileStamp() { return today().replace(/-/g, ''); }
-  function fileBase(f) { return 'ANAGROCI_AFLP_DATA_' + String((f && f.campaign) || '2027').replace(/[^0-9A-Za-z]/g, '') + '_' + fileStamp(); }
+  function fileBase(f) { return 'ANAGROCI_AFLP_DATA_' + String((f && f.campaign) || aflpCampaigns()[0] || 'campagne').replace(/[^0-9A-Za-z]/g, '') + '_' + fileStamp(); }
   function download(blob, name) {
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
@@ -526,7 +532,7 @@
     return ws;
   }
   function filterSummary(f) {
-    var out = [['Campagne', f.campaign || '2027'], ['Période', (f.start ? 'du ' + fmtDate(f.start, 'd') : 'depuis le début de la campagne') + ' au ' + fmtDate(f.end, 'd')], ['Périmètre', scopeText(f).replace(/^ · /, '')]];
+    var out = [['Campagne', f.campaign || aflpCampaigns()[0] || '—'], ['Période', (f.start ? 'du ' + fmtDate(f.start, 'd') : 'depuis le début de la campagne') + ' au ' + fmtDate(f.end, 'd')], ['Périmètre', scopeText(f).replace(/^ · /, '')]];
     [['payment', 'Statut paiement'], ['stock', 'Statut stock'], ['evac', 'Statut évacuation'], ['incident', 'Statut incident']].forEach(function (k) { if (f[k[0]]) out.push([k[1], f[k[0]]]); });
     return out;
   }
@@ -594,7 +600,7 @@
     var p = document.getElementById('rapPrint'); if (!p) return;
     var zones = SHEETS.filter(function (s) { return s.key === 'zones'; })[0];
     var zcols = zones.cols.filter(function (c) { return ['cluster', 'zone', 'number_of_villages', 'purchased_mt', 'evacuated_mt', 'target_mt', 'performance_pct', 'risk_level'].indexOf(c[1]) >= 0; });
-    p.innerHTML = '<h1>ANAGROCI · AFLP DATA ' + esc(r.filters.campaign || '2027') + '</h1><p>' + esc(filterSummary(r.filters).map(function (x) { return x[0] + ' : ' + x[1]; }).join(' · ')) + '</p>' +
+    p.innerHTML = '<h1>ANAGROCI · AFLP DATA ' + esc(r.filters.campaign || aflpCampaigns()[0] || '') + '</h1><p>' + esc(filterSummary(r.filters).map(function (x) { return x[0] + ' : ' + x[1]; }).join(' · ')) + '</p>' +
       '<h2>Indicateurs</h2><table><tbody>' + r.sheets.overview.rows.map(function (x) { return '<tr><th>' + esc(x.kpi) + '</th><td class="num">' + esc(display(x, ['', 'value', 'v'])) + ' ' + esc(x.unite || '') + '</td><td>' + esc(x.note || '') + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<h2>Contrôles obligatoires</h2><table><thead><tr><th>Contrôle</th><th>Statut</th><th>Anomalies</th><th>Détail</th></tr></thead><tbody>' +
       r.controls.map(function (c) { return '<tr><td>' + esc(c.controle) + '</td><td>' + esc(c.statut) + '</td><td class="num">' + esc(fmtNum(c.anomalies, 0)) + '</td><td>' + esc(c.detail) + '</td></tr>'; }).join('') + '</tbody></table>' +
@@ -645,7 +651,7 @@
     var p = await sb.from('producteurs').select('id,code,nom,prenoms').eq('deleted', false).order('nom').range(0, 9999);
     R.producers = (p.data || []).map(function (x) { var n = [x.nom, x.prenoms].filter(Boolean).join(' '); return { id: x.id, code: x.code || '', label: (x.code ? x.code + ' · ' : '') + n }; });
     var t = await sb.from('aflp_program_targets').select('campaign').order('campaign', { ascending: false });
-    var camps = uniq((t.data || []).map(function (x) { return x.campaign; })); if (camps.length) R.campaigns = camps;
+    var camps = uniq((t.data || []).map(function (x) { return x.campaign; })); if (camps.length) R.campaigns = uniq(aflpCampaigns().concat(camps));
   }
   async function init() {
     root = document.getElementById('opsRouteView'); if (!root) return;
