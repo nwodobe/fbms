@@ -202,3 +202,8 @@
   .ops-hist-pied{flex-direction:column;align-items:stretch}
   .ops-hist-pied .btn{width:100%}
 }
+
+/* Audit campagne 2027 — mobile : la marque et la pastille utilisateur ne se chevauchent plus. */
+@media(max-width:560px){.ops-topbar{flex-wrap:wrap;row-gap:8px}.ops-brand{flex:1 1 100%;min-width:0}.ops-brand strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.ops-top-actions{flex:1 1 100%;width:100%;justify-content:space-between;gap:8px}#anagroci-userslot .ag-name{max-width:120px}}
+/* Audit campagne 2027 — sélecteur d’espace dans la barre supérieure. */
+.ops-ws{position:relative;flex:0 0 auto}.ops-ws>summary{list-style:none;cursor:pointer;color:#eafff2;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:7px 12px;font:700 12px var(--font-body,Arial),sans-serif;white-space:nowrap}.ops-ws>summary::-webkit-details-marker{display:none}.ops-ws>summary::after{content:" ▾"}.ops-ws[open]>summary{background:rgba(255,255,255,.12)}.ops-ws-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:50;min-width:230px;background:#fff;border:1px solid #d9e4dc;border-radius:12px;box-shadow:0 14px 34px rgba(5,59,35,.18);padding:6px;display:grid}.ops-ws-menu a{display:block;padding:10px 12px;border-radius:8px;color:#053B23;font-weight:700;font-size:13px;text-decoration:none}.ops-ws-menu a:hover,.ops-ws-menu a.on{background:#eef6e8}.ops-ws-menu a.on::before{content:"● ";color:#8DC556}@media(max-width:560px){.ops-ws{order:2}.ops-ws-menu{min-width:210px}}

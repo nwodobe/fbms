@@ -34,14 +34,16 @@
   function lang(){return localStorage.getItem(KEY)==="en"?"en":"fr"}
   function clean(s){return String(s==null?"":s).replace(/\u00a0/g," ").replace(/\s+/g," ").trim()}
   function keys(){return Object.keys(D).sort(function(a,b){return b.length-a.length})}
-  var sortedKeys=null;
+  var sortedKeys=null, memo=new Map(), obs=null;
   function tr(s){
     if(lang()!=="en") return s;
     var a=String(s==null?"":s), lead=(a.match(/^\s*/)||[""])[0], tail=(a.match(/\s*$/)||[""])[0], x=clean(a);
     if(!x) return s;
     if(E[x]) return lead+E[x]+tail;   /* exact seulement, jamais en sous-chaîne */
     if(D[x]) return lead+D[x]+tail;
+    if(memo.has(x)) return lead+memo.get(x)+tail;
     var out=x;(sortedKeys||(sortedKeys=keys())).forEach(function(k){if(k.length>2&&out.indexOf(k)>=0)out=out.split(k).join(D[k])});
+    if(memo.size>20000) memo.clear(); memo.set(x,out);
     return lead+out+tail;
   }
   function skip(n){var e=n.nodeType===3?n.parentElement:n;return !e||e.closest("script,style,noscript,svg,[data-i18n-ignore]")}
@@ -49,11 +51,12 @@
   function amap(e){var m=attrOriginals.get(e);if(!m){m={};attrOriginals.set(e,m)}return m}
   function apply(){
     if(!document.body||busy) return; busy=true;
-    eachText(document.body,function(n){var src=originals.get(n),cur=n.nodeValue;if(lang()==="en"){if(!src||(cur!==src&&cur!==tr(src)))src=cur;originals.set(n,src);n.nodeValue=tr(src)}else if(src){n.nodeValue=src}});
-    document.querySelectorAll("[placeholder],[title],[aria-label],input[type=button],input[type=submit],button").forEach(function(e){var m=amap(e);["placeholder","title","aria-label"].forEach(function(a){if(!e.hasAttribute(a))return;var cur=e.getAttribute(a),src=m[a];if(lang()==="en"){if(!src||(cur!==src&&cur!==tr(src)))src=cur;m[a]=src;e.setAttribute(a,tr(src))}else if(src)e.setAttribute(a,src)});if((e.tagName==="INPUT"||e.tagName==="BUTTON")&&e.value){var v=e.value,sv=m.value;if(lang()==="en"){if(!sv||(v!==sv&&v!==tr(sv)))sv=v;m.value=sv;e.value=tr(sv)}else if(sv)e.value=sv}});
+    eachText(document.body,function(n){var src=originals.get(n),cur=n.nodeValue;if(lang()==="en"){if(!src||(cur!==src&&cur!==tr(src)))src=cur;originals.set(n,src);var tv=tr(src);if(cur!==tv)n.nodeValue=tv}else if(src&&cur!==src){n.nodeValue=src}});
+    document.querySelectorAll("[placeholder],[title],[aria-label],input[type=button],input[type=submit],button").forEach(function(e){var m=amap(e);["placeholder","title","aria-label"].forEach(function(a){if(!e.hasAttribute(a))return;var cur=e.getAttribute(a),src=m[a];if(lang()==="en"){if(!src||(cur!==src&&cur!==tr(src)))src=cur;m[a]=src;var ta=tr(src);if(cur!==ta)e.setAttribute(a,ta)}else if(src&&cur!==src)e.setAttribute(a,src)});if((e.tagName==="INPUT"||e.tagName==="BUTTON")&&e.value){var v=e.value,sv=m.value;if(lang()==="en"){if(!sv||(v!==sv&&v!==tr(sv)))sv=v;m.value=sv;var tvv=tr(sv);if(v!==tvv)e.value=tvv}else if(sv&&v!==sv)e.value=sv}});
+    if(obs) obs.takeRecords();
     busy=false;
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(apply,60)}
-  function init(){apply();new MutationObserver(function(){if(!busy)schedule()}).observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["placeholder","title","aria-label","value"]});document.addEventListener("anagroci:language",schedule);document.addEventListener("anagroci:authenticated",schedule);window.addEventListener("online",schedule);window.addEventListener("offline",schedule);window.ANAGROCI_I18N_EXTRA={apply:apply,t:tr}}
+  function init(){apply();obs=new MutationObserver(function(){if(!busy)schedule()});obs.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["placeholder","title","aria-label","value"]});document.addEventListener("anagroci:language",schedule);document.addEventListener("anagroci:authenticated",schedule);window.addEventListener("online",schedule);window.addEventListener("offline",schedule);window.ANAGROCI_I18N_EXTRA={apply:apply,t:tr}}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();

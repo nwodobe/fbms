@@ -120,12 +120,34 @@
     if (/factory/.test(path)) return 'overview';
     return 'overview';
   }
+  /* Audit campagne 2027 : auth-gate peut créer la pastille utilisateur AVANT que la barre ne soit dessinée ;
+     elle restait alors flottante (position fixe) et recouvrait le titre, surtout sur mobile. On la rapatrie. */
+  function adoptUserSlot() {
+    var top = document.getElementById('opsTopbar'); if (!top) return;
+    var actions = top.querySelector('.ops-top-actions'); if (!actions) return;
+    var inTop = top.querySelector('#anagroci-userslot');
+    var floating = [].slice.call(document.querySelectorAll('#anagroci-userslot.ag-floating')).filter(function (x) { return !top.contains(x); })[0];
+    if (!floating) return;
+    floating.classList.remove('ag-floating');
+    if (inTop) inTop.parentNode.replaceChild(floating, inTop); else actions.appendChild(floating);
+  }
+  /* Audit campagne 2027 : changement d'espace en 1 clic (avant : retour obligatoire au portail pour passer
+     de Procurement à Warehouse, Stock Transfer, Factory, Traceability 360 ou Reports). */
+  function wsSwitch() {
+    var en = false; try { en = localStorage.getItem('anagroci_lang') === 'en'; } catch (e) {}
+    var items = [['field','field-buying.html','FIELD BUYING'],['procurement','procurement.html','PROCUREMENT'],['warehouse','warehouse.html','WAREHOUSE'],
+      ['transfer','stock-transfer.html','STOCK TRANSFER'],['factory','factory.html','FACTORY'],['trace','traceability.html','TRACEABILITY 360'],['reports','reports.html','REPORTS & EXPORT']];
+    return '<details class="ops-ws" data-i18n-ignore><summary>' + (en ? 'Switch workspace' : 'Changer d’espace') + '</summary><div class="ops-ws-menu">' +
+      '<a href="../index.html">' + (en ? '← Operations portal' : '← Portail Operations') + '</a>' +
+      items.map(function (x) { return '<a href="' + x[1] + '"' + (x[0] === PAGE ? ' class="on" aria-current="page"' : '') + '>' + x[2] + '</a>'; }).join('') + '</div></details>';
+  }
   function renderShell() {
     var c = CFG[PAGE] || CFG.field;
     var top = document.getElementById('opsTopbar');
     if (top) top.innerHTML = '<a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a>' +
       '<div class="ops-title"><strong>'+esc(c.title)+'</strong><small>'+esc(c.subtitle)+'</small></div>' +
-      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-userslot"></span></div>';
+      wsSwitch() +
+      '<div class="ops-top-actions"><span class="ops-pill light">Campagne 2027</span><span class="ops-pill"><span class="dot"></span>Données à jour</span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
     var side = document.getElementById('opsSidebar');
     if (side) {
       var active = routeName();
@@ -288,6 +310,8 @@
 
   async function boot() {
     renderShell();
+    adoptUserSlot(); setTimeout(adoptUserSlot, 400); setTimeout(adoptUserSlot, 1500);
+    document.addEventListener('anagroci:authenticated', function () { setTimeout(adoptUserSlot, 50); });
     var sb=await waitClient();
     if(!sb){setKpis([{label:'Connexion',value:'Indisponible',note:'Données indisponibles',cls:'danger'}]);return;}
     if(PAGE==='field') return loadField(sb);

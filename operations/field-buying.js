@@ -1215,7 +1215,7 @@ function openFarmerForm(prefill, editId) {
         field('Production campagne précédente (kg)', '<input id="ff_prodprec" data-c type="number" min="0" max="1000000">') +
         field('Potentiel campagne 2027 (kg)', '<input id="ff_pot27" data-c type="number" min="0">') +
         field('Engagement ANAGROCI (kg)', '<input id="ff_eng" data-c type="number" min="0">') +
-        field('Coopérative', '<input id="ff_coop" data-c>') +
+        field('Coopérative déclarée (information libre)', '<input id="ff_coop" data-c placeholder="Texte seul : ne crée pas d’affiliation" title="Pour rattacher ce producteur à une coopérative AFLP : Coopératives › fiche › Associer un producteur existant">') +
         field('Autres cultures', '<input id="ff_cultures" data-c placeholder="Ex. Igname, coton">') +
         field('Acheteur habituel', '<input id="ff_ach_hab" data-c>') +
         field('Prix campagne précédente (FCFA/kg)', '<input id="ff_prix_prec" data-c type="number" min="0">') +
@@ -1323,7 +1323,13 @@ function openFarmerForm(prefill, editId) {
           p_exclude_id: editRow ? editRow.id : null
         }).then(function (dup) {
           var hits = (dup.data || []);
-          if (!dup.error && hits.length) {
+          /* Audit campagne 2027 : contrôle anti-doublon bloquant si le serveur ne répond pas (avant : création sans contrôle). */
+          if (dup.error) {
+            btn.disabled = false; msg.className = 'ops-danger-text';
+            msg.textContent = 'Contrôle des doublons indisponible (connexion ou serveur). Réessayez avant de créer le producteur.';
+            return null;
+          }
+          if (hits.length) {
             btn.disabled = false; msg.className = 'ops-danger-text';
             msg.textContent = 'Doublon possible détecté côté référentiel (' + hits.length + '). Vérifiez la liste des producteurs avant de recréer.';
             return null;
