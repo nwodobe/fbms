@@ -427,7 +427,8 @@ function markPrepared(extra) {
   return setMeta('last_prepared', Object.assign({ at: nowIso(), campaign_id: campaignId(), campaign_code: campaignCode() }, extra || {})).then(emit);
 }
 function prepareShell() {
-  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return Promise.resolve({ service_worker: false });
+  var secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!('serviceWorker' in navigator) || !secure) return Promise.resolve({ service_worker: false });
   return navigator.serviceWorker.register('../sw.js', { scope: '../' }).then(function (reg) {
     return navigator.serviceWorker.ready.then(function (ready) {
       var target = ready.active || reg.active || reg.waiting || reg.installing;
