@@ -35,7 +35,7 @@ function server(){
   });
 }
 
-const STUB=String.raw\`
+const STUB=String.raw`
 (function(){
   'use strict';
   var U='20000000-0000-4000-8000-000000000001';
@@ -152,7 +152,7 @@ const STUB=String.raw\`
   };
   Object.defineProperty(window,'supabase',{value:{createClient:function(){return client;}},writable:false,configurable:false});
 })();
-\`;
+`;
 
 function wait(ms){return new Promise(r=>setTimeout(r,ms));}
 
@@ -166,7 +166,7 @@ async function main(){
     if(/\.css(?:\?|$)|fonts\.googleapis/.test(u))return route.fulfill({status:200,contentType:'text/css',body:'/* offline test */'});
     return route.fulfill({status:200,contentType:'text/javascript',body:'/* external dependency stubbed; window.supabase injected by test */'});
   });
-  const base=\`http://127.0.0.1:\${PORT}/operations/field-buying.html#sync\`;
+  const base=`http://127.0.0.1:${PORT}/operations/field-buying.html#sync`;
   let page=await ctx.newPage();
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
