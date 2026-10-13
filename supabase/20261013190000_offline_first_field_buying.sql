@@ -36,6 +36,96 @@ as $$
   end;
 $$;
 
+
+create or replace function private.offline_sacherie_network_move(
+  p_campaign_id uuid,
+  p_client_operation_id text,
+  p_flow text,
+  p_cluster text,
+  p_rt_id text,
+  p_producteur_id text,
+  p_qty integer,
+  p_receiver_name text default null,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, private, pg_temp
+as $
+declare
+  v_uid uuid := auth.uid();
+  v_flow text := upper(coalesce(p_flow,''));
+  v_rt public.rt%rowtype;
+  v_prod public.producteurs%rowtype;
+  v_campaign text;
+  v_from text; v_to text; v_from_state text := 'UTILISABLE'; v_to_state text := 'UTILISABLE';
+  v_mid text; v_event text; v_available integer := 0;
+  v_existing public.rcn_jute_movements%rowtype;
+  v_cluster_loc text; v_rt_loc text; v_prod_loc text; v_hub_loc text;
+  v_cluster_norm text := regexp_replace(upper(coalesce(p_cluster,'')),'[^A-Z0-9]','','g');
+begin
+  if v_uid is null then raise exception 'Connexion requise.' using errcode='42501'; end if;
+  select code into v_campaign from public.campaigns where id=p_campaign_id and status='OPEN';
+  if v_campaign is null then raise exception 'Campagne fermée ou introuvable.' using errcode='42501'; end if;
+  if coalesce(btrim(p_client_operation_id),'')='' then raise exception 'Identifiant local obligatoire.' using errcode='22023'; end if;
+  if p_qty is null or p_qty<=0 then raise exception 'Quantité invalide.' using errcode='23514'; end if;
+
+  v_event := 'SACH-OFF:' || btrim(p_client_operation_id);
+  select * into v_existing from public.rcn_jute_movements where event_key=v_event limit 1;
+  if found then return to_jsonb(v_existing); end if;
+
+  select * into v_rt from public.rt where id=p_rt_id and coalesce(deleted,false)=false limit 1;
+  if not found then raise exception 'RT introuvable.' using errcode='23514'; end if;
+  if regexp_replace(upper(coalesce(v_rt.cluster,'')),'[^A-Z0-9]','','g')<>v_cluster_norm
+     and not (v_cluster_norm='DJEBONOUA' and regexp_replace(upper(coalesce(v_rt.cluster,'')),'[^A-Z0-9]','','g')='NDJEBONOUA')
+  then raise exception 'RT hors du cluster sélectionné.' using errcode='42501'; end if;
+
+  v_cluster_loc := public.sacherie_ops_resolve_cluster_location(p_cluster);
+  if v_cluster_loc is null then raise exception 'Location cluster absente : initialisez la Sacherie.' using errcode='23514'; end if;
+  v_rt_loc := public.sacherie_ct_location('RT',v_rt.cluster,v_rt.id,v_rt.nom,null,null);
+
+  if v_flow in ('RT_TO_PRODUCTEUR','PRODUCTEUR_TO_RT','PRODUCTEUR_TO_HUB_FULL') then
+    if coalesce(p_producteur_id,'')='' then raise exception 'Producteur obligatoire.' using errcode='23514'; end if;
+    select * into v_prod from public.producteurs where id=p_producteur_id and coalesce(deleted,false)=false limit 1;
+    if not found then raise exception 'Producteur introuvable.' using errcode='23514'; end if;
+    if v_prod.rt_id is not null and v_prod.rt_id<>p_rt_id then raise exception 'Producteur rattaché à un autre RT.' using errcode='42501'; end if;
+    v_prod_loc := public.sacherie_ct_location('PRODUCTEUR',v_rt.cluster,null,null,v_prod.id,coalesce(v_prod.nom,'Producteur'));
+  end if;
+
+  if v_flow='RT_TO_PRODUCTEUR' then v_from:=v_rt_loc; v_to:=v_prod_loc;
+  elsif v_flow='PRODUCTEUR_TO_RT' then v_from:=v_prod_loc; v_to:=v_rt_loc;
+  elsif v_flow='RT_TO_CLUSTER' then v_from:=v_rt_loc; v_to:=v_cluster_loc;
+  elsif v_flow='PRODUCTEUR_TO_HUB_FULL' then
+    v_hub_loc:=public.sacherie_ct_location('HUB',v_rt.cluster,null,null,null,null);
+    v_from:=v_prod_loc; v_to:=v_hub_loc; v_to_state:='PLEIN';
+  else raise exception 'Flux terrain non supporté.' using errcode='22023';
+  end if;
+
+  perform public.sacherie_ct_assert_location_access(v_from,true);
+  perform public.sacherie_ct_assert_location_access(v_to,true);
+  select coalesce(sum(qty),0)::integer into v_available from public.rcn_jute_v_stock where location_code=v_from and state=v_from_state;
+  if v_available<p_qty then raise exception 'Stock sacs insuffisant à l’origine. Disponible: %',v_available using errcode='23514'; end if;
+
+  v_mid := 'JUT-OFF-' || substr(md5(v_event),1,20);
+  insert into public.rcn_jute_movements(
+    id,event_key,movement_type,ledger,qty,from_location,to_location,from_state,to_state,
+    source_type,source_id,reference,note,movement_at,owner_type,created_by,campaign,campaign_id,cluster,rt_id,producteur_id
+  ) values (
+    v_mid,v_event,'TRANSFERT','INTERNE',p_qty,v_from,v_to,v_from_state,v_to_state,
+    'SACHERIE_OFFLINE',p_client_operation_id,p_client_operation_id,
+    trim(concat_ws(' | ',nullif(p_note,''),case when coalesce(p_receiver_name,'')<>'' then 'Réceptionnaire: '||p_receiver_name end)),
+    now(),'ANAGROCI',v_uid,v_campaign,p_campaign_id,v_rt.cluster,v_rt.id,nullif(p_producteur_id,'')
+  ) returning * into v_existing;
+
+  return to_jsonb(v_existing);
+exception when unique_violation then
+  select * into v_existing from public.rcn_jute_movements where event_key=v_event limit 1;
+  if found then return to_jsonb(v_existing); end if;
+  raise;
+end;
+$;
+
 create or replace function public.offline_sync_batch(p_operations jsonb)
 returns jsonb
 language plpgsql
@@ -303,6 +393,24 @@ begin
         v_result := jsonb_build_object(
           'idempotency_key',v_key,'client_operation_id',v_client,'status','SYNCED',
           'purchase_id',v_purchase,'local_id',v_local_id
+        );
+
+      elsif v_type = 'BAG_MOVEMENT_CREATE' then
+        v_row := coalesce(v_payload->'row','{}'::jsonb);
+        v_coop_result := private.offline_sacherie_network_move(
+          v_campaign,
+          coalesce(nullif(v_row->>'client_operation_id',''),v_client::text),
+          v_row->>'flow',
+          v_row->>'cluster',
+          v_row->>'rt_id',
+          nullif(v_row->>'producteur_id',''),
+          nullif(v_row->>'qty','')::integer,
+          nullif(v_row->>'receiver_name',''),
+          nullif(v_row->>'note','')
+        );
+        v_result := jsonb_build_object(
+          'idempotency_key',v_key,'client_operation_id',v_client,'status','SYNCED',
+          'movement_id',v_coop_result->>'id'
         );
 
       elsif v_type = 'FIELD_GPS_UPDATE' then
