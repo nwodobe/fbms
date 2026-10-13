@@ -15,6 +15,8 @@ var SHELL = [
   './operations/workspace.js',
   './operations/navigation-v2.js',
   './operations/field-buying.js',
+  './operations/farmer-passport-edit-bridge.js',
+  './operations/rt-farmer-rights.js',
   './operations/aflp-cooperatives.js',
   './operations/aflp-cooperatives-enrolement.js',
   './operations/rt-farmer-rights.js',
