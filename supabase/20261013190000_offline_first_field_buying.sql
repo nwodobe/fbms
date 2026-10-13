@@ -52,7 +52,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, private, pg_temp
-as $
+as $$
 declare
   v_uid uuid := auth.uid();
   v_flow text := upper(coalesce(p_flow,''));
@@ -124,7 +124,7 @@ exception when unique_violation then
   if found then return to_jsonb(v_existing); end if;
   raise;
 end;
-$;
+$$;
 
 create or replace function public.offline_sync_batch(p_operations jsonb)
 returns jsonb
