@@ -1372,6 +1372,81 @@ function openFarmerForm(prefill, editId) {
         msg.className = 'ops-danger-text'; msg.textContent = 'Année de naissance entre 1930 et ' + anneeMax + '.'; return;
       }
       var v = c.vm[vid] || {};
+      var off = global.ANAGROCI_OFFLINE;
+      if (off && !off.isOnline()) {
+        if (editRow) {
+          msg.className = 'ops-danger-text';
+          msg.textContent = 'Hors ligne : la modification d’un producteur existant reste désactivée pour éviter un conflit de version. Vous pouvez continuer les enrôlements et achats ; cette modification sera possible à la reconnexion.';
+          return;
+        }
+        var fullNorm = normName(name + ' ' + (val('ff_prenoms') || ''));
+        var localHits = c.farmers.filter(function (x) {
+          var samePhone = phone && phone.length >= 8 && normPhone(x.telephone) === phone;
+          var sameFull = fullNorm && normName((x.nom || '') + ' ' + (x.prenoms || '')) === fullNorm;
+          var sameVillage = x.village_id === vid;
+          return samePhone || (sameFull && sameVillage);
+        });
+        var strong = localHits.filter(function (x) {
+          return phone && normPhone(x.telephone) === phone &&
+            normName((x.nom || '') + ' ' + (x.prenoms || '')) === fullNorm && x.village_id === vid;
+        });
+        if (strong.length) {
+          msg.className = 'ops-danger-text';
+          msg.textContent = 'Doublon probable dans les données présentes sur ce téléphone : ' +
+            (strong[0].farmer_id || strong[0].producteur_id) + ' · ' + strong[0].nom +
+            '. Ouvrez la fiche existante ou reconnectez-vous pour la vérification serveur.';
+          return;
+        }
+        var localId = 'local-farmer-' + off.uuid();
+        var pctLocal = refresh();
+        var localData = {
+          id: localId, source: prefill && prefill.sourceRtId ? 'RT_TO_PRODUCER_OFFLINE' : 'OPERATIONS_FIELD_BUYING_OFFLINE',
+          sourceRtId: prefill && prefill.sourceRtId || null,
+          campement: val('ff_camp'), cooperative: val('ff_coop'),
+          anneesAnacarde: numVal('ff_exp'), superficieHa: numVal('ff_ha'),
+          nbArbres: numVal('ff_arbres'), agePlantation: numVal('ff_age_pl'),
+          prodPrecKg: numVal('ff_prodprec'), potentiel2027Kg: numVal('ff_pot27'),
+          engagementKg: numVal('ff_eng'), autresCultures: val('ff_cultures'),
+          acheteurHabituel: val('ff_ach_hab'), prixPrecedent: numVal('ff_prix_prec'),
+          paiementMode: val('ff_pay'), mobileMoneyNum: val('ff_mm_num'), mobileMoneyTitulaire: val('ff_mm_tit'),
+          telTitulaire: val('ff_teltit'), notes: val('ff_notes'), completude: pctLocal
+        };
+        var serverRow = {
+          nom: name, prenoms: val('ff_prenoms') || null, sexe: val('ff_sexe') || null, birth_year: annee,
+          telephone: phone || null, telephone_alt: normPhone(val('ff_tel2')) || null,
+          id_document_type: val('ff_piece') || null, id_document_number: val('ff_piece_num') || null,
+          village_id: vid, rt_id: rtSel.value || null, data: localData
+        };
+        var plot = {
+          local_name: val('ff_plot_nom') || null, declared_area: numVal('ff_plot_ha'),
+          latitude: numVal('ff_plot_lat'), longitude: numVal('ff_plot_lng')
+        };
+        btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement sur cet appareil…';
+        off.queue('FARMER_ENROLL', { local_id: localId, row: serverRow, plot: plot }, {
+          label: 'Enrôlement producteur', entity_label: name + ' · ' + (v.village || vid)
+        }).then(function (op) {
+          var localFarmer = {
+            producteur_id: localId, farmer_id: 'LOCAL · EN ATTENTE', nom: name, prenoms: val('ff_prenoms') || null,
+            telephone: phone || null, village_id: vid, village_nom: v.village || null,
+            rt_id: rtSel.value || null, rt_nom: (c.rm[rtSel.value] || {}).nom || null,
+            cluster_code: v.cluster_code || null, cluster_label: v.cluster || null,
+            operational_status: 'Identifié', passport_completion: pctLocal, review_required: localHits.length > 0,
+            possible_duplicate: localHits.length > 0, local_only: true, pending_sync: true, local_operation_id: op.id,
+            gps_mapped_count: plot.latitude != null && plot.longitude != null ? 1 : 0
+          };
+          return off.appendLocalFarmer(localFarmer);
+        }).then(function () {
+          btn.disabled = false; msg.className = 'ops-ok-text';
+          msg.textContent = 'Producteur enregistré sur cet appareil. Farmer ID définitif attribué lors de la synchronisation.' +
+            (localHits.length ? ' Une correspondance locale existe : vérification serveur obligatoire à la reconnexion.' : '');
+          FBStore.invalidate('base');
+          setTimeout(function () { closeForm(); location.hash = '#farmers'; render(); }, 1200);
+        }).catch(function (err) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = err && err.message ? err.message : 'Enregistrement local impossible.';
+        });
+        return;
+      }
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Contrôle des doublons…';
       client().then(function (cl) {
         return cl.rpc('farmer_possible_duplicates', {
