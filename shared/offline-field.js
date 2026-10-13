@@ -467,6 +467,7 @@ function readiness() {
       ready: !!(cid && rs[0] && rs[1] && rs[2]),
       villages: (b.villages || []).length,
       rts: (b.rts || []).length,
+      rts_list: (b.rts || []).filter(function(x){return !x.deleted;}).map(function(x){return {id:x.id,id_rt:x.id_rt||x.id,nom:x.nom||'',village_nom:x.village_nom||'',cluster:x.cluster||''};}),
       producers: (b.farmers || []).length,
       cooperatives: Array.isArray(rs[4]) ? rs[4].length : 0,
       purchases: (b.achats || []).length,
