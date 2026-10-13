@@ -206,7 +206,6 @@ async function main(){
     await page.selectOption('#ff_village','v1');
     await page.selectOption('#ff_rt','rt1');
     await page.fill('#ff_tel','0700000999');
-    await page.fill('#ff_pot27','750');
     await page.click('#ff_submit');
     await page.waitForFunction(()=>document.body.textContent.includes('Farmer ID définitif attribué lors de la synchronisation.'),null,{timeout:10000});
     let ops=await page.evaluate(()=>ANAGROCI_OFFLINE.list());
