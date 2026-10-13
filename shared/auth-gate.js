@@ -78,7 +78,16 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function injectAcces(){ if(document.getElementById("aflp-access-js")) return; var s=document.createElement("script"); s.id="aflp-access-js"; s.src=sharedHref("aflp-access.js")+"?v=aflp-1.0.0"; (document.head||document.documentElement).appendChild(s); }
   injectAcces(); injectI18n(); injectAudit(); injectModuleGuards();
   function chipHTML(prof){ return '<span class="ag-name">'+esc(prof.nom||prof.role)+' · <span class="ag-role">'+esc(prof.role)+'</span></span>'+(estBM(prof.role)?'<a class="ag-cog" href="'+adminHref()+'" title="Administration">⚙</a>':'')+'<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
-  function wireLogout(){ var b=document.getElementById("ag-logout"); b&&b.addEventListener("click",function(){ if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout",{module:MODULE}); } SB.auth.signOut().then(function(){ location.reload(); }); }); }
+  function wireLogout(){ var b=document.getElementById("ag-logout"); b&&b.addEventListener("click",function(){
+    function go(){ if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout",{module:MODULE}); } SB.auth.signOut().then(function(){ location.reload(); }); }
+    if(window.ANAGROCI_OFFLINE&&window.ANAGROCI_OFFLINE.summary){
+      window.ANAGROCI_OFFLINE.summary().then(function(s){
+        var n=Number(s.pending||0)+Number(s.failed||0)+Number(s.review||0)+Number(s.conflicts||0);
+        if(n&&!confirm(n+" opération(s) ne sont pas encore synchronisée(s). Elles resteront sur cet appareil, mais une reconnexion sera nécessaire pour les envoyer. Se déconnecter quand même ?"))return;
+        go();
+      }).catch(go);
+    }else go();
+  }); }
   function injectChip(prof){ var slot=document.getElementById("anagroci-userslot"); if(slot){ slot.innerHTML=chipHTML(prof); return wireLogout(); } var chip=document.createElement("div"); chip.id="anagroci-userslot"; chip.className="ag-floating"; chip.innerHTML=chipHTML(prof); document.body.appendChild(chip); wireLogout(); }
   function injectAchatsCard(){ if(MODULE!=="portail") return; if(document.querySelector('a[href="terrain/achats.html"]')) return; var grid=document.querySelector("main .grid")||document.querySelector(".grid"); if(!grid) return; var card=document.createElement("a"); card.className="card hot"; card.href="terrain/achats.html"; card.innerHTML='<div class="card-top"><span class="ic">ACH</span><span class="badge b-prio">Transaction</span></div><div><h2>Achats Terrain</h2><p>Saisie journalière Producteur → RT : poids net, montant payé, reçu, sacs, qualité, commission RT et file hors-ligne.</p></div><span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>'; grid.insertBefore(card,grid.children[1]||null); }
   function injectAchatsDropdownPatch(){ if(!/\/terrain\/achats\.html(?:$|[?#])/.test(location.pathname+location.search)) return; if(document.getElementById("achats-dropdown-patch")) return; var s=document.createElement("script"); s.id="achats-dropdown-patch"; s.src="achats_dropdown_patch.js?v=8efe9be"; document.body.appendChild(s); }
@@ -87,7 +96,38 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function readCachedProfile(uid){ try{ var s=localStorage.getItem("anagroci_profile_"+uid); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function decide(prof){ var allowed=ACCESS[MODULE]||[]; if(allowed.indexOf(niveau(prof.role))<0) return showDenied(prof); reveal(prof); }
   var SB;
-  function run(){ SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); SB.auth.getSession().then(function(res){ var session=res.data&&res.data.session; if(!session) return showLogin(); SB.from("profils").select("*").eq("user_id",session.user.id).single().then(function(r){ if(r.error||!r.data){ return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); }); } if(!r.data.actif){ return SB.auth.signOut().then(function(){ showLogin("Compte désactivé. Contactez le Branch Manager."); }); } cacheProfile(session.user.id,r.data); decide(r.data); },function(){ var cached=readCachedProfile(session.user.id); if(cached) return decide(cached); showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne)."); }); }); }
+  function run(){
+    SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+    SB.auth.getSession().then(function(res){
+      var session=res.data&&res.data.session;
+      if(!session) return showLogin();
+      var cached=readCachedProfile(session.user.id);
+      if(typeof navigator!=="undefined"&&navigator.onLine===false){
+        if(cached&&cached.actif!==false) return decide(cached);
+        return showLogin("Une première connexion Internet est nécessaire pour préparer ce téléphone au mode terrain.");
+      }
+      SB.from("profils").select("*").eq("user_id",session.user.id).single().then(function(r){
+        if(r&&r.error){
+          /* Une panne réseau ne doit jamais détruire la session ni la file locale.
+             Un profil serveur réellement absent/inactif reste traité strictement. */
+          var msg=String(r.error.message||"");
+          if(/fetch|network|load failed|timeout|offline/i.test(msg)){
+            if(cached&&cached.actif!==false) return decide(cached);
+            return showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne).");
+          }
+          return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); });
+        }
+        if(!r||!r.data) return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); });
+        if(!r.data.actif) return SB.auth.signOut().then(function(){ showLogin("Compte désactivé. Contactez le Branch Manager."); });
+        cacheProfile(session.user.id,r.data); decide(r.data);
+      },function(){
+        if(cached&&cached.actif!==false) return decide(cached);
+        showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne).");
+      });
+    }).catch(function(){
+      showLogin("Session locale indisponible. Reconnectez-vous lorsque le réseau revient.");
+    });
+  }
   function ensureSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var sc=document.createElement("script"); sc.src=CDN; sc.onload=cb; sc.onerror=function(){ overlay.innerHTML=box('<p style="text-align:center">Impossible de charger le module de sécurité (réseau).<br>Réessayez.</p>'); setTimeout(function(){ window.ANAGROCI_I18N&&window.ANAGROCI_I18N.apply(); },0); }; document.head.appendChild(sc); }
   ensureSupabase(run);
 })();
