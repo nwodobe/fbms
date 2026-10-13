@@ -89,7 +89,9 @@ function networkFirst(req, fallbackUrl) {
 
 function cacheFirst(req) {
   return caches.open(RUNTIME_CACHE).then(function (cache) {
-    return cache.match(req).then(function (hit) {
+    /* caches.match cherche aussi dans SHELL_CACHE : les assets précachés doivent
+       être utilisables avant d'avoir eu une première réponse runtime. */
+    return caches.match(req).then(function (hit) {
       var update = fetch(req).then(function (resp) {
         if (resp && (resp.ok || resp.type === 'opaque')) cache.put(req, resp.clone()).catch(function () {});
         return resp;
