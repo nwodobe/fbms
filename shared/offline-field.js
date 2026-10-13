@@ -245,7 +245,9 @@ function resetStaleSyncing() {
 function applyResult(op, res) {
   var status = String(res.status || 'FAILED').toUpperCase();
   var patch = { status: status, result: res, last_error: res.message || null };
-  if (status === 'SYNCED') patch.last_error = null;
+  if (status === 'SYNCED') { patch.last_error = null; patch.next_attempt_at = null; }
+  if (status === 'FAILED') patch.next_attempt_at = nextBackoff(op.attempt_count || 1);
+  if (status === 'CONFLICT' || status === 'NEEDS_REVIEW') patch.next_attempt_at = null;
   return updateOperation(op.id, patch).then(function () {
     if (res.local_id && res.server_id) return mappingSet(res.local_id, res.server_id, res.farmer_id);
   }).then(function () {
@@ -288,6 +290,7 @@ function syncNow() {
     var now = Date.now();
     var eligible = ops.filter(function (o) {
       if (o.status !== 'PENDING' && o.status !== 'FAILED') return false;
+      if (Number(o.attempt_count || 0) >= 10) return false;
       if (o.next_attempt_at && new Date(o.next_attempt_at).getTime() > now) return false;
       return depsDone(o, byId);
     }).slice(0, MAX_BATCH);
@@ -501,7 +504,7 @@ var API = {
   list: listOperations,
   summary: summary,
   syncNow: syncNow,
-  retry: function (id) { return updateOperation(id, { status: 'PENDING', next_attempt_at: null, last_error: null }).then(syncNow); },
+  retry: function (id) { return updateOperation(id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null }).then(syncNow); },
   cancel: cancelOperation,
   mappingSet: mappingSet,
   pendingSpend: pendingSpend,
