@@ -2166,8 +2166,13 @@ function renderPurchases(sub, farmerId) {
 function openBuyForm(farmerId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
-  Promise.all([base(), loadProfile()]).then(function (rs) {
-    var c = rs[0];
+  Promise.all([base(), loadProfile(), activeFieldRule()]).then(function (rs) {
+    var c = rs[0], rule = rs[2] || {};
+    var prixCampagne = Number(rule.price_per_kg), commissionRt = Number(rule.rt_commission_per_kg),
+        seuilHumidite = Number(rule.max_moisture_pct), seuilKor = Number(rule.min_kor);
+    if(!isFinite(prixCampagne)||prixCampagne<=0||!isFinite(commissionRt)||!isFinite(seuilHumidite)||!isFinite(seuilKor)){
+      throw new Error('Règle Procurement FIELD_BUYING incomplète : prix, commission et seuils qualité sont requis.');
+    }
     if (!guardTerrain(host)) return;
     var pre = farmerId ? c.farmers.filter(function (f) { return f.producteur_id === farmerId; })[0] : null;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), pre ? pre.village_id : '');
