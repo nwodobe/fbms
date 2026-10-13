@@ -3967,6 +3967,81 @@ function renderCash() {
   });
 }
 
+/* ------------------------------------------------------- Synchronisation terrain */
+
+function prepareOfflineMode() {
+  var off=global.ANAGROCI_OFFLINE;
+  if(!off) return Promise.reject(new Error('Le moteur hors ligne n’est pas chargé.'));
+  if(!off.isOnline()) return Promise.reject(new Error('Une connexion Internet est nécessaire pour préparer ou actualiser les données terrain.'));
+  return Promise.all([
+    off.prepareShell(),
+    off.requestPersistentStorage().catch(function(){return false;}),
+    base(),
+    activeFieldRule(),
+    cashData(),
+    bagsData(),
+    global.ANAGROCI_COOP&&global.ANAGROCI_COOP.offlinePrepare ? global.ANAGROCI_COOP.offlinePrepare() : Promise.resolve(null)
+  ]).then(function(rs){
+    var b=rs[2]||{};
+    return off.markPrepared({
+      villages:(b.villages||[]).length,rts:(b.rts||[]).length,producers:(b.farmers||[]).length,
+      purchases:(b.achats||[]).length,persistent_storage:!!rs[1]
+    });
+  }).then(function(){return off.readiness();});
+}
+function renderSync() {
+  var off=global.ANAGROCI_OFFLINE;
+  if(!off){
+    paint(head('Synchronisation','Mode terrain hors ligne.')+danger('Le moteur hors ligne n’est pas disponible sur cette page.'));
+    return Promise.resolve();
+  }
+  paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
+    '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
+    '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+skeletonPage(4));
+  return Promise.all([off.readiness(),off.summary(),off.list(),off.storageEstimate()]).then(function(rs){
+    var r=rs[0],s=rs[1],ops=rs[2],st=rs[3]||{};
+    var last=r.last_prepared&&r.last_prepared.at?date(r.last_prepared.at):'Jamais';
+    var status=s.syncing?'Synchronisation '+s.done+' / '+s.total:(!s.online?'Hors ligne':(s.pending||s.failed||s.review||s.conflicts)?'À synchroniser':'Tout synchronisé');
+    var ready=r.ready?'Prêt pour le terrain ✓':'Mode hors ligne non préparé';
+    var storage=st.quota?num((st.usage||0)/1048576,1)+' / '+num(st.quota/1048576,0)+' Mo':'—';
+    paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
+      '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
+      '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+
+      kpis([
+        ['État réseau',s.online?'En ligne':'Hors ligne',status,s.online?'':'warn'],
+        ['Mode terrain',ready,'dernière préparation : '+last,r.ready?'':'warn'],
+        ['Opérations en attente',String(s.pending+s.failed),s.review+s.conflicts+' à vérifier',(s.failed||s.review||s.conflicts)?'warn':''],
+        ['Stockage local',storage,st.persisted===true?'stockage persistant accordé':'protection du stockage selon le navigateur']
+      ])+
+      '<section class="card"><div class="card-head"><div><h2>Données disponibles hors ligne</h2><p>Campagne '+esc(r.campaign_code||'—')+' · cache de cet appareil uniquement.</p></div></div>'+
+      table(['Donnée','Disponibilité','Volume'],[
+        '<tr><td>Campagne / règles d’achat</td><td>'+badge(r.rule_cached?'Disponible':'À préparer')+'</td><td>1 campagne</td></tr>',
+        '<tr><td>Villages</td><td>'+badge(r.villages?'Disponible':'À préparer')+'</td><td>'+num(r.villages)+'</td></tr>',
+        '<tr><td>RT</td><td>'+badge(r.rts?'Disponible':'À préparer')+'</td><td>'+num(r.rts)+'</td></tr>',
+        '<tr><td>Producteurs</td><td>'+badge(r.producers?'Disponible':'À préparer')+'</td><td>'+num(r.producers)+'</td></tr>',
+        '<tr><td>Coopératives</td><td>'+badge(r.cooperatives?'Disponible':'À préparer')+'</td><td>'+num(r.cooperatives)+'</td></tr>',
+        '<tr><td>Caisse / avances</td><td>'+badge(r.cash_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>',
+        '<tr><td>Sacherie</td><td>'+badge(r.bags_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'
+      ])+'</section>'+
+      '<section class="card"><div class="card-head"><div><h2>Journal hors ligne</h2><p>Une opération locale n’est jamais supprimée avant confirmation serveur.</p></div>'+
+      '<button class="btn secondary" id="offClear" type="button">Nettoyer les opérations synchronisées</button></div><div id="offJournal">'+off.journalHtml(ops)+'</div></section>'+
+      (!s.online?'<div class="notice warn"><b>Hors ligne :</b>&nbsp; les opérations restent sur cet appareil et seront synchronisées au retour du réseau.</div>':''));
+    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear');
+    if(prep) prep.onclick=function(){
+      prep.disabled=true;prep.textContent='Préparation…';
+      prepareOfflineMode().then(function(){FBStore.clear();renderSync();}).catch(function(e){prep.disabled=false;prep.textContent='Préparer le mode hors ligne';alert(e.message);});
+    };
+    if(syn) syn.onclick=function(){
+      syn.disabled=true;syn.textContent='Synchronisation…';
+      off.syncNow().then(function(){FBStore.clear();renderSync();}).catch(function(e){syn.disabled=false;syn.textContent='Synchroniser maintenant';alert(e.message);});
+    };
+    if(clr) clr.onclick=function(){off.clearSynced().then(renderSync);};
+    [].slice.call(document.querySelectorAll('[data-off-retry]')).forEach(function(b){b.onclick=function(){off.retry(b.getAttribute('data-off-retry')).then(renderSync).catch(function(e){alert(e.message);});};});
+    [].slice.call(document.querySelectorAll('[data-off-cancel]')).forEach(function(b){b.onclick=function(){if(!confirm('Annuler cette opération locale ?'))return;off.cancel(b.getAttribute('data-off-cancel')).then(renderSync).catch(function(e){alert(e.message);});};});
+  });
+}
+global.addEventListener&&global.addEventListener('anagroci:offline-status',function(){if(route()==='sync'){clearTimeout(renderSync._t);renderSync._t=setTimeout(renderSync,250);}});
+
 /* --------------------------------------------------------------- Command Center */
 
 var cmdFilter = { cluster: '', sev: '' };
@@ -4805,6 +4880,7 @@ var ROUTES = {
   hubs: function (p) { return renderHubs(p[1]); },
   bags: function (p) { return renderBags(p[1], p[2]); },
   cash: function () { return renderCash(); },
+  sync: function () { return renderSync(); },
   command: function () { return renderCommand(); },
   sustainability: function () { return renderSustainability(); },
   traceability: function (p) { return renderTraceability(p[1]); },
@@ -4880,6 +4956,8 @@ global.ANAGROCI_FB = {
   openBagProof: openBagProof,
   openBagEnvelope: openBagEnvelope,
   openBagAllocation: openBagAllocation,
+  prepareOffline: prepareOfflineMode,
+  renderSync: renderSync,
   rtToFarmer: rtToFarmer,
   addRtDoc: addRtDoc,
   addVillagePhoto: addVillagePhoto,
