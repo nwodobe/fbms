@@ -39,7 +39,7 @@ create index if not exists offline_device_leases_rt_idx
 create index if not exists offline_device_leases_user_idx
   on private.offline_device_leases(user_id,valid_until desc);
 
-create or replace function public.offline_prepare_device(p_device_id uuid, p_campaign_id uuid, p_hours integer default 18)
+create or replace function public.offline_prepare_device(p_device_id uuid, p_campaign_id uuid, p_rt_id text default null, p_hours integer default 18)
 returns jsonb
 language plpgsql
 security definer
@@ -52,23 +52,34 @@ declare
   v_existing private.offline_device_leases%rowtype;
   v_lease private.offline_device_leases%rowtype;
   v_hours integer := least(greatest(coalesce(p_hours,18),1),24);
+  v_rt public.rt%rowtype;
+  v_rt_id text;
 begin
   if v_uid is null then raise exception 'Connexion requise.' using errcode='42501'; end if;
   select * into v_prof from public.profils where user_id=v_uid and actif=true limit 1;
   if v_prof.user_id is null then raise exception 'Profil actif requis.' using errcode='42501'; end if;
-  if nullif(v_prof.rt_id,'') is null then
+  v_rt_id := coalesce(nullif(btrim(p_rt_id),''), nullif(btrim(v_prof.rt_id),''));
+  if v_rt_id is null then
     return jsonb_build_object(
       'authorized',false,
-      'reason','Aucun RT n’est rattaché à votre profil. Les enrôlements restent disponibles hors ligne, mais les achats financiers hors ligne sont bloqués sur cet appareil.'
+      'reason','Sélectionnez le RT dont les achats hors ligne seront sécurisés sur cet appareil.'
     );
+  end if;
+  if not public.peut_modifier_rt_producteur() then
+    raise exception 'Votre rôle ne permet pas de préparer des achats terrain hors ligne.' using errcode='42501';
+  end if;
+  select * into v_rt from public.rt where id=v_rt_id and coalesce(deleted,false)=false limit 1;
+  if v_rt.id is null then raise exception 'RT introuvable ou inactif.' using errcode='23514'; end if;
+  if not private.farmer_registry_can_access_village(v_rt.village_id,v_rt.id) then
+    raise exception 'Ce RT est hors de votre périmètre opérationnel.' using errcode='42501';
   end if;
   select * into v_campaign from public.campaigns where id=p_campaign_id and status='OPEN' limit 1;
   if v_campaign.id is null then raise exception 'Aucune campagne ouverte.' using errcode='42501'; end if;
 
-  perform pg_advisory_xact_lock(hashtext(v_campaign.id::text||':'||v_prof.rt_id));
+  perform pg_advisory_xact_lock(hashtext(v_campaign.id::text||':'||v_rt_id));
   select * into v_existing
   from private.offline_device_leases
-  where campaign_id=v_campaign.id and rt_id=v_prof.rt_id and released_at is null and valid_until>now()
+  where campaign_id=v_campaign.id and rt_id=v_rt_id and released_at is null and valid_until>now()
   order by issued_at desc limit 1;
 
   if found and v_existing.device_id<>p_device_id then
@@ -83,7 +94,7 @@ begin
     returning * into v_lease;
   else
     insert into private.offline_device_leases(campaign_id,rt_id,user_id,device_id,valid_until)
-    values(v_campaign.id,v_prof.rt_id,v_uid,p_device_id,now()+make_interval(hours=>v_hours))
+    values(v_campaign.id,v_rt_id,v_uid,p_device_id,now()+make_interval(hours=>v_hours))
     returning * into v_lease;
   end if;
 
@@ -99,9 +110,9 @@ begin
 end;
 $lease$;
 
-revoke all on function public.offline_prepare_device(uuid,uuid,integer) from public;
-revoke all on function public.offline_prepare_device(uuid,uuid,integer) from anon;
-grant execute on function public.offline_prepare_device(uuid,uuid,integer) to authenticated;
+revoke all on function public.offline_prepare_device(uuid,uuid,text,integer) from public;
+revoke all on function public.offline_prepare_device(uuid,uuid,text,integer) from anon;
+grant execute on function public.offline_prepare_device(uuid,uuid,text,integer) to authenticated;
 
 create or replace function private.offline_result_status(p_message text, p_state text)
 returns text
