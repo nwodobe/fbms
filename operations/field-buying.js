@@ -352,7 +352,7 @@ function bagsData() {
       t('aflp_bag_cluster_allocations', q('aflp_bag_cluster_allocations', 'id,envelope_id,cluster,allocated_qty', 60), []),
       /* Registre des locations : les codes réels (AFLP-CL-…, AFLP-RT-…) sont
          la clé de voûte — une demande sans code réel ne peut pas se libérer. */
-      t('rcn_jute_locations', q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,nom,actif', 400), []),
+      t('rcn_jute_locations', q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,producteur_id,nom,actif', 800), []),
       /* Colonne canonique de la sortie : released_at (défaut now()). La table
          n'a jamais porté de created_at. */
       t('ops_bag_releases', q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,released_at', 60,
