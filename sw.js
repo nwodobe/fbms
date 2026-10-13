@@ -115,7 +115,21 @@ self.addEventListener('fetch', function (event) {
   if (req.mode === 'navigate' || /\.html$/i.test(url.pathname)) {
     var fieldPage = /\/operations\/field-buying\.html$/i.test(url.pathname);
     var rootPage = /\/fbms\/(?:index\.html)?$/i.test(url.pathname) || /\/index\.html$/i.test(url.pathname);
-    event.respondWith(networkFirst(req, fieldPage ? './operations/field-buying.html' : (rootPage ? './index.html' : null)));
+    if (fieldPage || rootPage) {
+      event.respondWith(networkFirst(req, fieldPage ? './operations/field-buying.html' : './index.html'));
+    } else if (/\/operations\//.test(url.pathname)) {
+      event.respondWith(fetch(req,{cache:'no-store'}).catch(function(){
+        return new Response(
+          '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>ANAGROCI Operations</title>'+
+          '<body style="font-family:system-ui;padding:32px;background:#f1f9ef;color:#053b23"><h1>Connexion Internet requise</h1>'+
+          '<p>Ce module est actuellement online-first. FIELD BUYING reste disponible en mode terrain hors ligne après préparation.</p>'+
+          '<p><a href="./field-buying.html#sync">Ouvrir FIELD BUYING</a></p></body>',
+          {status:503,headers:{'content-type':'text/html; charset=utf-8'}}
+        );
+      }));
+    } else {
+      event.respondWith(networkFirst(req, null));
+    }
     return;
   }
 
