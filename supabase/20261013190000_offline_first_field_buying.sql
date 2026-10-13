@@ -44,7 +44,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, private, pg_temp
-as $
+as $lease$
 declare
   v_uid uuid := auth.uid();
   v_prof public.profils%rowtype;
@@ -97,7 +97,7 @@ begin
     'valid_until',v_lease.valid_until
   );
 end;
-$;
+$lease$;
 
 revoke all on function public.offline_prepare_device(uuid,integer) from public;
 revoke all on function public.offline_prepare_device(uuid,integer) from anon;
