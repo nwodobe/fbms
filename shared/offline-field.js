@@ -413,22 +413,36 @@ function appendPendingPurchase(row, opts) {
   }, { campaign_id: cid });
 }
 
-function prepareDeviceLease() {
+function prepareDeviceLease(rtId) {
   if (!isOnline()) return Promise.reject(new Error('Connexion requise pour autoriser cet appareil aux achats hors ligne.'));
   var cl=getClient(); if(!cl) return Promise.reject(new Error('Client Supabase indisponible.'));
   return deviceId().then(function(did){
-    return cl.rpc('offline_prepare_device',{p_device_id:did,p_campaign_id:campaignId(),p_hours:18});
+    return cl.rpc('offline_prepare_device',{p_device_id:did,p_campaign_id:campaignId(),p_rt_id:rtId||null,p_hours:18});
   }).then(function(r){
     if(r.error) throw new Error(r.error.message);
-    return setMeta('offline_device_lease',r.data||null).then(function(){return r.data||null;});
+    var lease=r.data||null;
+    return getMeta('offline_device_leases').then(function(m){
+      m=m&&typeof m==='object'?m:{};
+      if(lease&&lease.authorized===true&&lease.rt_id)m[String(lease.rt_id)]=lease;
+      return setMeta('offline_device_leases',m).then(function(){return lease;});
+    });
   });
 }
-function getDeviceLease() { return getMeta('offline_device_lease'); }
+function getDeviceLeases() { return getMeta('offline_device_leases').then(function(m){return m&&typeof m==='object'?m:{};}); }
+function getDeviceLease(rtId) {
+  return getDeviceLeases().then(function(m){
+    if(rtId!=null&&m[String(rtId)])return m[String(rtId)];
+    var keys=Object.keys(m),now=Date.now();
+    for(var i=0;i<keys.length;i++){var l=m[keys[i]];if(l&&l.authorized===true&&(!l.valid_until||new Date(l.valid_until).getTime()>now))return l;}
+    return null;
+  });
+}
 function leaseAllows(rtId) {
-  return getDeviceLease().then(function(l){
-    if(!l||l.authorized!==true) return {ok:false,reason:l&&l.reason?l.reason:'Aucune autorisation d’achat hors ligne sur cet appareil.'};
-    if(String(l.rt_id||'')!==String(rtId||'')) return {ok:false,reason:'Cet appareil est autorisé pour un autre RT.'};
-    if(l.valid_until&&new Date(l.valid_until).getTime()<Date.now()) return {ok:false,reason:'L’autorisation d’achat hors ligne de cet appareil a expiré. Reconnectez-vous et préparez de nouveau le mode terrain.'};
+  return getDeviceLeases().then(function(m){
+    var l=m[String(rtId||'')]||null;
+    if(!l||l.authorized!==true) return {ok:false,reason:'Ce RT n’est pas encore autorisé pour les achats hors ligne sur cet appareil.'};
+    if(l.campaign_id&&campaignId()&&String(l.campaign_id)!==String(campaignId()))return {ok:false,reason:'L’autorisation hors ligne de ce RT appartient à une autre campagne.'};
+    if(l.valid_until&&new Date(l.valid_until).getTime()<Date.now()) return {ok:false,reason:'L’autorisation d’achat hors ligne de ce RT a expiré. Reconnectez-vous et préparez de nouveau ce RT.'};
     return {ok:true,lease:l};
   });
 }
@@ -442,9 +456,10 @@ function readiness() {
     getBundle('bags', { campaign_id: cid }),
     getBundle('coop_dashboard', { campaign_id: cid }),
     getMeta('last_prepared'),
-    getDeviceLease()
+    getDeviceLeases()
   ]).then(function (rs) {
-    var b = rs[0] || {}, last = rs[5] || null, lease=rs[6] || null;
+    var b = rs[0] || {}, last = rs[5] || null, leases=rs[6] || {};
+    var now=Date.now(),activeLeases=Object.keys(leases).map(function(k){return leases[k];}).filter(function(l){return l&&l.authorized===true&&(!l.valid_until||new Date(l.valid_until).getTime()>now);});
     return {
       campaign_id: cid,
       campaign_code: campaignCode(),
@@ -458,8 +473,9 @@ function readiness() {
       bags_cached: !!rs[3],
       cash_cached: !!rs[2],
       rule_cached: !!rs[1],
-      lease: lease,
-      cash_offline_authorized: !!(lease&&lease.authorized===true&&(!lease.valid_until||new Date(lease.valid_until).getTime()>Date.now()))
+      lease: activeLeases[0]||null,
+      leases: activeLeases,
+      cash_offline_authorized: activeLeases.length>0
     };
   });
 }
@@ -555,6 +571,7 @@ var API = {
   estimatedCashAvailable: estimatedCashAvailable,
   prepareDeviceLease: prepareDeviceLease,
   getDeviceLease: getDeviceLease,
+  getDeviceLeases: getDeviceLeases,
   leaseAllows: leaseAllows,
   appendLocalFarmer: appendLocalFarmer,
   appendPendingPurchase: appendPendingPurchase,
