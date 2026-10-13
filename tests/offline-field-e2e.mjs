@@ -10,7 +10,7 @@
  * - achat dépend du producteur local;
  * - retour réseau : mapping Farmer local -> serveur, puis achat synchronisé;
  * - rejeu local ne duplique pas les opérations;
- * - 100 opérations persistantes sont supportées.
+ * - charge locale vérifiée aux seuils 10 / 100 / 500 opérations persistantes.
  */
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -244,14 +244,20 @@ async function main(){
     const afterIds=await page.evaluate(async()=>(await ANAGROCI_OFFLINE.list()).filter(x=>['FARMER_ENROLL','FIELD_PURCHASE_CREATE'].includes(x.operation_type)).map(x=>x.id).sort());
     assert.deepEqual(afterIds,beforeIds,'queue doit survivre à la fermeture/réouverture');
 
-    /* Charge locale : 100 opérations persistantes sans perte. */
+    /* Charge locale : seuils 10 / 100 / 500, sans perte. */
     const t0=Date.now();
-    await page.evaluate(async()=>{
-      for(let i=0;i<100;i++)await ANAGROCI_OFFLINE.queue('FIELD_GPS_UPDATE',{row:{producteur_id:'p-existing',gps_lat:7.7+i/100000,gps_lng:-5.0}},{label:'QA charge locale'});
-    });
+    const loadCheckpoints={};
+    for(const target of [10,100,500]){
+      await page.evaluate(async({from,to})=>{
+        for(let i=from;i<to;i++) await ANAGROCI_OFFLINE.queue('FIELD_GPS_UPDATE',
+          {row:{producteur_id:'p-existing',gps_lat:7.7+i/100000,gps_lng:-5.0}},
+          {label:'QA charge locale'});
+      },{from:target===10?0:(target===100?10:100),to:target});
+      const countAt=await page.evaluate(async()=>{const x=await ANAGROCI_OFFLINE.list();return x.filter(o=>o.operation_type==='FIELD_GPS_UPDATE').length;});
+      assert.equal(countAt,target,target+' opérations locales attendues');
+      loadCheckpoints[target]=Date.now()-t0;
+    }
     const localLoad=Date.now()-t0;
-    const count=await page.evaluate(async()=>{const x=await ANAGROCI_OFFLINE.list();return x.filter(o=>o.operation_type==='FIELD_GPS_UPDATE').length;});
-    assert.equal(count,100,'100 opérations locales attendues');
 
     /* Retour du réseau : Farmer d'abord, achat ensuite avec server_id résolu. */
     await ctx.setOffline(false);
@@ -298,8 +304,11 @@ async function main(){
       offline_reload:true,
       farmer_then_purchase:true,
       persistent_queue:true,
+      queue_10:true,
       queue_100:true,
-      queue_100_write_ms:localLoad,
+      queue_500:true,
+      queue_write_checkpoints_ms:loadCheckpoints,
+      queue_500_write_ms:localLoad,
       data_real_used:false
     },null,2));
   }finally{
