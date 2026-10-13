@@ -148,7 +148,11 @@ function queueOperation(type, payload, opts) {
   opts = opts || {};
   var cid = opts.campaign_id || campaignId();
   if (!cid) return Promise.reject(new Error('Aucune campagne active : impossible de conserver cette opération hors ligne.'));
-  return deviceId().then(function (did) {
+  return storageEstimate().then(function(st){
+    if(st.quota&&st.usage/st.quota>=0.95) throw new Error('Espace local presque saturé. Synchronisez vos opérations avant de continuer ; la file en attente ne sera jamais supprimée automatiquement.');
+    if(st.quota&&st.usage/st.quota>=0.80) runtime.lastError='Stockage local supérieur à 80 % : synchronisez dès que possible.';
+    return deviceId();
+  }).then(function (did) {
     var p = profile();
     var op = {
       id: opts.id || uuid(),
