@@ -39,7 +39,7 @@ create index if not exists offline_device_leases_rt_idx
 create index if not exists offline_device_leases_user_idx
   on private.offline_device_leases(user_id,valid_until desc);
 
-create or replace function public.offline_prepare_device(p_device_id uuid, p_hours integer default 18)
+create or replace function public.offline_prepare_device(p_device_id uuid, p_campaign_id uuid, p_hours integer default 18)
 returns jsonb
 language plpgsql
 security definer
@@ -62,7 +62,7 @@ begin
       'reason','Aucun RT n’est rattaché à votre profil. Les enrôlements restent disponibles hors ligne, mais les achats financiers hors ligne sont bloqués sur cet appareil.'
     );
   end if;
-  select * into v_campaign from public.campaigns where is_current=true and status='OPEN' order by opened_at desc limit 1;
+  select * into v_campaign from public.campaigns where id=p_campaign_id and status='OPEN' limit 1;
   if v_campaign.id is null then raise exception 'Aucune campagne ouverte.' using errcode='42501'; end if;
 
   perform pg_advisory_xact_lock(hashtext(v_campaign.id::text||':'||v_prof.rt_id));
@@ -99,9 +99,9 @@ begin
 end;
 $lease$;
 
-revoke all on function public.offline_prepare_device(uuid,integer) from public;
-revoke all on function public.offline_prepare_device(uuid,integer) from anon;
-grant execute on function public.offline_prepare_device(uuid,integer) to authenticated;
+revoke all on function public.offline_prepare_device(uuid,uuid,integer) from public;
+revoke all on function public.offline_prepare_device(uuid,uuid,integer) from anon;
+grant execute on function public.offline_prepare_device(uuid,uuid,integer) to authenticated;
 
 create or replace function private.offline_result_status(p_message text, p_state text)
 returns text
