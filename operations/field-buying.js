@@ -3992,7 +3992,8 @@ function prepareOfflineMode() {
     bagsData(),
     global.ANAGROCI_COOP&&global.ANAGROCI_COOP.offlinePrepare ? global.ANAGROCI_COOP.offlinePrepare() : Promise.resolve(null)
   ]).then(function(rs){
-    var lease=rs[2]||null,b=rs[3]||{};
+    var shell=rs[0]||{},lease=rs[2]||null,b=rs[3]||{};
+    if(!shell.service_worker||shell.precache_confirmed!==true) throw new Error('Le shell hors ligne n’a pas pu être confirmé. Vérifiez que l’application est ouverte en HTTPS puis réessayez.');
     return off.markPrepared({
       villages:(b.villages||[]).length,rts:(b.rts||[]).length,producers:(b.farmers||[]).length,
       purchases:(b.achats||[]).length,persistent_storage:!!rs[1],
