@@ -4033,13 +4033,21 @@ function renderSync() {
         '<tr><td>Producteurs</td><td>'+badge(r.producers?'Disponible':'À préparer')+'</td><td>'+num(r.producers)+'</td></tr>',
         '<tr><td>Coopératives</td><td>'+badge(r.cooperatives?'Disponible':'À préparer')+'</td><td>'+num(r.cooperatives)+'</td></tr>',
         '<tr><td>Caisse / avances</td><td>'+badge(r.cash_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'+
-        '<tr><td>Achats financiers hors ligne</td><td>'+badge(r.cash_offline_authorized?'Appareil autorisé':'Bloqué par sécurité')+'</td><td>'+(r.lease&&r.lease.rt_id?esc(r.lease.rt_id):'RT non lié au profil')+'</td></tr>',
+        '<tr><td>Achats financiers hors ligne</td><td>'+badge(r.cash_offline_authorized?'Appareil autorisé':'À autoriser par RT')+'</td><td>'+((r.leases||[]).length?num((r.leases||[]).length)+' RT autorisé(s)':'aucun RT autorisé')+'</td></tr>',
         '<tr><td>Sacherie</td><td>'+badge(r.bags_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'
       ])+'</section>'+
+      '<section class="card"><div class="card-head"><div><h2>Autoriser les achats hors ligne par RT</h2><p>Un même téléphone peut préparer plusieurs RT de son périmètre ; chaque RT ne peut être actif hors ligne que sur un seul appareil à la fois.</p></div></div>'+
+      '<div class="ops-form-grid">'+
+        field('RT à autoriser','<select id="offRtAuthorize"><option value="">Choisir un RT…</option>'+selOptions((r.rts_list||[]).map(function(x){return [x.id,(x.id_rt||x.id)+' · '+x.nom+' · '+(x.village_nom||x.cluster||'—')];}), '')+'</select>')+
+        '<div class="ops-field"><label>&nbsp;</label><button class="btn primary" id="offAuthorizeRt" type="button">Autoriser ce RT sur cet appareil</button></div>'+
+      '</div>'+
+      ((r.leases||[]).length?'<div class="notice ok"><b>RT autorisés :</b> '+(r.leases||[]).map(function(l){var rr=(r.rts_list||[]).filter(function(x){return x.id===l.rt_id;})[0]||{};return esc((rr.id_rt||l.rt_id)+' · '+(rr.nom||'')+' · jusqu’au '+(l.valid_until?date(l.valid_until):'—'));}).join(' · ')+'</div>':
+        '<div class="notice warn"><b>Sécurité caisse :</b>&nbsp; aucun achat financier ne sera accepté hors ligne tant qu’un RT n’est pas explicitement autorisé sur cet appareil.</div>')+
+      '</section>'+
       '<section class="card"><div class="card-head"><div><h2>Journal hors ligne</h2><p>Une opération locale n’est jamais supprimée avant confirmation serveur.</p></div>'+
       '<button class="btn secondary" id="offClear" type="button">Nettoyer les opérations synchronisées</button></div><div id="offJournal">'+off.journalHtml(ops)+'</div></section>'+
       (!s.online?'<div class="notice warn"><b>Hors ligne :</b>&nbsp; les opérations restent sur cet appareil et seront synchronisées au retour du réseau.</div>':''));
-    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear');
+    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear'),authRt=document.getElementById('offAuthorizeRt');
     if(prep) prep.onclick=function(){
       prep.disabled=true;prep.textContent='Préparation…';
       prepareOfflineMode().then(function(){FBStore.clear();renderSync();}).catch(function(e){prep.disabled=false;prep.textContent='Préparer le mode hors ligne';alert(e.message);});
@@ -4047,6 +4055,16 @@ function renderSync() {
     if(syn) syn.onclick=function(){
       syn.disabled=true;syn.textContent='Synchronisation…';
       off.syncNow().then(function(){FBStore.clear();renderSync();}).catch(function(e){syn.disabled=false;syn.textContent='Synchroniser maintenant';alert(e.message);});
+    };
+    if(authRt) authRt.onclick=function(){
+      var sel=document.getElementById('offRtAuthorize'),rid=sel&&sel.value;
+      if(!rid){alert('Choisissez un RT.');return;}
+      if(!off.isOnline()){alert('Une connexion Internet est nécessaire pour autoriser un RT sur cet appareil.');return;}
+      authRt.disabled=true;authRt.textContent='Autorisation…';
+      off.prepareDeviceLease(rid).then(function(x){
+        if(!x||x.authorized!==true)throw new Error((x&&x.reason)||'Autorisation refusée.');
+        return renderSync();
+      }).catch(function(e){authRt.disabled=false;authRt.textContent='Autoriser ce RT sur cet appareil';alert(e.message);});
     };
     if(clr) clr.onclick=function(){off.clearSynced().then(renderSync);};
     [].slice.call(document.querySelectorAll('[data-off-retry]')).forEach(function(b){b.onclick=function(){off.retry(b.getAttribute('data-off-retry')).then(renderSync).catch(function(e){alert(e.message);});};});
