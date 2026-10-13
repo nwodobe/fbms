@@ -365,10 +365,17 @@ function syncNow() {
   });
 
   return syncPromise.then(function (x) {
-    if (x && !x.empty) {
-      setTimeout(function () { if (isOnline()) syncNow().catch(function () {}); }, 100);
-    }
-    return x;
+    if (!x || x.empty || !isOnline()) return x;
+    /* Drain the queue in the same user-visible sync cycle. Dependencies (for example
+       FARMER_ENROLL -> FIELD_PURCHASE_CREATE) become eligible only after the first
+       batch has produced the local_id -> server_id mapping. Waiting for the next
+       timer made callers observe a half-synchronised state and could leave an
+       offline purchase pending after the farmer had already been created. */
+    return new Promise(function (resolve) { setTimeout(resolve, 50); }).then(function () {
+      return syncNow();
+    }).then(function (next) {
+      return { synced: Number(x.synced || 0) + Number(next && next.synced || 0), drained: !!(next && next.empty) };
+    });
   });
 }
 
