@@ -249,7 +249,7 @@
     if (top) top.innerHTML = '<a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a>' +
       '<div class="ops-title"><strong>'+esc(c.title)+'</strong><small>'+esc(c.subtitle)+'</small></div>' +
       wsSwitch() +
-      '<div class="ops-top-actions"><span id="opsCampaignSlot" class="ops-camp-slot" data-i18n-ignore>'+campPillHtml()+'</span><span class="ops-pill" data-fresh data-i18n-ignore data-state="wait"><span class="dot"></span><span class="fresh-txt">Chargement des données…</span></span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
+      '<div class="ops-top-actions"><span id="opsCampaignSlot" class="ops-camp-slot" data-i18n-ignore>'+campPillHtml()+'</span><span id="opsOfflineSlot" data-i18n-ignore></span><span class="ops-pill" data-fresh data-i18n-ignore data-state="wait"><span class="dot"></span><span class="fresh-txt">Chargement des données…</span></span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>';
     var side = document.getElementById('opsSidebar');
     if (side) {
       var active = routeName();
@@ -543,8 +543,22 @@
     }
   };
 
+  function paintOfflineStatus(s) {
+    var slot=document.getElementById('opsOfflineSlot'); if(!slot)return;
+    if(!global.ANAGROCI_OFFLINE){slot.innerHTML='';return;}
+    s=s||{}; var en=lang()==='en', pending=Number(s.pending||0)+Number(s.failed||0)+Number(s.review||0)+Number(s.conflicts||0);
+    var label=s.syncing ? (en?'Sync '+(s.done||0)+' / '+(s.total||0):'Synchronisation '+(s.done||0)+' / '+(s.total||0))
+      : s.online===false ? (en?'Offline':'Hors ligne') : (en?'Online':'En ligne');
+    if(pending) label+=' · '+pending+' '+(en?'pending':'en attente');
+    var state=s.online===false?'off':(s.failed||s.review||s.conflicts)?'off':s.syncing?'wait':'on';
+    slot.innerHTML='<a class="ops-pill" data-state="'+state+'" href="#sync" title="'+(en?'Field synchronization':'Synchronisation terrain')+'"><span class="dot"></span><span>'+label+'</span></a>';
+  }
+  global.addEventListener&&global.addEventListener('anagroci:offline-status',function(e){paintOfflineStatus(e.detail||{});});
+  function initOfflineStatus(){if(global.ANAGROCI_OFFLINE&&global.ANAGROCI_OFFLINE.summary)global.ANAGROCI_OFFLINE.summary().then(paintOfflineStatus).catch(function(){});}
+
   async function boot() {
     renderShell();
+    initOfflineStatus();
     [].slice.call(document.querySelectorAll('.ops-contextbar span')).forEach(function (el) {
       if (/^\s*(Données à jour|Data up to date)\s*$/i.test(el.textContent)) { el.setAttribute('data-fresh', ''); el.setAttribute('data-i18n-ignore', ''); }
     });
