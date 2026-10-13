@@ -2311,16 +2311,20 @@ function openBuyForm(farmerId) {
           msg.textContent = 'Hors ligne : un RT est requis pour sécuriser le contrôle de caisse.';
           return;
         }
-        cashData().then(function (cash) {
-          return off.estimatedCashAvailable(row.rt_id, c, cash);
-        }).then(function (bal) {
+        off.leaseAllows(row.rt_id).then(function(auth){
+          if(!auth.ok) throw new Error(auth.reason+' Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+          return cashData().then(function(cash){
+            return off.estimatedCashAvailable(row.rt_id,c,cash).then(function(bal){return {auth:auth,bal:bal};});
+          });
+        }).then(function(x) {
+          var bal=x.bal;
           if (montant > bal.available) {
             throw new Error('Solde local insuffisant. Dernière avance connue : ' + money(bal.advance) +
               ' · achats serveur : ' + money(bal.server_used) + ' · opérations locales : ' + money(bal.pending) +
               ' · disponible estimé : ' + money(bal.available) + '.');
           }
           var deps = f.local_only && f.local_operation_id ? [f.local_operation_id] : [];
-          return off.queue('FIELD_PURCHASE_CREATE', { row: row }, {
+          return off.queue('FIELD_PURCHASE_CREATE', { row: row, lease_token:x.auth.lease.lease_token }, {
             dependencies: deps, label: 'Achat Bord Champ',
             entity_label: (f.farmer_id || 'LOCAL') + ' · ' + f.nom + ' · ' + num(net) + ' kg'
           });
@@ -3976,16 +3980,18 @@ function prepareOfflineMode() {
   return Promise.all([
     off.prepareShell(),
     off.requestPersistentStorage().catch(function(){return false;}),
+    off.prepareDeviceLease().catch(function(e){return {authorized:false,reason:e.message};}),
     base(),
     activeFieldRule(),
     cashData(),
     bagsData(),
     global.ANAGROCI_COOP&&global.ANAGROCI_COOP.offlinePrepare ? global.ANAGROCI_COOP.offlinePrepare() : Promise.resolve(null)
   ]).then(function(rs){
-    var b=rs[2]||{};
+    var lease=rs[2]||null,b=rs[3]||{};
     return off.markPrepared({
       villages:(b.villages||[]).length,rts:(b.rts||[]).length,producers:(b.farmers||[]).length,
-      purchases:(b.achats||[]).length,persistent_storage:!!rs[1]
+      purchases:(b.achats||[]).length,persistent_storage:!!rs[1],
+      cash_offline_authorized:!!(lease&&lease.authorized),cash_offline_rt:lease&&lease.rt_id||null
     });
   }).then(function(){return off.readiness();});
 }
@@ -4020,7 +4026,8 @@ function renderSync() {
         '<tr><td>RT</td><td>'+badge(r.rts?'Disponible':'À préparer')+'</td><td>'+num(r.rts)+'</td></tr>',
         '<tr><td>Producteurs</td><td>'+badge(r.producers?'Disponible':'À préparer')+'</td><td>'+num(r.producers)+'</td></tr>',
         '<tr><td>Coopératives</td><td>'+badge(r.cooperatives?'Disponible':'À préparer')+'</td><td>'+num(r.cooperatives)+'</td></tr>',
-        '<tr><td>Caisse / avances</td><td>'+badge(r.cash_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>',
+        '<tr><td>Caisse / avances</td><td>'+badge(r.cash_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'+
+        '<tr><td>Achats financiers hors ligne</td><td>'+badge(r.cash_offline_authorized?'Appareil autorisé':'Bloqué par sécurité')+'</td><td>'+(r.lease&&r.lease.rt_id?esc(r.lease.rt_id):'RT non lié au profil')+'</td></tr>',
         '<tr><td>Sacherie</td><td>'+badge(r.bags_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'
       ])+'</section>'+
       '<section class="card"><div class="card-head"><div><h2>Journal hors ligne</h2><p>Une opération locale n’est jamais supprimée avant confirmation serveur.</p></div>'+
