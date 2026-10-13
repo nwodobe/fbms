@@ -260,8 +260,14 @@ async function main(){
       const x=await ANAGROCI_OFFLINE.list();
       return x.filter(o=>['FARMER_ENROLL','FIELD_PURCHASE_CREATE'].includes(o.operation_type)).every(o=>o.status==='SYNCED');
     },null,{timeout:20000});
-    const resolved=await page.evaluate(()=>window.__offlineTestState.lastPurchaseFarmer);
-    assert.ok(resolved&&!/^local-farmer-/.test(resolved),'achat synchronisé doit pointer vers le Farmer serveur');
+    const syncEvidence=await page.evaluate(async()=>{
+      const batches=(window.__offlineTestState&&window.__offlineTestState.batches)||[];
+      const sent=batches.flat().find(x=>x.operation_type==='FIELD_PURCHASE_CREATE')||null;
+      const queue=await ANAGROCI_OFFLINE.list();
+      return {sentFarmer:sent&&sent.payload&&sent.payload.row&&sent.payload.row.producteur_id||null,batches:batches.map(x=>x.map(y=>y.operation_type)),queue:queue.filter(x=>['FARMER_ENROLL','FIELD_PURCHASE_CREATE'].includes(x.operation_type)).map(x=>({type:x.operation_type,status:x.status,result:x.result}))};
+    });
+    assert.ok(syncEvidence.sentFarmer&&!/^local-farmer-/.test(syncEvidence.sentFarmer),
+      'achat synchronisé doit pointer vers le Farmer serveur · preuve='+JSON.stringify(syncEvidence));
 
     /* Rejouer la synchro ne recrée rien : les opérations SYNCED ne repartent pas. */
     const callsBefore=await page.evaluate(()=>window.__offlineTestState.syncCalls);
