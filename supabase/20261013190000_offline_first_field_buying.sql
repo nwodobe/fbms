@@ -191,7 +191,7 @@ begin
             id,producteur_id,village_id,local_name,declared_area,area_unit,latitude,longitude,
             gps_status,gps_captured_at,area_source,evidence_level,status
           ) values (
-            gen_random_uuid()::text,v_pid,v_row->>'village_id',
+            gen_random_uuid(),v_pid,v_row->>'village_id',
             coalesce(nullif(v_payload->'plot'->>'local_name',''),'PARCELLE PRINCIPALE'),
             nullif(v_payload->'plot'->>'declared_area','')::numeric,'HA',
             nullif(v_payload->'plot'->>'latitude','')::numeric,
