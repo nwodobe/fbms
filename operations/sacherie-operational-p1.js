@@ -48,12 +48,20 @@ function uploadProof(file,prefix){
 
 function renderNetwork(){
   shell('Sacherie AFLP','Mouvements RT ↔ Producteur ↔ Cluster / Hub.','network','<div class="empty">Chargement du réseau…</div>');
-  return Promise.all([
+  var off=global.ANAGROCI_OFFLINE;
+  var load=(off&&!off.isOnline())?Promise.all([
+    off.getBundle('field_base',{campaign_id:off.campaignId()}),
+    off.getBundle('bags',{campaign_id:off.campaignId()})
+  ]).then(function(x){
+    var b=x[0],bags=x[1];if(!b||!bags)throw new Error('Mode hors ligne non préparé pour la sacherie.');
+    return [b.clusters||[],b.rts||[],(b.farmers||[]).map(function(f){return {id:f.producteur_id,nom:f.nom,prenoms:f.prenoms,rt_id:f.rt_id,village_nom:f.village_nom,deleted:false};}),bags.rtStock||[]];
+  }):Promise.all([
     q('aflp_clusters','code,label,active',function(r){return r.eq('active',true).order('label');}),
     q('rt_light_v','id,nom,cluster,deleted',function(r){return r.eq('deleted',false).order('nom');}),
     q('producteurs','id,nom,prenoms,rt_id,village_nom,deleted',function(r){return r.eq('deleted',false).order('nom').limit(1500);}),
     q('sacherie_ct_rt_stock','rt_id,rt_nom,cluster,total_sous_responsabilite,vides,pleins,dechires,a_reparer,derniere_activite',function(r){return r.order('cluster').limit(500);})
-  ]).then(function(rs){
+  ]);
+  return load.then(function(rs){
     var clusters=rs[0],rts=rs[1],farmers=rs[2],stock=rs[3],d=draftGet(NET_DRAFT)||{};
     var form='<form id="p1NetForm"><div class="ops-form-grid">'+
       '<div class="ops-field"><label>Flux *</label><select id="p1_flow"><option value="RT_TO_PRODUCTEUR">RT → Producteur · sacs vides</option><option value="PRODUCTEUR_TO_RT">Producteur → RT · retour vides</option><option value="RT_TO_CLUSTER">RT → Cluster · retour vides</option><option value="PRODUCTEUR_TO_HUB_FULL">Producteur → Hub · sacs pleins</option></select></div>'+
@@ -77,7 +85,54 @@ function renderNetwork(){
     ids.forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){draftSet(NET_DRAFT,{operation_id:d.operation_id||uid('net'),values:values(ids)});});});
     document.getElementById('p1_cluster').addEventListener('change',fillRt);document.getElementById('p1_rt').addEventListener('change',fillProd);
     document.getElementById('p1ClearNet').onclick=function(){draftClear(NET_DRAFT);renderNetwork();};
-    document.getElementById('p1NetForm').onsubmit=function(e){e.preventDefault();var msg=document.getElementById('p1NetMsg'),v=values(ids),flow=v.p1_flow,needsProd=/PRODUCTEUR/.test(flow);if(!v.p1_cluster||!v.p1_rt||!v.p1_qty||(needsProd&&!v.p1_prod)){msg.className='ops-danger-text';msg.textContent='Cluster, RT, quantité et producteur si applicable sont obligatoires.';return;}var draft=draftGet(NET_DRAFT)||{},op=draft.operation_id||uid('net'),file=document.getElementById('p1_proof').files[0];msg.className='muted';msg.textContent='Enregistrement…';uploadProof(file,'reseau').then(function(path){return rpc('sacherie_ops_network_move',{p_client_operation_id:op,p_flow:flow,p_cluster:v.p1_cluster,p_rt_id:v.p1_rt,p_producteur_id:v.p1_prod||null,p_qty:Number(v.p1_qty),p_receiver_name:v.p1_receiver||null,p_note:v.p1_note||null,p_proof_url:path});}).then(function(){draftClear(NET_DRAFT);msg.className='notice ok';msg.textContent='Mouvement enregistré dans le registre canonique.';setTimeout(renderNetwork,500);}).catch(function(err){draftSet(NET_DRAFT,{operation_id:op,values:v});msg.className='ops-danger-text';msg.textContent=err.message;});};
+    document.getElementById('p1NetForm').onsubmit=function(e){
+      e.preventDefault();
+      var msg=document.getElementById('p1NetMsg'),v=values(ids),flow=v.p1_flow,needsProd=/PRODUCTEUR/.test(flow);
+      if(!v.p1_cluster||!v.p1_rt||!v.p1_qty||(needsProd&&!v.p1_prod)){msg.className='ops-danger-text';msg.textContent='Cluster, RT, quantité et producteur si applicable sont obligatoires.';return;}
+      var draft=draftGet(NET_DRAFT)||{},op=draft.operation_id||uid('net'),file=document.getElementById('p1_proof').files[0],qty=Number(v.p1_qty);
+      var offline=global.ANAGROCI_OFFLINE&&!global.ANAGROCI_OFFLINE.isOnline();
+      msg.className='muted';msg.textContent=offline?'Enregistrement sur cet appareil…':'Enregistrement…';
+      if(offline){
+        var of=global.ANAGROCI_OFFLINE;
+        if(file){msg.className='notice warn';msg.textContent='Hors ligne : la photo ne peut pas être envoyée maintenant. Le mouvement sera conservé sans preuve photo ; ajoutez une preuve après reconnexion si la procédure l’exige.';}
+        of.getBundle('bags',{campaign_id:of.campaignId()}).then(function(bags){
+          bags=bags||{};var locs=bags.locations||[],stockRows=bags.stockParLieu||[],source=null,dest=null,fromState='UTILISABLE',toState='UTILISABLE';
+          function loc(pred){return locs.filter(pred)[0];}
+          var rtLoc=loc(function(x){return x.scope_type==='RT'&&x.rt_id===v.p1_rt;});
+          var prodLoc=loc(function(x){return x.scope_type==='PRODUCTEUR'&&x.producteur_id===v.p1_prod;});
+          var clLoc=loc(function(x){return x.scope_type==='CLUSTER'&&String(x.cluster||'').toUpperCase()===String(v.p1_cluster||'').toUpperCase();});
+          var hubLoc=loc(function(x){return x.scope_type==='HUB'&&String(x.cluster||'').toUpperCase()===String(v.p1_cluster||'').toUpperCase();});
+          if(flow==='RT_TO_PRODUCTEUR'){source=rtLoc;dest=prodLoc;}
+          else if(flow==='PRODUCTEUR_TO_RT'){source=prodLoc;dest=rtLoc;}
+          else if(flow==='RT_TO_CLUSTER'){source=rtLoc;dest=clLoc;}
+          else if(flow==='PRODUCTEUR_TO_HUB_FULL'){source=prodLoc;dest=hubLoc;toState='PLEIN';}
+          if(!source||!dest)throw new Error('Référentiel sacherie incomplet sur ce téléphone. Reconnectez-vous puis préparez de nouveau le mode hors ligne.');
+          var available=stockRows.filter(function(x){return x.location_code===source.code&&x.state===fromState;}).reduce(function(t,x){return t+Number(x.qty||0);},0);
+          if(available<qty)throw new Error('Stock local insuffisant à l’origine. Disponible selon la dernière synchronisation et les mouvements locaux : '+available+' sac(s).');
+          return of.queue('BAG_MOVEMENT_CREATE',{row:{client_operation_id:op,flow:flow,cluster:v.p1_cluster,rt_id:v.p1_rt,producteur_id:v.p1_prod||null,qty:qty,receiver_name:v.p1_receiver||null,note:v.p1_note||null}},{
+            label:'Mouvement sacherie',entity_label:flow+' · '+qty+' sac(s)'
+          }).then(function(){
+            return of.updateBundle('bags',function(b){
+              b=b||{};b.stockParLieu=b.stockParLieu||[];
+              function bump(code,state,delta){
+                var r=b.stockParLieu.filter(function(x){return x.location_code===code&&x.state===state;})[0];
+                if(r)r.qty=Number(r.qty||0)+delta;else b.stockParLieu.push({location_code:code,state:state,qty:Math.max(0,delta)});
+              }
+              bump(source.code,fromState,-qty);bump(dest.code,toState,qty);
+              (b.rtStock||[]).forEach(function(x){if(x.rt_id===v.p1_rt){
+                if(flow==='RT_TO_PRODUCTEUR'||flow==='RT_TO_CLUSTER'){x.vides=Math.max(0,Number(x.vides||0)-qty);x.total_sous_responsabilite=Math.max(0,Number(x.total_sous_responsabilite||0)-qty);}
+                else if(flow==='PRODUCTEUR_TO_RT'){x.vides=Number(x.vides||0)+qty;x.total_sous_responsabilite=Number(x.total_sous_responsabilite||0)+qty;}
+              }});
+              return b;
+            },{campaign_id:of.campaignId()});
+          });
+        }).then(function(){
+          draftClear(NET_DRAFT);msg.className='notice ok';msg.textContent='Mouvement sauvegardé sur cet appareil · synchronisation en attente.';setTimeout(renderNetwork,500);
+        }).catch(function(err){draftSet(NET_DRAFT,{operation_id:op,values:v});msg.className='ops-danger-text';msg.textContent=err.message;});
+        return;
+      }
+      uploadProof(file,'reseau').then(function(path){return rpc('sacherie_ops_network_move',{p_client_operation_id:op,p_flow:flow,p_cluster:v.p1_cluster,p_rt_id:v.p1_rt,p_producteur_id:v.p1_prod||null,p_qty:qty,p_receiver_name:v.p1_receiver||null,p_note:v.p1_note||null,p_proof_url:path});}).then(function(){draftClear(NET_DRAFT);msg.className='notice ok';msg.textContent='Mouvement enregistré dans le registre canonique.';setTimeout(renderNetwork,500);}).catch(function(err){draftSet(NET_DRAFT,{operation_id:op,values:v});msg.className='ops-danger-text';msg.textContent=err.message;});
+    };
   }).catch(function(e){shell('Sacherie AFLP','Réseau terrain','network',notice('danger','<b>Erreur :</b> '+esc(e.message)));});
 }
 
