@@ -377,7 +377,7 @@ function prepareDeviceLease() {
   if (!isOnline()) return Promise.reject(new Error('Connexion requise pour autoriser cet appareil aux achats hors ligne.'));
   var cl=getClient(); if(!cl) return Promise.reject(new Error('Client Supabase indisponible.'));
   return deviceId().then(function(did){
-    return cl.rpc('offline_prepare_device',{p_device_id:did,p_hours:18});
+    return cl.rpc('offline_prepare_device',{p_device_id:did,p_campaign_id:campaignId(),p_hours:18});
   }).then(function(r){
     if(r.error) throw new Error(r.error.message);
     return setMeta('offline_device_lease',r.data||null).then(function(){return r.data||null;});
