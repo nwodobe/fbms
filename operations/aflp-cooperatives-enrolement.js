@@ -211,6 +211,51 @@ function enroll(coopId) {
       return null;
     }
     function send(p, extra) {
+      var off=global.ANAGROCI_OFFLINE;
+      if(off&&!off.isOnline()){
+        k.msg('enMsg',T('Enregistrement sur cet appareil…','Saving on this device…'),null);
+        return off.getBundle('field_base',{campaign_id:off.campaignId()}).then(function(base){
+          base=base||{farmers:[]};
+          var full=String((p.nom||'')+' '+(p.prenoms||'')).trim().toUpperCase(), tel=String(p.telephone||'').replace(/\D/g,'');
+          var hits=(base.farmers||[]).filter(function(x){
+            var xf=String((x.nom||'')+' '+(x.prenoms||'')).trim().toUpperCase();
+            var xt=String(x.telephone||'').replace(/\D/g,'');
+            return (p.farmer_id&&x.farmer_id===p.farmer_id)||(tel&&xt===tel)||(full&&xf===full&&x.village_id===p.village_id);
+          });
+          var exact=hits.filter(function(x){
+            return (p.farmer_id&&x.farmer_id===p.farmer_id) ||
+              (tel&&String(x.telephone||'').replace(/\D/g,'')===tel &&
+               String((x.nom||'')+' '+(x.prenoms||'')).trim().toUpperCase()===full && x.village_id===p.village_id);
+          });
+          if(exact.length) throw new Error(T('Ce producteur semble déjà présent sur ce téléphone. Utilisez « Associer un producteur existant » ou reconnectez-vous pour la vérification serveur.','This farmer already appears on this device. Use “Link an existing farmer” or reconnect for server verification.'));
+          var localId='local-farmer-'+off.uuid();
+          var candidate=Object.assign({},p,extra||{});
+          if(hits.length) candidate.send_to_review=true;
+          return off.queue('COOP_FARMER_ENROLL',{local_id:localId,candidate:candidate},{
+            label:'Enrôlement producteur coopérative',entity_label:(p.nom||'')+' · '+(b.coop.code||'Coopérative')
+          }).then(function(op){
+            var vv=c.vm[p.village_id]||{};
+            var lf={producteur_id:localId,farmer_id:'LOCAL · EN ATTENTE',nom:p.nom,prenoms:p.prenoms||null,telephone:p.telephone||null,
+              village_id:p.village_id,village_nom:vv.village||null,rt_id:p.followup_rt_id||null,rt_nom:(c.rm[p.followup_rt_id]||{}).nom||null,
+              cluster_code:vv.cluster_code||null,cluster_label:vv.cluster||null,operational_status:'Identifié',
+              review_required:hits.length>0,possible_duplicate:hits.length>0,local_only:true,pending_sync:true,local_operation_id:op.id,
+              gps_mapped_count:(p.home_gps_lat!=null&&p.home_gps_lng!=null)?1:0};
+            return Promise.all([
+              off.appendLocalFarmer(lf),
+              off.updateBundle('coop_members:'+coopId,function(rows){
+                rows=rows||[];rows.push({producer_id:localId,farmer_id:'LOCAL · EN ATTENTE',nom:p.nom,prenoms:p.prenoms||null,telephone:p.telephone||null,
+                  village_id:p.village_id,section_id:p.section_id||null,member_number:p.member_number||null,status:p.membership_status||'ACTIVE',
+                  verified:!!p.verified,review_required:hits.length>0,local_only:true,pending_sync:true});
+                return rows;
+              },{campaign_id:off.campaignId()})
+            ]);
+          }).then(function(){
+            k.toast(T('Producteur enregistré sur cet appareil · synchronisation en attente.','Farmer saved on this device · synchronization pending.'));
+            k.msg('enMsg',hits.length?T('Vérification serveur requise : une correspondance locale a été détectée.','Server verification required: a local match was detected.'):T('Enregistré localement. Farmer ID définitif à la synchronisation.','Saved locally. Final Farmer ID will be assigned during synchronization.'),hits.length?false:true);
+            setTimeout(k.refreshFiche,600);
+          });
+        }).catch(function(e){k.msg('enMsg',cleanErr(e.message),false);});
+      }
       k.msg('enMsg', T('Enregistrement…', 'Saving…'), null);
       return k.rpc('aflp_coop_enroll_producer', { p: Object.assign({}, p, extra || {}) }).then(function (r) {
         if (r.status === 'EN_VERIFICATION') { k.toast(T('Envoyé dans la file À vérifier.', 'Sent to the To-review queue.')); setTimeout(k.refreshFiche, 600); return; }
@@ -220,6 +265,7 @@ function enroll(coopId) {
     }
     document.getElementById('enGo').onclick = function () {
       var p = payload(), err = check(p); if (err) return k.msg('enMsg', err, false);
+      if(global.ANAGROCI_OFFLINE&&!global.ANAGROCI_OFFLINE.isOnline()) return send(p);
       k.msg('enMsg', T('Recherche de doublons dans le registre…', 'Searching the registry for duplicates…'), null);
       k.rpc('aflp_coop_match_producers_v2', { p_rows: [{ idx: 0, farmer_id: p.farmer_id, nom: p.nom, prenoms: p.prenoms, telephone: p.telephone, telephone_alt: p.telephone_alt, village_id: p.village_id, birth_year: p.birth_year }] }).then(function (rows) {
         var hits = dedupe(rows), box = document.getElementById('enMatches');
@@ -284,14 +330,32 @@ function link(coopId) {
       if (!d.farmer_id && !tel && !d.nom) return k.msg('lkMsg', T('Saisissez un Farmer ID, un téléphone ou un nom.', 'Enter a Farmer ID, a phone or a name.'), false);
       if (d.nom && !d.village_id && !d.prenoms && !tel && !d.farmer_id) return k.msg('lkMsg', T('Avec un nom seul, précisez le village ou les prénoms.', 'With a last name only, add the village or first names.'), false);
       k.msg('lkMsg', T('Recherche…', 'Searching…'), null);
-      k.rpc('aflp_coop_match_producers_v2', { p_rows: [{ idx: 0, farmer_id: d.farmer_id ? d.farmer_id.toUpperCase() : null, telephone: tel || null, nom: d.nom || null, prenoms: d.prenoms || null, village_id: d.village_id || null }] }).then(function (rows) {
+      var off=global.ANAGROCI_OFFLINE;
+      var searchPromise=(off&&!off.isOnline())?off.getBundle('field_base',{campaign_id:off.campaignId()}).then(function(base){
+        base=base||{farmers:[]};var qn=String((d.nom||'')+' '+(d.prenoms||'')).trim().toUpperCase(),fid=String(d.farmer_id||'').toUpperCase();
+        return (base.farmers||[]).filter(function(x){
+          if(x.local_only)return false;
+          var xn=String((x.nom||'')+' '+(x.prenoms||'')).trim().toUpperCase(),xt=String(x.telephone||'').replace(/\D/g,'');
+          return (fid&&x.farmer_id===fid)||(tel&&xt===tel)||(d.nom&&xn.indexOf(String(d.nom).toUpperCase())>=0&&(!d.village_id||x.village_id===d.village_id));
+        }).slice(0,20).map(function(x){return {producer_id:x.producteur_id,farmer_id:x.farmer_id,nom:x.nom,prenoms:x.prenoms,telephone_masque:x.telephone,
+          village_nom:x.village_nom,rt_id:x.rt_id,confidence:100,reason:'CACHE_LOCAL',accessible:true};});
+      }):k.rpc('aflp_coop_match_producers_v2', { p_rows: [{ idx: 0, farmer_id: d.farmer_id ? d.farmer_id.toUpperCase() : null, telephone: tel || null, nom: d.nom || null, prenoms: d.prenoms || null, village_id: d.village_id || null }] });
+      searchPromise.then(function (rows) {
         var hits = dedupe(rows), box = document.getElementById('lkRes');
         box.innerHTML = matchesHtml(hits, { link: true });
         box.querySelectorAll('[data-link]').forEach(function (bt) {
           bt.onclick = function () {
             var x = k.formData(f);
-            k.rpc('aflp_coop_add_member', { p: { cooperative_id: coopId, campaign: k.CAMPAIGN, producer_id: bt.getAttribute('data-link'), member_number: x.member_number || null, section_id: x.section_id || null,
-              membership_start: x.membership_start || null, verified: !!x.verification_method, verification_method: x.verification_method || null, source: 'ASSOCIATION_EXISTANT' } })
+            var member={ cooperative_id: coopId, campaign: k.CAMPAIGN, producer_id: bt.getAttribute('data-link'), member_number: x.member_number || null, section_id: x.section_id || null,
+              membership_start: x.membership_start || null, verified: !!x.verification_method, verification_method: x.verification_method || null, source: 'ASSOCIATION_EXISTANT' };
+            if(off&&!off.isOnline()){
+              off.queue('COOP_FARMER_LINK',{member:member},{label:'Association producteur coopérative',entity_label:bt.getAttribute('data-link')})
+                .then(function(){return off.updateBundle('coop_members:'+coopId,function(rows){rows=rows||[];rows.push(Object.assign({},member,{farmer_id:'EN ATTENTE',nom:'Association locale',status:'ACTIVE',pending_sync:true}));return rows;},{campaign_id:off.campaignId()});})
+                .then(function(){k.toast(T('Association enregistrée sur cet appareil · synchronisation en attente.','Link saved on this device · synchronization pending.'));setTimeout(k.refreshFiche,600);})
+                .catch(function(e){k.msg('lkMsg',cleanErr(e.message),false);});
+              return;
+            }
+            k.rpc('aflp_coop_add_member', { p: member })
               .then(function (r) { k.toast(T('Producteur associé : ', 'Farmer linked: ') + r.farmer_id); setTimeout(k.refreshFiche, 600); })
               .catch(function (e) { k.msg('lkMsg', cleanErr(e.message), false); });
           };

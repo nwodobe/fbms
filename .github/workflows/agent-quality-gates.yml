@@ -95,6 +95,9 @@ jobs:
       - name: Pages, erreurs console et accessibilité
         run: node .github/scripts/verifier-pages.mjs --json observations-pages.json
 
+      - name: Mode avion FIELD BUYING — IndexedDB, Service Worker et reprise
+        run: node tests/offline-field-e2e.mjs
+
       - name: Conserver les observations
         if: always()
         uses: actions/upload-artifact@v4

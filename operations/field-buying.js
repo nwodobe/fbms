@@ -100,8 +100,22 @@ function sexeLabel(v) {
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 function activeFieldRule(){
   if(FIELD_RULE_CACHE) return Promise.resolve(FIELD_RULE_CACHE);
+  var off=global.ANAGROCI_OFFLINE;
+  if(off&&!off.isOnline()) return off.getBundle('field_rule',{campaign_id:campId()}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucune règle d’achat locale. Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+    FIELD_RULE_CACHE=x; return x;
+  });
   return client().then(function(cl){return cl.rpc('procurement_active_rule',{p_campaign:campCode(),p_channel:'FIELD_BUYING',p_zone:null,p_date:new Date().toISOString().slice(0,10)});})
-    .then(function(r){if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error('Aucune règle de prix active pour la campagne ' + (campCode() || '?') + ' : configurez-la dans Campagnes → Règles.');FIELD_RULE_CACHE=r.data;return r.data;});
+    .then(function(r){
+      if(r.error)throw new Error(r.error.message);
+      if(!r.data)throw new Error('Aucune règle de prix active pour la campagne ' + (campCode() || '?') + ' : configurez-la dans Campagnes → Règles.');
+      FIELD_RULE_CACHE=r.data;
+      if(off) off.setBundle('field_rule',r.data,{campaign_id:campId()}).catch(function(){});
+      return r.data;
+    }).catch(function(err){
+      if(!off) throw err;
+      return off.getBundle('field_rule',{campaign_id:campId()}).then(function(x){if(x){FIELD_RULE_CACHE=x;return x;}throw err;});
+    });
 }
 
 /* --------------------------------------------------------------------- fragments */
@@ -232,6 +246,11 @@ function q(tableName, cols, limit, mod) {
 
 /* Référentiels communs — un seul aller-retour parallèle, partagé partout. */
 function base() {
+  var off=global.ANAGROCI_OFFLINE, cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('field_base',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé sur cet appareil. Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+    return x;
+  });
   return FBStore.get('base', function () {
     return Promise.all([
       /* Vues LIGHT (security_invoker) : mêmes lignes, data sans les images
@@ -242,7 +261,7 @@ function base() {
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
       q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
       /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
-      q('achats', 'id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
+      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
       q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
       campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
@@ -264,8 +283,15 @@ function base() {
       return { villages: villages, rts: rts, farmers: farmers, achats: achats,
                zones: zones, clusters: clusters, vm: vm, rm: rm, zoneOf: zoneOf };
     });
+  }).then(function(x){
+    if(off) off.setBundle('field_base',x,{campaign_id:cid}).catch(function(){});
+    return x;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('field_base',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
+
 function zoneOfCluster(c, cluster) {
   return c.zoneOf[normName(cluster)] || '—';
 }
@@ -308,6 +334,11 @@ function tolerant(pannes, source, promesse, repli) {
 }
 
 function bagsData() {
+  var off=global.ANAGROCI_OFFLINE,cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('bags',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucun état de sacherie local.');
+    return x;
+  });
   return FBStore.get('bags', function () {
     var pannes = [];
     function t(source, promesse, repli) { return tolerant(pannes, source, promesse, repli); }
@@ -321,7 +352,7 @@ function bagsData() {
       t('aflp_bag_cluster_allocations', q('aflp_bag_cluster_allocations', 'id,envelope_id,cluster,allocated_qty', 60), []),
       /* Registre des locations : les codes réels (AFLP-CL-…, AFLP-RT-…) sont
          la clé de voûte — une demande sans code réel ne peut pas se libérer. */
-      t('rcn_jute_locations', q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,nom,actif', 400), []),
+      t('rcn_jute_locations', q('rcn_jute_locations', 'code,scope_type,cluster,rt_id,producteur_id,nom,actif', 800), []),
       /* Colonne canonique de la sortie : released_at (défaut now()). La table
          n'a jamais porté de created_at. */
       t('ops_bag_releases', q('ops_bag_releases', 'id,client_release_id,request_id,qty,source_location_code,destination_location_code,released_by,proof_url,notes,released_at', 60,
@@ -359,7 +390,11 @@ function bagsData() {
        après coup plutôt qu'avant. Aucune relance automatique : c'est la
        navigation suivante qui retentera. */
     if (b && b.pannes && b.pannes.length) FBStore.invalidate('bags');
+    else if(off) off.setBundle('bags',b,{campaign_id:cid}).catch(function(){});
     return b;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('bags',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
 
@@ -381,12 +416,23 @@ function bagsPannesNotice(b) {
     }).join('') + '</ul></div></div>';
 }
 function cashData() {
+  var off=global.ANAGROCI_OFFLINE,cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('cash',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucun état de caisse local.');
+    return x;
+  });
   return FBStore.get('cash', function () {
     return Promise.all([
       q('avances', 'id,date,cluster,rt_id,rt_nom,source,montant,motif,statut,cycle_id,cycle_statut,volume_finance_kg,prix_reference_kg,created_by_nom,created_at', 500),
       q('reconciliations', 'id,date,cluster,rt_id,rt_nom,cash_restant,valeur_stock,total_avance,total_paye,ecart,statut,created_at', 500)
         .catch(function () { return []; })
     ]).then(function (rs) { return { avances: rs[0], recons: rs[1] }; });
+  }).then(function(x){
+    if(off) off.setBundle('cash',x,{campaign_id:cid}).catch(function(){});
+    return x;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('cash',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
 /* Règle caisse conservée : une nouvelle avance exige la réconciliation de la précédente. */
@@ -1326,6 +1372,81 @@ function openFarmerForm(prefill, editId) {
         msg.className = 'ops-danger-text'; msg.textContent = 'Année de naissance entre 1930 et ' + anneeMax + '.'; return;
       }
       var v = c.vm[vid] || {};
+      var off = global.ANAGROCI_OFFLINE;
+      if (off && !off.isOnline()) {
+        if (editRow) {
+          msg.className = 'ops-danger-text';
+          msg.textContent = 'Hors ligne : la modification d’un producteur existant reste désactivée pour éviter un conflit de version. Vous pouvez continuer les enrôlements et achats ; cette modification sera possible à la reconnexion.';
+          return;
+        }
+        var fullNorm = normName(name + ' ' + (val('ff_prenoms') || ''));
+        var localHits = c.farmers.filter(function (x) {
+          var samePhone = phone && phone.length >= 8 && normPhone(x.telephone) === phone;
+          var sameFull = fullNorm && normName((x.nom || '') + ' ' + (x.prenoms || '')) === fullNorm;
+          var sameVillage = x.village_id === vid;
+          return samePhone || (sameFull && sameVillage);
+        });
+        var strong = localHits.filter(function (x) {
+          return phone && normPhone(x.telephone) === phone &&
+            normName((x.nom || '') + ' ' + (x.prenoms || '')) === fullNorm && x.village_id === vid;
+        });
+        if (strong.length) {
+          msg.className = 'ops-danger-text';
+          msg.textContent = 'Doublon probable dans les données présentes sur ce téléphone : ' +
+            (strong[0].farmer_id || strong[0].producteur_id) + ' · ' + strong[0].nom +
+            '. Ouvrez la fiche existante ou reconnectez-vous pour la vérification serveur.';
+          return;
+        }
+        var localId = 'local-farmer-' + off.uuid();
+        var pctLocal = refresh();
+        var localData = {
+          id: localId, source: prefill && prefill.sourceRtId ? 'RT_TO_PRODUCER_OFFLINE' : 'OPERATIONS_FIELD_BUYING_OFFLINE',
+          sourceRtId: prefill && prefill.sourceRtId || null,
+          campement: val('ff_camp'), cooperative: val('ff_coop'),
+          anneesAnacarde: numVal('ff_exp'), superficieHa: numVal('ff_ha'),
+          nbArbres: numVal('ff_arbres'), agePlantation: numVal('ff_age_pl'),
+          prodPrecKg: numVal('ff_prodprec'), potentiel2027Kg: numVal('ff_pot27'),
+          engagementKg: numVal('ff_eng'), autresCultures: val('ff_cultures'),
+          acheteurHabituel: val('ff_ach_hab'), prixPrecedent: numVal('ff_prix_prec'),
+          paiementMode: val('ff_pay'), mobileMoneyNum: val('ff_mm_num'), mobileMoneyTitulaire: val('ff_mm_tit'),
+          telTitulaire: val('ff_teltit'), notes: val('ff_notes'), completude: pctLocal
+        };
+        var serverRow = {
+          nom: name, prenoms: val('ff_prenoms') || null, sexe: val('ff_sexe') || null, birth_year: annee,
+          telephone: phone || null, telephone_alt: normPhone(val('ff_tel2')) || null,
+          id_document_type: val('ff_piece') || null, id_document_number: val('ff_piece_num') || null,
+          village_id: vid, rt_id: rtSel.value || null, data: localData
+        };
+        var plot = {
+          local_name: val('ff_plot_nom') || null, declared_area: numVal('ff_plot_ha'),
+          latitude: numVal('ff_plot_lat'), longitude: numVal('ff_plot_lng')
+        };
+        btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement sur cet appareil…';
+        off.queue('FARMER_ENROLL', { local_id: localId, row: serverRow, plot: plot }, {
+          label: 'Enrôlement producteur', entity_label: name + ' · ' + (v.village || vid)
+        }).then(function (op) {
+          var localFarmer = {
+            producteur_id: localId, farmer_id: 'LOCAL · EN ATTENTE', nom: name, prenoms: val('ff_prenoms') || null,
+            telephone: phone || null, village_id: vid, village_nom: v.village || null,
+            rt_id: rtSel.value || null, rt_nom: (c.rm[rtSel.value] || {}).nom || null,
+            cluster_code: v.cluster_code || null, cluster_label: v.cluster || null,
+            operational_status: 'Identifié', passport_completion: pctLocal, review_required: localHits.length > 0,
+            possible_duplicate: localHits.length > 0, local_only: true, pending_sync: true, local_operation_id: op.id,
+            gps_mapped_count: plot.latitude != null && plot.longitude != null ? 1 : 0
+          };
+          return off.appendLocalFarmer(localFarmer);
+        }).then(function () {
+          btn.disabled = false; msg.className = 'ops-ok-text';
+          msg.textContent = 'Producteur enregistré sur cet appareil. Farmer ID définitif attribué lors de la synchronisation.' +
+            (localHits.length ? ' Une correspondance locale existe : vérification serveur obligatoire à la reconnexion.' : '');
+          FBStore.invalidate('base');
+          setTimeout(function () { closeForm(); location.hash = '#farmers'; render(); }, 1200);
+        }).catch(function (err) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = err && err.message ? err.message : 'Enregistrement local impossible.';
+        });
+        return;
+      }
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Contrôle des doublons…';
       client().then(function (cl) {
         return cl.rpc('farmer_possible_duplicates', {
@@ -2045,8 +2166,13 @@ function renderPurchases(sub, farmerId) {
 function openBuyForm(farmerId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
-  Promise.all([base(), loadProfile()]).then(function (rs) {
-    var c = rs[0];
+  Promise.all([base(), loadProfile(), activeFieldRule()]).then(function (rs) {
+    var c = rs[0], rule = rs[2] || {};
+    var prixCampagne = Number(rule.price_per_kg), commissionRt = Number(rule.rt_commission_per_kg),
+        seuilHumidite = Number(rule.max_moisture_pct), seuilKor = Number(rule.min_kor);
+    if(!isFinite(prixCampagne)||prixCampagne<=0||!isFinite(commissionRt)||!isFinite(seuilHumidite)||!isFinite(seuilKor)){
+      throw new Error('Règle Procurement FIELD_BUYING incomplète : prix, commission et seuils qualité sont requis.');
+    }
     if (!guardTerrain(host)) return;
     var pre = farmerId ? c.farmers.filter(function (f) { return f.producteur_id === farmerId; })[0] : null;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), pre ? pre.village_id : '');
@@ -2159,30 +2285,74 @@ function openBuyForm(farmerId) {
       if (campBlock) { msg.className = 'ops-danger-text'; msg.textContent = campBlock; return; }
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement…';
       var montant = Math.round(net * prix);
-      client().then(function (cl) {
-        return cl.from('achats').insert({
-          local_id: uid(), campaign: campCode() || String(rule.campaign || ''), campaign_id: campId(), date: document.getElementById('bf_date').value,
-          cluster: v.cluster || f.cluster_label || null,
-          village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
-          rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
-          producteur_id: f.producteur_id, producteur_code: f.farmer_id || null,
-          producteur_nom: f.nom, producteur_tel: f.telephone || null,
-          poids_brut: n(document.getElementById('bf_brut').value),
-          tare: n(document.getElementById('bf_tare').value), poids_net: net,
-          prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
-          nb_sacs: n(document.getElementById('bf_sacs').value),
-          mode_paiement: document.getElementById('bf_pay').value,
-          weight_source: document.getElementById('bf_weight_source').value,
-          numero_recu: recu, humidite: hum, kor: kor,
-          observation: document.getElementById('bf_obs').value.trim() || null,
-          prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
-          commission_rt: Math.round(net * commissionRt),
-          qualite_statut: qualite, statut_validation: statutValidation,
-          refinancable: !!recu, stock_libere: stockOk,
-          stock_statut: stockOk ? 'Entrée RT' : 'Stock non libéré',
-          saisie_mode: 'OPERATIONS_FIELD_BUYING', created_by: profile.userId || null,
-          created_by_nom: profile.nom || null
+      var localId = 'fb-buy-' + (global.ANAGROCI_OFFLINE ? global.ANAGROCI_OFFLINE.uuid() : uid());
+      var row = {
+        local_id: localId, campaign: campCode() || String(rule.campaign || ''), campaign_id: campId(), date: document.getElementById('bf_date').value,
+        cluster: v.cluster || f.cluster_label || null,
+        village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
+        rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
+        producteur_id: f.producteur_id, producteur_code: f.local_only ? null : (f.farmer_id || null),
+        producteur_nom: f.nom, producteur_tel: f.telephone || null,
+        poids_brut: n(document.getElementById('bf_brut').value),
+        tare: n(document.getElementById('bf_tare').value), poids_net: net,
+        prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
+        nb_sacs: n(document.getElementById('bf_sacs').value),
+        mode_paiement: document.getElementById('bf_pay').value,
+        weight_source: document.getElementById('bf_weight_source').value,
+        numero_recu: recu, humidite: hum, kor: kor,
+        observation: document.getElementById('bf_obs').value.trim() || null,
+        prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
+        commission_rt: Math.round(net * commissionRt),
+        qualite_statut: qualite, statut_validation: statutValidation,
+        refinancable: !!recu, stock_libere: stockOk,
+        stock_statut: stockOk ? 'Entrée RT' : 'Stock non libéré',
+        saisie_mode: 'OPERATIONS_FIELD_BUYING', created_by: profile.userId || null,
+        created_by_nom: profile.nom || null
+      };
+      var off = global.ANAGROCI_OFFLINE;
+      if (off && !off.isOnline()) {
+        if (!row.rt_id) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = 'Hors ligne : un RT est requis pour sécuriser le contrôle de caisse.';
+          return;
+        }
+        off.leaseAllows(row.rt_id).then(function(auth){
+          if(!auth.ok) throw new Error(auth.reason+' Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+          return cashData().then(function(cash){
+            return off.estimatedCashAvailable(row.rt_id,c,cash).then(function(bal){return {auth:auth,bal:bal};});
+          });
+        }).then(function(x) {
+          var bal=x.bal;
+          if (montant > bal.available) {
+            throw new Error('Solde local insuffisant. Dernière avance connue : ' + money(bal.advance) +
+              ' · achats serveur : ' + money(bal.server_used) + ' · opérations locales : ' + money(bal.pending) +
+              ' · disponible estimé : ' + money(bal.available) + '.');
+          }
+          var deps = f.local_only && f.local_operation_id ? [f.local_operation_id] : [];
+          return off.queue('FIELD_PURCHASE_CREATE', { row: row, lease_token:x.auth.lease.lease_token }, {
+            dependencies: deps, label: 'Achat Bord Champ',
+            entity_label: (f.farmer_id || 'LOCAL') + ' · ' + f.nom + ' · ' + num(net) + ' kg'
+          });
+        }).then(function () {
+          var localRow = Object.assign({}, row, {
+            id: localId, local_only: true, pending_sync: true, created_at: new Date().toISOString(),
+            statut_validation: 'LOCAL · EN ATTENTE', cash_statut: 'Solde calculé depuis la dernière synchronisation'
+          });
+          return off.appendPendingPurchase(localRow);
+        }).then(function () {
+          btn.disabled = false; msg.className = 'ops-ok-text';
+          msg.textContent = 'Achat sauvegardé sur cet appareil : ' + num(net) + ' kg · ' + money(montant) +
+            '. En attente de synchronisation. Solde calculé depuis la dernière synchronisation.';
+          FBStore.invalidate('base');
+          setTimeout(function () { closeForm(); render(); }, 1200);
+        }).catch(function (err) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = err && err.message ? err.message : 'Enregistrement local impossible.';
         });
+        return;
+      }
+      client().then(function (cl) {
+        return cl.from('achats').insert(row);
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
@@ -3806,6 +3976,103 @@ function renderCash() {
   });
 }
 
+/* ------------------------------------------------------- Synchronisation terrain */
+
+function prepareOfflineMode() {
+  var off=global.ANAGROCI_OFFLINE;
+  if(!off) return Promise.reject(new Error('Le moteur hors ligne n’est pas chargé.'));
+  if(!off.isOnline()) return Promise.reject(new Error('Une connexion Internet est nécessaire pour préparer ou actualiser les données terrain.'));
+  return Promise.all([
+    off.prepareShell(),
+    off.requestPersistentStorage().catch(function(){return false;}),
+    off.prepareDeviceLease().catch(function(e){return {authorized:false,reason:e.message};}),
+    base(),
+    activeFieldRule(),
+    cashData(),
+    bagsData(),
+    global.ANAGROCI_COOP&&global.ANAGROCI_COOP.offlinePrepare ? global.ANAGROCI_COOP.offlinePrepare() : Promise.resolve(null)
+  ]).then(function(rs){
+    var shell=rs[0]||{},lease=rs[2]||null,b=rs[3]||{};
+    if(!shell.service_worker||shell.precache_confirmed!==true) throw new Error('Le shell hors ligne n’a pas pu être confirmé. Vérifiez que l’application est ouverte en HTTPS puis réessayez.');
+    return off.markPrepared({
+      villages:(b.villages||[]).length,rts:(b.rts||[]).length,producers:(b.farmers||[]).length,
+      purchases:(b.achats||[]).length,persistent_storage:!!rs[1],
+      cash_offline_authorized:!!(lease&&lease.authorized),cash_offline_rt:lease&&lease.rt_id||null
+    });
+  }).then(function(){return off.readiness();});
+}
+function renderSync() {
+  var off=global.ANAGROCI_OFFLINE;
+  if(!off){
+    paint(head('Synchronisation','Mode terrain hors ligne.')+danger('Le moteur hors ligne n’est pas disponible sur cette page.'));
+    return Promise.resolve();
+  }
+  paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
+    '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
+    '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+skeletonPage(4));
+  return Promise.all([off.readiness(),off.summary(),off.list(),off.storageEstimate()]).then(function(rs){
+    var r=rs[0],s=rs[1],ops=rs[2],st=rs[3]||{};
+    var last=r.last_prepared&&r.last_prepared.at?date(r.last_prepared.at):'Jamais';
+    var status=s.syncing?'Synchronisation '+s.done+' / '+s.total:(!s.online?'Hors ligne':(s.pending||s.failed||s.review||s.conflicts)?'À synchroniser':'Tout synchronisé');
+    var ready=r.ready?'Prêt pour le terrain ✓':'Mode hors ligne non préparé';
+    var storage=st.quota?num((st.usage||0)/1048576,1)+' / '+num(st.quota/1048576,0)+' Mo':'—';
+    paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
+      '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
+      '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+
+      kpis([
+        ['État réseau',s.online?'En ligne':'Hors ligne',status,s.online?'':'warn'],
+        ['Mode terrain',ready,'dernière préparation : '+last,r.ready?'':'warn'],
+        ['Opérations en attente',String(s.pending+s.failed),s.review+s.conflicts+' à vérifier',(s.failed||s.review||s.conflicts)?'warn':''],
+        ['Stockage local',storage,st.persisted===true?'stockage persistant accordé':'protection du stockage selon le navigateur']
+      ])+
+      '<section class="card"><div class="card-head"><div><h2>Données disponibles hors ligne</h2><p>Campagne '+esc(r.campaign_code||'—')+' · cache de cet appareil uniquement.</p></div></div>'+
+      table(['Donnée','Disponibilité','Volume'],[
+        '<tr><td>Campagne / règles d’achat</td><td>'+badge(r.rule_cached?'Disponible':'À préparer')+'</td><td>1 campagne</td></tr>',
+        '<tr><td>Villages</td><td>'+badge(r.villages?'Disponible':'À préparer')+'</td><td>'+num(r.villages)+'</td></tr>',
+        '<tr><td>RT</td><td>'+badge(r.rts?'Disponible':'À préparer')+'</td><td>'+num(r.rts)+'</td></tr>',
+        '<tr><td>Producteurs</td><td>'+badge(r.producers?'Disponible':'À préparer')+'</td><td>'+num(r.producers)+'</td></tr>',
+        '<tr><td>Coopératives</td><td>'+badge(r.cooperatives?'Disponible':'À préparer')+'</td><td>'+num(r.cooperatives)+'</td></tr>',
+        '<tr><td>Caisse / avances</td><td>'+badge(r.cash_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'+
+        '<tr><td>Achats financiers hors ligne</td><td>'+badge(r.cash_offline_authorized?'Appareil autorisé':'À autoriser par RT')+'</td><td>'+((r.leases||[]).length?num((r.leases||[]).length)+' RT autorisé(s)':'aucun RT autorisé')+'</td></tr>',
+        '<tr><td>Sacherie</td><td>'+badge(r.bags_cached?'Disponible':'À préparer')+'</td><td>snapshot</td></tr>'
+      ])+'</section>'+
+      '<section class="card"><div class="card-head"><div><h2>Autoriser les achats hors ligne par RT</h2><p>Un même téléphone peut préparer plusieurs RT de son périmètre ; chaque RT ne peut être actif hors ligne que sur un seul appareil à la fois.</p></div></div>'+
+      '<div class="ops-form-grid">'+
+        field('RT à autoriser','<select id="offRtAuthorize"><option value="">Choisir un RT…</option>'+selOptions((r.rts_list||[]).map(function(x){return [x.id,(x.id_rt||x.id)+' · '+x.nom+' · '+(x.village_nom||x.cluster||'—')];}), '')+'</select>')+
+        '<div class="ops-field"><label>&nbsp;</label><button class="btn primary" id="offAuthorizeRt" type="button">Autoriser ce RT sur cet appareil</button></div>'+
+      '</div>'+
+      ((r.leases||[]).length?'<div class="notice ok"><b>RT autorisés :</b> '+(r.leases||[]).map(function(l){var rr=(r.rts_list||[]).filter(function(x){return x.id===l.rt_id;})[0]||{};return esc((rr.id_rt||l.rt_id)+' · '+(rr.nom||'')+' · jusqu’au '+(l.valid_until?date(l.valid_until):'—'));}).join(' · ')+'</div>':
+        '<div class="notice warn"><b>Sécurité caisse :</b>&nbsp; aucun achat financier ne sera accepté hors ligne tant qu’un RT n’est pas explicitement autorisé sur cet appareil.</div>')+
+      '</section>'+
+      '<section class="card"><div class="card-head"><div><h2>Journal hors ligne</h2><p>Une opération locale n’est jamais supprimée avant confirmation serveur.</p></div>'+
+      '<button class="btn secondary" id="offClear" type="button">Nettoyer les opérations synchronisées</button></div><div id="offJournal">'+off.journalHtml(ops)+'</div></section>'+
+      (!s.online?'<div class="notice warn"><b>Hors ligne :</b>&nbsp; les opérations restent sur cet appareil et seront synchronisées au retour du réseau.</div>':''));
+    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear'),authRt=document.getElementById('offAuthorizeRt');
+    if(prep) prep.onclick=function(){
+      prep.disabled=true;prep.textContent='Préparation…';
+      prepareOfflineMode().then(function(){FBStore.clear();renderSync();}).catch(function(e){prep.disabled=false;prep.textContent='Préparer le mode hors ligne';alert(e.message);});
+    };
+    if(syn) syn.onclick=function(){
+      syn.disabled=true;syn.textContent='Synchronisation…';
+      off.syncNow().then(function(){FBStore.clear();renderSync();}).catch(function(e){syn.disabled=false;syn.textContent='Synchroniser maintenant';alert(e.message);});
+    };
+    if(authRt) authRt.onclick=function(){
+      var sel=document.getElementById('offRtAuthorize'),rid=sel&&sel.value;
+      if(!rid){alert('Choisissez un RT.');return;}
+      if(!off.isOnline()){alert('Une connexion Internet est nécessaire pour autoriser un RT sur cet appareil.');return;}
+      authRt.disabled=true;authRt.textContent='Autorisation…';
+      off.prepareDeviceLease(rid).then(function(x){
+        if(!x||x.authorized!==true)throw new Error((x&&x.reason)||'Autorisation refusée.');
+        return renderSync();
+      }).catch(function(e){authRt.disabled=false;authRt.textContent='Autoriser ce RT sur cet appareil';alert(e.message);});
+    };
+    if(clr) clr.onclick=function(){off.clearSynced().then(renderSync);};
+    [].slice.call(document.querySelectorAll('[data-off-retry]')).forEach(function(b){b.onclick=function(){off.retry(b.getAttribute('data-off-retry')).then(renderSync).catch(function(e){alert(e.message);});};});
+    [].slice.call(document.querySelectorAll('[data-off-cancel]')).forEach(function(b){b.onclick=function(){if(!confirm('Annuler cette opération locale ?'))return;off.cancel(b.getAttribute('data-off-cancel')).then(renderSync).catch(function(e){alert(e.message);});};});
+  });
+}
+global.addEventListener&&global.addEventListener('anagroci:offline-status',function(){if(route()==='sync'){clearTimeout(renderSync._t);renderSync._t=setTimeout(renderSync,250);}});
+
 /* --------------------------------------------------------------- Command Center */
 
 var cmdFilter = { cluster: '', sev: '' };
@@ -4644,6 +4911,7 @@ var ROUTES = {
   hubs: function (p) { return renderHubs(p[1]); },
   bags: function (p) { return renderBags(p[1], p[2]); },
   cash: function () { return renderCash(); },
+  sync: function () { return renderSync(); },
   command: function () { return renderCommand(); },
   sustainability: function () { return renderSustainability(); },
   traceability: function (p) { return renderTraceability(p[1]); },
@@ -4719,6 +4987,8 @@ global.ANAGROCI_FB = {
   openBagProof: openBagProof,
   openBagEnvelope: openBagEnvelope,
   openBagAllocation: openBagAllocation,
+  prepareOffline: prepareOfflineMode,
+  renderSync: renderSync,
   rtToFarmer: rtToFarmer,
   addRtDoc: addRtDoc,
   addVillagePhoto: addVillagePhoto,
