@@ -256,10 +256,17 @@ async function main(){
     /* Retour du réseau : Farmer d'abord, achat ensuite avec server_id résolu. */
     await ctx.setOffline(false);
     await page.evaluate(()=>ANAGROCI_OFFLINE.syncNow());
-    await page.waitForFunction(async()=>{
-      const x=await ANAGROCI_OFFLINE.list();
-      return x.filter(o=>['FARMER_ENROLL','FIELD_PURCHASE_CREATE'].includes(o.operation_type)).every(o=>o.status==='SYNCED');
-    },null,{timeout:20000});
+    var syncedPair=false;
+    for(let k=0;k<100;k++){
+      syncedPair=await page.evaluate(async()=>{
+        const x=await ANAGROCI_OFFLINE.list();
+        const pair=x.filter(o=>['FARMER_ENROLL','FIELD_PURCHASE_CREATE'].includes(o.operation_type));
+        return pair.length===2 && pair.every(o=>o.status==='SYNCED');
+      });
+      if(syncedPair)break;
+      await wait(150);
+    }
+    assert.equal(syncedPair,true,'Farmer puis achat doivent tous deux finir SYNCED');
     const syncEvidence=await page.evaluate(async()=>{
       const batches=(window.__offlineTestState&&window.__offlineTestState.batches)||[];
       const sent=batches.flat().find(x=>x.operation_type==='FIELD_PURCHASE_CREATE')||null;
