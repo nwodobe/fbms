@@ -194,6 +194,11 @@ function cached(key, ttl, loader) {
 }
 function invalidate() { [].slice.call(arguments).forEach(function (k) { Object.keys(cache).forEach(function (x) { if (x === k || x.indexOf(k + ':') === 0) delete cache[x]; }); }); }
 function refs() {
+  var off=global.ANAGROCI_OFFLINE,cid=off&&off.campaignId?off.campaignId():null;
+  if(off&&!off.isOnline()) return off.getBundle('coop_refs',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error(T('Mode hors ligne non préparé : référentiels coopératives absents.','Offline mode not prepared: cooperative references are missing.'));
+    return x;
+  });
   return cached('refs', 300000, function () {
     return Promise.all([
       q('aflp_clusters', 'code,label,zone_code,active'), q('aflp_zones', 'code,label,active'),
@@ -207,18 +212,24 @@ function refs() {
       return { clusters: rs[0].filter(function (c) { return c.active !== false; }), zones: rs[1].filter(function (z) { return z.active !== false; }),
         villages: villages, vm: vm, vByName: vByName, rts: rts, rm: rm, warehouses: rs[4].filter(function (w) { return w.status === 'ACTIVE'; }) };
     });
-  });
+  }).then(function(x){if(off)off.setBundle('coop_refs',x,{campaign_id:cid}).catch(function(){});return x;})
+    .catch(function(err){if(!off)throw err;return off.getBundle('coop_refs',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});});
 }
 function dashboard(campaign) {
+  var off=global.ANAGROCI_OFFLINE,cid=off&&off.campaignId?off.campaignId():null;
+  if(off&&!off.isOnline()) return off.getBundle('coop_dashboard',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error(T('Mode hors ligne non préparé : coopératives absentes du cache.','Offline mode not prepared: cooperatives are missing from cache.'));
+    return x;
+  });
   return cached('dash:' + campaign, 30000, function () {
     return Promise.all([rpc('aflp_coop_dashboard', { p_campaign: campaign }),
-      /* Président : contact de la coopérative (jamais un RT) ; illisible pour Warehouse/Factory par RLS. */
       q('aflp_coop_contacts', 'cooperative_id,full_name,phone', function (r) { return r.eq('role', 'PRESIDENT').eq('active', true); }).catch(function () { return []; })
     ]).then(function (rs) {
       var pm = {}; rs[1].forEach(function (x) { pm[x.cooperative_id] = x; });
       return (rs[0] || []).map(function (r) { var p = pm[r.cooperative_id] || {}; r.president_name = p.full_name || null; r.president_phone = p.phone || null; return r; });
     });
-  });
+  }).then(function(x){if(off)off.setBundle('coop_dashboard',x,{campaign_id:cid}).catch(function(){});return x;})
+    .catch(function(err){if(!off)throw err;return off.getBundle('coop_dashboard',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});});
 }
 
 /* ================================================================ TABLEAU DE BORD */
@@ -512,6 +523,11 @@ function gps(formId) {
 
 /* ================================================================== FICHE */
 function bundle(id) {
+  var off=global.ANAGROCI_OFFLINE,cid=off&&off.campaignId?off.campaignId():null,key='coop_bundle:'+id;
+  if(off&&!off.isOnline()) return off.getBundle(key,{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error(T('Cette fiche coopérative n’a pas été préparée hors ligne.','This cooperative profile was not prepared offline.'));
+    return x;
+  });
   return cached('coop:' + id, 20000, function () {
     return Promise.all([
       q('aflp_cooperatives', '*', function (r) { return r.eq('id', id).limit(1); }),
@@ -533,7 +549,8 @@ function bundle(id) {
         return { coop: coop, campaign: rs[1][0] || null, contacts: rs[2], sections: rs[3], villages: rs[4], points: rs[5], stats: stats, supplier: supplier };
       });
     });
-  });
+  }).then(function(x){if(off)off.setBundle(key,x,{campaign_id:cid}).catch(function(){});return x;})
+    .catch(function(err){if(!off)throw err;return off.getBundle(key,{campaign_id:cid}).then(function(x){if(x)return x;throw err;});});
 }
 var TABS = [['overview', 'Vue générale', 'Overview'], ['producers', 'Producteurs', 'Farmers'], ['villages', 'Villages & Sections', 'Villages & Sections'],
   ['contacts', 'Responsables', 'Officers'], ['potential', 'Production & Potentiel', 'Production & Potential'], ['purchases', 'Achats & Livraisons', 'Purchases & Deliveries'],
@@ -645,6 +662,20 @@ function drawMap(b, c) {
 /* ---------------------------------------------------------------- 2. Producteurs */
 var MF = { q: '', section: '', village: '', status: 'OPEN', verified: '', quality: '', page: 0 };
 function membersPage(coopId) {
+  var off=global.ANAGROCI_OFFLINE,cid=off&&off.campaignId?off.campaignId():null,key='coop_members:'+coopId;
+  if(off&&!off.isOnline()) return off.getBundle(key,{campaign_id:cid}).then(function(all){
+    all=all||[];
+    var rows=all.filter(function(x){
+      if(MF.status==='OPEN'&&x.status==='ENDED')return false;
+      if(MF.status&&MF.status!=='OPEN'&&x.status!==MF.status)return false;
+      if(MF.section&&x.section_id!==MF.section)return false;
+      if(MF.village&&x.village_id!==MF.village)return false;
+      if(MF.verified==='yes'&&!x.verified)return false;if(MF.verified==='no'&&x.verified)return false;
+      if(MF.q){var z=norm(MF.q);if(norm([x.nom,x.prenoms,x.farmer_id,x.member_number,x.telephone].join(' ')).indexOf(z)<0)return false;}
+      return true;
+    });
+    return {rows:rows.slice(MF.page*PAGE_SIZE,MF.page*PAGE_SIZE+PAGE_SIZE),count:rows.length};
+  });
   return client().then(function (cl) {
     var r = cl.from('aflp_coop_members_v').select('*', { count: 'exact' }).eq('cooperative_id', coopId).eq('campaign', CAMPAIGN);
     if (MF.status === 'OPEN') r = r.neq('status', 'ENDED'); else if (MF.status) r = r.eq('status', MF.status);
@@ -659,8 +690,29 @@ function membersPage(coopId) {
       r = r.or('nom.ilike.%' + s + '%,prenoms.ilike.%' + s + '%,farmer_id.ilike.%' + s + '%,member_number.ilike.%' + s + '%' + (digits(s).length >= 4 ? ',telephone.ilike.%' + digits(s) + '%' : ''));
     }
     return r.order('nom').range(MF.page * PAGE_SIZE, MF.page * PAGE_SIZE + PAGE_SIZE - 1).then(function (x) {
-      if (x.error) throw new Error(x.error.message); return { rows: x.data || [], count: x.count || 0 };
+      if (x.error) throw new Error(x.error.message);
+      /* Pour l'usage hors ligne, une préparation complète remplit ce cache séparément. */
+      return { rows: x.data || [], count: x.count || 0 };
     });
+  });
+}
+function cacheAllMembers(coopId){
+  var off=global.ANAGROCI_OFFLINE,cid=off&&off.campaignId?off.campaignId():null;
+  if(!off||!off.isOnline())return Promise.resolve([]);
+  return client().then(function(cl){
+    return cl.from('aflp_coop_members_v').select('*').eq('cooperative_id',coopId).eq('campaign',CAMPAIGN).limit(5000);
+  }).then(function(x){if(x.error)throw new Error(x.error.message);var rows=x.data||[];return off.setBundle('coop_members:'+coopId,rows,{campaign_id:cid}).then(function(){return rows;});});
+}
+function offlinePrepare(){
+  var off=global.ANAGROCI_OFFLINE;
+  if(!off||!off.isOnline())return Promise.reject(new Error(T('Connexion requise pour préparer les coopératives.','Connection required to prepare cooperatives.')));
+  return Promise.all([dashboard(CAMPAIGN),refs()]).then(function(rs){
+    var rows=rs[0]||[];
+    return Promise.all(rows.filter(function(x){return !x.archived;}).map(function(x){
+      return Promise.all([bundle(x.cooperative_id),cacheAllMembers(x.cooperative_id)]).catch(function(e){
+        console.warn('[COOP OFFLINE]',x.code||x.cooperative_id,e&&e.message?e.message:e);return null;
+      });
+    })).then(function(){return rows;});
   });
 }
 TAB_RENDER.producers = function (b, c) {
@@ -1849,7 +1901,7 @@ function render(p) {
 document.addEventListener('anagroci:language', function () { if (routeParts()[0] === 'cooperatives') setTimeout(function () { render(routeParts()); }, 80); });
 
 global.ANAGROCI_COOP = {
-  render: render, fillOverview: fillOverview, fillChannel: fillChannel, view: setView, exportList: exportList, exportMembers: exportMembers,
+  render: render, fillOverview: fillOverview, fillChannel: fillChannel, view: setView, exportList: exportList, exportMembers: exportMembers, offlinePrepare: offlinePrepare,
   addMember: function (id, linkOnly) { enrolMod(linkOnly ? 'link' : 'enroll', id); }, verify: verify, primary: primary, endMember: endMember, transfer: transfer, closeHost: closeHost, gps: gps,
   addVillage: addVillage, addSection: addSection, addPoint: addPoint, addContact: addContact, deactivateContact: deactivateContact,
   editVillage: editVillage, editSection: editSection, editPoint: editPoint, editContact: editContact, editMember: editMember, toggleRow: toggleRow,
