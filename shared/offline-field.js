@@ -403,6 +403,35 @@ function readiness() {
 function markPrepared(extra) {
   return setMeta('last_prepared', Object.assign({ at: nowIso(), campaign_id: campaignId(), campaign_code: campaignCode() }, extra || {})).then(emit);
 }
+function prepareShell() {
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return Promise.resolve({ service_worker: false });
+  return navigator.serviceWorker.register('../sw.js', { scope: '../' }).then(function (reg) {
+    return navigator.serviceWorker.ready.then(function (ready) {
+      var target = ready.active || reg.active || reg.waiting || reg.installing;
+      if (target) target.postMessage({ type: 'PRECACHE_FIELD' });
+      return new Promise(function (resolve) {
+        setTimeout(function () { resolve({ service_worker: true, scope: ready.scope || reg.scope }); }, 700);
+      });
+    });
+  });
+}
+function storageEstimate() {
+  if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve({ usage: null, quota: null, persisted: null });
+  return Promise.all([
+    navigator.storage.estimate(),
+    navigator.storage.persisted ? navigator.storage.persisted().catch(function(){return null;}) : Promise.resolve(null)
+  ]).then(function (x) { return { usage: x[0].usage || 0, quota: x[0].quota || 0, persisted: x[1] }; });
+}
+function requestPersistentStorage() {
+  if (!navigator.storage || !navigator.storage.persist) return Promise.resolve(false);
+  return navigator.storage.persist().catch(function () { return false; });
+}
+function clearSynced() {
+  return listOperations().then(function (ops) {
+    return Promise.all(ops.filter(function (o) { return o.status === 'SYNCED' || o.status === 'CANCELLED'; })
+      .map(function (o) { return del(STORE_OPS, o.id); }));
+  }).then(function () { emit(); return true; });
+}
 
 function htmlEscape(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function journalHtml(ops) {
@@ -457,6 +486,10 @@ var API = {
   appendPendingPurchase: appendPendingPurchase,
   readiness: readiness,
   markPrepared: markPrepared,
+  prepareShell: prepareShell,
+  storageEstimate: storageEstimate,
+  requestPersistentStorage: requestPersistentStorage,
+  clearSynced: clearSynced,
   journalHtml: journalHtml,
   emit: emit
 };
