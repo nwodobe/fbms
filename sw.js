@@ -157,6 +157,8 @@ self.addEventListener('message', function (event) {
           if (r && r.ok) return cache.put(u, r.clone());
         }).catch(function () { return null; });
       }));
+    }).then(function(){
+      if(event.source&&event.source.postMessage) event.source.postMessage({type:'PRECACHE_FIELD_DONE',version:CACHE_VERSION});
     }));
   }
 });
