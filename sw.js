@@ -111,7 +111,9 @@ self.addEventListener('fetch', function (event) {
   if (isSupabaseApi(url)) return;
 
   if (req.mode === 'navigate' || /\.html$/i.test(url.pathname)) {
-    event.respondWith(networkFirst(req, /\/operations\//.test(url.pathname) ? './operations/field-buying.html' : './index.html'));
+    var fieldPage = /\/operations\/field-buying\.html$/i.test(url.pathname);
+    var rootPage = /\/fbms\/(?:index\.html)?$/i.test(url.pathname) || /\/index\.html$/i.test(url.pathname);
+    event.respondWith(networkFirst(req, fieldPage ? './operations/field-buying.html' : (rootPage ? './index.html' : null)));
     return;
   }
 
