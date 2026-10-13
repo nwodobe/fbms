@@ -257,14 +257,32 @@ function applyResult(op, res) {
   }).then(function () {
     if (status !== 'SYNCED') return;
     if (op.operation_type === 'FARMER_ENROLL' || op.operation_type === 'COOP_FARMER_ENROLL') {
-      return updateBundle('field_base', function (b) {
+      var localFarmerId=res.local_id || (op.payload && op.payload.local_id);
+      var jobs=[updateBundle('field_base', function (b) {
         if (!b || !b.farmers) return b;
         b.farmers = b.farmers.map(function (f) {
-          if (f.producteur_id !== (res.local_id || (op.payload && op.payload.local_id))) return f;
+          if (f.producteur_id !== localFarmerId) return f;
           return Object.assign({}, f, { producteur_id: res.server_id || f.producteur_id, farmer_id: res.farmer_id || f.farmer_id, local_only: false, pending_sync: false });
         });
         return b;
-      }, { campaign_id: op.campaign_id }).catch(function () {});
+      }, { campaign_id: op.campaign_id }).catch(function () {})];
+      if(op.operation_type==='COOP_FARMER_ENROLL'&&op.payload&&op.payload.candidate&&op.payload.candidate.cooperative_id){
+        jobs.push(updateBundle('coop_members:'+op.payload.candidate.cooperative_id,function(rows){
+          return (rows||[]).map(function(m){
+            if(m.producer_id!==localFarmerId)return m;
+            return Object.assign({},m,{producer_id:res.server_id||m.producer_id,farmer_id:res.farmer_id||m.farmer_id,membership_id:res.membership_id||m.membership_id,local_only:false,pending_sync:false});
+          });
+        },{campaign_id:op.campaign_id}).catch(function(){}));
+      }
+      return Promise.all(jobs);
+    }
+    if (op.operation_type === 'COOP_FARMER_LINK' && op.payload && op.payload.member) {
+      return updateBundle('coop_members:'+op.payload.member.cooperative_id,function(rows){
+        return (rows||[]).map(function(m){
+          if(m.producer_id!==op.payload.member.producer_id || !m.pending_sync)return m;
+          return Object.assign({},m,{farmer_id:res.farmer_id||m.farmer_id,membership:res.membership||m.membership,local_only:false,pending_sync:false});
+        });
+      },{campaign_id:op.campaign_id}).catch(function(){});
     }
     if (op.operation_type === 'FIELD_PURCHASE_CREATE') {
       return updateBundle('field_base', function (b) {
@@ -272,7 +290,7 @@ function applyResult(op, res) {
         var lid = op.payload && op.payload.row && op.payload.row.local_id;
         b.achats = b.achats.map(function (a) {
           if (!lid || a.local_id !== lid) return a;
-          return Object.assign({}, a, { id: res.purchase_id || a.id, pending_sync: false, local_only: false, statut_validation: a.statut_validation === 'LOCAL · EN ATTENTE' ? 'À valider' : a.statut_validation });
+          return Object.assign({}, a, { id: res.purchase_id || a.id, pending_sync: false, local_only: false, statut_validation: a.statut_validation === 'LOCAL · EN ATTENTE' ? ((op.payload&&op.payload.row&&op.payload.row.statut_validation)||'À valider') : a.statut_validation });
         });
         return b;
       }, { campaign_id: op.campaign_id }).catch(function () {});
