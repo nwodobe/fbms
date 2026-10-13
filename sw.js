@@ -73,7 +73,7 @@ function networkFirst(req, fallbackUrl) {
       if (resp && resp.ok) cache.put(req, resp.clone()).catch(function () {});
       return resp;
     }).catch(function () {
-      return caches.match(req).then(function (hit) {
+      return caches.match(req, { ignoreSearch: true }).then(function (hit) {
         if (hit) return hit;
         if (fallbackUrl) return caches.match(shellUrl(fallbackUrl));
         return null;
