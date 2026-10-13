@@ -19,6 +19,10 @@ on:
       - 'tests/sacherie-inventaires-periodicite.mjs'
       - 'tests/sacherie-journal-recherche.mjs'
       - 'shared/aflp-access.js'
+      - 'shared/offline-field.js'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'tests/offline-field-static.mjs'
       - '.github/workflows/operations-suite-pr.yml'
 
 permissions:
@@ -55,12 +59,17 @@ jobs:
         run: node tests/sacherie-inventaires-periodicite.mjs
       - name: Recherche et pagination serveur du journal
         run: node tests/sacherie-journal-recherche.mjs
+      - name: Assertions Offline First terrain
+        run: node tests/offline-field-static.mjs
       - name: Syntaxe JavaScript Operations
         run: |
+          node --check shared/offline-field.js
           node --check operations/workspace.js
           node --check operations/navigation-v2.js
           node --check operations/field-buying-performance-bootstrap.js
           node --check operations/field-buying.js
+          node --check operations/aflp-cooperatives.js
+          node --check operations/aflp-cooperatives-enrolement.js
           node --check operations/farmer-passport-edit-bridge.js
           node --check operations/rt-farmer-rights.js
           node --check operations/sacherie-operational-p1.js
