@@ -3,7 +3,7 @@
 'use strict';
 var page=(document.body&&document.body.dataset&&document.body.dataset.workspace)||'';
 var defs={
- field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['cooperatives','Coopératives'],['rt','RT & Villages'],['hubs','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability'],['aflp-data','AFLP DATA','aflp-data.html']]},
+ field:{title:'FIELD BUYING',routes:[['overview','Vue d’ensemble'],['purchases','Achat Bord Champ'],['census','Recensement'],['farmers','Producteurs'],['cooperatives','Coopératives'],['rt','RT & Villages'],['hubs','Hubs & Cartographie'],['bags','Sacherie AFLP'],['cash','Caisse & Avances'],['sync','Synchronisation'],['command','Command Center'],['sustainability','Sustainability'],['traceability','Traceability'],['aflp-data','AFLP DATA','aflp-data.html']]},
  procurement:{title:'PROCUREMENT',routes:[['overview','Vue d’ensemble'],['field','Achat Bord Champ'],['lba','LBA'],['suppliers','Suppliers'],['arrivals','Arrivages prévus'],['purchases','Achat RCN'],['evacuations','Evacuations'],['reconciliation','Reconciliation'],['settings','Settings'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
  lba:{title:'LBA PURCHASE',routes:[['overview','Vue d’ensemble'],['registry','LBA Registry'],['purchases','Achats RCN'],['limits','Limites de financement'],['financing','Financements'],['cycles','Cycles de financement'],['deliveries','Livraisons RCN'],['bags','Gestion sacherie'],['balances','Balances'],['aging','Aging & Alertes'],['performance','Performance'],['documents','Documents'],['audit','Audit']]},
  warehouse:{title:'OPÉRATIONS WAREHOUSE',routes:[['overview','Vue d’ensemble'],['inbound','Réceptions'],['quality','Qualité'],['lots','Lots RCN'],['bins','Stock & BIN'],['movements','Journal des mouvements'],['drying','Séchage / Tri'],['bags','Gestion sacherie'],['inventory','Inventaire'],['parameters','Paramètres'],['audit','Audit'],['activity-report','Rapports d’activité','activity-report.html']]},
@@ -13,7 +13,7 @@ var defs={
 };
 /* Libellés EN de navigation (évite la traduction mot à mot du traducteur global). */
 var NAV_EN={'Vue d’ensemble':'Overview','Achat Bord Champ':'Field Buying','Recensement':'Census','Producteurs':'Farmers','Coopératives':'Cooperatives',
- 'Hubs & Cartographie':'Hubs & Mapping','Sacherie AFLP':'AFLP Bags','Caisse & Avances':'Cash & Advances','Arrivages prévus':'Planned arrivals','Achat RCN':'RCN purchases',
+ 'Hubs & Cartographie':'Hubs & Mapping','Sacherie AFLP':'AFLP Bags','Caisse & Avances':'Cash & Advances','Synchronisation':'Synchronization','Arrivages prévus':'Planned arrivals','Achat RCN':'RCN purchases',
  'Rapports d’activité':'Activity reports','Coopératives AFLP':'AFLP cooperatives','Export consolidé':'Consolidated export',
  'Demandes':'Requests','Prêts au chargement':'Ready to load','En transit':'In transit','Arrivées':'Arrivals','Réconciliation':'Reconciliation',
  'Réception usine':'Factory reception','Magasin usine':'Factory warehouse','BIN usine':'Factory BIN','Process':'Processing','Calibrage':'Calibration','Bilan matière':'Mass balance'};
