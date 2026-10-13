@@ -286,8 +286,8 @@ begin
             nullif(v_payload->'plot'->>'declared_area','')::numeric,'HA',
             nullif(v_payload->'plot'->>'latitude','')::numeric,
             nullif(v_payload->'plot'->>'longitude','')::numeric,
-            case when nullif(v_payload->'plot'->>'latitude','') is not null then 'POINT_CAPTURED' else 'DEFERRED' end,
-            case when nullif(v_payload->'plot'->>'latitude','') is not null then now() end,
+            'NOT_MAPPED',
+            null,
             'DECLARED','DECLARED','ACTIVE'
           );
         end if;
