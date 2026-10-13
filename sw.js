@@ -21,6 +21,7 @@ var SHELL = [
   './operations/aflp-cooperatives-enrolement.js',
   './operations/rt-farmer-rights.js',
   './operations/sacherie-operational-p1.js',
+  './operations/pjs-export.js',
   './shared/auth-gate.js',
   './shared/aflp-access.js',
   './shared/i18n.js',

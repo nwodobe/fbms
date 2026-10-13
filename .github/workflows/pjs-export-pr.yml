@@ -1,0 +1,35 @@
+name: PJS Excel Export PR
+on:
+  pull_request:
+    paths:
+      - 'operations/pjs-export.js'
+      - 'operations/reports.html'
+      - 'operations/field-buying.html'
+      - 'operations/procurement.html'
+      - 'operations/lba-purchase.html'
+      - 'operations/warehouse.html'
+      - 'operations/stock-transfer.html'
+      - 'operations/traceability.html'
+      - 'tests/pjs-export-*.mjs'
+      - '.github/workflows/pjs-export-pr.yml'
+permissions:
+  contents: read
+jobs:
+  pjs-excel-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static contract and JavaScript syntax
+        run: |
+          node --check operations/pjs-export.js
+          node tests/pjs-export-static.mjs
+      - name: Install deterministic test dependencies
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2 exceljs@4.4.0
+          npx playwright install --with-deps chromium
+      - name: Generate, open and reconcile PJS workbooks
+        run: node tests/pjs-export-e2e.mjs
