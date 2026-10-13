@@ -246,9 +246,17 @@ function resetStaleSyncing() {
   });
 }
 
+function friendly(msg){
+  var m=String(msg||'');
+  try{if(global.ANAGROCI_ERREUR_METIER)return global.ANAGROCI_ERREUR_METIER(m);}catch(e){}
+  if(/row-level security|permission denied/i.test(m))return 'Vous n’avez plus l’autorisation d’effectuer cette opération.';
+  if(/duplicate key|unique constraint/i.test(m))return 'Cette opération ou cette référence existe déjà : vérification requise.';
+  if(/failed to fetch|network|load failed/i.test(m))return 'Connexion indisponible. L’opération reste conservée sur cet appareil.';
+  return m;
+}
 function applyResult(op, res) {
   var status = String(res.status || 'FAILED').toUpperCase();
-  var patch = { status: status, result: res, last_error: res.message || null };
+  var patch = { status: status, result: res, last_error: res.message ? friendly(res.message) : null };
   if (status === 'SYNCED') { patch.last_error = null; patch.next_attempt_at = null; }
   if (status === 'FAILED') patch.next_attempt_at = nextBackoff(op.attempt_count || 1);
   if (status === 'CONFLICT' || status === 'NEEDS_REVIEW') patch.next_attempt_at = null;
@@ -345,7 +353,7 @@ function syncNow() {
       }, Promise.resolve()).then(function () { return { synced: results.length }; });
     });
   }).catch(function (err) {
-    runtime.lastError = err && err.message ? err.message : String(err);
+    runtime.lastError = friendly(err && err.message ? err.message : String(err));
     return listOperations().then(function (ops) {
       var affected = ops.filter(function (o) { return o.status === 'SYNCING'; });
       return Promise.all(affected.map(function (o) {
