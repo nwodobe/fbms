@@ -283,7 +283,7 @@ function base() {
       return { villages: villages, rts: rts, farmers: farmers, achats: achats,
                zones: zones, clusters: clusters, vm: vm, rm: rm, zoneOf: zoneOf };
     });
-  });.then(function(x){
+  }).then(function(x){
     if(off) off.setBundle('field_base',x,{campaign_id:cid}).catch(function(){});
     return x;
   }).catch(function(err){
