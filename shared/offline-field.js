@@ -439,9 +439,16 @@ function prepareShell() {
   return navigator.serviceWorker.register('../sw.js', { scope: '../' }).then(function (reg) {
     return navigator.serviceWorker.ready.then(function (ready) {
       var target = ready.active || reg.active || reg.waiting || reg.installing;
-      if (target) target.postMessage({ type: 'PRECACHE_FIELD' });
+      if (!target) return { service_worker:false, scope:ready.scope||reg.scope };
       return new Promise(function (resolve) {
-        setTimeout(function () { resolve({ service_worker: true, scope: ready.scope || reg.scope }); }, 700);
+        var done=false, timer=setTimeout(function(){if(done)return;done=true;navigator.serviceWorker.removeEventListener('message',onMsg);resolve({service_worker:true,scope:ready.scope||reg.scope,precache_confirmed:false});},10000);
+        function onMsg(ev){
+          if(!ev.data||ev.data.type!=='PRECACHE_FIELD_DONE'||done)return;
+          done=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);
+          resolve({service_worker:true,scope:ready.scope||reg.scope,precache_confirmed:true,version:ev.data.version||null});
+        }
+        navigator.serviceWorker.addEventListener('message',onMsg);
+        target.postMessage({ type: 'PRECACHE_FIELD' });
       });
     });
   });
