@@ -22,6 +22,87 @@ create index if not exists offline_sync_receipts_device_idx
 create index if not exists offline_sync_receipts_campaign_idx
   on private.offline_sync_receipts(campaign_id, processed_at desc);
 
+
+create table if not exists private.offline_device_leases (
+  lease_token uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns(id),
+  rt_id text not null,
+  user_id uuid not null,
+  device_id uuid not null,
+  issued_at timestamptz not null default now(),
+  valid_until timestamptz not null,
+  released_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists offline_device_leases_rt_idx
+  on private.offline_device_leases(campaign_id,rt_id,valid_until desc);
+create index if not exists offline_device_leases_user_idx
+  on private.offline_device_leases(user_id,valid_until desc);
+
+create or replace function public.offline_prepare_device(p_device_id uuid, p_hours integer default 18)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, private, pg_temp
+as $
+declare
+  v_uid uuid := auth.uid();
+  v_prof public.profils%rowtype;
+  v_campaign public.campaigns%rowtype;
+  v_existing private.offline_device_leases%rowtype;
+  v_lease private.offline_device_leases%rowtype;
+  v_hours integer := least(greatest(coalesce(p_hours,18),1),24);
+begin
+  if v_uid is null then raise exception 'Connexion requise.' using errcode='42501'; end if;
+  select * into v_prof from public.profils where user_id=v_uid and actif=true limit 1;
+  if v_prof.user_id is null then raise exception 'Profil actif requis.' using errcode='42501'; end if;
+  if nullif(v_prof.rt_id,'') is null then
+    return jsonb_build_object(
+      'authorized',false,
+      'reason','Aucun RT n’est rattaché à votre profil. Les enrôlements restent disponibles hors ligne, mais les achats financiers hors ligne sont bloqués sur cet appareil.'
+    );
+  end if;
+  select * into v_campaign from public.campaigns where is_current=true and status='OPEN' order by opened_at desc limit 1;
+  if v_campaign.id is null then raise exception 'Aucune campagne ouverte.' using errcode='42501'; end if;
+
+  perform pg_advisory_xact_lock(hashtext(v_campaign.id::text||':'||v_prof.rt_id));
+  select * into v_existing
+  from private.offline_device_leases
+  where campaign_id=v_campaign.id and rt_id=v_prof.rt_id and released_at is null and valid_until>now()
+  order by issued_at desc limit 1;
+
+  if found and v_existing.device_id<>p_device_id then
+    raise exception 'Ce RT possède déjà un appareil autorisé pour les achats hors ligne jusqu’au %. Synchronisez ou attendez l’expiration avant d’utiliser un second appareil.', to_char(v_existing.valid_until,'DD/MM/YYYY HH24:MI')
+      using errcode='42501';
+  end if;
+
+  if found then
+    update private.offline_device_leases
+      set valid_until=greatest(valid_until,now()+make_interval(hours=>v_hours))
+    where lease_token=v_existing.lease_token
+    returning * into v_lease;
+  else
+    insert into private.offline_device_leases(campaign_id,rt_id,user_id,device_id,valid_until)
+    values(v_campaign.id,v_prof.rt_id,v_uid,p_device_id,now()+make_interval(hours=>v_hours))
+    returning * into v_lease;
+  end if;
+
+  return jsonb_build_object(
+    'authorized',true,
+    'lease_token',v_lease.lease_token,
+    'campaign_id',v_lease.campaign_id,
+    'rt_id',v_lease.rt_id,
+    'device_id',v_lease.device_id,
+    'issued_at',v_lease.issued_at,
+    'valid_until',v_lease.valid_until
+  );
+end;
+$;
+
+revoke all on function public.offline_prepare_device(uuid,integer) from public;
+revoke all on function public.offline_prepare_device(uuid,integer) from anon;
+grant execute on function public.offline_prepare_device(uuid,integer) to authenticated;
+
 create or replace function private.offline_result_status(p_message text, p_state text)
 returns text
 language sql
@@ -155,6 +236,9 @@ declare
   v_msg text;
   v_state text;
   v_coop_result jsonb;
+  v_lease_token uuid;
+  v_lease private.offline_device_leases%rowtype;
+  v_created_client timestamptz;
 begin
   if v_uid is null then
     raise exception 'Connexion requise.' using errcode = '42501';
@@ -337,6 +421,19 @@ begin
 
         v_row := coalesce(v_payload->'row','{}'::jsonb);
         v_local_id := nullif(v_row->>'local_id','');
+        v_lease_token := nullif(v_payload->>'lease_token','')::uuid;
+        v_created_client := nullif(v_op->>'created_at_client','')::timestamptz;
+        if v_lease_token is null then
+          raise exception 'Autorisation appareil hors ligne absente : achat à vérifier.' using errcode='42501';
+        end if;
+        select * into v_lease from private.offline_device_leases where lease_token=v_lease_token;
+        if not found or v_lease.campaign_id<>v_campaign or v_lease.device_id<>v_device or
+           v_lease.rt_id is distinct from nullif(v_row->>'rt_id','') or v_lease.user_id<>v_uid then
+          raise exception 'Autorisation appareil invalide pour ce RT.' using errcode='42501';
+        end if;
+        if v_created_client is null or v_created_client<v_lease.issued_at - interval '5 minutes' or v_created_client>v_lease.valid_until then
+          raise exception 'L’achat a été créé hors de la période autorisée pour cet appareil.' using errcode='42501';
+        end if;
         if v_local_id is null then
           raise exception 'Identifiant local de l’achat obligatoire.' using errcode = '23514';
         end if;
