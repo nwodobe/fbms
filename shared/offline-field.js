@@ -373,6 +373,26 @@ function appendPendingPurchase(row, opts) {
   }, { campaign_id: cid });
 }
 
+function prepareDeviceLease() {
+  if (!isOnline()) return Promise.reject(new Error('Connexion requise pour autoriser cet appareil aux achats hors ligne.'));
+  var cl=getClient(); if(!cl) return Promise.reject(new Error('Client Supabase indisponible.'));
+  return deviceId().then(function(did){
+    return cl.rpc('offline_prepare_device',{p_device_id:did,p_hours:18});
+  }).then(function(r){
+    if(r.error) throw new Error(r.error.message);
+    return setMeta('offline_device_lease',r.data||null).then(function(){return r.data||null;});
+  });
+}
+function getDeviceLease() { return getMeta('offline_device_lease'); }
+function leaseAllows(rtId) {
+  return getDeviceLease().then(function(l){
+    if(!l||l.authorized!==true) return {ok:false,reason:l&&l.reason?l.reason:'Aucune autorisation d’achat hors ligne sur cet appareil.'};
+    if(String(l.rt_id||'')!==String(rtId||'')) return {ok:false,reason:'Cet appareil est autorisé pour un autre RT.'};
+    if(l.valid_until&&new Date(l.valid_until).getTime()<Date.now()) return {ok:false,reason:'L’autorisation d’achat hors ligne de cet appareil a expiré. Reconnectez-vous et préparez de nouveau le mode terrain.'};
+    return {ok:true,lease:l};
+  });
+}
+
 function readiness() {
   var cid = campaignId();
   return Promise.all([
@@ -381,9 +401,10 @@ function readiness() {
     getBundle('cash', { campaign_id: cid }),
     getBundle('bags', { campaign_id: cid }),
     getBundle('coop_dashboard', { campaign_id: cid }),
-    getMeta('last_prepared')
+    getMeta('last_prepared'),
+    getDeviceLease()
   ]).then(function (rs) {
-    var b = rs[0] || {}, last = rs[5] || null;
+    var b = rs[0] || {}, last = rs[5] || null, lease=rs[6] || null;
     return {
       campaign_id: cid,
       campaign_code: campaignCode(),
@@ -396,7 +417,9 @@ function readiness() {
       purchases: (b.achats || []).length,
       bags_cached: !!rs[3],
       cash_cached: !!rs[2],
-      rule_cached: !!rs[1]
+      rule_cached: !!rs[1],
+      lease: lease,
+      cash_offline_authorized: !!(lease&&lease.authorized===true&&(!lease.valid_until||new Date(lease.valid_until).getTime()>Date.now()))
     };
   });
 }
@@ -482,6 +505,9 @@ var API = {
   mappingSet: mappingSet,
   pendingSpend: pendingSpend,
   estimatedCashAvailable: estimatedCashAvailable,
+  prepareDeviceLease: prepareDeviceLease,
+  getDeviceLease: getDeviceLease,
+  leaseAllows: leaseAllows,
   appendLocalFarmer: appendLocalFarmer,
   appendPendingPurchase: appendPendingPurchase,
   readiness: readiness,
