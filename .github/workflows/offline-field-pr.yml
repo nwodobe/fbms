@@ -1,0 +1,42 @@
+name: Offline Field Buying PR
+
+on:
+  pull_request:
+    paths:
+      - 'shared/offline-field.js'
+      - 'shared/auth-gate.js'
+      - 'operations/field-buying.html'
+      - 'operations/field-buying.js'
+      - 'operations/aflp-cooperatives.js'
+      - 'operations/aflp-cooperatives-enrolement.js'
+      - 'operations/sacherie-operational-p1.js'
+      - 'operations/workspace.js'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'supabase/20261013190000_offline_first_field_buying.sql'
+      - 'tests/offline-field-*.mjs'
+      - '.github/workflows/offline-field-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-field:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Static offline contract
+        run: |
+          node --check shared/offline-field.js
+          node --check tests/offline-field-e2e.mjs
+          node tests/offline-field-static.mjs
+      - name: Install Playwright
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Airplane mode E2E
+        run: node tests/offline-field-e2e.mjs
