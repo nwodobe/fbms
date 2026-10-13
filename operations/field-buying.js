@@ -261,7 +261,7 @@ function base() {
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
       q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
       /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
-      q('achats', 'id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
+      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
       q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
       campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
@@ -2205,30 +2205,70 @@ function openBuyForm(farmerId) {
       if (campBlock) { msg.className = 'ops-danger-text'; msg.textContent = campBlock; return; }
       btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement…';
       var montant = Math.round(net * prix);
-      client().then(function (cl) {
-        return cl.from('achats').insert({
-          local_id: uid(), campaign: campCode() || String(rule.campaign || ''), campaign_id: campId(), date: document.getElementById('bf_date').value,
-          cluster: v.cluster || f.cluster_label || null,
-          village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
-          rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
-          producteur_id: f.producteur_id, producteur_code: f.farmer_id || null,
-          producteur_nom: f.nom, producteur_tel: f.telephone || null,
-          poids_brut: n(document.getElementById('bf_brut').value),
-          tare: n(document.getElementById('bf_tare').value), poids_net: net,
-          prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
-          nb_sacs: n(document.getElementById('bf_sacs').value),
-          mode_paiement: document.getElementById('bf_pay').value,
-          weight_source: document.getElementById('bf_weight_source').value,
-          numero_recu: recu, humidite: hum, kor: kor,
-          observation: document.getElementById('bf_obs').value.trim() || null,
-          prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
-          commission_rt: Math.round(net * commissionRt),
-          qualite_statut: qualite, statut_validation: statutValidation,
-          refinancable: !!recu, stock_libere: stockOk,
-          stock_statut: stockOk ? 'Entrée RT' : 'Stock non libéré',
-          saisie_mode: 'OPERATIONS_FIELD_BUYING', created_by: profile.userId || null,
-          created_by_nom: profile.nom || null
+      var localId = 'fb-buy-' + (global.ANAGROCI_OFFLINE ? global.ANAGROCI_OFFLINE.uuid() : uid());
+      var row = {
+        local_id: localId, campaign: campCode() || String(rule.campaign || ''), campaign_id: campId(), date: document.getElementById('bf_date').value,
+        cluster: v.cluster || f.cluster_label || null,
+        village_id: v.id || f.village_id, village_nom: v.village || f.village_nom,
+        rt_id: rt.id || f.rt_id || null, rt_nom: rt.nom || f.rt_nom || null,
+        producteur_id: f.producteur_id, producteur_code: f.local_only ? null : (f.farmer_id || null),
+        producteur_nom: f.nom, producteur_tel: f.telephone || null,
+        poids_brut: n(document.getElementById('bf_brut').value),
+        tare: n(document.getElementById('bf_tare').value), poids_net: net,
+        prix_kg: n(document.getElementById('bf_prix').value), montant: montant,
+        nb_sacs: n(document.getElementById('bf_sacs').value),
+        mode_paiement: document.getElementById('bf_pay').value,
+        weight_source: document.getElementById('bf_weight_source').value,
+        numero_recu: recu, humidite: hum, kor: kor,
+        observation: document.getElementById('bf_obs').value.trim() || null,
+        prix_hors_bareme: horsBareme, motif_prix: horsBareme ? motifPrix : null,
+        commission_rt: Math.round(net * commissionRt),
+        qualite_statut: qualite, statut_validation: statutValidation,
+        refinancable: !!recu, stock_libere: stockOk,
+        stock_statut: stockOk ? 'Entrée RT' : 'Stock non libéré',
+        saisie_mode: 'OPERATIONS_FIELD_BUYING', created_by: profile.userId || null,
+        created_by_nom: profile.nom || null
+      };
+      var off = global.ANAGROCI_OFFLINE;
+      if (off && !off.isOnline()) {
+        if (!row.rt_id) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = 'Hors ligne : un RT est requis pour sécuriser le contrôle de caisse.';
+          return;
+        }
+        cashData().then(function (cash) {
+          return off.estimatedCashAvailable(row.rt_id, c, cash);
+        }).then(function (bal) {
+          if (montant > bal.available) {
+            throw new Error('Solde local insuffisant. Dernière avance connue : ' + money(bal.advance) +
+              ' · achats serveur : ' + money(bal.server_used) + ' · opérations locales : ' + money(bal.pending) +
+              ' · disponible estimé : ' + money(bal.available) + '.');
+          }
+          var deps = f.local_only && f.local_operation_id ? [f.local_operation_id] : [];
+          return off.queue('FIELD_PURCHASE_CREATE', { row: row }, {
+            dependencies: deps, label: 'Achat Bord Champ',
+            entity_label: (f.farmer_id || 'LOCAL') + ' · ' + f.nom + ' · ' + num(net) + ' kg'
+          });
+        }).then(function () {
+          var localRow = Object.assign({}, row, {
+            id: localId, local_only: true, pending_sync: true, created_at: new Date().toISOString(),
+            statut_validation: 'LOCAL · EN ATTENTE', cash_statut: 'Solde calculé depuis la dernière synchronisation'
+          });
+          return off.appendPendingPurchase(localRow);
+        }).then(function () {
+          btn.disabled = false; msg.className = 'ops-ok-text';
+          msg.textContent = 'Achat sauvegardé sur cet appareil : ' + num(net) + ' kg · ' + money(montant) +
+            '. En attente de synchronisation. Solde calculé depuis la dernière synchronisation.';
+          FBStore.invalidate('base');
+          setTimeout(function () { closeForm(); render(); }, 1200);
+        }).catch(function (err) {
+          btn.disabled = false; msg.className = 'ops-danger-text';
+          msg.textContent = err && err.message ? err.message : 'Enregistrement local impossible.';
         });
+        return;
+      }
+      client().then(function (cl) {
+        return cl.from('achats').insert(row);
       }).then(function (r) {
         btn.disabled = false;
         if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
