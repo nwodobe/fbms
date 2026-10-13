@@ -100,8 +100,22 @@ function sexeLabel(v) {
 function uid() { return 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 function activeFieldRule(){
   if(FIELD_RULE_CACHE) return Promise.resolve(FIELD_RULE_CACHE);
+  var off=global.ANAGROCI_OFFLINE;
+  if(off&&!off.isOnline()) return off.getBundle('field_rule',{campaign_id:campId()}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucune règle d’achat locale. Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+    FIELD_RULE_CACHE=x; return x;
+  });
   return client().then(function(cl){return cl.rpc('procurement_active_rule',{p_campaign:campCode(),p_channel:'FIELD_BUYING',p_zone:null,p_date:new Date().toISOString().slice(0,10)});})
-    .then(function(r){if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error('Aucune règle de prix active pour la campagne ' + (campCode() || '?') + ' : configurez-la dans Campagnes → Règles.');FIELD_RULE_CACHE=r.data;return r.data;});
+    .then(function(r){
+      if(r.error)throw new Error(r.error.message);
+      if(!r.data)throw new Error('Aucune règle de prix active pour la campagne ' + (campCode() || '?') + ' : configurez-la dans Campagnes → Règles.');
+      FIELD_RULE_CACHE=r.data;
+      if(off) off.setBundle('field_rule',r.data,{campaign_id:campId()}).catch(function(){});
+      return r.data;
+    }).catch(function(err){
+      if(!off) throw err;
+      return off.getBundle('field_rule',{campaign_id:campId()}).then(function(x){if(x){FIELD_RULE_CACHE=x;return x;}throw err;});
+    });
 }
 
 /* --------------------------------------------------------------------- fragments */
@@ -232,6 +246,11 @@ function q(tableName, cols, limit, mod) {
 
 /* Référentiels communs — un seul aller-retour parallèle, partagé partout. */
 function base() {
+  var off=global.ANAGROCI_OFFLINE, cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('field_base',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé sur cet appareil. Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
+    return x;
+  });
   return FBStore.get('base', function () {
     return Promise.all([
       /* Vues LIGHT (security_invoker) : mêmes lignes, data sans les images
@@ -264,8 +283,15 @@ function base() {
       return { villages: villages, rts: rts, farmers: farmers, achats: achats,
                zones: zones, clusters: clusters, vm: vm, rm: rm, zoneOf: zoneOf };
     });
+  });.then(function(x){
+    if(off) off.setBundle('field_base',x,{campaign_id:cid}).catch(function(){});
+    return x;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('field_base',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
+
 function zoneOfCluster(c, cluster) {
   return c.zoneOf[normName(cluster)] || '—';
 }
@@ -308,6 +334,11 @@ function tolerant(pannes, source, promesse, repli) {
 }
 
 function bagsData() {
+  var off=global.ANAGROCI_OFFLINE,cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('bags',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucun état de sacherie local.');
+    return x;
+  });
   return FBStore.get('bags', function () {
     var pannes = [];
     function t(source, promesse, repli) { return tolerant(pannes, source, promesse, repli); }
@@ -359,7 +390,11 @@ function bagsData() {
        après coup plutôt qu'avant. Aucune relance automatique : c'est la
        navigation suivante qui retentera. */
     if (b && b.pannes && b.pannes.length) FBStore.invalidate('bags');
+    else if(off) off.setBundle('bags',b,{campaign_id:cid}).catch(function(){});
     return b;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('bags',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
 
@@ -381,12 +416,23 @@ function bagsPannesNotice(b) {
     }).join('') + '</ul></div></div>';
 }
 function cashData() {
+  var off=global.ANAGROCI_OFFLINE,cid=campId();
+  if(off&&!off.isOnline()) return off.getBundle('cash',{campaign_id:cid}).then(function(x){
+    if(!x) throw new Error('Mode hors ligne non préparé : aucun état de caisse local.');
+    return x;
+  });
   return FBStore.get('cash', function () {
     return Promise.all([
       q('avances', 'id,date,cluster,rt_id,rt_nom,source,montant,motif,statut,cycle_id,cycle_statut,volume_finance_kg,prix_reference_kg,created_by_nom,created_at', 500),
       q('reconciliations', 'id,date,cluster,rt_id,rt_nom,cash_restant,valeur_stock,total_avance,total_paye,ecart,statut,created_at', 500)
         .catch(function () { return []; })
     ]).then(function (rs) { return { avances: rs[0], recons: rs[1] }; });
+  }).then(function(x){
+    if(off) off.setBundle('cash',x,{campaign_id:cid}).catch(function(){});
+    return x;
+  }).catch(function(err){
+    if(!off) throw err;
+    return off.getBundle('cash',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
   });
 }
 /* Règle caisse conservée : une nouvelle avance exige la réconciliation de la précédente. */
