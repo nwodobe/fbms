@@ -297,7 +297,7 @@ function syncNow() {
       if (Number(o.attempt_count || 0) >= 10) return false;
       if (o.next_attempt_at && new Date(o.next_attempt_at).getTime() > now) return false;
       return depsDone(o, byId);
-    }).slice(0, MAX_BATCH);
+    }).sort(function(a,b){return new Date(a.created_at_client||0)-new Date(b.created_at_client||0);}).slice(0, MAX_BATCH);
     if (!eligible.length) return { empty: true };
 
     runtime.syncing = true; runtime.done = 0; runtime.total = eligible.length; runtime.lastError = null; emit();
