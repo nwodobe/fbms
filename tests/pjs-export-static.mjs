@@ -12,11 +12,11 @@ assert.match(js,/DATA_DICTIONARY/,'DATA_DICTIONARY sheet required');
 assert.match(js,/01_EXECUTIVE_SUMMARY/,'Executive summary required');
 assert.match(js,/\^\[=\+\\-@\]/,'Formula-injection guard required');
 assert.doesNotMatch(js,/service_role/i,'service_role must never be exposed by export client');
-for (const key of ['producers','villages','rts','cooperatives','coop_members','purchases','advances','bags','procurement','warehouse_receptions','warehouse_lots','warehouse_bins','transfers','traceability']) {
+for (const key of ['producers','villages','rts','cooperatives','coop_members','suppliers','purchases','advances','bags','procurement','delivery_plans','warehouse_receptions','quality','warehouse_lots','warehouse_bins','transfers','factory_receptions','traceability','sustainability']) {
   assert.ok(js.includes("reg('"+key+"'") || js.includes("simple('"+key+"'"), 'missing dataset '+key);
 }
 assert.match(js,/campaign_id/,'campaign scoping required');
 assert.match(js,/navigator\.onLine===false/,'official export must guard offline state');
 assert.match(html,/id="pjsExportCenter"/,'Reports page must expose PJS Export Center');
 assert.match(html,/pjs-export\.js/,'Reports page must load the PJS export engine');
-console.log(JSON.stringify({result:'PASS',datasets:14,brand:'#053B23',formula_injection:true,multi_campaign:true}));
+console.log(JSON.stringify({result:'PASS',datasets:19,brand:'#053B23',formula_injection:true,multi_campaign:true}));
