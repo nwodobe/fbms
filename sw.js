@@ -24,7 +24,11 @@ var SHELL = [
   './shared/farmer-registry-sync.js',
   './shared/farmer-registry-assessment.js',
   './shared/farmer-registry-operations.js',
-  './shared/pjs-theme.css'
+  './shared/pjs-theme.css',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js',
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css',
+  'https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap'
 ];
 
 function shellUrl(path) { return new URL(path, self.registration.scope).toString(); }
