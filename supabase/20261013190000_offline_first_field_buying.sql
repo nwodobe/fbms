@@ -179,6 +179,29 @@ begin
         )
         returning code into v_farmer_code;
 
+        if coalesce(v_payload->'plot','{}'::jsonb) <> '{}'::jsonb and
+           (nullif(v_payload->'plot'->>'declared_area','') is not null or
+            nullif(v_payload->'plot'->>'latitude','') is not null or
+            nullif(v_payload->'plot'->>'longitude','') is not null) then
+          if (nullif(v_payload->'plot'->>'latitude','') is null) <>
+             (nullif(v_payload->'plot'->>'longitude','') is null) then
+            raise exception 'Parcelle : latitude et longitude doivent être renseignées ensemble.' using errcode = '23514';
+          end if;
+          insert into public.farmer_plots(
+            id,producteur_id,village_id,local_name,declared_area,area_unit,latitude,longitude,
+            gps_status,gps_captured_at,area_source,evidence_level,status
+          ) values (
+            gen_random_uuid()::text,v_pid,v_row->>'village_id',
+            coalesce(nullif(v_payload->'plot'->>'local_name',''),'PARCELLE PRINCIPALE'),
+            nullif(v_payload->'plot'->>'declared_area','')::numeric,'HA',
+            nullif(v_payload->'plot'->>'latitude','')::numeric,
+            nullif(v_payload->'plot'->>'longitude','')::numeric,
+            case when nullif(v_payload->'plot'->>'latitude','') is not null then 'POINT_CAPTURED' else 'DEFERRED' end,
+            case when nullif(v_payload->'plot'->>'latitude','') is not null then now() end,
+            'DECLARED','DECLARED','ACTIVE'
+          );
+        end if;
+
         v_result := jsonb_build_object(
           'idempotency_key',v_key,'client_operation_id',v_client,'status','SYNCED',
           'local_id',v_payload->>'local_id','server_id',v_pid,'farmer_id',v_farmer_code
