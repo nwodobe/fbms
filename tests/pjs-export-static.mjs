@@ -20,3 +20,6 @@ assert.match(js,/navigator\.onLine===false/,'official export must guard offline 
 assert.match(html,/id="pjsExportCenter"/,'Reports page must expose PJS Export Center');
 assert.match(html,/pjs-export\.js/,'Reports page must load the PJS export engine');
 console.log(JSON.stringify({result:'PASS',datasets:19,brand:'#053B23',formula_injection:true,multi_campaign:true}));
+
+assert.doesNotMatch(js,/var URL=/,'Browser URL API must not be shadowed');
+assert.match(js,/window\.URL\.createObjectURL/,'Download must use browser URL API');
