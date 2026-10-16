@@ -294,6 +294,9 @@ async function partB(browser, device) {
   const offBody = await page.textContent('body');
   record('T21a', device, 'Fermeture + réouverture complète sans réseau', 'Application utilisable, état « Hors ligne » visible', /Hors ligne/.test(offBody) ? 'utilisable, indicateur Hors ligne affiché' : 'indicateur absent', /Hors ligne/.test(offBody));
 
+  /* Les formulaires s'ouvrent depuis leur rubrique (comme sur le terrain) : la rubrique
+     Synchronisation se redessine à chaque changement d'état réseau. */
+  await page.evaluate(() => { location.hash = '#farmers'; }); await wait(700);
   await page.evaluate(() => ANAGROCI_FB.openFarmerForm()); await page.waitForSelector('#farmerForm');
   const telMode = await page.getAttribute('#ff_tel', 'inputmode');
   await page.fill('#ff_nom', 'PRODUCTEUR APK FICTIF'); await page.selectOption('#ff_village', 'v1'); await page.selectOption('#ff_rt', 'rt1'); await page.fill('#ff_tel', '0700000888');
@@ -304,6 +307,7 @@ async function partB(browser, device) {
   record('T21', device, 'Enrôlement producteur hors ligne', 'Opération PENDING avec identifiant et clé d’idempotence', farmerOp ? `${farmerOp.status} · id=${farmerOp.id.slice(0, 8)}… · clé=${farmerOp.idempotency_key.slice(0, 8)}…` : 'absente', enrolled && farmerOp && farmerOp.status === 'PENDING' && !!farmerOp.idempotency_key);
   record('T16b', device, 'Clavier téléphone pour le numéro', 'inputmode="tel"', `inputmode=${telMode}`, telMode === 'tel');
 
+  await page.evaluate(() => { location.hash = '#purchases'; }); await wait(700);
   await page.evaluate(() => ANAGROCI_FB.openBuyForm()); await page.waitForSelector('#buyForm');
   await page.selectOption('#bf_village', 'v1'); await page.selectOption('#bf_rt', 'rt1');
   const localFarmer = await page.evaluate(async () => { const b = await ANAGROCI_OFFLINE.getBundle('field_base', { campaign_id: ANAGROCI_OFFLINE.campaignId() }); const f = (b.farmers || []).find((x) => x.local_only); return f && f.producteur_id; });
