@@ -144,8 +144,24 @@ begin
       $q$insert into public.profils(user_id,email,nom,role) values ('00000000-0000-4000-8000-0000000000ff','zzqa.x@example.test','X','Branch Manager')$q$),
     ('S17','Contournement : appel direct de la fonction de contrôle','Unit Head','BOTRO','OK',u_botro,
       $q$select 1 where private.aflp_village_ecriture_dans_mon_cluster('DIABO','DIABO','{}') is not true$q$),
-    ('S18','Constat : GPS d''un producteur Diabo via synchro hors ligne','Unit Head','BOTRO','CONSTAT',u_botro,
-      $q$select 1 from public.offline_sync_batch(jsonb_build_array(jsonb_build_object('idempotency_key',gen_random_uuid(),'client_operation_id',gen_random_uuid(),'device_id',gen_random_uuid(),'campaign_id','%C%','operation_type','FIELD_GPS_UPDATE','payload',jsonb_build_object('row',jsonb_build_object('producteur_id','zzqa-%P%-pdiabo','gps_lat','7.1','gps_lng','-5.1'))))) r where r->'results'->0->>'status'='SYNCED'$q$)
+    ('G01','Hors ligne : GPS d''un producteur Diabo (contournement RLS)','Unit Head','BOTRO','REFUS',u_botro,
+      $q$select 1 from public.offline_sync_batch(jsonb_build_array(jsonb_build_object('idempotency_key',gen_random_uuid(),'client_operation_id',gen_random_uuid(),'device_id',gen_random_uuid(),'campaign_id','%C%','operation_type','FIELD_GPS_UPDATE','payload',jsonb_build_object('row',jsonb_build_object('producteur_id','zzqa-%P%-pdiabo','gps_lat','7.1','gps_lng','-5.1'))))) r where r->'results'->0->>'status'='SYNCED'$q$),
+    ('G02','Hors ligne : GPS d''un producteur de son cluster','Unit Head','BOTRO','OK',u_botro,
+      $q$select 1 from public.offline_sync_batch(jsonb_build_array(jsonb_build_object('idempotency_key',gen_random_uuid(),'client_operation_id',gen_random_uuid(),'device_id',gen_random_uuid(),'campaign_id','%C%','operation_type','FIELD_GPS_UPDATE','payload',jsonb_build_object('row',jsonb_build_object('producteur_id','zzqa-%P%-p01','gps_lat','7.1','gps_lng','-5.1'))))) r where r->'results'->0->>'status'='SYNCED'$q$),
+    ('G03','Hors ligne : GPS producteur Diabo par le BM','Branch Manager','GLOBAL','OK',u_bm,
+      $q$select 1 from public.offline_sync_batch(jsonb_build_array(jsonb_build_object('idempotency_key',gen_random_uuid(),'client_operation_id',gen_random_uuid(),'device_id',gen_random_uuid(),'campaign_id','%C%','operation_type','FIELD_GPS_UPDATE','payload',jsonb_build_object('row',jsonb_build_object('producteur_id','zzqa-%P%-pdiabo','gps_lat','7.1','gps_lng','-5.1'))))) r where r->'results'->0->>'status'='SYNCED'$q$),
+    ('G04','API directe : GPS producteur Diabo','Unit Head','BOTRO','REFUS',u_botro,
+      $q$update public.producteurs set gps_lat=7.2, gps_lng=-5.2 where id='zzqa-%P%-pdiabo'$q$),
+    ('G05','API directe : GPS producteur de son cluster','Unit Head','BOTRO','OK',u_botro,
+      $q$update public.producteurs set gps_lat=7.3, gps_lng=-5.3 where id='zzqa-%P%-p01'$q$),
+    ('F01','Chaîne : Farmer ID du nouveau village = préfixe attribué + 0001','Unit Head','BOTRO','OK',u_botro,
+      $q$select 1 from public.producteurs p join public.villages v on v.id=p.village_id where p.id='zzqa-%P%-p13' and v.farmer_code_prefix is not null and p.code = v.farmer_code_prefix||'-0001'$q$),
+    ('F02','Chaîne : producteur du nouveau village consultable','Unit Head','BOTRO','OK',u_botro,
+      $q$select 1 from public.producteurs where id='zzqa-%P%-p13' and village_id='zzqa-%P%-v01'$q$),
+    ('R01','Création RT dans un village Diabo','Unit Head','BOTRO','REFUS',u_botro,
+      $q$insert into public.rt(id,nom,village_id,data) values ('zzqa-%P%-r01','ZZQA RT X','zzqa-%P%-vdiabo','{}')$q$),
+    ('R02','Création RT dans un village de son cluster','Unit Head','BOTRO','OK',u_botro,
+      $q$insert into public.rt(id,nom,village_id,data) values ('zzqa-%P%-r02','ZZQA RT Y','zzqa-%P%-vbotro','{}')$q$)
   ) as s(id,fonction,role,cluster,attendu,uid,q)
   loop
     if sc.id = 'S17' and ph = 'AVANT' then

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FBMS · Préfixe Farmer ID automatique pour les NOUVEAUX villages
--- Date : 2026-10-16 · Statut : PRÉPARÉ ET TESTÉ EN LOCAL, NON APPLIQUÉ EN PRODUCTION
+-- Date : 2026-10-16 · Statut : APPLIQUÉ EN PRODUCTION le 16/10/2026 (version 20261016200310) après vérification de la règle sur les 76 villages réels
 --
 -- Constat : public.farmer_registry_set_code() exige villages.farmer_code_prefix.
 -- Ce préfixe n'a été attribué qu'une fois, par 20260818_farmer_registry_phase1_consolidated.sql.

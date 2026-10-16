@@ -1,0 +1,63 @@
+ id  | attendu | avant | cluster | farmerid | gps  |  rt  | rejeu |                      obtenu_avant                       |                      obtenu_final                       
+-----+---------+-------+---------+----------+------+------+-------+---------------------------------------------------------+---------------------------------------------------------
+ C01 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (0 ligne visible/modifiée)
+ F01 | OK      | FAIL  | FAIL    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | OK (1 ligne)
+ F02 | OK      | FAIL  | FAIL    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | OK (1 ligne)
+ G01 | REFUS   | FAIL  | FAIL    | FAIL     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (0 ligne visible/modifiée)
+ G02 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ G03 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ G04 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ G05 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ P01 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ P02 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ P03 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ P04 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ P05 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (P0001 : Le Farmer ID est immuable après attribut | REFUS (P0001 : Le Farmer ID est immuable après attribut
+ P06 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (P0001 : Le RT selectionne n'appartient pas au vi | REFUS (P0001 : Le RT selectionne n'appartient pas au vi
+ P07 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (23505 : DOUBLON_FORT: un producteur de même nom  | REFUS (23505 : DOUBLON_FORT: un producteur de même nom 
+ P08 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ P09 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ P10 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ P11 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ P12 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (P0001 : Seul le Branch Manager peut supprimer de | REFUS (P0001 : Seul le Branch Manager peut supprimer de
+ P13 | OK      | FAIL  | FAIL    | PASS     | PASS | PASS | PASS  | REFUS (P0001 : Préfixe Farmer ID absent pour le village | OK (1 ligne)
+ P14 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ P15 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ R01 | REFUS   | FAIL  | FAIL    | FAIL     | FAIL | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ R02 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S01 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ S02 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ S03 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ S04 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ S05 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S06 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S07 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S08 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S09 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S10 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S11 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ S12 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ S13 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ S14 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ S15 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ S16 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (42501 : new row violates row-level security poli | REFUS (42501 : new row violates row-level security poli
+ S17 | OK      | N/A   | PASS    | PASS     | PASS | PASS | PASS  | sans objet (fonction absente avant correctif)           | OK (1 ligne)
+ V01 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ V02 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ V03 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ V04 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (23514 : Le nom du village est obligatoire.)      | REFUS (23514 : Le nom du village est obligatoire.)
+ V05 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (23505 : Le village « ZZQA AVANT V01 » existe déj | REFUS (23505 : Le village « ZZQA REJEU V01 » existe déj
+ V06 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ V07 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (0 ligne visible/modifiée)
+ V08 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ V09 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ V10 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (0 ligne visible/modifiée)
+ V11 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ V12 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (42501 : new row violates row-level security poli
+ V13 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (P0001 : Seul le Branch Manager peut supprimer de | REFUS (P0001 : Seul le Branch Manager peut supprimer de
+ V14 | REFUS   | PASS  | PASS    | PASS     | PASS | PASS | PASS  | REFUS (0 ligne visible/modifiée)                        | REFUS (0 ligne visible/modifiée)
+ V15 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ V16 | OK      | PASS  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | OK (1 ligne)
+ V17 | REFUS   | FAIL  | PASS    | PASS     | PASS | PASS | PASS  | OK (1 ligne)                                            | REFUS (0 ligne visible/modifiée)
+(59 rows)
+

@@ -1,47 +1,53 @@
-# Procédure d'application — enrôlement des Chefs d'Unité (AFLP 2027)
+# Enrôlement des Chefs d'Unité (AFLP 2027) — état de déploiement
 
 Branche : `fix/aflp-unit-head-enrollment` · Projet Supabase : `jmbdgpdthzpszfnddwzi`
 
-L'ordre compte : **la serrure serveur d'abord, l'interface ensuite.** Publier l'interface
-seule ouvrirait les formulaires aux Unit Heads sans cloisonnement serveur des villages.
+## Migrations appliquées en production le 16/10/2026
 
-## Étape 1 — Migration RLS (obligatoire, 2 minutes)
+| Ordre | Fichier | Version Supabase | Contenu |
+|---|---|---|---|
+| 1 | `20261016_unit_head_village_cluster_scope.sql` | 20261016200239 | 2 politiques RESTRICTIVES villages (INSERT, UPDATE) + fonction |
+| 2 | `20261016_prefixe_farmer_id_nouveaux_villages.sql` | 20261016200310 | déclencheur BEFORE INSERT préfixe Farmer ID |
+| 3 | `20261016_producteurs_gps_perimetre.sql` | 20261016200333 | déclencheur BEFORE UPDATE OF gps_lat, gps_lng |
 
-1. Supabase → SQL Editor → coller `20261016_unit_head_village_cluster_scope.sql` → Run.
-2. Vérification (doit renvoyer `2 | 1`) :
+Variante appliquée : identique aux fichiers, sans les lignes `drop policy/trigger if exists`
+(objets vérifiés absents juste avant). Les fichiers du dépôt gardent ces lignes : ils restent
+réexécutables (testé, phase REJEU du banc).
+
+**Préparée, non appliquée** : `20261016_rt_insert_cluster_scope_PREPARE.sql` (création de RT
+cloisonnée par cluster). Le mandat laisse les RT « selon les permissions existantes ».
+
+## Contrôles post-déploiement (SQL)
 
 ```sql
-select (select count(*) from pg_policies where tablename='villages' and policyname like 'villages_cluster_scope_unit_head_%') politiques,
-       (select count(*) from pg_proc where proname='aflp_village_ecriture_dans_mon_cluster') fonction;
+select policyname, permissive, cmd from pg_policies where tablename='villages' and policyname like 'villages_cluster_scope%';
+select tgname, tgenabled from pg_trigger where tgname in ('trg_farmer_registry_village_code_prefix','trg_producteur_gps_perimetre');
 ```
 
-Nature : 2 politiques RESTRICTIVES + 1 fonction. Aucune donnée modifiée, aucun droit ajouté,
-sans effet sur les rôles autres que Unit Head / Assistant Unit Head. Les 60 villages réels ont
-des signaux de cluster cohérents (contrôlé le 16/10/2026) : aucun blocage attendu.
-
-Retour arrière (immédiat, sans perte) :
+## Retour arrière (dans l'ordre inverse, sans perte de données)
 
 ```sql
+drop trigger if exists trg_producteur_gps_perimetre on public.producteurs;
+drop function if exists private.producteur_gps_dans_mon_perimetre();
+drop trigger if exists trg_farmer_registry_village_code_prefix on public.villages;
+drop function if exists private.village_attribuer_prefixe_farmer_id();
 drop policy if exists villages_cluster_scope_unit_head_ins on public.villages;
 drop policy if exists villages_cluster_scope_unit_head_upd on public.villages;
 drop function if exists private.aflp_village_ecriture_dans_mon_cluster(text, text, jsonb);
 ```
 
-## Étape 2 — Interface
+Un préfixe déjà attribué à un nouveau village est conservé par le retour arrière (il est
+cohérent avec la règle historique et les Farmer ID qui en dépendent sont immuables).
 
-Fusionner la pull request de la branche. GitHub Pages publie ; la version de cache
-`field-buying.js?v=20261016-unit-head-1` force le rechargement du script.
+## Règle Farmer ID (vérifiée sur les données réelles)
 
-## Étape 3 — Préfixe Farmer ID des nouveaux villages (décision métier)
-
-Sans cette étape, **aucun producteur ne peut être enrôlé dans un village créé après le
-18/08/2026**, quel que soit le rôle (les 60 villages existants ne sont pas concernés).
-`20261016_prefixe_farmer_id_nouveaux_villages.sql` applique la règle de la migration du 18/08
-(4 lettres du nom, suffixe 02, 03… en cas de collision). Le Farmer ID étant immuable, valider
-la règle avant de l'exécuter dans le SQL Editor.
+Règle de `supabase/20260818_farmer_registry_phase1_consolidated.sql` : 4 premiers caractères
+normalisés du nom du village (complétés par X), puis suffixe 02, 03… en cas de collision.
+Sur les 76 villages (dont 16 supprimés) : 57 préfixes = base, 19 = base + 2 chiffres,
+0 non conforme, 0 doublon. Index unique `villages_farmer_code_prefix_uidx` et
+`producteurs_code_key` en place. Au-delà de 99 collisions : refus explicite.
 
 ## Preuves
 
-- Banc isolé : `bash tests/sql/unit-head/lancer-banc.sh` (PostgreSQL local jetable,
-  fonctions et politiques recopiées de la production).
+- Banc isolé : `bash tests/sql/unit-head/lancer-banc.sh` → `resultats-derniere-execution.txt`.
 - Navigateur : `node tests/unit-head-enrollment-e2e.mjs` (390, 768, 1440 px).

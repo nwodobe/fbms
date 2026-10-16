@@ -50,6 +50,7 @@ create table public.producteurs(
   possible_duplicate boolean not null default false, review_required boolean not null default false, review_reason text,
   record_version bigint not null default 1, created_by_user_id uuid default auth.uid(), updated_by_user_id uuid default auth.uid(),
   is_qa boolean not null default false);
+create unique index producteurs_code_key on public.producteurs(code);
 create table public.prod_code_seq(village_id text primary key, dernier integer not null);
 create table public.farmer_identity_documents(id bigserial primary key, producteur_id text, document_type text, document_number text, status text, source text, created_by uuid, created_at timestamptz default now());
 create table public.farmer_change_log(id bigserial primary key, table_name text, record_id text, operation text, before_data jsonb, after_data jsonb, actor_id uuid, actor_email text, actor_role text);
@@ -468,7 +469,23 @@ create policy profils_select on public.profils as permissive for select to publi
 create policy profils_upd_bm on public.profils as permissive for update to authenticated using (est_bm()) with check (est_bm());
 create policy profils_update on public.profils as permissive for update to public using ((fbms_role() = 'Branch Manager'::text));
 
+create policy rt_write on public.rt as permissive for all to public
+  using (((fbms_role() <> 'Consultation uniquement'::text) AND ((fbms_role() <> 'Agent Recenseur'::text) OR (created_by = fbms_email()) OR (created_by IS NULL))))
+  with check ((fbms_role() <> 'Consultation uniquement'::text));
+create policy rt_del_admin on public.rt as restrictive for delete to public using ((fbms_role() = 'Branch Manager'::text));
+create policy rt_delete_bm_only_guard on public.rt as restrictive for delete to public using (est_bm());
+create policy rt_del on public.rt as permissive for delete to authenticated using (est_bm());
+create policy rt_ecriture_roles_terrain_ins on public.rt as restrictive for insert to authenticated with check (peut_ecrire_referentiel_terrain());
+create policy rt_ins on public.rt as permissive for insert to authenticated with check (peut_editer_terrain());
 create policy rt_sel on public.rt as permissive for select to authenticated using (est_actif());
+create policy rt_select on public.rt as permissive for select to public using ((fbms_role() IS NOT NULL));
+create policy rt_upd on public.rt as permissive for update to authenticated using (peut_editer_terrain()) with check (peut_editer_terrain());
+create policy rt_update_role_scope_guard on public.rt as restrictive for update to authenticated
+  using ((peut_modifier_rt_producteur() AND private.farmer_registry_can_access_village(village_id, id)))
+  with check ((peut_modifier_rt_producteur() AND private.farmer_registry_can_access_village(village_id, id)));
+create policy rt_update_rt_farmer_roles on public.rt as permissive for update to authenticated
+  using ((peut_modifier_rt_producteur() AND private.farmer_registry_can_access_village(village_id, id)))
+  with check ((peut_modifier_rt_producteur() AND private.farmer_registry_can_access_village(village_id, id)));
 
 -- ----------------------------------------------------------------- privilèges Supabase par défaut
 grant usage on schema public, private, auth to authenticated, anon;
