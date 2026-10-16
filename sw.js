@@ -1,5 +1,5 @@
 /* ANAGROCI Operations — Service Worker Offline First */
-var CACHE_VERSION = 'ops-offline-v1';
+var CACHE_VERSION = 'ops-offline-v2-auth-recovery';
 var SHELL_CACHE = 'anagroci-shell-' + CACHE_VERSION;
 var RUNTIME_CACHE = 'anagroci-runtime-' + CACHE_VERSION;
 var OWN_PREFIXES = ['anagroci-', 'fbms-'];
@@ -110,6 +110,16 @@ self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
+
+  /* La récupération des accès ne doit jamais être lue ou enregistrée dans un cache SW. */
+  if (/\/shared\/password-reset(?:\.html|\.js)$/.test(url.pathname)) {
+    event.respondWith(fetch(req, { cache: 'no-store' }).catch(function () {
+      return new Response('Connexion Internet requise pour récupérer votre mot de passe.', {
+        status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' }
+      });
+    }));
+    return;
+  }
 
   /* Les API et données privées Supabase ne sont jamais mises en cache par le SW.
      Les écritures offline passent exclusivement par IndexedDB + offline_sync_batch. */
