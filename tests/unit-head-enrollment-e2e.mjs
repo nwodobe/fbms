@@ -178,8 +178,25 @@ async function main() {
       t = await texteForm(page);
       verifier(/Création non autorisée/.test(t), `${L}px · UH : formulaire d'achat toujours fermé (module achats inchangé)`);
 
+      const erreursEnLigne = erreurs.slice();
+      /* Hors ligne : paquet préparé lors du chargement en ligne, puis réseau coupé. */
+      if (L === 390) {
+        await page.waitForTimeout(1500);
+        await contexte.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'onLine', { get: () => false, configurable: true }); });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.ANAGROCI_FB && window.ANAGROCI_OFFLINE && !window.ANAGROCI_OFFLINE.isOnline(), null, { timeout: 20000 });
+        await page.evaluate(() => window.ANAGROCI_FB.openVillageForm());
+        await attendreForm(page);
+        t = await texteForm(page);
+        const optsOff = await page.evaluate(() => [...document.querySelectorAll('#vf_cluster option')].filter((o) => o.value).map((o) => o.value));
+        verifier(!/non autorisée|Aucun cluster/.test(t) && JSON.stringify(optsOff) === '["Botro"]', `${L}px · UH hors ligne : formulaire village ouvert, cluster Botro seul (${JSON.stringify(optsOff)})`);
+        await page.evaluate(() => window.ANAGROCI_FB.openFarmerForm());
+        await attendreForm(page);
+        const vOff = await page.evaluate(() => [...document.querySelectorAll('#ff_village option')].filter((o) => o.value).length);
+        verifier(vOff === 2, `${L}px · UH hors ligne : formulaire producteur ouvert, 2 villages Botro (${vOff})`);
+      }
       verifier(!(await debordement(page)), `${L}px · UH : aucun défilement horizontal`);
-      verifier(erreurs.length === 0, `${L}px · UH : aucune erreur console ${erreurs.length ? JSON.stringify(erreurs.slice(0, 3)) : ''}`);
+      verifier(erreursEnLigne.length === 0, `${L}px · UH : aucune erreur console en ligne ${erreursEnLigne.length ? JSON.stringify(erreursEnLigne.slice(0, 3)) : ''}`);
       await contexte.close();
 
       /* ---------------------------------------------------- Unit Head sans cluster */

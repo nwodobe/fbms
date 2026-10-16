@@ -221,6 +221,10 @@ var clusterRef = [];   // aflp_clusters (code, label, aliases), alimenté par ba
 function resolveCluster(v) {
   var k = normName(v).replace(/ /g, '');
   if (!k) return null;
+  if (!clusterRef.length && global.AFLP_ACCESS && global.AFLP_ACCESS.cluster) {
+    var a = global.AFLP_ACCESS.cluster(v);   // référentiel embarqué, repli sans réseau
+    return a ? a.code : null;
+  }
   for (var i = 0; i < clusterRef.length; i++) {
     var c = clusterRef[i];
     var keys = [c.code, c.label].concat(c.aliases || []);
@@ -228,6 +232,9 @@ function resolveCluster(v) {
   }
   return null;
 }
+/* Hors ligne, base() sert le paquet préparé : le référentiel des clusters doit en être
+   rechargé, sinon un Unit Head serait refusé faute de cluster reconnu. */
+function withClusterRef(x) { if (x && x.clusters && x.clusters.length) clusterRef = x.clusters; return x; }
 function isClusterScoped() { return ROLES_CLUSTER_TERRAIN.indexOf(currentRole()) >= 0; }
 /* Cluster d'affectation exploitable du compte, ou null (aucune écriture alors). */
 function myTerrainCluster() {
@@ -314,7 +321,7 @@ function base() {
   var off=global.ANAGROCI_OFFLINE, cid=campId();
   if(off&&!off.isOnline()) return off.getBundle('field_base',{campaign_id:cid}).then(function(x){
     if(!x) throw new Error('Mode hors ligne non préparé sur cet appareil. Reconnectez-vous puis utilisez « Préparer le mode hors ligne ».');
-    return x;
+    return withClusterRef(x);
   });
   return FBStore.get('base', function () {
     return Promise.all([
@@ -354,7 +361,7 @@ function base() {
     return x;
   }).catch(function(err){
     if(!off) throw err;
-    return off.getBundle('field_base',{campaign_id:cid}).then(function(x){if(x)return x;throw err;});
+    return off.getBundle('field_base',{campaign_id:cid}).then(function(x){if(x)return withClusterRef(x);throw err;});
   });
 }
 
