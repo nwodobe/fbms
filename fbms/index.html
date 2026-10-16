@@ -3830,6 +3830,120 @@ function masterRow(row){
   for (const k of Object.keys(row)) out[k] = (k === "data") ? JSON.stringify(row[k]) : row[k];
   return out;
 }
+function exportFirst(){
+  for (let i=0;i<arguments.length;i++){
+    const v=arguments[i];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  }
+  return "";
+}
+function exportOuiNon(v){ return v === true ? "Oui" : v === false ? "Non" : ""; }
+function producerExportRow(row, refs){
+  const d = row.data || {};
+  const suivi = d.suivi || {};
+  const passport = refs.passports[row.id] || {};
+  const ident = refs.identities[row.id] || {};
+  const baseline = refs.baselines[row.id] || {};
+  const plots = refs.plots[row.id] || { count:0, gpsCount:0, areaHa:0, trees:0 };
+  const consent = refs.consents[row.id] || {};
+  const rt = refs.rts[row.rt_id || d.rtId] || {};
+  const village = refs.villages[row.village_id || d.villageId] || {};
+  const channel = refs.channels[row.id] || {};
+  const superficie = exportFirst(
+    plots.areaHa > 0 ? plots.areaHa : "",
+    baseline.productive_area_ha,
+    baseline.area_ha,
+    d.superficieHa
+  );
+  const potentielKg = exportFirst(
+    baseline.forecast_kg,
+    d.potentiel2027Kg
+  );
+  const potentielMt = potentielKg !== "" && Number.isFinite(Number(potentielKg)) ? Number(potentielKg) / 1000 : "";
+  const prodPrecKg = exportFirst(
+    baseline.previous_production_kg,
+    d.prodPrecKg
+  );
+  const rendement = superficie !== "" && Number(superficie) > 0 && prodPrecKg !== "" && Number.isFinite(Number(prodPrecKg))
+    ? Number(prodPrecKg) / Number(superficie) : "";
+  return {
+    "Farmer ID": exportFirst(row.code, passport.farmer_id),
+    "Nom": exportFirst(row.nom, d.nom),
+    "Prénoms": exportFirst(row.prenoms, d.prenoms),
+    "Sexe": exportFirst(row.sexe, d.sexe),
+    "Année de naissance": exportFirst(row.birth_year, d.anneeNaissance),
+    "Tranche d'âge": exportFirst(row.age_band, d.ageBand),
+    "Téléphone principal": exportFirst(row.telephone, d.telephone),
+    "Téléphone alternatif": exportFirst(row.telephone_alt, d.telephoneAlt),
+    "Titulaire du téléphone": exportFirst(d.telTitulaire),
+    "Langue préférée": exportFirst(row.preferred_language, d.preferredLanguage),
+    "Type de pièce": exportFirst(ident.document_type, row.id_document_type, d.pieceType),
+    "N° pièce d'identité": exportFirst(ident.document_number, row.id_document_number, d.pieceNum),
+    "Statut pièce": exportFirst(ident.status),
+    "Région": exportFirst(village.region),
+    "Département": exportFirst(village.departement),
+    "Zone AFLP": exportFirst(passport.zone_label, passport.zone_code),
+    "Cluster": exportFirst(passport.cluster_label, passport.cluster_code, village.cluster),
+    "Village": exportFirst(row.village_nom, d.villageNom, passport.village_nom, village.village),
+    "Campement / hameau": exportFirst(d.campement),
+    "RT référent": exportFirst(rt.nom, passport.rt_nom),
+    "ID RT": exportFirst(row.rt_id, d.rtId),
+    "Coopérative principale": exportFirst(channel.primary_cooperative_name, channel.primary_cooperative_code, d.cooperative),
+    "N° membre coopérative": exportFirst(channel.member_number),
+    "Canal sourcing": exportFirst(channel.sourcing_channel, channel.enrollment_channel),
+    "Statut producteur": exportFirst(row.statut, d.statut),
+    "Statut opérationnel": exportFirst(row.operational_status, d.operationalStatus, passport.operational_status),
+    "Étape Farmer Passport": exportFirst(row.passport_stage, passport.passport_stage),
+    "Complétude passeport (%)": exportFirst(row.passport_completion, passport.passport_completion),
+    "Profil de risque": exportFirst(row.risk_profile, passport.risk_profile),
+    "Doublon possible": exportOuiNon(exportFirst(row.possible_duplicate, passport.possible_duplicate) === true),
+    "Revue requise": exportOuiNon(exportFirst(row.review_required, passport.review_required) === true),
+    "Motif revue": exportFirst(row.review_reason),
+    "Superficie anacarde (ha)": superficie,
+    "Superficie GPS vérifiée (ha)": plots.gpsVerifiedAreaHa > 0 ? plots.gpsVerifiedAreaHa : "",
+    "Nombre de parcelles": plots.count || exportFirst(passport.plot_count),
+    "Parcelles GPS": plots.gpsCount || exportFirst(passport.gps_mapped_count),
+    "Parcelles GPS vérifiées": plots.gpsVerifiedCount || "",
+    "Nombre d'arbres": exportFirst(plots.trees > 0 ? plots.trees : "", baseline.productive_tree_count, d.nbArbres),
+    "Année de plantation": exportFirst(baseline.planting_year, d.anneePlantation),
+    "Age plantation (ans)": exportFirst(d.agePlantation),
+    "Anciennete anacarde (ans)": exportFirst(d.anneesAnacarde),
+    "Autres cultures": exportFirst(d.autresCultures),
+    "Production précédente (kg)": prodPrecKg,
+    "Potentiel / prévision (kg)": potentielKg,
+    "Potentiel / prévision (MT)": potentielMt,
+    "Rendement historique (kg/ha)": rendement,
+    "Engagement AFLP (kg)": exportFirst(d.engagementKg),
+    "Acheteur habituel": exportFirst(d.acheteurHabituel),
+    "Prix précédent (FCFA/kg)": exportFirst(d.prixPrecedent),
+    "Mode de paiement préféré": exportFirst(d.paiementMode),
+    "N° Mobile Money": exportFirst(d.mobileMoneyNum),
+    "Titulaire Mobile Money": exportFirst(d.mobileMoneyTitulaire),
+    "Tonnage livré suivi (kg)": exportFirst(suivi.tonnageLivreKg),
+    "Montant payé suivi (FCFA)": exportFirst(suivi.montantPaye),
+    "Nombre de livraisons": exportFirst(suivi.nbLivraisons),
+    "Dernière livraison": exportFirst(suivi.derniereLivraison, passport.last_purchase_date),
+    "Dernier achat (kg)": exportFirst(passport.last_purchase_kg),
+    "Consentement": exportFirst(consent.status, row.consent_status, d.consentStatus),
+    "Mode consentement": exportFirst(consent.method),
+    "Date consentement": exportFirst(consent.consent_at),
+    "Notes": exportFirst(d.notes),
+    "Créé le": exportFirst(row.created_at, d.createdAt),
+    "Créé par": exportFirst(row.created_by, d.createdBy),
+    "Mis à jour le": exportFirst(row.updated_at, d.updatedAt),
+    "Revue / MAJ par": exportFirst(row.updated_by, d.updatedBy)
+  };
+}
+function formatProducerSheet(ws){
+  ws["!autofilter"] = { ref: ws["!ref"] || "A1:A1" };
+  ws["!cols"] = [
+    {wch:16},{wch:20},{wch:22},{wch:10},{wch:18},{wch:16},{wch:18},{wch:18},{wch:20},{wch:18},
+    {wch:18},{wch:22},{wch:14},{wch:22},{wch:22},{wch:20},{wch:16},{wch:20},{wch:18},{wch:20},
+    {wch:20},{wch:20},{wch:18},{wch:18},{wch:18},{wch:20},{wch:18},{wch:18},{wch:18},{wch:18},
+    {wch:20},{wch:24},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22},
+    {wch:22},{wch:20},{wch:22},{wch:22},{wch:20},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22}
+  ];
+}
 async function exportMaster(){
   if (!can("admin","utilisateurs")){ alert(t("Sauvegarde réservée au Branch Manager.")); return; }
   if (!isSupabase()){ alert(t("Sauvegarde Master disponible en mode Supabase uniquement.")); return; }
@@ -3837,10 +3951,20 @@ async function exportMaster(){
     setMasterStatus(t("Extraction en cours…"), T.inkSoft);
     initSupabase();
     if (!(await sbSession_())){ setMasterStatus(t("Session expirée. Reconnectez-vous."), T.red); return; }
-    const [v,r,p] = await Promise.all([
+    const optional = async (request) => {
+      try { const res = await request; return res && !res.error ? (res.data || []) : []; }
+      catch(e){ return []; }
+    };
+    const [v,r,p,passports,identities,baselines,plots,consents,channels] = await Promise.all([
       SB.from("villages").select("*").eq("deleted", false),
       SB.from("rt").select("*").eq("deleted", false),
       SB.from("producteurs").select("*").eq("deleted", false),
+      optional(SB.from("farmer_passport_summary_v").select("*").eq("deleted", false)),
+      optional(SB.from("farmer_identity_documents").select("producteur_id,document_type,document_number,status,created_at").eq("status","ACTIVE").order("created_at",{ascending:false})),
+      optional(SB.from("farmer_production_baselines").select("*").order("version",{ascending:false})),
+      optional(SB.from("farmer_plots").select("producteur_id,declared_area,area_unit,latitude,longitude,gps_status,gps_verified_area,tree_count,planting_year,deleted,status").eq("deleted",false)),
+      optional(SB.from("farmer_consents").select("producteur_id,status,method,consent_at,created_at").order("created_at",{ascending:false})),
+      optional(SB.from("aflp_producer_channel_v").select("producer_id,sourcing_channel,primary_cooperative_code,primary_cooperative_name,member_number,enrollment_channel"))
     ]);
     for (const x of [v,r,p]) if (x.error) throw new Error(x.error.message);
     const now = new Date();
@@ -3858,7 +3982,35 @@ async function exportMaster(){
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.data.map(masterRow)), "Villages");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.data.length ? r.data.map(masterRow) : [{info:"aucun RT"}]), "RT");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p.data.length ? p.data.map(masterRow) : [{info:"aucun producteur"}]), "Producteurs");
+
+      const refs = { villages:{}, rts:{}, passports:{}, identities:{}, baselines:{}, plots:{}, consents:{}, channels:{} };
+      v.data.forEach(x=>{ refs.villages[x.id] = x; });
+      r.data.forEach(x=>{ refs.rts[x.id] = x; });
+      passports.forEach(x=>{ if (x.producteur_id) refs.passports[x.producteur_id] = x; });
+      identities.forEach(x=>{ if (x.producteur_id && !refs.identities[x.producteur_id]) refs.identities[x.producteur_id] = x; });
+      baselines.forEach(x=>{ if (x.producteur_id && !refs.baselines[x.producteur_id]) refs.baselines[x.producteur_id] = x; });
+      consents.forEach(x=>{ if (x.producteur_id && !refs.consents[x.producteur_id]) refs.consents[x.producteur_id] = x; });
+      channels.forEach(x=>{ if (x.producer_id && !refs.channels[x.producer_id]) refs.channels[x.producer_id] = x; });
+      plots.forEach(x=>{
+        if (!x.producteur_id) return;
+        if (x.status && x.status !== "ACTIVE") return;
+        const g = refs.plots[x.producteur_id] || (refs.plots[x.producteur_id] = {count:0,gpsCount:0,gpsVerifiedCount:0,gpsVerifiedAreaHa:0,areaHa:0,trees:0});
+        g.count++;
+        if (x.latitude != null && x.longitude != null) g.gpsCount++;
+        if (x.gps_status === "GPS_VERIFIED") {
+          g.gpsVerifiedCount++;
+          g.gpsVerifiedAreaHa += Number(x.gps_verified_area)||0;
+        }
+        const unit=String(x.area_unit||"HA").toUpperCase(), a=Number(x.declared_area)||0;
+        g.areaHa += unit==="M2" ? a/10000 : unit==="ACRE" ? a*0.404686 : unit==="HA" ? a : 0;
+        g.trees += Number(x.tree_count)||0;
+        if (!refs.baselines[x.producteur_id] && x.planting_year) refs.baselines[x.producteur_id] = {planting_year:x.planting_year};
+      });
+      const detailedRows = p.data.length ? p.data.map(x=>producerExportRow(x,refs)) : [{Information:"aucun producteur"}];
+      const wsProd = XLSX.utils.json_to_sheet(detailedRows);
+      formatProducerSheet(wsProd);
+      XLSX.utils.book_append_sheet(wb, wsProd, "Producteurs_Detailles");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p.data.length ? p.data.map(masterRow) : [{info:"aucun producteur"}]), "Producteurs_RAW");
       XLSX.writeFile(wb, "FBMS_MASTER_" + stamp + ".xlsx");
     }
     setMasterStatus("✔ " + t("Sauvegarde téléchargée") + " : " + v.data.length + " villages · " + r.data.length + " RT · " + p.data.length + " producteurs.", T.emerald);
