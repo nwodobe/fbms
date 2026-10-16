@@ -3906,6 +3906,8 @@ function producerExportRow(row, refs){
     "Parcelles GPS vérifiées": plots.gpsVerifiedCount || "",
     "Nombre d'arbres": exportFirst(plots.trees > 0 ? plots.trees : "", baseline.productive_tree_count, d.nbArbres),
     "Année de plantation": exportFirst(baseline.planting_year, d.anneePlantation),
+    "Age plantation (ans)": exportFirst(d.agePlantation),
+    "Anciennete anacarde (ans)": exportFirst(d.anneesAnacarde),
     "Autres cultures": exportFirst(d.autresCultures),
     "Production précédente (kg)": prodPrecKg,
     "Potentiel / prévision (kg)": potentielKg,
