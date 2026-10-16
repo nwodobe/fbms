@@ -3847,6 +3847,8 @@ function producerExportRow(row, refs){
   const plots = refs.plots[row.id] || { count:0, gpsCount:0, areaHa:0, trees:0 };
   const consent = refs.consents[row.id] || {};
   const rt = refs.rts[row.rt_id || d.rtId] || {};
+  const village = refs.villages[row.village_id || d.villageId] || {};
+  const channel = refs.channels[row.id] || {};
   const superficie = exportFirst(
     plots.areaHa > 0 ? plots.areaHa : "",
     baseline.productive_area_ha,
@@ -3855,9 +3857,11 @@ function producerExportRow(row, refs){
   );
   const potentielKg = exportFirst(
     baseline.forecast_kg,
-    d.potentiel2027Kg,
-    d.engagementKg
+    d.potentiel2027Kg
   );
+  const potentielMt = potentielKg !== "" && Number.isFinite(Number(potentielKg)) ? Number(potentielKg) / 1000 : "";
+  const rendement = superficie !== "" && Number(superficie) > 0 && prodPrecKg !== "" && Number.isFinite(Number(prodPrecKg))
+    ? Number(prodPrecKg) / Number(superficie) : "";
   const prodPrecKg = exportFirst(
     baseline.previous_production_kg,
     d.prodPrecKg
@@ -3876,11 +3880,17 @@ function producerExportRow(row, refs){
     "Type de pièce": exportFirst(ident.document_type, row.id_document_type, d.pieceType),
     "N° pièce d'identité": exportFirst(ident.document_number, row.id_document_number, d.pieceNum),
     "Statut pièce": exportFirst(ident.status),
-    "Village": exportFirst(row.village_nom, d.villageNom, passport.village_nom),
+    "Région": exportFirst(village.region),
+    "Département": exportFirst(village.departement),
+    "Zone AFLP": exportFirst(passport.zone_label, passport.zone_code),
+    "Cluster": exportFirst(passport.cluster_label, passport.cluster_code, village.cluster),
+    "Village": exportFirst(row.village_nom, d.villageNom, passport.village_nom, village.village),
     "Campement / hameau": exportFirst(d.campement),
     "RT référent": exportFirst(rt.nom, passport.rt_nom),
     "ID RT": exportFirst(row.rt_id, d.rtId),
-    "Coopérative": exportFirst(d.cooperative),
+    "Coopérative principale": exportFirst(channel.primary_cooperative_name, channel.primary_cooperative_code, d.cooperative),
+    "N° membre coopérative": exportFirst(channel.member_number),
+    "Canal sourcing": exportFirst(channel.sourcing_channel, channel.enrollment_channel),
     "Statut producteur": exportFirst(row.statut, d.statut),
     "Statut opérationnel": exportFirst(row.operational_status, d.operationalStatus, passport.operational_status),
     "Étape Farmer Passport": exportFirst(row.passport_stage, passport.passport_stage),
@@ -3890,13 +3900,17 @@ function producerExportRow(row, refs){
     "Revue requise": exportOuiNon(exportFirst(row.review_required, passport.review_required) === true),
     "Motif revue": exportFirst(row.review_reason),
     "Superficie anacarde (ha)": superficie,
+    "Superficie GPS vérifiée (ha)": plots.gpsVerifiedAreaHa > 0 ? plots.gpsVerifiedAreaHa : "",
     "Nombre de parcelles": plots.count || exportFirst(passport.plot_count),
     "Parcelles GPS": plots.gpsCount || exportFirst(passport.gps_mapped_count),
-    "Nombre d'arbres": exportFirst(plots.trees > 0 ? plots.trees : "", d.nbArbres),
+    "Parcelles GPS vérifiées": plots.gpsVerifiedCount || "",
+    "Nombre d'arbres": exportFirst(plots.trees > 0 ? plots.trees : "", baseline.productive_tree_count, d.nbArbres),
     "Année de plantation": exportFirst(baseline.planting_year, d.anneePlantation),
     "Autres cultures": exportFirst(d.autresCultures),
     "Production précédente (kg)": prodPrecKg,
     "Potentiel / prévision (kg)": potentielKg,
+    "Potentiel / prévision (MT)": potentielMt,
+    "Rendement historique (kg/ha)": rendement,
     "Engagement AFLP (kg)": exportFirst(d.engagementKg),
     "Acheteur habituel": exportFirst(d.acheteurHabituel),
     "Prix précédent (FCFA/kg)": exportFirst(d.prixPrecedent),
@@ -3939,15 +3953,16 @@ async function exportMaster(){
       try { const res = await request; return res && !res.error ? (res.data || []) : []; }
       catch(e){ return []; }
     };
-    const [v,r,p,passports,identities,baselines,plots,consents] = await Promise.all([
+    const [v,r,p,passports,identities,baselines,plots,consents,channels] = await Promise.all([
       SB.from("villages").select("*").eq("deleted", false),
       SB.from("rt").select("*").eq("deleted", false),
       SB.from("producteurs").select("*").eq("deleted", false),
       optional(SB.from("farmer_passport_summary_v").select("*").eq("deleted", false)),
       optional(SB.from("farmer_identity_documents").select("producteur_id,document_type,document_number,status,created_at").eq("status","ACTIVE").order("created_at",{ascending:false})),
-      optional(SB.from("farmer_production_baselines").select("*").order("created_at",{ascending:false})),
-      optional(SB.from("farmer_plots").select("producteur_id,declared_area,area_unit,latitude,longitude,tree_count,planting_year,deleted").eq("deleted",false)),
-      optional(SB.from("farmer_consents").select("producteur_id,status,method,consent_at,created_at").order("created_at",{ascending:false}))
+      optional(SB.from("farmer_production_baselines").select("*").order("version",{ascending:false})),
+      optional(SB.from("farmer_plots").select("producteur_id,declared_area,area_unit,latitude,longitude,gps_status,gps_verified_area,tree_count,planting_year,deleted,status").eq("deleted",false)),
+      optional(SB.from("farmer_consents").select("producteur_id,status,method,consent_at,created_at").order("created_at",{ascending:false})),
+      optional(SB.from("aflp_producer_channel_v").select("producer_id,sourcing_channel,primary_cooperative_code,primary_cooperative_name,member_number,enrollment_channel"))
     ]);
     for (const x of [v,r,p]) if (x.error) throw new Error(x.error.message);
     const now = new Date();
@@ -3966,18 +3981,26 @@ async function exportMaster(){
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.data.map(masterRow)), "Villages");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.data.length ? r.data.map(masterRow) : [{info:"aucun RT"}]), "RT");
 
-      const refs = { rts:{}, passports:{}, identities:{}, baselines:{}, plots:{}, consents:{} };
+      const refs = { villages:{}, rts:{}, passports:{}, identities:{}, baselines:{}, plots:{}, consents:{}, channels:{} };
+      v.data.forEach(x=>{ refs.villages[x.id] = x; });
       r.data.forEach(x=>{ refs.rts[x.id] = x; });
       passports.forEach(x=>{ if (x.producteur_id) refs.passports[x.producteur_id] = x; });
       identities.forEach(x=>{ if (x.producteur_id && !refs.identities[x.producteur_id]) refs.identities[x.producteur_id] = x; });
       baselines.forEach(x=>{ if (x.producteur_id && !refs.baselines[x.producteur_id]) refs.baselines[x.producteur_id] = x; });
       consents.forEach(x=>{ if (x.producteur_id && !refs.consents[x.producteur_id]) refs.consents[x.producteur_id] = x; });
+      channels.forEach(x=>{ if (x.producer_id && !refs.channels[x.producer_id]) refs.channels[x.producer_id] = x; });
       plots.forEach(x=>{
         if (!x.producteur_id) return;
-        const g = refs.plots[x.producteur_id] || (refs.plots[x.producteur_id] = {count:0,gpsCount:0,areaHa:0,trees:0});
+        if (x.status && x.status !== "ACTIVE") return;
+        const g = refs.plots[x.producteur_id] || (refs.plots[x.producteur_id] = {count:0,gpsCount:0,gpsVerifiedCount:0,gpsVerifiedAreaHa:0,areaHa:0,trees:0});
         g.count++;
         if (x.latitude != null && x.longitude != null) g.gpsCount++;
-        if (String(x.area_unit||"HA").toUpperCase()==="HA") g.areaHa += Number(x.declared_area)||0;
+        if (x.gps_status === "GPS_VERIFIED") {
+          g.gpsVerifiedCount++;
+          g.gpsVerifiedAreaHa += Number(x.gps_verified_area)||0;
+        }
+        const unit=String(x.area_unit||"HA").toUpperCase(), a=Number(x.declared_area)||0;
+        g.areaHa += unit==="M2" ? a/10000 : unit==="ACRE" ? a*0.404686 : unit==="HA" ? a : 0;
         g.trees += Number(x.tree_count)||0;
         if (!refs.baselines[x.producteur_id] && x.planting_year) refs.baselines[x.producteur_id] = {planting_year:x.planting_year};
       });
