@@ -1,0 +1,67 @@
+plugins { id 'com.android.application' }
+
+def v = new Properties()
+file("../version.properties").withInputStream { v.load(it) }
+
+/* Signature release : clé de l'organisation, JAMAIS dans le dépôt.
+   Fournie par android/keystore.properties (ignoré par git) ou par variables d'environnement. */
+def ks = new Properties()
+def ksFile = file("../keystore.properties")
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+def ksPath = ks.getProperty('storeFile') ?: System.getenv('ANAGROCI_KEYSTORE')
+
+android {
+    namespace 'ci.anagroci.fieldbuying'
+    compileSdk v.getProperty('compileSdk').toInteger()
+
+    defaultConfig {
+        applicationId v.getProperty('applicationId')
+        minSdk v.getProperty('minSdk').toInteger()
+        targetSdk v.getProperty('targetSdk').toInteger()
+        versionCode v.getProperty('versionCode').toInteger()
+        versionName v.getProperty('versionName')
+        manifestPlaceholders = [appLabel: '@string/app_name']
+    }
+
+    signingConfigs {
+        if (ksPath) {
+            release {
+                storeFile file(ksPath)
+                storePassword ks.getProperty('storePassword') ?: System.getenv('ANAGROCI_KEYSTORE_PASSWORD')
+                keyAlias ks.getProperty('keyAlias') ?: System.getenv('ANAGROCI_KEY_ALIAS')
+                keyPassword ks.getProperty('keyPassword') ?: System.getenv('ANAGROCI_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        /* Version de test : identifiant distinct (.debug) et nom distinct : elle
+           s'installe À CÔTÉ de la version officielle, sans jamais partager ses données. */
+        debug {
+            applicationIdSuffix '.debug'
+            manifestPlaceholders = [appLabel: 'ANAGROCI FB TEST']
+        }
+        release {
+            minifyEnabled false
+            if (ksPath) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    androidResources { noCompress += ['woff2', 'png'] }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { outputFileName = "ANAGROCI_FIELD_BUYING_AFLP_2027_v${variant.versionName}_${variant.buildType.name}.apk" }
+    }
+}
+
+/* Le paquet Web est régénéré à chaque build depuis les fichiers du dépôt. */
+def prepareWeb = tasks.register('prepareWeb', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'android/scripts/prepare-web.mjs'
+}
+preBuild.dependsOn prepareWeb
