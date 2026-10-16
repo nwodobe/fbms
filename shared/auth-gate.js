@@ -60,11 +60,25 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function box(inner){ return '<div style="width:100%;max-width:380px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:26px 24px;box-shadow:0 24px 60px rgba(0,0,0,.35);backdrop-filter:blur(8px)">'+inner+'</div>'; }
   function logoSvg(){ return '<svg width="52" height="52" viewBox="0 0 64 64" style="display:block;margin:0 auto 6px"><circle cx="32" cy="32" r="30" fill="#fff"/><path d="M46 14 A21 21 0 1 0 51 42" fill="none" stroke="#F0A500" stroke-width="9" stroke-linecap="round"/><path d="M31 50 C22 39 22 25 30 13 C38 25 38 39 31 50 Z" transform="rotate(-14 31 50)" fill="#1E8E3E"/><path d="M31 50 C22 39 22 25 30 13 C38 25 38 39 31 50 Z" transform="rotate(8 31 50)" fill="#34A853"/><path d="M31 50 C24 40 25 28 31 17 C37 28 37 40 31 50 Z" transform="rotate(30 31 50)" fill="#7CB342"/></svg>'; }
+  /* Messages de connexion distincts (AFLP 2027, terrain sans réseau).
+     « Compte inexistant » et « mot de passe incorrect » restent volontairement
+     un seul message : Supabase ne les distingue pas, et les distinguer
+     permettrait de deviner les emails des collaborateurs. */
+  function loginErrorMessage(err){
+    var code=String(err&&err.code||""), msg=String(err&&err.message||""), st=Number(err&&err.status||0);
+    if((typeof navigator!=="undefined"&&navigator.onLine===false)||st===0&&/fetch|network|load failed|timeout|offline/i.test(msg)||/AuthRetryableFetchError/.test(String(err&&err.name||""))) return "Pas de connexion Internet. La connexion nécessite le réseau ; vos opérations déjà enregistrées sur ce téléphone sont conservées.";
+    if(code==="email_not_confirmed"||/email not confirmed/i.test(msg)) return "Adresse email non confirmée. Contactez le Branch Manager.";
+    if(code==="user_banned"||/banned/i.test(msg)) return "Compte désactivé. Contactez le Branch Manager.";
+    if(st===429||code==="over_request_rate_limit"||/rate limit|too many/i.test(msg)) return "Trop de tentatives. Patientez quelques minutes puis réessayez.";
+    if(st>=500) return "Service d'authentification momentanément indisponible. Réessayez dans quelques instants.";
+    return "Email ou mot de passe incorrect.";
+  }
+  function hadPreviousSession(){ try{ for(var i=0;i<localStorage.length;i++){ if(/^anagroci_profile_/.test(localStorage.key(i)||"")) return true; } }catch(e){} return false; }
   function showLogin(message, kind){
     var note = message ? '<div style="margin-top:14px;font-size:13px;border-radius:10px;padding:10px 12px;' + (kind === "ok" ? 'background:rgba(141,197,86,.18);border:1px solid rgba(141,197,86,.5);color:#dff5d6' : 'background:rgba(224,90,74,.16);border:1px solid rgba(224,90,74,.5);color:#ffd9d2') + '">' + esc(message) + '</div>' : "";
     overlay.innerHTML = box(logoSvg() + '<div style="text-align:center;font-weight:800;font-size:19px;margin-bottom:2px">ANAGROCI Operations Suite</div><div style="text-align:center;font-size:12px;color:#bff0cf;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">Accès sécurisé</div><form id="ag-form"><label>Email</label><input id="ag-email" type="email" autocomplete="username" placeholder="vous@anagroci.ci" required><label>Mot de passe</label><input id="ag-pass" type="password" autocomplete="current-password" placeholder="••••••••" required><button class="ag-primary" id="ag-btn" type="submit">Se connecter</button>' + note + '<p style="margin:16px 0 0;font-size:11.5px;color:#a9d9ba;text-align:center;line-height:1.5">Pas encore d\'accès ? Le <b>Branch Manager</b> crée votre compte et vous attribue vos droits.</p></form>');
     setTimeout(function(){ window.ANAGROCI_I18N && window.ANAGROCI_I18N.apply(); },0);
-    document.getElementById("ag-form").addEventListener("submit",function(e){ e.preventDefault(); var email=document.getElementById("ag-email").value.trim().toLowerCase(); var pass=document.getElementById("ag-pass").value; var btn=document.getElementById("ag-btn"); btn.disabled=true; btn.textContent="Connexion…"; SB.auth.signInWithPassword({email:email,password:pass}).then(function(r){ if(r.error){ btn.disabled=false; btn.textContent="Se connecter"; return showLogin("Email ou mot de passe incorrect.","err"); } location.reload(); }); });
+    document.getElementById("ag-form").addEventListener("submit",function(e){ e.preventDefault(); var email=document.getElementById("ag-email").value.trim().toLowerCase(); var pass=document.getElementById("ag-pass").value; var btn=document.getElementById("ag-btn"); btn.disabled=true; btn.textContent="Connexion…"; SB.auth.signInWithPassword({email:email,password:pass}).then(function(r){ if(r.error){ btn.disabled=false; btn.textContent="Se connecter"; return showLogin(loginErrorMessage(r.error),"err"); } location.reload(); },function(e){ btn.disabled=false; btn.textContent="Se connecter"; showLogin(loginErrorMessage(e),"err"); }); });
   }
 var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catch(e){ return null; } })();
      function inSub(){ if(SITE_ROOT){ try { return new URL(".", location.href).href !== SITE_ROOT; } catch(e){} } return /\/(fbms|logistique|suite|shared|terrain|rcntrace)\//.test(location.pathname); }
@@ -75,7 +89,22 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function injectI18n(){ if(document.getElementById("anagroci-i18n-js")) return; var s=document.createElement("script"); s.id="anagroci-i18n-js"; s.src=sharedHref("i18n.js")+"?v=132333f"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
   function injectAudit(){ if(document.getElementById("anagroci-audit-js")) return; var s=document.createElement("script"); s.id="anagroci-audit-js"; s.src=sharedHref("anagroci-audit.js")+"?v=step8-friendly-errors"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
   function injectModuleGuards(){ if(MODULE!=="sacs") return; if(document.getElementById("anagroci-sacs-guards-js")) return; var s=document.createElement("script"); s.id="anagroci-sacs-guards-js"; s.src=sharedHref("anagroci-sacs-guards.js")+"?v=step8-friendly-errors"; s.defer=true; (document.head||document.documentElement).appendChild(s); }
-  function injectAcces(){ if(document.getElementById("aflp-access-js")) return; var s=document.createElement("script"); s.id="aflp-access-js"; s.src=sharedHref("aflp-access.js")+"?v=aflp-1.0.0"; (document.head||document.documentElement).appendChild(s); }
+  /* La décision d'accès ATTEND le chargement de aflp-access.js (source unique des
+     rôles AFLP). Sans cette attente, un profil lu plus vite que le script était
+     classé avec l'ancienne table : « Unit Head » ou « Zonal Head » devenaient
+     « agent » de façon aléatoire (constaté dans l'application Android). */
+  var accesReady=null;
+  function injectAcces(){
+    if(window.AFLP_ACCESS){ accesReady=Promise.resolve(); return; }
+    var s=document.getElementById("aflp-access-js");
+    if(!s){ s=document.createElement("script"); s.id="aflp-access-js"; s.src=sharedHref("aflp-access.js")+"?v=aflp-1.0.0"; (document.head||document.documentElement).appendChild(s); }
+    accesReady=new Promise(function(res){ s.addEventListener("load",res); s.addEventListener("error",res); });
+  }
+  function whenAcces(cb){
+    if(window.AFLP_ACCESS) return cb();
+    var done=false; function go(){ if(done) return; done=true; cb(); }
+    (accesReady||Promise.resolve()).then(go); setTimeout(go,5000);
+  }
   injectAcces(); injectI18n(); injectAudit(); injectModuleGuards();
   function chipHTML(prof){ return '<span class="ag-name">'+esc(prof.nom||prof.role)+' · <span class="ag-role">'+esc(prof.role)+'</span></span>'+(estBM(prof.role)?'<a class="ag-cog" href="'+adminHref()+'" title="Administration">⚙</a>':'')+'<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
   function wireLogout(){ var b=document.getElementById("ag-logout"); b&&b.addEventListener("click",function(){
@@ -94,13 +123,16 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function reveal(prof){ try{ injectChip(prof); }catch(e){} window.ANAGROCI_AUTH={profile:prof,niveau:niveau(prof.role),estBM:estBM(prof.role),module:MODULE,signOut:function(){return SB.auth.signOut().then(function(){location.reload();});}}; document.dispatchEvent(new CustomEvent("anagroci:authenticated",{detail:window.ANAGROCI_AUTH})); overlay.parentNode&&overlay.parentNode.removeChild(overlay); setTimeout(injectAchatsCard,0); setTimeout(injectAchatsDropdownPatch,0); setTimeout(injectModuleGuards,0); setTimeout(function(){ window.ANAGROCI_I18N&&window.ANAGROCI_I18N.apply(); },0); setTimeout(function(){ window.ANAGROCI_AUDIT&&window.ANAGROCI_AUDIT.log("module_access",{module:MODULE,role:prof.role}); },250); }
   function cacheProfile(uid,prof){ try{ localStorage.setItem("anagroci_profile_"+uid,JSON.stringify(prof)); }catch(e){} }
   function readCachedProfile(uid){ try{ var s=localStorage.getItem("anagroci_profile_"+uid); return s?JSON.parse(s):null; }catch(e){ return null; } }
-  function decide(prof){ var allowed=ACCESS[MODULE]||[]; if(allowed.indexOf(niveau(prof.role))<0) return showDenied(prof); reveal(prof); }
+  function decide(prof){ whenAcces(function(){ var allowed=ACCESS[MODULE]||[]; if(allowed.indexOf(niveau(prof.role))<0) return showDenied(prof); reveal(prof); }); }
   var SB;
   function run(){
     SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
     SB.auth.getSession().then(function(res){
       var session=res.data&&res.data.session;
-      if(!session) return showLogin();
+      if(!session){
+        if(typeof navigator!=="undefined"&&navigator.onLine===false) return showLogin("Hors ligne : une connexion Internet est nécessaire pour vous identifier sur ce téléphone.","err");
+        return hadPreviousSession() ? showLogin("Session expirée ou fermée : reconnectez-vous. Les opérations non synchronisées restent sur ce téléphone.","ok") : showLogin();
+      }
       var cached=readCachedProfile(session.user.id);
       if(typeof navigator!=="undefined"&&navigator.onLine===false){
         if(cached&&cached.actif!==false) return decide(cached);
