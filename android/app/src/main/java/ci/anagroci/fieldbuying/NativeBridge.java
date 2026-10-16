@@ -3,6 +3,7 @@ package ci.anagroci.fieldbuying;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
@@ -30,8 +31,11 @@ import java.io.OutputStream;
 final class NativeBridge {
     private final MainActivity activity;
     private final AssetServer server;
+    private final WebBundleUpdater updater;
 
-    NativeBridge(MainActivity activity, AssetServer server) { this.activity = activity; this.server = server; }
+    NativeBridge(MainActivity activity, AssetServer server, WebBundleUpdater updater) {
+        this.activity = activity; this.server = server; this.updater = updater;
+    }
 
     /** Vérifie la présence réelle des fichiers critiques listés au build. */
     @JavascriptInterface
@@ -65,10 +69,56 @@ final class NativeBridge {
             o.put("app", "ANAGROCI FIELD BUYING");
             o.put("version", appVersion());
             o.put("android_sdk", Build.VERSION.SDK_INT);
+            o.put("android_release", Build.VERSION.RELEASE);
+            o.put("package", activity.getPackageName());
+            o.put("signer_sha256", signerSha256());
             o.put("web_commit", server.manifest().optString("git_commit", null));
+            o.put("web_built_at", server.manifest().optString("generated_at", null));
+            o.put("queue_schema", server.manifest().optString("queue_schema", null));
+            o.put("updates", updater == null ? new JSONObject().put("enabled", false).put("last_result", "mécanisme indisponible") : updater.status());
         } catch (Exception ignored) { }
         return o.toString();
     }
+
+    /** Empreinte SHA-256 du certificat de signature : deux APK ne se mettent à jour que si elle est identique. */
+    @SuppressWarnings("deprecation")
+    private String signerSha256() {
+        try {
+            PackageInfo p = activity.getPackageManager().getPackageInfo(activity.getPackageName(), PackageManager.GET_SIGNATURES);
+            if (p.signatures == null || p.signatures.length == 0) return null;
+            String h = WebBundleUpdater.sha256(p.signatures[0].toByteArray());
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < h.length(); i += 2) { if (i > 0) b.append(':'); b.append(h.substring(i, i + 2).toUpperCase(java.util.Locale.ROOT)); }
+            return b.toString();
+        } catch (Exception e) { return null; }
+    }
+
+    /** État des mises à jour Web signées (lecture seule). */
+    @JavascriptInterface
+    public String updateStatus() {
+        return updater == null ? "{\"enabled\":false,\"last_result\":\"mécanisme indisponible\"}" : updater.status().toString();
+    }
+
+    /** Lance une vérification en arrière-plan ; le résultat se lit ensuite avec updateStatus(). */
+    @JavascriptInterface
+    public String checkUpdate() {
+        if (updater == null || !updater.enabled()) return updateStatus();
+        if (!activity.online()) return "{\"enabled\":true,\"last_result\":\"hors ligne : vérification impossible\"}";
+        activity.checkUpdatesInBackground(true);
+        return "{\"started\":true}";
+    }
+
+    /** Applique la version téléchargée et recharge (même effet qu'un redémarrage). */
+    @JavascriptInterface
+    public void applyUpdate() { activity.applyUpdateAndReload(); }
+
+    /** La page signale qu'elle a démarré correctement. */
+    @JavascriptInterface
+    public void confirmBoot() { if (updater != null) updater.confirmBoot(); }
+
+    /** La page transmet le nombre d'opérations locales non synchronisées (aucune donnée métier). */
+    @JavascriptInterface
+    public void reportQueue(int open) { if (updater != null && open >= 0) updater.reportQueue(open); }
 
     private String appVersion() {
         try {

@@ -59,6 +59,7 @@ pgdata/
 
 # Captures produites par tests/sacherie-inventaires-journal-e2e.mjs
 .captures-sacherie/
+<<<<<<< HEAD
 .captures-recuperation/
 
 # --- AFLP FIELD PROOF : fichiers produits par la recette locale (vidéos, ZIP) --
@@ -66,3 +67,8 @@ tests/fieldproof/resultats/fichiers/
 
 # --- AFLP FLEET : flux de caméra simulée régénérés à chaque test de bout en bout --
 tests/moto/resultats/camera-compteur-*.mjpeg
+=======
+
+# Clé PUBLIQUE de publication des mises à jour Web de l'APK : versionnée volontairement
+!android/update-keys/web-bundle-public.pem
+>>>>>>> 1f7584b (Android 1.1.0 : mises à jour Web signées et vérifiées (option C hybride))

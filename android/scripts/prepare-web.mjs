@@ -18,17 +18,14 @@ import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statS
 import { createHash } from 'node:crypto';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { listWebFiles, fileTable, queueSchema, commitSequence, treeDirty, nativeCompatibility } from './web-bundle-lib.mjs';
 
 const ANDROID = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = join(ANDROID, '..');
 const OUT = join(ANDROID, 'app', 'src', 'main', 'assets', 'www');
 const CACHE = join(ANDROID, '.vendor-cache');
 
-/* Ce qui part dans l'APK : l'application Web servie par GitHub Pages. */
-const INCLUDE = ['index.html', 'logistique.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
-  'operations', 'shared', 'assets', 'terrain', 'fbms', 'rcntrace', 'logistique', 'suite'];
-/* Jamais embarqué : documentation, tests, SQL, sauvegardes, Service Worker. */
-const EXCLUDE = [/\.md$/i, /(^|\/)\.[^/]+$/, /^shared\/admin-create-user/, /\.map$/];
+/* INCLUDE / EXCLUDE : voir web-bundle-lib.mjs (règle partagée avec les mises à jour signées). */
 
 /* Bibliothèques CDN -> paquets npm figés. Les clés sont les URL exactes vues dans les pages. */
 const VENDOR = [
@@ -83,17 +80,13 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 /* 1. Application Web */
+const compat = nativeCompatibility(REPO);
+if (compat.length) throw new Error('Code Web incompatible avec l’APK :\n - ' + compat.join('\n - '));
+const webFiles = listWebFiles(REPO);
 let count = 0;
-for (const item of INCLUDE) {
-  const src = join(REPO, item);
-  if (!existsSync(src)) throw new Error('Absent du dépôt : ' + item);
-  const files = statSync(src).isDirectory() ? walk(src) : [src];
-  for (const f of files) {
-    const rel = relative(REPO, f).split('\\').join('/');
-    if (EXCLUDE.some((re) => re.test(rel))) continue;
-    mkdirSync(dirname(join(OUT, rel)), { recursive: true });
-    copyFileSync(f, join(OUT, rel)); count++;
-  }
+for (const rel of webFiles) {
+  mkdirSync(dirname(join(OUT, rel)), { recursive: true });
+  copyFileSync(join(REPO, rel), join(OUT, rel)); count++;
 }
 
 /* 2. Bibliothèques et polices */
@@ -151,17 +144,54 @@ for (const m of fb.matchAll(/(?:src|href)="([^"]+)"/g)) {
 }
 for (const f of critical) if (!existsSync(join(OUT, f))) throw new Error('Fichier critique manquant dans le paquet : ' + f);
 
-let commit = null, dirty = false;
+let commit = null;
 try { commit = execFileSync('git', ['-C', REPO, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch (e) {}
-try { dirty = execFileSync('git', ['-C', REPO, 'status', '--porcelain', '--', ...INCLUDE], { encoding: 'utf8' }).trim() !== ''; } catch (e) {}
+const dirty = treeDirty(REPO);
+const props = Object.fromEntries(readFileSync(join(ANDROID, 'version.properties'), 'utf8').split(/\r?\n/)
+  .filter((l) => /^[a-zA-Z]+=/.test(l)).map((l) => [l.split('=')[0], l.slice(l.indexOf('=') + 1).trim()]));
+/* Numéro de version du paquet Web = date du commit. Un arbre modifié non commité
+   reçoit 0 : aucune mise à jour signée ne pourra être confondue avec lui… et
+   toute mise à jour signée le remplacera. Ne jamais distribuer un tel APK. */
+const sequence = dirty ? 0 : commitSequence(REPO);
 const manifest = {
-  app: 'ANAGROCI FIELD BUYING', generated_at: new Date().toISOString(),
+  app: 'ANAGROCI FIELD BUYING', app_id: props.applicationId, generated_at: new Date().toISOString(),
   git_commit: commit, web_tree_dirty: dirty, file_count: count,
+  sequence, bundle_label: (commit || 'local').slice(0, 7) + (dirty ? '-modifié' : ''),
+  queue_schema: queueSchema(REPO),
+  files: Object.fromEntries(Object.entries(fileTable(REPO, webFiles)).map(([k, v]) => [k, v.sha256])),
   critical: [...critical].sort(),
   critical_sha256: Object.fromEntries([...critical].sort().map((f) => [f, sha(join(OUT, f))])),
   vendor: vendorInfo, vendor_map: vendorMap,
 };
 writeFileSync(join(OUT, '_native', 'bundle-manifest.json'), JSON.stringify(manifest, null, 1));
+
+/* 4. Source approuvée des mises à jour Web signées.
+   - URL racine du site publié : variable ANAGROCI_UPDATE_ROOT_URL, ou fichier
+     android/update.properties (ignoré par git) : rootUrl=https://…/
+   - Clé PUBLIQUE ECDSA P-256 : android/update-keys/web-bundle-public.pem
+     (ou variable ANAGROCI_UPDATE_PUBKEY = chemin). La clé privée n'est jamais ici.
+   Sans l'une des deux, le mécanisme est désactivé : l'APK sert sa propre version. */
+const upd = existsSync(join(ANDROID, 'update.properties')) ? Object.fromEntries(readFileSync(join(ANDROID, 'update.properties'), 'utf8')
+  .split(/\r?\n/).filter((l) => /^[a-zA-Z]+=/.test(l)).map((l) => [l.split('=')[0], l.slice(l.indexOf('=') + 1).trim()])) : {};
+let rootUrl = process.env.ANAGROCI_UPDATE_ROOT_URL || upd.rootUrl || '';
+const channel = process.env.ANAGROCI_UPDATE_CHANNEL || upd.channel || 'stable';
+const pubPath = process.env.ANAGROCI_UPDATE_PUBKEY || join(ANDROID, 'update-keys', 'web-bundle-public.pem');
+const cfg = { format: 1, app_id: props.applicationId, channel, enabled: false };
+if (rootUrl && !rootUrl.endsWith('/')) rootUrl += '/';
+if (!rootUrl) cfg.reason = 'aucune URL de publication fournie au build';
+else if (!/^https:\/\/[^/]+\//.test(rootUrl)) cfg.reason = 'URL de publication non HTTPS';
+else if (!existsSync(pubPath)) cfg.reason = 'aucune clé publique de publication fournie au build';
+else {
+  const { createPublicKey } = await import('node:crypto');
+  const key = createPublicKey(readFileSync(pubPath, 'utf8'));
+  if (key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new Error('Clé publique de publication : ECDSA P-256 attendue');
+  if (/PRIVATE/.test(readFileSync(pubPath, 'utf8'))) throw new Error('Le fichier de clé publique contient une clé PRIVÉE : refus');
+  Object.assign(cfg, { enabled: true, web_root_url: rootUrl, manifest_url: `${rootUrl}android-updates/${channel}/web-bundle.json`,
+    public_key_der_hex: key.export({ type: 'spki', format: 'der' }).toString('hex'),
+    public_key_sha256: createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex') });
+}
+writeFileSync(join(OUT, '_native', 'update-config.json'), JSON.stringify(cfg, null, 1));
 const size = walk(OUT).reduce((t, f) => t + statSync(f).size, 0);
 console.log(JSON.stringify({ out: relative(REPO, OUT), web_files: count, vendor_urls: Object.keys(vendorMap).length,
-  critical: critical.size, size_mb: +(size / 1048576).toFixed(1), git_commit: commit, web_tree_dirty: dirty }, null, 1));
+  critical: critical.size, size_mb: +(size / 1048576).toFixed(1), git_commit: commit, web_tree_dirty: dirty,
+  sequence, queue_schema: manifest.queue_schema, updates: cfg.enabled ? { channel, public_key_sha256: cfg.public_key_sha256 } : { enabled: false, reason: cfg.reason } }, null, 1));

@@ -9,3 +9,8 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Clés de publication des mises à jour Web : seule la clé PUBLIQUE est versionnée
+update.properties
+*private*.pem
+*.key

@@ -33,7 +33,11 @@ ANDROID_JAR=${ANDROID_JAR:-$(ls "${ANDROID_HOME:-/usr/lib/android-sdk}"/platform
 [[ -f "$ANDROID_JAR" ]] || { echo "android.jar introuvable"; exit 1; }
 AAPT2="$BUILD_TOOLS/aapt2"; ZIPALIGN=$(command -v zipalign || echo "$BUILD_TOOLS/zipalign")
 APKSIGNER=$(command -v apksigner || echo "$BUILD_TOOLS/apksigner")
-if [[ -x "$BUILD_TOOLS/d8" ]]; then DEXER=d8; else DEXER=dx; fi
+# Dexeur : d8 (SDK récent), sinon dx du SDK, sinon dalvik-exchange (paquet Debian/Ubuntu « dalvik-exchange »)
+if [[ -x "$BUILD_TOOLS/d8" ]]; then DEXER=d8; DX=""
+elif [[ -x "$BUILD_TOOLS/dx" ]]; then DEXER=dx; DX="$BUILD_TOOLS/dx"
+elif command -v dalvik-exchange >/dev/null; then DEXER=dx; DX=$(command -v dalvik-exchange)
+else echo "Aucun dexeur (d8, dx ou dalvik-exchange)"; exit 1; fi
 
 echo "== ANAGROCI FIELD BUYING $VNAME ($VCODE) · $APP_ID · minSdk $MIN · targetSdk $TARGET"
 echo "== outils : $(basename "$BUILD_TOOLS") · $(basename "$(dirname "$ANDROID_JAR")") · dex=$DEXER"
@@ -78,7 +82,7 @@ javac -nowarn -Xlint:-options -encoding UTF-8 -source 8 -target 8 -bootclasspath
 if [[ $DEXER == d8 ]]; then
   "$BUILD_TOOLS/d8" --release --min-api "$MIN" --lib "$ANDROID_JAR" --output "$TMP" $(find "$TMP/classes" -name '*.class')
 else
-  "$BUILD_TOOLS/dx" --dex --min-sdk-version="$MIN" --output="$TMP/classes.dex" "$TMP/classes"
+  "$DX" --dex --min-sdk-version="$MIN" --output="$TMP/classes.dex" "$TMP/classes"
 fi
 cp "$TMP/base.apk" "$TMP/unaligned.apk"; cp "$TMP/base-debug.apk" "$TMP/unaligned-debug.apk"
 (cd "$TMP" && zip -q -j unaligned.apk classes.dex && zip -q -j unaligned-debug.apk classes.dex)
