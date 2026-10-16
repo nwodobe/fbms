@@ -72,12 +72,20 @@ function serveLocal(route, rel, inject) {
 }
 function nativeStub() {
   const missing = MANIFEST.critical.filter((f) => !existsSync(join(WWW, f)));
-  const status = JSON.stringify({ bundled: missing.length === 0, missing, version: '1.0.0 (1)', web_commit: MANIFEST.git_commit, files: MANIFEST.file_count });
-  return `(function(){ var saved=[], printed=0;
-    window.__native={saved:saved,printed:function(){return printed;}};
+  const status = JSON.stringify({ bundled: missing.length === 0, missing, version: '1.1.0 (2)', web_commit: MANIFEST.git_commit, files: MANIFEST.file_count });
+  /* Méthodes de mise à jour : même contrat JSON que NativeBridge.java / WebBundleUpdater.status().
+     L'état est piloté par le test (window.__native.update) ; les appels sont journalisés. */
+  return `(function(){ var saved=[], printed=0, calls={confirmBoot:0,reportQueue:[],checkUpdate:0,applyUpdate:0};
+    var update={enabled:false,last_result:'désactivée : aucune URL de publication fournie au build',active:"intégrée à l'APK",active_sequence:${MANIFEST.sequence || 0},active_commit:${JSON.stringify(MANIFEST.git_commit)},overlay_files:0,pending_sequence:0,deferred_reason:'',rejected:{}};
+    window.__native={saved:saved,printed:function(){return printed;},calls:calls,setUpdate:function(u){update=Object.assign({},update,u);}};
     window.AnagrociNative={
       shellStatus:function(){return ${JSON.stringify(status)};},
-      appInfo:function(){return JSON.stringify({app:'ANAGROCI FIELD BUYING',version:'1.0.0 (1)',android_sdk:33,web_commit:${JSON.stringify(MANIFEST.git_commit)}});},
+      appInfo:function(){return JSON.stringify({app:'ANAGROCI FIELD BUYING',version:'1.1.0 (2)',android_sdk:33,android_release:'13',package:'ci.anagroci.fieldbuying.debug',signer_sha256:'AA:BB:CC (clé de test simulée)',web_commit:${JSON.stringify(MANIFEST.git_commit)},queue_schema:${JSON.stringify(MANIFEST.queue_schema || '')},updates:update});},
+      updateStatus:function(){return JSON.stringify(update);},
+      checkUpdate:function(){calls.checkUpdate++;return '{"started":true}';},
+      applyUpdate:function(){calls.applyUpdate++;},
+      confirmBoot:function(){calls.confirmBoot++;},
+      reportQueue:function(n){calls.reportQueue.push(n);},
       saveFile:function(n,m,b){saved.push({name:n,mime:m,bytes:Math.floor(String(b).length*3/4)});try{sessionStorage.setItem('__native_saved',JSON.stringify(saved));}catch(e){}return '{"ok":true}';},
       print:function(){printed++;}
     };})();`;
@@ -332,6 +340,7 @@ async function partB(browser, device) {
   let failed = false; try { await page.evaluate(() => ANAGROCI_OFFLINE.syncNow()); } catch { failed = true; }
   const still = (await page.evaluate(() => ANAGROCI_OFFLINE.list())).filter((o) => o.status === 'PENDING').length;
   record('T27', device, 'Synchronisation tentée sans réseau', 'Échec explicite, aucune perte', `${failed ? 'échec explicite' : 'pas d’échec'} · ${still} PENDING conservées`, failed && still === before.length);
+  await pendingScreen(page, device, still);
 
   page.once('dialog', async (d) => { page.__dialog = d.message(); await d.dismiss(); });
   const chip = await page.$('#ag-logout');
@@ -365,7 +374,53 @@ async function partB(browser, device) {
   const gps = await page.evaluate(() => new Promise((r) => navigator.geolocation.getCurrentPosition((p) => r(`${p.coords.latitude.toFixed(2)},${p.coords.longitude.toFixed(2)}`), (e) => r('erreur ' + e.code), { timeout: 5000 })));
   record('T39', device, 'GPS (API navigateur, position simulée)', 'Position fournie à la page', gps, /^7\.69,-5\.03$/.test(gps));
   record('T40', device, 'Requêtes réseau externes non prévues', '0 (tout est local, Supabase simulé)', ctx.__external.length ? [...new Set(ctx.__external)].slice(0, 4).join(' ') : '0', ctx.__external.length === 0);
+  await versionScreen(page, device);
   await ctx.close();
+}
+
+/* -------- Écran « À propos · Version · Synchronisation » (bridge.js réel) -------- */
+async function openAbout(page) {
+  await page.click('#anx-version');
+  await page.waitForSelector('.anx-dlg[role="dialog"]', { timeout: 5000 });
+  return page.$eval('.anx-dlg', (d) => d.textContent);
+}
+async function pendingScreen(page, device, still) {
+  const boot = await page.evaluate(() => window.__native.calls.confirmBoot);
+  record('V01', device, 'Démarrage de la version Web confirmé à l’application', 'confirmBoot() appelé ≥ 1 fois', `${boot} appel(s)`, boot >= 1);
+  await page.evaluate(() => ANAGROCI_OFFLINE.emit()); await wait(300);
+  const rq = await page.evaluate(() => window.__native.calls.reportQueue.slice(-1)[0]);
+  record('V02', device, 'Nombre d’opérations locales transmis à l’application (hors ligne)', `${still} (opérations PENDING)`, `dernier envoi : ${rq}`, rq === still);
+  const box = await page.$eval('#anx-version', (b) => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, label: b.getAttribute('aria-label'), text: b.textContent }; });
+  record('V03', device, 'Bouton Version visible, cible tactile ≥ 44 px, libellé accessible', '≥ 44×44, aria-label', `${Math.round(box.w)}×${Math.round(box.h)} · « ${box.text} » · ${box.label}`, box.w >= 44 && box.h >= 44 && !!box.label && box.text.includes('· ' + still));
+  const txt = await openAbout(page);
+  record('V04', device, 'Écran Version : application, signature, version Web, file locale', 'Version 1.1.0, empreinte, commit, compteurs', /1\.1\.0 \(2\)/.test(txt) && /Signature/.test(txt) && txt.includes(String(MANIFEST.git_commit).slice(0, 12)) && /En attente d’envoi/.test(txt) ? 'tout affiché' : txt.slice(0, 160),
+    /1\.1\.0 \(2\)/.test(txt) && /Signature/.test(txt) && txt.includes(String(MANIFEST.git_commit).slice(0, 12)) && /En attente d’envoi/.test(txt));
+  record('V05', device, 'Opérations non synchronisées : avertissement « Ne désinstallez pas »', 'Avertissement affiché', /Ne désinstallez pas/.test(txt) ? 'affiché' : 'absent', /Ne désinstallez pas/.test(txt) && txt.includes(still + ' opération(s)'));
+  record('V06', device, 'Mises à jour désactivées dans cet APK : message explicite', '« désactivées »', /Mises à jour Web désactivées/.test(txt) ? 'message affiché' : 'absent', /Mises à jour Web désactivées/.test(txt));
+  const syncDisabled = await page.$eval('[data-anx="sync"]', (b) => b.disabled);
+  record('V07', device, 'Hors ligne : bouton « Synchroniser » désactivé', 'désactivé', syncDisabled ? 'désactivé' : 'actif', syncDisabled === true);
+  await page.screenshot({ path: join(OUTDIR, `version-hors-ligne-${device.replace(/[^0-9a-z]+/gi, '_')}.png`) });
+  await page.keyboard.press('Escape'); await wait(150);
+  const closed = await page.evaluate(() => !document.querySelector('.anx-ov') && document.activeElement && document.activeElement.id === 'anx-version');
+  record('V08', device, 'Échap ferme l’écran et rend le focus au bouton', 'fermé, focus sur le bouton', closed ? 'ok' : 'non', closed);
+}
+async function versionScreen(page, device) {
+  const rq = await page.evaluate(() => window.__native.calls.reportQueue.slice(-1)[0]);
+  record('V09', device, 'Après synchronisation : 0 opération transmise à l’application', '0', `dernier envoi : ${rq}`, rq === 0);
+  await page.evaluate(() => window.__native.setUpdate({ enabled: true, source: 'https://pages.example.test/fbms/', channel: 'stable', last_check_at: '2026-10-16T12:00:00Z', last_result: 'version 1792300000 vérifiée : appliquée au prochain démarrage', pending_sequence: 1792300000 }));
+  let txt = await openAbout(page);
+  const apply = await page.$('[data-anx="apply"]');
+  record('V10', device, 'Version téléchargée et vérifiée : bouton « Redémarrer pour appliquer »', 'bouton présent, source affichée', `${apply ? 'bouton présent' : 'absent'} · ${/pages\.example\.test/.test(txt) ? 'source affichée' : 'source absente'}`, !!apply && /pages\.example\.test/.test(txt));
+  await page.click('[data-anx="apply"]'); await page.click('[data-anx="check"]');
+  const c = await page.evaluate(() => window.__native.calls);
+  record('V11', device, 'Boutons Appliquer / Vérifier reliés à l’application', 'applyUpdate=1, checkUpdate=1', `applyUpdate=${c.applyUpdate}, checkUpdate=${c.checkUpdate}`, c.applyUpdate === 1 && c.checkUpdate === 1);
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.__native.setUpdate({ pending_sequence: 1792400000, deferred_reason: 'format de la file locale modifié : activation après synchronisation complète (3 opération(s) non synchronisée(s))', rejected: { 1792350000: 'démarrage non confirmé : retour à la version précédente' } }));
+  txt = await openAbout(page);
+  const noApply = !(await page.$('[data-anx="apply"]'));
+  record('V12', device, 'Activation différée et version refusée : motifs affichés, pas de bouton Appliquer', 'motifs visibles', `${/Activation différée/.test(txt) ? 'différée affichée' : '—'} · ${/Refusée/.test(txt) ? 'refus affiché' : '—'} · bouton ${noApply ? 'masqué' : 'présent'}`, /Activation différée/.test(txt) && /Refusée/.test(txt) && noApply);
+  await page.screenshot({ path: join(OUTDIR, `version-mise-a-jour-${device.replace(/[^0-9a-z]+/gi, '_')}.png`) });
+  await page.keyboard.press('Escape');
 }
 
 const browser = await chromium.launch();
