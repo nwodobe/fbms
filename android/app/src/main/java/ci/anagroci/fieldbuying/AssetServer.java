@@ -44,6 +44,8 @@ final class AssetServer {
     /** URL CDN (sans requête) -> chemin local sous assets/www. */
     private final Map<String, String> vendor = new HashMap<>();
     private JSONObject manifest = new JSONObject();
+    /** Mise à jour Web signée et vérifiée (facultative). null = fichiers de l'APK uniquement. */
+    private volatile WebBundleUpdater updater;
 
     AssetServer(AssetManager assets) {
         this.assets = assets;
@@ -60,6 +62,8 @@ final class AssetServer {
     }
 
     JSONObject manifest() { return manifest; }
+
+    void setUpdater(WebBundleUpdater u) { this.updater = u; }
 
     boolean isLocal(Uri u) { return u != null && "https".equals(u.getScheme()) && HOST.equals(u.getHost()); }
 
@@ -96,7 +100,20 @@ final class AssetServer {
     private WebResourceResponse serve(String rel, boolean injectBridge) {
         String asset = ROOT + "/" + rel;
         String mime = mime(rel);
+        /* Un fichier d'une mise à jour signée n'est servi que pour l'application Web
+           elle-même : jamais pour le pont natif ni pour les bibliothèques figées. */
+        WebBundleUpdater u = updater;
+        java.io.File over = (u == null || !injectBridge) ? null : u.resolve(rel);
         try {
+            if (over != null) {
+                if (mime.equals("text/html")) {
+                    String html = new String(WebBundleUpdater.readAll(over, WebBundleUpdater.MAX_FILE), UTF8);
+                    Matcher m = HEAD.matcher(html);
+                    html = m.find() ? html.substring(0, m.end()) + BRIDGE_TAG + html.substring(m.end()) : BRIDGE_TAG + html;
+                    return ok(mime, new ByteArrayInputStream(html.getBytes(UTF8)));
+                }
+                return ok(mime, new java.io.FileInputStream(over));
+            }
             if (injectBridge && mime.equals("text/html")) {
                 String html = readText(asset);
                 Matcher m = HEAD.matcher(html);
@@ -110,6 +127,8 @@ final class AssetServer {
     }
 
     boolean exists(String rel) {
+        WebBundleUpdater u = updater;
+        if (u != null && u.resolve(rel) != null) return true;
         try { InputStream in = assets.open(ROOT + "/" + rel); in.close(); return true; }
         catch (IOException e) { return false; }
     }

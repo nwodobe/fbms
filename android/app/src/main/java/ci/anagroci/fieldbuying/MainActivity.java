@@ -14,6 +14,10 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.provider.MediaStore;
 import android.view.View;
 import android.view.Window;
@@ -30,6 +34,9 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,8 +54,16 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 42;
     private static final int REQ_STORAGE = 43;
 
+    /** Délai laissé à une mise à jour Web fraîchement activée pour confirmer son démarrage. */
+    private static final long BOOT_CONFIRM_MS = 60000;
+    /** Intervalle minimal entre deux vérifications automatiques de mise à jour. */
+    private static final long CHECK_EVERY_MS = 6L * 3600 * 1000;
+
     private WebView web;
     private AssetServer server;
+    private WebBundleUpdater updater;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private long lastCheckMs;
     private ValueCallback<Uri[]> fileCallback;
     private Uri pendingPhoto;
     private String geoOrigin;
@@ -69,6 +84,11 @@ public class MainActivity extends Activity {
         WebView.setWebContentsDebuggingEnabled(debuggable);
 
         server = new AssetServer(getAssets());
+        updater = createUpdater();
+        if (updater != null) {
+            try { updater.startup(); server.setUpdater(updater); }
+            catch (Exception e) { updater = null; }       // jamais bloquant : l'APK sert sa propre version
+        }
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#053B23"));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
@@ -90,7 +110,7 @@ public class MainActivity extends Activity {
         s.setUserAgentString(s.getUserAgentString() + " ANAGROCI-FieldBuying/" + versionName());
         CookieManager.getInstance().setAcceptCookie(true);
 
-        web.addJavascriptInterface(new NativeBridge(this, server), "AnagrociNative");
+        web.addJavascriptInterface(new NativeBridge(this, server, updater), "AnagrociNative");
         web.setWebViewClient(new Client());
         web.setWebChromeClient(new Chrome());
         web.setDownloadListener(new DownloadListener() {
@@ -99,7 +119,63 @@ public class MainActivity extends Activity {
 
         CaptureProvider.purge(this);
         if (state != null && web.restoreState(state) != null) return;
+        loadStart();
+    }
+
+    /** Charge la page d'accueil ; arme le chien de garde si une mise à jour vient d'être activée. */
+    void loadStart() {
         web.loadUrl(START);
+        if (updater != null && updater.awaitingConfirm()) {
+            main.postDelayed(new Runnable() { @Override public void run() {
+                if (updater != null && updater.awaitingConfirm()) {
+                    updater.bootFailed();
+                    Toast.makeText(MainActivity.this, "La mise à jour n'a pas démarré correctement : retour à la version précédente.", Toast.LENGTH_LONG).show();
+                    web.loadUrl(START);
+                }
+            }}, BOOT_CONFIRM_MS);
+        }
+    }
+
+    /** Active une version téléchargée (si la file locale le permet) et recharge. */
+    void applyUpdateAndReload() {
+        runOnUiThread(new Runnable() { @Override public void run() {
+            if (updater == null) return;
+            updater.startup();
+            loadStart();
+        }});
+    }
+
+    WebBundleUpdater updater() { return updater; }
+
+    private WebBundleUpdater createUpdater() {
+        try {
+            JSONObject cfg = new JSONObject(server.readText("www/_native/update-config.json"));
+            int code = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+            return new WebBundleUpdater(new File(getFilesDir(), "web-updates"), server.manifest(), cfg, code,
+                    cfg.optString("app_id", "ci.anagroci.fieldbuying"), null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    boolean online() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            NetworkInfo n = cm == null ? null : cm.getActiveNetworkInfo();
+            return n != null && n.isConnected();
+        } catch (Exception e) { return false; }
+    }
+
+    /** Vérification en arrière-plan : jamais pendant le démarrage, jamais sans réseau. */
+    void checkUpdatesInBackground(boolean force) {
+        final WebBundleUpdater u = updater;
+        if (u == null || !u.enabled() || !online()) return;
+        long t = System.currentTimeMillis();
+        if (!force && t - lastCheckMs < CHECK_EVERY_MS) return;
+        lastCheckMs = t;
+        Thread th = new Thread(new Runnable() { @Override public void run() { u.check(); } }, "anagroci-web-update");
+        th.setDaemon(true);
+        th.start();
     }
 
     private String versionName() {
@@ -107,7 +183,10 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
-    @Override protected void onResume() { super.onResume(); web.onResume(); }
+    @Override protected void onResume() {
+        super.onResume(); web.onResume();
+        main.postDelayed(new Runnable() { @Override public void run() { checkUpdatesInBackground(false); } }, 15000);
+    }
     @Override protected void onPause() { web.onPause(); CookieManager.getInstance().flush(); super.onPause(); }
     @Override protected void onDestroy() { if (web != null) { web.destroy(); } super.onDestroy(); }
 
