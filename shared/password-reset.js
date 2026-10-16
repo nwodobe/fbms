@@ -1,5 +1,5 @@
 /* ANAGROCI FBMS - password recovery on the official HTTPS origin.
-   Public browser-only flow; never stores passwords, tokens or a service_role key. */
+   Parcours public dans le navigateur : aucun mot de passe, jeton ni clé d’administration n’est conservé. */
 (function () {
   "use strict";
 
@@ -131,7 +131,7 @@
         acceptRecoverySession(result.data.session);
       }
     }).catch(function () {});
-    setTimeout(function () { if (!recoveryReady) invalidLink(); }, 12000);
+    setTimeout(function () { if (!recoveryReady) invalidLink(); }, 20000);
   } else {
     show("request");
   }
