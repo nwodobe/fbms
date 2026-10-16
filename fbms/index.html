@@ -2070,6 +2070,7 @@ function openLoginModal(){
     + '<label class="block"><span class="ff-body text-xs font-medium block mb-1" style="color:'+T.inkSoft+'">'+(isSupabase()? t('Mot de passe') : t('Code PIN'))+'</span>'
     + '<input id="loginPin" type="password" autocomplete="current-password" '+(isSupabase()? '' : 'inputmode="numeric" ')+'placeholder="••••••" class="w-full px-3 py-2 rounded-lg text-sm outline-none ff-mono" style="'+inputStyleAttr()+'"/></label>'
     + '<p id="loginError" class="ff-body text-xs" style="color:'+T.red+';display:none"></p>'
+    + (isSupabase()?'<div style="text-align:right"><a href="https://nwodobe.github.io/fbms/shared/password-reset.html" class="ff-body text-xs font-semibold" style="color:'+T.forest700+'">Mot de passe oublié ?</a></div>':'')
     + '<div class="flex items-center gap-2 pt-1">'
     + '<button id="loginSubmitBtn" type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">'+t('Se connecter')+'</button>'
     + '<button type="button" onclick="closeLoginModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+t('Annuler')+'</button>'
