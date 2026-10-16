@@ -29,6 +29,11 @@ Stockage local : localStorage (session, profil) + IndexedDB anagroci_ops_offline
 | `app/src/main/java/…/MainActivity.java` | WebView, retour Android, GPS, appareil photo, fichiers, liens externes |
 | `app/src/main/java/…/AssetServer.java` | Sert l'application et les bibliothèques depuis l'APK |
 | `app/src/main/java/…/NativeBridge.java` | Pont JavaScript minimal (aucune donnée métier) |
+| `app/src/main/java/…/WebBundleUpdater.java` | Mises à jour Web **signées et vérifiées** (§7) |
+| `scripts/web-bundle-lib.mjs` | Règles communes APK / mise à jour (fichiers, format de file, compatibilité) |
+| `scripts/sign-web-bundle.mjs` | Création de la clé de publication, signature et contrôle d'une mise à jour |
+| `update-keys/` | Clé **publique** de publication (la clé privée n'y entre jamais) |
+| `tests/jvm/WebBundleUpdaterTest.java` | 38 scénarios de mise à jour, refus, retour arrière, file locale |
 | `app/src/main/java/…/CaptureProvider.java` | Photo de preuve sans permission CAMERA |
 | `native-web/bridge.js` | Adaptations navigateur intégré (APK seulement) |
 | `scripts/prepare-web.mjs` | Copie l'application Web + bibliothèques figées dans `assets/www` |
@@ -80,7 +85,7 @@ En ligne de commande : `cd android && ./gradlew assembleDebug assembleRelease`.
 
 ```bash
 # Debian / Ubuntu
-sudo apt install android-sdk-build-tools android-sdk-platform-23 apksigner zipalign zip
+sudo apt install android-sdk-build-tools android-sdk-platform-23 apksigner zipalign zip dalvik-exchange
 android/scripts/build-apk-local.sh                       # unsigned + debug
 KEYSTORE=~/cles/anagroci-release.jks KEY_ALIAS=anagroci \
   android/scripts/build-apk-local.sh --release           # + release signé (mot de passe demandé)
@@ -119,7 +124,7 @@ keytool -genkeypair -keystore anagroci-release.jks -alias anagroci \
   `storeFile=/chemin/anagroci-release.jks`, `storePassword=…`, `keyAlias=anagroci`, `keyPassword=…`
 - Pour la CI : secrets GitHub (voir `ci/build-apk.yml.example`).
 
-Vérifier un APK : `apksigner verify --print-certs ANAGROCI_FIELD_BUYING_AFLP_2027_v1.0.0.apk`
+Vérifier un APK : `apksigner verify --print-certs ANAGROCI_FIELD_BUYING_AFLP_2027_v1.1.0.apk`
 et comparer l'empreinte SHA-256 du certificat avec celle notée lors de la création de la clé.
 
 ---
@@ -131,7 +136,8 @@ et comparer l'empreinte SHA-256 du certificat avec celle notée lors de la créa
 3. Construire le release signé avec **la même clé**.
 4. Vérifier : `aapt2 dump badging <apk> | grep package` (identifiant inchangé, versionCode supérieur)
    et `apksigner verify --print-certs` (même certificat).
-5. Lancer `android/tests/jvm/run.sh` et `node android/tests/apk-webview-sim.mjs`.
+5. Lancer `android/tests/jvm/run.sh` et `node android/tests/apk-webview-sim.mjs`
+   (et `FBMS_MODE_APK=1 FBMS_LARGEURS=360,412 node tests/unit-head-enrollment-e2e.mjs`).
 6. Distribuer par le canal interne (voir guide d'installation). Les téléphones installent
    **par-dessus** : les données locales sont conservées.
 
@@ -151,7 +157,59 @@ la version APK en circulation.
 - **Ne jamais** demander aux agents de désinstaller tant que la rubrique Synchronisation
   n'affiche pas 0 opération en attente.
 
-## 7. Limites connues
+## 7. Mises à jour Web signées (option C hybride)
+
+Problème corrigé : un APK figeait le code Web du jour du build. Un correctif publié sur
+GitHub Pages n'atteignait jamais les téléphones (cas constaté : enrôlement Unit Head).
+
+| | |
+|---|---|
+| Base | l'APK embarque une version complète : démarrage garanti, même sans réseau |
+| Source approuvée | **une** URL HTTPS fixée au build (`ANAGROCI_UPDATE_ROOT_URL` = racine du site publié). Aucun autre hôte, aucune redirection |
+| Preuve | `android-updates/<canal>/web-bundle.json` liste chaque fichier (SHA-256, taille) ; `web-bundle.json.sig` = signature ECDSA P-256 par la clé de publication ANAGROCI. Clé publique dans l'APK |
+| Refus automatique | signature invalide, autre clé, autre application, autre canal, version plus ancienne (rejeu), fichier ≠ empreinte, chemin `../`, tentative sur `_native/` ou `_vendor/`, APK trop ancien (`min_native_version_code`), bibliothèque absente, taille excessive |
+| Activation | au **démarrage suivant** seulement, jamais en cours de saisie |
+| File locale | si le format de la file IndexedDB change (`queue_schema`), activation **différée** tant qu'une opération n'est pas synchronisée |
+| Retour arrière | la page doit confirmer son démarrage en 60 s ; sinon retour automatique à la version précédente, version marquée refusée |
+| Jamais par ce canal | code Java, pont natif, bibliothèques figées, permissions, signature : il faut un nouvel APK |
+
+### Mise en service (une fois, par un responsable)
+
+```bash
+node android/scripts/sign-web-bundle.mjs --generate-keys ~/cles-anagroci   # HORS du dépôt
+cp ~/cles-anagroci/web-bundle-public.pem android/update-keys/              # seule la clé PUBLIQUE
+# construire l'APK avec la source approuvée :
+ANAGROCI_UPDATE_ROOT_URL=https://<site publié>/ android/scripts/build-apk-local.sh
+```
+
+Sauvegarder `web-bundle-private.pem` hors ligne (deux supports). La perdre n'empêche pas
+l'application de fonctionner : elle empêche seulement de publier des mises à jour Web, il
+faudra alors un nouvel APK avec une nouvelle clé publique.
+
+### Publier une mise à jour Web (sans nouvel APK)
+
+1. Le correctif est fusionné sur `main` et publié par GitHub Pages.
+2. Sur un poste de confiance, sur ce commit, arbre propre :
+   `node android/scripts/sign-web-bundle.mjs --key ~/cles-anagroci/web-bundle-private.pem`
+3. Contrôle : `node android/scripts/sign-web-bundle.mjs --verify` → signature valide, 0 fichier divergent.
+4. Commiter `android-updates/` dans une pull request, fusionner. Les téléphones la récupèrent
+   à l'ouverture (au plus toutes les 6 h) ou via **Version › Vérifier les mises à jour**.
+5. **Re-signer après chaque fusion Web** : un fichier publié qui ne correspond plus au
+   manifeste fait refuser la mise à jour (sécurité), jusqu'à la signature suivante.
+
+Le script refuse de signer si le code Web ne gère pas le shell Android (`nativeShell`,
+`native_bundle`) : sans cette garde, une mise à jour casserait la préparation hors ligne.
+
+## 8. Écran « À propos · Version · Synchronisation »
+
+Bouton **v1.1.0** en bas à gauche (badge orange s'il y a un échec, un conflit ou une mise à
+jour en attente ; le nombre d'opérations locales s'y affiche). Montre : version et
+`versionCode`, identifiant, **empreinte SHA-256 du certificat de signature** (à comparer avant
+une mise à jour), version Web active (APK ou mise à jour signée, commit, numéro), état des mises
+à jour et motifs de refus, compteurs de la file locale, et l'avertissement « Ne désinstallez
+pas » tant qu'une opération n'est que sur le téléphone.
+
+## 9. Limites connues
 
 - Pages historiques `fbms/index.html`, `logistique.html` : chargent `cdn.tailwindcss.com`
   (non embarqué) — affichage dégradé sans réseau. Hors périmètre FIELD BUYING.

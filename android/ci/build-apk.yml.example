@@ -13,6 +13,12 @@
 #   ANAGROCI_KEY_PASSWORD      mot de passe de la clé
 # Sans ces secrets, seul l'APK debug est produit.
 #
+# Mises à jour Web signées (facultatif, voir android/README.md §7) :
+#   variable de dépôt PRODUCTION_URL  : racine HTTPS du site publié (déjà existante)
+#   fichier commité android/update-keys/web-bundle-public.pem : clé PUBLIQUE
+#   La clé PRIVÉE de publication n'est JAMAIS dans la CI : on signe sur un poste de confiance.
+# Sans clé publique, l'APK est construit avec les mises à jour désactivées (il sert sa version).
+#
 # Coût : gratuit pour un dépôt public ; sur un dépôt privé, consomme les minutes
 # Actions incluses dans l'offre GitHub (2 000 min/mois en offre gratuite à ce jour :
 # à vérifier sur la page de facturation GitHub). Un build prend quelques minutes.
@@ -38,8 +44,14 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - name: Paquet Web embarqué
+        env: { ANAGROCI_UPDATE_ROOT_URL: '${{ vars.PRODUCTION_URL }}' }
         run: node android/scripts/prepare-web.mjs
-      - name: Tests JVM (AssetServer)
+      - name: Manifeste de mise à jour publié cohérent avec le dépôt (s'il existe)
+        run: |
+          if [ -f android-updates/stable/web-bundle.json ] && [ -f android/update-keys/web-bundle-public.pem ]; then
+            node android/scripts/sign-web-bundle.mjs --verify
+          else echo "aucune mise à jour Web publiée"; fi
+      - name: Tests JVM (AssetServer, WebBundleUpdater)
         run: |
           curl -sSL -o /tmp/json.jar https://repo1.maven.org/maven2/com/vaadin/external/google/android-json/0.0.20131108.vaadin1/android-json-0.0.20131108.vaadin1.jar
           JSON_JAR=/tmp/json.jar android/tests/jvm/run.sh
@@ -55,6 +67,7 @@ jobs:
       - name: Gradle assembleDebug assembleRelease
         working-directory: android
         env:
+          ANAGROCI_UPDATE_ROOT_URL: ${{ vars.PRODUCTION_URL }}
           ANAGROCI_KEYSTORE_PASSWORD: ${{ secrets.ANAGROCI_KEYSTORE_PASSWORD }}
           ANAGROCI_KEY_ALIAS: ${{ secrets.ANAGROCI_KEY_ALIAS }}
           ANAGROCI_KEY_PASSWORD: ${{ secrets.ANAGROCI_KEY_PASSWORD }}
