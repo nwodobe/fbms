@@ -6,7 +6,7 @@
 
 ## 1. Recevoir l'application
 
-Le fichier s'appelle **`ANAGROCI_FIELD_BUYING_AFLP_2027_v1.0.0.apk`** (le numéro change à
+Le fichier s'appelle **`ANAGROCI_FIELD_BUYING_AFLP_2027_v1.1.0.apk`** (le numéro change à
 chaque nouvelle version). Vous le recevez **uniquement** par le canal officiel indiqué par
 le Branch Manager (groupe WhatsApp interne AFLP ou lien de partage interne).
 
@@ -88,19 +88,53 @@ puis installez et connectez-vous sur le nouveau.
 
 ## 8. Mettre à jour l'application
 
-1. Le Branch Manager envoie la nouvelle version par le canal officiel.
-2. **Synchronisez d'abord** (0 en attente) — par précaution.
-3. Touchez le nouveau fichier `.apk` puis **Mettre à jour**. **Ne désinstallez pas** l'ancienne version :
-   la mise à jour conserve vos données et votre connexion.
-4. Si Android affiche « Application non installée » ou « conflit de package », **ne désinstallez pas** :
-   prévenez le Branch Manager (le fichier n'a pas la bonne signature).
+### 8.1 Les corrections ordinaires arrivent seules (à partir de la version 1.1.0)
+
+Avec Internet, l'application vérifie elle-même s'il existe une correction **signée par ANAGROCI**.
+Si oui, elle la télécharge et l'utilise **au prochain démarrage** (fermez puis rouvrez l'application,
+ou touchez **Version › Redémarrer pour appliquer**). Vos opérations locales sont conservées.
+
+Pour voir où vous en êtes : touchez le bouton **v1.1.0** en bas à gauche de l'écran.
+
+| Vous lisez | Signification |
+|---|---|
+| Version Web active : *intégrée à l'APK* | aucune correction téléchargée ; normal |
+| Version Web active : *mise à jour signée* | une correction vérifiée est en service |
+| *Activation différée* | synchronisez jusqu'à 0 en attente, puis redémarrez l'application |
+| *Refusée sur ce téléphone* | la correction n'a pas été acceptée ; l'application continue avec la version précédente. Prévenez le Branch Manager |
+| *Mises à jour Web désactivées* | votre APK ne reçoit pas les corrections automatiques : il faut un nouvel APK |
+
+### 8.2 Installer un nouvel APK (par-dessus, sans désinstaller)
+
+1. Ouvrez **Version** : notez le nombre d'opérations « En attente d'envoi », « Échecs », « Conflits ».
+2. **Synchronisez jusqu'à 0** (avec Internet). Si une ligne reste en échec, ne désinstallez rien : prévenez le Branch Manager.
+3. Touchez le nouveau fichier `.apk` reçu par le canal officiel, puis **Mettre à jour**.
+   **Ne désinstallez pas** l'ancienne version.
+4. Après installation, rouvrez **Version** : la version doit avoir augmenté et l'**empreinte de signature**
+   doit être la même qu'avant.
+
+### 8.3 Si Android refuse : « Application non installée », « conflit de package » ou « signature »
+
+Cela veut dire que le nouveau fichier n'est **pas signé avec la même clé** que l'application installée.
+
+- **Ne désinstallez pas.** Une désinstallation efface définitivement les opérations non synchronisées
+  (l'application ne fait aucune sauvegarde dans le cloud, par choix de confidentialité).
+- Continuez à utiliser l'ancienne application et synchronisez-la jusqu'à **0**.
+- Prévenez le Branch Manager : seule la personne qui détient la clé d'origine peut produire une mise à jour
+  installable par-dessus. S'il faut vraiment changer de clé, la procédure (synchroniser, vérifier 0 sur
+  l'écran Version, puis seulement remplacer) est décrite dans `docs/android/PROCEDURE_MAINTENANCE_APK.md` §4.
+
+### 8.4 Version d'essai « ANAGROCI FB TEST »
+
+Elle s'installe **à côté** de l'application officielle, sans jamais toucher à ses données.
+Elle sert aux essais, pas au travail réel. Ses opérations restent dans la version d'essai.
 
 ## 9. Signaler un problème
 
 Envoyez au Branch Manager (ou au Field Buying Coordinator) :
 
 - votre nom et votre rôle ;
-- la version de l'application (*Paramètres › Applications › ANAGROCI FIELD BUYING*) ;
+- une capture de l'écran **Version** (bouton en bas à gauche) : version, signature, file locale ;
 - le modèle du téléphone ;
 - l'heure, la rubrique, ce que vous faisiez ;
 - une **capture d'écran** du message.
