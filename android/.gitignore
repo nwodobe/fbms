@@ -1,0 +1,11 @@
+# Généré à chaque build : jamais commité
+build/
+app/build/
+.gradle/
+.vendor-cache/
+app/src/main/assets/www/
+local.properties
+# Signature : JAMAIS dans le dépôt
+keystore.properties
+*.jks
+*.keystore
