@@ -194,9 +194,12 @@ function loadProfile() {
       var u = s.data && s.data.session && s.data.session.user;
       if (!u) return null;
       profile.userId = u.id;
-      return c.from('profils').select('nom,role,actif').eq('user_id', u.id).maybeSingle()
+      return c.from('profils').select('nom,role,actif,cluster,zone').eq('user_id', u.id).maybeSingle()
         .then(function (r) {
-          if (!r.error && r.data) { profile.nom = r.data.nom; profile.role = r.data.role; profile.actif = r.data.actif; }
+          if (!r.error && r.data) {
+            profile.nom = r.data.nom; profile.role = r.data.role; profile.actif = r.data.actif;
+            profile.cluster = r.data.cluster || null; profile.zone = r.data.zone || null;
+          }
           return profile;
         });
     });
@@ -209,7 +212,69 @@ var ROLES_TERRAIN = ['Branch Manager', 'Assistant Branch Manager', 'Head of Fiel
 function currentRole() {
   return profile.role || (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile && global.ANAGROCI_AUTH.profile.role) || '';
 }
-function canEditTerrain() { return ROLES_TERRAIN.indexOf(currentRole()) >= 0; }
+/* Rôles à périmètre CLUSTER (matrice shared/aflp-access.js : villages et producteurs
+   create/update, « aucune écriture hors de son cluster »). Miroir client de
+   private.aflp_village_ecriture_dans_mon_cluster() et de
+   private.farmer_registry_can_access_village() ; la base reste l'arbitre. */
+var ROLES_CLUSTER_TERRAIN = ['Unit Head', 'Assistant Unit Head'];
+var clusterRef = [];   // aflp_clusters (code, label, aliases), alimenté par base()
+function resolveCluster(v) {
+  var k = normName(v).replace(/ /g, '');
+  if (!k) return null;
+  for (var i = 0; i < clusterRef.length; i++) {
+    var c = clusterRef[i];
+    var keys = [c.code, c.label].concat(c.aliases || []);
+    for (var j = 0; j < keys.length; j++) if (normName(keys[j]).replace(/ /g, '') === k) return c.code;
+  }
+  return null;
+}
+function isClusterScoped() { return ROLES_CLUSTER_TERRAIN.indexOf(currentRole()) >= 0; }
+/* Cluster d'affectation exploitable du compte, ou null (aucune écriture alors). */
+function myTerrainCluster() {
+  var raw = profile.cluster || (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile && global.ANAGROCI_AUTH.profile.cluster) || '';
+  return resolveCluster(raw);
+}
+function canEditTerrain() {
+  if (ROLES_TERRAIN.indexOf(currentRole()) >= 0) return true;
+  return isClusterScoped() && profile.actif !== false && !!myTerrainCluster();
+}
+/* Une fiche (cluster, code, data.s1.cluster) est-elle dans le périmètre d'écriture ?
+   Tous les signaux renseignés doivent désigner le cluster du compte. */
+function inTerrainScope(signals) {
+  if (!isClusterScoped()) return true;
+  var mine = myTerrainCluster();
+  if (!mine) return false;
+  var seen = 0;
+  for (var i = 0; i < signals.length; i++) {
+    if (signals[i] == null || String(signals[i]).trim() === '') continue;
+    if (resolveCluster(signals[i]) !== mine) return false;
+    seen++;
+  }
+  return seen > 0;
+}
+function villageInScope(v) {
+  if (!v) return !isClusterScoped();
+  return inTerrainScope([v.cluster_code, v.cluster, v.data && v.data.s1 && v.data.s1.cluster]);
+}
+function scopeLabel() {
+  var mine = myTerrainCluster();
+  var c = clusterRef.filter(function (x) { return x.code === mine; })[0];
+  return c ? (c.label || c.code) : (mine || '—');
+}
+function scopeRefusal(objet) {
+  return 'Opération hors de votre périmètre : votre profil (' + esc(currentRole()) + ') ne permet d’écrire que dans le cluster ' +
+    esc(scopeLabel()) + '. ' + (objet || '') + ' Demandez au Branch Manager ou au Zonal Head concerné.';
+}
+/* Traduit un refus RLS serveur en message métier explicite. */
+function explainWriteError(m) {
+  m = String(m || '');
+  if (/row-level security|42501|périmètre/i.test(m)) {
+    return isClusterScoped()
+      ? 'Enregistrement refusé par le serveur : cette fiche est hors de votre cluster (' + scopeLabel() + ').'
+      : 'Enregistrement refusé par le serveur : droits insuffisants pour cette fiche.';
+  }
+  return m;
+}
 
 /* --------------------------------------------------------------------- FBStore */
 
@@ -277,6 +342,7 @@ function base() {
       villages.forEach(function (v) { vm[v.id] = v; });
       rts.forEach(function (r) { rm[r.id] = r; });
       var clusters = rs[5].filter(function (c) { return c.active !== false; });
+      clusterRef = clusters;
       var zones = rs[4].filter(function (z) { return z.active !== false; });
       var zoneOf = {};
       clusters.forEach(function (c) { zoneOf[normName(c.code)] = c.zone_code; zoneOf[normName(c.label)] = c.zone_code; });
@@ -732,11 +798,22 @@ function openVillageForm(editId) {
     if (!guardTerrain(host)) return;
     /* Mode édition : mêmes sections, valeurs préremplies, MÊME ligne mise à jour. */
     var editRow = editId ? c.vm[editId] : null;
+    if (editRow && !villageInScope(editRow)) {
+      host.innerHTML = '<div class="notice danger"><b>Modification non autorisée.</b> ' +
+        scopeRefusal('Le village ' + esc(editRow.village || editRow.id) + ' appartient au cluster ' + esc(editRow.cluster || '—') + '.') + '</div>' +
+        '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+      return;
+    }
     var E = (editRow && editRow.data) || {};
     var E1 = E.s1 || {}, E2 = E.s2 || {}, E3 = E.s3 || {}, E4 = E.s4 || {}, E5 = E.s5 || {},
         E6 = E.s6 || {}, E7 = E.s7 || {}, E8 = E.s8 || {}, E9 = E.s9 || {};
     function pv(x) { return x == null ? '' : esc(x); }
-    var clusterOpts = selOptions(c.clusters.map(function (x) { return [x.label, x.label + ' — zone ' + (x.zone_code || '')]; }), '');
+    /* Unit Head : seul son cluster est proposé (le serveur refuse les autres). */
+    var clustersProposes = isClusterScoped()
+      ? c.clusters.filter(function (x) { return x.code === myTerrainCluster(); })
+      : c.clusters;
+    var clusterOpts = selOptions(clustersProposes.map(function (x) { return [x.label, x.label + ' — zone ' + (x.zone_code || '')]; }),
+      isClusterScoped() && clustersProposes[0] ? clustersProposes[0].label : '');
     var regionOpts = selOptions(REGIONS.map(function (r) { return [r.region, r.region]; }), 'Gbêkê');
     var influence = selOptions([['', '—'], ['Forte', 'Forte'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
     var reput = selOptions([['', '—'], ['Excellente', 'Excellente'], ['Bonne', 'Bonne'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
@@ -925,6 +1002,13 @@ function openVillageForm(editId) {
       var msg = document.getElementById('vf_msg'), btn = document.getElementById('vf_submit');
       var name = val('vf_nom'), cluster = val('vf_cluster');
       if (!name || !cluster) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et cluster sont le minimum opérationnel.'; return; }
+      /* Contrôle au moment de l'enregistrement, sur le cluster réellement sélectionné
+         (et, en édition, sur le cluster d'origine : ni sortie ni entrée). */
+      if (!inTerrainScope([cluster]) || (editRow && !villageInScope(editRow))) {
+        msg.className = 'ops-danger-text';
+        msg.textContent = 'Enregistrement refusé : vous ne pouvez créer ou modifier un village que dans le cluster ' + scopeLabel() + '.';
+        return;
+      }
       var id = editRow ? editRow.id : uid();
       var acheteurs = collectAcheteurs();
       var s9vals = ['vf_s9_pot', 'vf_s9_route', 'vf_s9_rt', 'vf_s9_conc', 'vf_s9_pay'].map(val);
@@ -984,7 +1068,7 @@ function openVillageForm(editId) {
         return cl.from('villages').insert(row);
       }).then(function (r) {
         btn.disabled = false;
-        if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
+        if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = explainWriteError(r.error.message); return; }
         msg.className = 'ops-ok-text';
         msg.textContent = editRow
           ? 'Village modifié : ' + name + ' (dossier ' + data.completude + ' %).'
@@ -1069,7 +1153,7 @@ function openRtForm(prefill, editId) {
     if (!guardTerrain(host)) return;
     var editRow = editId ? c.rm[editId] : null;
     var ED = (editRow && editRow.data) || {};
-    var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
+    var villageOpts = selOptions(c.villages.filter(villageInScope).map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
     var reput = selOptions([['', '—'], ['Excellente', 'Excellente'], ['Bonne', 'Bonne'], ['Moyenne', 'Moyenne'], ['Faible', 'Faible']], '');
 
     host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le RT — ' + esc(editRow.nom) + ' <span class="mono muted">' + esc(editRow.id_rt || '') + '</span>' : 'Nouveau RT — dossier complet') + '</h2>' +
@@ -1235,8 +1319,23 @@ function openFarmerForm(prefill, editId) {
     if (!guardTerrain(host)) return;
     var editRow = editId ? (rs[2] || [])[0] : null;
     if (editId && !editRow) { host.innerHTML = danger('Producteur introuvable.'); return; }
+    if (editRow && !villageInScope(c.vm[editRow.village_id])) {
+      host.innerHTML = '<div class="notice danger"><b>Modification non autorisée.</b> ' +
+        scopeRefusal('Ce producteur est rattaché à un village hors de votre cluster.') + '</div>' +
+        '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+      return;
+    }
     var ED = (editRow && editRow.data) || {};
-    var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
+    /* Unit Head : seuls les villages de son cluster sont proposés. */
+    var villagesProposes = c.villages.filter(villageInScope);
+    if (isClusterScoped() && !villagesProposes.length) {
+      host.innerHTML = '<div class="notice warn"><b>Aucun village disponible.</b> Aucun village n’est encore enregistré dans le cluster ' +
+        esc(scopeLabel()) + '. Créez d’abord le village, puis enrôlez ses producteurs.</div>' +
+        '<div class="ops-actions"><button class="btn primary" type="button" onclick="ANAGROCI_FB.openVillageForm()">+ Nouveau village</button>' +
+        '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+      return;
+    }
+    var villageOpts = selOptions(villagesProposes.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), prefill && prefill.village_id || '');
     var anneeMax = new Date().getFullYear() - 16;
 
     host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le producteur — ' + esc(editRow.nom) : 'Nouveau producteur — enrôlement Farmer Passport') + '</h2>' +
@@ -1365,6 +1464,12 @@ function openFarmerForm(prefill, editId) {
       var msg = document.getElementById('ff_msg'), btn = document.getElementById('ff_submit');
       var name = val('ff_nom'), vid = villageSel.value;
       if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont le minimum opérationnel.'; return; }
+      /* Le village choisi ET, en édition, le village d'origine doivent être dans le cluster. */
+      if (!villageInScope(c.vm[vid]) || (editRow && !villageInScope(c.vm[editRow.village_id]))) {
+        msg.className = 'ops-danger-text';
+        msg.textContent = 'Enregistrement refusé : le producteur doit être rattaché à un village du cluster ' + scopeLabel() + '.';
+        return;
+      }
       var phone = normPhone(val('ff_tel'));
       if (phone && phone.length !== 10) { msg.className = 'ops-danger-text'; msg.textContent = 'Le téléphone doit comporter 10 chiffres (ou rester vide).'; return; }
       var annee = numVal('ff_annee');
@@ -1538,7 +1643,7 @@ function openFarmerForm(prefill, editId) {
         });
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
-        msg.textContent = err && err.message ? err.message : 'Création impossible.';
+        msg.textContent = err && err.message ? explainWriteError(err.message) : 'Création impossible.';
       });
     });
   });
@@ -1559,6 +1664,19 @@ function formHost() {
 }
 function guardTerrain(host) {
   if (canEditTerrain()) return true;
+  var raison = isClusterScoped()
+    ? (profile.actif === false
+        ? 'Votre compte est désactivé.'
+        : 'Aucun cluster d’affectation exploitable n’est enregistré sur votre compte : l’enrôlement reste bloqué tant que le Branch Manager n’a pas renseigné votre cluster.')
+    : 'Votre profil (' + esc(profile.role || 'non identifié') + ') ne permet pas de modifier le référentiel terrain.';
+  host.innerHTML = '<div class="notice danger"><b>Création non autorisée.</b> ' + raison + '</div>' +
+    '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+  return false;
+}
+/* Achats : règle historique conservée à l'identique (liste ROLES_TERRAIN seule).
+   L'ouverture du référentiel aux Unit Heads ne doit pas modifier le module achats. */
+function guardTerrainRoles(host) {
+  if (ROLES_TERRAIN.indexOf(currentRole()) >= 0) return true;
   host.innerHTML = '<div class="notice danger"><b>Création non autorisée.</b> Votre profil (' +
     esc(profile.role || 'non identifié') + ') ne permet pas de modifier le référentiel terrain.</div>' +
     '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
@@ -1749,7 +1867,7 @@ function renderFarmerPassport(id, tab) {
       }
 
       function editButton(label, handler, disabled, title) {
-        if (!canEditTerrain()) return '';
+        if (!canEditTerrain() || !inTerrainScope([f.cluster_code])) return '';
         return '<button class="btn secondary" type="button" ' + (disabled ? 'disabled ' : '') +
           (title ? 'title="' + esc(title) + '" ' : '') + 'onclick="' + handler + '">' + esc(label) + '</button>';
       }
@@ -1922,7 +2040,7 @@ function renderFarmerPassport(id, tab) {
       paint('<div data-i18n-ignore>' + head((f.farmer_id || '—') + ' · ' + f.nom + (f.prenoms ? ' ' + f.prenoms : ''),
         TT('Farmer Passport · fiche 360° — Opérationnel ✓ · Passport ', 'Farmer Passport · 360° profile — Operational ✓ · Passport ') + n(f.passport_completion) + TT(' % · Parcelle : ', ' % · Plot: ') + parcelleEtat + '.',
         '<a class="btn primary" href="#purchases/new/' + encodeURIComponent(pid) + '">' + TT('+ Nouvel achat', '+ New purchase') + '</a>' +
-        (canEditTerrain() ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">' + TT('Modifier', 'Edit') + '</button>' : '') +
+        (canEditTerrain() && inTerrainScope([f.cluster_code]) ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">' + TT('Modifier', 'Edit') + '</button>' : '') +
         '<a class="btn secondary" href="#farmers">' + TT('← Producteurs', '← Farmers') + '</a>') +
         tabs() + '<div id="fbFormHost" class="ops-form-card" hidden></div>' + body + '</div>');
       if (tab === 'overview' && global.ANAGROCI_COOP && global.ANAGROCI_COOP.fillChannel) global.ANAGROCI_COOP.fillChannel(pid);
@@ -2173,7 +2291,7 @@ function openBuyForm(farmerId) {
     if(!isFinite(prixCampagne)||prixCampagne<=0||!isFinite(commissionRt)||!isFinite(seuilHumidite)||!isFinite(seuilKor)){
       throw new Error('Règle Procurement FIELD_BUYING incomplète : prix, commission et seuils qualité sont requis.');
     }
-    if (!guardTerrain(host)) return;
+    if (!guardTerrainRoles(host)) return;
     var pre = farmerId ? c.farmers.filter(function (f) { return f.producteur_id === farmerId; })[0] : null;
     var villageOpts = selOptions(c.villages.map(function (v) { return [v.id, v.village + ' · ' + (v.cluster || '—')]; }), pre ? pre.village_id : '');
 
@@ -4460,7 +4578,7 @@ function archiveVillagePhoto(villageId, index) {
   if (!canEditTerrain()) return;
   base().then(function (cc) {
     var v = cc.vm[villageId];
-    if (!v || !v.data || !v.data.galerie || !v.data.galerie[index]) return;
+    if (!v || !villageInScope(v) || !v.data || !v.data.galerie || !v.data.galerie[index]) return;
     v.data.galerie[index].archived = true;
     client().then(function (c) {
       c.from('villages').update({ data: v.data }).eq('id', villageId).then(function (r) {
@@ -4525,7 +4643,7 @@ function renderRtFiche(rtId, tab) {
     var village = c.vm[r.village_id];
 
     var actions =
-      (canEditTerrain() ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openRtForm(null,\'' + esc(r.id) + '\')">Modifier</button>' : '') +
+      (canEditTerrain() && villageInScope(village) ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openRtForm(null,\'' + esc(r.id) + '\')">Modifier</button>' : '') +
       (isProd ? (asFarmer
         ? '<a class="btn secondary" href="#farmers/' + encodeURIComponent(asFarmer.producteur_id) + '">Voir sa fiche Producteur</a>'
         : '<button class="btn primary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">Enrôler comme producteur</button>') : '') +
@@ -4541,7 +4659,7 @@ function renderRtFiche(rtId, tab) {
         '<p>' + esc(r.telephone || '—') + ' · ' + badge(r.statut) + ' ' +
         (isProd ? badge('Producteur') : '') + ' <span class="muted">' + esc(act) + '</span></p>' +
         '</div></div>' +
-        (canEditTerrain() ? '<div class="ops-actions">' +
+        (canEditTerrain() && villageInScope(village) ? '<div class="ops-actions">' +
           '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'photo_profil\')">' +
           (photo ? 'Remplacer la photo' : '📷 Ajouter une photo') + '</button>' +
           '<button class="btn secondary" type="button" onclick="location.hash=\'#rt/' + encodeURIComponent(r.id) + '/documents\'">Pièce d’identité</button>' +
@@ -4647,7 +4765,7 @@ function renderRtFiche(rtId, tab) {
         '<div class="grid-2">' +
         '<section class="card"><div class="card-head"><div><h2>Photo de profil</h2></div></div>' +
         '<div id="rtPhotoBox" class="ops-doc-box">' + (photo ? '<div class="skeleton skeleton-row"></div>' : avatarHtml(null, '')) + '</div>' +
-        (canEditTerrain() ? '<div class="ops-actions">' +
+        (canEditTerrain() && villageInScope(village) ? '<div class="ops-actions">' +
           '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'photo_profil\')">📷 ' + (photo ? 'Remplacer' : 'Prendre une photo') + '</button></div>' : '') +
         '</section>' +
         '<section class="card"><div class="card-head"><div><h2>Pièce d’identité</h2></div></div>' +
@@ -4656,7 +4774,7 @@ function renderRtFiche(rtId, tab) {
           ['Enregistrée le', recto ? date(recto.horodatage_client) : '—']]) +
         '<div id="rtRectoBox" class="ops-doc-box">' + (recto ? '<div class="skeleton skeleton-row"></div>' : '<span class="muted">Recto non fourni</span>') + '</div>' +
         '<div id="rtVersoBox" class="ops-doc-box">' + (verso ? '<div class="skeleton skeleton-row"></div>' : '<span class="muted">Verso non fourni</span>') + '</div>' +
-        (canEditTerrain() ? '<div class="ops-actions">' +
+        (canEditTerrain() && villageInScope(village) ? '<div class="ops-actions">' +
           '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'piece_recto\')">📷 ' + (recto ? 'Remplacer le recto' : 'Prendre le recto') + '</button>' +
           '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addRtDoc(\'' + esc(r.id) + '\',\'piece_verso\')">📷 ' + (verso ? 'Remplacer le verso' : 'Prendre le verso') + '</button></div>' : '') +
         '<div id="rtDocMsg" class="muted"></div></section></div>' +
@@ -4732,7 +4850,7 @@ function renderVillageFiche(vid, tab) {
     var galerie = (vd.galerie || []).filter(function (g) { return !g.archived; });
 
     var actions =
-      (canEditTerrain() ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openVillageForm(\'' + esc(v.id) + '\')">Modifier</button>' +
+      (canEditTerrain() && villageInScope(v) ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openVillageForm(\'' + esc(v.id) + '\')">Modifier</button>' +
         '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.addVillagePhoto(\'' + esc(v.id) + '\')">📷 Ajouter une photo</button>' : '') +
       '<a class="btn secondary" href="#villages/' + encodeURIComponent(v.id) + '/galerie">Galerie (' + galerie.length + ')</a>' +
       '<a class="btn secondary" href="#rt/villages">← Villages</a>';
@@ -4861,7 +4979,7 @@ function renderVillageFiche(vid, tab) {
     } else if (tab === 'galerie') {
       body = '<div class="notice info">Photos de recensement — recommandées, jamais bloquantes. ' +
         'Prise directe à l’appareil photo sur mobile.</div>' +
-        (canEditTerrain() ? '<div class="ops-actions" style="margin-bottom:12px">' +
+        (canEditTerrain() && villageInScope(v) ? '<div class="ops-actions" style="margin-bottom:12px">' +
           '<button class="btn primary" type="button" onclick="ANAGROCI_FB.addVillagePhoto(\'' + esc(v.id) + '\')">📷 Prendre une photo</button>' +
           '</div><div id="villageGalMsg"></div>' : '') +
         (galerie.length ? '<div class="ops-gallery">' + galerie.map(function (g, i) {
@@ -4870,7 +4988,7 @@ function renderVillageFiche(vid, tab) {
             '<img loading="lazy" alt="' + esc(g.legende || g.categorie || 'Photo du village') + '" src="' + esc(villagePhotoUrl(g.path)) + '"></a>' +
             '<figcaption><b>' + esc(g.categorie || 'Autre') + '</b><br>' + esc(g.legende || '') +
             '<br><span class="muted">' + date(g.date) + (g.agent ? ' · ' + esc(g.agent) : '') + '</span>' +
-            (canEditTerrain() ? '<br><button class="btn secondary" type="button" onclick="ANAGROCI_FB.archiveVillagePhoto(\'' + esc(v.id) + '\',' + i + ')">Archiver</button>' : '') +
+            (canEditTerrain() && villageInScope(v) ? '<br><button class="btn secondary" type="button" onclick="ANAGROCI_FB.archiveVillagePhoto(\'' + esc(v.id) + '\',' + i + ')">Archiver</button>' : '') +
             '</figcaption></figure>';
         }).join('') + '</div>' : empty('Aucune photo pour ce village — ajoutez la première.'));
     } else if (tab === 'historique') {
