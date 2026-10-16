@@ -3860,12 +3860,12 @@ function producerExportRow(row, refs){
     d.potentiel2027Kg
   );
   const potentielMt = potentielKg !== "" && Number.isFinite(Number(potentielKg)) ? Number(potentielKg) / 1000 : "";
-  const rendement = superficie !== "" && Number(superficie) > 0 && prodPrecKg !== "" && Number.isFinite(Number(prodPrecKg))
-    ? Number(prodPrecKg) / Number(superficie) : "";
   const prodPrecKg = exportFirst(
     baseline.previous_production_kg,
     d.prodPrecKg
   );
+  const rendement = superficie !== "" && Number(superficie) > 0 && prodPrecKg !== "" && Number.isFinite(Number(prodPrecKg))
+    ? Number(prodPrecKg) / Number(superficie) : "";
   return {
     "Farmer ID": exportFirst(row.code, passport.farmer_id),
     "Nom": exportFirst(row.nom, d.nom),
