@@ -95,5 +95,68 @@ for(const count of [100,1000,5000,10000]){
  assert.equal(typeof ws.getCell(9,9).value,'number','weight must remain numeric');
  results.push({count,ms:Date.now()-started,bytes:buf.length});
 }
+/* Non-régression 2026-10-16 : données agricoles producteurs.
+   Avant correctif, `data` n'était pas lu et la superficie ne venait que des membres coopérative :
+   toutes les cellules agricoles étaient vides pour les producteurs AFLP directs. Données synthétiques. */
+const agri=await page.evaluate(async()=>{
+ const D=window.__DATA;
+ D.villages_light_v=[{id:'v-1',village:'Village Test',region:'R',departement:'D',cluster:'CL-1',deleted:false,data:{}}];
+ D.rt_light_v=[{id:'rt-1',id_rt:'RT-T1',nom:'RT Test',deleted:false}];
+ const base={nom:'Test',village_id:'v-1',rt_id:'rt-1',deleted:false,is_qa:false};
+ D.producteurs=[
+  {...base,id:'p1',code:'TST-0001',data:{superficieHa:5,nbArbres:750,prodPrecKg:3000,potentiel2027Kg:3000,agePlantation:45,anneesAnacarde:45,engagementKg:1000,autresCultures:'Igname'}},
+  {...base,id:'p2',code:'TST-0002',data:{superficieHa:'0.50',nbArbres:'5 ANS',prodPrecKg:'0',engagementKg:'300'}},
+  {...base,id:'p3',code:'TST-0003',data:{}},
+  {...base,id:'p4',code:'TST-0004',data:{superficieHa:9,nbArbres:999}},
+  {...base,id:'p5',code:'TST-0005',data:{superficieHa:7,potentiel2027Kg:9999,engagementKg:7777}},
+  {...base,id:'p6',code:'TST-0006',data:'{"superficieHa":"3,5","prodPrecKg":"700"}'}
+ ];
+ D.farmer_plots=[
+  {producteur_id:'p4',declared_area:1.5,area_unit:'HA',tree_count:100,latitude:7.1,longitude:-5.1,gps_status:'GPS_VERIFIED',gps_verified_area:1.4,status:'ACTIVE',deleted:false},
+  {producteur_id:'p4',declared_area:5000,area_unit:'M2',tree_count:50,status:'ACTIVE',deleted:false},
+  {producteur_id:'p4',declared_area:80,area_unit:'HA',tree_count:9000,status:'ARCHIVED',deleted:false}
+ ];
+ D.farmer_production_baselines=[
+  {producteur_id:'p5',campaign_id:'camp-current',version:1,status:'DRAFT',productive_area_ha:3,forecast_kg:1000},
+  {producteur_id:'p5',campaign_id:'camp-current',version:2,status:'FINAL',productive_area_ha:4,forecast_kg:2500,previous_production_kg:2000}
+ ];
+ const x=await ANAGROCI_PJS_EXPORT.workbook('producers',{});
+ const buf=await x.wb.xlsx.writeBuffer();
+ let s='',a=new Uint8Array(buf);for(let i=0;i<a.length;i+=0x8000)s+=String.fromCharCode(...a.subarray(i,i+0x8000));
+ return btoa(s);
+});
+{
+ const wb=new ExcelJS.Workbook();await wb.xlsx.load(Buffer.from(agri,'base64'));
+ const ws=wb.getWorksheet('Base Producteurs');assert.ok(ws,'feuille Base Producteurs absente');
+ const H=ws.getRow(8).values.slice(1),col=h=>{const i=H.indexOf(h);assert.ok(i>=0,'colonne absente : '+h);return i+1;};
+ const rows={};for(let r=9;r<=ws.rowCount;r++){const id=ws.getCell(r,col('Farmer ID')).value;assert.ok(!rows[id],'ligne producteur dupliquée : '+id);rows[id]=r;}
+ assert.equal(Object.keys(rows).length,6,'une ligne par producteur attendue');
+ const v=(id,h)=>ws.getCell(rows[id],col(h)).value;
+ const SUP='Superficie anacarde (ha)',ARB='Nombre d’arbres',PREV='Production précédente (kg)',POT='Potentiel / prévision (kg)';
+ // Repli sur producteurs.data, valeurs numériques réelles
+ assert.equal(v('TST-0001',SUP),5);assert.equal(v('TST-0001',ARB),750);assert.equal(v('TST-0001',PREV),3000);
+ assert.equal(v('TST-0001',POT),3000);assert.equal(v('TST-0001','Potentiel / prévision (MT)'),3);
+ assert.equal(v('TST-0001','Âge plantation (ans)'),45);assert.equal(v('TST-0001','Ancienneté anacarde (ans)'),45);
+ assert.equal(v('TST-0001','Autres cultures'),'Igname');assert.equal(v('TST-0001','Rendement historique (kg/ha)'),600);
+ assert.equal(v('TST-0001','Engagement AFLP (kg)'),1000);assert.equal(v('TST-0001','Source superficie'),'Fiche producteur');
+ assert.equal(typeof v('TST-0001',SUP),'number','superficie doit être un nombre Excel');
+ // Chaînes normalisées, zéro réel conservé, saisie non numérique non convertie et signalée
+ assert.equal(v('TST-0002',SUP),0.5);assert.equal(v('TST-0002',PREV),0);assert.equal(v('TST-0002','Rendement historique (kg/ha)'),0);
+ assert.equal(v('TST-0002',ARB),null,'« 5 ANS » ne doit pas devenir un nombre d’arbres');
+ assert.match(String(v('TST-0002','Saisies agricoles non numériques')),/5 ANS/);
+ assert.equal(v('TST-0002',POT),null,'engagementKg ne doit jamais servir de potentiel');
+ // Absence : cellules vides, jamais 0
+ for(const h of [SUP,ARB,PREV,POT,'Nombre de parcelles','Rendement historique (kg/ha)'])assert.equal(v('TST-0003',h),null,'absence convertie : '+h);
+ // Parcelles prioritaires, jamais additionnées à la fiche ; parcelle archivée ignorée
+ assert.equal(v('TST-0004',SUP),2);assert.equal(v('TST-0004',ARB),150);assert.equal(v('TST-0004','Nombre de parcelles'),2);
+ assert.equal(v('TST-0004','Parcelles GPS'),1);assert.equal(v('TST-0004','Superficie GPS vérifiée (ha)'),1.4);
+ assert.equal(v('TST-0004','Source superficie'),'Parcelles');
+ // Baseline : dernière version, prioritaire sur la fiche ; engagement jamais utilisé comme potentiel
+ assert.equal(v('TST-0005',SUP),4);assert.equal(v('TST-0005',POT),2500);assert.equal(v('TST-0005',PREV),2000);
+ assert.equal(v('TST-0005','Source potentiel'),'Baseline');assert.equal(v('TST-0005','Engagement AFLP (kg)'),7777);
+ // `data` stocké en chaîne JSON, virgule décimale
+ assert.equal(v('TST-0006',SUP),3.5);assert.equal(v('TST-0006',PREV),700);assert.equal(v('TST-0006','Rendement historique (kg/ha)'),200);
+ results.push({producers_agri:'PASS'});
+}
 await browser.close();server.close();
 console.log(JSON.stringify({result:'PASS',reconciliation:true,brand:true,formula_injection:true,performance:results},null,2));

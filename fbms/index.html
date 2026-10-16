@@ -3830,6 +3830,82 @@ function masterRow(row){
   for (const k of Object.keys(row)) out[k] = (k === "data") ? JSON.stringify(row[k]) : row[k];
   return out;
 }
+/* Feuille Producteurs_Detailles (correctif 2026-10-16) : mêmes règles que
+   operations/pjs-export.js. Hiérarchie NON additive farmer_plots > baseline >
+   producteurs.data ; absence = cellule vide (jamais 0) ; « 5 » -> 5 ;
+   saisie non numérique non convertie et signalée ; engagementKg jamais utilisé
+   comme potentiel. Lecture seule. */
+function mNum(v){
+  if (v == null) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s || !/^-?\d+(?:[.,]\d+)?$/.test(s)) return null;
+  const x = Number(s.replace(",", ".")); return isFinite(x) ? x : null;
+}
+function mData(row){
+  const d = row && row.data;
+  if (d == null) return {};
+  if (typeof d === "object") return d;
+  if (typeof d === "string"){ try { const o = JSON.parse(d); return o && typeof o === "object" ? o : {}; } catch(e){ return {}; } }
+  return {};
+}
+function masterAgriRefs(plots, baselines){
+  const P = {}, B = {}, off = {SUPERSEDED:1,CANCELLED:1,CANCELED:1,VOID:1,REJECTED:1,DELETED:1,ARCHIVED:1};
+  (plots||[]).forEach(x=>{
+    if (!x || !x.producteur_id || x.deleted === true) return;
+    if (x.status && String(x.status).toUpperCase() !== "ACTIVE") return;
+    const g = P[x.producteur_id] || (P[x.producteur_id] = {count:0,gps:0,gpsHa:null,ha:null,trees:null,age:null});
+    g.count++;
+    if (x.latitude != null && x.longitude != null) g.gps++;
+    if (String(x.gps_status||"").toUpperCase() === "GPS_VERIFIED"){ const v = mNum(x.gps_verified_area); if (v != null) g.gpsHa = (g.gpsHa||0) + v; }
+    const a = mNum(x.declared_area), u = String(x.area_unit||"HA").toUpperCase();
+    const ha = a == null ? null : u === "M2" ? a/10000 : (u === "ACRE" || u === "ACRES") ? a*0.404686 : u === "HA" ? a : null;
+    if (ha != null) g.ha = (g.ha||0) + ha;
+    const t = mNum(x.tree_count); if (t != null) g.trees = (g.trees||0) + t;
+    const ag = mNum(x.orchard_age_years); if (ag != null) g.age = g.age == null ? ag : Math.max(g.age, ag);
+  });
+  (baselines||[]).forEach(x=>{
+    if (!x || !x.producteur_id || off[String(x.status||"").toUpperCase()]) return;
+    const c = B[x.producteur_id];
+    if (!c || (Number(x.version)||0) > (Number(c.version)||0)) B[x.producteur_id] = x;
+  });
+  return {P, B};
+}
+function masterDetailRow(row, refs){
+  const d = mData(row), pl = refs.P[row.id] || null, b = refs.B[row.id] || {}, bad = [];
+  let sup, origSup, pot, origPot;
+  if (pl && pl.ha > 0){ sup = pl.ha; origSup = "Parcelles"; }
+  else if (mNum(b.productive_area_ha) != null){ sup = mNum(b.productive_area_ha); origSup = "Baseline"; }
+  else { sup = mNum(d.superficieHa); origSup = sup != null ? "Fiche producteur" : null; }
+  const arbres = pl && pl.trees > 0 ? pl.trees : (mNum(b.productive_tree_count) != null ? mNum(b.productive_tree_count) : mNum(d.nbArbres));
+  const prev = mNum(b.previous_production_kg) != null ? mNum(b.previous_production_kg) : mNum(d.prodPrecKg);
+  if (mNum(b.forecast_kg) != null){ pot = mNum(b.forecast_kg); porigSup = "Baseline"; }
+  else { pot = mNum(d.potentiel2027Kg); origPot = pot != null ? "Fiche producteur" : null; }
+  [["superficieHa","Superficie"],["nbArbres","Nombre d’arbres"],["prodPrecKg","Production précédente"],["potentiel2027Kg","Potentiel"],["agePlantation","Âge plantation"],["anneesAnacarde","Ancienneté anacarde"],["engagementKg","Engagement"]].forEach(f=>{
+    const v = d[f[0]];
+    if (v != null && typeof v !== "object" && String(v).trim() !== "" && mNum(v) == null) bad.push(f[1] + " : " + String(v).trim());
+  });
+  let oc = d.autresCultures; oc = Array.isArray(oc) ? oc.filter(Boolean).join(", ") : (oc == null ? null : (String(oc).trim() || null));
+  const txt = v => { if (v == null || v === "") return null; const s = String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
+  return {
+    "Farmer ID": txt(row.code), "Nom": txt(row.nom), "Prénoms": txt(row.prenoms), "Sexe": txt(row.sexe),
+    "Téléphone": txt(row.telephone), "Village": txt(row.village_nom || d.villageNom), "ID RT": txt(row.rt_id || d.rtId),
+    "Statut": txt(row.statut || d.statut),
+    "Superficie anacarde (ha)": sup, "Source superficie": origSup, "Nombre d’arbres": arbres,
+    "Nombre de parcelles": pl ? pl.count : null, "Parcelles GPS": pl ? pl.gps : null, "Superficie GPS vérifiée (ha)": pl ? pl.gpsHa : null,
+    "Âge plantation (ans)": pl && pl.age != null ? pl.age : mNum(d.agePlantation), "Ancienneté anacarde (ans)": mNum(d.anneesAnacarde),
+    "Année de plantation": mNum(d.anneePlantation), "Autres cultures": txt(oc),
+    "Production précédente (kg)": prev, "Potentiel / prévision (kg)": pot, "Potentiel / prévision (MT)": pot == null ? null : pot/1000,
+    "Source potentiel": origPot, "Rendement historique (kg/ha)": (sup != null && sup > 0 && prev != null) ? prev/sup : null,
+    "Engagement AFLP (kg)": mNum(d.engagementKg), "Saisies agricoles non numériques": bad.length ? bad.join(" ; ") : null
+  };
+}
+function masterDetailSheet(rows){
+  const ws = XLSX.utils.json_to_sheet(rows);
+  if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
+  ws["!cols"] = Object.keys(rows[0] || {}).map(h => ({ wch: Math.min(32, Math.max(12, h.length + 2)) }));
+  return ws;
+}
 async function exportMaster(){
   if (!can("admin","utilisateurs")){ alert(t("Sauvegarde réservée au Branch Manager.")); return; }
   if (!isSupabase()){ alert(t("Sauvegarde Master disponible en mode Supabase uniquement.")); return; }
@@ -3843,6 +3919,12 @@ async function exportMaster(){
       SB.from("producteurs").select("*").eq("deleted", false),
     ]);
     for (const x of [v,r,p]) if (x.error) throw new Error(x.error.message);
+    // Tables structurées facultatives : en cas d'échec (droits, table vide) le repli producteurs.data s'applique.
+    const optional = async (q) => { try { const res = await q; return res && !res.error ? (res.data || []) : []; } catch(e){ return []; } };
+    const [plotsRows, baseRows] = await Promise.all([
+      optional(SB.from("farmer_plots").select("producteur_id,declared_area,area_unit,tree_count,orchard_age_years,latitude,longitude,gps_status,gps_verified_area,status,deleted").eq("deleted", false)),
+      optional(SB.from("farmer_production_baselines").select("producteur_id,version,status,productive_area_ha,previous_production_kg,forecast_kg,productive_tree_count")),
+    ]);
     const now = new Date();
     const stamp = now.toISOString().slice(0,19).replace(/[:T]/g,"-");
     // 1) Sauvegarde JSON complète (le vrai filet de sécurité).
@@ -3858,7 +3940,9 @@ async function exportMaster(){
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.data.map(masterRow)), "Villages");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.data.length ? r.data.map(masterRow) : [{info:"aucun RT"}]), "RT");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p.data.length ? p.data.map(masterRow) : [{info:"aucun producteur"}]), "Producteurs");
+      const refs = masterAgriRefs(plotsRows, baseRows);
+      XLSX.utils.book_append_sheet(wb, masterDetailSheet(p.data.length ? p.data.map(x=>masterDetailRow(x, refs)) : [{Information:"aucun producteur"}]), "Producteurs_Detailles");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p.data.length ? p.data.map(masterRow) : [{info:"aucun producteur"}]), "Producteurs_RAW");
       XLSX.writeFile(wb, "FBMS_MASTER_" + stamp + ".xlsx");
     }
     setMasterStatus("✔ " + t("Sauvegarde téléchargée") + " : " + v.data.length + " villages · " + r.data.length + " RT · " + p.data.length + " producteurs.", T.emerald);
