@@ -2073,7 +2073,9 @@ function openLoginModal(){
     + '<div class="flex items-center gap-2 pt-1">'
     + '<button id="loginSubmitBtn" type="submit" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5 flex-1" style="background-color:'+T.forest700+';color:#fff">'+t('Se connecter')+'</button>'
     + '<button type="button" onclick="closeLoginModal()" class="ff-body text-sm font-semibold rounded-lg px-4 py-2.5" style="background-color:'+T.cream+';color:'+T.ink+';border:1px solid '+T.line+'">'+t('Annuler')+'</button>'
-    + '</div></form></div></div>';
+    + '</div>'
+    + (isSupabase()?'<p style="margin:10px 0 0;text-align:center"><a id="loginForgotLink" href="https://nwodobe.github.io/fbms/shared/password-reset.html" class="ff-body text-sm font-semibold" style="display:inline-block;padding:6px 10px;color:'+T.forest700+';text-decoration:underline">Mot de passe oublié ?</a></p>':'')
+    + '</form></div></div>';
   if (window.lucide) lucide.createIcons();
   const emailEl = document.getElementById("loginEmail");
   if (emailEl) emailEl.focus();

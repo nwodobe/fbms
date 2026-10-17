@@ -59,6 +59,7 @@ pgdata/
 
 # Captures produites par tests/sacherie-inventaires-journal-e2e.mjs
 .captures-sacherie/
+.captures-recuperation/
 
 # Clé PUBLIQUE de publication des mises à jour Web de l'APK : versionnée volontairement
 !android/update-keys/web-bundle-public.pem
