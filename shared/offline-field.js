@@ -36,6 +36,14 @@ function campaignCode() {
 function profile() {
   return global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile ? global.ANAGROCI_AUTH.profile : {};
 }
+/* Isolation multi-utilisateurs sur un même téléphone (AFLP 2027).
+   Le serveur attribue chaque opération synchronisée à la session courante
+   (auth.uid()). Sans ce filtre, l'utilisateur B connecté après A enverrait
+   les opérations de A sous son propre nom. Une opération sans user_id
+   (créée avant cette garde) reste traitée comme appartenant à l'utilisateur
+   connecté, pour ne jamais bloquer une file existante. */
+function currentUserId() { var p = profile(); return p.user_id || p.userId || null; }
+function ownedBy(uid, row) { if (!uid) return true; return !row || !row.user_id || row.user_id === uid; }
 function idbReq(req) {
   return new Promise(function (resolve, reject) {
     req.onsuccess = function () { resolve(req.result); };
@@ -94,14 +102,27 @@ function deviceId() {
     var id = uuid(); return setMeta('device_id', id).then(function () { return id; });
   });
 }
-function bundleKey(name, cid) { return name + ':' + (cid || campaignId() || 'none'); }
+function legacyBundleKey(name, cid) { return name + ':' + (cid || campaignId() || 'none'); }
+function bundleKey(name, cid) {
+  var uid = currentUserId();
+  return legacyBundleKey(name, cid) + (uid ? ':u:' + uid : '');
+}
 function setBundle(name, value, opts) {
   opts = opts || {}; var cid = opts.campaign_id === undefined ? campaignId() : opts.campaign_id;
-  return put(STORE_BUNDLES, { key: bundleKey(name, cid), name: name, campaign_id: cid || null, cached_at: nowIso(), value: value });
+  return put(STORE_BUNDLES, { key: bundleKey(name, cid), name: name, campaign_id: cid || null, owner_user_id: currentUserId(), cached_at: nowIso(), value: value });
 }
 function getBundle(name, opts) {
   opts = opts || {}; var cid = opts.campaign_id === undefined ? campaignId() : opts.campaign_id;
-  return get(STORE_BUNDLES, bundleKey(name, cid)).then(function (x) { return x ? x.value : null; });
+  var key = bundleKey(name, cid), legacy = legacyBundleKey(name, cid);
+  return get(STORE_BUNDLES, key).then(function (x) {
+    if (x) return x.value;
+    if (key === legacy) return null;
+    /* Cache préparé avant l'isolation : utilisable seulement s'il n'est
+       attribué à aucun autre utilisateur. */
+    return get(STORE_BUNDLES, legacy).then(function (y) {
+      return y && ownedBy(currentUserId(), { user_id: y.owner_user_id }) ? y.value : null;
+    });
+  });
 }
 function setTable(name, rows, opts) { return setBundle('table:' + name, rows || [], opts); }
 function getTable(name, opts) { return getBundle('table:' + name, opts).then(function (x) { return x || []; }); }
@@ -113,7 +134,7 @@ function updateBundle(name, updater, opts) {
       var tr = db.transaction(STORE_BUNDLES, 'readwrite'), st = tr.objectStore(STORE_BUNDLES), req = st.get(key), out;
       req.onerror = function () { reject(req.error); };
       req.onsuccess = function () {
-        var row = req.result || { key: key, name: name, campaign_id: cid || null, value: null };
+        var row = req.result || { key: key, name: name, campaign_id: cid || null, owner_user_id: currentUserId(), value: null };
         try { out = updater(row.value); } catch (e) { reject(e); tr.abort(); return; }
         row.value = out; row.cached_at = nowIso(); st.put(row);
       };
@@ -126,8 +147,13 @@ function updateBundle(name, updater, opts) {
 function statusRank(s) { return { PENDING: 1, SYNCING: 2, FAILED: 3, CONFLICT: 4, NEEDS_REVIEW: 5, SYNCED: 6, CANCELLED: 7 }[s] || 99; }
 function summary() {
   return all(STORE_OPS).then(function (ops) {
-    var s = { online: isOnline(), syncing: runtime.syncing, done: runtime.done, total: runtime.total, pending: 0, failed: 0, conflicts: 0, review: 0, synced: 0, cancelled: 0, lastError: runtime.lastError };
+    var uid = currentUserId();
+    var s = { online: isOnline(), syncing: runtime.syncing, done: runtime.done, total: runtime.total, pending: 0, failed: 0, conflicts: 0, review: 0, synced: 0, cancelled: 0, other_users_open: 0, lastError: runtime.lastError };
     ops.forEach(function (o) {
+      if (!ownedBy(uid, o)) {
+        if (o.status !== 'SYNCED' && o.status !== 'CANCELLED') s.other_users_open++;
+        return;
+      }
       if (o.status === 'PENDING' || o.status === 'SYNCING') s.pending++;
       else if (o.status === 'FAILED') s.failed++;
       else if (o.status === 'CONFLICT') s.conflicts++;
@@ -179,6 +205,10 @@ function queueOperation(type, payload, opts) {
   });
 }
 function listOperations() {
+  var uid = currentUserId();
+  return allOperations().then(function (rows) { return rows.filter(function (o) { return ownedBy(uid, o); }); });
+}
+function allOperations() {
   return all(STORE_OPS).then(function (rows) {
     return rows.sort(function (a, b) {
       var ra = statusRank(a.status), rb = statusRank(b.status);
@@ -240,7 +270,7 @@ function getClient() {
   return getClient._client;
 }
 function resetStaleSyncing() {
-  return listOperations().then(function (ops) {
+  return allOperations().then(function (ops) {
     var stale = ops.filter(function (o) { return o.status === 'SYNCING'; });
     return Promise.all(stale.map(function (o) { return updateOperation(o.id, { status: 'PENDING', last_error: 'Synchronisation interrompue : reprise automatique.' }); }));
   });
@@ -314,12 +344,14 @@ function syncNow() {
 
   syncPromise = cl.auth.getSession().then(function (s) {
     if (!(s.data && s.data.session)) throw new Error('Session expirée : reconnectez-vous. Vos opérations locales sont conservées.');
-    return Promise.all([listOperations(), mappingsObject()]);
+    var sessionUid = s.data.session.user && s.data.session.user.id || null;
+    return Promise.all([allOperations(), mappingsObject(), sessionUid]);
   }).then(function (rs) {
-    var ops = rs[0], maps = rs[1], byId = {}; ops.forEach(function (o) { byId[o.id] = o; });
+    var ops = rs[0], maps = rs[1], sessionUid = rs[2], byId = {}; ops.forEach(function (o) { byId[o.id] = o; });
     var now = Date.now();
     var eligible = ops.filter(function (o) {
       if (o.status !== 'PENDING' && o.status !== 'FAILED') return false;
+      if (!sessionUid || !ownedBy(sessionUid, o)) return false;
       if (Number(o.attempt_count || 0) >= 10) return false;
       if (o.next_attempt_at && new Date(o.next_attempt_at).getTime() > now) return false;
       return depsDone(o, byId);
@@ -354,7 +386,7 @@ function syncNow() {
     });
   }).catch(function (err) {
     runtime.lastError = friendly(err && err.message ? err.message : String(err));
-    return listOperations().then(function (ops) {
+    return allOperations().then(function (ops) {
       var affected = ops.filter(function (o) { return o.status === 'SYNCING'; });
       return Promise.all(affected.map(function (o) {
         return updateOperation(o.id, { status: 'PENDING', last_error: runtime.lastError, next_attempt_at: nextBackoff(o.attempt_count || 1) });
@@ -380,7 +412,8 @@ function syncNow() {
 }
 
 function pendingSpend(rtId) {
-  return listOperations().then(function (ops) {
+  /* Prudence caisse : toute dépense locale non synchronisée de l'appareil compte. */
+  return allOperations().then(function (ops) {
     return ops.filter(function (o) {
       if (['PENDING','SYNCING','FAILED'].indexOf(o.status) < 0 || o.operation_type !== 'FIELD_PURCHASE_CREATE') return false;
       var r = o.payload && o.payload.row; return r && r.rt_id === rtId;
@@ -483,7 +516,23 @@ function readiness() {
 function markPrepared(extra) {
   return setMeta('last_prepared', Object.assign({ at: nowIso(), campaign_id: campaignId(), campaign_code: campaignCode() }, extra || {})).then(emit);
 }
+function nativeShell() {
+  /* Application Android ANAGROCI FIELD BUYING : les fichiers de l'application
+     sont livrés DANS l'APK et servis localement. Il n'y a rien à précacher ;
+     le pont natif confirme que les fichiers critiques sont présents. */
+  try {
+    var n = global.AnagrociNative;
+    if (!n || typeof n.shellStatus !== 'function') return null;
+    var st = JSON.parse(n.shellStatus() || '{}');
+    return st && st.bundled === true ? st : { bundled: false, missing: st && st.missing || [] };
+  } catch (e) { return { bundled: false, error: String(e && e.message || e) }; }
+}
 function prepareShell() {
+  var nat = nativeShell();
+  if (nat) {
+    return Promise.resolve({ service_worker: false, native_bundle: nat.bundled === true, precache_confirmed: nat.bundled === true,
+      version: nat.version || null, missing: nat.missing || [] });
+  }
   var secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (!('serviceWorker' in navigator) || !secure) return Promise.resolve({ service_worker: false });
   return navigator.serviceWorker.register('../sw.js', { scope: '../' }).then(function (reg) {
@@ -579,6 +628,8 @@ var API = {
   readiness: readiness,
   markPrepared: markPrepared,
   prepareShell: prepareShell,
+  nativeShell: nativeShell,
+  currentUserId: currentUserId,
   storageEstimate: storageEstimate,
   requestPersistentStorage: requestPersistentStorage,
   clearSynced: clearSynced,

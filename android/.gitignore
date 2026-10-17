@@ -1,0 +1,16 @@
+# Généré à chaque build : jamais commité
+build/
+app/build/
+.gradle/
+.vendor-cache/
+app/src/main/assets/www/
+local.properties
+# Signature : JAMAIS dans le dépôt
+keystore.properties
+*.jks
+*.keystore
+
+# Clés de publication des mises à jour Web : seule la clé PUBLIQUE est versionnée
+update.properties
+*private*.pem
+*.key

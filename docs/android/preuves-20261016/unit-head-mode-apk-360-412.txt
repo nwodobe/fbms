@@ -1,0 +1,45 @@
+PASS 360px · UH : boutons « Nouveau village » et « Nouveau producteur » présents
+PASS 360px · UH : formulaire village ouvert (plus de refus de rôle)
+PASS 360px · UH : seul le cluster Botro est proposé et présélectionné ([["Botro",true]])
+PASS 360px · UH : village envoyé une fois, avec le cluster Botro
+PASS 360px · UH : cluster falsifié (Diabo) refusé avant envoi
+PASS 360px · UH : édition d'un village Diabo refusée avec message explicite
+PASS 360px · UH : seuls les villages de Botro proposés (v_test_10, v_test_4)
+PASS 360px · UH : producteur envoyé, rattaché au village Botro v_test_4
+PASS 360px · UH : village falsifié (Diabo) refusé avant envoi
+PASS 360px · UH : édition d'un producteur Diabo refusée
+PASS 360px · UH : formulaire d'achat toujours fermé (module achats inchangé)
+PASS 360px · UH hors ligne : formulaire village ouvert, cluster Botro seul (["Botro"])
+PASS 360px · UH hors ligne : formulaire producteur ouvert, 2 villages Botro (2)
+PASS 360px · UH : aucun défilement horizontal
+PASS 360px · UH : aucune erreur console en ligne 
+PASS 360px · UH sans cluster : écriture bloquée, message explicite
+PASS 360px · UH Djébonoua : seul son cluster est proposé (["Djébonoua"])
+PASS 360px · UH Djébonoua : édition d'un village Botro refusée
+PASS 360px · UH Djébonoua : aucune erreur console 
+PASS 360px · BM : les 6 clusters restent proposés (6)
+PASS 360px · BM : édition d'un village Diabo toujours possible
+PASS 360px · BM : les 12 villages restent proposés au producteur (12)
+PASS 360px · BM : aucune erreur console 
+PASS 412px · UH : boutons « Nouveau village » et « Nouveau producteur » présents
+PASS 412px · UH : formulaire village ouvert (plus de refus de rôle)
+PASS 412px · UH : seul le cluster Botro est proposé et présélectionné ([["Botro",true]])
+PASS 412px · UH : village envoyé une fois, avec le cluster Botro
+PASS 412px · UH : cluster falsifié (Diabo) refusé avant envoi
+PASS 412px · UH : édition d'un village Diabo refusée avec message explicite
+PASS 412px · UH : seuls les villages de Botro proposés (v_test_10, v_test_4)
+PASS 412px · UH : producteur envoyé, rattaché au village Botro v_test_4
+PASS 412px · UH : village falsifié (Diabo) refusé avant envoi
+PASS 412px · UH : édition d'un producteur Diabo refusée
+PASS 412px · UH : formulaire d'achat toujours fermé (module achats inchangé)
+PASS 412px · UH : aucun défilement horizontal
+PASS 412px · UH : aucune erreur console en ligne 
+PASS 412px · UH sans cluster : écriture bloquée, message explicite
+PASS 412px · UH Djébonoua : seul son cluster est proposé (["Djébonoua"])
+PASS 412px · UH Djébonoua : édition d'un village Botro refusée
+PASS 412px · UH Djébonoua : aucune erreur console 
+PASS 412px · BM : les 6 clusters restent proposés (6)
+PASS 412px · BM : édition d'un village Diabo toujours possible
+PASS 412px · BM : les 12 villages restent proposés au producteur (12)
+PASS 412px · BM : aucune erreur console 
+{"resultat":"PASS","reussis":44,"echecs":0}
