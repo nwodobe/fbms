@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+/* ANAGROCI FBMS — tests statiques de non-régression, sans comptes ni secrets. */
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read = p => fs.readFileSync(p,'utf8');
+const gate=read('shared/auth-gate.js'),legacy=read('fbms/index.html');
+const page=read('shared/password-reset.html'),client=read('shared/password-reset.js'),sw=read('sw.js');
+let count=0;const ok=(test,label)=>{assert.ok(test,label);count++};
+ok(gate.includes('Mot de passe oublié ?'),'Lien de récupération portail');
+ok(legacy.includes('Mot de passe oublié ?'),'Lien de récupération historique');
+ok(page.includes('id="request-form"'),'Formulaire email');
+ok(page.includes('id="update-form"'),'Formulaire nouveau mot de passe');
+ok(page.includes('autocomplete="new-password"'),'Autocomplétion mot de passe');
+ok(page.includes('name="viewport"'),'Mise en page mobile');
+ok(page.includes('no-referrer'),'Protection referrer');
+ok(page.includes('noindex,nofollow'),'Pas d’indexation');
+ok(!page.includes('auth-gate.js'),'Page accessible sans session');
+ok(client.includes('resetPasswordForEmail'),'API de récupération officielle');
+ok(client.includes('auth.updateUser'),'API de changement officielle');
+ok(client.includes('PASSWORD_RECOVERY'),'Événement récupération');
+ok(client.includes('persistSession: false'),'Session de récupération non persistante');
+ok(client.includes('redirectTo: RECOVERY_URL'),'Redirection fixe');
+ok(client.includes('location.pathname'),'Nettoyage URL sensible');
+ok(client.includes('recoveryReady'),'Contrôle session de récupération');
+ok(client.includes('Si un compte correspond'),'Pas d’énumération par message');
+ok(client.includes('next.length < 12'),'Mot de passe minimal');
+ok(client.includes('next !== confirmation.value'),'Confirmation obligatoire');
+ok(!client.includes('service_role'),'Absence service-role côté public');
+ok(sw.includes('password-reset(?:'),'Exclusion SW');
+ok(sw.includes('cache: \'no-store\''),'Pas de cache recovery');
+ok(sw.includes('ops-offline-v2-auth-recovery'),'Version de cache modifiée');
+ok(page.includes('password-reset.js?v='),'Version de script dédiée');
+console.log('PASS',count,'static controls; les e-mails et sessions réelles restent à tester séparément.');

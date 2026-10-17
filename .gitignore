@@ -59,3 +59,4 @@ pgdata/
 
 # Captures produites par tests/sacherie-inventaires-journal-e2e.mjs
 .captures-sacherie/
+.captures-recuperation/
