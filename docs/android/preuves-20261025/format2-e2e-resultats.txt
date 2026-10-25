@@ -1,0 +1,23 @@
+PASS E2E-01 Canal publié depuis le même commit que l'APK : « à jour », 0 objet téléchargé → à jour · seq 1792927895
+PASS E2E-02 Identité commune : web_version identique dans l'APK et dans la publication → 2026.10.25-1131.ac7f8d6
+PASS E2E-03 Correction publiée : détectée, téléchargée depuis le magasin d'objets, vérifiée, mise en attente → phase prete · 1 objet(s)
+PASS E2E-04 Rien n'est remplacé pendant la session en cours → intégrée à l'APK
+PASS E2E-05 Source injoignable (hors ligne) : version locale conservée, statut d'erreur clair → échec : HTTP 503 sur /fbms/android-updates/test/web-bundle.json
+PASS E2E-06 Redémarrage : version v1 activée, servie par AssetServer, démarrage confirmé, date de réussite notée → active 1792927901 · réussite 2026-10-25T11:31:44Z
+PASS E2E-07 Reconnexion : la version v2 est récupérée → version 1792927903 vérifiée : appliquée au prochain démarrage
+PASS E2E-08 Téléchargement interrompu : aucune version partielle, téléchargement repris ensuite → refusée : fichier non conforme au manifeste signé : operations/field-buying.js (publication en cours ? réessayer plus tard) → version 1792927904 vérifiée : appliquée au prochain démarrage
+PASS E2E-09 Objet modifié après signature : mise à jour refusée, version en place conservée → refusée : fichier non conforme au manifeste signé : operations/field-buying.js (taille)
+PASS E2E-10 Contrôle de la publication (--verify) : objet altéré détecté → code 1
+PASS E2E-11 Objet restauré : la même version est acceptée → version 1792927906 vérifiée : appliquée au prochain démarrage
+PASS E2E-12 Révoquer la version courante sans rien publier à sa place : refusé par la chaîne → code 1
+PASS E2E-13 Version active révoquée + retour arrière : signalée, puis au démarrage suivant v4 refusée et contenu v3 actif sous un nouveau numéro → révocation=true · active 1792927908 (retour de 1792927904)
+PASS E2E-14 Version exigeant un nouvel APK : signalée « nouvel APK requis », rien téléchargé ni activé → nouvel_apk · incompatible : nouvel APK requis (versionCode ≥ 99)
+PASS E2E-15 Mise à jour de sécurité : politique transmise à l'écran, version mise en attente → security
+PASS E2E-16 Format des files changé avec 4 opérations en attente : activation différée ; file vidée : activation → différée=true · active 1792927912
+PASS E2E-17 Version défectueuse (démarrage non confirmé) : retour automatique, version refusée définitivement → active 1792927912
+PASS E2E-18 Rejeu d'un ancien manifeste authentique : ignoré (anti-rejeu) → à jour
+PASS E2E-19 Contrôle critique en échec : publication bloquée (code 2), manifeste inchangé → code 2
+PASS E2E-20 Refus : fichiers Web non commités ; clé privée placée dans le dépôt → codes 1/1
+PASS E2E-21 Journal de publication : chaque version, son statut (révoquée, remplacée…) et ses étapes → 10 publications
+PASS E2E-22 Données locales (IndexedDB, localStorage simulés) strictement identiques avant / après 9 publications, 1 révocation, 1 retour arrière → 65d2a35cf12a7219
+RESULTAT 22 PASS / 0 FAIL

@@ -1,0 +1,119 @@
+PASS T02 [Android 360×640] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 692 ms, requêtes externes bloquées : 0
+PASS T03 [Android 360×640] Affichage de l’écran de connexion → types=email/password/username, débordement=0px
+PASS T31 [Android 360×640] Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour) → refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0
+PASS T05 [Android 360×640] Mot de passe incorrect → message affiché
+PASS T05b [Android 360×640] Compte inexistant → message identique
+PASS T06 [Android 360×640] Compte désactivé dans l’authentification (banni) → message affiché
+PASS T20b [Android 360×640] Réseau coupé au moment de se connecter → message réseau affiché
+PASS T32 [Android 360×640] Première connexion sans Internet (aucune session) → message affiché
+PASS T04 [Android 360×640] Connexion compte de test valide (Unit Head, serveur simulé) → {"role":"Unit Head","niveau":"chef","estBM":false}
+PASS T08 [Android 360×640] Maintien de la session après rechargement → session conservée
+PASS T22a [Android 360×640] Réouverture hors ligne avec session et profil en cache → accès accordé depuis le cache
+PASS T07 [Android 360×640] Unit Head ouvre l’administration (réservée BM) → refusé
+PASS T33 [Android 360×640] Session expirée → message affiché
+PASS T06b [Android 360×640] Profil désactivé dans FBMS (actif = false) → message affiché
+PASS T34 [Android 360×640] Compte sans profil configuré → message affiché
+PASS T41 [Android 360×640] Rôle résolu même si le fichier des rôles arrive en retard (2,5 s) → niveau=chef
+PASS T35 [Android 360×640] Erreurs JavaScript pendant les parcours d’authentification → aucune
+PASS T36 [Android 360×640] Préparer le mode terrain (shell embarqué, sans Service Worker) → prêt · {"native_bundle":true,"missing":[]}
+PASS T17 [Android 360×640] Navigation entre les 9 rubriques FIELD BUYING → overview, purchases, census, farmers, cooperatives, rt, bags, cash, sync
+PASS T18 [Android 360×640] Petit écran : débordement horizontal de la page → max 0px (aucun)
+PASS T09 [Android 360×640] Ouverture du module Producteurs → producteur synthétique listé
+PASS T11 [Android 360×640] Recherche d’un producteur → trouvé=true · filtré=true
+PASS T10 [Android 360×640] Consultation des villages (RT & Villages) → affiché
+PASS T13 [Android 360×640] Formulaire de recensement village (création) → {"sections":13,"requis":2}
+PASS T14 [Android 360×640] Modification d’une fiche existante (préremplie) → nom du village prérempli
+PASS T21a [Android 360×640] Fermeture + réouverture complète sans réseau → utilisable, indicateur Hors ligne affiché
+PASS T21 [Android 360×640] Enrôlement producteur hors ligne → PENDING · id=d8283eab… · clé=a713d1c6…
+PASS T16b [Android 360×640] Clavier téléphone pour le numéro → inputmode=tel
+PASS T16 [Android 360×640] Listes déroulantes (village, RT, producteur local) → 3 options producteur, producteur local sélectionné
+PASS T21b [Android 360×640] Achat hors ligne lié au producteur local → PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true
+PASS T16c [Android 360×640] Clavier numérique pour les poids → type=number
+PASS T22 [Android 360×640] Fermeture et réouverture sans réseau : file conservée → 2/2 opérations
+PASS T27 [Android 360×640] Synchronisation tentée sans réseau → échec explicite · 2 PENDING conservées
+PASS V01 [Android 360×640] Démarrage de la version Web confirmé à l’application → 1 appel(s)
+PASS V02 [Android 360×640] Nombre d’opérations locales transmis à l’application (hors ligne) → dernier envoi : 2
+PASS V03 [Android 360×640] Bouton Version visible, cible tactile ≥ 44 px, libellé accessible → 79×44 · « v1.1.0 · 2 » · Version et mises à jour
+PASS V04 [Android 360×640] Écran Version : application, signature, version Web, files locales → tout affiché
+PASS V05 [Android 360×640] Opérations non synchronisées : avertissement « Ne désinstallez pas » → affiché
+PASS V06 [Android 360×640] Mises à jour désactivées dans cet APK : message explicite → message affiché
+PASS V07 [Android 360×640] Hors ligne : bouton « Synchroniser » désactivé → désactivé
+PASS V08 [Android 360×640] Échap ferme l’écran et rend le focus au bouton → ok
+PASS T28 [Android 360×640] Déconnexion avec opérations en attente → 2 opération(s) ne sont pas encore synchronisée(s). Elles resteront sur cet appareil, mais …
+PASS T23 [Android 360×640] Retour d’Internet → 2 appel(s) offline_sync_batch
+PASS T24 [Android 360×640] Synchronisation : producteur puis achat → SYNCED · farmer envoyé=farmer-server-0
+PASS T25 [Android 360×640] Rejeu de la synchronisation (doublons) → 0 nouvel appel, 0 clé envoyée deux fois
+PASS T37 [Android 360×640] Export de fichier (lien download blob:) → export-test-apk.csv · text/csv · 15 o
+PASS T38 [Android 360×640] Impression → 1 demande(s)
+PASS T39 [Android 360×640] GPS (API navigateur, position simulée) → 7.69,-5.03
+PASS T40 [Android 360×640] Requêtes réseau externes non prévues → 0
+PASS V09 [Android 360×640] Après synchronisation : 0 opération transmise à l’application → dernier envoi : 0
+PASS V10 [Android 360×640] Version téléchargée et vérifiée : bouton « Redémarrer pour appliquer » → bouton présent · source affichée
+PASS V11 [Android 360×640] Boutons Appliquer / Vérifier reliés à l’application → applyUpdate=1, checkUpdate=1
+PASS V12 [Android 360×640] Activation différée et version refusée : motifs affichés, pas de bouton Appliquer → différée affichée · refus affiché · bouton masqué
+PASS V13 [Android 360×640] Écran « Version et mises à jour » : tous les champs exigés → tous présents
+PASS V14 [Android 360×640] Vérifier les mises à jour sans nouveauté : réponse claire → affiché
+PASS V15 [Android 360×640] Version exigeant un nouvel APK : statut, procédure autorisée, aucun bouton Appliquer → affiché
+PASS V16 [Android 360×640] Mise à jour de sécurité prête : consigne de redémarrage → affiché
+PASS V17 [Android 360×640] Opérations du registre producteurs comptées dans le badge et transmises à l’application → v1.1.0 · 3
+PASS V18 [Android 360×640] Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification → message · sync>check
+PASS T02 [Android 412×915] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 607 ms, requêtes externes bloquées : 0
+PASS T03 [Android 412×915] Affichage de l’écran de connexion → types=email/password/username, débordement=0px
+PASS T31 [Android 412×915] Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour) → refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0
+PASS T05 [Android 412×915] Mot de passe incorrect → message affiché
+PASS T05b [Android 412×915] Compte inexistant → message identique
+PASS T06 [Android 412×915] Compte désactivé dans l’authentification (banni) → message affiché
+PASS T20b [Android 412×915] Réseau coupé au moment de se connecter → message réseau affiché
+PASS T32 [Android 412×915] Première connexion sans Internet (aucune session) → message affiché
+PASS T04 [Android 412×915] Connexion compte de test valide (Unit Head, serveur simulé) → {"role":"Unit Head","niveau":"chef","estBM":false}
+PASS T08 [Android 412×915] Maintien de la session après rechargement → session conservée
+PASS T22a [Android 412×915] Réouverture hors ligne avec session et profil en cache → accès accordé depuis le cache
+PASS T07 [Android 412×915] Unit Head ouvre l’administration (réservée BM) → refusé
+PASS T33 [Android 412×915] Session expirée → message affiché
+PASS T06b [Android 412×915] Profil désactivé dans FBMS (actif = false) → message affiché
+PASS T34 [Android 412×915] Compte sans profil configuré → message affiché
+PASS T41 [Android 412×915] Rôle résolu même si le fichier des rôles arrive en retard (2,5 s) → niveau=chef
+PASS T35 [Android 412×915] Erreurs JavaScript pendant les parcours d’authentification → aucune
+PASS T36 [Android 412×915] Préparer le mode terrain (shell embarqué, sans Service Worker) → prêt · {"native_bundle":true,"missing":[]}
+PASS T17 [Android 412×915] Navigation entre les 9 rubriques FIELD BUYING → overview, purchases, census, farmers, cooperatives, rt, bags, cash, sync
+PASS T18 [Android 412×915] Petit écran : débordement horizontal de la page → max 0px (aucun)
+PASS T09 [Android 412×915] Ouverture du module Producteurs → producteur synthétique listé
+PASS T11 [Android 412×915] Recherche d’un producteur → trouvé=true · filtré=true
+PASS T10 [Android 412×915] Consultation des villages (RT & Villages) → affiché
+PASS T13 [Android 412×915] Formulaire de recensement village (création) → {"sections":13,"requis":2}
+PASS T14 [Android 412×915] Modification d’une fiche existante (préremplie) → nom du village prérempli
+PASS T21a [Android 412×915] Fermeture + réouverture complète sans réseau → utilisable, indicateur Hors ligne affiché
+PASS T21 [Android 412×915] Enrôlement producteur hors ligne → PENDING · id=91fccd79… · clé=a8586ab5…
+PASS T16b [Android 412×915] Clavier téléphone pour le numéro → inputmode=tel
+PASS T16 [Android 412×915] Listes déroulantes (village, RT, producteur local) → 3 options producteur, producteur local sélectionné
+PASS T21b [Android 412×915] Achat hors ligne lié au producteur local → PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true
+PASS T16c [Android 412×915] Clavier numérique pour les poids → type=number
+PASS T22 [Android 412×915] Fermeture et réouverture sans réseau : file conservée → 2/2 opérations
+PASS T27 [Android 412×915] Synchronisation tentée sans réseau → échec explicite · 2 PENDING conservées
+PASS V01 [Android 412×915] Démarrage de la version Web confirmé à l’application → 1 appel(s)
+PASS V02 [Android 412×915] Nombre d’opérations locales transmis à l’application (hors ligne) → dernier envoi : 2
+PASS V03 [Android 412×915] Bouton Version visible, cible tactile ≥ 44 px, libellé accessible → 79×44 · « v1.1.0 · 2 » · Version et mises à jour
+PASS V04 [Android 412×915] Écran Version : application, signature, version Web, files locales → tout affiché
+PASS V05 [Android 412×915] Opérations non synchronisées : avertissement « Ne désinstallez pas » → affiché
+PASS V06 [Android 412×915] Mises à jour désactivées dans cet APK : message explicite → message affiché
+PASS V07 [Android 412×915] Hors ligne : bouton « Synchroniser » désactivé → désactivé
+PASS V08 [Android 412×915] Échap ferme l’écran et rend le focus au bouton → ok
+PASS T28 [Android 412×915] Déconnexion avec opérations en attente → 2 opération(s) ne sont pas encore synchronisée(s). Elles resteront sur cet appareil, mais …
+PASS T23 [Android 412×915] Retour d’Internet → 2 appel(s) offline_sync_batch
+PASS T24 [Android 412×915] Synchronisation : producteur puis achat → SYNCED · farmer envoyé=farmer-server-0
+PASS T25 [Android 412×915] Rejeu de la synchronisation (doublons) → 0 nouvel appel, 0 clé envoyée deux fois
+PASS T37 [Android 412×915] Export de fichier (lien download blob:) → export-test-apk.csv · text/csv · 15 o
+PASS T38 [Android 412×915] Impression → 1 demande(s)
+PASS T39 [Android 412×915] GPS (API navigateur, position simulée) → 7.69,-5.03
+PASS T40 [Android 412×915] Requêtes réseau externes non prévues → 0
+PASS V09 [Android 412×915] Après synchronisation : 0 opération transmise à l’application → dernier envoi : 0
+PASS V10 [Android 412×915] Version téléchargée et vérifiée : bouton « Redémarrer pour appliquer » → bouton présent · source affichée
+PASS V11 [Android 412×915] Boutons Appliquer / Vérifier reliés à l’application → applyUpdate=1, checkUpdate=1
+PASS V12 [Android 412×915] Activation différée et version refusée : motifs affichés, pas de bouton Appliquer → différée affichée · refus affiché · bouton masqué
+PASS V13 [Android 412×915] Écran « Version et mises à jour » : tous les champs exigés → tous présents
+PASS V14 [Android 412×915] Vérifier les mises à jour sans nouveauté : réponse claire → affiché
+PASS V15 [Android 412×915] Version exigeant un nouvel APK : statut, procédure autorisée, aucun bouton Appliquer → affiché
+PASS V16 [Android 412×915] Mise à jour de sécurité prête : consigne de redémarrage → affiché
+PASS V17 [Android 412×915] Opérations du registre producteurs comptées dans le badge et transmises à l’application → v1.1.0 · 3
+PASS V18 [Android 412×915] Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification → message · sync>check
+RESULTAT 118 PASS / 0 FAIL (commit Web c56701bc, données réelles : False)
