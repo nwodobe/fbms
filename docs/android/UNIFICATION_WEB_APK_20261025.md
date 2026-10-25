@@ -2,7 +2,14 @@
 
 Branche : `android/unification-maj-20261025`, empilée sur la PR #262 (`android/aflp-2027-apk-v2`). Canal de test publié : branche `android-updates-test`.
 
-**Statut : PARTIEL AVEC BLOCAGE.** Le mécanisme est construit et vérifié par exécution : JVM, HTTPS réel en local, simulation WebView, canal de test réellement publié. **La démonstration sur Android (émulateur ou téléphone) n'a pas été exécutée** : l'accès au dossier de l'ordinateur a été refusé.
+**Statut : PARTIEL AVEC BLOCAGE.** Le mécanisme est construit et vérifié par exécution : JVM, HTTPS réel en local, simulation WebView, canal de test réellement publié.
+
+**Démonstration exécutée le 25/10/2026 sur un téléphone Android réel** (itel S688LN, Android 15) : réception d'une mise à jour publiée, fonctionnement hors réseau, reprise au retour du réseau, conservation des opérations en attente, refus automatique d'une version défectueuse, mise à jour native par-dessus. Détail : `preuves-20261025/telephone-reel-itel-S688LN.md`.
+
+Restent bloqués :
+- la synchronisation avec Supabase après mise à jour sur le téléphone (aucun compte de test autorisé) ;
+- les clés officielles ;
+- l'activation du workflow.
 
 ---
 
@@ -118,12 +125,12 @@ Au retour du réseau, la page **synchronise d'abord**, puis vérifie les mises �
 | JVM `AssetServer` (vrai Java, vrai paquet) | 15 | **15/15** | `jvm-assetserver-updater-format1.txt` |
 | JVM `WebBundleUpdater` format 1 (non-régression) | 38 | **38/38** | idem |
 | **Bout en bout format 2** : vraie chaîne Node, vrai Java, **HTTPS réel local** | 22 | **22/22** | `format2-e2e-resultats.txt` |
-| Simulation WebView Android 360×640 et 412×915 (Chromium, `bridge.js` réel) | 59 × 2 | **118/118** | `apk-webview-sim.txt` |
+| Simulation WebView Android 360×640 et 412×915 (Chromium, `bridge.js` réel) | 60 × 2 | **120/120** | `apk-webview-sim.txt` |
 | Tests Web statiques du dépôt | 19 | **19/19** | `tests-web-statiques.txt` |
 | Tests navigateur du dépôt | 10 | **8/10**. Échecs identiques sur `main` : `field-buying-e2e` (défaut hérité), `offline-field-e2e` (corrigé par la PR #264) | — |
 | Portes qualité (JS, liens, HTML) | 3 | **3/3** | — |
 | **Publication réelle du canal de test** (`raw.githubusercontent.com`) | 1 | publiée, puis lue en HTTPS depuis l'extérieur | `canal-test-journal.json`, `canal-test-version.json` |
-| **Démonstration sur émulateur / téléphone Android** | 10 étapes | **NON EXÉCUTÉ** | script prêt : `android/tests/emulateur/` |
+| **Démonstration sur téléphone Android réel** (itel S688LN, Android 15) | 12 étapes | **11 PASS, 1 NON EXÉCUTÉ** (synchronisation Supabase : pas de compte de test) | `telephone-reel-itel-S688LN.md` + 2 captures |
 
 Le test de bout en bout format 2 couvre :
 - E2E-01 à 07 : même commit = à jour ; correction détectée ; hors ligne ; activation au redémarrage ; reconnexion ;
@@ -140,6 +147,7 @@ Le test de bout en bout format 2 couvre :
 | Élément | État |
 |---|---|
 | APK de test 1.2.0 (3), `ci.anagroci.fieldbuying.debug`, canal **test** | compilé (outils SDK, voie B) · SHA-256 `12c96e2f…6183` · certificat de test `9d33504b…95cc` (v2/v3 vérifiées) · non distribué |
+| APK de test « FBMS TEST MAJ » `ci.anagroci.fieldbuying.majtest` 1.2.0 (3) puis **1.2.1 (4)** | SHA-256 `40561be3…df3f` puis `ac4a01b2…f00a` · même certificat de test `9d33504b…95cc` · installé **uniquement** sur le téléphone de test du Branch Manager, à côté de l'application existante |
 | APK non signé 1.2.0 | `8e374f3d…d2ae` : Android refuse de l'installer, comme attendu |
 | APK release signé | **NON PRODUIT** : aucune clé ANAGROCI (création réservée au Branch Manager, README §4) |
 | Clé de publication **stable** | **à créer** par le Branch Manager (README §7) ; la clé de test utilisée ici est jetable et n'existe que dans l'environnement de travail |
@@ -168,7 +176,7 @@ Le test de bout en bout format 2 couvre :
 
 | Bloqué | Cause | Déblocage |
 |---|---|---|
-| Démonstration de bout en bout sur Android (critère final) | Accès refusé au dossier `Documents\FBMS_TEST_MISES_A_JOUR` de l'ordinateur ; aucun autre appareil | Accorder ce dossier (ou un autre) : script prêt, environ 20 min |
+| Synchronisation des opérations après mise à jour, sur le téléphone | Aucun compte de test autorisé ; aucune écriture en production pendant la recette | Compte de test créé par le Branch Manager (rôle Unit Head, cluster de test), puis refaire l'étape 7 |
 | APK release, canal stable | Clés ANAGROCI (signature APK et publication Web) inexistantes | Branch Manager, README §4 et §7 |
 | Workflow automatique | `.github/` interdit aux agents | Copier `android/ci/*.yml.example`, créer les secrets et l'environnement |
 | Fusion | PR #262 puis la présente PR, relecture humaine | Branch Manager |
