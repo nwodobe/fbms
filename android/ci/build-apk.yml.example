@@ -13,10 +13,11 @@
 #   ANAGROCI_KEY_PASSWORD      mot de passe de la clé
 # Sans ces secrets, seul l'APK debug est produit.
 #
-# Mises à jour Web signées (facultatif, voir android/README.md §7) :
+# Mises à jour Web signées (voir android/README.md §7 et ci/publish-web-update.yml.example) :
 #   variable de dépôt PRODUCTION_URL  : racine HTTPS du site publié (déjà existante)
-#   fichier commité android/update-keys/web-bundle-public.pem : clé PUBLIQUE
-#   La clé PRIVÉE de publication n'est JAMAIS dans la CI : on signe sur un poste de confiance.
+#   fichier commité android/update-keys/web-bundle-public.pem : clé PUBLIQUE du canal stable
+#   L'APK release reçoit le canal stable : <PRODUCTION_URL>/android-updates/stable/
+#   La clé PRIVÉE n'est utilisée que par le workflow de publication (environnement protégé).
 # Sans clé publique, l'APK est construit avec les mises à jour désactivées (il sert sa version).
 #
 # Coût : gratuit pour un dépôt public ; sur un dépôt privé, consomme les minutes
@@ -44,17 +45,18 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - name: Paquet Web embarqué
-        env: { ANAGROCI_UPDATE_ROOT_URL: '${{ vars.PRODUCTION_URL }}' }
+        env: { ANAGROCI_UPDATE_ROOT_URL: '${{ vars.PRODUCTION_URL }}', ANAGROCI_UPDATE_CHANNEL: stable }
         run: node android/scripts/prepare-web.mjs
       - name: Manifeste de mise à jour publié cohérent avec le dépôt (s'il existe)
         run: |
           if [ -f android-updates/stable/web-bundle.json ] && [ -f android/update-keys/web-bundle-public.pem ]; then
-            node android/scripts/sign-web-bundle.mjs --verify
+            node android/scripts/publish-web-update.mjs --channel stable --verify
           else echo "aucune mise à jour Web publiée"; fi
       - name: Tests JVM (AssetServer, WebBundleUpdater)
         run: |
           curl -sSL -o /tmp/json.jar https://repo1.maven.org/maven2/com/vaadin/external/google/android-json/0.0.20131108.vaadin1/android-json-0.0.20131108.vaadin1.jar
           JSON_JAR=/tmp/json.jar android/tests/jvm/run.sh
+          JSON_JAR=/tmp/json.jar android/tests/jvm/run-format2-e2e.sh android/build/test-reports
       - name: Simulation Android (Chromium)
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
@@ -68,6 +70,7 @@ jobs:
         working-directory: android
         env:
           ANAGROCI_UPDATE_ROOT_URL: ${{ vars.PRODUCTION_URL }}
+          ANAGROCI_UPDATE_CHANNEL: stable
           ANAGROCI_KEYSTORE_PASSWORD: ${{ secrets.ANAGROCI_KEYSTORE_PASSWORD }}
           ANAGROCI_KEY_ALIAS: ${{ secrets.ANAGROCI_KEY_ALIAS }}
           ANAGROCI_KEY_PASSWORD: ${{ secrets.ANAGROCI_KEY_PASSWORD }}

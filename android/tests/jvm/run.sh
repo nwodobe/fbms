@@ -20,7 +20,7 @@ java -Dstdout.encoding=UTF-8 -cp "$OUT:$JSON_JAR" ci.anagroci.fieldbuying.AssetS
 node $A/scripts/sign-web-bundle.mjs --generate-keys "$WORK/keys" >/dev/null
 REPO=$(cd $A/.. && pwd)
 [[ -e "$REPO/android-updates" ]] && { echo "android-updates/ existe déjà : test d'interopérabilité impossible sans l'écraser"; exit 1; }
-node $A/scripts/sign-web-bundle.mjs --key "$WORK/keys/web-bundle-private.pem" >/dev/null
+node $A/scripts/sign-web-bundle.mjs --key "$WORK/keys/web-bundle-private.pem" --min-native 2 >/dev/null  # format 1 historique : APK simulé versionCode 2
 mv "$REPO/android-updates/stable/web-bundle.json" "$REPO/android-updates/stable/web-bundle.json.sig" "$WORK/"
 rm -rf "$REPO/android-updates"
 node -e "const c=require('crypto'),fs=require('fs');process.stdout.write(c.createPublicKey(fs.readFileSync(process.argv[1],'utf8')).export({type:'spki',format:'der'}).toString('hex'))" "$WORK/keys/web-bundle-public.pem" > "$WORK/pub.hex"
