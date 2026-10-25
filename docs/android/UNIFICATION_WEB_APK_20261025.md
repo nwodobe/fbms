@@ -180,3 +180,21 @@ Le test de bout en bout format 2 couvre :
 | APK release, canal stable | Clés ANAGROCI (signature APK et publication Web) inexistantes | Branch Manager, README §4 et §7 |
 | Workflow automatique | `.github/` interdit aux agents | Copier `android/ci/*.yml.example`, créer les secrets et l'environnement |
 | Fusion | PR #262 puis la présente PR, relecture humaine | Branch Manager |
+
+## 11. Version officielle 1.2.1 (4) · 25/10/2026
+
+Clés créées sur l'ordinateur du Branch Manager, à sa demande, dans `Documents\ANAGROCI_CLES`.
+- Accès au dossier limité à son compte Windows.
+- Mot de passe généré au hasard, stocké dans le dossier, **jamais affiché**.
+- Clés à sauvegarder sur deux supports hors ligne.
+
+| Élément | Valeur |
+|---|---|
+| Identifiant | `ci.anagroci.fieldbuying` (officiel, non débogable) |
+| Fichier | `ANAGROCI_FIELD_BUYING_AFLP_2027_v1.2.1.apk`, SHA-256 `a3cb090a4a6cac080aeab288ca6a4778ca1818cca38af39513533f63b13db599` |
+| Certificat de signature | `CN=ANAGROCI FIELD BUYING, O=ANAGROCI, L=Bouake, C=CI`, SHA-256 `1f70f69e7f38366d9681ad1dea1a962d45410495b9dbb05488d60928a64f1b41`, schémas v2 et v3 vérifiés |
+| Clé publique de publication (canal stable) | SPKI SHA-256 `d5b7004047fde835bb0c6fa1609b8c71852e4d07c07c81578bebfeb3ecf673f0` |
+| Canal | `https://nwodobe.github.io/fbms/android-updates/stable/` (pas encore publié : l'application affiche « à jour ») |
+| Code Web embarqué | commit `fa5e817` de cette branche. Contient la #262 et ce travail, **pas encore relus** ; ne contient pas les correctifs de la #264 (ils arriveront par mise à jour Web une fois fusionnés et publiés) |
+| Essai d'installation de cette version sur téléphone | **non exécuté** : téléphone débranché au moment du build. La version de test équivalente (`.majtest` 1.2.1) a été validée sur le téléphone |
+| Distribution | copie déposée dans `OneDrive - ANAGROCI\FBMS_APK_OFFICIEL` avec la notice ; partage par le Branch Manager |
