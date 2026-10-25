@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1792929736,
- "web_version": "2026.10.25-1202.9b91600",
- "git_commit": "9b91600dc31217f009a76a355a0f461cdbe40473",
- "bundle_label": "9b91600",
- "published_at": "2026-10-25T12:02:23.197Z",
- "created_at": "2026-10-25T12:02:23.197Z",
+ "sequence": 1792930008,
+ "web_version": "2026.10.25-1206.4789193",
+ "git_commit": "478919327fe63cd194aa8d305484dd099d66f797",
+ "bundle_label": "4789193",
+ "published_at": "2026-10-25T12:06:54.585Z",
+ "created_at": "2026-10-25T12:06:54.585Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Démo v1 : marqueur visible",
+ "release_notes": "Démo v2 défectueuse",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -234,8 +234,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "4f53a4f382e949c9fcbf9c4b0a25ae32618da2af7109a81966bc1a094d757a42",
-   "size": 3503
+   "sha256": "7ea39cd5e239d22c4fd0f0c0e2c505323d3c909862426de5a7c0909fe9903b35",
+   "size": 3515
   },
   "operations/field-buying.js": {
    "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
