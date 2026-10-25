@@ -9,7 +9,7 @@
    "web_version": "2026.10.25-1138.4647bc1",
    "git_commit": "4647bc1c6182a8d6ba7cfbf1ef5e1634fdbd5010",
    "published_at": "2026-10-25T11:38:55.241Z",
-   "status": "published",
+   "status": "superseded",
    "update_policy": "recommended",
    "min_native_version_code": 3,
    "native": {
@@ -53,6 +53,224 @@
      "at": "2026-10-25T11:38:55.265Z",
      "step": "signature",
      "detail": "manifeste 1792928286 signé et revérifié (162 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1792929182,
+   "web_version": "2026.10.25-1153.258cd8f",
+   "git_commit": "258cd8f7eb8609f43dcc0883a211d335fef4260c",
+   "published_at": "2026-10-25T11:53:18.109Z",
+   "status": "superseded",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 3,
+    "latest_version_name": "1.2.0",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261013204500",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [],
+   "files": 162,
+   "objects_written": 0,
+   "steps": [
+    {
+     "at": "2026-10-25T11:53:11.833Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-10-25T11:53:17.869Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-10-25T11:53:17.971Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-10-25T11:53:18.046Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-10-25T11:53:18.108Z",
+     "step": "objets",
+     "detail": "0 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-10-25T11:53:18.174Z",
+     "step": "signature",
+     "detail": "manifeste 1792929182 signé et revérifié (162 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1792929736,
+   "web_version": "2026.10.25-1202.9b91600",
+   "git_commit": "9b91600dc31217f009a76a355a0f461cdbe40473",
+   "published_at": "2026-10-25T12:02:23.197Z",
+   "status": "superseded",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 3,
+    "latest_version_name": "1.2.0",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261013204500",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [],
+   "files": 162,
+   "objects_written": 1,
+   "steps": [
+    {
+     "at": "2026-10-25T12:02:17.354Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-10-25T12:02:22.773Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-10-25T12:02:22.855Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-10-25T12:02:22.950Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-10-25T12:02:23.197Z",
+     "step": "objets",
+     "detail": "1 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-10-25T12:02:24.196Z",
+     "step": "signature",
+     "detail": "manifeste 1792929736 signé et revérifié (162 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1792930008,
+   "web_version": "2026.10.25-1206.4789193",
+   "git_commit": "478919327fe63cd194aa8d305484dd099d66f797",
+   "published_at": "2026-10-25T12:06:54.585Z",
+   "status": "revoked",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 3,
+    "latest_version_name": "1.2.0",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261013204500",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [],
+   "files": 162,
+   "objects_written": 1,
+   "steps": [
+    {
+     "at": "2026-10-25T12:06:48.474Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-10-25T12:06:54.352Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-10-25T12:06:54.452Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-10-25T12:06:54.532Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-10-25T12:06:54.585Z",
+     "step": "objets",
+     "detail": "1 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-10-25T12:06:54.611Z",
+     "step": "signature",
+     "detail": "manifeste 1792930008 signé et revérifié (162 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1792930531,
+   "web_version": "2026.10.25-1215.8126ff8",
+   "git_commit": "8126ff8be329be5a5c99866c6a55aa9aa3be96f1",
+   "published_at": "2026-10-25T12:16:02.643Z",
+   "status": "published",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 4,
+    "latest_version_name": "1.2.1",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261013204500",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [
+    1792930008
+   ],
+   "files": 162,
+   "objects_written": 0,
+   "steps": [
+    {
+     "at": "2026-10-25T12:15:56.832Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-10-25T12:16:02.414Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-10-25T12:16:02.495Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-10-25T12:16:02.572Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-10-25T12:16:02.643Z",
+     "step": "objets",
+     "detail": "0 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-10-25T12:16:02.680Z",
+     "step": "signature",
+     "detail": "manifeste 1792930531 signé et revérifié (162 fichiers)"
     }
    ]
   }
