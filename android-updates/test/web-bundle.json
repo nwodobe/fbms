@@ -2,20 +2,20 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1792930008,
- "web_version": "2026.10.25-1206.4789193",
- "git_commit": "478919327fe63cd194aa8d305484dd099d66f797",
- "bundle_label": "4789193",
- "published_at": "2026-10-25T12:06:54.585Z",
- "created_at": "2026-10-25T12:06:54.585Z",
+ "sequence": 1792930531,
+ "web_version": "2026.10.25-1215.8126ff8",
+ "git_commit": "8126ff8be329be5a5c99866c6a55aa9aa3be96f1",
+ "bundle_label": "8126ff8",
+ "published_at": "2026-10-25T12:16:02.643Z",
+ "created_at": "2026-10-25T12:16:02.643Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Démo v2 défectueuse",
+ "release_notes": "Référence 1.2.1 ; v2 de démonstration défectueuse révoquée",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 3,
-  "latest_version_name": "1.2.0",
+  "latest_version_code": 4,
+  "latest_version_name": "1.2.1",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
  "supabase_compat": "20261013204500",
@@ -26,7 +26,9 @@
   "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js",
   "https://fonts.googleapis.com/css"
  ],
- "revoked_sequences": [],
+ "revoked_sequences": [
+  1792930008
+ ],
  "objects_path": "objects/",
  "files": {
   "assets/logo-anagroci-access.svg": {
@@ -234,8 +236,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "7ea39cd5e239d22c4fd0f0c0e2c505323d3c909862426de5a7c0909fe9903b35",
-   "size": 3515
+   "sha256": "da75d218a65c755fc44e5cb1ee339dfb80db77f46dd53341c0204caa2535bc80",
+   "size": 3415
   },
   "operations/field-buying.js": {
    "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
