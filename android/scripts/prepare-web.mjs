@@ -18,7 +18,7 @@ import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statS
 import { createHash } from 'node:crypto';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { listWebFiles, fileTable, queueSchema, commitSequence, treeDirty, nativeCompatibility } from './web-bundle-lib.mjs';
+import { listWebFiles, fileTable, queueSchema, commitSequence, treeDirty, nativeCompatibility, webVersion } from './web-bundle-lib.mjs';
 
 const ANDROID = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = join(ANDROID, '..');
@@ -157,6 +157,8 @@ const manifest = {
   app: 'ANAGROCI FIELD BUYING', app_id: props.applicationId, generated_at: new Date().toISOString(),
   git_commit: commit, web_tree_dirty: dirty, file_count: count,
   sequence, bundle_label: (commit || 'local').slice(0, 7) + (dirty ? '-modifié' : ''),
+  web_version: dirty ? 'local-modifié' : webVersion(REPO, sequence),
+  native_version_code: Number(props.versionCode), native_version_name: props.versionName,
   queue_schema: queueSchema(REPO),
   files: Object.fromEntries(Object.entries(fileTable(REPO, webFiles)).map(([k, v]) => [k, v.sha256])),
   critical: [...critical].sort(),
@@ -173,20 +175,26 @@ writeFileSync(join(OUT, '_native', 'bundle-manifest.json'), JSON.stringify(manif
    Sans l'une des deux, le mécanisme est désactivé : l'APK sert sa propre version. */
 const upd = existsSync(join(ANDROID, 'update.properties')) ? Object.fromEntries(readFileSync(join(ANDROID, 'update.properties'), 'utf8')
   .split(/\r?\n/).filter((l) => /^[a-zA-Z]+=/.test(l)).map((l) => [l.split('=')[0], l.slice(l.indexOf('=') + 1).trim()])) : {};
+/* Format 2 : l'APK reçoit l'URL EXACTE du dossier du canal (préfixe approuvé, hôte + chemin).
+     ANAGROCI_UPDATE_CHANNEL_URL=https://nwodobe.github.io/fbms/android-updates/stable/
+   ou, par compatibilité, ANAGROCI_UPDATE_ROOT_URL (racine du site) + android-updates/<canal>/. */
 let rootUrl = process.env.ANAGROCI_UPDATE_ROOT_URL || upd.rootUrl || '';
 const channel = process.env.ANAGROCI_UPDATE_CHANNEL || upd.channel || 'stable';
+if (!/^[a-z0-9-]+$/.test(channel)) throw new Error('Canal de mise à jour invalide : ' + channel);
 const pubPath = process.env.ANAGROCI_UPDATE_PUBKEY || join(ANDROID, 'update-keys', 'web-bundle-public.pem');
-const cfg = { format: 1, app_id: props.applicationId, channel, enabled: false };
+const cfg = { format: 2, app_id: props.applicationId, channel, enabled: false };
 if (rootUrl && !rootUrl.endsWith('/')) rootUrl += '/';
-if (!rootUrl) cfg.reason = 'aucune URL de publication fournie au build';
-else if (!/^https:\/\/[^/]+\//.test(rootUrl)) cfg.reason = 'URL de publication non HTTPS';
+let channelUrl = process.env.ANAGROCI_UPDATE_CHANNEL_URL || upd.channelUrl || (rootUrl ? rootUrl + 'android-updates/' + channel + '/' : '');
+if (channelUrl && !channelUrl.endsWith('/')) channelUrl += '/';
+if (!channelUrl) cfg.reason = 'aucune URL de publication fournie au build';
+else if (!/^https:\/\/[^/]+\//.test(channelUrl) || /\.\./.test(channelUrl)) cfg.reason = 'URL de publication non HTTPS ou invalide';
 else if (!existsSync(pubPath)) cfg.reason = 'aucune clé publique de publication fournie au build';
 else {
   const { createPublicKey } = await import('node:crypto');
   const key = createPublicKey(readFileSync(pubPath, 'utf8'));
   if (key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new Error('Clé publique de publication : ECDSA P-256 attendue');
   if (/PRIVATE/.test(readFileSync(pubPath, 'utf8'))) throw new Error('Le fichier de clé publique contient une clé PRIVÉE : refus');
-  Object.assign(cfg, { enabled: true, web_root_url: rootUrl, manifest_url: `${rootUrl}android-updates/${channel}/web-bundle.json`,
+  Object.assign(cfg, { enabled: true, update_root_url: channelUrl, manifest_url: `${channelUrl}web-bundle.json`,
     public_key_der_hex: key.export({ type: 'spki', format: 'der' }).toString('hex'),
     public_key_sha256: createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex') });
 }

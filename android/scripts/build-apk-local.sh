@@ -22,6 +22,11 @@ cd "$(dirname "$0")/../.."
 REPO=$(pwd); A="$REPO/android"; APP="$A/app/src/main"
 OUT="$A/build/local"; TMP="$OUT/tmp"
 RELEASE=0; [[ "${1:-}" == "--release" ]] && RELEASE=1
+# Variante de test : suffixe d'identifiant et nom affiché (défaut : .debug / « ANAGROCI FB TEST »).
+# Un suffixe distinct (ex. DEBUG_SUFFIX=.majtest) installe l'APK de test À CÔTÉ de toute version déjà
+# présente sur un téléphone, sans jamais toucher à ses données ni à sa file hors ligne.
+DEBUG_SUFFIX=${DEBUG_SUFFIX:-.debug}; DEBUG_LABEL=${DEBUG_LABEL:-ANAGROCI FB TEST}
+[[ "$DEBUG_SUFFIX" =~ ^\.[a-z][a-z0-9]{1,20}$ ]] || { echo "DEBUG_SUFFIX invalide : $DEBUG_SUFFIX"; exit 1; }
 
 prop() { grep -E "^$1=" "$A/version.properties" | cut -d= -f2- | tr -d '\r'; }
 APP_ID=$(prop applicationId); VCODE=$(prop versionCode); VNAME=$(prop versionName)
@@ -50,9 +55,9 @@ cat "$OUT/prepare-web.json"
 
 trap 'rm -rf "$TMP"' EXIT
 # 2. Manifeste de build : identité injectée depuis version.properties
-python3 - "$APP/AndroidManifest.xml" "$TMP" "$APP_ID" "$VCODE" "$VNAME" "$MIN" "$TARGET" <<'PY'
+python3 - "$APP/AndroidManifest.xml" "$TMP" "$APP_ID" "$VCODE" "$VNAME" "$MIN" "$TARGET" "$DEBUG_SUFFIX" "$DEBUG_LABEL" <<'PY'
 import sys
-src,tmp,pkg,vc,vn,mn,tg=sys.argv[1:]
+src,tmp,pkg,vc,vn,mn,tg,suf,lab=sys.argv[1:]
 base=open(src,encoding='utf-8').read()
 def build(app_id,label,debug):
     s=base.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
@@ -62,7 +67,7 @@ def build(app_id,label,debug):
     assert '${' not in s, 'variable de manifeste non remplacée'
     return s
 open(tmp+'/AndroidManifest.xml','w',encoding='utf-8').write(build(pkg,'@string/app_name',False))
-open(tmp+'/AndroidManifest.debug.xml','w',encoding='utf-8').write(build(pkg+'.debug','ANAGROCI FB TEST',True))
+open(tmp+'/AndroidManifest.debug.xml','w',encoding='utf-8').write(build(pkg+suf,lab,True))
 PY
 
 # 3. Ressources
@@ -101,7 +106,7 @@ if [[ ! -f "$DEBUG_KS" ]]; then
   keytool -genkeypair -keystore "$DEBUG_KS" -storepass android -keypass android -alias androiddebugkey \
     -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
 fi
-DEBUG_APK="$OUT/ANAGROCI_FIELD_BUYING_AFLP_2027_v${VNAME}_debug.apk"
+DEBUG_APK="$OUT/ANAGROCI_FIELD_BUYING_AFLP_2027_v${VNAME}_${DEBUG_SUFFIX#.}.apk"
 "$APKSIGNER" sign --ks "$DEBUG_KS" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey \
   --v4-signing-enabled false --min-sdk-version "$MIN" --out "$DEBUG_APK" "$TMP/aligned-debug.apk"
 "$APKSIGNER" verify --min-sdk-version "$MIN" "$DEBUG_APK"

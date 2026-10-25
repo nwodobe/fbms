@@ -1,0 +1,136 @@
+# =============================================================================
+# Publication coordonnée Web -> APK : chaque correctif Web validé devient une mise à jour
+# signée que les APK compatibles récupèrent seuls dès qu'ils ont Internet.
+#
+# CE FICHIER N'EST PAS ACTIF. La politique du dépôt (CLAUDE.md §3) interdit à un agent
+# d'écrire dans .github/. Un administrateur humain le copie dans :
+#     .github/workflows/android-web-update.yml
+#
+# Chaîne : code fusionné sur main -> contrôles -> paquet + signature -> canal TEST
+#          (automatique) -> canal STABLE (déclenchement manuel + approbation humaine
+#          de l'environnement « android-production ») -> pull request -> fusion ->
+#          GitHub Pages publie -> les téléphones récupèrent la version.
+# Le même script tourne en local : android/scripts/publish-web-update.mjs.
+#
+# Secrets (Settings > Secrets and variables > Actions), JAMAIS dans le code :
+#   ANAGROCI_WEB_BUNDLE_TEST_KEY  clé PRIVÉE ECDSA P-256 du canal test (PEM)
+#   ANAGROCI_WEB_BUNDLE_KEY       clé PRIVÉE du canal stable (PEM), limitée à l'environnement android-production
+# Environnement : android-production, avec « Required reviewers » = Branch Manager (ou délégué).
+# Coût : gratuit sur un dépôt public (minutes GitHub Actions standard).
+# Canal test servi par : https://raw.githubusercontent.com/nwodobe/fbms/android-updates-test/android-updates/test/
+# Canal stable servi par : <PRODUCTION_URL>/android-updates/stable/ (GitHub Pages, après fusion)
+# =============================================================================
+name: Mises à jour Web Android
+on:
+  push:
+    branches: [main]
+    paths: ['operations/**', 'shared/**', 'assets/**', 'terrain/**', 'fbms/**', 'logistique/**', 'suite/**', 'rcntrace/**', 'index.html', 'logistique.html', 'android/scripts/**']
+  workflow_dispatch:
+    inputs:
+      channel: { description: 'Canal', type: choice, options: [test, stable], default: test }
+      policy: { description: 'Politique', type: choice, options: [recommended, security], default: recommended }
+      rollback_to: { description: 'Retour arrière : numéro de version archivée à republier (vide = non)', required: false, default: '' }
+      revoke: { description: 'Révoquer : numéros séparés par des virgules (vide = non)', required: false, default: '' }
+      notes: { description: 'Note de version', required: false, default: '' }
+permissions:
+  contents: read
+concurrency: { group: android-web-update, cancel-in-progress: false }
+
+jobs:
+  controles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: { image: 'mcr.microsoft.com/playwright:v1.49.1-noble' }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Portes qualité
+        run: node .github/scripts/verifier-js.mjs && node .github/scripts/verifier-liens.mjs && node .github/scripts/verifier-html.mjs
+      - name: Tests hors ligne
+        run: |
+          npm install --no-save --no-package-lock playwright@1.49.1
+          node tests/offline-field-static.mjs
+          node tests/offline-field-e2e.mjs
+      - name: Tests de l'APK (Java réel, publication réelle, HTTPS local)
+        run: |
+          apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless libandroid-json-java >/dev/null
+          node android/scripts/prepare-web.mjs >/dev/null
+          android/tests/jvm/run.sh
+          android/tests/jvm/run-format2-e2e.sh android/build/test-reports
+          node android/tests/apk-webview-sim.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: preuves-mise-a-jour-android, path: android/build/test-reports/, retention-days: 90 }
+
+  canal-test:
+    needs: controles
+    if: github.event_name == 'push' || inputs.channel == 'test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: { contents: write }       # écrit UNIQUEMENT la branche android-updates-test
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Clé du canal test (fichier temporaire, jamais affiché)
+        env: { K: '${{ secrets.ANAGROCI_WEB_BUNDLE_TEST_KEY }}' }
+        run: |
+          test -n "$K" || { echo "Secret ANAGROCI_WEB_BUNDLE_TEST_KEY absent : publication impossible"; exit 1; }
+          umask 077; printf '%s\n' "$K" > "$RUNNER_TEMP/test-key.pem"
+      - name: Branche du canal test
+        run: |
+          git config user.name "anagroci-publication"; git config user.email "actions@users.noreply.github.com"
+          if git ls-remote --exit-code origin android-updates-test >/dev/null; then
+            git worktree add "$RUNNER_TEMP/canal" origin/android-updates-test && git -C "$RUNNER_TEMP/canal" checkout -B android-updates-test
+          else
+            git worktree add --detach "$RUNNER_TEMP/canal" && git -C "$RUNNER_TEMP/canal" checkout --orphan android-updates-test && git -C "$RUNNER_TEMP/canal" rm -rqf .
+          fi
+      - name: Publication (contrôles, objets, signature, vérification, journal)
+        run: |
+          node android/scripts/publish-web-update.mjs --channel test --key "$RUNNER_TEMP/test-key.pem" \
+            --out "$RUNNER_TEMP/canal/android-updates/test" --policy "${{ inputs.policy || 'recommended' }}" \
+            ${{ inputs.rollback_to && format('--rollback-to {0}', inputs.rollback_to) || '' }} \
+            ${{ inputs.revoke && format('--revoke {0}', inputs.revoke) || '' }} --notes "${{ inputs.notes }}" | tee "$RUNNER_TEMP/publication.json"
+          rm -f "$RUNNER_TEMP/test-key.pem"
+      - name: Envoi de la branche du canal test
+        run: |
+          cd "$RUNNER_TEMP/canal"; git add -A
+          git diff --cached --quiet && { echo "rien de nouveau"; exit 0; }
+          git commit -qm "Canal test : $(node -p "require('$RUNNER_TEMP/publication.json').web_version || 'inchangé'")"
+          git push origin android-updates-test
+
+  canal-stable:
+    needs: controles
+    if: github.event_name == 'workflow_dispatch' && inputs.channel == 'stable'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: android-production       # approbation humaine obligatoire
+    permissions: { contents: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Clé du canal stable (fichier temporaire, jamais affiché)
+        env: { K: '${{ secrets.ANAGROCI_WEB_BUNDLE_KEY }}' }
+        run: |
+          test -n "$K" || { echo "Secret ANAGROCI_WEB_BUNDLE_KEY absent : publication impossible"; exit 1; }
+          umask 077; printf '%s\n' "$K" > "$RUNNER_TEMP/stable-key.pem"
+      - name: Publication stable dans une branche dédiée
+        run: |
+          git config user.name "anagroci-publication"; git config user.email "actions@users.noreply.github.com"
+          B="publication/android-stable-$(date -u +%Y%m%d%H%M%S)"; git checkout -b "$B"
+          node android/scripts/publish-web-update.mjs --channel stable --key "$RUNNER_TEMP/stable-key.pem" --write-root-version \
+            --policy "${{ inputs.policy }}" ${{ inputs.rollback_to && format('--rollback-to {0}', inputs.rollback_to) || '' }} \
+            ${{ inputs.revoke && format('--revoke {0}', inputs.revoke) || '' }} --notes "${{ inputs.notes }}" | tee "$RUNNER_TEMP/publication.json"
+          rm -f "$RUNNER_TEMP/stable-key.pem"
+          node android/scripts/publish-web-update.mjs --channel stable --verify
+          git add android-updates/stable version.json
+          git commit -qm "Publication Android stable $(node -p "require('$RUNNER_TEMP/publication.json').web_version")"
+          git push origin "$B"
+          gh pr create --base main --head "$B" --label human-review \
+            --title "Publication Android stable $(node -p "require('$RUNNER_TEMP/publication.json').web_version")" \
+            --body "Mise à jour Web signée pour les APK (canal stable). La fusion la publie sur GitHub Pages ; les téléphones la récupèrent ensuite. Ne pas fusionner sans relecture."
+        env: { GH_TOKEN: '${{ github.token }}' }

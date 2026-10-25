@@ -49,6 +49,19 @@ import javax.net.ssl.HttpsURLConnection;
  * (_native/), les bibliothèques figées (_vendor/), les permissions. Ceux-là
  * exigent un nouvel APK, signé avec la même clé.
  *
+ * Format 2 (unification Web / APK, 25/10/2026) :
+ *  - les fichiers sont téléchargés depuis un magasin IMMUABLE adressé par leur
+ *    empreinte (<canal>/objects/aa/<sha256>) et non plus depuis le site en
+ *    direct : une publication Web ultérieure ne peut plus invalider une mise à
+ *    jour déjà signée, ni mélanger deux versions pendant un téléchargement ;
+ *  - la source est un préfixe HTTPS exact (hôte ET chemin) fixé au build ;
+ *  - le manifeste porte l'identité commune de la version (web_version, commit,
+ *    date, compatibilité native et Supabase, politique, canal) ;
+ *  - une version publiée peut être révoquée (revoked_sequences) : un téléphone
+ *    qui l'utilise revient à la précédente au démarrage suivant ;
+ *  - une version qui exige un nouvel APK est signalée comme telle, jamais
+ *    appliquée : le code Java et les composants natifs ne sont pas remplaçables.
+ *
  * Aucune dépendance Android dans cette classe : elle est testée telle quelle
  * sur la JVM (android/tests/jvm/WebBundleUpdaterTest.java).
  */
@@ -57,7 +70,8 @@ final class WebBundleUpdater {
     /** Téléchargement HTTPS borné. Remplaçable en test. */
     interface Fetcher { byte[] get(String url, int maxBytes) throws IOException; }
 
-    static final int FORMAT = 1;
+    static final int FORMAT = 2;
+    static final int FORMAT_MIN = 1;
     static final int MAX_MANIFEST = 2 * 1024 * 1024;
     static final int MAX_FILE = 12 * 1024 * 1024;
     static final long MAX_TOTAL = 60L * 1024 * 1024;
@@ -85,7 +99,7 @@ final class WebBundleUpdater {
         this.config = config == null ? new JSONObject() : config;
         this.nativeVersionCode = nativeVersionCode;
         this.appId = appId;
-        this.fetcher = fetcher == null ? new HttpsFetcher(hostOf(this.config.optString("web_root_url", ""))) : fetcher;
+        this.fetcher = fetcher == null ? new HttpsFetcher(updateRoot(this.config)) : fetcher;
         JSONObject files = this.embedded.optJSONObject("files");
         if (files != null) {
             Iterator<String> it = files.keys();
@@ -121,11 +135,24 @@ final class WebBundleUpdater {
         } catch (Exception ignored) { }
     }
 
+    /**
+     * Préfixe HTTPS approuvé : toutes les requêtes doivent commencer par lui
+     * (même hôte ET même chemin). Format 2 : update_root_url (dossier du canal).
+     * Format 1 : web_root_url (racine du site).
+     */
+    static String updateRoot(JSONObject cfg) {
+        String r = cfg.optString("update_root_url", "");
+        if (r.isEmpty()) r = cfg.optString("web_root_url", "");
+        if (!r.isEmpty() && !r.endsWith("/")) r += "/";
+        return r;
+    }
+
     boolean enabled() {
+        String root = updateRoot(config);
+        String mu = config.optString("manifest_url", "");
         return config.optBoolean("enabled", false) && !config.optString("public_key_der_hex", "").isEmpty()
-                && config.optString("manifest_url", "").startsWith("https://")
-                && config.optString("web_root_url", "").startsWith("https://")
-                && hostOf(config.optString("manifest_url")).equals(hostOf(config.optString("web_root_url")));
+                && root.startsWith("https://") && mu.startsWith("https://")
+                && hostOf(mu).equals(hostOf(root)) && mu.startsWith(root);
     }
 
     long embeddedSequence() { return embedded.optLong("sequence", 0); }
@@ -145,6 +172,15 @@ final class WebBundleUpdater {
      * 3. revérification complète (signature + empreintes) de la version active.
      */
     synchronized JSONObject startup() {
+        if (state.optBoolean("revoke_active", false)) {
+            state.remove("revoke_active");
+            long bad = state.optLong("active_seq", 0);
+            if (bad > 0) {
+                reject(bad, "version révoquée par la publication : retour à la version précédente");
+                state.remove("awaiting_confirm");
+                restorePrevious();
+            }
+        }
         if (state.optBoolean("awaiting_confirm", false)) {
             long bad = state.optLong("active_seq", 0);
             reject(bad, "démarrage non confirmé : retour à la version précédente");
@@ -161,6 +197,7 @@ final class WebBundleUpdater {
                 state.remove("pending_seq");
                 state.remove("deferred_reason");
                 put(state, "awaiting_confirm", true);
+                put(state, "activated_at", now());
                 log("activation", "version " + pending);
             } else if (why.startsWith("REFUS:")) {
                 reject(pending, why.substring(6));
@@ -229,6 +266,8 @@ final class WebBundleUpdater {
     synchronized void confirmBoot() {
         if (state.optBoolean("awaiting_confirm", false)) {
             state.remove("awaiting_confirm");
+            put(state, "last_success_at", now());
+            put(state, "last_success_seq", state.optLong("active_seq", 0));
             log("confirmation", "version " + state.optLong("active_seq", 0) + " démarrée");
             saveState();
         }
@@ -287,16 +326,17 @@ final class WebBundleUpdater {
         if (!verifySignature(raw, hexToBytes(new String(sigHex, UTF8).trim()), config.optString("public_key_der_hex", "")))
             throw new SecurityException("signature invalide");
         JSONObject m = new JSONObject(new String(raw, UTF8));
-        if (m.optInt("format", 0) != FORMAT) throw new IOException("format de paquet non pris en charge");
+        int fmt = m.optInt("format", 0);
+        if (fmt < FORMAT_MIN || fmt > FORMAT) throw new IOException("format de paquet non pris en charge");
         if (!appId.equals(m.optString("app_id"))) throw new IOException("paquet destiné à une autre application");
         String ch = config.optString("channel", "stable");
         if (!ch.equals(m.optString("channel"))) throw new IOException("canal " + m.optString("channel") + " au lieu de " + ch);
         if (m.optInt("min_native_version_code", Integer.MAX_VALUE) > nativeVersionCode)
-            throw new IncompatibleException("nouvel APK requis (versionCode ≥ " + m.optInt("min_native_version_code") + ")");
+            throw new IncompatibleException("nouvel APK requis (versionCode ≥ " + m.optInt("min_native_version_code") + ")", m);
         JSONArray need = m.optJSONArray("required_vendor");
         JSONObject vm = embedded.optJSONObject("vendor_map");
         if (need != null) for (int i = 0; i < need.length(); i++) {
-            if (vm == null || !vm.has(need.getString(i))) throw new IncompatibleException("nouvel APK requis (bibliothèque " + need.getString(i) + ")");
+            if (vm == null || !vm.has(need.getString(i))) throw new IncompatibleException("nouvel APK requis (bibliothèque " + need.getString(i) + ")", m);
         }
         JSONObject files = m.getJSONObject("files");
         long total = 0;
@@ -315,7 +355,11 @@ final class WebBundleUpdater {
         return m;
     }
 
-    static final class IncompatibleException extends IOException { IncompatibleException(String m) { super(m); } }
+    static final class IncompatibleException extends IOException {
+        final JSONObject manifest;
+        IncompatibleException(String m) { this(m, null); }
+        IncompatibleException(String m, JSONObject manifest) { super(m); this.manifest = manifest; }
+    }
 
     static boolean verifySignature(byte[] data, byte[] sigDer, String publicKeyDerHex) {
         try {
@@ -345,6 +389,7 @@ final class WebBundleUpdater {
             result = doCheck();
         } catch (IncompatibleException e) {
             result = "incompatible : " + e.getMessage();
+            synchronized (this) { noteLatest(e.manifest, true, e.getMessage()); }
         } catch (SecurityException e) {
             result = "refusée : " + e.getMessage();
             synchronized (this) { log("refus", e.getMessage()); }
@@ -353,6 +398,8 @@ final class WebBundleUpdater {
         }
         synchronized (this) {
             checking = false;
+            deleteTree(new File(base, "staging"));          // jamais de version partielle laissée sur le téléphone
+            state.remove("downloading_seq");
             put(state, "last_result", result);
             saveState();
             return status();
@@ -362,23 +409,35 @@ final class WebBundleUpdater {
     private String doCheck() throws Exception {
         if (!enabled()) return "désactivée : " + config.optString("reason", "aucune source approuvée dans cet APK");
         String mu = config.optString("manifest_url");
-        byte[] raw = fetcher.get(mu + "?t=" + System.currentTimeMillis(), MAX_MANIFEST);
+        byte[] raw;
+        try { raw = fetcher.get(mu + "?t=" + System.currentTimeMillis(), MAX_MANIFEST); }
+        catch (IOException e) {
+            /* Canal pas encore publié (404) : ce n'est pas une panne, la version intégrée reste la bonne. */
+            if (String.valueOf(e.getMessage()).startsWith("HTTP 404")) return "à jour : aucune mise à jour publiée sur ce canal pour l'instant";
+            throw e;
+        }
         byte[] sig = fetcher.get(mu + ".sig?t=" + System.currentTimeMillis(), 4096);
         JSONObject m = checkManifest(raw, sig);
         long seq = m.optLong("sequence", 0);
         long known;
         synchronized (this) {
+            noteLatest(m, false, null);
+            applyRevocations(m);
             known = Math.max(activeSequence(), Math.max(embeddedSequence(), state.optLong("pending_seq", 0)));
             if (isRejected(seq)) return "version " + seq + " déjà refusée sur ce téléphone";
         }
-        if (seq <= known) return "à jour";
+        if (seq <= known) return state.optBoolean("revoke_active", false)
+                ? "version active révoquée : retour à la précédente au prochain démarrage" : "à jour";
+        synchronized (this) { put(state, "downloading_seq", seq); saveState(); }
 
         File stage = new File(base, "staging");
         deleteTree(stage);
         new File(stage, "files").mkdirs();
         JSONObject files = m.getJSONObject("files");
-        String root = config.optString("web_root_url");
-        if (!root.endsWith("/")) root += "/";
+        String root = updateRoot(config);
+        boolean objects = m.optInt("format", 1) >= 2;
+        String objBase = root + m.optString("objects_path", "objects/");
+        if (objects && (!objBase.startsWith(root) || objBase.contains(".."))) throw new SecurityException("magasin d'objets hors de la source approuvée");
         int downloaded = 0;
         Iterator<String> it = files.keys();
         while (it.hasNext()) {
@@ -392,7 +451,13 @@ final class WebBundleUpdater {
             byte[] data = null;
             if (reuse != null && want.equals(sha256(reuse))) data = readAll(reuse, MAX_FILE);
             if (data == null) {
-                data = fetcher.get(root + encodePath(rel), (int) Math.min(MAX_FILE, f.getLong("size") + 1));
+                String url = objects ? objBase + want.substring(0, 2) + "/" + want : root + encodePath(rel);
+                try { data = fetcher.get(url, (int) Math.min(MAX_FILE, f.getLong("size") + 1)); }
+                catch (IOException e) {
+                    /* Plus gros que la taille signée : ce n'est pas le fichier publié. */
+                    if (String.valueOf(e.getMessage()).contains("trop volumineuse")) throw new SecurityException("fichier non conforme au manifeste signé : " + rel + " (taille)");
+                    throw e;
+                }
                 downloaded++;
             }
             if (data.length != f.getLong("size") || !want.equals(sha256(data)))
@@ -410,6 +475,8 @@ final class WebBundleUpdater {
             verifyBundle(seq);
             long old = state.optLong("pending_seq", 0);
             put(state, "pending_seq", seq);
+            state.remove("downloading_seq");
+            put(state, "downloaded_at", now());
             log("téléchargement", "version " + seq + " (" + downloaded + " fichier(s))");
             if (old > 0 && old != seq) deleteTree(dir(old));
         }
@@ -422,7 +489,7 @@ final class WebBundleUpdater {
         JSONObject o = new JSONObject();
         try {
             o.put("enabled", enabled());
-            o.put("source", enabled() ? config.optString("web_root_url") : JSONObject.NULL);
+            o.put("source", enabled() ? updateRoot(config) : JSONObject.NULL);
             o.put("channel", config.optString("channel", "stable"));
             o.put("embedded_sequence", embeddedSequence());
             o.put("embedded_commit", embedded.optString("git_commit", ""));
@@ -440,8 +507,70 @@ final class WebBundleUpdater {
             o.put("checking", checking);
             o.put("rejected", state.optJSONObject("rejected") == null ? new JSONObject() : state.optJSONObject("rejected"));
             o.put("history", state.optJSONArray("history") == null ? new JSONArray() : state.optJSONArray("history"));
+            o.put("active_web_version", activeManifest == null ? embedded.optString("web_version", embedded.optString("bundle_label", "")) : activeManifest.optString("web_version", activeManifest.optString("bundle_label", "")));
+            o.put("latest", state.optJSONObject("latest") == null ? new JSONObject() : state.optJSONObject("latest"));
+            o.put("downloading_sequence", state.optLong("downloading_seq", 0));
+            o.put("last_success_at", state.optString("last_success_at", ""));
+            o.put("activated_at", state.optString("activated_at", ""));
+            o.put("revoke_pending", state.optBoolean("revoke_active", false));
+            o.put("phase", phase());
         } catch (Exception ignored) { }
         return o;
+    }
+
+    /**
+     * Statut simple pour l'écran « Version et mises à jour » :
+     * a_jour · disponible · telechargement · prete · differee · nouvel_apk · erreur · desactivee.
+     */
+    private String phase() {
+        if (!enabled()) return "desactivee";
+        if (checking && state.optLong("downloading_seq", 0) > 0) return "telechargement";
+        JSONObject l = state.optJSONObject("latest");
+        if (l != null && l.optBoolean("native_required", false) && l.optLong("sequence", 0) > activeSequence()) return "nouvel_apk";
+        if (state.optLong("pending_seq", 0) > 0) return state.optString("deferred_reason", "").isEmpty() ? "prete" : "differee";
+        String r = state.optString("last_result", "");
+        if (r.startsWith("échec") || r.startsWith("refusée") || r.startsWith("incompatible")) return "erreur";
+        if (l != null && l.optLong("sequence", 0) > activeSequence() && !isRejected(l.optLong("sequence", 0))) return "disponible";
+        return "a_jour";
+    }
+
+    /** Mémorise la dernière version annoncée par la source (manifeste signé, déjà vérifié). */
+    private void noteLatest(JSONObject m, boolean nativeRequired, String why) {
+        if (m == null) return;
+        try {
+            JSONObject l = new JSONObject();
+            l.put("sequence", m.optLong("sequence", 0));
+            l.put("web_version", m.optString("web_version", m.optString("bundle_label", "")));
+            l.put("git_commit", m.optString("git_commit", ""));
+            l.put("published_at", m.optString("published_at", m.optString("created_at", "")));
+            l.put("update_policy", m.optString("update_policy", "recommended"));
+            l.put("min_native_version_code", m.optInt("min_native_version_code", 0));
+            l.put("native_required", nativeRequired);
+            if (why != null) l.put("reason", why);
+            JSONObject nat = m.optJSONObject("native");
+            if (nat != null) l.put("native", nat);
+            if (m.has("supabase_compat")) l.put("supabase_compat", m.optString("supabase_compat"));
+            l.put("seen_at", now());
+            state.put("latest", l);
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * Révocations publiées (manifeste signé) : une version révoquée n'est jamais
+     * activée ; si elle est active, retour à la précédente au démarrage suivant
+     * (jamais en cours de saisie).
+     */
+    private void applyRevocations(JSONObject m) {
+        JSONArray rv = m.optJSONArray("revoked_sequences");
+        if (rv == null) return;
+        for (int i = 0; i < rv.length(); i++) {
+            long s = rv.optLong(i, 0);
+            if (s <= 0) continue;
+            if (s == state.optLong("pending_seq", 0)) { reject(s, "version révoquée par la publication"); state.remove("pending_seq"); state.remove("deferred_reason"); }
+            else if (s == state.optLong("active_seq", 0)) { put(state, "revoke_active", true); log("révocation", "version " + s + " : retour au prochain démarrage"); }
+            else if (s == state.optLong("previous_seq", 0)) { reject(s, "version révoquée par la publication"); state.remove("previous_seq"); }
+            else if (!isRejected(s) && s > embeddedSequence()) reject(s, "version révoquée par la publication");
+        }
     }
 
     // ------------------------------------------------------------ outils
@@ -545,13 +674,15 @@ final class WebBundleUpdater {
         f.delete();
     }
 
-    /** HTTPS uniquement, vers l'hôte approuvé uniquement, sans redirection. */
+    /** HTTPS uniquement, sous le préfixe approuvé uniquement (hôte + chemin), sans redirection. */
     static final class HttpsFetcher implements Fetcher {
+        private final String prefix;
         private final String host;
-        HttpsFetcher(String host) { this.host = host; }
+        HttpsFetcher(String prefix) { this.prefix = prefix == null ? "" : prefix; this.host = hostOf(this.prefix); }
         @Override public byte[] get(String url, int maxBytes) throws IOException {
             URL u = new URL(url);
-            if (!"https".equals(u.getProtocol()) || !host.equals(u.getHost())) throw new SecurityException("source non approuvée : " + u.getHost());
+            if (!"https".equals(u.getProtocol()) || !host.equals(u.getHost()) || prefix.isEmpty() || !url.startsWith(prefix) || u.getPath().contains(".."))
+                throw new SecurityException("source non approuvée : " + u.getHost() + u.getPath());
             HttpURLConnection c = (HttpURLConnection) u.openConnection();
             if (!(c instanceof HttpsURLConnection)) throw new SecurityException("connexion non chiffrée");
             c.setInstanceFollowRedirects(false);

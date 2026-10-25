@@ -294,15 +294,21 @@ public final class WebBundleUpdaterTest {
         check("UPD-35", "État local illisible : démarrage sur la version de l'APK, sans plantage", noCrash, noCrash ? "version intégrée" : "plantage");
         JSONObject badHost = new JSONObject(CFG.toString()).put("manifest_url", "https://autre-hote.example/x.json");
         check("UPD-36", "Manifeste et fichiers sur deux hôtes différents : mécanisme désactivé", !upd(new File(work, "h"), badHost, new MemFetcher()).enabled(), "désactivé");
-        WebBundleUpdater.HttpsFetcher hf = new WebBundleUpdater.HttpsFetcher("pages.example.test");
-        boolean httpRefused = false, hostRefused = false;
-        try { hf.get("http://pages.example.test/x", 10); } catch (SecurityException e) { httpRefused = true; }
-        try { hf.get("https://evil.example/x", 10); } catch (SecurityException e) { hostRefused = true; }
-        check("UPD-37", "Téléchargeur : HTTP en clair refusé, hôte non approuvé refusé (avant toute connexion)", httpRefused && hostRefused, "http=" + httpRefused + " hôte=" + hostRefused);
-        MemFetcher fo = new MemFetcher();
-        WebBundleUpdater uo = upd(new File(work, "offline"), CFG, fo);
+        WebBundleUpdater.HttpsFetcher hf = new WebBundleUpdater.HttpsFetcher(ROOT);
+        boolean httpRefused = false, hostRefused = false, pathRefused = false, dotRefused = false;
+        try { hf.get("http://pages.example.test/fbms/x", 10); } catch (SecurityException e) { httpRefused = true; }
+        try { hf.get("https://evil.example/fbms/x", 10); } catch (SecurityException e) { hostRefused = true; }
+        try { hf.get("https://pages.example.test/autre-depot/x", 10); } catch (SecurityException e) { pathRefused = true; }
+        try { hf.get("https://pages.example.test/fbms/../autre/x", 10); } catch (SecurityException e) { dotRefused = true; }
+        check("UPD-37", "Téléchargeur : HTTP en clair, autre hôte, autre chemin et « .. » refusés (avant toute connexion)", httpRefused && hostRefused && pathRefused && dotRefused,
+                "http=" + httpRefused + " hôte=" + hostRefused + " chemin=" + pathRefused + " point-point=" + dotRefused);
+        WebBundleUpdater.Fetcher down = (url, max) -> { throw new IOException("HTTP 503 sur /fbms/"); };
+        WebBundleUpdater uo = new WebBundleUpdater(new File(work, "offline"), EMB, CFG, 2, "ci.anagroci.fieldbuying", down);
         JSONObject so = uo.check();
-        check("UPD-38", "Source injoignable (hors ligne / 404) : échec signalé, version en place conservée", so.getString("last_result").startsWith("échec") && so.getLong("active_sequence") == E, so.getString("last_result"));
+        check("UPD-38", "Source injoignable (hors ligne / 503) : échec signalé, version en place conservée", so.getString("last_result").startsWith("échec") && so.getLong("active_sequence") == E, so.getString("last_result"));
+        MemFetcher f404 = new MemFetcher();
+        JSONObject s404 = upd(new File(work, "c404"), CFG, f404).check();
+        check("UPD-39", "Canal pas encore publié (404) : « à jour », pas d'erreur affichée à l'agent", s404.getString("last_result").startsWith("à jour") && "a_jour".equals(s404.getString("phase")), s404.getString("phase") + " · " + s404.getString("last_result"));
 
         System.out.println("RESULTAT " + pass + " PASS / " + fail + " FAIL");
         if (fail > 0) System.exit(1);

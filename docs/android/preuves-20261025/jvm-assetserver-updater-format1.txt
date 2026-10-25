@@ -1,0 +1,57 @@
+Note: ../../app/src/main/java/ci/anagroci/fieldbuying/WebBundleUpdater.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+PASS JVM-01 Page FIELD BUYING servie localement (200, text/html)
+PASS JVM-02 Pont natif injecté en premier dans <head>
+PASS JVM-03 Code métier inchangé hormis l'injection
+PASS JVM-04 supabase-js servi depuis la copie locale (aucun réseau)
+PASS JVM-05 Leaflet CSS + images servis localement
+PASS JVM-06 Polices Google servies localement
+PASS JVM-07 Fichier de police woff2 présent
+PASS JVM-08 Supabase (API) laissé au réseau
+PASS JVM-09 Tuiles de carte laissées au réseau
+PASS JVM-10 Fichier absent : 404 explicite
+PASS JVM-11 Traversée de chemin refusée
+PASS JVM-12 Requête ?v= de cache ignorée pour le fichier
+PASS JVM-13 Service Worker non embarqué
+PASS JVM-14 Origine étrangère jamais servie comme locale
+PASS JVM-15 Nom d'export assaini
+RESULTAT 15 PASS / 0 FAIL
+PASS UPD-01 Mécanisme désactivé sans source/clé : aucune requête réseau → désactivée : aucune URL
+PASS UPD-02 Manifeste signé par sign-web-bundle.mjs (Node) vérifié par l'APK (Java) → signature ECDSA P-256 valide
+PASS UPD-03 Manifeste Node modifié d'un seul champ après signature : refusé → SecurityException
+PASS UPD-04 Même commit que l'APK : « à jour », aucun fichier téléchargé → à jour
+PASS UPD-05 Nouvelle version signée : seul le fichier modifié est téléchargé → 1 fichier(s), en attente 1792928386
+PASS UPD-06 Rien n'est remplacé pendant la session en cours → intégrée à l'APK
+PASS UPD-07 Au démarrage suivant : version activée, fichier vérifié servi → mise à jour signée 1792928386
+PASS UPD-08 AssetServer sert la version mise à jour, pont natif et page HTML intacts → field-buying.js = v1
+PASS UPD-09 Fichier non modifié : servi depuis l'APK → offline-field.js intégré
+PASS UPD-10 Démarrage confirmé puis redémarrage : version conservée et revérifiée → active 1792928386
+PASS UPD-11 File locale déclarée transmise et conservée → queue_open=0
+PASS UPD-12 Fichier altéré sur le téléphone : version écartée, retour à l'APK → version active invalide : empreinte invalide : operations/field-buying.js
+PASS UPD-13 Manifeste modifié après signature : refusé, version en place conservée → refusée : signature invalide
+PASS UPD-14 Signé par une autre clé : refusé, version en place conservée → refusée : signature invalide
+PASS UPD-15 Fichier publié différent de son empreinte signée : refusé, version en place conservée → refusée : fichier non conforme au manifeste signé : operations/field-buying.js (publication en cours ? réessayer plus tard)
+PASS UPD-16 Chemin « ../ » dans le manifeste : refusé, version en place conservée → refusée : chemin refusé : ../../evil.js
+PASS UPD-17 Tentative de remplacer le pont natif _native/bridge.js : refusé, version en place conservée → refusée : chemin refusé : _native/bridge.js
+PASS UPD-18 Paquet destiné à une autre application : refusé, version en place conservée → échec : paquet destiné à une autre application
+PASS UPD-19 Canal différent (beta au lieu de stable) : refusé, version en place conservée → échec : canal beta au lieu de stable
+PASS UPD-20 APK trop ancien (min_native_version_code > versionCode) : refusé, version en place conservée → incompatible : nouvel APK requis (versionCode ≥ 3)
+PASS UPD-21 Bibliothèque absente de l'APK (required_vendor) : refusé, version en place conservée → incompatible : nouvel APK requis (bibliothèque https://cdn.jsdelivr.net/npm/bibliotheque-inconnue@9/x.js)
+PASS UPD-22 Page principale absente du paquet : refusé, version en place conservée → échec : page principale absente du paquet
+PASS UPD-23 Fichier plus grand que la limite : refusé, version en place conservée → échec : taille refusée : assets/enorme.bin
+PASS UPD-24 Signature absente / vide : refusé, version en place conservée → refusée : signature invalide
+PASS UPD-25 Version signée plus ANCIENNE que l'active (rejeu) : ignorée → à jour
+PASS UPD-26 Version B activée en attente de confirmation (A gardée en secours) → active 1792928686
+PASS UPD-27 B n'a jamais confirmé : redémarrage → retour automatique à A → active 1792928586
+PASS UPD-28 B refusée n'est plus jamais retéléchargée → version 1792928686 déjà refusée sur ce téléphone
+PASS UPD-29 Chien de garde (60 s sans confirmation) : retour immédiat sans redémarrer → active 1792928586
+PASS UPD-30 Format de file modifié + 3 opérations non synchronisées : activation DIFFÉRÉE → format de la file locale modifié : activation après synchronisation complète (3 opération(s) non synchronisée(s))
+PASS UPD-31 Format de file modifié + état de la file inconnu : activation DIFFÉRÉE → format de la file locale modifié : activation après synchronisation complète (état de la file inconnu)
+PASS UPD-32 Format de file modifié + file vide : activation → activée
+PASS UPD-33 Format de file inchangé : activée même avec 12 opérations en attente (file conservée telle quelle) → active 1792928986
+PASS UPD-34 Nouvel APK plus récent installé par-dessus : la mise à jour Web antérieure est abandonnée → intégrée à l'APK
+PASS UPD-35 État local illisible : démarrage sur la version de l'APK, sans plantage → version intégrée
+PASS UPD-36 Manifeste et fichiers sur deux hôtes différents : mécanisme désactivé → désactivé
+PASS UPD-37 Téléchargeur : HTTP en clair, autre hôte, autre chemin et « .. » refusés (avant toute connexion) → http=true hôte=true chemin=true point-point=true
+PASS UPD-38 Source injoignable (hors ligne / 404) : échec signalé, version en place conservée → échec : HTTP 404 https://pages.example.test/fbms/android-updates/stable/web-bundle.json
+RESULTAT 38 PASS / 0 FAIL

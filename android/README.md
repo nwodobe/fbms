@@ -186,21 +186,23 @@ Sauvegarder `web-bundle-private.pem` hors ligne (deux supports). La perdre n'emp
 l'application de fonctionner : elle empêche seulement de publier des mises à jour Web, il
 faudra alors un nouvel APK avec une nouvelle clé publique.
 
-### Publier une mise à jour Web (sans nouvel APK)
+### Publier une mise à jour Web (sans nouvel APK) · format 2, depuis la 1.2.0
 
-1. Le correctif est fusionné sur `main` et publié par GitHub Pages.
-2. Sur un poste de confiance, sur ce commit, arbre propre :
-   `node android/scripts/sign-web-bundle.mjs --key ~/cles-anagroci/web-bundle-private.pem`
-3. Contrôle : `node android/scripts/sign-web-bundle.mjs --verify` → signature valide, 0 fichier divergent.
-4. Commiter `android-updates/` dans une pull request, fusionner. Les téléphones la récupèrent
-   à l'ouverture (au plus toutes les 6 h) ou via **Version › Vérifier les mises à jour**.
-5. **Re-signer après chaque fusion Web** : un fichier publié qui ne correspond plus au
-   manifeste fait refuser la mise à jour (sécurité), jusqu'à la signature suivante.
+Détails, tests et décisions : `docs/android/UNIFICATION_WEB_APK_20261025.md`.
 
-Le script refuse de signer si le code Web ne gère pas le shell Android (`nativeShell`,
-`native_bundle`) : sans cette garde, une mise à jour casserait la préparation hors ligne.
+1. Le correctif est fusionné sur `main`.
+2. Une seule commande, qui fait contrôles → magasin d'objets immuable → signature → vérification → journal :
+   `node android/scripts/publish-web-update.mjs --channel stable --key ~/cles-anagroci/web-bundle-private.pem --write-root-version`
+   (canal test : `--channel test --out <checkout de la branche android-updates-test>/android-updates/test`).
+3. Contrôle : `node android/scripts/publish-web-update.mjs --channel stable --verify`.
+4. Commiter `android-updates/stable/` et `version.json` dans une pull request, puis la fusionner. Les téléphones récupèrent la
+   version à l'ouverture (au plus toutes les 6 h), au retour du réseau, ou via **Version et mises à jour › Vérifier**.
+5. Incident : `--rollback-to <version saine> --revoke <version fautive>` (nouveau numéro, retour au démarrage suivant).
 
-## 8. Écran « À propos · Version · Synchronisation »
+Les fichiers ne sont plus lus sur le site en direct mais dans `android-updates/<canal>/objects/` : une fusion Web
+postérieure n'invalide plus une version signée. Automatisation prête : `android/ci/publish-web-update.yml.example`.
+
+## 8. Écran « Version et mises à jour »
 
 Bouton **v1.1.0** en bas à gauche (badge orange s'il y a un échec, un conflit ou une mise à
 jour en attente ; le nombre d'opérations locales s'y affiche). Montre : version et
