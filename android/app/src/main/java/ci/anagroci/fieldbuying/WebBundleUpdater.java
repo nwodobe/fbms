@@ -409,7 +409,13 @@ final class WebBundleUpdater {
     private String doCheck() throws Exception {
         if (!enabled()) return "désactivée : " + config.optString("reason", "aucune source approuvée dans cet APK");
         String mu = config.optString("manifest_url");
-        byte[] raw = fetcher.get(mu + "?t=" + System.currentTimeMillis(), MAX_MANIFEST);
+        byte[] raw;
+        try { raw = fetcher.get(mu + "?t=" + System.currentTimeMillis(), MAX_MANIFEST); }
+        catch (IOException e) {
+            /* Canal pas encore publié (404) : ce n'est pas une panne, la version intégrée reste la bonne. */
+            if (String.valueOf(e.getMessage()).startsWith("HTTP 404")) return "à jour : aucune mise à jour publiée sur ce canal pour l'instant";
+            throw e;
+        }
         byte[] sig = fetcher.get(mu + ".sig?t=" + System.currentTimeMillis(), 4096);
         JSONObject m = checkManifest(raw, sig);
         long seq = m.optLong("sequence", 0);
