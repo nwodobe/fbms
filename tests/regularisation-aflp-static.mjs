@@ -31,4 +31,10 @@ const cf = sw.slice(sw.indexOf('function cacheFirst'), sw.indexOf("self.addEvent
 assert.ok(/return caches\.match\(req\)\.then/.test(cf), 'recherche exacte conservée en premier (cache-busting en ligne)');
 assert.ok(/if \(resp\) return resp;\s*[\s\S]*caches\.match\(req, \{ ignoreSearch: true \}\)/.test(cf), 'repli sans paramètre après échec réseau');
 
-console.log('Régularisation AFLP static: PASS (8 contrôles)');
+// D-4 : une saisie d'un autre compte n'est jamais envoyée sous la session courante.
+const frs = readFileSync('shared/farmer-registry-sync.js', 'utf8');
+// Field Buying (offline-field.js) : isolation multi-comptes livrée par la PR #262, non dupliquée ici.
+assert.ok(/user_id: options\.user_id \|\| currentUserId\(\)/.test(frs), 'Registre : chaque opération porte son compte');
+assert.ok(/if \(otherAccount\(rows\[i\], await sessionUserId\(\)\)\) continue;/.test(frs), 'Registre : session relue avant chaque envoi');
+
+console.log('Régularisation AFLP static: PASS (10 contrôles)');

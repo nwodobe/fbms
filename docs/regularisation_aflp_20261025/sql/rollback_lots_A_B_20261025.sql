@@ -1,25 +1,50 @@
--- Retour arrière des écritures de données du 25/10/2026 (lots REG-AFLP-A et REG-AFLP-B).
--- À exécuter avec un rôle d'administration (service_role / SQL editor), après export.
--- Les suppressions sont journalisées par farmer_registry_audit_trigger dans farmer_change_log.
--- Sauvegarde de référence : schéma backup_avant_regularisation_aflp_20261025 (non exposé).
+-- =============================================================================
+-- Procédure SÛRE d'annulation / restauration des lots du 25/10/2026
+-- Remplace l'ancien script à base de DELETE (retiré le 25/10/2026 : il pouvait
+-- effacer des lignes complétées ultérieurement et n'était pas réversible).
+--
+-- Principes :
+--  * aucune suppression physique : lot A = désactivation (deleted = true, status INACTIVE),
+--    lot B = retrait (status WITHDRAWN) ;
+--  * seules les lignes STRICTEMENT identiques à leur état initial figé
+--    (regularisation_aflp.lot_a_etat_initial / lot_b_etat_initial) sont touchées ;
+--    une parcelle complétée sur le terrain ou une attestation modifiée est exclue et journalisée ;
+--  * chaque action est tracée dans regularisation_aflp.journal_annulation (avant / après)
+--    et dans farmer_change_log ;
+--  * restauration symétrique, elle aussi conditionnée à l'absence de modification intermédiaire ;
+--  * exécution réservée au Branch Manager (p_acteur), motif obligatoire, simulation par défaut.
+-- Fonctions créées par la migration regularisation_aflp_etat_initial_et_annulation_sure_20261025
+-- (schéma interne regularisation_aflp, non exposé à l'API).
+-- Testé le 25/10/2026 en transaction annulée : 178/179 désactivées, 1 parcelle modifiée préservée,
+-- 0 DELETE, restauration 178/178 identique (hors horodatage), producteurs inchangés.
+-- =============================================================================
 
+-- 1. Simulation (aucune écriture) : combien de lignes seraient annulées / exclues ?
+select * from regularisation_aflp.annuler_lot_a('<UUID_BRANCH_MANAGER>', 'motif', false);
+select * from regularisation_aflp.annuler_lot_b('<UUID_BRANCH_MANAGER>', 'motif', false);
+
+-- 2. Exécution (dans une transaction, contrôler puis COMMIT)
 begin;
--- Contrôle préalable : seules les lignes des lots sont visées.
-select count(*) as parcelles_lot_a from public.farmer_plots where notes like 'REG-AFLP-A-20261025%';           -- attendu : 179
-select count(*) as attestations_lot_b from public.farmer_participation_attestations
- where executed_by_note like '%REG-AFLP-B-20261025%';                                                      -- attendu : 160
-
--- Lot A : parcelles provisoires « EXPLOITATION DÉCLARÉE · À VÉRIFIER ».
--- Ne supprimer que celles restées intactes (aucune modification terrain depuis la migration).
-delete from public.farmer_plots
- where notes like 'REG-AFLP-A-20261025%' and record_version = 1;
-
--- Lot B : attestations rétrospectives du Branch Manager.
-delete from public.farmer_participation_attestations
- where executed_by_note like '%REG-AFLP-B-20261025%';
-
--- Contrôle : producteurs strictement identiques à la sauvegarde.
+select * from regularisation_aflp.annuler_lot_a('<UUID_BRANCH_MANAGER>', '<motif écrit de la décision>', true);
+select * from regularisation_aflp.annuler_lot_b('<UUID_BRANCH_MANAGER>', '<motif écrit de la décision>', true);
+select lot, action, count(*) from regularisation_aflp.journal_annulation group by 1, 2;
+-- contrôle : producteurs strictement identiques à la sauvegarde
 select (select md5(string_agg(id||':'||md5(data::text)||':'||record_version, ',' order by id)) from public.producteurs)
      = (select empreinte_producteurs from backup_avant_regularisation_aflp_20261025._manifest) as producteurs_inchanges;
--- commit;   -- décommenter après vérification des compteurs
+-- commit;
 rollback;
+
+-- 3. Restauration (annule l'annulation)
+begin;
+select * from regularisation_aflp.restaurer_lot_a('<UUID_BRANCH_MANAGER>', '<motif>', true);
+select * from regularisation_aflp.restaurer_lot_b('<UUID_BRANCH_MANAGER>', '<motif>', true);
+-- commit;
+rollback;
+
+-- 4. Restauration des fiches producteurs depuis la sauvegarde (en cas d'altération accidentelle)
+--    Ne touche que les dossiers dont data diffère de la sauvegarde. Testée en transaction annulée.
+-- begin;
+-- update public.producteurs p set data = b.data
+--   from backup_avant_regularisation_aflp_20261025.producteurs b
+--  where b.id = p.id and p.data is distinct from b.data;
+-- commit;

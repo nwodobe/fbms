@@ -2,6 +2,8 @@
 
 Date : 25/10/2026 · Environnement : poste Linux isolé, serveur HTTP local, Chrome for Testing 153 piloté par Playwright 1.58.2, **données 100 % synthétiques** (bouchon Supabase du test `tests/offline-field-e2e.mjs`). Aucune écriture en production.
 
+> Mise à jour du 25/10/2026 (mandat de finalisation) : D-3 préparé et testé, D-4 corrigé pour le registre (PR #264) et traité pour Field Buying par la PR #262, nouveau test `tests/offline-registre-sustainability-e2e.mjs`, CI corrigée. État consolidé : fichier 10.
+
 ## Statut global
 
 **TEST ANDROID PHYSIQUE NON EXÉCUTÉ.**

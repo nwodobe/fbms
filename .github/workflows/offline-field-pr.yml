@@ -15,6 +15,9 @@ on:
       - 'manifest.webmanifest'
       - 'supabase/20261013190000_offline_first_field_buying.sql'
       - 'tests/offline-field-*.mjs'
+      - 'tests/offline-registre-*.mjs'
+      - 'tests/regularisation-aflp-static.mjs'
+      - 'shared/farmer-registry-sync.js'
       - '.github/workflows/offline-field-pr.yml'
 
 permissions:
@@ -23,20 +26,37 @@ permissions:
 jobs:
   offline-field:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # Correctif 25/10/2026 : « npx playwright install --with-deps » échouait sur l'image
+    # ubuntu-latest (Ubuntu 26.04, non prise en charge par Playwright 1.58.2) et le test
+    # navigateur n'était plus exécuté. On reprend l'image officielle Playwright épinglée par
+    # empreinte, déjà utilisée par agent-quality-gates.yml et rt-cluster-filter.yml : Chromium
+    # et ses bibliothèques système sont fournis, aucun miroir APT n'est sollicité.
+    # Les tests ne sont ni allégés ni contournés : mêmes fichiers, même navigateur réel.
+    container:
+      image: mcr.microsoft.com/playwright:v1.49.1-noble@sha256:70e367e0cbf60340a5b5fd562f6247a34eb3196efab9f88a3dd56482d9fe09d2
+      options: --ipc=host
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Static offline contract
         run: |
           node --check shared/offline-field.js
+          node --check shared/farmer-registry-sync.js
           node --check tests/offline-field-e2e.mjs
+          node --check tests/offline-registre-sustainability-e2e.mjs
           node tests/offline-field-static.mjs
-      - name: Install Playwright
+          node tests/regularisation-aflp-static.mjs
+      - name: Install Playwright (version alignée sur l'image)
         run: |
-          npm install --no-save --package-lock=false playwright@1.58.2
-          npx playwright install --with-deps chromium
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright --version
+      - name: Autoriser le dépôt monté dans le conteneur
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Airplane mode E2E
         run: node tests/offline-field-e2e.mjs
+      - name: Registre hors ligne (parcelles, Sustainability, inspections, changement de compte, interruption)
+        run: node tests/offline-registre-sustainability-e2e.mjs
