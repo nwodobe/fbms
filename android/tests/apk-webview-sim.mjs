@@ -467,6 +467,17 @@ async function versionScreen(page, device) {
   await page.context().setOffline(false); await wait(9000);
   const order = await page.evaluate(() => window.__order.join('>'));
   record('V18', device, 'Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification', 'message + sync>check', `${offMsg ? 'message' : 'pas de message'} · ${order}`, offMsg && /^sync>check/.test(order));
+  /* Écran de connexion (auth-gate : position fixe, z-index maximal) : le bouton Version doit rester accessible. */
+  const onTop = await page.evaluate(() => {
+    const o = document.createElement('div'); o.id = 'sim-login-overlay';
+    o.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:#053B23');
+    document.body.appendChild(o);
+    const b = document.getElementById('anx-version').getBoundingClientRect();
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const ok = hit && hit.id === 'anx-version';
+    o.remove(); return ok;
+  });
+  record('V19', device, 'Bouton « Version et mises à jour » accessible au-dessus de l’écran de connexion', 'bouton cliquable', onTop ? 'cliquable' : 'masqué', onTop);
 }
 
 const browser = await chromium.launch();
