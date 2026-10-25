@@ -1,0 +1,681 @@
+{
+ "format": 2,
+ "app_id": "ci.anagroci.fieldbuying",
+ "channel": "test",
+ "sequence": 1792929736,
+ "web_version": "2026.10.25-1202.9b91600",
+ "git_commit": "9b91600dc31217f009a76a355a0f461cdbe40473",
+ "bundle_label": "9b91600",
+ "published_at": "2026-10-25T12:02:23.197Z",
+ "created_at": "2026-10-25T12:02:23.197Z",
+ "status": "published",
+ "update_policy": "recommended",
+ "release_notes": "Démo v1 : marqueur visible",
+ "rollback_of": null,
+ "min_native_version_code": 3,
+ "native": {
+  "latest_version_code": 3,
+  "latest_version_name": "1.2.0",
+  "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+ },
+ "supabase_compat": "20261013204500",
+ "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+ "required_vendor": [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
+  "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css",
+  "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js",
+  "https://fonts.googleapis.com/css"
+ ],
+ "revoked_sequences": [],
+ "objects_path": "objects/",
+ "files": {
+  "assets/logo-anagroci-access.svg": {
+   "sha256": "3ae52d4efebad3bda345d46d16023d344632ef5b7d1ef8d537461443892634eb",
+   "size": 1308
+  },
+  "assets/logo-pjs-mark.png": {
+   "sha256": "b315a07e05555af01090633ae5c3ed295d53ade50b1d11eae56eab5f698a86be",
+   "size": 7379
+  },
+  "assets/logo-pjs-transparent.png": {
+   "sha256": "f7f41b490b3f4471a07efc5a085a694f8ad3f19686a280e2ba035c6ff33ff16f",
+   "size": 24843
+  },
+  "assets/operations/modules/factory.webp": {
+   "sha256": "9433a97b3e4763dba5b2bb908b7d829e9411e419156361e64be6c7c08e8755dd",
+   "size": 52992
+  },
+  "assets/operations/modules/field-buying-adult-producer-v3.svg": {
+   "sha256": "09725c400733dfb12c21b7c629f4c1ce1cf1e2802f9729ab36d7eb3fa700f3d1",
+   "size": 3499
+  },
+  "assets/operations/modules/field-buying-cashew-adult-worker.webp": {
+   "sha256": "11d6da75d3b326aa60d1fdbffe9924f9d85e00a5c9ab690a4414c1574f229a85",
+   "size": 7513
+  },
+  "assets/operations/modules/field-buying-real-photo-v10.jpg": {
+   "sha256": "2db10f8399d8f0b2751873edbda9cc384ebc86f77d5d931bb56c28a90eefd6e3",
+   "size": 9048
+  },
+  "assets/operations/modules/field-buying-real-photo-v4.webp": {
+   "sha256": "ab03fd54da02750a2c309f8383201ec8e91b29470e6f8f9457eee35231680301",
+   "size": 15003
+  },
+  "assets/operations/modules/field-buying-real-photo-v7.webp": {
+   "sha256": "039670bcdac461258629035ef907a7cefbe4247749a3edb4ea37dec0accde56b",
+   "size": 8259
+  },
+  "assets/operations/modules/field-buying-real-photo.webp": {
+   "sha256": "6e70ad27cc07937ffcb11112bb6a6f45b9f8cad59290ee729fd3ba8f589c7c72",
+   "size": 199568
+  },
+  "assets/operations/modules/field-buying.webp": {
+   "sha256": "2c2de556aa3b18ae478ca6b75a255f27fd38f5a3fd96cbb6a5e234cc697ae19c",
+   "size": 110534
+  },
+  "assets/operations/modules/lba-purchase.webp": {
+   "sha256": "defe31348af383e27ddbd7dc9accae0d489097a16a0647b4788e132109b69347",
+   "size": 61404
+  },
+  "assets/operations/modules/reports.webp": {
+   "sha256": "e35636d0a73b770b4e7b6fee270e9bd4086aa15014c5592eadb257136d411d69",
+   "size": 45872
+  },
+  "assets/operations/modules/stock-transfer.webp": {
+   "sha256": "cdc2d5684d7b275f4199ab6d60c8bc6fd1a76e98c7bde0f9cf2abbf73680bd24",
+   "size": 87880
+  },
+  "assets/operations/modules/traceability.webp": {
+   "sha256": "404c58db55a5cf873180ed13917636b575b00a9d97eadb517080864762ca454f",
+   "size": 64900
+  },
+  "assets/operations/modules/warehouse.webp": {
+   "sha256": "6de50b5d45f3becc995b07175dff6757e221659240b78f10171740b3c157b4e9",
+   "size": 161248
+  },
+  "fbms/app.html": {
+   "sha256": "3cf889724021b958bf1b7f6eb38840a55c01420b0803b8bff40c574ca3a0a3fe",
+   "size": 3204
+  },
+  "fbms/audit_distances.html": {
+   "sha256": "bf6bd057d98ff9d2f07d74f0b4ba36779c3229d33fd610f3171b19e1c1465fdb",
+   "size": 17716
+  },
+  "fbms/carte_pro2.css": {
+   "sha256": "2007703776e20c24376ebae0a759bc90112c3d0632a9f44428e11f7a8444a297",
+   "size": 14
+  },
+  "fbms/fbms_carte.html": {
+   "sha256": "4cb08ffbc8e53d306a810e4c9b9561d62e6238adba705b4fdb925ce7db90110c",
+   "size": 11255
+  },
+  "fbms/fbms_hubs.html": {
+   "sha256": "87842277088f354838a9da93e1fa374706b35ce55c8955fe60d98b75aa1b2c7b",
+   "size": 25054
+  },
+  "fbms/index.html": {
+   "sha256": "f081dd0a59a1758a408d2a4a61290feac081e0bc966fa2d0b8b29df7a899de42",
+   "size": 349991
+  },
+  "fbms/rt_cluster_enhancer.js": {
+   "sha256": "b91b82c6472882acecc6b6cd42378a071251175ef5e8da0ea203f3605c4057ff",
+   "size": 12691
+  },
+  "fbms/test_small.txt": {
+   "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+   "size": 4
+  },
+  "icon-192.png": {
+   "sha256": "8bb6eefb738f88492b8c96b7ae42b58a2715cae2af2fb0d3245891c2ff0966dd",
+   "size": 7166
+  },
+  "icon-512.png": {
+   "sha256": "57f763357d45e65ada14e307a2bbbdf3bba8bd2fa04e8c62e4b94df765eaf9b5",
+   "size": 23738
+  },
+  "index.html": {
+   "sha256": "d91be52a42350cfe33818d578bb52a72609285f950f5270057e52d55832b55fe",
+   "size": 6113
+  },
+  "logistique.html": {
+   "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
+   "size": 32326
+  },
+  "logistique/alis_fbms.html": {
+   "sha256": "f265eb4413fef4f2ed8c79d3f63f2572c600f67e28236b4154d9646ce0aa34b0",
+   "size": 12265
+  },
+  "logistique/ancien.html": {
+   "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
+   "size": 32326
+  },
+  "logistique/index.html": {
+   "sha256": "a44d43d176884bdfdbd6fd25fa6c29320270461f5283a88cc27a0fdaae8a9fb7",
+   "size": 46398
+  },
+  "manifest.webmanifest": {
+   "sha256": "2f311ee507cceea2ae40fc7e17642d16bdb1075090f75abb3c80b9faa6810b81",
+   "size": 601
+  },
+  "operations/activity-report.css": {
+   "sha256": "7829fcd20fc256a2e83024f1d1a60a8776f6319640535e766211891c5f6afeca",
+   "size": 2333
+  },
+  "operations/activity-report.html": {
+   "sha256": "a9c5065dc63d3b97e297fe317cc748451cc356384ddb10edc92582b8c120e16e",
+   "size": 1811
+  },
+  "operations/activity-report.js": {
+   "sha256": "b1dcd8e6bea673b02814092adcb5922aaef612fafc712717a97234805861173e",
+   "size": 46145
+  },
+  "operations/aflp-cooperatives-enrolement.js": {
+   "sha256": "e44e128be2cf0c9cdee27e65a0151953720aecbb715c3fbbd821c43f26ef5030",
+   "size": 46069
+  },
+  "operations/aflp-cooperatives.js": {
+   "sha256": "06e781634970774ebb4c6f4e3a754963442fe77460f236439529d2fc9cb6502b",
+   "size": 213976
+  },
+  "operations/aflp-data.css": {
+   "sha256": "68dad92bc7a7e4c2b21d3c4d5120f37bace1bddce091f56ff69be93a3388a191",
+   "size": 1742
+  },
+  "operations/aflp-data.html": {
+   "sha256": "a666cacefa9916965a4432dd63f1332cf60e3467df30d7aadd40dae205278d50",
+   "size": 1933
+  },
+  "operations/aflp-data.js": {
+   "sha256": "41865de50c73e74fad8290c7f762c6c14e89e15bf7cd2c50841ec94062a9317b",
+   "size": 62584
+  },
+  "operations/campaigns.css": {
+   "sha256": "1fb802240375d580a0081c6f3adf77fa15c0d1ecab02365ed4982969a6f821d4",
+   "size": 8139
+  },
+  "operations/campaigns.html": {
+   "sha256": "ddcf448db51dccb1aec4f2e30aa8971db83e244fbf0649a902545bc728005f2c",
+   "size": 1500
+  },
+  "operations/campaigns.js": {
+   "sha256": "93ebbc8374576a872aca05d3bbbb1002d517fff3c8b6cad338be16ab56064a9d",
+   "size": 73402
+  },
+  "operations/cooperatives.css": {
+   "sha256": "0808f7f8e40266ac5bafff50407afa340e26bb227a427a5b0289b359464c30c0",
+   "size": 15421
+  },
+  "operations/factory.html": {
+   "sha256": "14f896aa48bda1303bc68a09c39ced468a3e86a342f286b9c0bb1dc25c7cb997",
+   "size": 1665
+  },
+  "operations/farmer-passport-edit-bridge.js": {
+   "sha256": "bc0d9a78992e8ce73d741df2919c86a10f0c065944beaa8701ac5c32b9b7e99e",
+   "size": 4035
+  },
+  "operations/field-buying-performance-bootstrap.js": {
+   "sha256": "5a8652e74312bca9d55d2a4862d9744043b585591526ca0cf42efcf066919019",
+   "size": 723
+  },
+  "operations/field-buying-prefilled-edit.js": {
+   "sha256": "153bd5b2faf636f406db85b26c26d8e589a591ba3bc8002d2d8df2842b521fb1",
+   "size": 561
+  },
+  "operations/field-buying-profiles.css": {
+   "sha256": "40e1aeb56d63f4184730384f24b626b45d6dad3e6d32cb1b349176af2281a4d2",
+   "size": 219
+  },
+  "operations/field-buying-profiles.js": {
+   "sha256": "02b740eebf084968f139c1f5297abfda9a698c07382f038ffd2bfda4d8cb4343",
+   "size": 521
+  },
+  "operations/field-buying-v2.js": {
+   "sha256": "55f70135bcaee974190539397767313cb00ea77b88f2ed0190d2bdb3a70239ff",
+   "size": 5906
+  },
+  "operations/field-buying.html": {
+   "sha256": "4f53a4f382e949c9fcbf9c4b0a25ae32618da2af7109a81966bc1a094d757a42",
+   "size": 3503
+  },
+  "operations/field-buying.js": {
+   "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
+   "size": 334081
+  },
+  "operations/lba-purchase-ux-fix.js": {
+   "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
+   "size": 10767
+  },
+  "operations/lba-purchase-v2.js": {
+   "sha256": "e30f9023bfd4c6995555017b6675cd99507458072de04374b81f0229707ab9ab",
+   "size": 24150
+  },
+  "operations/lba-purchase.html": {
+   "sha256": "93f6210c4f17f047f503f7f3fc85fc683124881d3c124b2be1056e10e1e583f9",
+   "size": 1703
+  },
+  "operations/lba-purchase.js": {
+   "sha256": "64953098a931af307d0ef17c3c418cdfdf8d8311ccb295e2663a9fc29f03f576",
+   "size": 58112
+  },
+  "operations/module-router-v2.js": {
+   "sha256": "a35553d20c9123e73db6a137ca5d6467aa8648b50d3fefee11578f57434603b7",
+   "size": 11956
+  },
+  "operations/navigation-v2.js": {
+   "sha256": "19c53fdf0ce84213c4a6fd22f981c0e1cf57370cbba5c6cba6319eef372c1f75",
+   "size": 7636
+  },
+  "operations/operations-v2.css": {
+   "sha256": "4083bf86b17b5942a0695f25664e3e5f79d947fb683ff85a2dacb222ad7d4bf9",
+   "size": 24616
+  },
+  "operations/operations.css": {
+   "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
+   "size": 12611
+  },
+  "operations/pjs-export.js": {
+   "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
+   "size": 57273
+  },
+  "operations/portal-visual.css": {
+   "sha256": "0411979b729fb1510fb7d009cf4c7416afffc99c3d7c4c645860d5377895c36d",
+   "size": 5986
+  },
+  "operations/procurement.html": {
+   "sha256": "65acac2a7d012e94cc0ffb5d50dd556b2c14f535fb658dce0e4858285c5b3be4",
+   "size": 1730
+  },
+  "operations/procurement.js": {
+   "sha256": "87d1bd8e9d3686ee1d11fa0c64cfe60eba7959763eade90a2e9eb6dce31dae7f",
+   "size": 81617
+  },
+  "operations/reports-cooperatives.js": {
+   "sha256": "9d455306ea00597b037e3aeeb7bdd9aa22d5ad5fe80f9ddc7a633bad2f83c951",
+   "size": 16704
+  },
+  "operations/reports-export.js": {
+   "sha256": "4a92ad2adb2689fa3b293fad4d85c281c634f9e439e1c003e6dd9a5b29c487a5",
+   "size": 5329
+  },
+  "operations/reports.html": {
+   "sha256": "ec5fa6dc66b7e62ca32c51d3ae6b136a22c3bd6941d4b5e34a47df8fe57298f4",
+   "size": 5473
+  },
+  "operations/rt-farmer-rights.js": {
+   "sha256": "3d5311ddbf35738077eeaf9d9b8c38f3d309985eacc72a68963686628b71dfaf",
+   "size": 13723
+  },
+  "operations/sacherie-operational-p1.js": {
+   "sha256": "9c42b45cb68ac83582cc41c1b3ee513c8240e6104256e7c0dafad1a2aff50400",
+   "size": 32518
+  },
+  "operations/stock-transfer.html": {
+   "sha256": "2b2c140587173b43cd579694b6aec52dd6b0d612b83a7ce29e1c4ab44de20233",
+   "size": 1754
+  },
+  "operations/stock-transfer.js": {
+   "sha256": "433481a14dd8d220336c2a67c7e51014916ec64b8ea7280e347e6ec4843c0c05",
+   "size": 40838
+  },
+  "operations/traceability-search.js": {
+   "sha256": "3f0def9ee6417943749e42e0b26d676f8916cba2bd3cbdb793f6b2fa181ec4ad",
+   "size": 12262
+  },
+  "operations/traceability.html": {
+   "sha256": "990ca6a832250d6202bd042eac20bb9f8980e9a177a0a17206be5ec8e18ff403",
+   "size": 3147
+  },
+  "operations/warehouse-lot-origin.js": {
+   "sha256": "19baa86dba65bad176cc61c38d1a706115967543cdcb3a4f2d749c08fe380888",
+   "size": 3638
+  },
+  "operations/warehouse.html": {
+   "sha256": "6cf91fc8983a72f340a2833310a2eeac00de1b9903e37c4e24b05c9ddfcf01f8",
+   "size": 1812
+  },
+  "operations/warehouse.js": {
+   "sha256": "f9887e3f5f43f61981d4a10dae41effcb69a0ece9ccfd65d2a26bb4d1fc4fde6",
+   "size": 144762
+  },
+  "operations/workspace.js": {
+   "sha256": "fd81ead40c0e0880406b9212130e19f66b90306ca21ec07925cc53a4db2eca46",
+   "size": 44244
+  },
+  "rcntrace/ci-geo.js": {
+   "sha256": "b435c64f6b009ea49c34a8bfa06f230fdbe8efa14cd2ee24074b111118e8f3f6",
+   "size": 10684
+  },
+  "rcntrace/field-incident-log.js": {
+   "sha256": "e62831bacd74da806894a7e2619d0bcde9a4782fbb187efd63da66a3f8086c71",
+   "size": 8052
+  },
+  "rcntrace/flow-clarity.js": {
+   "sha256": "ad9ba42f9a27e7e84192d01cc129a7e5307a2b6d8de83815e1cacd47e8b8ee4c",
+   "size": 8536
+  },
+  "rcntrace/incident-review-board.js": {
+   "sha256": "b8045a492e9b192ebba0efd9dfc2383d343e7929d5156794152d9c293f37bda2",
+   "size": 9232
+  },
+  "rcntrace/index.html": {
+   "sha256": "17619f304ccbaff1238c44c7922fd9efdf1a10c2fbfc7bfcc44e28c67e087bb0",
+   "size": 28671
+  },
+  "rcntrace/jute-control-ui.js": {
+   "sha256": "81b91ff2f938126885b3a24a8d492139f9a52fc1a63b91da63943a074a36498a",
+   "size": 18785
+  },
+  "rcntrace/jute-control.js": {
+   "sha256": "620a4a67e1c389c1a26378dfa2d07b04006238f2120042525bcb06fc17192f5b",
+   "size": 13895
+  },
+  "rcntrace/jute-v2-ui.js": {
+   "sha256": "ca4d4d88e5f382c413646c08460d41b5d4f461b0f01823071f1f996fe45b478d",
+   "size": 26738
+  },
+  "rcntrace/jute-v2.js": {
+   "sha256": "5535c34e37eb23514e0947bf3a715a38a4683bb406e9bfa1ec1249bf0d4e65dd",
+   "size": 8498
+  },
+  "rcntrace/pjs-logo-data.js": {
+   "sha256": "d0c7b7b6a15f0ccba77049cd433d898c79e7d701d2016f793f4db1dee4a3f683",
+   "size": 10268
+  },
+  "rcntrace/procurement-control-ui.js": {
+   "sha256": "2fbc3e9bf5dba652fa6aaa5b4e52150e085fbf5ba224e9ef8aafe5e68fd949e1",
+   "size": 28920
+  },
+  "rcntrace/procurement-control.js": {
+   "sha256": "4e1d4ab342267b14f91780d76205bddc1a7aa588cb256af4a336202bd3cb2b82",
+   "size": 9727
+  },
+  "rcntrace/procurement-export.js": {
+   "sha256": "8c78d1e5b9ea4295a6545722150c56a880100091e25cdc229518d4177ecd613b",
+   "size": 7968
+  },
+  "rcntrace/procurement-pricing-ui.js": {
+   "sha256": "9161fac1915570191064ae3a481b7ad7b90b35de9f74a1cf70f5aa0854bbb49d",
+   "size": 19472
+  },
+  "rcntrace/procurement-pricing.js": {
+   "sha256": "4130597769a462d484a37c5a640badfdb93c7de4ac5a0994dce07c59065828fe",
+   "size": 8936
+  },
+  "rcntrace/procurement-v2.js": {
+   "sha256": "25e8701191b6efb110728af26e56be9a31612ed5c0a8b0019ddfb9827f39dadb",
+   "size": 4253
+  },
+  "rcntrace/rcntrace-store.js": {
+   "sha256": "9866ec191ba892c48b8ac0b775182d7e4c015be1814e4f780ac5aaa42b068896",
+   "size": 4697
+  },
+  "rcntrace/rcntrace-sync.js": {
+   "sha256": "7cb547934cc046a6b08111c29b21782496cbd721883990af9bfa3469244a097e",
+   "size": 15365
+  },
+  "rcntrace/rcntrace-ui.js": {
+   "sha256": "fdc7b1bf8a344677b5fe863e932e0b3bf152f72a9c792c4ba0203d74ec959786",
+   "size": 211191
+  },
+  "rcntrace/rcntrace.js": {
+   "sha256": "b0b0118f6cb7d64dcbe94613a8501d5ac583eacbc8eccb37d0969f2d50b6538e",
+   "size": 131499
+  },
+  "rcntrace/sim-data.js": {
+   "sha256": "583fb65cffc96483213bf205be994a029c0929ffa9cfb26de0c634f78d69d761",
+   "size": 353945
+  },
+  "rcntrace/transfer-business-locks.js": {
+   "sha256": "41d6c49aecf4d43d9ba552bc013fa13bc4c0d7d4aa81fd3fc76dd8314be2fcf1",
+   "size": 5788
+  },
+  "rcntrace/workflow-guide.js": {
+   "sha256": "41ab802cd43bc371e8a92ad2cbe0a02ac81f34202b94a1032e9d2472e9864308",
+   "size": 6529
+  },
+  "shared/admin.html": {
+   "sha256": "3c194933f588db551339eac56baa62fc79d827f9055b1f37879f390bf425a791",
+   "size": 18659
+  },
+  "shared/aflp-access.js": {
+   "sha256": "59c6e3ae369800b34b6f5456856a0305a2ee837dc2d9056d979ca757f807f745",
+   "size": 29397
+  },
+  "shared/aflp-ia-catalogue.js": {
+   "sha256": "93371b5a0b448b9f8c00efed239b8194796cff66f81836eee629172b28f31d95",
+   "size": 49146
+  },
+  "shared/aflp-ia-comprehension.js": {
+   "sha256": "9df647cc4dff9f9a553593677c7c630a33456824be986d00ec046c7686fe1c0c",
+   "size": 25033
+  },
+  "shared/aflp-ia-journal.js": {
+   "sha256": "0b3baa0403e940852f1371183b7d30a0f20c888bae67e9f947aabe12ca36afed",
+   "size": 15895
+  },
+  "shared/aflp-ia-langue.js": {
+   "sha256": "883b9880208a2ef7a00ac39ce694769b518affcfb46b5a46ca89e9b960199985",
+   "size": 15339
+  },
+  "shared/aflp-ia-moteur.js": {
+   "sha256": "d8a24aee50440b312d40584d37c10f2553625c2215cf75d69474a17ebb1f1377",
+   "size": 98183
+  },
+  "shared/aflp-ia-predictif-ui.js": {
+   "sha256": "7de2bb5dcce310a609ac5c521a4bbda0ff733859ac30cf3354c2c6d390d385af",
+   "size": 53952
+  },
+  "shared/aflp-ia-predictif.js": {
+   "sha256": "9894f6a92e7f6e69581394b672ea9d6dea5722f02021b14ab0b26171d7473283",
+   "size": 120750
+  },
+  "shared/aflp-ia-ui.js": {
+   "sha256": "82b6c976989db10317e29871f46e2fac7c65660aafe325329284dcdaa669ca26",
+   "size": 39104
+  },
+  "shared/alis-hardening.js": {
+   "sha256": "79223c475fca48834bb17b3171fdc509118519ee857a47b10cadc038f06b581a",
+   "size": 14231
+  },
+  "shared/alis-premium.css": {
+   "sha256": "8ed5d8abdf15f58e76eff50b588e472ceee21e0822271b4647e58fdd5056bb61",
+   "size": 4875
+  },
+  "shared/anagroci-audit.js": {
+   "sha256": "102bdc0025e5a840f78602ca108ddb901f06d99b3a6b0baf1b3e088681524de6",
+   "size": 20679
+  },
+  "shared/anagroci-config.js": {
+   "sha256": "155ca9d6a2c0c8590ec526ab65bc08ab8051fd738d26a21300a3a8cdee0b8b17",
+   "size": 6858
+  },
+  "shared/anagroci-sacherie-control-actions.js": {
+   "sha256": "d5eeb9fe953e8470f15f8cb4e04ecc84ac9523ed4bb5bbf5376d47e30e8fc880",
+   "size": 19329
+  },
+  "shared/anagroci-sacherie-control-tower.js": {
+   "sha256": "c3387aaf40c5218db541f2e4822112668b1c3e2747ae35ecac93ac4a472cd90f",
+   "size": 32309
+  },
+  "shared/anagroci-sacherie-v2.js": {
+   "sha256": "5c021df4800e8f722a19b7c6ef15f2f54e9e07fae076c603eb425889d1bc955e",
+   "size": 32431
+  },
+  "shared/anagroci-sacs-guards.js": {
+   "sha256": "27a21d1f72cd9ff627034fb695e2e0bb527a694a323f43471a933560c61e9396",
+   "size": 13091
+  },
+  "shared/anagroci-ui.css": {
+   "sha256": "c346f7efeb37b40ebe677d8697f1ae3b5c587a7ed2046dd11f2a13abefc428b2",
+   "size": 4405
+  },
+  "shared/audit-distances-fix.js": {
+   "sha256": "2cad7ef872b86e2f6bbe3e9fc4b981cc86fc127eda643e494ecefd9ba2419d37",
+   "size": 3702
+  },
+  "shared/auth-gate.js": {
+   "sha256": "af34e4e01cfa113c98337133a315249941947aab42a177f6b24a8fc148911e16",
+   "size": 19634
+  },
+  "shared/auth-ui-patch.js": {
+   "sha256": "ee4516d82e167eff204fc19934d47430929b0016d13cb12d6826daf6a17cf734",
+   "size": 4378
+  },
+  "shared/farmer-enrollment-phase1.js": {
+   "sha256": "8db3d65d6dd9fec0221599d13f97953fb58c88d9a578579687e87c4c8f504516",
+   "size": 29742
+  },
+  "shared/farmer-registry-assessment.js": {
+   "sha256": "728c4af6dadd6b9dc3019dd5f01b74f4dbc1f595f8903acba770de1f091dd86f",
+   "size": 8923
+  },
+  "shared/farmer-registry-evidence.js": {
+   "sha256": "b3b16d78ad57bd183e89388a676ca10163775f37d61357df2e8f3b2c07267480",
+   "size": 3040
+  },
+  "shared/farmer-registry-guards.js": {
+   "sha256": "997512eded70fb96d00407b1ffcb8d1d671525fdf4cbad05b7fac017f03489be",
+   "size": 2754
+  },
+  "shared/farmer-registry-operations.js": {
+   "sha256": "41c7916a9a6473063994ca11787502e6f4b50e979c55ff8ea222d86bf03c288e",
+   "size": 33110
+  },
+  "shared/farmer-registry-passport.js": {
+   "sha256": "3895c3fd462dcc3d8cfbd1e4ddda398d3cfc3a17d5521f24b018e66568d65efd",
+   "size": 36340
+  },
+  "shared/farmer-registry-privacy-phase1.js": {
+   "sha256": "16933a841c58d8753c1a1285c7bde60b5bc715e1bfad4b6691d3cf371b49f0a5",
+   "size": 7219
+  },
+  "shared/farmer-registry-read-phase1.js": {
+   "sha256": "a6653625af098f80f6dede61d389184d69883aad22cccd86b5ad71a35dafcb7b",
+   "size": 2945
+  },
+  "shared/farmer-registry-sync-policy.js": {
+   "sha256": "3c684d8672119b8e1cb40d61fa9a91b67e9f2782acbf8ea417abbdba4ad3d20d",
+   "size": 1521
+  },
+  "shared/farmer-registry-sync.js": {
+   "sha256": "fd3427cf5926f2b63e422538b27621f3b7061326a7e239efaadfcad007ad7404",
+   "size": 17565
+  },
+  "shared/fbms-dashboard-audit.js": {
+   "sha256": "636c0e3a61e712593b38a8d384ca01b3cd1b54c1043df2a28b44ef1301235a41",
+   "size": 21157
+  },
+  "shared/fbms-field-hardening.js": {
+   "sha256": "ba3840365d57e99b294accfa375c6280610a0c8c8d144d208d05bd02d43f1b99",
+   "size": 14953
+  },
+  "shared/geo-premium.css": {
+   "sha256": "6cf304f217b6517a4e6d644cc2532a33f4a4d1aeb218bd05f75788aadbee4d38",
+   "size": 4396
+  },
+  "shared/i18n-extra.js": {
+   "sha256": "97fb493cb1494937a58983308644f67c09925278c9d80ce3863a51b11db2b4ec",
+   "size": 5720
+  },
+  "shared/i18n.js": {
+   "sha256": "384a47110802570484aba2ec0b93bc1a02d6f6ca5f7fff2fdd81cb9e1f8e61ca",
+   "size": 67063
+  },
+  "shared/offline-field.js": {
+   "sha256": "e3f4c5cc7068d512c35db9a8088fbbd99f54c929c271b8366bb93298723eb83c",
+   "size": 33912
+  },
+  "shared/ops-premium.css": {
+   "sha256": "d2d77fdfd31984e4cf1e7883f859e10268de56deca4e828cc048d12c87bd2f15",
+   "size": 14907
+  },
+  "shared/password-reset.html": {
+   "sha256": "91bc4131bda0d758c1c1de1a6baa6086a64a536f77a84c6a62036b5ccecc9972",
+   "size": 3165
+  },
+  "shared/password-reset.js": {
+   "sha256": "5767ecc354acc546594d14306c373845f4159f0f24f05009599bf7b23326672b",
+   "size": 5899
+  },
+  "shared/pjs-theme.css": {
+   "sha256": "2d25e026666ca40c9efd12174e1fbd4b01aac973d6d7c073694896ad78f23792",
+   "size": 1895
+  },
+  "shared/rt-to-producer.js": {
+   "sha256": "883156752bae4264eaf7f4331939e9d4e2c6cfa521aa00c928547cf86535158a",
+   "size": 8714
+  },
+  "shared/suite-bar.js": {
+   "sha256": "e08c049945feb9341b5a07bb77f677b355ed102c32fc1f0653ecdb7ca4e1d655",
+   "size": 10627
+  },
+  "shared/uppercase.js": {
+   "sha256": "a33e456690fa080da85e0390948a18e608d9f5105be52ba7a912231f6cb516f1",
+   "size": 6312
+  },
+  "suite/index.html": {
+   "sha256": "ed5e670a304c16e9e9887acac0616402996ca280dd2e52bfe98cca9d083dccbf",
+   "size": 23576
+  },
+  "terrain/achats.html": {
+   "sha256": "5a5c71dd3ee3ae702f8dbc8966703586a96f9fea302de74b6ec1f90612adc0bb",
+   "size": 46122
+  },
+  "terrain/achats_dropdown_patch.js": {
+   "sha256": "60a1ef9558c870d77de7fd7d5b44414f9e265d7a2c086f3a196f5f08ff7cd1e2",
+   "size": 9278
+  },
+  "terrain/achats_traceability_patch.js": {
+   "sha256": "e682f90b7603a828419640b8df5fced8a5c236edce3ba51cd4ee025d18f65271",
+   "size": 2708
+  },
+  "terrain/aflp-ia-admin.html": {
+   "sha256": "e13987f5a22a235cd545420e4bd68533af782f2f53a8693566359faf821d19d3",
+   "size": 37073
+  },
+  "terrain/anagroci-ui.css": {
+   "sha256": "cdc448fc07b6b5a6be321bcf5983d340ecf10d5942106808606a671fd660482c",
+   "size": 42
+  },
+  "terrain/cash.html": {
+   "sha256": "bed31d4ec7b3c17604e49e587de79675d4fdbab07e5a8630b06133a91c0c3f13",
+   "size": 29527
+  },
+  "terrain/command.html": {
+   "sha256": "e7ceb9602675a7fb6701bdf8937dc58cd2bc6dd80f9da69355123f71cb901aaf",
+   "size": 76418
+  },
+  "terrain/sacherie_v2.html": {
+   "sha256": "0f20114ea88dde0a33dfb79901d646e53f14d3d41c54ee4d5d0a7069b6402087",
+   "size": 4356
+  },
+  "terrain/sacs.html": {
+   "sha256": "a392ba6840150332e0b371024fadc79751db42728d861762ff9f165179796a09",
+   "size": 30545
+  },
+  "terrain/sustainability.html": {
+   "sha256": "1572f2814c74e76cfb536d0745a9dc45df216e852074ba82b939c106c50eefcb",
+   "size": 16293
+  },
+  "terrain/traceability-completeness.js": {
+   "sha256": "27a687769aa8313e4c567c1fe16ecb600b5f343c4d9af95e6508dc9408bf3c32",
+   "size": 6114
+  },
+  "terrain/traceability-physical.js": {
+   "sha256": "34f22fda6c3e7dfa89dc4c52cd1ef5cfe5e414f956954c5c0e7b9c11c854abee",
+   "size": 9245
+  },
+  "terrain/traceability-reconciliation.js": {
+   "sha256": "519517ebbb563c83d4934b366b88553ba6bff764291952055db5186d62d072bb",
+   "size": 7486
+  },
+  "terrain/traceability.html": {
+   "sha256": "847f07e4ad0768fdfd6ddd72f21e8b57b4efb296ea1b164edf6412137b78de33",
+   "size": 11719
+  },
+  "terrain/traceability.js": {
+   "sha256": "ac2ed9cbfd43f662654889af0fc1e169fcbc481154e28b00a16b616a0adbd792",
+   "size": 11312
+  }
+ }
+}

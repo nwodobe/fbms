@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1792929182,
- "web_version": "2026.10.25-1153.258cd8f",
- "git_commit": "258cd8f7eb8609f43dcc0883a211d335fef4260c",
- "bundle_label": "258cd8f",
- "published_at": "2026-10-25T11:53:18.109Z",
- "created_at": "2026-10-25T11:53:18.109Z",
+ "sequence": 1792929736,
+ "web_version": "2026.10.25-1202.9b91600",
+ "git_commit": "9b91600dc31217f009a76a355a0f461cdbe40473",
+ "bundle_label": "9b91600",
+ "published_at": "2026-10-25T12:02:23.197Z",
+ "created_at": "2026-10-25T12:02:23.197Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Référence = APK de test 1.2.0 majtest",
+ "release_notes": "Démo v1 : marqueur visible",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -234,8 +234,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "da75d218a65c755fc44e5cb1ee339dfb80db77f46dd53341c0204caa2535bc80",
-   "size": 3415
+   "sha256": "4f53a4f382e949c9fcbf9c4b0a25ae32618da2af7109a81966bc1a094d757a42",
+   "size": 3503
   },
   "operations/field-buying.js": {
    "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
