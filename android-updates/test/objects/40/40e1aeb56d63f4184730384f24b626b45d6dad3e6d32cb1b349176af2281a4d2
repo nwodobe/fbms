@@ -1,0 +1,3 @@
+/* Réconciliation : les styles des fiches 360° (ops-link, ops-fiche-head,
+   ops-avatar, ops-doc-box, ops-gallery, ops-photo-preview) vivent dans
+   operations/operations-v2.css. Cette feuille n'est plus chargée. */

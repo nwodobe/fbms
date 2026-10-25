@@ -1,0 +1,134 @@
+/* ============================================================================
+   ANAGROCI ALIS - couche design premium
+   Scope volontairement limite au module ALIS grace aux champs #mode et #contrat.
+   Aucune logique metier n'est modifiee.
+   ========================================================================== */
+body:has(#mode):has(#contrat){
+  background:linear-gradient(180deg,#F1F9EF 0%,#FBFAF4 52%,#F1F9EF 100%)!important;
+  color:#25312C;
+}
+body:has(#mode):has(#contrat) .top{
+  background:radial-gradient(circle at 18% 0%,rgba(141,197,86,.22),transparent 30%),linear-gradient(135deg,#053B23,#0A5531)!important;
+  min-height:64px;
+  padding:14px 20px!important;
+  box-shadow:0 14px 34px rgba(5,59,35,.22)!important;
+}
+body:has(#mode):has(#contrat) .top b{
+  font-family:var(--font-display,'Archivo',Arial,sans-serif);
+  font-size:18px;
+  letter-spacing:-.01em;
+}
+body:has(#mode):has(#contrat) .top small{
+  color:#CFE3D3;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  font-size:10.5px;
+  font-weight:800;
+}
+body:has(#mode):has(#contrat) .wrap{max-width:1240px;padding:18px!important;}
+body:has(#mode):has(#contrat) .hero{
+  border-radius:24px!important;
+  padding:24px!important;
+  margin-bottom:18px!important;
+  background:radial-gradient(circle at 90% -10%,rgba(141,197,86,.30),transparent 34%),linear-gradient(135deg,#053B23,#0A5531)!important;
+  box-shadow:0 18px 46px rgba(5,59,35,.16)!important;
+  position:relative;
+  overflow:hidden;
+}
+body:has(#mode):has(#contrat) .hero:before{
+  content:'Decision transport';
+  display:inline-flex;
+  margin-bottom:10px;
+  border-radius:999px;
+  padding:6px 11px;
+  background:rgba(255,255,255,.12);
+  color:#B6DC8E;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+body:has(#mode):has(#contrat) .hero h1{
+  margin:0 0 8px!important;
+  font-family:var(--font-display,'Archivo',Arial,sans-serif)!important;
+  font-size:30px!important;
+  letter-spacing:-.03em!important;
+}
+body:has(#mode):has(#contrat) .hero p{color:#D8EAD3!important;line-height:1.55!important;max-width:780px;}
+body:has(#mode):has(#contrat) .grid{grid-template-columns:minmax(340px,420px) 1fr!important;gap:16px!important;}
+body:has(#mode):has(#contrat) .card{
+  border-radius:22px!important;
+  border:1px solid #E6E8E3!important;
+  box-shadow:0 10px 28px rgba(5,59,35,.08)!important;
+  overflow:hidden;
+}
+body:has(#mode):has(#contrat) .card h2{
+  padding:16px 18px!important;
+  color:#053B23!important;
+  background:linear-gradient(180deg,#fff,#FBFAF4)!important;
+  font-family:var(--font-display,'Archivo',Arial,sans-serif)!important;
+  font-size:15px!important;
+}
+body:has(#mode):has(#contrat) .body{padding:16px 18px!important;}
+body:has(#mode):has(#contrat) label{letter-spacing:.06em;color:#748078!important;}
+body:has(#mode):has(#contrat) select,
+body:has(#mode):has(#contrat) input{
+  border-radius:13px!important;
+  border:1px solid #E6E8E3!important;
+  min-height:42px;
+}
+body:has(#mode):has(#contrat) .btn{
+  border-radius:13px!important;
+  background:#008F37!important;
+  box-shadow:0 10px 22px rgba(0,143,55,.18)!important;
+}
+body:has(#mode):has(#contrat) .btn.ghost{
+  background:#fff!important;
+  color:#053B23!important;
+  border:1px solid rgba(5,59,35,.12)!important;
+}
+body:has(#mode):has(#contrat) .kpis{
+  gap:10px!important;
+  margin-bottom:12px!important;
+}
+body:has(#mode):has(#contrat) .k{
+  border-radius:18px!important;
+  background:linear-gradient(180deg,#fff,#FBFAF4)!important;
+  border:1px solid #E6E8E3!important;
+  box-shadow:0 8px 22px rgba(5,59,35,.07)!important;
+}
+body:has(#mode):has(#contrat) .k small{letter-spacing:.07em;color:#748078!important;}
+body:has(#mode):has(#contrat) .k b{font-size:21px!important;color:#053B23!important;}
+body:has(#mode):has(#contrat) #res .alert{
+  border-radius:16px!important;
+  padding:14px 15px!important;
+  border-width:1px!important;
+}
+body:has(#mode):has(#contrat) #res .alert:first-of-type{
+  font-size:14px;
+  box-shadow:0 8px 22px rgba(5,59,35,.07);
+}
+body:has(#mode):has(#contrat) #res .pill{
+  padding:7px 12px!important;
+  font-size:11px!important;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+body:has(#mode):has(#contrat) .step{
+  border-left:5px solid #008F37!important;
+  background:#F7FCF5!important;
+  border-radius:14px!important;
+  padding:12px 13px!important;
+}
+body:has(#mode):has(#contrat) #bareme table{
+  border-radius:16px;
+  overflow:hidden;
+}
+body:has(#mode):has(#contrat) th{background:#053B23!important;color:#D8EAD3!important;}
+body:has(#mode):has(#contrat) td{background:#fff;}
+body:has(#mode):has(#contrat) tr:hover td{background:#F7FCF5!important;}
+@media(max-width:900px){
+  body:has(#mode):has(#contrat) .grid{grid-template-columns:1fr!important;}
+  body:has(#mode):has(#contrat) .hero h1{font-size:24px!important;}
+  body:has(#mode):has(#contrat) .wrap{padding:12px!important;}
+}
