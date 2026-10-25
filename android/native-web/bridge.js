@@ -128,9 +128,9 @@
   function css() {
     if (document.getElementById('anx-style')) return;
     var st = document.createElement('style'); st.id = 'anx-style';
-    st.textContent = '.anx-btn{position:fixed;left:8px;bottom:8px;z-index:2147483000;min-width:44px;min-height:44px;padding:0 12px;border-radius:22px;border:1px solid #0b5d39;background:#053B23;color:#fff;font:600 13px/1 system-ui,sans-serif;opacity:.88;box-shadow:0 2px 6px rgba(0,0,0,.25)}' +
+    st.textContent = '.anx-btn{position:fixed;left:8px;bottom:8px;z-index:2147483647;min-width:44px;min-height:44px;padding:0 12px;border-radius:22px;border:1px solid #0b5d39;background:#053B23;color:#fff;font:600 13px/1 system-ui,sans-serif;opacity:.88;box-shadow:0 2px 6px rgba(0,0,0,.25)}' +
       '.anx-btn.anx-warn{background:#8a4b00;border-color:#8a4b00}.anx-btn:focus-visible{outline:3px solid #ffbf47;outline-offset:2px}' +
-      '.anx-ov{position:fixed;inset:0;z-index:2147483001;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}' +
+      '.anx-ov{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}' +
       '.anx-dlg{background:#fff;color:#1b1b1b;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px 16px 24px;font:14px/1.45 system-ui,sans-serif;box-sizing:border-box}' +
       '.anx-dlg h2{font-size:17px;margin:0 0 4px;color:#053B23}.anx-dlg h3{font-size:14px;margin:16px 0 6px;color:#053B23;border-bottom:1px solid #e3e3e3;padding-bottom:4px}' +
       '.anx-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}.anx-row span{color:#555;flex:0 0 auto;max-width:48%}.anx-row b{font-weight:600;text-align:right;overflow-wrap:anywhere;min-width:0}' +
@@ -242,7 +242,8 @@
       else if (k === 'apply') call('applyUpdate');
       else if (k === 'sync' && window.ANAGROCI_OFFLINE) window.ANAGROCI_OFFLINE.syncNow().catch(function () {}).then(reportQueue).then(render);
     });
-    document.body.appendChild(panel);
+    /* Ajouté hors de <body> : visible même au-dessus de l'écran de connexion (accessible avant toute connexion). */
+    document.documentElement.appendChild(panel);
     reportQueue().then(render); render();
     panel.querySelector('.anx-dlg').focus();
     pollTimer = setInterval(function () { reportQueue().then(render); }, 3000);
@@ -254,7 +255,7 @@
     btn = document.createElement('button'); btn.type = 'button'; btn.className = 'anx-btn'; btn.id = 'anx-version';
     btn.setAttribute('aria-label', 'Version et mises à jour');
     btn.addEventListener('click', open);
-    document.body.appendChild(btn); render();
+    document.documentElement.appendChild(btn); render();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
   window.ANAGROCI_NATIVE.openAbout = open;
