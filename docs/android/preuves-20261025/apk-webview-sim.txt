@@ -1,4 +1,4 @@
-PASS T02 [Android 360×640] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 692 ms, requêtes externes bloquées : 0
+PASS T02 [Android 360×640] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 995 ms, requêtes externes bloquées : 0
 PASS T03 [Android 360×640] Affichage de l’écran de connexion → types=email/password/username, débordement=0px
 PASS T31 [Android 360×640] Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour) → refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0
 PASS T05 [Android 360×640] Mot de passe incorrect → message affiché
@@ -24,7 +24,7 @@ PASS T10 [Android 360×640] Consultation des villages (RT & Villages) → affich
 PASS T13 [Android 360×640] Formulaire de recensement village (création) → {"sections":13,"requis":2}
 PASS T14 [Android 360×640] Modification d’une fiche existante (préremplie) → nom du village prérempli
 PASS T21a [Android 360×640] Fermeture + réouverture complète sans réseau → utilisable, indicateur Hors ligne affiché
-PASS T21 [Android 360×640] Enrôlement producteur hors ligne → PENDING · id=d8283eab… · clé=a713d1c6…
+PASS T21 [Android 360×640] Enrôlement producteur hors ligne → PENDING · id=fc33041f… · clé=1c7b15fe…
 PASS T16b [Android 360×640] Clavier téléphone pour le numéro → inputmode=tel
 PASS T16 [Android 360×640] Listes déroulantes (village, RT, producteur local) → 3 options producteur, producteur local sélectionné
 PASS T21b [Android 360×640] Achat hors ligne lié au producteur local → PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true
@@ -57,7 +57,8 @@ PASS V15 [Android 360×640] Version exigeant un nouvel APK : statut, procédure 
 PASS V16 [Android 360×640] Mise à jour de sécurité prête : consigne de redémarrage → affiché
 PASS V17 [Android 360×640] Opérations du registre producteurs comptées dans le badge et transmises à l’application → v1.1.0 · 3
 PASS V18 [Android 360×640] Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification → message · sync>check
-PASS T02 [Android 412×915] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 607 ms, requêtes externes bloquées : 0
+PASS V19 [Android 360×640] Bouton « Version et mises à jour » accessible au-dessus de l’écran de connexion → cliquable
+PASS T02 [Android 412×915] Ouverture de l’application sans réseau externe (CDN bloqués) → formulaire en 516 ms, requêtes externes bloquées : 0
 PASS T03 [Android 412×915] Affichage de l’écran de connexion → types=email/password/username, débordement=0px
 PASS T31 [Android 412×915] Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour) → refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0
 PASS T05 [Android 412×915] Mot de passe incorrect → message affiché
@@ -83,7 +84,7 @@ PASS T10 [Android 412×915] Consultation des villages (RT & Villages) → affich
 PASS T13 [Android 412×915] Formulaire de recensement village (création) → {"sections":13,"requis":2}
 PASS T14 [Android 412×915] Modification d’une fiche existante (préremplie) → nom du village prérempli
 PASS T21a [Android 412×915] Fermeture + réouverture complète sans réseau → utilisable, indicateur Hors ligne affiché
-PASS T21 [Android 412×915] Enrôlement producteur hors ligne → PENDING · id=91fccd79… · clé=a8586ab5…
+PASS T21 [Android 412×915] Enrôlement producteur hors ligne → PENDING · id=9fbccc10… · clé=291dc1c3…
 PASS T16b [Android 412×915] Clavier téléphone pour le numéro → inputmode=tel
 PASS T16 [Android 412×915] Listes déroulantes (village, RT, producteur local) → 3 options producteur, producteur local sélectionné
 PASS T21b [Android 412×915] Achat hors ligne lié au producteur local → PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true
@@ -116,4 +117,5 @@ PASS V15 [Android 412×915] Version exigeant un nouvel APK : statut, procédure 
 PASS V16 [Android 412×915] Mise à jour de sécurité prête : consigne de redémarrage → affiché
 PASS V17 [Android 412×915] Opérations du registre producteurs comptées dans le badge et transmises à l’application → v1.1.0 · 3
 PASS V18 [Android 412×915] Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification → message · sync>check
-RESULTAT 118 PASS / 0 FAIL (commit Web c56701bc, données réelles : False)
+PASS V19 [Android 412×915] Bouton « Version et mises à jour » accessible au-dessus de l’écran de connexion → cliquable
+RESULTAT 120 PASS / 0 FAIL (commit Web 258cd8f7, données réelles : False)
