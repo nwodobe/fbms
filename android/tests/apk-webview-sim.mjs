@@ -378,7 +378,7 @@ async function partB(browser, device) {
   await ctx.close();
 }
 
-/* -------- Écran « À propos · Version · Synchronisation » (bridge.js réel) -------- */
+/* -------- Écran « Version et mises à jour » (bridge.js réel) -------- */
 async function openAbout(page) {
   await page.click('#anx-version');
   await page.waitForSelector('.anx-dlg[role="dialog"]', { timeout: 5000 });
@@ -393,8 +393,8 @@ async function pendingScreen(page, device, still) {
   const box = await page.$eval('#anx-version', (b) => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, label: b.getAttribute('aria-label'), text: b.textContent }; });
   record('V03', device, 'Bouton Version visible, cible tactile ≥ 44 px, libellé accessible', '≥ 44×44, aria-label', `${Math.round(box.w)}×${Math.round(box.h)} · « ${box.text} » · ${box.label}`, box.w >= 44 && box.h >= 44 && !!box.label && box.text.includes('· ' + still));
   const txt = await openAbout(page);
-  record('V04', device, 'Écran Version : application, signature, version Web, file locale', 'Version 1.1.0, empreinte, commit, compteurs', /1\.1\.0 \(2\)/.test(txt) && /Signature/.test(txt) && txt.includes(String(MANIFEST.git_commit).slice(0, 12)) && /En attente d’envoi/.test(txt) ? 'tout affiché' : txt.slice(0, 160),
-    /1\.1\.0 \(2\)/.test(txt) && /Signature/.test(txt) && txt.includes(String(MANIFEST.git_commit).slice(0, 12)) && /En attente d’envoi/.test(txt));
+  const v04 = /1\.1\.0 \(2\)/.test(txt) && /Signature/.test(txt) && txt.includes(String(MANIFEST.git_commit).slice(0, 12)) && /Opérations en attente/.test(txt) && /Format des files locales/.test(txt);
+  record('V04', device, 'Écran Version : application, signature, version Web, files locales', 'Version 1.1.0, empreinte, commit, compteurs', v04 ? 'tout affiché' : txt.slice(0, 160), v04);
   record('V05', device, 'Opérations non synchronisées : avertissement « Ne désinstallez pas »', 'Avertissement affiché', /Ne désinstallez pas/.test(txt) ? 'affiché' : 'absent', /Ne désinstallez pas/.test(txt) && txt.includes(still + ' opération(s)'));
   record('V06', device, 'Mises à jour désactivées dans cet APK : message explicite', '« désactivées »', /Mises à jour Web désactivées/.test(txt) ? 'message affiché' : 'absent', /Mises à jour Web désactivées/.test(txt));
   const syncDisabled = await page.$eval('[data-anx="sync"]', (b) => b.disabled);
@@ -421,6 +421,52 @@ async function versionScreen(page, device) {
   record('V12', device, 'Activation différée et version refusée : motifs affichés, pas de bouton Appliquer', 'motifs visibles', `${/Activation différée/.test(txt) ? 'différée affichée' : '—'} · ${/Refusée/.test(txt) ? 'refus affiché' : '—'} · bouton ${noApply ? 'masqué' : 'présent'}`, /Activation différée/.test(txt) && /Refusée/.test(txt) && noApply);
   await page.screenshot({ path: join(OUTDIR, `version-mise-a-jour-${device.replace(/[^0-9a-z]+/gi, '_')}.png`) });
   await page.keyboard.press('Escape');
+
+  /* -------- Unification : champs exigés, nouvel APK, vérification manuelle, ordre au retour du réseau -------- */
+  await page.evaluate(() => window.__native.setUpdate({ pending_sequence: 0, deferred_reason: '', rejected: {}, phase: 'a_jour', checking: false,
+    active_web_version: '2026.10.25-1131.demo', last_success_at: '2026-10-25T09:00:00Z', last_check_at: '2026-10-25T10:00:00Z', last_result: 'à jour',
+    latest: { sequence: 1792927862, web_version: '2026.10.25-1131.demo', published_at: '2026-10-25T08:30:00Z', update_policy: 'recommended' } }));
+  txt = await openAbout(page);
+  const need = ['Version et mises à jour', 'Version installée', 'Dernière version disponible', 'Statut : À jour', 'Connexion Internet', 'Opérations en attente', 'Synchronisation', 'Dernière mise à jour réussie', 'Vérifier les mises à jour'];
+  const miss = need.filter((k) => !txt.includes(k));
+  record('V13', device, 'Écran « Version et mises à jour » : tous les champs exigés', need.length + ' champs', miss.length ? 'manque : ' + miss.join(', ') : 'tous présents', miss.length === 0);
+  await page.click('[data-anx="check"]'); await wait(1500);
+  txt = await page.$eval('.anx-dlg', (d) => d.textContent);
+  record('V14', device, 'Vérifier les mises à jour sans nouveauté : réponse claire', '« Aucune mise à jour disponible »', /Aucune mise à jour disponible/.test(txt) ? 'affiché' : txt.slice(-120), /Aucune mise à jour disponible/.test(txt));
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.__native.setUpdate({ phase: 'nouvel_apk', last_result: 'incompatible : nouvel APK requis (versionCode ≥ 4)',
+    latest: { sequence: 1792999999, web_version: '2026.11.01-0800.futur', native_required: true, update_policy: 'recommended',
+      native: { latest_version_code: 4, latest_version_name: '1.3.0', procedure: 'Demander le fichier signé au Branch Manager (canal interne).' } } }));
+  txt = await openAbout(page);
+  const noApply2 = !(await page.$('[data-anx="apply"]'));
+  record('V15', device, 'Version exigeant un nouvel APK : statut, procédure autorisée, aucun bouton Appliquer', 'nouvel APK + procédure', /Nouvel APK requis/.test(txt) && /1\.3\.0/.test(txt) && /Branch Manager/.test(txt) && noApply2 ? 'affiché' : txt.slice(0, 160), /Nouvel APK requis/.test(txt) && /1\.3\.0/.test(txt) && /Branch Manager/.test(txt) && noApply2);
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.__native.setUpdate({ phase: 'prete', pending_sequence: 1792950000, deferred_reason: '', latest: { sequence: 1792950000, web_version: '2026.10.25-1200.secu', update_policy: 'security' } }));
+  txt = await openAbout(page);
+  record('V16', device, 'Mise à jour de sécurité prête : consigne de redémarrage', 'message sécurité', /Mise à jour de sécurité/.test(txt) ? 'affiché' : 'absent', /Mise à jour de sécurité/.test(txt));
+  await page.keyboard.press('Escape');
+  /* File du registre comptée + ordre au retour du réseau : synchronisation PUIS vérification */
+  await page.evaluate(() => {
+    window.__order = [];
+    window.AFLP_FARMER_REGISTRY = window.AFLP_FARMER_REGISTRY || {};
+    window.__frPending = 3; window.AFLP_FARMER_REGISTRY.pendingCount = function () { return Promise.resolve(window.__frPending); };
+    var off = window.ANAGROCI_OFFLINE, s0 = off.syncNow.bind(off);
+    off.syncNow = function () { window.__order.push('sync'); window.__frPending = 0; return s0(); };
+    var n = window.AnagrociNative, c0 = n.checkUpdate;
+    n.checkUpdate = function () { window.__order.push('check'); return c0.apply(n, arguments); };
+  });
+  await page.evaluate(() => ANAGROCI_OFFLINE.emit()); await wait(500);
+  const btnTxt = await page.$eval('#anx-version', (b) => b.textContent);
+  record('V17', device, 'Opérations du registre producteurs comptées dans le badge et transmises à l’application', '« · 3 »', btnTxt, / · 3$/.test(btnTxt));
+  await page.context().setOffline(true); await wait(500);
+  await page.click('#anx-version'); await page.waitForSelector('[data-anx="check"]');
+  await page.click('[data-anx="check"]'); await wait(300);
+  txt = await page.$eval('.anx-dlg', (d) => d.textContent);
+  const offMsg = /Hors ligne : la vérification se fera au retour du réseau/.test(txt);
+  await page.keyboard.press('Escape');
+  await page.context().setOffline(false); await wait(9000);
+  const order = await page.evaluate(() => window.__order.join('>'));
+  record('V18', device, 'Hors ligne : vérification reportée ; retour du réseau : synchronisation PUIS vérification', 'message + sync>check', `${offMsg ? 'message' : 'pas de message'} · ${order}`, offMsg && /^sync>check/.test(order));
 }
 
 const browser = await chromium.launch();

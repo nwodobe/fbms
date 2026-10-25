@@ -294,11 +294,14 @@ public final class WebBundleUpdaterTest {
         check("UPD-35", "État local illisible : démarrage sur la version de l'APK, sans plantage", noCrash, noCrash ? "version intégrée" : "plantage");
         JSONObject badHost = new JSONObject(CFG.toString()).put("manifest_url", "https://autre-hote.example/x.json");
         check("UPD-36", "Manifeste et fichiers sur deux hôtes différents : mécanisme désactivé", !upd(new File(work, "h"), badHost, new MemFetcher()).enabled(), "désactivé");
-        WebBundleUpdater.HttpsFetcher hf = new WebBundleUpdater.HttpsFetcher("pages.example.test");
-        boolean httpRefused = false, hostRefused = false;
-        try { hf.get("http://pages.example.test/x", 10); } catch (SecurityException e) { httpRefused = true; }
-        try { hf.get("https://evil.example/x", 10); } catch (SecurityException e) { hostRefused = true; }
-        check("UPD-37", "Téléchargeur : HTTP en clair refusé, hôte non approuvé refusé (avant toute connexion)", httpRefused && hostRefused, "http=" + httpRefused + " hôte=" + hostRefused);
+        WebBundleUpdater.HttpsFetcher hf = new WebBundleUpdater.HttpsFetcher(ROOT);
+        boolean httpRefused = false, hostRefused = false, pathRefused = false, dotRefused = false;
+        try { hf.get("http://pages.example.test/fbms/x", 10); } catch (SecurityException e) { httpRefused = true; }
+        try { hf.get("https://evil.example/fbms/x", 10); } catch (SecurityException e) { hostRefused = true; }
+        try { hf.get("https://pages.example.test/autre-depot/x", 10); } catch (SecurityException e) { pathRefused = true; }
+        try { hf.get("https://pages.example.test/fbms/../autre/x", 10); } catch (SecurityException e) { dotRefused = true; }
+        check("UPD-37", "Téléchargeur : HTTP en clair, autre hôte, autre chemin et « .. » refusés (avant toute connexion)", httpRefused && hostRefused && pathRefused && dotRefused,
+                "http=" + httpRefused + " hôte=" + hostRefused + " chemin=" + pathRefused + " point-point=" + dotRefused);
         MemFetcher fo = new MemFetcher();
         WebBundleUpdater uo = upd(new File(work, "offline"), CFG, fo);
         JSONObject so = uo.check();

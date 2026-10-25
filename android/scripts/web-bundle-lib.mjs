@@ -49,13 +49,36 @@ export function fileTable(repo, files = listWebFiles(repo)) {
   return t;
 }
 
-/** Format de la file d'opérations locales (IndexedDB) : nom + version de la base. */
+/* Bases IndexedDB qui contiennent des opérations locales non synchronisées.
+   Toute évolution de leur format (nom ou version) change queue_schema : une mise à
+   jour qui la porte n'est activée qu'une fois toutes les files vidées (WebBundleUpdater). */
+export const QUEUE_DBS = [
+  ['shared/offline-field.js', 'file Field Buying'],
+  ['shared/farmer-registry-sync.js', 'file du registre producteurs (parcelles, Sustainability, inspections)'],
+];
+
+/** Format des files d'opérations locales (IndexedDB) : nom@version de chaque base, joints par « + ». */
 export function queueSchema(repo) {
-  const js = readFileSync(join(repo, 'shared', 'offline-field.js'), 'utf8');
-  const name = (js.match(/var\s+DB_NAME\s*=\s*'([^']+)'/) || [])[1];
-  const ver = (js.match(/var\s+DB_VERSION\s*=\s*(\d+)/) || [])[1];
-  if (!name || !ver) throw new Error('DB_NAME / DB_VERSION introuvables dans shared/offline-field.js');
-  return `${name}@${ver}`;
+  return QUEUE_DBS.map(([rel, label]) => {
+    const p = join(repo, rel);
+    if (!existsSync(p)) throw new Error('Absent du dépôt : ' + rel + ' (' + label + ')');
+    const js = readFileSync(p, 'utf8');
+    const name = (js.match(/var\s+DB_NAME\s*=\s*'([^']+)'/) || [])[1];
+    const ver = (js.match(/var\s+DB_VERSION\s*=\s*(\d+)/) || [])[1];
+    if (!name || !ver) throw new Error('DB_NAME / DB_VERSION introuvables dans ' + rel);
+    return `${name}@${ver}`;
+  }).join('+');
+}
+
+/**
+ * Numéro de version lisible, commun au Web et à l'APK : AAAA.MM.JJ-HHMM.<commit court>
+ * (date UTC du commit). Le même commit donne toujours le même numéro.
+ */
+export function webVersion(repo, sequence) {
+  const d = new Date(sequence * 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  const sha = (git(repo, ['rev-parse', '--short=7', 'HEAD']) || 'local');
+  return `${d.getUTCFullYear()}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}.${sha}`;
 }
 
 export function git(repo, args) {
