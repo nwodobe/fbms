@@ -1,0 +1,19 @@
+farmer-registry-complete.mjs PASS
+farmer-registry-phase1.mjs PASS
+field-buying-performance-static.mjs PASS
+field-buying-prefilled-edit-static.mjs PASS
+field-buying-profiles-static.mjs PASS
+master-export-producteurs.mjs FAIL (Node.js v22.23.4)
+offline-field-static.mjs PASS
+operations-suite-static.mjs PASS
+pjs-export-static.mjs PASS
+rt-cluster-filter-static.mjs PASS
+rt-farmer-edit-rights-static.mjs PASS
+rt-to-producer.mjs PASS
+sacherie-aflp-colonnes-droits-static.mjs PASS
+sacherie-inventaires-periodicite.mjs PASS
+sacherie-journal-recherche.mjs PASS
+sacherie-operational-p1-static.mjs PASS
+sacherie-rls-dotation-rt.mjs PASS
+sacherie-tolerance-pannes.mjs PASS
+zonal-head-portee-globale.mjs PASS

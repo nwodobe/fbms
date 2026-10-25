@@ -1,0 +1,18 @@
+12c96e2f55f240d5b6480f16ab8912b7c52104755d283b04270c774cee816183  ANAGROCI_FIELD_BUYING_AFLP_2027_v1.2.0_debug.apk
+8e374f3d650bffc336c6d2fe78adb5be31332a9e70e6c70102ddc5d94673d2ae  ANAGROCI_FIELD_BUYING_AFLP_2027_v1.2.0_unsigned.apk
+package: name='ci.anagroci.fieldbuying.debug' versionCode='3' versionName='1.2.0'
+sdkVersion:'24'
+application-label:'ANAGROCI FB TEST'
+Signer #1 certificate DN: CN=Android Debug, O=Android, C=US
+Signer #1 certificate SHA-256 digest: 9d33504b3833af45a8ded44ef1ac86e32e149595dd2c0eb095a2a3d54ee795cc
+DOES NOT VERIFY
+ERROR: Missing META-INF/MANIFEST.MF
+{
+ "format": 2,
+ "app_id": "ci.anagroci.fieldbuying",
+ "channel": "test",
+ "enabled": true,
+ "update_root_url": "https://raw.githubusercontent.com/nwodobe/fbms/android-updates-test/android-updates/test/",
+ "manifest_url": "https://raw.githubusercontent.com/nwodobe/fbms/android-updates-test/android-updates/test/web-bundle.json",
+ "public_key_sha256": "4da28a7d03644424b1632d3394e59acd07929f6bad94ba4837f57612b03506a0"
+}
