@@ -59,7 +59,7 @@ Les droits de l'application font foi : capture = `farmer_registry_can_capture()`
 
 ## 5. Pilote six clusters
 
-Objectif : valider le parcours réel avant généralisation. Pré-requis : P0-1 appliqué, notice validée en pilote par le Branch Manager, comptes agents créés si possible.
+Objectif : valider le parcours réel avant généralisation. Pré-requis : P0-1 appliqué, usage de la notice AFLP-NOTICE-2026.1 en pilote autorisé par le Branch Manager (elle reste « en attente de validation juridique » et n'est pas une version officiellement approuvée), comptes agents créés si possible.
 
 | Paramètre | Valeur |
 |---|---|

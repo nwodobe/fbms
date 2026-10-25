@@ -1,6 +1,6 @@
-# Pilote AFLP · 30 producteurs, six clusters · procédure des Chefs d'Unité
+# Pilote AFLP · six clusters, deux parcours · procédure des Chefs d'Unité
 
-Version 1.0 · 25/10/2026 · Statut : **prêt à lancer après application du correctif P0-1** (enregistrement des consentements par les rôles terrain). Sans ce correctif, l'étape 3 ci-dessous est bloquée pour les Unit Heads et Zonal Heads.
+Version 1.1 · 25/10/2026 (ajout des 15 enrôlements directs à Béoumi, Brobo, Diabo ; voir fichier 11) · Statut : **prêt à lancer après application du correctif P0-1** (enregistrement des consentements par les rôles terrain). Sans ce correctif, l'étape 3 ci-dessous est bloquée pour les Unit Heads et Zonal Heads.
 
 > Préparation n'est pas certification. Le pilote vérifie que le parcours fonctionne avec de vrais producteurs ; il ne qualifie personne pour une certification.
 
@@ -17,7 +17,11 @@ Tirage reproductible (empreinte fixe), producteurs actifs sans doublon ni revue 
 | Brobo | RT-producteurs | 5 | 5 | 3 × G2 (activité mixte), 2 × G1 |
 | Diabo | RT-producteurs | 5 | 5 | 2 × G1, 2 × G2, 1 × G3 |
 
-Pourquoi deux strates : Béoumi, Brobo et Diabo n'ont **aucun** enrôlement direct à ce jour ; leurs seuls dossiers sont des RT-producteurs. Le pilote y teste donc aussi la régularisation des RT (fichier 08).
+Deux parcours, distingués dans le classeur (colonne « Parcours ») :
+- **A · Enrôlement direct** : Botro, N'Djebonoua, Sakassou (15 dossiers existants ci-dessus) **et** 15 nouveaux enrôlements à Béoumi, Brobo, Diabo (5 par cluster, onglet `Enrolement_direct_15`, créneaux vides jusqu'à l'enrôlement réel ; procédure et conditions : fichier 11) ;
+- **B · Régularisation RT-producteur** : les 15 dossiers de Béoumi, Brobo et Diabo ci-dessus (fichier 08).
+
+Béoumi, Brobo et Diabo n'ont **aucun** enrôlement direct à ce jour et **aucun compte Unit Head** : seuls les Chefs de Zone et le Branch Manager peuvent y enrôler (vérifié, fichier 11). Total pilote : **45 dossiers**, les six clusters testent le parcours A, trois testent aussi le parcours B.
 Limite : les enrôlements directs sont concentrés sur 1 à 2 villages par cluster ; l'échantillon ne représente pas la diversité géographique des clusters.
 
 La liste nominative et la fiche de saisie sont dans le classeur remis au Branch Manager (`AFLP_2027_Pilote_30_et_RT_producteurs_104.xlsx`), non versé dans le dépôt.
@@ -42,8 +46,8 @@ Durée : 2 semaines. Matériel : téléphone avec FBMS préparé (« Préparer l
 
 **Chez le producteur**
 1. **Identité** : pièce, nom, téléphone. Doute → on s'arrête, on note « Revoir ».
-2. **Notice** : lecture de AFLP-NOTICE-2026.1 (interprète si besoin, à noter).
-3. **Accords** : chaque question posée séparément. Saisir dans FBMS, onglet Consentements : périmètres réellement acceptés, méthode (VERBAL / WRITTEN / WITNESSED), date du jour. Si une feuille signée ou marquée de l'empreinte existe : photo jointe.
+2. **Notice** : lecture de AFLP-NOTICE-2026.1, **en attente de validation juridique**, utilisée en pilote seulement (interprète si besoin, à noter).
+3. **Accords** : chaque question posée séparément. Saisir dans FBMS, onglet Consentements : Oui (tous les périmètres), Partiel (une partie) ou Non (refus), avec les périmètres réellement acceptés, méthode (VERBAL / WRITTEN / WITNESSED), date du jour. Si une feuille signée ou marquée de l'empreinte existe : photo jointe.
 4. **Superficies** : marcher jusqu'à chaque parcelle, nom local, superficie déclarée, bouton GPS au centre (précision ≤ 15 m, sinon réessayer). Une fiche par parcelle réelle.
 5. **Parcelle provisoire** : quand toutes les parcelles réelles sont saisies, passer « EXPLOITATION DÉCLARÉE · À VÉRIFIER » en INACTIVE (jamais supprimer).
 6. **Production** : baseline production (surface productive, production précédente, prévision, arbres productifs), puis finaliser.
@@ -62,7 +66,8 @@ Durée : 2 semaines. Matériel : téléphone avec FBMS préparé (« Préparer l
 
 | Critère | Cible |
 |---|---|
-| Dossiers finalisés sans erreur bloquante | ≥ 27 / 30 |
+| Dossiers finalisés sans erreur bloquante | ≥ 27 / 30 existants · ≥ 13 / 15 nouveaux enrôlements |
+| Doublon créé avec un RT-producteur existant | 0 |
 | Parcelles réelles avec GPS ≤ 15 m | 100 % des parcelles relevées |
 | Parcelle provisoire restée ACTIVE à côté de parcelles réelles | 0 |
 | Notice remise et consentement saisis le jour de la visite | 100 % des dossiers visités |
