@@ -573,7 +573,7 @@
       (liste.length ? '<div class="mm-champ mm-large"><label for="opMoto">Moto</label><select id="opMoto">' + liste.map(function (x) { return '<option value="' + esc(x.id) + '"' + (m && x.id === m.id ? ' selected' : '') + '>' + esc(x.code + ' · ' + (x.immatriculation || 'immatriculation en attente')) + '</option>'; }).join('') + '</select></div>' : '') +
       (m ? (immo || !m.autorisee_a_circuler ? '<div class="mm-bandeau mm-ko" role="alert"><b>Ne pas circuler.</b> ' + (immo ? 'Immobilisation de sécurité enregistrée sur cet appareil le ' + esc(C.dateHeureFr(immo.depuis)) + '.' : 'Moto non autorisée à circuler (' + esc(C.libelle(m.statut_technique)) + ').') + '</div>' : '') +
         '<div class="mm-tuiles">' +
-        tuile('controle', 'Contrôle avant départ', 'Freins, pneus, direction, équipements', immo ? 'Moto immobilisée : un responsable doit d\'abord la remettre en service.' : null) +
+        tuile('controle', 'Contrôle avant départ', 'Freins, pneus, direction, équipements', (immo || ['IMMOBILISEE', 'EN_REPARATION'].indexOf(m.statut_technique) >= 0) ? 'Moto immobilisée : un responsable doit d\'abord la remettre en service.' : null) +
         tuile('releve', 'Relevé kilométrique', 'Compteur du jour') + tuile('carburant', 'Achat de carburant', 'Litres, montant, plein, photo du reçu') +
         tuile('incident', 'Déclarer un incident', 'Panne, accident, crevaison, anomalie', null, 'mm-tuile-alerte') + tuile('entretien', 'Demande d\'entretien', 'Vidange, réparation, révision') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto en service pour vous.</b><p>Les saisies terrain s\'ouvrent après la remise officielle et l\'autorisation de circulation.</p></div>') +
