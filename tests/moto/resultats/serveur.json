@@ -1,0 +1,1680 @@
+{
+ "base": "fbms_moto_test",
+ "date": "2026-10-30T23:38:02.395258+00:00",
+ "resultats": [
+  {
+   "id": "SEC-01",
+   "exigence": "Accès refusé aux rôles hors périmètre",
+   "compte": "sup",
+   "action": "Supervisor crée une moto",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Accès Moto Manager refusé : compte inactif ou rôle non habilité.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-02",
+   "exigence": "Accès refusé anonyme",
+   "compte": "anon",
+   "action": "Anonyme lit la flotte",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_motos",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-03",
+   "exigence": "Pas de création par Chef d'unité",
+   "compte": "uh_sak",
+   "action": "Chef d'unité crée une moto",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-04",
+   "exigence": "Écriture directe interdite (RLS + privilèges)",
+   "compte": "bm",
+   "action": "BM insère directement dans moto_motos",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_motos",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-01",
+   "exigence": "Passeport : création sans châssis inventé",
+   "compte": "abm",
+   "action": "ABM crée moto 1 (SAKASSOU)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"code\": \"MOTO-001\", \"qr_token\": \"6abbd937-68a1-45ae-b9ce-1ac8f5182d7d\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-02",
+   "exigence": "Passeport : création sans châssis inventé",
+   "compte": "abm",
+   "action": "ABM crée moto 2 (BOTRO)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"c8101715-ede8-4974-9800-e58cee3cb9a3\", \"code\": \"MOTO-002\", \"qr_token\": \"12e50cdf-d9f7-454e-ac84-9a5e63b4ebe0\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-03",
+   "exigence": "Passeport : création sans châssis inventé",
+   "compte": "abm",
+   "action": "ABM crée moto 3 (BROBO)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"3aca24b9-faa3-4d6a-9440-835e46b8598e\", \"code\": \"MOTO-003\", \"qr_token\": \"f66a77d9-bc58-40e4-ae53-ffbf185cc1db\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-04",
+   "exigence": "Passeport : création sans châssis inventé",
+   "compte": "abm",
+   "action": "ABM crée moto 4 (N'Djébonoua)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"c28be9c6-efa6-4740-892f-d1fce255dce6\", \"code\": \"MOTO-004\", \"qr_token\": \"352f07b8-8a20-4fd1-9167-9f6fa5cd0820\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-05",
+   "exigence": "Identifiant et QR uniques",
+   "compte": "postgres (lecture)",
+   "action": "4 codes et 4 jetons QR distincts",
+   "attendu": "4/4",
+   "obtenu": "4/4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-06",
+   "exigence": "Châssis non inventé",
+   "compte": "postgres (lecture)",
+   "action": "Châssis et immatriculation vides à la création",
+   "attendu": "4",
+   "obtenu": "4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-07",
+   "exigence": "Statuts initiaux indépendants",
+   "compte": "postgres (lecture)",
+   "action": "EN_ATTENTE / NON_AFFECTEE / A_CONTROLER",
+   "attendu": "EN_ATTENTE/NON_AFFECTEE/A_CONTROLER",
+   "obtenu": "EN_ATTENTE/NON_AFFECTEE/A_CONTROLER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-08",
+   "exigence": "Unicité châssis",
+   "compte": "abm",
+   "action": "Deux motos avec le même châssis fictif",
+   "attendu": "REFUS (duplicate)",
+   "obtenu": "REFUS : duplicate key value violates unique constraint \"moto_motos_chassis_uq\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-09",
+   "exigence": "Saisie identité M1",
+   "compte": "abm",
+   "action": "Châssis et immatriculation fictifs M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"row_version\": 2}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INV-10",
+   "exigence": "Conflit de version",
+   "compte": "abm",
+   "action": "Modification avec row_version périmée",
+   "attendu": "REFUS (CONFLIT)",
+   "obtenu": "REFUS : CONFLIT : la fiche a été modifiée par un autre utilisateur. Rechargez-la.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JOU-01",
+   "exigence": "Journal : ancienne/nouvelle valeur, auteur, motif",
+   "compte": "postgres (lecture)",
+   "action": "Journal de M1 avec motif",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JOU-02",
+   "exigence": "Journal immuable",
+   "compte": "bm",
+   "action": "BM supprime une ligne de journal",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_journal",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JOU-03",
+   "exigence": "Journal immuable (même superutilisateur)",
+   "compte": "postgres (lecture)",
+   "action": "Trigger refuse la mise à jour",
+   "attendu": "refuse",
+   "obtenu": "refuse",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "STO-01",
+   "exigence": "Stockage privé : dépôt hors périmètre refusé",
+   "compte": "uh_sak",
+   "action": "Chef d'unité dépose dans le dossier d'une moto non affectée",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "STO-02",
+   "exigence": "Stockage privé : chemin non conforme refusé",
+   "compte": "abm",
+   "action": "ABM dépose hors dossier moto",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "STO-03",
+   "exigence": "Stockage privé : dépôt ABM accepté",
+   "compte": "abm",
+   "action": "ABM dépose dans le dossier de M1",
+   "attendu": "OK",
+   "obtenu": "OK : ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "STO-04",
+   "exigence": "Bucket privé",
+   "compte": "postgres (lecture)",
+   "action": "public = false",
+   "attendu": "f",
+   "obtenu": "f",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-01",
+   "exigence": "Document : fichier obligatoire",
+   "compte": "abm",
+   "action": "Carte grise sans fichier",
+   "attendu": "REFUS (fichier)",
+   "obtenu": "REFUS : Ce document exige le fichier numérisé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-02",
+   "exigence": "Document : fichier réellement présent",
+   "compte": "abm",
+   "action": "Carte grise avec chemin inexistant",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Fichier introuvable dans le stockage privé : déposez-le avant d'enregistrer.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-03",
+   "exigence": "Documents administratifs",
+   "compte": "abm",
+   "action": "Carte grise M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"3c935712-f12f-4e66-be08-64b7072e2c20\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-04",
+   "exigence": "Documents administratifs",
+   "compte": "abm",
+   "action": "Plaque M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"7ad23429-9f43-46e8-9447-1a9765074ba4\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-05",
+   "exigence": "Documents administratifs",
+   "compte": "abm",
+   "action": "Assurance M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"08d8f99c-b16f-4ac5-864e-c060479835a6\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-06",
+   "exigence": "Statut administratif EN_VERIFICATION",
+   "compte": "postgres (lecture)",
+   "action": "Documents déposés non vérifiés",
+   "attendu": "EN_VERIFICATION",
+   "obtenu": "EN_VERIFICATION",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-07",
+   "exigence": "Auto-vérification interdite",
+   "compte": "abm",
+   "action": "ABM vérifie son propre dépôt",
+   "attendu": "REFUS (Auto-validation)",
+   "obtenu": "REFUS : Auto-validation interdite : un autre responsable doit vérifier ce document.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-08",
+   "exigence": "Non conforme exige un motif",
+   "compte": "bm",
+   "action": "BM refuse sans motif",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire (5 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-09cg1",
+   "exigence": "Vérification par un tiers",
+   "compte": "bm",
+   "action": "BM vérifie carte grise M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"3c935712-f12f-4e66-be08-64b7072e2c20\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-09pl1",
+   "exigence": "Vérification par un tiers",
+   "compte": "bm",
+   "action": "BM vérifie plaque M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"7ad23429-9f43-46e8-9447-1a9765074ba4\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-09as1",
+   "exigence": "Vérification par un tiers",
+   "compte": "bm",
+   "action": "BM vérifie assurance M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"08d8f99c-b16f-4ac5-864e-c060479835a6\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-10",
+   "exigence": "Conformité administrative",
+   "compte": "postgres (lecture)",
+   "action": "CONFORME après 3 documents vérifiés",
+   "attendu": "CONFORME",
+   "obtenu": "CONFORME",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-11",
+   "exigence": "Documents administratifs",
+   "compte": "abm",
+   "action": "Assurance expirée M2",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"e02b329d-da2c-4f4f-861f-51650beea7d2\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-12",
+   "exigence": "Document expiré non conforme",
+   "compte": "bm",
+   "action": "BM déclare conforme une assurance expirée",
+   "attendu": "REFUS (expiré)",
+   "obtenu": "REFUS : Document expiré : il ne peut pas être déclaré conforme.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOC-14",
+   "exigence": "Moto réceptionnée sans documents : non autorisée à circuler",
+   "compte": "postgres (lecture)",
+   "action": "autorisee_a_circuler = false",
+   "attendu": "f",
+   "obtenu": "f",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INS-01",
+   "exigence": "Inspection : mécanicien obligatoire",
+   "compte": "abm",
+   "action": "Inspection sans nom de mécanicien",
+   "attendu": "REFUS (mécanicien)",
+   "obtenu": "REFUS : Nom du mécanicien et du garage obligatoires.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INS-02",
+   "exigence": "Anomalie critique calculée par le serveur",
+   "compte": "abm",
+   "action": "Inspection M2 avec freins KO déclarée APTE par le client",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"6287fffb-aada-4555-8e6d-6114662c5be4\", \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INS-03",
+   "exigence": "Anomalie critique bloque la mise en service",
+   "compte": "postgres (lecture)",
+   "action": "M2 IMMOBILISEE, résultat INAPTE",
+   "attendu": "IMMOBILISEE/INAPTE",
+   "obtenu": "IMMOBILISEE/INAPTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INS-04",
+   "exigence": "Inspection initiale APTE",
+   "compte": "abm",
+   "action": "Inspection M1 APTE",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"8b2be05b-adbd-4025-a576-f1321711230d\", \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INS-05",
+   "exigence": "Statut technique APTE",
+   "compte": "postgres (lecture)",
+   "action": "APTE",
+   "attendu": "APTE",
+   "obtenu": "APTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-01",
+   "exigence": "Préaffectation réservée au Branch Manager",
+   "compte": "abm",
+   "action": "ABM préaffecte",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-02",
+   "exigence": "Bénéficiaire doit être Chef d'unité/zone",
+   "compte": "bm",
+   "action": "Préaffectation à un Supervisor",
+   "attendu": "REFUS (Chef)",
+   "obtenu": "REFUS : Le bénéficiaire doit être un Chef d'unité ou un Chef de zone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-03",
+   "exigence": "Bénéficiaire inactif refusé",
+   "compte": "bm",
+   "action": "Préaffectation à un compte inactif",
+   "attendu": "REFUS (inactif)",
+   "obtenu": "REFUS : Bénéficiaire introuvable ou compte inactif.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-04",
+   "exigence": "Préaffectation",
+   "compte": "bm",
+   "action": "BM préaffecte M1 à UH Sakassou",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"284165a5-b810-4564-a0b1-fe6abeb1047e\", \"statut_affectation\": \"PREAFFECTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-05",
+   "exigence": "Une seule affectation active",
+   "compte": "bm",
+   "action": "Seconde préaffectation de M1",
+   "attendu": "REFUS (transfert)",
+   "obtenu": "REFUS : Cette moto a déjà une affectation active : utilisez le transfert.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-06",
+   "exigence": "Préaffectation M4 cluster normalisé",
+   "compte": "bm",
+   "action": "BM préaffecte M4 à UH N'Djébonoua",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"4892494b-ce4e-4ae8-8743-dce46094ab83\", \"statut_affectation\": \"PREAFFECTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AFF-07",
+   "exigence": "Cluster N'Djébonoua normalisé",
+   "compte": "postgres (lecture)",
+   "action": "DJEBONOUA",
+   "attendu": "DJEBONOUA",
+   "obtenu": "DJEBONOUA",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-01",
+   "exigence": "PV papier numérisé et vérifié obligatoire",
+   "compte": "abm",
+   "action": "Remise sans PV",
+   "attendu": "REFUS (Procès-verbal)",
+   "obtenu": "REFUS : Procès-verbal signé, numérisé et vérifié CONFORME obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-02",
+   "exigence": "Documents administratifs",
+   "compte": "abm",
+   "action": "Dépôt du PV signé numérisé M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"98c97883-7e5b-4095-9560-b09fb07bf1ea\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-03",
+   "exigence": "PV non vérifié refusé",
+   "compte": "abm",
+   "action": "Remise avec PV non vérifié",
+   "attendu": "REFUS (Procès-verbal)",
+   "obtenu": "REFUS : Procès-verbal signé, numérisé et vérifié CONFORME obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-04",
+   "exigence": "Vérification PV par un tiers",
+   "compte": "bm",
+   "action": "BM vérifie le PV",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"98c97883-7e5b-4095-9560-b09fb07bf1ea\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-05",
+   "exigence": "Permis vérifié RH obligatoire",
+   "compte": "abm",
+   "action": "Remise sans vérification du permis",
+   "attendu": "REFUS (permis)",
+   "obtenu": "REFUS : Vérification RH du permis adapté obligatoire (catégorie et vérificateur).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-06",
+   "exigence": "Équipements de sécurité obligatoires",
+   "compte": "abm",
+   "action": "Remise sans gilet",
+   "attendu": "REFUS (GILET)",
+   "obtenu": "REFUS : Équipement de sécurité manquant : GILET_HAUTE_VISIBILITE.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-07",
+   "exigence": "Documents conformes obligatoires",
+   "compte": "abm",
+   "action": "Remise de M4 (aucun document)",
+   "attendu": "REFUS (non conformes)",
+   "obtenu": "REFUS : Remise bloquée : documents administratifs non conformes (EN_ATTENTE).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-08",
+   "exigence": "Remise complète",
+   "compte": "abm",
+   "action": "ABM enregistre la remise de M1",
+   "attendu": "OK (REMISE)",
+   "obtenu": "OK : {\"id\": \"c421aa41-c297-4e22-ab48-3825ab44e535\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"statut_affectation\": \"REMISE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REM-09",
+   "exigence": "Statut affectation REMISE, pas encore en service",
+   "compte": "postgres (lecture)",
+   "action": "REMISE/false",
+   "attendu": "REMISE/false",
+   "obtenu": "REMISE/false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MES-01",
+   "exigence": "Chef d'unité : pas de saisie avant mise en service",
+   "compte": "uh_sak",
+   "action": "Relevé km avant mise en service",
+   "attendu": "REFUS (non mise en service)",
+   "obtenu": "REFUS : Moto non mise en service : saisie terrain impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MES-02",
+   "exigence": "Mise en service réservée au BM",
+   "compte": "abm",
+   "action": "ABM met en service",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MES-03",
+   "exigence": "Mise en service (décision distincte de la remise)",
+   "compte": "bm",
+   "action": "BM autorise la circulation de M1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"mise_en_service\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MES-04",
+   "exigence": "Moto autorisée à circuler",
+   "compte": "postgres (lecture)",
+   "action": "t",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-01",
+   "exigence": "Chef d'unité voit sa moto et son cluster",
+   "compte": "uh_sak",
+   "action": "UH Sakassou lit la flotte",
+   "attendu": "OK (1)",
+   "obtenu": "OK : 1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-02",
+   "exigence": "Chef d'unité ne voit pas les autres clusters",
+   "compte": "uh_bot",
+   "action": "UH Botro lit M1",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-03",
+   "exigence": "Chef de zone : portée terrain globale (décision 17/09/2026)",
+   "compte": "zh",
+   "action": "ZH lit la flotte",
+   "attendu": "OK (4)",
+   "obtenu": "OK : 4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-04",
+   "exigence": "Finance : lecture",
+   "compte": "fin",
+   "action": "Finance lit la flotte",
+   "attendu": "OK (4)",
+   "obtenu": "OK : 4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-05",
+   "exigence": "Rôle non habilité : rien",
+   "compte": "agent",
+   "action": "Agent recenseur lit la flotte",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-06",
+   "exigence": "Documents privés : périmètre",
+   "compte": "uh_bot",
+   "action": "UH Botro lit les documents de M1",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-07",
+   "exigence": "Stockage : lecture hors périmètre refusée",
+   "compte": "uh_bot",
+   "action": "UH Botro lit les fichiers de M1",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-08",
+   "exigence": "Stockage : lecture affectataire",
+   "compte": "uh_sak",
+   "action": "UH Sakassou lit les fichiers de M1",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PER-09",
+   "exigence": "Journal : non visible du Chef d'unité",
+   "compte": "uh_sak",
+   "action": "UH lit le journal",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-01",
+   "exigence": "Relevé kilométrique",
+   "compte": "uh_sak",
+   "action": "Relevé 40 km",
+   "attendu": "OK",
+   "obtenu": "OK : {\"moto_id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"compteur_km\": 40}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-02",
+   "exigence": "Idempotence : rejeu du même relevé",
+   "compte": "uh_sak",
+   "action": "Rejeu client_op_id identique",
+   "attendu": "OK (doublon)",
+   "obtenu": "OK : {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"compteur_km\": 40}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-03",
+   "exigence": "Pas de doublon en base",
+   "compte": "postgres (lecture)",
+   "action": "1",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-04",
+   "exigence": "Compteur décroissant refusé (conflit)",
+   "compte": "uh_sak",
+   "action": "Relevé 30 km après 40 km",
+   "attendu": "REFUS (CONFLIT_COMPTEUR)",
+   "obtenu": "REFUS : CONFLIT_COMPTEUR : 30 km est inférieur au relevé antérieur (40.0 km). Demandez une correction.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-05",
+   "exigence": "Identifiant d'opération d'un autre compte",
+   "compte": "zh",
+   "action": "ZH réutilise le client_op_id de l'UH",
+   "attendu": "REFUS (autre compte)",
+   "obtenu": "REFUS : Identifiant d'opération déjà utilisé par un autre compte.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KM-06",
+   "exigence": "Chef d'unité : pas de saisie sur une moto non affectée",
+   "compte": "uh_bro",
+   "action": "UH Brobo relève M1",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Moto hors de votre périmètre ou non affectée à votre compte.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CTL-01",
+   "exigence": "Contrôle avant départ APTE",
+   "compte": "uh_sak",
+   "action": "Contrôle OK",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"6dbc4d95-db82-4fb6-9d58-8d7058de3989\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CTL-02",
+   "exigence": "Contrôle : points invalides refusés",
+   "compte": "uh_sak",
+   "action": "Contrôle sans points",
+   "attendu": "REFUS (vide)",
+   "obtenu": "REFUS : Liste de points de contrôle vide ou invalide.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-01",
+   "exigence": "Synchronisation par lot",
+   "compte": "uh_sak",
+   "action": "Lot : 1 valide, 1 conflit, 1 id invalide, 1 type interdit",
+   "attendu": "OK",
+   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"resultat\": {\"moto_id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"compteur_km\": 55}, \"client_op_id\": \"57fa5725-c8ab-4852-aa6e-f55be278eb99\"}, {\"code\": \"P0001\", \"statut\": \"REJETE\", \"message\": \"CONFLIT_COMPTEUR : 1 km est inférieur au relevé antérieur (55.0 km). Demandez",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-02",
+   "exigence": "Statuts « Synchronisé » / « Rejeté »",
+   "compte": "uh_sak",
+   "action": "Statuts renvoyés par opération",
+   "attendu": "SYNCHRONISE,REJETE,REJETE,REJETE",
+   "obtenu": "SYNCHRONISE,REJETE,REJETE,REJETE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-03",
+   "exigence": "Rejeu du lot sans doublon",
+   "compte": "uh_sak",
+   "action": "Même lot renvoyé",
+   "attendu": "OK",
+   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"message\": null, \"resultat\": {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"compteur_km\": 55}, \"client_op_id\": \"57fa5725-c8ab-4852-aa6e-f55be278eb99\"}, {\"statut\": \"REJETE\", \"doublon\": true, \"message\": \"C",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-04",
+   "exigence": "Idempotence du lot",
+   "compte": "uh_sak",
+   "action": "Le rejeu renvoie les mêmes statuts marqués doublon",
+   "attendu": "[SYNCHRONISE doublon, REJETE doublon]",
+   "obtenu": "[('SYNCHRONISE', True), ('REJETE', True)]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-05",
+   "exigence": "Un seul relevé 55 km en base",
+   "compte": "postgres (lecture)",
+   "action": "1",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-06",
+   "exigence": "Lot limité",
+   "compte": "uh_sak",
+   "action": "Lot de 51 opérations",
+   "attendu": "REFUS (50)",
+   "obtenu": "REFUS : Lot limité à 50 opérations.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BUD-01",
+   "exigence": "Budget : Chef d'unité interdit",
+   "compte": "uh_sak",
+   "action": "UH propose un budget",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BUD-02",
+   "exigence": "Budget proposé par l'ABM",
+   "compte": "abm",
+   "action": "ABM propose 30 000 FCFA (fictif)",
+   "attendu": "OK (PROPOSE)",
+   "obtenu": "OK : {\"id\": \"86f6cbae-cf5d-412e-9278-7ab3c724ae8f\", \"statut\": \"PROPOSE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BUD-03",
+   "exigence": "Dotation impossible sans budget autorisé",
+   "compte": "abm",
+   "action": "Remise sur budget proposé",
+   "attendu": "REFUS (budget autorisé)",
+   "obtenu": "REFUS : Dotation impossible : aucun budget autorisé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BUD-04",
+   "exigence": "Validation du budget par le BM",
+   "compte": "bm",
+   "action": "BM valide le budget",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"id\": \"86f6cbae-cf5d-412e-9278-7ab3c724ae8f\", \"statut\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-01",
+   "exigence": "Dotation espèces",
+   "compte": "abm",
+   "action": "ABM remet 10 000 FCFA en espèces",
+   "attendu": "OK (REMISE_DECLAREE)",
+   "obtenu": "OK : {\"id\": \"639d7b29-580a-4e1b-b20b-2d133c9f4e1a\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-02",
+   "exigence": "Mobile Money : référence obligatoire",
+   "compte": "abm",
+   "action": "Mobile Money sans référence",
+   "attendu": "REFUS (Référence)",
+   "obtenu": "REFUS : Référence de transaction Mobile Money obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-03",
+   "exigence": "Mobile Money : frais distincts",
+   "compte": "abm",
+   "action": "Mobile Money 10 000 + 100 de frais",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"5521782e-497b-4f0f-9018-18cea823b9cd\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-04",
+   "exigence": "Mobile Money échoué",
+   "compte": "abm",
+   "action": "Mobile Money 5 000",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"6431849c-da14-4415-a5c6-90d2fa5b139f\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-05",
+   "exigence": "Dépassement de budget refusé",
+   "compte": "abm",
+   "action": "Remise de 10 000 au-delà de 30 000",
+   "attendu": "REFUS (Dépassement)",
+   "obtenu": "REFUS : Dépassement du budget autorisé : 25000 déjà remis sur 30000 FCFA.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-06",
+   "exigence": "Transaction échouée",
+   "compte": "abm",
+   "action": "ABM déclare l'échec MM-TEST-0002",
+   "attendu": "OK (ECHOUEE)",
+   "obtenu": "OK : {\"id\": \"6431849c-da14-4415-a5c6-90d2fa5b139f\", \"statut\": \"ECHOUEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-07",
+   "exigence": "Seul le bénéficiaire confirme",
+   "compte": "abm",
+   "action": "ABM confirme à la place de l'UH",
+   "attendu": "REFUS (bénéficiaire)",
+   "obtenu": "REFUS : Seul le bénéficiaire confirme la réception de sa dotation.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-08",
+   "exigence": "Échec non confirmable",
+   "compte": "uh_sak",
+   "action": "UH confirme la transaction échouée",
+   "attendu": "REFUS (ECHOUEE)",
+   "obtenu": "REFUS : Cette dotation n'est plus en attente de confirmation (ECHOUEE).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-09",
+   "exigence": "Confirmation de réception",
+   "compte": "uh_sak",
+   "action": "UH confirme 10 000 espèces",
+   "attendu": "OK (CONFIRMEE)",
+   "obtenu": "OK : {\"id\": \"639d7b29-580a-4e1b-b20b-2d133c9f4e1a\", \"statut\": \"CONFIRMEE\", \"montant_recu\": 10000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "DOT-10",
+   "exigence": "Écart de réception = contestation",
+   "compte": "uh_sak",
+   "action": "UH déclare 9 900 reçus sur 10 000 MM",
+   "attendu": "OK (CONTESTEE)",
+   "obtenu": "OK : {\"id\": \"5521782e-497b-4f0f-9018-18cea823b9cd\", \"statut\": \"CONTESTEE\", \"montant_recu\": 9900}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-01",
+   "exigence": "Plein/partiel obligatoire",
+   "compte": "uh_sak",
+   "action": "Achat sans préciser plein",
+   "attendu": "REFUS (plein)",
+   "obtenu": "REFUS : Préciser plein complet ou partiel.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-02",
+   "exigence": "Carburant",
+   "compte": "uh_sak",
+   "action": "Plein initial complet (référence)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"acccbb09-1fe4-40ec-a3dd-7d34ac23c333\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-03",
+   "exigence": "Carburant",
+   "compte": "uh_sak",
+   "action": "Plein partiel",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"8cc8c1ff-a4f0-4fa8-b8b1-f873230ddb20\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-04",
+   "exigence": "Carburant",
+   "compte": "uh_sak",
+   "action": "Plein complet de contrôle",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"c43af086-4d2d-42c0-ae77-e23a60ac0c60\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-05",
+   "exigence": "Consommation plein à plein vérifiable",
+   "compte": "postgres (lecture)",
+   "action": "100×(1,5+2,0)/(160−60) = 3,50 L/100 km",
+   "attendu": "3.50",
+   "obtenu": "3.50",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-06",
+   "exigence": "Plein initial non compté deux fois",
+   "compte": "postgres (lecture)",
+   "action": "Litres de l'intervalle = 3,50 (plein initial de 3 L exclu)",
+   "attendu": "3.50",
+   "obtenu": "3.50",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-07",
+   "exigence": "Seuils provisoires : 3,50 < 3,6 → NORMAL",
+   "compte": "postgres (lecture)",
+   "action": "NORMAL",
+   "attendu": "NORMAL",
+   "obtenu": "NORMAL",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-08",
+   "exigence": "Données insuffisantes → Non disponible",
+   "compte": "postgres (lecture)",
+   "action": "M3 : l_100km NULL",
+   "attendu": "NULL",
+   "obtenu": "NULL",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-09",
+   "exigence": "Carburant",
+   "compte": "uh_sak",
+   "action": "Achat daté après un relevé supérieur",
+   "attendu": "REFUS (CONFLIT_COMPTEUR)",
+   "obtenu": "REFUS : CONFLIT_COMPTEUR : 150 km est inférieur au relevé antérieur (160.0 km). Demandez une correction.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CAR-10",
+   "exigence": "Carburant",
+   "compte": "uh_sak",
+   "action": "Avance personnelle de l'agent",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"9c4d7e80-e26f-4dfa-b69f-7f9d99158703\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JUS-01",
+   "exigence": "Auto-vérification interdite",
+   "compte": "uh_sak",
+   "action": "UH vérifie son justificatif",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JUS-02",
+   "exigence": "Vérification des justificatifs",
+   "compte": "fin",
+   "action": "Finance vérifie l'achat 1",
+   "attendu": "OK (VERIFIE)",
+   "obtenu": "OK : {\"id\": \"acccbb09-1fe4-40ec-a3dd-7d34ac23c333\", \"justificatif_statut\": \"VERIFIE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JUS-03",
+   "exigence": "Vérification des justificatifs",
+   "compte": "fin",
+   "action": "Finance vérifie l'achat 2",
+   "attendu": "OK (VERIFIE)",
+   "obtenu": "OK : {\"id\": \"8cc8c1ff-a4f0-4fa8-b8b1-f873230ddb20\", \"justificatif_statut\": \"VERIFIE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JUS-04",
+   "exigence": "Vérification des justificatifs",
+   "compte": "fin",
+   "action": "Finance vérifie l'achat 3",
+   "attendu": "OK (VERIFIE)",
+   "obtenu": "OK : {\"id\": \"c43af086-4d2d-42c0-ae77-e23a60ac0c60\", \"justificatif_statut\": \"VERIFIE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "JUS-06",
+   "exigence": "Vérification des justificatifs",
+   "compte": "fin",
+   "action": "Finance vérifie l'achat 5",
+   "attendu": "OK (VERIFIE)",
+   "obtenu": "OK : {\"id\": \"9c4d7e80-e26f-4dfa-b69f-7f9d99158703\", \"justificatif_statut\": \"VERIFIE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RAP-01",
+   "exigence": "Rapprochement : remis / reçu / justifié / à apurer",
+   "compte": "postgres (lecture)",
+   "action": "remis 20000 · reçu 19900 (10000 + 9900 en écart) · frais 100 · écart 100 · justifié 5525 · à apurer 14375",
+   "attendu": "20000·19900·100·100·5525·14375",
+   "obtenu": "20000·19900·100·100·5525·14375",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RES-01",
+   "exigence": "Restitution > avance refusée",
+   "compte": "abm",
+   "action": "Restitution de 20 000",
+   "attendu": "REFUS (supérieure)",
+   "obtenu": "REFUS : Restitution supérieure à l'avance à apurer (14375 FCFA).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RES-02",
+   "exigence": "Restitution d'espèces restantes",
+   "compte": "abm",
+   "action": "Restitution de 475",
+   "attendu": "OK (13900)",
+   "obtenu": "OK : {\"id\": \"58aaf0c6-2b4a-4509-ae05-b79e7a2686ed\", \"solde_restant\": 13900}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RBT-01",
+   "exigence": "Remboursement d'avance personnelle",
+   "compte": "abm",
+   "action": "ABM demande le remboursement de l'avance",
+   "attendu": "OK (2125)",
+   "obtenu": "OK : {\"id\": \"5a16b1d2-e8cd-4c25-a9e4-2dd44ff1f432\", \"statut\": \"DEMANDE\", \"montant\": 2125}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RBT-02",
+   "exigence": "Pas de double remboursement",
+   "compte": "abm",
+   "action": "Deuxième demande sur le même achat",
+   "attendu": "REFUS (non encore remboursée)",
+   "obtenu": "REFUS : Chaque achat doit être une avance personnelle de ce bénéficiaire, justifiée VÉRIFIÉE et non encore remboursée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RBT-03",
+   "exigence": "Finance simple : pas de validation",
+   "compte": "fin",
+   "action": "Finance valide le remboursement",
+   "attendu": "REFUS (Finance Manager)",
+   "obtenu": "REFUS : Validation réservée au Branch Manager ou au Finance Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RBT-04",
+   "exigence": "Validation par le Finance Manager",
+   "compte": "fm",
+   "action": "Finance Manager valide",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"id\": \"5a16b1d2-e8cd-4c25-a9e4-2dd44ff1f432\", \"statut\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RBT-05",
+   "exigence": "Paiement déclaré (non exécuté)",
+   "compte": "fin",
+   "action": "Finance déclare le paiement MM",
+   "attendu": "OK (PAYE_DECLARE)",
+   "obtenu": "OK : {\"id\": \"5a16b1d2-e8cd-4c25-a9e4-2dd44ff1f432\", \"statut\": \"PAYE_DECLARE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RAP-02",
+   "exigence": "Pas de double comptage dotation/remboursement",
+   "compte": "postgres (lecture)",
+   "action": "reste à rembourser 0 · remboursé 2125 · à apurer 13900",
+   "attendu": "0·2125·13900",
+   "obtenu": "0·2125·13900",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-01",
+   "exigence": "Correction : demande ABM",
+   "compte": "abm",
+   "action": "ABM demande la correction des frais MM",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"0a9d17a2-ceb1-4443-9e53-ba42aa698c36\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-02",
+   "exigence": "Champ non corrigeable",
+   "compte": "zh",
+   "action": "ZH corrige un montant de dotation",
+   "attendu": "REFUS (non corrigeable)",
+   "obtenu": "REFUS : Champ non corrigeable par votre rôle.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-03",
+   "exigence": "ABM ne valide pas une correction",
+   "compte": "abm",
+   "action": "ABM valide sa propre correction",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-04",
+   "exigence": "Validation BM",
+   "compte": "bm",
+   "action": "BM applique la correction",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"id\": \"0a9d17a2-ceb1-4443-9e53-ba42aa698c36\", \"statut\": \"APPLIQUEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-05",
+   "exigence": "Valeur corrigée et journal avec valideur",
+   "compte": "postgres (lecture)",
+   "action": "150 / valideur BM",
+   "attendu": "150/1",
+   "obtenu": "150/1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-06",
+   "exigence": "BM initie une correction",
+   "compte": "bm",
+   "action": "BM demande correction compteur relevé",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"c150e1ca-bb1b-4fe1-9bac-1d934ec5f94c\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-07",
+   "exigence": "BM ne s'auto-approuve pas",
+   "compte": "bm",
+   "action": "BM valide sa propre demande",
+   "attendu": "REFUS (Auto-approbation)",
+   "obtenu": "REFUS : Auto-approbation interdite : un autre responsable doit valider.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "COR-08",
+   "exigence": "Validation par la Direction",
+   "compte": "gm",
+   "action": "General Manager rejette",
+   "attendu": "OK (REJETEE)",
+   "obtenu": "OK : {\"id\": \"c150e1ca-bb1b-4fe1-9bac-1d934ec5f94c\", \"statut\": \"REJETEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-01",
+   "exigence": "Anomalie critique au départ → immobilisation",
+   "compte": "uh_sak",
+   "action": "Contrôle avant départ freins KO",
+   "attendu": "OK (INAPTE)",
+   "obtenu": "OK : {\"id\": \"691138a4-b8c7-48a4-a8a1-d83bf242389c\", \"incident\": {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-02",
+   "exigence": "Moto immobilisée sans attendre",
+   "compte": "postgres (lecture)",
+   "action": "IMMOBILISEE / non autorisée",
+   "attendu": "IMMOBILISEE/false",
+   "obtenu": "IMMOBILISEE/false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-03",
+   "exigence": "Chef d'unité ne pilote pas le circuit",
+   "compte": "uh_sak",
+   "action": "UH avance l'incident",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-04",
+   "exigence": "Transition interdite",
+   "compte": "zh",
+   "action": "Saut direct vers REMIS_EN_SERVICE",
+   "attendu": "REFUS (Transition)",
+   "obtenu": "REFUS : Transition interdite : IMMOBILISEE → REMIS_EN_SERVICE.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-05",
+   "exigence": "Diagnostic",
+   "compte": "zh",
+   "action": "ZH : diagnostic",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"DIAGNOSTIC\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-06",
+   "exigence": "Autorisation de dépense : montant obligatoire",
+   "compte": "zh",
+   "action": "Autorisation sans montant",
+   "attendu": "REFUS (Montant)",
+   "obtenu": "REFUS : Montant estimé de la dépense obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-07",
+   "exigence": "ABM ne peut pas autoriser la dépense",
+   "compte": "abm",
+   "action": "ABM autorise la dépense",
+   "attendu": "REFUS (réservée)",
+   "obtenu": "REFUS : Autorisation de dépense réservée au Branch Manager ou au Chef de Zone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-08",
+   "exigence": "Autorisation de dépense",
+   "compte": "zh",
+   "action": "ZH autorise 8 000 (fictif)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"AUTORISATION_DEPENSE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-09",
+   "exigence": "Réparation",
+   "compte": "zh",
+   "action": "ZH : réparation",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"REPARATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-10",
+   "exigence": "Contrôle",
+   "compte": "zh",
+   "action": "ZH : étape contrôle",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"CONTROLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-11",
+   "exigence": "Remise en service exige un contrôle APTE",
+   "compte": "zh",
+   "action": "Remise en service sans contrôle",
+   "attendu": "REFUS (contrôle)",
+   "obtenu": "REFUS : Remise en service bloquée : contrôle de remise en service APTE obligatoire après l'incident.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-12",
+   "exigence": "Contrôle de remise en service",
+   "compte": "zh",
+   "action": "ZH enregistre le contrôle APTE",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"3f40db3d-3fd3-409c-82ee-f1d5b15c2a34\", \"resultat\": \"APTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-13",
+   "exigence": "Remise en service",
+   "compte": "zh",
+   "action": "ZH remet en service",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"REMIS_EN_SERVICE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-14",
+   "exigence": "Clôture",
+   "compte": "zh",
+   "action": "ZH clôt l'incident avec coût réel",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"0ad6c82c-712d-4df8-ad8b-ff29720444b8\", \"etape\": \"CLOS\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-15",
+   "exigence": "Moto de nouveau APTE",
+   "compte": "postgres (lecture)",
+   "action": "APTE",
+   "attendu": "APTE",
+   "obtenu": "APTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-16",
+   "exigence": "Historique complet du circuit",
+   "compte": "postgres (lecture)",
+   "action": "SIGNALE,IMMOBILISEE,DIAGNOSTIC,AUTORISATION_DEPENSE,REPARATION,CONTROLE,REMIS_EN_SERVICE,CLOS",
+   "attendu": "SIGNALE,IMMOBILISEE,DIAGNOSTIC,AUTORISATION_DEPENSE,REPARATION,CONTROLE,REMIS_EN_SERVICE,CLOS",
+   "obtenu": "SIGNALE,IMMOBILISEE,DIAGNOSTIC,AUTORISATION_DEPENSE,REPARATION,CONTROLE,REMIS_EN_SERVICE,CLOS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-17",
+   "exigence": "Accident : registre AFLP lié (pas de doublon de saisie)",
+   "compte": "uh_sak",
+   "action": "UH déclare un accident",
+   "attendu": "OK (INC-)",
+   "obtenu": "OK : {\"id\": \"d10ffc0f-850c-4572-969e-9dbdcb0905ba\", \"immobilisee\": true, \"aflp_incident_id\": \"INC-20261030-158D22\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-18",
+   "exigence": "Incident AFLP créé et relié",
+   "compte": "postgres (lecture)",
+   "action": "ACCIDENT_MOTO",
+   "attendu": "ACCIDENT_MOTO",
+   "obtenu": "ACCIDENT_MOTO",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-19",
+   "exigence": "Accident = immobilisation",
+   "compte": "postgres (lecture)",
+   "action": "IMMOBILISEE",
+   "attendu": "IMMOBILISEE",
+   "obtenu": "IMMOBILISEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "INC-20",
+   "exigence": "Traçabilité : relevé km accepté pendant immobilisation",
+   "compte": "uh_sak",
+   "action": "Relevé km pendant immobilisation",
+   "attendu": "OK",
+   "obtenu": "OK : {\"moto_id\": \"add96188-93bd-43c0-9310-fcec14e29b93\", \"compteur_km\": 207}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-01",
+   "exigence": "Demande d'entretien terrain",
+   "compte": "uh_sak",
+   "action": "UH demande une vidange",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"938aaa66-fa3b-454f-89e0-ec121e88659c\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-02",
+   "exigence": "Autorisation par un tiers",
+   "compte": "zh",
+   "action": "ZH autorise",
+   "attendu": "OK (AUTORISEE)",
+   "obtenu": "OK : {\"id\": \"938aaa66-fa3b-454f-89e0-ec121e88659c\", \"statut\": \"AUTORISEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-03",
+   "exigence": "Démarrage : garage obligatoire",
+   "compte": "zh",
+   "action": "Démarrage sans garage",
+   "attendu": "REFUS (Garage)",
+   "obtenu": "REFUS : Garage intervenant obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-04",
+   "exigence": "Démarrage → immobilisation",
+   "compte": "zh",
+   "action": "ZH démarre au garage fictif",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"938aaa66-fa3b-454f-89e0-ec121e88659c\", \"statut\": \"EN_COURS\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-05",
+   "exigence": "Statut EN_REPARATION",
+   "compte": "postgres (lecture)",
+   "action": "EN_REPARATION",
+   "attendu": "EN_REPARATION",
+   "obtenu": "EN_REPARATION",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-06",
+   "exigence": "Clôture payante sans facture refusée",
+   "compte": "zh",
+   "action": "Fin sans facture",
+   "attendu": "REFUS (Facture)",
+   "obtenu": "REFUS : Facture obligatoire pour clôturer une intervention payante.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-07",
+   "exigence": "Documents administratifs",
+   "compte": "zh",
+   "action": "ZH dépose la facture",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"ec7aa740-1384-4410-adfa-45a7fd32d56f\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-08",
+   "exigence": "Clôture avec facture",
+   "compte": "zh",
+   "action": "Fin avec facture",
+   "attendu": "OK (TERMINEE)",
+   "obtenu": "OK : {\"id\": \"938aaa66-fa3b-454f-89e0-ec121e88659c\", \"statut\": \"TERMINEE\", \"remise_en_service\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-09",
+   "exigence": "Immobilisation accident toujours ouverte",
+   "compte": "postgres (lecture)",
+   "action": "IMMOBILISEE",
+   "attendu": "IMMOBILISEE",
+   "obtenu": "IMMOBILISEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-10",
+   "exigence": "Aucune périodicité constructeur inventée",
+   "compte": "bm",
+   "action": "Règle déclarée constructeur sans référence",
+   "attendu": "REFUS (check)",
+   "obtenu": "REFUS : new row for relation \"moto_regles_maintenance\" violates check constraint \"moto_regles_maintenance_check1\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-11",
+   "exigence": "Règle paramétrée ANAGROCI",
+   "compte": "bm",
+   "action": "BM paramètre vidange 1 000 km (paramètre de test)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"code\": \"VIDANGE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-12",
+   "exigence": "Échéance calculée",
+   "compte": "postgres (lecture)",
+   "action": "A_JOUR, prochaine à 1208 km",
+   "attendu": "A_JOUR,1208.0",
+   "obtenu": "A_JOUR,1208.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MNT-13",
+   "exigence": "Règles inactives par défaut",
+   "compte": "postgres (lecture)",
+   "action": "2 règles inactives sans intervalle",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-01",
+   "exigence": "Pneu : identité propre",
+   "compte": "abm",
+   "action": "Entrée en stock d'un pneu fictif",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"3ecba36e-4a21-4bd7-a3db-d77dff429181\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-02",
+   "exigence": "Montage",
+   "compte": "abm",
+   "action": "Montage arrière à 208 km",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"ee071411-aab1-41d8-a8d3-585c053643e6\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-03a",
+   "exigence": "Pneu : identité propre",
+   "compte": "abm",
+   "action": "Entrée en stock d'un second pneu fictif",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"32ccc9cd-805d-4b16-99ab-cc206d3a1ad7\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-03",
+   "exigence": "Un pneu par position",
+   "compte": "abm",
+   "action": "Second pneu à la même position",
+   "attendu": "REFUS (déjà monté)",
+   "obtenu": "REFUS : Un pneu est déjà monté à cette position : déposez-le d'abord.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-04",
+   "exigence": "Réparation tracée",
+   "compte": "zh",
+   "action": "Réparation crevaison",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"949ff22b-2890-4a22-952b-08d8738434ac\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-05",
+   "exigence": "Dépose et réforme",
+   "compte": "abm",
+   "action": "Dépose à 708 km, réforme",
+   "attendu": "OK (500)",
+   "obtenu": "OK : {\"id\": \"ee071411-aab1-41d8-a8d3-585c053643e6\", \"km_parcourus\": 500.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "PNE-06",
+   "exigence": "Coût par km sur données réelles",
+   "compte": "postgres (lecture)",
+   "action": "(12000+1000)/500 = 26.00 FCFA/km",
+   "attendu": "26.00",
+   "obtenu": "26.00",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KPI-01",
+   "exigence": "Disponibilité : dénominateur présent",
+   "compte": "postgres (lecture)",
+   "action": "taux calculé (non NULL)",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KPI-02",
+   "exigence": "Disponibilité : moto non en service → absente (Non disponible)",
+   "compte": "postgres (lecture)",
+   "action": "0",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "KPI-03",
+   "exigence": "Coût/km : dotations et remboursements exclus",
+   "compte": "postgres (lecture)",
+   "action": "carburant vérifié 7650 + maintenance 5000 + pneus 13000 + incident 8000",
+   "attendu": "7650+5000+13000+8000",
+   "obtenu": "7650+5000+13000+8000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "FOR-01",
+   "exigence": "Formation : résultat",
+   "compte": "uh_sak",
+   "action": "UH réussit un quiz 4/5",
+   "attendu": "OK (true)",
+   "obtenu": "OK : {\"id\": \"23659c03-3ca5-454b-9c1f-169c230fac3a\", \"reussi\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "FOR-02",
+   "exigence": "Formation : score invalide",
+   "compte": "uh_sak",
+   "action": "Score 6/5",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Résultat de quiz invalide.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-01",
+   "exigence": "Contrainte de rôles FBMS inchangée",
+   "compte": "postgres (lecture)",
+   "action": "20 rôles",
+   "attendu": "20",
+   "obtenu": "20",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-02",
+   "exigence": "Fonctions FBMS existantes intactes (md5 réplique)",
+   "compte": "postgres (lecture)",
+   "action": "aucune fonction FBMS existante redéfinie",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-03",
+   "exigence": "Toutes les tables moto_* sous RLS",
+   "compte": "postgres (lecture)",
+   "action": "0 table sans RLS",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-04",
+   "exigence": "Aucune fonction moto exécutable par anon",
+   "compte": "postgres (lecture)",
+   "action": "0",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-05",
+   "exigence": "Aucune table moto écrivable par authenticated",
+   "compte": "postgres (lecture)",
+   "action": "0",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-06",
+   "exigence": "Fonctions SECURITY DEFINER avec search_path figé",
+   "compte": "postgres (lecture)",
+   "action": "0 sans search_path",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-07",
+   "exigence": "Fonctions internes d'écriture non appelables directement",
+   "compte": "postgres (lecture)",
+   "action": "0",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-08",
+   "exigence": "Contournement : appel direct d'une fonction interne",
+   "compte": "uh_sak",
+   "action": "UH ouvre/ferme une immobilisation en direct",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_ouvrir_immobilisation",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "REG-09",
+   "exigence": "Contournement : lever une immobilisation sans contrôle",
+   "compte": "zh",
+   "action": "ZH lève l'immobilisation accident par la voie générique",
+   "attendu": "REFUS (circuit)",
+   "obtenu": "REFUS : Cette immobilisation se lève par le circuit de l'incident ou de la maintenance.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BEN-01",
+   "exigence": "Liste des bénéficiaires : ABM",
+   "compte": "abm",
+   "action": "ABM liste les bénéficiaires éligibles (Unit/Zonal Head actifs)",
+   "attendu": "OK (5)",
+   "obtenu": "OK : 5",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "BEN-02",
+   "exigence": "Liste des bénéficiaires : refusée au Chef d'unité",
+   "compte": "uh_sak",
+   "action": "UH liste les bénéficiaires",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}

@@ -1,0 +1,502 @@
+{
+ "date": "2026-10-30T23:32:38.038Z",
+ "base": "fbms_moto_e2e",
+ "resultats": [
+  {
+   "id": "UI-PORT-mobile",
+   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "action": "Portail à {\"width\":390,\"height\":844}",
+   "attendu": "carte visible, lien moto/index.html, aucun débordement",
+   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/portail-mobile.png"
+  },
+  {
+   "id": "UI-PORT-tablette",
+   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "action": "Portail à {\"width\":768,\"height\":1024}",
+   "attendu": "carte visible, lien moto/index.html, aucun débordement",
+   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/portail-tablette.png"
+  },
+  {
+   "id": "UI-PORT-bureau",
+   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "action": "Portail à {\"width\":1440,\"height\":900}",
+   "attendu": "carte visible, lien moto/index.html, aucun débordement",
+   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/portail-bureau.png"
+  },
+  {
+   "id": "UI-INV-01",
+   "exigence": "Passeport numérique : création",
+   "action": "ABM crée une moto par le formulaire",
+   "attendu": "redirection vers le passeport, code MOTO-001, QR affiché",
+   "obtenu": "ferme · MOTO-001 · APSONIC AP150-30 · QR=1 · châssis=null",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/passeport-creation-bureau.png"
+  },
+  {
+   "id": "UI-INV-02",
+   "exigence": "Identité depuis la carte grise",
+   "action": "ABM saisit châssis et immatriculation fictifs",
+   "attendu": "enregistré et journalisé avec motif",
+   "obtenu": "ferme · journal=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOC-CARTE_GRISE",
+   "exigence": "Documents dans le stockage privé",
+   "action": "ABM dépose CARTE_GRISE",
+   "attendu": "fichier déposé, statut En vérification",
+   "obtenu": "ferme · {\"statut\":\"EN_VERIFICATION\",\"f\":1}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOC-PLAQUE",
+   "exigence": "Documents dans le stockage privé",
+   "action": "ABM dépose PLAQUE",
+   "attendu": "fichier déposé, statut En vérification",
+   "obtenu": "ferme · {\"statut\":\"EN_VERIFICATION\",\"f\":1}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOC-ASSURANCE",
+   "exigence": "Documents dans le stockage privé",
+   "action": "ABM dépose ASSURANCE",
+   "attendu": "fichier déposé, statut En vérification",
+   "obtenu": "ferme · {\"statut\":\"EN_VERIFICATION\",\"f\":1}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOC-AUTO",
+   "exigence": "Auto-validation interdite (interface)",
+   "action": "ABM consulte ses propres dépôts",
+   "attendu": "aucun bouton Vérifier, mention d'un autre responsable",
+   "obtenu": "boutons vérifier=0 · mentions=3",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/documents-abm-bureau.png"
+  },
+  {
+   "id": "UI-DOC-VERIF",
+   "exigence": "Vérification par un tiers",
+   "action": "BM déclare conformes les 3 documents",
+   "attendu": "statut administratif CONFORME",
+   "obtenu": "CONFORME",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-INS-01",
+   "exigence": "Inspection mécanique initiale",
+   "action": "ABM saisit l'inspection, tous points conformes",
+   "attendu": "statut technique APTE",
+   "obtenu": "ferme · APTE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-AFF-01",
+   "exigence": "Préaffectation par le Branch Manager",
+   "action": "BM préaffecte au Chef d'unité Sakassou",
+   "attendu": "PREAFFECTEE",
+   "obtenu": "ferme · PREAFFECTEE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-REM-01",
+   "exigence": "PV papier signé, numérisé et vérifié",
+   "action": "ABM dépose le PV, BM le vérifie",
+   "attendu": "PV CONFORME",
+   "obtenu": "ferme · ferme · CONFORME",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-REM-02",
+   "exigence": "Remise : équipements obligatoires",
+   "action": "ABM tente la remise sans gilet",
+   "attendu": "refus serveur affiché dans la fenêtre",
+   "obtenu": "erreur:Équipement de sécurité manquant : GILET_HAUTE_VISIBILITE.",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-REM-03",
+   "exigence": "Remise officielle complète",
+   "action": "ABM enregistre la remise",
+   "attendu": "REMISE, pas encore autorisée à circuler",
+   "obtenu": "ferme · REMISE · service=false",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-MES-01",
+   "exigence": "Autorisation de circulation : décision distincte",
+   "action": "BM autorise la circulation",
+   "attendu": "autorisée à circuler",
+   "obtenu": "ferme · autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/passeport-en-service-bureau.png"
+  },
+  {
+   "id": "UI-OP-01",
+   "exigence": "Écrans courts pour l'agent (390 px)",
+   "action": "Opérations sur téléphone",
+   "attendu": "5 tuiles, aucun débordement horizontal",
+   "obtenu": "tuiles=5 · débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/operations-mobile.png"
+  },
+  {
+   "id": "UI-OP-02",
+   "exigence": "Contrôle de sécurité avant départ",
+   "action": "Chef d'unité valide le contrôle",
+   "attendu": "contrôle APTE synchronisé",
+   "obtenu": "ferme · APTE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-OFF-01",
+   "exigence": "Saisie sans réseau",
+   "action": "Achat de carburant (plein complet initial) hors connexion",
+   "attendu": "en attente sur l'appareil, rien en base",
+   "obtenu": "ferme · base=0 · file=\"1 en attente1 synchronisée(s)0 rejetée(s) Synchroniser maintenantSaisieCréée leS\"",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/hors-connexion-en-attente-mobile.png"
+  },
+  {
+   "id": "UI-OFF-02",
+   "exigence": "Persistance locale",
+   "action": "Fermeture et réouverture de la page (sans synchroniser)",
+   "attendu": "l'opération est toujours en file",
+   "obtenu": "avant=1 · après réouverture=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-OFF-03",
+   "exigence": "Synchronisation au retour du réseau",
+   "action": "Synchronisation de la file",
+   "attendu": "Synchronisé, 1 ligne en base, justificatif dans le stockage privé",
+   "obtenu": "base=1 · statut=SYNCHRONISE · fichier=1 · photos locales restantes=0",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-OFF-04",
+   "exigence": "Idempotence : réponse perdue après traitement serveur",
+   "action": "Plein partiel ; la réponse du serveur est coupée, puis renvoi",
+   "attendu": "1 seule ligne en base, statut Synchronisé (doublon reconnu)",
+   "obtenu": "après coupure : base=1, local=EN_ATTENTE · après renvoi : base=1, local=SYNCHRONISE (Déjà reçu par le serveur (aucun doublon créé).)",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-CAR-01",
+   "exigence": "Consommation plein à plein vérifiable",
+   "action": "Plein complet de contrôle puis lecture du passeport",
+   "attendu": "100 × (1,5 + 2,0) / (160 − 60) = 3,50 L/100 km",
+   "obtenu": "interface=\"Consommation mesurée3,50 L/100 km1 intervalle(s) valides\" · serveur=3.50",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-plein-a-plein-mobile.png"
+  },
+  {
+   "id": "UI-INC-01",
+   "exigence": "Immobilisation sans attendre Internet",
+   "action": "Incident critique déclaré hors connexion",
+   "attendu": "bandeau « Ne pas circuler » immédiat, contrôle de départ bloqué",
+   "obtenu": "ferme · bandeau=\"Ne pas circuler. Immobilisation de sécurité enregistrée sur cet appare\" · contrôle bloqué=true · serveur encore=APTE",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/immobilisation-locale-mobile.png"
+  },
+  {
+   "id": "UI-INC-02",
+   "exigence": "Notification synchronisée ultérieurement",
+   "action": "Retour du réseau",
+   "attendu": "incident reçu, moto IMMOBILISEE côté serveur",
+   "obtenu": "moto=IMMOBILISEE · incident=IMMOBILISEE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOT-01",
+   "exigence": "Budget autorisé",
+   "action": "BM autorise un budget de 30 000 FCFA (fictif)",
+   "attendu": "budget VALIDE",
+   "obtenu": "ferme · VALIDE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOT-02",
+   "exigence": "Remise de dotation Mobile Money",
+   "action": "ABM remet 10 000 FCFA, frais 100, référence",
+   "attendu": "REMISE_DECLAREE, frais distincts",
+   "obtenu": "ferme · {\"statut\":\"REMISE_DECLAREE\",\"m\":10000,\"f\":100}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-DOT-03",
+   "exigence": "Confirmation de réception par l'agent",
+   "action": "Chef d'unité confirme 9 900 reçus (écart)",
+   "attendu": "CONTESTEE, montant reçu 9 900",
+   "obtenu": "ferme · {\"statut\":\"CONTESTEE\",\"m\":9900}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-PIL-01",
+   "exigence": "Tableau de bord et limites d'observation",
+   "action": "Finance ouvre le pilotage",
+   "attendu": "KPI affichés, avertissement d'échantillon, rapprochement visible",
+   "obtenu": "kpi=6 · rapprochement=1 · \"Observation limitée : 1 moto(s), 1 intervalle(s) plein à plein. Ces va\"",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/pilotage-finance-bureau.png"
+  },
+  {
+   "id": "UI-PIL-02",
+   "exigence": "Vérification des justificatifs par un tiers",
+   "action": "Finance vérifie un justificatif depuis les validations",
+   "attendu": "justificatif VERIFIE",
+   "obtenu": "ferme · vérifiés=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-PIL-03",
+   "exigence": "Export Excel",
+   "action": "BM exporte le classeur",
+   "attendu": "fichier .xlsx avec les onglets de pilotage",
+   "obtenu": "onglets=Flotte, Consommation, Intervalles plein a plein, Couts, Disponibilite, Rapprochement dotations, Echeances, Alertes documents, Pneus, Incidents ouverts, Limites",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/export-pilotage-e2e.xlsx"
+  },
+  {
+   "id": "UI-FOR-01",
+   "exigence": "Formation : fiche et quiz",
+   "action": "Chef d'unité réussit le quiz Contrôle de sécurité",
+   "attendu": "résultat réussi enregistré",
+   "obtenu": "\"Score : 5 / 5 · Réussi. Quiz Contrôle de sécurité avant départ : synchronisé.\" · base=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-SEC-agent",
+   "exigence": "Rôles non habilités",
+   "action": "Ouverture par Agent Recenseur",
+   "attendu": "message d'accès non prévu, aucune donnée moto",
+   "obtenu": "cartes moto affichées=0",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-SEC-sup",
+   "exigence": "Rôles non habilités",
+   "action": "Ouverture par Supervisor",
+   "attendu": "message d'accès non prévu, aucune donnée moto",
+   "obtenu": "cartes moto affichées=0",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-SEC-perimetre",
+   "exigence": "Périmètre serveur",
+   "action": "Chef d'unité Botro ouvre la flotte",
+   "attendu": "aucune moto de Sakassou visible",
+   "obtenu": "motos visibles=0",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-RWD-flotte-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "flotte à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/flotte-mobile.png"
+  },
+  {
+   "id": "UI-RWD-passeport-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "passeport à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/passeport-mobile.png"
+  },
+  {
+   "id": "UI-RWD-pilotage-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "pilotage à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/pilotage-mobile.png"
+  },
+  {
+   "id": "UI-RWD-operations-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "operations à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/operations-mobile.png"
+  },
+  {
+   "id": "UI-RWD-formation-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "formation à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/formation-mobile.png"
+  },
+  {
+   "id": "UI-RWD-administration-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "administration à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/administration-mobile.png"
+  },
+  {
+   "id": "UI-RWD-flotte-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "flotte à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/flotte-tablette.png"
+  },
+  {
+   "id": "UI-RWD-passeport-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "passeport à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/passeport-tablette.png"
+  },
+  {
+   "id": "UI-RWD-pilotage-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "pilotage à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/pilotage-tablette.png"
+  },
+  {
+   "id": "UI-RWD-operations-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "operations à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/operations-tablette.png"
+  },
+  {
+   "id": "UI-RWD-formation-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "formation à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/formation-tablette.png"
+  },
+  {
+   "id": "UI-RWD-administration-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "administration à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/administration-tablette.png"
+  },
+  {
+   "id": "UI-RWD-flotte-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "flotte à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/flotte-bureau.png"
+  },
+  {
+   "id": "UI-RWD-passeport-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "passeport à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/passeport-bureau.png"
+  },
+  {
+   "id": "UI-RWD-pilotage-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "pilotage à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/pilotage-bureau.png"
+  },
+  {
+   "id": "UI-RWD-operations-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "operations à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/operations-bureau.png"
+  },
+  {
+   "id": "UI-RWD-formation-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "formation à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/formation-bureau.png"
+  },
+  {
+   "id": "UI-RWD-administration-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "administration à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/administration-bureau.png"
+  },
+  {
+   "id": "UI-CONSOLE",
+   "exigence": "Aucune erreur console",
+   "action": "Erreurs JavaScript et réponses HTTP en erreur sur toutes les pages",
+   "attendu": "0 inattendue",
+   "obtenu": "console=0 · réseau inattendu=0 · refus attendus=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  }
+ ],
+ "erreurs_console": [
+  {
+   "page": "/moto/index.html#/admin",
+   "message": "HTTP 400 POST /rest/v1/rpc/moto_remettre"
+  },
+  {
+   "page": "/moto/index.html#/admin",
+   "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  }
+ ]
+}
