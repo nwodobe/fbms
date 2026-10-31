@@ -22,4 +22,9 @@ for passe in 1 2; do   # passe 2 = idempotence : la migration 5 doit pouvoir êt
   appliquer 20261101090000_aflp_fleet_5_coordination_inspections
   echo "Passe $passe : migration 5 AFLP FLEET appliquée."
 done
+for passe in 1 2; do   # la migration 6 doit, elle aussi, pouvoir être rejouée
+  appliquer 20261102090000_aflp_fleet_6_maintenance_autorisations
+  echo "Passe $passe : migration 6 AFLP FLEET (maintenance, autorisations BM) appliquée."
+done
 python3 "$DIR/tests_serveur_moto.py" "$DB"
+[ -f "$DIR/tests_maintenance_6.py" ] && python3 "$DIR/tests_maintenance_6.py" "$DB"

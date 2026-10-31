@@ -162,6 +162,37 @@ def depot(user, moto, typ, cat, ref=None, exp=None, label=None, tid=None, expect
     return act(tid or f"DOC-{typ}", "Documents administratifs", user, label or f"Dépôt {typ}",
                "select public.moto_document_enregistrer(" + lit({k: v for k, v in p.items() if v is not None}) + ")", expect_ok, contains)
 
+# --- Migration 6 : circuit de dossier jusqu'à l'autorisation individuelle du BM ---------------
+GAR = {}
+def garage(user="abm"):
+    if "id" not in GAR:
+        r = act("GAR-00", "Garage enregistré (fiche fictive)", user, "Fiche garage fictive",
+                "select public.moto_garage_enregistrer(" + lit({"nom": "GARAGE FICTIF TEST", "localisation": "LOCALITE FICTIVE", "types_interventions": ["ENTRETIEN", "REPARATION"]}) + ")")
+        GAR["id"] = r["id"]
+    return GAR["id"]
+
+def piece(moto, cat):
+    path = f"finmaint/{moto}/{cat}/{uuid.uuid4()}.pdf"; put_object(path); return path
+
+def dossier_autorise(tid, moto, montant, type_m="REPARATION", op="REPARATION", incident=None, demandeur="abm", soumetteur="abm"):
+    """Besoin → devis → soumission → autorisation BM. Renvoie (dossier, autorisation)."""
+    p = {"moto_id": moto, "type_maintenance": type_m, "description": f"Dossier de test {tid} (fictif)"}
+    if incident: p["incident_id"] = incident
+    mt = act(f"{tid}-a", "Dossier : besoin identifié", demandeur, "Demande", "select public.moto_maintenance_demander(" + lit(p) + ")", True, "DEMANDEE")
+    act(f"{tid}-b", "Dossier : devis enregistré", soumetteur, "Devis fictif",
+        "select public.moto_maintenance_devis(" + lit({"maintenance_id": mt["id"], "garage_id": garage(), "devis_montant": montant, "devis_path": piece(moto, "devis"),
+              "travaux": [{"operation_code": op, "libelle": f"Opération {op} (fictif)"}], "justification": "Besoin constaté lors du test",
+              "consequence_report": "Risque d'aggravation"}) + ")", True, "DEVIS_RECU")
+    au = act(f"{tid}-c", "Dossier : soumission au BM", soumetteur, "Soumission",
+             "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mt["id"], "objet": "TRAVAUX", "montant_demande": montant,
+                   "perimetre": f"Travaux {op} selon devis fictif"}) + ")", True, "EN_ATTENTE")
+    act(f"{tid}-d", "Dossier : autorisation individuelle du BM", "bm", "Décision BM",
+        f"select public.moto_autorisation_decider('{au['id']}', 'AUTORISEE', {montant}, null)", True, "AUTORISEE")
+    return mt["id"], au["id"]
+
+def travaux_realises(mt):
+    return json.loads(q(f"select coalesce(json_agg(json_build_object('id', id, 'realise', true)), '[]') from public.moto_maintenance_travaux where maintenance_id='{mt}' and statut='PREVU'"))
+
 act("STO-01", "Stockage privé : dépôt hors périmètre refusé", "uh_sak", "Chef d'unité dépose dans le dossier d'une moto non affectée",
     f"insert into storage.objects (bucket_id, name) values ('moto-documents', '{M2}/justificatif/x.jpg')", False, "row-level security")
 act("STO-02", "Stockage privé : chemin non conforme refusé", "abm", "ABM dépose hors dossier moto",
@@ -429,19 +460,34 @@ inc = q(f"select id from public.moto_incidents where moto_id='{M1}' order by dec
 act("INC-03", "Chef d'unité ne pilote pas le circuit", "uh_sak", "UH avance l'incident", f"select public.moto_incident_avancer('{inc}', 'DIAGNOSTIC', 'tentative')", False, "rôle")
 act("INC-04", "Transition interdite", "zh", "Saut direct vers REMIS_EN_SERVICE", f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'saut interdit')", False, "Transition")
 act("INC-05", "Diagnostic", "zh", "ZH : diagnostic", f"select public.moto_incident_avancer('{inc}', 'DIAGNOSTIC', 'Plaquettes usées')")
-act("INC-06", "Autorisation de dépense : montant obligatoire", "zh", "Autorisation sans montant",
-    f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Remplacement plaquettes')", False, "Montant")
-act("INC-07", "ABM ne peut pas autoriser la dépense", "abm", "ABM autorise la dépense",
-    f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Remplacement plaquettes', 8000)", False, "réservée")
-act("INC-08", "Autorisation de dépense", "zh", "ZH autorise 8 000 (fictif)", f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Remplacement plaquettes', 8000)")
+act("INC-06", "M6 : l'étape « dépense autorisée » exige une autorisation BM existante", "zh", "ZH passe à AUTORISATION_DEPENSE sans dossier autorisé",
+    f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Remplacement plaquettes')", False, "Branch Manager")
+act("INC-07", "M6 : aucun montant saisi dans le circuit incident", "zh", "ZH tente d'autoriser 8 000 dans l'incident",
+    f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Remplacement plaquettes', 8000)", False, "Aucun montant")
+mt_inc, au_inc = dossier_autorise("INC-07x", M1, 8000, incident=inc)
+act("INC-08", "Étape « dépense autorisée » constatée après décision BM", "zh", "ZH constate l'autorisation BM", f"select public.moto_incident_avancer('{inc}', 'AUTORISATION_DEPENSE', 'Autorisation BM du dossier constatée')")
+act("INC-08b", "Engagement dans le plafond", "abm", "ABM programme 8 000",
+    "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt_inc, "montant_engage": 8000, "date_prevue": str(today)}) + ")", True, "PROGRAMMEE")
+act("INC-08c", "Début des travaux", "abm", "ABM démarre", f"select public.moto_maintenance_demarrer('{mt_inc}', null, current_date)", True, "EN_COURS")
 act("INC-09", "Réparation", "zh", "ZH : réparation", f"select public.moto_incident_avancer('{inc}', 'REPARATION', 'Garage fictif intervient')")
+act("INC-09b", "Travaux déclarés effectués", "abm", "ABM déclare les travaux",
+    "select public.moto_maintenance_terminer(" + lit({"maintenance_id": mt_inc, "compteur_km": 206, "date_realisation": str(today), "travaux": travaux_realises(mt_inc)}) + ")", True, "TERMINEE")
 act("INC-10", "Contrôle", "zh", "ZH : étape contrôle", f"select public.moto_incident_avancer('{inc}', 'CONTROLE', 'Contrôle à réaliser')")
 act("INC-11", "Remise en service exige un contrôle APTE", "zh", "Remise en service sans contrôle",
     f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'tentative sans controle')", False, "contrôle")
 act("INC-12", "Contrôle de remise en service", "zh", "ZH enregistre le contrôle APTE",
     "select public.moto_controle_remise_en_service(" + lit({"moto_id": M1, "items": items("REMISE_EN_SERVICE"), "intervenant_nom": "MECANICIEN FICTIF", "compteur_km": 206}) + ")", True, "APTE")
+act("INC-12b", "M6 : remise en service bloquée tant que les travaux ne sont pas contrôlés", "zh", "Remise en service, travaux non contrôlés",
+    f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'Freins conformes')", False, "travaux")
+act("INC-12c", "Contrôle technique des travaux par un tiers", "zh", "ZH contrôle les travaux", f"select public.moto_maintenance_controler('{mt_inc}', 'CONFORME', 'Freinage vérifié après remplacement')", True, "CONTROLEE")
 act("INC-13", "Remise en service", "zh", "ZH remet en service", f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'Freins conformes')")
-act("INC-14", "Clôture", "zh", "ZH clôt l'incident avec coût réel", f"select public.moto_incident_avancer('{inc}', 'CLOS', 'Incident clos', 8000)")
+act("INC-13b", "Immobilisation de maintenance levée par une personne indépendante", "bm", "BM lève l'immobilisation de maintenance",
+    f"select public.moto_lever_immobilisation((select id from public.moto_immobilisations where source_type='MAINTENANCE' and source_id='{mt_inc}' and fin is null), 'Travaux contrôlés et contrôle APTE')", True, "true")
+act("INC-14", "Clôture (sans montant : le coût est celui du dossier)", "zh", "ZH clôt l'incident", f"select public.moto_incident_avancer('{inc}', 'CLOS', 'Incident clos')")
+act("INC-14b", "Facture déposée", "abm", "ABM dépose la facture 8 000",
+    "select public.moto_facture_deposer(" + lit({"maintenance_id": mt_inc, "numero_facture": "F-TEST-INC-01", "date_facture": str(today), "montant": 8000, "document_path": piece(M1, "facture")}) + ")", True, "DEPOSEE")
+act("INC-14c", "Facture vérifiée par la Finance", "fin", "Finance vérifie",
+    f"select public.moto_facture_verifier((select id from public.moto_factures where numero_facture='F-TEST-INC-01'), 'VERIFIEE', null)", True, "VERIFIEE")
 check("INC-15", "Moto de nouveau APTE", "APTE", f"select statut_technique from public.moto_motos where id='{M1}'", "APTE")
 check("INC-16", "Historique complet du circuit", "SIGNALE,IMMOBILISEE,DIAGNOSTIC,AUTORISATION_DEPENSE,REPARATION,CONTROLE,REMIS_EN_SERVICE,CLOS",
       f"select string_agg(etape, ',' order by id) from public.moto_incident_etapes where incident_id='{inc}' and note not like 'Compteur%'",
@@ -457,33 +503,53 @@ act("INC-20", "Traçabilité : relevé km accepté pendant immobilisation", "uh_
 # ---------------------------------------------------------------------------
 # H. Maintenance, échéances, pneus
 # ---------------------------------------------------------------------------
-mt = act("MNT-01", "Demande d'entretien terrain", "uh_sak", "UH demande une vidange",
-         "select public.moto_maintenance_demander(" + lit({"moto_id": M1, "type_maintenance": "VIDANGE", "description": "Vidange à prévoir", "cout_estime": 5000, "client_op_id": str(uuid.uuid4())}) + ")", True, "DEMANDEE")
-act("MNT-02", "Autorisation par un tiers", "zh", "ZH autorise", f"select public.moto_maintenance_decider('{mt['id']}', 'AUTORISEE')", True, "AUTORISEE")
-act("MNT-03", "Démarrage : garage obligatoire", "zh", "Démarrage sans garage", f"select public.moto_maintenance_demarrer('{mt['id']}', '')", False, "Garage")
-act("MNT-04", "Démarrage → immobilisation", "zh", "ZH démarre au garage fictif", f"select public.moto_maintenance_demarrer('{mt['id']}', 'GARAGE FICTIF')")
+mt = act("MNT-01", "Demande d'entretien terrain ; champs de décision injectés ignorés", "uh_sak", "UH demande une vidange (statut AUTORISEE injecté)",
+         "select public.moto_maintenance_demander(" + lit({"moto_id": M1, "type_maintenance": "VIDANGE", "description": "Vidange à prévoir", "cout_estime": 5000,
+               "statut": "AUTORISEE", "montant_autorise": 5000, "client_op_id": str(uuid.uuid4())}) + ")", True, "DEMANDEE")
+act("MNT-02", "M6 : le Chef de zone ne décide plus une maintenance", "zh", "ZH autorise (ancienne fonction)", f"select public.moto_maintenance_decider('{mt['id']}', 'AUTORISEE')", False, "rôle")
+act("MNT-02b", "M6 : l'ABM ne décide pas une maintenance", "abm", "ABM autorise (ancienne fonction)", f"select public.moto_maintenance_decider('{mt['id']}', 'AUTORISEE')", False, "rôle")
+act("MNT-02c", "M6 : ancienne décision sans montant neutralisée, même pour le BM", "bm", "BM (ancienne fonction)", f"select public.moto_maintenance_decider('{mt['id']}', 'AUTORISEE')", False, "remplacée")
+act("MNT-02d", "Devis du garage", "abm", "ABM enregistre le devis 5 000",
+    "select public.moto_maintenance_devis(" + lit({"maintenance_id": mt["id"], "garage_id": garage(), "devis_montant": 5000, "devis_path": piece(M1, "devis"),
+          "travaux": [{"operation_code": "VIDANGE", "libelle": "Vidange huile moteur"}], "justification": "Échéance de vidange signalée"}) + ")", True, "DEVIS_RECU")
+au = act("MNT-02e", "Soumission au BM", "abm", "ABM soumet 5 000",
+         "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mt["id"], "objet": "TRAVAUX", "montant_demande": 5000, "perimetre": "Vidange selon devis",
+               "consequence_report": "Usure moteur"}) + ")", True, "EN_ATTENTE")
+act("MNT-02f", "Autorisation individuelle du BM", "bm", "BM autorise 5 000", f"select public.moto_autorisation_decider('{au['id']}', 'AUTORISEE', 5000, null)", True, "AUTORISEE")
+act("MNT-03", "Engagement au-delà du plafond refusé", "abm", "ABM engage 6 000",
+    "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt["id"], "montant_engage": 6000, "date_prevue": str(today)}) + ")", False, "plafond")
+act("MNT-03b", "Programmation dans le plafond", "abm", "ABM engage 5 000",
+    "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt["id"], "montant_engage": 5000, "date_prevue": str(today)}) + ")", True, "PROGRAMMEE")
+act("MNT-04", "Démarrage → immobilisation", "abm", "ABM démarre au garage fictif", f"select public.moto_maintenance_demarrer('{mt['id']}', 'GARAGE FICTIF')")
 check("MNT-05", "Statut EN_REPARATION", "EN_REPARATION", f"select statut_technique from public.moto_motos where id='{M1}'", "EN_REPARATION")
-act("MNT-06", "Clôture payante sans facture refusée", "zh", "Fin sans facture",
-    "select public.moto_maintenance_terminer(" + lit({"maintenance_id": mt["id"], "cout_reel": 5000, "remettre_en_service": True, "compteur_km": 208}) + ")", False, "Facture")
-fac = depot("zh", M1, "FACTURE", "maintenance", tid="MNT-07", label="ZH dépose la facture")
-act("MNT-08", "Clôture avec facture", "zh", "Fin avec facture",
-    "select public.moto_maintenance_terminer(" + lit({"maintenance_id": mt["id"], "cout_reel": 5000, "facture_document_id": fac["id"], "remettre_en_service": True, "compteur_km": 208}) + ")", True, "TERMINEE")
+act("MNT-06", "M6 : pas de remise en circulation par case cochée", "abm", "Fin avec remettre_en_service=true",
+    "select public.moto_maintenance_terminer(" + lit({"maintenance_id": mt["id"], "remettre_en_service": True, "compteur_km": 208, "date_realisation": str(today), "travaux": travaux_realises(mt["id"])}) + ")", False, "distincte")
+act("MNT-07", "Facture déposée (pièce financière privée)", "abm", "ABM dépose la facture",
+    "select public.moto_facture_deposer(" + lit({"maintenance_id": mt["id"], "numero_facture": "F-TEST-MNT-01", "date_facture": str(today), "montant": 5000, "document_path": piece(M1, "facture")}) + ")", True, "DEPOSEE")
+act("MNT-08", "Travaux déclarés effectués", "abm", "Fin des travaux",
+    "select public.moto_maintenance_terminer(" + lit({"maintenance_id": mt["id"], "compteur_km": 208, "date_realisation": str(today), "travaux": travaux_realises(mt["id"])}) + ")", True, "TERMINEE")
 check("MNT-09", "Immobilisation accident toujours ouverte", "IMMOBILISEE", f"select statut_technique from public.moto_motos where id='{M1}'", "IMMOBILISEE")
-act("MNT-10", "Aucune périodicité constructeur inventée", "bm", "Règle déclarée constructeur sans référence",
-    "select public.moto_regle_maintenance_definir(" + lit({"code": "VIDANGE", "intervalle_km": 1000, "source": "CONSTRUCTEUR_VERIFIE", "actif": True, "motif": "test refus"}) + ")", False, "check")
-act("MNT-11", "Règle paramétrée ANAGROCI", "bm", "BM paramètre vidange 1 000 km (paramètre de test)",
-    "select public.moto_regle_maintenance_definir(" + lit({"code": "VIDANGE", "intervalle_km": 1000, "source": "PARAMETRE_ANAGROCI", "actif": True, "motif": "Paramètre de test local"}) + ")")
-check("MNT-12", "Échéance calculée", "A_JOUR, prochaine à 1208 km", f"select statut||','||prochaine_km from public.moto_v_echeances where moto_id='{M1}' and regle='VIDANGE'", "A_JOUR,1208.0")
-check("MNT-13", "Règles inactives par défaut", "2 règles inactives sans intervalle", "select count(*) from public.moto_regles_maintenance where not actif and intervalle_km is null", "2")
+act("MNT-10", "M6 : ancien paramétrage global neutralisé", "bm", "BM paramètre une règle globale",
+    "select public.moto_regle_maintenance_definir(" + lit({"code": "VIDANGE", "intervalle_km": 1000, "source": "PARAMETRE_ANAGROCI", "actif": True, "motif": "Paramètre de test local"}) + ")", False, "remplacé")
+check("MNT-11", "Valeurs du mandat : 3 brouillons « hypothèse », aucun approuvé", "3/0",
+      "select count(*) filter (where statut='BROUILLON' and nature_source='HYPOTHESE')||'/'||count(*) filter (where statut='APPROUVEE') from public.moto_regles_versions", "3/0")
+check("MNT-12", "Moto sans modèle technique : diagnostic initial à établir", "DIAGNOSTIC_INITIAL_REQUIS",
+      f"select statut from public.moto_v_echeances where moto_id='{M1}' and regle='VIDANGE'", "DIAGNOSTIC_INITIAL_REQUIS")
+check("MNT-13", "Anciennes règles globales inactives", "3", "select count(*) from public.moto_regles_maintenance where not actif", "3")
+act("MNT-14", "Contrôle des travaux par un tiers", "zh", "ZH contrôle la vidange", f"select public.moto_maintenance_controler('{mt['id']}', 'CONFORME', 'Niveau et étanchéité vérifiés')", True, "CONTROLEE")
+act("MNT-15", "Facture vérifiée par la Finance", "fin", "Finance vérifie", f"select public.moto_facture_verifier((select id from public.moto_factures where numero_facture='F-TEST-MNT-01'), 'VERIFIEE', null)", True, "VERIFIEE")
 
+act("PNE-00", "M6 : achat de pneu payant sans autorisation BM refusé", "abm", "Pneu à 12 000 sans autorisation",
+    "select public.moto_pneu_creer(" + lit({"code": "PN-TEST-00", "marque": "MARQUE FICTIVE", "dimensions": "2.75-18", "cout_achat": 12000}) + ")", False, "Branch Manager")
+mt_pn, au_pn = dossier_autorise("PNE-00x", M1, 13000, type_m="PNEUMATIQUE", op="PNEUMATIQUE")
 pn = act("PNE-01", "Pneu : identité propre", "abm", "Entrée en stock d'un pneu fictif",
-         "select public.moto_pneu_creer(" + lit({"code": "PN-TEST-01", "marque": "MARQUE FICTIVE", "dimensions": "2.75-18", "cout_achat": 12000}) + ")")
+         "select public.moto_pneu_creer(" + lit({"code": "PN-TEST-01", "marque": "MARQUE FICTIVE", "dimensions": "2.75-18", "cout_achat": 12000, "autorisation_id": au_pn}) + ")")
 pose = act("PNE-02", "Montage", "abm", "Montage arrière à 208 km", "select public.moto_pneu_poser(" + lit({"pneu_id": pn["id"], "moto_id": M1, "position": "ARRIERE", "pose_km": 208}) + ")")
 pn2 = act("PNE-03a", "Pneu : identité propre", "abm", "Entrée en stock d'un second pneu fictif",
           "select public.moto_pneu_creer(" + lit({"code": "PN-TEST-02", "marque": "MARQUE FICTIVE", "dimensions": "2.75-18"}) + ")")
 act("PNE-03", "Un pneu par position", "abm", "Second pneu à la même position",
     "select public.moto_pneu_poser(" + lit({"pneu_id": pn2["id"], "moto_id": M1, "position": "ARRIERE", "pose_km": 208}) + ")", False, "déjà monté")
-act("PNE-04", "Réparation tracée", "zh", "Réparation crevaison", "select public.moto_pneu_reparation(" + lit({"pneu_id": pn["id"], "moto_id": M1, "cout": 1000, "description": "Crevaison"}) + ")")
+act("PNE-04", "Réparation tracée", "zh", "Réparation crevaison", "select public.moto_pneu_reparation(" + lit({"pneu_id": pn["id"], "moto_id": M1, "cout": 1000, "description": "Crevaison", "autorisation_id": au_pn}) + ")")
 act("PNE-05", "Dépose et réforme", "abm", "Dépose à 708 km, réforme",
     "select public.moto_pneu_deposer(" + lit({"pose_id": pose["id"], "depose_km": 708, "motif_depose": "Usure fictive", "destination": "REFORME"}) + ")", True, "500")
 check("PNE-06", "Coût par km sur données réelles", "(12000+1000)/500 = 26.00 FCFA/km", "select fcfa_km_vie_complete from public.moto_v_pneus where code='PN-TEST-01'", "26.00")
@@ -493,8 +559,8 @@ check("PNE-06", "Coût par km sur données réelles", "(12000+1000)/500 = 26.00 
 # ---------------------------------------------------------------------------
 check("KPI-01", "Disponibilité : dénominateur présent", "taux calculé (non NULL)", f"select (taux_disponibilite_pct is not null)::text from public.moto_v_disponibilite where moto_id='{M1}'", "true")
 check("KPI-02", "Disponibilité : moto non en service → absente (Non disponible)", "0", f"select count(*) from public.moto_v_disponibilite where moto_id='{M3}'", "0")
-check("KPI-03", "Coût/km : dotations et remboursements exclus", "carburant vérifié 7650 + maintenance 5000 + pneus 13000 + incident 8000",
-      f"select cout_carburant_verifie||'+'||cout_maintenance||'+'||cout_pneus||'+'||cout_incidents from public.moto_v_cout_km where moto_id='{M1}'", "7650+5000+13000+8000")
+check("KPI-03", "M6 : coût = factures vérifiées (5 000 + 8 000) ; pneus autorisés non facturés et incident non recomptés", "7650+13000+0+0",
+      f"select cout_carburant_verifie||'+'||cout_maintenance||'+'||cout_pneus||'+'||cout_incidents from public.moto_v_cout_km where moto_id='{M1}'", "7650+13000+0+0")
 act("FOR-01", "Formation : résultat", "uh_sak", "UH réussit un quiz 4/5",
     "select public.moto_formation_enregistrer(" + lit({"module_code": "CONTROLE_SECURITE", "score": 4, "total": 5, "client_op_id": str(uuid.uuid4())}) + ")", True, "true")
 act("FOR-02", "Formation : score invalide", "uh_sak", "Score 6/5", "select public.moto_formation_enregistrer(" + lit({"module_code": "X", "score": 6, "total": 5}) + ")", False, "invalide")
@@ -647,7 +713,12 @@ a7 = q(f"select id from public.moto_actions_correctives where moto_id='{M7}' and
 act("FL-20d", "Planification de l'action", "lc", "Coordinateur planifie (garage, devis, date cible)",
     "select public.moto_action_planifier(" + lit({"action_id": a7, "action_prevue": "Remplacement plaquettes avant", "prestataire": "GARAGE FICTIF",
       "devis_montant": 9000, "date_cible": str(today + datetime.timedelta(days=3))}) + ")", True, "PLANIFIEE")
-act("FL-20e", "Réalisation : justificatif exigé si dépense", "lc", "Réalisation payante sans facture",
+act("FL-20e", "M6 : coût d'action sans dossier autorisé par le BM refusé", "lc", "Réalisation payante hors dossier",
+    "select public.moto_action_realiser(" + lit({"action_id": a7, "realise_at": str(today), "cout_reel": 9000}) + ")", False, "Branch Manager")
+mt7, au7 = dossier_autorise("FL-20x", M7, 9000, soumetteur="lc", demandeur="lc")
+run_as("lc", "select public.moto_action_planifier(" + lit({"action_id": a7, "action_prevue": "Remplacement plaquettes avant", "prestataire": "GARAGE FICTIF",
+      "devis_montant": 9000, "maintenance_id": mt7, "date_cible": str(today + datetime.timedelta(days=3))}) + ")")
+act("FL-20e2", "Réalisation : justificatif exigé si dépense", "lc", "Réalisation payante sans facture",
     "select public.moto_action_realiser(" + lit({"action_id": a7, "realise_at": str(today), "cout_reel": 9000}) + ")", False, "justificatif")
 fac = f"{M7}/maintenance/{uuid.uuid4()}.pdf"; put_object(fac)
 act("FL-20f", "Réalisation avec facture", "lc", "Réalisation avec facture fictive",
@@ -767,7 +838,7 @@ check("FL-23", "L/100 km non calculé sans pleins complets", "null", f"select co
 act("FL-24a", "Pneu : marquage DOT invalide refusé", "lc", "Date de fabrication « 26 »",
     "select public.moto_pneu_creer(" + lit({"code": "PN-FL-X", "marque": "TEST", "dimensions": "2.75-18", "date_fabrication": "26"}) + ")", False, "DOT")
 r = act("FL-24b", "Pneu : identité complète", "lc", "Coordinateur entre un pneu",
-        "select public.moto_pneu_creer(" + lit({"code": "PN-FL-01", "marque": "TEST", "modele": "FICTIF", "dimensions": "2.75-18", "numero_serie": "SER-FICTIF-1", "date_fabrication": "2526", "cout_achat": 15000}) + ")")
+        "select public.moto_pneu_creer(" + lit({"code": "PN-FL-01", "marque": "TEST", "modele": "FICTIF", "dimensions": "2.75-18", "numero_serie": "SER-FICTIF-1", "date_fabrication": "2526"}) + ")")
 pn = r["id"]
 r = act("FL-24c", "Pneu : pose", "lc", "Pose arrière sur M5 à 20 km", "select public.moto_pneu_poser(" + lit({"moto_id": M5, "pneu_id": pn, "position": "ARRIERE", "pose_km": 20}) + ")")
 act("FL-24d", "Pneu : dépose et réforme", "lc", "Dépose à 520 km", "select public.moto_pneu_deposer(" + lit({"pose_id": r["id"], "depose_km": 520, "motif_depose": "Usure (fictif)", "destination": "REFORME"}) + ")")
