@@ -412,6 +412,50 @@ await connecter(COMPTES.chef);
 }
 
 /* =========================================================================
+   7 bis. Privilèges de la VUE — le trou que ce banc n'avait pas vu
+   -------------------------------------------------------------------------
+   `alter default privileges … grant all on tables to anon` s'applique AUSSI
+   aux vues. La première version de la migration révoquait les droits sur les
+   six tables et oubliait `aflp_ia_metriques`, qui naissait donc avec DELETE,
+   INSERT, TRUNCATE, UPDATE et SELECT pour `anon`.
+
+   Ce banc ne l'avait pas vu parce qu'il ne regardait que les tables. Le défaut
+   a été trouvé sur la base RÉELLE, par le script de contrôle livré, après une
+   première application. Ce contrôle-ci existe pour que cela ne se reproduise
+   pas — et il est écrit ici, pas seulement dans le script SQL, parce que c'est
+   ce banc qui tourne avant la fusion.
+   ===================================================================== */
+await proprietaire();
+{
+  const r = await db.query(
+    `select privilege_type from information_schema.role_table_grants
+     where table_schema='public' and table_name='aflp_ia_metriques' and grantee='anon'`);
+  if (r.rows.length === 0) ok('la vue de métriques n\'accorde aucun droit à anon');
+  else ko('la vue de métriques n\'accorde aucun droit à anon',
+    r.rows.map((x) => x.privilege_type).join(', '));
+}
+{
+  const r = await db.query(
+    `select privilege_type from information_schema.role_table_grants
+     where table_schema='public' and table_name='aflp_ia_metriques'
+       and grantee='authenticated' and privilege_type <> 'SELECT'`);
+  if (r.rows.length === 0) ok('la vue de métriques est en lecture seule pour authenticated');
+  else ko('la vue de métriques est en lecture seule pour authenticated',
+    r.rows.map((x) => x.privilege_type).join(', '));
+}
+{
+  /* Un `search_path` modifiable est détournable par un schéma temporaire. Les
+     advisors Supabase le signalent sur toute fonction, définisseur ou non. */
+  const r = await db.query(
+    `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where ((n.nspname='public' and p.proname like 'aflp_ia_%')
+            or (n.nspname='aflp_ia_interne' and p.proname='auditer'))
+       and (p.proconfig is null or not (p.proconfig::text like '%search_path%'))`);
+  if (r.rows.length === 0) ok('les cinq fonctions ont un search_path figé');
+  else ko('les cinq fonctions ont un search_path figé', r.rows.map((x) => x.proname).join(', '));
+}
+
+/* =========================================================================
    8. Contrôles du script de vérification livré
    ===================================================================== */
 await proprietaire();
