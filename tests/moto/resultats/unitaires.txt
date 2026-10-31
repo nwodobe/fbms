@@ -1,0 +1,10 @@
+ok 1 - Classes métier : correspondance stricte avec private.moto_classe()
+ok 2 - Plein à plein : plein initial exclu, plein final inclus (3,50 L/100 km)
+ok 3 - Plein à plein : justificatif rejeté exclu, seuils provisoires, données insuffisantes
+ok 4 - Rapprochement : remis ≠ reçu ≠ justifié, échec exclu, pas de double comptage
+ok 5 - Disponibilité technique : jours prévus (lundi-samedi) et immobilisations
+ok 6 - Coût direct au km : dénominateur nul → non disponible
+ok 7 - Sécurité : anomalie critique et immobilisation locale sans réseau
+ok 8 - Validations de saisie terrain
+ok 9 - File hors connexion : SYNCHRONISE seulement sur réponse serveur, reprises limitées
+ok 10 - Limites d'observation : quatre motos ne font pas une statistique
