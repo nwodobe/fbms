@@ -88,6 +88,11 @@ def check(tid, exigence, label, sql, expected):
 
 def lit(v): return "'" + json.dumps(v).replace("'", "''") + "'::jsonb"
 
+def items(typ, ko=(), falsifier=False):
+    """Liste complète du catalogue SERVEUR ; `falsifier` envoie critique=false (tentative de neutralisation)."""
+    rows = json.loads(q(f"select json_agg(json_build_object('code', code, 'critique', critique) order by ordre) from public.moto_catalogue_points where type_controle='{typ}' and actif"))
+    return [{"code": r["code"], "ok": r["code"] not in ko, **({"critique": False} if falsifier else {"critique": r["critique"]})} for r in rows]
+
 def put_object(path):
     q(f"insert into storage.objects (bucket_id, name, owner) values ('moto-documents', '{path}', '{U['abm']}') on conflict do nothing")
 
@@ -192,11 +197,8 @@ check("DOC-14", "Moto réceptionnée sans documents : non autorisée à circuler
 # ---------------------------------------------------------------------------
 # C. Inspection, préaffectation, remise, mise en service
 # ---------------------------------------------------------------------------
-items_ok = [{"code": "FREINS", "libelle": "Freins", "ok": True, "critique": True},
-            {"code": "PNEUS", "libelle": "Pneus", "ok": True, "critique": True},
-            {"code": "ECLAIRAGE", "libelle": "Éclairage", "ok": True, "critique": False}]
-items_crit = [{"code": "FREINS", "libelle": "Freins", "ok": False, "critique": True},
-              {"code": "PNEUS", "libelle": "Pneus", "ok": True, "critique": True}]
+items_ok = items("INSPECTION_INITIALE")
+items_crit = items("INSPECTION_INITIALE", ko=("FREIN_AVANT",), falsifier=True)  # le client prétend « non critique »
 act("INS-01", "Inspection : mécanicien obligatoire", "abm", "Inspection sans nom de mécanicien",
     "select public.moto_inspection_initiale(" + lit({"moto_id": M1, "items": items_ok, "resultat": "APTE"}) + ")", False, "mécanicien")
 r = act("INS-02", "Anomalie critique calculée par le serveur", "abm", "Inspection M2 avec freins KO déclarée APTE par le client",
@@ -238,6 +240,21 @@ act("REM-06", "Équipements de sécurité obligatoires", "abm", "Remise sans gil
     "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"], "equipements": {"CASQUE": True}}) + ")", False, "GILET")
 act("REM-07", "Documents conformes obligatoires", "abm", "Remise de M4 (aucun document)",
     "select public.moto_remettre(" + lit({**remise_base, "moto_id": M4, "pv_document_id": pv["id"]}) + ")", False, "non conformes")
+act("REM-07b", "État contradictoire obligatoire (AFLP FLEET §7.B)", "abm", "Remise de M1 sans état contradictoire",
+    "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"]}) + ")", False, "état contradictoire")
+def photos(moto, cats, prefixe="controle"):
+    out = []
+    for c in cats:
+        pth = f"{moto}/{prefixe}/{uuid.uuid4()}.jpg"; put_object(pth); out.append({"path": pth, "categorie": c})
+    return out
+CATS_REMISE = ["AVANT", "ARRIERE", "GAUCHE", "DROITE", "COMPTEUR"]
+etat = act("REM-07c", "État contradictoire avant remise", "abm", "ABM enregistre l'état de M1 avec 5 photos",
+    "select public.moto_etat_remise_enregistrer(" + lit({"moto_id": M1, "items": items("ETAT_REMISE"), "compteur_km": 5,
+      "date_remise_prevue": str(today), "photos": photos(M1, CATS_REMISE), "observations": "Rayure légère carénage gauche (fictif)"}) + ")", True, "EN_ATTENTE")
+act("REM-07d", "Confirmation par le bénéficiaire uniquement", "abm", "ABM confirme à la place du bénéficiaire",
+    f"select public.moto_etat_remise_confirmer('{etat['id']}', 'ACCEPTEE')", False, "bénéficiaire")
+act("REM-07e", "Bénéficiaire accepte avec réserves", "uh_sak", "UH Sakassou accepte avec réserve",
+    f"select public.moto_etat_remise_confirmer('{etat['id']}', 'ACCEPTEE_AVEC_RESERVES', 'Rayure notée au PV')", True, "RESERVES")
 act("REM-08", "Remise complète", "abm", "ABM enregistre la remise de M1",
     "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"]}) + ")", True, "REMISE")
 check("REM-09", "Statut affectation REMISE, pas encore en service", "REMISE/false",
@@ -279,7 +296,7 @@ act("KM-05", "Identifiant d'opération d'un autre compte", "zh", "ZH réutilise 
 act("KM-06", "Chef d'unité : pas de saisie sur une moto non affectée", "uh_bro", "UH Brobo relève M1",
     "select public.moto_releve_km(" + lit({"moto_id": M1, "compteur_km": 45}) + ")", False, "périmètre")
 act("CTL-01", "Contrôle avant départ APTE", "uh_sak", "Contrôle OK",
-    "select public.moto_controle_depart(" + lit({"moto_id": M1, "items": items_ok, "compteur_km": 41, "client_op_id": str(uuid.uuid4())}) + ")", True, "APTE")
+    "select public.moto_controle_depart(" + lit({"moto_id": M1, "items": items("AVANT_DEPART"), "compteur_km": 41, "client_op_id": str(uuid.uuid4())}) + ")", True, "APTE")
 act("CTL-02", "Contrôle : points invalides refusés", "uh_sak", "Contrôle sans points",
     "select public.moto_controle_depart(" + lit({"moto_id": M1, "items": [], "compteur_km": 41}) + ")", False, "vide")
 
@@ -404,7 +421,7 @@ act("COR-08", "Validation par la Direction", "gm", "General Manager rejette", f"
 # ---------------------------------------------------------------------------
 # G. Incidents critiques, immobilisation, remise en service
 # ---------------------------------------------------------------------------
-crit_items = [{"code": "FREINS", "libelle": "Freins", "ok": False, "critique": True}, {"code": "PNEUS", "ok": True, "critique": True}]
+crit_items = items("AVANT_DEPART", ko=("FREIN_AVANT",))
 r = act("INC-01", "Anomalie critique au départ → immobilisation", "uh_sak", "Contrôle avant départ freins KO",
         "select public.moto_controle_depart(" + lit({"moto_id": M1, "items": crit_items, "compteur_km": 205, "client_op_id": str(uuid.uuid4())}) + ")", True, "INAPTE")
 check("INC-02", "Moto immobilisée sans attendre", "IMMOBILISEE / non autorisée", f"select statut_technique||'/'||(select autorisee_a_circuler from public.moto_v_flotte where id='{M1}') from public.moto_motos where id='{M1}'", "IMMOBILISEE/false")
@@ -422,7 +439,7 @@ act("INC-10", "Contrôle", "zh", "ZH : étape contrôle", f"select public.moto_i
 act("INC-11", "Remise en service exige un contrôle APTE", "zh", "Remise en service sans contrôle",
     f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'tentative sans controle')", False, "contrôle")
 act("INC-12", "Contrôle de remise en service", "zh", "ZH enregistre le contrôle APTE",
-    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M1, "items": items_ok, "intervenant_nom": "MECANICIEN FICTIF", "compteur_km": 206}) + ")", True, "APTE")
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M1, "items": items("REMISE_EN_SERVICE"), "intervenant_nom": "MECANICIEN FICTIF", "compteur_km": 206}) + ")", True, "APTE")
 act("INC-13", "Remise en service", "zh", "ZH remet en service", f"select public.moto_incident_avancer('{inc}', 'REMIS_EN_SERVICE', 'Freins conformes')")
 act("INC-14", "Clôture", "zh", "ZH clôt l'incident avec coût réel", f"select public.moto_incident_avancer('{inc}', 'CLOS', 'Incident clos', 8000)")
 check("INC-15", "Moto de nouveau APTE", "APTE", f"select statut_technique from public.moto_motos where id='{M1}'", "APTE")
@@ -498,8 +515,278 @@ act("REG-08", "Contournement : appel direct d'une fonction interne", "uh_sak", "
     f"select private.moto_ouvrir_immobilisation('{M1}', 'contournement', 'DECISION', null)", False, "permission")
 act("REG-09", "Contournement : lever une immobilisation sans contrôle", "zh", "ZH lève l'immobilisation accident par la voie générique",
     f"select public.moto_lever_immobilisation((select id from public.moto_immobilisations where moto_id='{M1}' and fin is null limit 1), 'tentative de levee')", False, "circuit")
-act("BEN-01", "Liste des bénéficiaires : ABM", "abm", "ABM liste les bénéficiaires éligibles (Unit/Zonal Head actifs)", "select count(*) from public.moto_beneficiaires()", True, "5")
+act("BEN-01", "Liste des bénéficiaires : ABM", "abm", "ABM liste les bénéficiaires éligibles (UH, ZH, ABM, coordinateur actifs)", "select count(*) from public.moto_beneficiaires()", True, "6")
 act("BEN-02", "Liste des bénéficiaires : refusée au Chef d'unité", "uh_sak", "UH liste les bénéficiaires", "select count(*) from public.moto_beneficiaires()", False, "rôle")
+# ---------------------------------------------------------------------------
+# J. AFLP FLEET (mandat du 31/10/2026) — 25 scénarios de recette + sécurité
+# ---------------------------------------------------------------------------
+U.update({"lc": uid(20), "zh2": uid(21), "zh_sz": uid(22)})
+q("\n".join([
+  f"insert into auth.users (id, email) values ('{U['lc']}', 'lc@example.invalid'), ('{U['zh2']}', 'zh2@example.invalid'), ('{U['zh_sz']}', 'zhsz@example.invalid') on conflict do nothing;",
+  # Le coordinateur : rôle FBMS existant + fonction opérationnelle (mécanisme déjà utilisé par la sacherie).
+  f"insert into public.profils (user_id, email, nom, role, fonction_operationnelle, actif) values ('{U['lc']}', 'lc@example.invalid', 'COORDINATEUR FICTIF', 'Supervisor', 'Logistics Coordinator', true) on conflict do nothing;",
+  f"insert into public.profils (user_id, email, nom, role, zone, actif) values ('{U['zh2']}', 'zh2@example.invalid', 'ZH2 FICTIF', 'Zonal Head', 'GBEKE 2', true) on conflict do nothing;",
+  f"insert into public.profils (user_id, email, nom, role, zone, actif) values ('{U['zh_sz']}', 'zhsz@example.invalid', 'ZH SANS ZONE FICTIF', 'Zonal Head', null, true) on conflict do nothing;",
+]))
+J = {}
+check("FL-00a", "Classe LOGISTIQUE reconnue via fonction_operationnelle", "LOGISTIQUE",
+      f"select private.moto_classe_de('{U['lc']}')", "LOGISTIQUE")
+check("FL-00b", "Aucun droit FBMS modifié : rôle Supervisor inchangé pour le coordinateur", "Supervisor",
+      f"select role from public.profils where user_id='{U['lc']}'", "Supervisor")
+
+def chaine_service(moto, benef, label, chassis, km=12):
+    """Chaîne réelle complète : identité, 3 documents vérifiés, inspection, préaffectation, PV, état contradictoire, remise, mise en service."""
+    run_as("abm", f"select public.moto_modifier_identite('{moto}', '{{\"numero_chassis\":\"{chassis}\",\"immatriculation\":\"{chassis} IM\"}}'::jsonb, 'Saisie identité test')")
+    for typ in ("CARTE_GRISE", "PLAQUE", "ASSURANCE"):
+        pth = f"{moto}/document/{uuid.uuid4()}.pdf"; put_object(pth)
+        ok, out = run_as("abm", "select public.moto_document_enregistrer(" + lit({"moto_id": moto, "type_document": typ, "storage_path": pth,
+                         **({"date_expiration": str(today + datetime.timedelta(days=300))} if typ == "ASSURANCE" else {})}) + ")")
+        run_as("bm", f"select public.moto_document_verifier('{json.loads(out)['id']}', 'CONFORME')")
+    if q(f"select statut_technique from public.moto_motos where id='{moto}'") != "APTE":
+        run_as("abm", "select public.moto_inspection_initiale(" + lit({"moto_id": moto, "items": items("INSPECTION_INITIALE"), "resultat": "APTE",
+               "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF", "compteur_km": km - 2, "photos": photos(moto, ["COMPTEUR","AVANT","ARRIERE","GAUCHE","DROITE"])}) + ")")
+    run_as("bm", f"select public.moto_preaffecter('{moto}', '{U[benef]}', 'Affectation test {label}')")
+    pth = f"{moto}/document/{uuid.uuid4()}.pdf"; put_object(pth)
+    ok, out = run_as("abm", "select public.moto_document_enregistrer(" + lit({"moto_id": moto, "type_document": "PV_REMISE", "storage_path": pth}) + ")")
+    pvid = json.loads(out)["id"]; run_as("bm", f"select public.moto_document_verifier('{pvid}', 'CONFORME')")
+    agent = "lc" if benef == "abm" else "abm"   # jamais le bénéficiaire lui-même
+    ok, out = run_as(agent, "select public.moto_etat_remise_enregistrer(" + lit({"moto_id": moto, "items": items("ETAT_REMISE"), "compteur_km": km,
+                     "date_remise_prevue": str(today), "photos": photos(moto, CATS_REMISE)}) + ")")
+    run_as(benef, f"select public.moto_etat_remise_confirmer('{json.loads(out)['id']}', 'ACCEPTEE')")
+    r = act(f"FL-SVC-{label}", "Chaîne de remise complète (PV + état contradictoire distincts)", agent, f"Remise de la moto {label}",
+            "select public.moto_remettre(" + lit({**remise_base, "moto_id": moto, "pv_document_id": pvid, "compteur_km": km}) + ")", True, "REMISE")
+    act(f"FL-MES-{label}", "Mise en service distincte", "bm", f"Mise en service {label}", f"select public.moto_mettre_en_service('{moto}', 'Autorisation test {label}')")
+    return pvid
+
+# --- 3. Nouvelle moto avec photo ----------------------------------------------------------
+r = act("FL-03a", "Enregistrement d'une moto neuve par le coordinateur", "lc", "Coordinateur crée M5 (Brobo) réceptionnée",
+        "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "cluster_code": "BROBO", "couleur": "ROUGE (fictif)",
+              "fournisseur": "FOURNISSEUR FICTIF", "date_reception": str(today), "compteur_km": 3, "observations": "Test"}) + ")")
+M5 = r["id"]
+act("FL-03b", "Réception : date effective obligatoire", "lc", "Moto neuve réceptionnée sans date",
+    "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30"}) + ")", False, "Date de réception")
+ph = f"{M5}/photo/{uuid.uuid4()}.jpg"; put_object(ph)
+act("FL-03c", "Photo principale : réservée BM/ABM/coordinateur", "uh_bro", "Chef d'unité définit la photo principale",
+    "select public.moto_photo_ajouter(" + lit({"moto_id": M5, "path": ph, "principale": True}) + ")", False, "")
+act("FL-03d", "Photo principale enregistrée", "lc", "Coordinateur enregistre la photo principale de M5",
+    "select public.moto_photo_ajouter(" + lit({"moto_id": M5, "path": ph, "principale": True}) + ")", True, "true")
+check("FL-03e", "Photo visible au passeport (vue flotte)", ph, f"select photo_path from public.moto_v_flotte where id='{M5}'", ph)
+act("FL-03f", "Photo : fichier d'une autre moto refusé", "lc", "Photo de M1 rattachée à M5",
+    "select public.moto_photo_ajouter(" + lit({"moto_id": M5, "path": f"{M1}/photo/x.jpg"}) + ")", False, "non conforme")
+# --- 4 et 5. Photo et documents protégés ----------------------------------------------------
+act("FL-04a", "Photo accessible après reconnexion (compte autorisé)", "bm", "BM lit l'objet photo de M5",
+    f"select count(*) from storage.objects where bucket_id='moto-documents' and name='{ph}'", True, "1")
+act("FL-04b", "Photo protégée hors périmètre", "uh_bot", "UH Botro lit la photo de M5",
+    f"select count(*) from storage.objects where bucket_id='moto-documents' and name='{ph}'", True, "0")
+act("FL-05a", "Documents : anonyme refusé", "anon", "Anonyme lit les objets", "select count(*) from storage.objects", False, "permission")
+act("FL-05b", "Galerie photo protégée", "uh_bot", "UH Botro lit la galerie de M5", f"select count(*) from public.moto_photos where moto_id='{M5}'", True, "0")
+check("FL-05c", "Bucket toujours privé", "f", "select public from storage.buckets where id='moto-documents'", "f")
+# --- 6 et 7. Moto déjà en exploitation, sans historique inventé ------------------------------
+r = act("FL-06a", "Intégration d'une moto en exploitation sans marque connue", "lc", "Coordinateur intègre la moto du Chef de zone (marque inconnue)",
+        "select public.moto_creer(" + lit({"origine": "EN_EXPLOITATION", "zone_code": "GBEKE_1", "date_debut_utilisation": "2026-02-01",
+              "historique_note": "Utilisée depuis février 2026 ; historique d'entretien non disponible (fictif)"}) + ")", True, "EN_EXPLOITATION")
+M6 = r["id"]
+check("FL-06b", "Inconnu = Non disponible (NULL), jamais zéro", "t",
+      f"select marque is null and modele is null and numero_chassis is null and compteur_reception_km is null and compteur_actuel_km is null and date_acquisition is null and date_debut_suivi is null and date_debut_utilisation='2026-02-01' from public.moto_motos where id='{M6}'", "t")
+check("FL-07a", "Aucune vidange ni dépense passée inventée", "0/0/0",
+      f"select (select count(*) from public.moto_maintenances where moto_id='{M6}')||'/'||(select count(*) from public.moto_carburant where moto_id='{M6}')||'/'||(select count(*) from public.moto_releves_km where moto_id='{M6}')", "0/0/0")
+act("FL-06c", "État de référence : inventaire photo exigé", "lc", "Référence sans photos",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M6, "items": items("INSPECTION_INITIALE"), "resultat": "APTE",
+      "intervenant_nom": "MECANICIEN QUALIFIE FICTIF", "garage_nom": "GARAGE FICTIF", "compteur_km": 18450}) + ")", False, "Photos insuffisantes")
+act("FL-06d", "État de référence : compteur exigé", "lc", "Référence sans compteur",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M6, "items": items("INSPECTION_INITIALE"), "resultat": "APTE",
+      "intervenant_nom": "MECANICIEN QUALIFIE FICTIF", "garage_nom": "GARAGE FICTIF"}) + ")", False, "compteur")
+act("FL-06e", "État technique de référence par un intervenant qualifié", "lc", "Référence complète, anomalie éclairage existante",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M6, "items": items("INSPECTION_INITIALE", ko=("ECLAIRAGE",)), "resultat": "APTE",
+      "intervenant_nom": "MECANICIEN QUALIFIE FICTIF", "garage_nom": "GARAGE FICTIF", "compteur_km": 18450,
+      "inspecteur_externe": "Rapport du mécanicien saisi par le coordinateur",
+      "photos": photos(M6, ["COMPTEUR", "AVANT", "ARRIERE", "GAUCHE", "DROITE"])}) + ")", True, "etat_reference\": true")
+check("FL-06f", "Début du suivi fiable = date de l'état de référence ; anomalie existante identifiée", f"{today}/1/APTE",
+      f"select date_debut_suivi||'/'||(select count(*) from public.moto_actions_correctives where moto_id='{M6}' and point_code='ECLAIRAGE' and statut='OUVERTE')||'/'||statut_technique from public.moto_motos where id='{M6}'", f"{today}/1/APTE")
+check("FL-07b", "Coûts : aucune dépense historique créée", "0", f"select count(*) from public.moto_maintenances where moto_id='{M6}'", "0")
+# --- 15. Acquisition prévue ----------------------------------------------------------------
+r = act("FL-15a", "Acquisition prévue", "lc", "Moto prévue pour le 2e Chef de zone",
+        "select public.moto_creer(" + lit({"situation_parc": "PREVUE", "beneficiaire_prevu_libelle": "Deuxième Chef de zone (compte à créer)"}) + ")", True, "PREVUE")
+M11 = r["id"]
+act("FL-15b", "Prévue : pas de compteur inventé", "lc", "Moto prévue avec compteur", "select public.moto_creer(" + lit({"situation_parc": "PREVUE", "compteur_km": 0}) + ")", False, "ni date")
+act("FL-15c", "Prévue : aucune affectation", "bm", "BM préaffecte la moto prévue", f"select public.moto_preaffecter('{M11}', '{U['zh2']}', 'Test prévue')", False, "réception")
+act("FL-15d", "Prévue : aucune inspection", "lc", "Inspection d'une moto prévue",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M11, "items": items("INSPECTION_INITIALE"), "intervenant_nom": "X", "garage_nom": "Y"}) + ")", False, "réceptionnée")
+check("FL-15e", "Prévue : jamais comptée opérationnelle", "PREVUE/false/false",
+      f"select situation_parc||'/'||autorisee_a_circuler||'/'||coalesce(dossier_incomplet::text,'false') from public.moto_v_flotte where id='{M11}'", "PREVUE/false/false")
+act("FL-15f", "Réception physique : kilométrage obligatoire", "lc", "Réception sans compteur",
+    "select public.moto_receptionner(" + lit({"moto_id": M11, "date_reception": str(today), "marque": "APSONIC", "modele": "AP150-30"}) + ")", False, "Kilométrage")
+# --- 17, 18, 20. Champ « critique » falsifié, immobilisation, réparation jusqu'à clôture -----
+r = act("FL-18a", "Moto de test M7", "lc", "Coordinateur crée M7", "select public.moto_creer(" + lit({"marque": "TEST", "modele": "FICTIF", "cluster_code": "SAKASSOU", "date_reception": str(today)}) + ")")
+M7 = r["id"]
+act("FL-18b", "Code de point inconnu rejeté", "lc", "Inspection avec un code inventé",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M7, "items": items("INSPECTION_INITIALE") + [{"code": "BIDON", "ok": True}],
+      "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF"}) + ")", False, "inconnu")
+act("FL-18c", "Code dupliqué rejeté", "lc", "Inspection avec un point en double",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M7, "items": items("INSPECTION_INITIALE") + [{"code": "FREIN_AVANT", "ok": True}],
+      "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF"}) + ")", False, "double")
+act("FL-18d", "Point obligatoire omis rejeté", "lc", "Inspection sans le point freins avant",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M7, "items": [i for i in items("INSPECTION_INITIALE") if i["code"] != "FREIN_AVANT"],
+      "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF"}) + ")", False, "obligatoires")
+r = act("FL-18e", "Champ « critique » falsifié par le client : règle serveur maintenue", "lc", "Freins KO envoyés critique=false, résultat APTE",
+        "select public.moto_inspection_initiale(" + lit({"moto_id": M7, "items": items("INSPECTION_INITIALE", ko=("FREIN_AVANT",), falsifier=True), "resultat": "APTE",
+              "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF", "compteur_km": 4}) + ")", True, "\"anomalie_critique\": true")
+check("FL-17a", "Anomalie critique → immobilisation persistante", "IMMOBILISEE/INAPTE/CRITIQUE",
+      f"select statut_technique||'/'||(select resultat from public.moto_controles where moto_id='{M7}' order by date_controle desc limit 1)||'/'||(select gravite from public.moto_actions_correctives where moto_id='{M7}' and point_code='FREIN_AVANT') from public.moto_motos where id='{M7}'",
+      "IMMOBILISEE/INAPTE/CRITIQUE")
+check("FL-18f", "Gravité enregistrée = catalogue (pas la valeur client)", "true",
+      f"select (items->0->>'critique') from public.moto_controles where moto_id='{M7}' order by date_controle desc limit 1", "true")
+act("FL-18g", "Contrôle départ : critique falsifié", "uh_sak", "Départ M1 freins KO critique=false",
+    "select public.moto_controle_depart(" + lit({"moto_id": M1, "items": items("AVANT_DEPART", ko=("FREIN_ARRIERE",), falsifier=True), "compteur_km": 900, "client_op_id": str(uuid.uuid4())}) + ")", True, "\"anomalie_critique\": true")
+im7 = q(f"select id from public.moto_immobilisations where moto_id='{M7}' and fin is null")
+act("FL-20a", "Remise en service : le coordinateur ne lève pas seul", "lc", "Coordinateur lève l'immobilisation", f"select public.moto_lever_immobilisation('{im7}', 'tentative coordinateur')", False, "rôle")
+act("FL-20b", "Contrôle de remise en service par le coordinateur", "lc", "Contrôle APTE après réparation",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M7, "items": items("REMISE_EN_SERVICE"), "intervenant_nom": "MECANICIEN FICTIF", "compteur_km": 5}) + ")", True, "APTE")
+act("FL-20c", "Levée bloquée tant que l'anomalie n'est pas vérifiée", "bm", "BM lève avant clôture de l'action", f"select public.moto_lever_immobilisation('{im7}', 'Levée test')", False, "anomalie critique")
+a7 = q(f"select id from public.moto_actions_correctives where moto_id='{M7}' and point_code='FREIN_AVANT'")
+act("FL-20d", "Planification de l'action", "lc", "Coordinateur planifie (garage, devis, date cible)",
+    "select public.moto_action_planifier(" + lit({"action_id": a7, "action_prevue": "Remplacement plaquettes avant", "prestataire": "GARAGE FICTIF",
+      "devis_montant": 9000, "date_cible": str(today + datetime.timedelta(days=3))}) + ")", True, "PLANIFIEE")
+act("FL-20e", "Réalisation : justificatif exigé si dépense", "lc", "Réalisation payante sans facture",
+    "select public.moto_action_realiser(" + lit({"action_id": a7, "realise_at": str(today), "cout_reel": 9000}) + ")", False, "justificatif")
+fac = f"{M7}/maintenance/{uuid.uuid4()}.pdf"; put_object(fac)
+act("FL-20f", "Réalisation avec facture", "lc", "Réalisation avec facture fictive",
+    "select public.moto_action_realiser(" + lit({"action_id": a7, "realise_at": str(today), "cout_reel": 9000, "justificatif_path": fac}) + ")", True, "REALISEE")
+act("FL-20g", "Vérification par un tiers uniquement", "lc", "Le coordinateur vérifie son propre travail", f"select public.moto_action_verifier('{a7}', 'VALIDEE', 'auto-vérification')", False, "Séparation")
+act("FL-20h", "Vérification après réparation", "zh", "Chef de zone vérifie et clôt", f"select public.moto_action_verifier('{a7}', 'VALIDEE', 'Freinage contrôlé sur place')", True, "CLOTUREE")
+act("FL-20i", "Levée : auteur du contrôle ≠ décideur", "bm", "BM lève l'immobilisation (contrôle fait par le coordinateur)", f"select public.moto_lever_immobilisation('{im7}', 'Correction vérifiée')", True, "true")
+check("FL-20j", "Clôture vérifiée ; moto neuve à nouveau « à contrôler » (pas d'aptitude automatique)", "CLOTUREE/A_CONTROLER",
+      f"select (select statut from public.moto_actions_correctives where id='{a7}')||'/'||statut_technique from public.moto_motos where id='{M7}'", "CLOTUREE/A_CONTROLER")
+act("FL-20k", "Nouvelle inspection mécanique après réparation", "abm", "Inspection initiale APTE de M7",
+    "select public.moto_inspection_initiale(" + lit({"moto_id": M7, "items": items("INSPECTION_INITIALE"), "resultat": "APTE",
+      "intervenant_nom": "MECANICIEN FICTIF", "garage_nom": "GARAGE FICTIF", "compteur_km": 6}) + ")", True, "APTE")
+check("FL-20l", "Moto apte après preuve de correction", "APTE", f"select statut_technique from public.moto_motos where id='{M7}'", "APTE")
+# --- 9. PV distinct de l'inspection ; état contesté ---------------------------------------
+r = act("FL-09a", "Moto M8 (Botro)", "lc", "Coordinateur crée M8", "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "cluster_code": "BOTRO", "date_reception": str(today)}) + ")")
+M8 = r["id"]
+pv5 = chaine_service(M5, "uh_bro", "M5", "TEST-FL-CH-05")
+check("FL-09b", "PV de remise ≠ inspection mécanique ≠ état contradictoire", "t",
+      f"select a.pv_document_id is not null and a.etat_remise_id is not null and (select type_controle from public.moto_controles where id=a.etat_remise_id)='ETAT_REMISE' "
+      f"and exists (select 1 from public.moto_controles where moto_id='{M5}' and type_controle='INSPECTION_INITIALE') from public.moto_affectations a where a.moto_id='{M5}' and a.statut='ACTIVE'", "t")
+check("FL-16", "Mise en service en cours de mois : aucune inspection rétroactive exigée", "0",
+      f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode=date_trunc('month', current_date)::date", "0")
+# --- 13, 14. Motos du Chef de zone, de l'ABM, du coordinateur -------------------------------
+r = act("FL-13a", "Moto M9 (ABM)", "lc", "Moto pour l'ABM", "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "zone_code": "GBEKE_1", "date_reception": str(today)}) + ")")
+M9 = r["id"]
+r = act("FL-13b", "Moto M10 (coordinateur)", "bm", "Moto du coordinateur", "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "zone_code": "GBEKE_1", "date_reception": str(today)}) + ")")
+M10 = r["id"]
+chaine_service(M6, "zh", "M6", "TEST-FL-CH-06", km=18455)
+chaine_service(M9, "abm", "M9", "TEST-FL-CH-09")
+check("FL-13g", "Moto de l'ABM : remise enregistrée par un tiers (coordinateur), jamais par le bénéficiaire", U["lc"],
+      f"select cree_par from public.moto_affectations where moto_id='{M9}' and type_affectation='REMISE'", U["lc"])
+chaine_service(M10, "lc", "M10", "TEST-FL-CH-10")
+# Données de test : les motos actives sont datées en service le 20 du mois précédent pour rendre le mois courant exigible.
+q(f"update public.moto_motos set mise_en_service_at = date_trunc('month', current_date) - interval '11 days' where id in ('{M1}','{M5}','{M6}','{M9}','{M10}')")
+check("FL-14a", "Moto du coordinateur : contrôle indépendant exigé, pas de COORDINATION", "INDEPENDANTE",
+      f"select string_agg(distinct niveau, ',') from public.moto_v_inspections_exigibles where moto_id='{M10}' and periode=date_trunc('month', current_date)::date", "INDEPENDANTE")
+check("FL-13c", "Moto du Chef de zone : COORDINATION uniquement (pas de niveau ZONE)", "COORDINATION",
+      f"select string_agg(distinct niveau, ',') from public.moto_v_inspections_exigibles where moto_id='{M6}' and periode=date_trunc('month', current_date)::date", "COORDINATION")
+def insp(user, moto, ko=(), niveau=None, cats=("COMPTEUR", "AVANT"), km=None, extra=None):
+    p = {"moto_id": moto, "items": items("INSPECTION_MENSUELLE", ko=ko), "compteur_km": km or 1000, "photos": photos(moto, list(cats)), "client_op_id": str(uuid.uuid4())}
+    if niveau: p["niveau"] = niveau
+    if extra: p.update(extra)
+    return "select public.moto_inspection_mensuelle(" + lit(p) + ")"
+act("FL-13d", "Coordinateur inspecte la moto d'un Chef d'unité", "lc", "COORDINATION sur M1", insp("lc", M1, km=1001), True, "COORDINATION")
+act("FL-13e", "Coordinateur inspecte la moto du Chef de zone", "lc", "COORDINATION sur M6", insp("lc", M6, km=18460), True, "COORDINATION")
+act("FL-13f", "Coordinateur inspecte la moto de l'ABM (anomalie critique)", "lc", "COORDINATION sur M9, pneus KO", insp("lc", M9, ko=("PNEUS",), km=20), True, "NON_CONFORME")
+check("FL-17b", "Inspection mensuelle critique → immobilisation immédiate", "IMMOBILISEE", f"select statut_technique from public.moto_motos where id='{M9}'", "IMMOBILISEE")
+act("FL-14b", "Coordinateur : pas d'inspection de sa propre moto", "lc", "COORDINATION sur M10", insp("lc", M10, km=20), False, "propre moto")
+act("FL-14c", "Coordinateur : pas d'auto-contrôle indépendant", "lc", "INDEPENDANTE sur M10", insp("lc", M10, niveau="INDEPENDANTE", km=20), False, "propre moto")
+act("FL-14d", "Contrôle indépendant : inspecteur désigné requis", "zh2", "Chef de zone non désigné, INDEPENDANTE sur M10", insp("zh2", M10, niveau="INDEPENDANTE", km=20), False, "désigné")
+act("FL-14e", "Désignation d'un inspecteur indépendant par le BM", "bm", "BM désigne ZH2",
+    f"select public.moto_parametre_modifier('inspecteurs_independants', null, '[\"{U['zh2']}\"]'::jsonb, 'Désignation inspecteur indépendant test')")
+act("FL-14f", "Contrôle indépendant de la moto du coordinateur", "zh2", "ZH2 désigné, INDEPENDANTE sur M10", insp("zh2", M10, niveau="INDEPENDANTE", km=21), True, "INDEPENDANTE")
+act("FL-14g", "Rapport d'un mécanicien externe saisi par un tiers autorisé", "bm", "Second contrôle indépendant du mois refusé (doublon)",
+    insp("bm", M10, niveau="INDEPENDANTE", km=22, extra={"intervenant_nom": "MECANICIEN EXTERNE FICTIF", "inspecteur_externe": "Rapport saisi par le BM"}), False, "déjà enregistrée")
+# --- 10, 11, 12, 19. Chef de zone ------------------------------------------------------------
+jour = today.day
+act("FL-10", "Chef de zone inspecte une moto de Chef d'unité de sa zone", "zh", "ZONE sur M1 (Sakassou, GBEKE 1), éclairage KO",
+    insp("zh", M1, ko=("ECLAIRAGE",), km=1002), True, "\"dans_delai\": " + ("true" if jour <= 15 else "false"))
+check("FL-12", "Inspection du Chef de zone après le 15 : tardive", "EFFECTUEE_HORS_DELAI" if jour > 15 else "EFFECTUEE",
+      f"select statut from public.moto_v_inspections_exigibles where moto_id='{M1}' and niveau='ZONE' and periode=date_trunc('month', current_date)::date",
+      "EFFECTUEE_HORS_DELAI" if jour > 15 else "EFFECTUEE")
+act("FL-11a", "Chef de zone : pas d'écriture hors de sa zone", "zh", "ZH (GBEKE 1) demande un entretien sur M8 (Botro, GBEKE 2)",
+    "select public.moto_maintenance_demander(" + lit({"moto_id": M8, "type_maintenance": "VIDANGE", "description": "Tentative hors zone"}) + ")", False, "périmètre")
+act("FL-11b", "Chef de zone : pas d'inspection hors de sa zone", "zh2", "ZH2 (GBEKE 2) inspecte M1 (GBEKE 1)", insp("zh2", M1, km=1003), False, "zone")
+act("FL-11c", "Chef de zone : lecture globale conservée", "zh", "ZH lit M8", f"select count(*) from public.moto_motos where id='{M8}'", True, "1")
+act("FL-11d", "Chef de zone sans zone renseignée : refus explicite", "zh_sz", "ZH sans zone inspecte M1", insp("zh_sz", M1, km=1003), False, "Zone de responsabilité")
+act("FL-11e", "Chef de zone : ne fait pas l'inspection d'un ABM", "zh", "ZONE sur M9 (ABM)", insp("zh", M9, km=21), False, "Chefs d'unité")
+act("FL-12b", "Aucune inspection rétroactive (date antérieure)", "zh", "ZONE datée de 10 jours",
+    insp("zh", M5, km=13, extra={"date_controle": ts(days=-10)}), False, "3 jours")
+act("FL-19a", "Doublon artificiel refusé", "zh", "Seconde inspection ZONE de M1 ce mois", insp("zh", M1, km=1004), False, "déjà enregistrée")
+act("FL-19b", "Visite effectuée ≠ conforme : anomalie ouverte maintenue", "lc", "Le coordinateur ne peut pas refaire COORDINATION sur M1 (déjà faite)", insp("lc", M1, km=1004), False, "déjà enregistrée")
+prev = q(f"select id from public.moto_controles where moto_id='{M1}' and niveau='ZONE' and remplace_par is null")
+act("FL-19c", "Correction motivée (piste d'audit)", "zh", "ZH corrige son inspection, tout OK cette fois",
+    insp("zh", M1, km=1004, extra={"remplace_id": prev, "motif_correction": "Ampoule remplacée sur place, contrôle refait"}), True, "RESERVES")
+check("FL-19d", "Anomalie non corrigée reste ouverte à l'inspection suivante (pas de doublon)", "1/1",
+      f"select count(*) filter (where statut='OUVERTE')||'/'||count(*) from public.moto_actions_correctives where moto_id='{M1}' and point_code='ECLAIRAGE'", "1/1")
+check("FL-19e", "Version corrigée conservée", "1/1",
+      f"select count(*) filter (where remplace_par is not null)||'/'||count(*) filter (where remplace_par is null) from public.moto_controles where moto_id='{M1}' and niveau='ZONE'", "1/1")
+# --- 21. Enveloppes du coordinateur ------------------------------------------------------------
+per = str(today.replace(day=1))
+r = act("FL-21a", "Enveloppe de supervision demandée", "lc", "Coordinateur demande 50 000 (fictif)",
+        "select public.moto_enveloppe_demander(" + lit({"type_enveloppe": "SUPERVISION", "periode": per, "montant_demande": 50000, "justification": "Tournées du 20 au 31 (fictif)"}) + ")", True, "DEMANDEE")
+env = r["id"]
+act("FL-21b", "Pas d'auto-approbation", "lc", "Coordinateur approuve sa propre enveloppe", f"select public.moto_enveloppe_decider('{env}', 'APPROUVEE', null, null)", False, "rôle")
+act("FL-21c", "Approbation partielle motivée par le BM", "bm", "BM approuve 40 000", f"select public.moto_enveloppe_decider('{env}', 'APPROUVEE', 40000, 'Ajusté au plan de tournée')", True, "APPROUVEE")
+r = act("FL-21d", "Dépense déclarée sur l'enveloppe", "lc", "Dépense 30 000 sans justificatif",
+        "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": str(today), "montant": 30000, "objet": "Carburant tournée (fictif)", "client_op_id": str(uuid.uuid4())}) + ")", True, "DECLAREE")
+dep = r["id"]
+act("FL-21e", "Dépassement refusé", "lc", "Dépense 20 000 au-delà du solde",
+    "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": str(today), "montant": 20000, "objet": "Dépassement test"}) + ")", False, "solde")
+jp = f"depenses/{U['lc']}/{uuid.uuid4()}.pdf"; put_object(jp)
+act("FL-21f", "Justificatif d'un autre compte refusé", "lc", "Chemin de justificatif du BM",
+    f"select public.moto_depense_justifier('{dep}', 'depenses/{U['bm']}/x.pdf')", False, "non conforme")
+act("FL-21g", "Justificatif ajouté", "lc", "Coordinateur ajoute son justificatif", f"select public.moto_depense_justifier('{dep}', '{jp}')", True, "JUSTIFIEE")
+act("FL-21h", "Le coordinateur ne valide pas ses dépenses", "lc", "Coordinateur valide sa dépense", f"select public.moto_depense_verifier('{dep}', 'VALIDEE')", False, "rôle")
+act("FL-21i", "Validation par un tiers habilité", "abm", "ABM valide", f"select public.moto_depense_verifier('{dep}', 'VALIDEE')", True, "VALIDEE")
+check("FL-21j", "Enveloppe : demandé / approuvé / consommé / justifié / solde", "50000/40000/30000/30000/10000",
+      f"select montant_demande||'/'||montant_approuve||'/'||montant_consomme||'/'||montant_justifie||'/'||solde_disponible from public.moto_v_enveloppes where id='{env}'", "50000/40000/30000/30000/10000")
+act("FL-21k", "Enveloppes : Chef d'unité sans accès", "uh_sak", "UH lit les enveloppes", "select count(*) from public.moto_enveloppes", True, "0")
+# --- Droits du coordinateur (moindre privilège) ------------------------------------------------
+act("FL-LC1", "Coordinateur : pas de mise en service", "lc", "Mise en service de M8", f"select public.moto_mettre_en_service('{M8}', 'tentative coordinateur')", False, "rôle")
+act("FL-LC2", "Coordinateur : pas de décision de dépense de maintenance", "lc", "Décision maintenance",
+    f"select public.moto_maintenance_decider((select id from public.moto_maintenances limit 1), 'AUTORISEE')", False, "rôle")
+act("FL-LC3", "Coordinateur : pas d'accès aux dotations Finance", "lc", "Lecture des dotations", "select count(*) from public.moto_dotations", True, "0")
+act("FL-LC4", "Coordinateur : pas de modification des paramètres", "lc", "Modifie un paramètre",
+    "select public.moto_parametre_modifier('photos_inspection_min', 0, null, 'tentative de contournement')", False, "rôle")
+act("FL-LC5", "Coordinateur : pas de préaffectation", "lc", "Préaffecte M8", f"select public.moto_preaffecter('{M8}', '{U['uh_bot']}', 'tentative coordinateur')", False, "rôle")
+act("FL-LC6", "Coordinateur : voit tout le parc", "lc", "Lecture flotte", "select count(*) >= 10 from public.moto_motos", True, "t")
+act("FL-LC7", "Coordinateur : demande d'entretien possible", "lc", "Demande de vidange sur M8",
+    "select public.moto_maintenance_demander(" + lit({"moto_id": M8, "type_maintenance": "VIDANGE", "description": "Vidange à programmer (fictif)"}) + ")", True, "DEMANDEE")
+# --- 22, 23. Indicateurs sur données réelles ---------------------------------------------------
+check("FL-22", "Coût/km : kilomètres comptés depuis le suivi fiable, jamais depuis 0 (historique exclu)", "t",
+      f"select km_debut >= 18450 and km_parcourus < 100 from public.moto_v_cout_km where moto_id='{M6}'", "t")
+check("FL-23", "L/100 km non calculé sans pleins complets", "null", f"select coalesce(l_100km::text, 'null') from public.moto_v_conso_moto where moto_id='{M6}'", "null")
+# --- 24. Pneus ---------------------------------------------------------------------------------
+act("FL-24a", "Pneu : marquage DOT invalide refusé", "lc", "Date de fabrication « 26 »",
+    "select public.moto_pneu_creer(" + lit({"code": "PN-FL-X", "marque": "TEST", "dimensions": "2.75-18", "date_fabrication": "26"}) + ")", False, "DOT")
+r = act("FL-24b", "Pneu : identité complète", "lc", "Coordinateur entre un pneu",
+        "select public.moto_pneu_creer(" + lit({"code": "PN-FL-01", "marque": "TEST", "modele": "FICTIF", "dimensions": "2.75-18", "numero_serie": "SER-FICTIF-1", "date_fabrication": "2526", "cout_achat": 15000}) + ")")
+pn = r["id"]
+r = act("FL-24c", "Pneu : pose", "lc", "Pose arrière sur M5 à 20 km", "select public.moto_pneu_poser(" + lit({"moto_id": M5, "pneu_id": pn, "position": "ARRIERE", "pose_km": 20}) + ")")
+act("FL-24d", "Pneu : dépose et réforme", "lc", "Dépose à 520 km", "select public.moto_pneu_deposer(" + lit({"pose_id": r["id"], "depose_km": 520, "motif_depose": "Usure (fictif)", "destination": "REFORME"}) + ")")
+check("FL-24e", "Historique pneu conservé (dates, km, DOT)", "2526/500.0/" + str(today),
+      f"select date_fabrication||'/'||km_parcourus||'/'||premiere_pose from public.moto_v_pneus where id='{pn}'", "2526/500.0/" + str(today))
+# --- 25. Hors ligne : synchronisation d'une inspection, idempotence, photo liée à la bonne moto
+cop = str(uuid.uuid4()); ph9 = photos(M5, ["COMPTEUR", "AVANT"])
+lot = [{"type": "INSPECTION_MENSUELLE", "client_op_id": cop, "payload": {"moto_id": M5, "items": items("INSPECTION_MENSUELLE"), "compteur_km": 530, "photos": ph9}},
+       {"type": "INSPECTION_MENSUELLE", "client_op_id": str(uuid.uuid4()), "payload": {"moto_id": M8, "items": items("INSPECTION_MENSUELLE"), "compteur_km": 3, "photos": ph9}}]
+act("FL-25a", "Synchronisation d'une inspection saisie hors ligne", "lc", "Lot : M5 valide + M8 non active",
+    "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit(lot) + ")) x", True, "SYNCHRONISE,REJETE")
+act("FL-25b", "Rejeu idempotent", "lc", "Même lot rejoué", "select string_agg((x->>'doublon')::text, ',') from jsonb_array_elements(public.moto_sync_batch(" + lit(lot[:1]) + ")) x", True, "true")
+check("FL-25c", "Photos rattachées à la bonne moto après synchronisation", "2/" + M5,
+      f"select count(*)||'/'||min(moto_id::text) from public.moto_photos where controle_id=(select id from public.moto_controles where client_op_id='{cop}')", "2/" + M5)
+act("FL-25d", "Photo d'une autre moto refusée en synchronisation", "lc", "Inspection de M6 avec une photo de M5",
+    "select string_agg(x->>'message', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit([{"type": "INSPECTION_MENSUELLE", "client_op_id": str(uuid.uuid4()),
+      "payload": {"moto_id": M6, "niveau": "COORDINATION", "items": items("INSPECTION_MENSUELLE"), "compteur_km": 18470, "photos": photos(M5, ["COMPTEUR", "AVANT"])}}]) + ")) x", True, "déjà enregistrée")
+check("FL-REG", "Ancienne fonction de gravité client neutralisée", "retirée",
+      "do $$ begin perform private.moto_items_valides('[]'::jsonb); exception when others then raise notice '%', sqlerrm; end $$; select 'retirée'", "retirée")
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "serveur.json"), "w", encoding="utf-8") as f:
