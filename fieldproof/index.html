@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#053B23">
+<meta name="robots" content="noindex,nofollow">
+<title>AFLP FIELD PROOF · ANAGROCI</title>
+<link rel="icon" href="../assets/logo-pjs-mark.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="./fp.css?v=20261101-1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Référentiel des rôles et périmètres (lecture seule, inchangé). -->
+<script src="../shared/aflp-access.js?v=aflp-1.0.0"></script>
+<!-- Clé de module « fbms » : niveaux bm / chef / agent (shared/auth-gate.js, inchangé).
+     Hors ligne, auth-gate reprend le profil mis en cache lors de la dernière connexion. -->
+<script defer src="../shared/auth-gate.js?v=20261016-recovery-1" data-module="fbms"></script>
+<script defer src="./fp-core.js?v=20261101-1"></script>
+<script defer src="./fp-store.js?v=20261101-1"></script>
+<script defer src="./fp-capture.js?v=20261101-1"></script>
+<script defer src="./fp-app.js?v=20261101-1"></script>
+<!-- Service worker EXISTANT de la suite (sw.js, non modifié) : les pages et fichiers de ce module
+     sont mis en cache à la première ouverture en ligne, puis rouverts sans réseau. -->
+<script>if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(e){console.warn("[HORS LIGNE] Service Worker",e&&e.message?e.message:e);});});}</script>
+</head>
+<body class="fp-page">
+<a class="fp-saut" href="#fpVue">Aller au contenu</a>
+<header class="fp-topbar">
+  <a class="fp-marque" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global" width="34" height="34"><span><strong>AFLP FIELD PROOF</strong><small>Preuves photo &amp; vidéo des missions terrain</small></span></a>
+  <div class="fp-etats"><span id="fpReseau" class="fp-etat">…</span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>
+</header>
+<nav class="fp-nav" aria-label="Espaces AFLP FIELD PROOF">
+  <a href="#accueil"><span class="fp-nav-ic" aria-hidden="true">≡</span>Mes missions</a>
+  <a href="#nouvelle"><span class="fp-nav-ic" aria-hidden="true">＋</span>Nouvelle mission</a>
+  <a href="#aide"><span class="fp-nav-ic" aria-hidden="true">?</span>Aide</a>
+</nav>
+<main class="fp-main" id="fpVue" tabindex="-1" aria-live="polite"><div class="fp-chargement">Vérification de l'accès…</div></main>
+<p class="fp-qui" id="fpQui"></p>
+<div id="fpAvis" class="fp-avis-zone"></div>
+<dialog id="fpDialogue" class="fp-dialogue" aria-labelledby="fpDialogueTitre">
+  <div class="fp-dialogue-tete"><h2 id="fpDialogueTitre">…</h2><button class="fp-btn fp-btn-petit" id="fpDialogueFermer" aria-label="Fermer">✕</button></div>
+  <div id="fpDialogueCorps"></div>
+</dialog>
+<footer class="fp-pied">© ANAGROCI · PJS Global · AFLP 2027 · Les médias restent sur le téléphone de l'agent : aucun envoi automatique, aucun stockage serveur.</footer>
+</body>
+</html>
