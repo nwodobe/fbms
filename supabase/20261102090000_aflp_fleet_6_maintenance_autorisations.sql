@@ -270,11 +270,12 @@ as $$ select min(decide_at)::date from public.moto_autorisations where maintenan
 
 -- Facture utilisable comme pièce d'argent : vérifiée, dossier vivant, (moto attendue). Solde = montant − déjà réparti.
 create or replace function private.moto_facture_utilisable(p_facture uuid, p_moto uuid)
-returns public.moto_factures language plpgsql stable security definer set search_path to 'public', 'private', 'pg_temp'
+returns public.moto_factures language plpgsql volatile security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
 declare f public.moto_factures;
 begin
-  select * into f from public.moto_factures where id = p_facture;
+  -- Verrou : deux règlements simultanés (Finance + enveloppe, ou deux pneus) se sérialisent sur la facture.
+  select * into f from public.moto_factures where id = p_facture for update;
   if not found or f.statut <> 'VERIFIEE' then
     perform private.moto_refus('Dépense de maintenance refusée : elle doit régler une facture vérifiée d''un dossier autorisé par le Branch Manager.');
   end if;
@@ -694,6 +695,9 @@ begin
       perform private.moto_refus(format('Engagement de %s FCFA supérieur au plafond autorisé par le BM (%s FCFA) : soumettez un supplément.', v_eng, v_aut));
     end if;
     if v_eng < mt.montant_engage then perform private.moto_erreur('Un engagement ne se réduit pas ici : tracez l''écart à la facture.'); end if;
+    if exists (select 1 from public.moto_garages where id = mt.garage_id and statut = 'SUSPENDU') then
+      perform private.moto_refus('Garage suspendu : aucun engagement possible.');
+    end if;
     if private.moto_uuid(p, 'garage_id') is not null and private.moto_uuid(p, 'garage_id') is distinct from mt.garage_id then
       perform private.moto_refus('Garage différent du garage autorisé : nouvelle autorisation requise.');
     end if;
@@ -844,12 +848,16 @@ begin
     perform private.moto_refus('Séparation des tâches : celui qui a soumis la demande au BM ne vérifie pas la facture.');
   end if;
   if v_dec not in ('VERIFIEE','REJETEE') then perform private.moto_erreur('Décision : VERIFIEE ou REJETEE.'); end if;
+  -- Verrou du dossier : deux vérifications simultanées ne peuvent pas dépasser ensemble le montant autorisé.
+  perform 1 from public.moto_maintenances where id = f.maintenance_id for update;
   if v_dec = 'VERIFIEE' then
-    v_aut := private.moto_total_autorise(f.maintenance_id);
+    -- Seules les autorisations décidées au plus tard à la date de la facture la couvrent (pas de régularisation par un supplément postérieur).
+    select coalesce(sum(montant_autorise), 0) into v_aut from public.moto_autorisations
+     where maintenance_id = f.maintenance_id and statut = 'AUTORISEE' and decide_at::date <= f.date_facture;
     select coalesce(sum(montant), 0) into v_verif from public.moto_factures where maintenance_id = f.maintenance_id and statut = 'VERIFIEE';
     -- Une facture ne régularise jamais une dépense non autorisée.
     if v_verif + f.montant > v_aut then
-      perform private.moto_refus(format('Facture hors autorisation : %s FCFA vérifiés + %s > %s FCFA autorisés par le BM. Rejetez-la ou faites autoriser un supplément.',
+      perform private.moto_refus(format('Facture hors autorisation : %s FCFA vérifiés + %s > %s FCFA autorisés par le BM à la date de la facture. Rejetez-la ; un supplément ne régularise pas une facture antérieure.',
         v_verif, f.montant, v_aut));
     end if;
   end if;

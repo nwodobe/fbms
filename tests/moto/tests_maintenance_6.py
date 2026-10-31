@@ -472,6 +472,65 @@ inc_a2 = q(f"select id from public.moto_incidents where moto_id='{A3}' limit 1")
 act("R09", "19", "lc", "Revue : dossier de A1 lié à un incident de A3", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Lien incident croisé (revue)", "incident_id": inc_a2}) + ")", False, "même moto")
 
 # ---------------------------------------------------------------------------
+# Concurrence (contre-revue) : deux sessions réellement simultanées
+# ---------------------------------------------------------------------------
+def en_parallele(a, b, pause=5):
+    """a est lancé, garde sa transaction ouverte `pause` s, b démarre pendant ce temps. Renvoie (ok_a, ok_b, msg_b)."""
+    def proc(user, sql, attente):
+        claims = json.dumps({"sub": U[user], "role": "authenticated"})
+        script = (f"begin;\n\\o /dev/null\nset local role authenticated; select set_config('request.jwt.claims','{claims}',true);\n\\o\n"
+                  f"{sql};\nselect pg_sleep({attente});\ncommit;\n")
+        return subprocess.Popen(["psql", "-h", HOST, "-p", PORT, "-U", "postgres", "-d", DB, "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True), script
+    import time
+    pa, sa = proc(a[0], a[1], pause); pa.stdin.write(sa); pa.stdin.close()
+    time.sleep(1.5)   # B démarre pendant que la transaction de A est ouverte (A reste ouverte 5 s)
+    pb, sb = proc(b[0], b[1], 0); pb.stdin.write(sb); pb.stdin.close()
+    pa.wait(); pb.wait()
+    eb = pb.stderr.read(); return pa.returncode == 0, pb.returncode == 0, (eb.split("ERROR:")[-1].strip() if eb else "OK")
+
+def dossier_facture(montant, num):
+    m_ = json.loads(run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": f"Concurrence {num}"}) + ")")[1])["id"]
+    run_as("lc", "select public.moto_maintenance_devis(" + lit({"maintenance_id": m_, "garage_id": G, "devis_montant": montant, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "REPARATION", "libelle": "Test concurrence"}], "justification": "Test de concurrence (fictif)"}) + ")")
+    a_ = json.loads(run_as("lc", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": m_, "objet": "TRAVAUX", "montant_demande": montant, "perimetre": "Travaux de test de concurrence", "consequence_report": "Aucune"}) + ")")[1])["id"]
+    run_as("bm", f"select public.moto_autorisation_decider('{a_}', 'AUTORISEE', {montant}, null)")
+    run_as("lc", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": m_, "montant_engage": montant, "date_prevue": d(0)}) + ")")
+    return m_
+
+q(f"insert into auth.users (id, email) values ('{uid(111)}', 'fin2@example.invalid') on conflict do nothing; insert into public.profils (user_id, email, nom, role, actif) values ('{uid(111)}', 'fin2@example.invalid', 'FINANCE6 BIS FICTIF', 'Finance', true) on conflict do nothing;")
+U["fin2"] = uid(111)
+# A : paiement Finance et règlement par enveloppe simultanés sur une facture de 5 000
+mc = dossier_facture(5000, "A")
+fc = json.loads(run_as("lc", "select public.moto_facture_deposer(" + lit({"maintenance_id": mc, "numero_facture": "FG-CONC-A", "date_facture": d(0), "montant": 5000, "document_path": piece(A1, "facture")}) + ")")[1])["id"]
+run_as("abm", f"select public.moto_facture_verifier('{fc}', 'VERIFIEE', null)")
+oka, okb, msg = en_parallele(("fin", f"select public.moto_facture_paiement_constater('{fc}', 5000, current_date, 'VIR-CONC')"),
+                             ("lc", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 5000, "objet": "Règlement concurrent", "facture_id": fc}) + ")"))
+total = q(f"select montant_paye + coalesce((select sum(montant) from public.moto_depenses where facture_id='{fc}' and statut<>'REJETEE'),0) from public.moto_factures where id='{fc}'")
+record("CONC-A", "18", "fin + lc", "Concurrence : paiement Finance et règlement enveloppe simultanés (facture 5 000)", "1 seul passe ; total réglé 5000",
+       oka and not okb and total == "5000", f"paiement={oka} enveloppe={okb} ({msg[:120]}) total={total}")
+# B : deux vérifications simultanées pour une autorisation de 5 000
+mb_ = dossier_facture(5000, "B")
+f1b = json.loads(run_as("lc", "select public.moto_facture_deposer(" + lit({"maintenance_id": mb_, "numero_facture": "FG-CONC-B1", "date_facture": d(0), "montant": 5000, "document_path": piece(A1, "facture")}) + ")")[1])["id"]
+f2b = json.loads(run_as("lc", "select public.moto_facture_deposer(" + lit({"maintenance_id": mb_, "numero_facture": "FG-CONC-B2", "date_facture": d(0), "montant": 5000, "document_path": piece(A1, "facture")}) + ")")[1])["id"]
+oka, okb, msg = en_parallele(("fin", f"select public.moto_facture_verifier('{f1b}', 'VERIFIEE', null)"), ("fin2", f"select public.moto_facture_verifier('{f2b}', 'VERIFIEE', null)"))
+tv = q(f"select coalesce(sum(montant),0) from public.moto_factures where maintenance_id='{mb_}' and statut='VERIFIEE'")
+record("CONC-B", "18", "fin + fin2", "Concurrence : deux vérifications simultanées (autorisé 5 000)", "1 seule passe ; 5000 vérifiés",
+       oka and not okb and tv == "5000", f"v1={oka} v2={okb} ({msg[:120]}) vérifié={tv}")
+# C : facture antérieure au supplément qui devrait la couvrir
+mcc = dossier_facture(5000, "C")
+run_as("lc", f"select public.moto_maintenance_demarrer('{mcc}', null, current_date)")
+q(f"update public.moto_autorisations set decide_at = decide_at - interval '3 days' where maintenance_id='{mcc}'")   # décision initiale à J-3 (fixture)
+fcc = json.loads(run_as("lc", "select public.moto_facture_deposer(" + lit({"maintenance_id": mcc, "numero_facture": "FG-CONC-C", "date_facture": d(-1), "montant": 8000, "document_path": piece(A1, "facture")}) + ")")[1])["id"]
+a2c = json.loads(run_as("lc", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mcc, "objet": "SUPPLEMENT", "montant_demande": 3000, "perimetre": "Supplément demandé après la facture", "consequence_report": "Aucune"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_autorisation_decider('{a2c}', 'AUTORISEE', 3000, null)")
+act("CONC-C", "14", "fin", "Facture d'hier non couverte par un supplément décidé aujourd'hui", f"select public.moto_facture_verifier('{fcc}', 'VERIFIEE', null)", False, "date de la facture")
+# D : garage suspendu après décision
+md_ = dossier_facture(2000, "D")
+run_as("bm", f"select public.moto_garage_statut('{G}', 'SUSPENDU', 'Suspension de test (concurrence D)')")
+act("CONC-D", "15", "lc", "Engagement supplémentaire chez un garage suspendu après la décision", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": md_, "montant_engage": 2000}) + ")", False, "suspendu")
+run_as("bm", f"select public.moto_garage_statut('{G}', 'APPROUVE', 'Réapprobation de test (concurrence D)')")
+
+# ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "maintenance_6.json"), "w", encoding="utf-8") as f:
     json.dump({"base": DB, "date": datetime.datetime.now(datetime.timezone.utc).isoformat(), "resultats": RESULTS}, f, ensure_ascii=False, indent=1)
