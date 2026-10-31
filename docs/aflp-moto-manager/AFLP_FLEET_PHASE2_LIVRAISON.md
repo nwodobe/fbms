@@ -96,9 +96,10 @@ Démonstration (tests exécutés) : S10b, S11a-c, S12a-b, ADV-01 à ADV-03, ADV-
 
 | Suite | Résultat | Preuve |
 |---|---|---|
-| Migration 6 : 25 scénarios + adversariaux | **169/169** | `tests/moto/resultats/maintenance_6.json` |
-| Régression serveur (comportements M6 inclus) | **349/349** | `tests/moto/resultats/serveur.json` |
-| Navigateur Chromium, 3 largeurs | **87/87**, 0 erreur console | `tests/moto/resultats/navigateur.json`, captures `maintenance-*`, `decisions-bm-*`, `entretiens-*` |
+| Migration 6 : 25 scénarios + adversariaux + contre-épreuves de la revue + concurrence | **204/204** | `tests/moto/resultats/maintenance_6.json` |
+| Concurrence sans verrous (preuve que les tests détectent la faille) | CONC-A et CONC-B **échouent** (10 000 réglés / vérifiés pour 5 000) | `tests/moto/resultats/maintenance_6_preuve_sans_verrous.json` |
+| Régression serveur (comportements M6 inclus) | **352/352** | `tests/moto/resultats/serveur.json` |
+| Navigateur Chromium, 3 largeurs | **87/87**, 0 erreur console (un passage à 86/87 juste après un redémarrage de la base : délai dépassé sur UI-MNT-05, état serveur correct ; 87/87 au passage suivant) | `tests/moto/resultats/navigateur.json`, captures `maintenance-*`, `decisions-bm-*`, `entretiens-*` |
 | Unitaires cœur | 17/17 | `node tests/moto/core.test.mjs` |
 | Retour arrière | empreinte identique à l'état actuel (1-5) | `tests/moto/verifier_rollback_6.sh` |
 | Portes HTML, liens, JS, pages ×3 | 0 nouveau défaut | `.github/scripts/verifier-*.mjs` |
@@ -109,7 +110,27 @@ Anomalies trouvées et corrigées pendant la recette : devis complémentaire qui
 
 Réserve d'environnement : la réplique locale avait le compilateur JIT actif, ce qui bloquait les vues complexes ; la production a `jit = off` (vérifié). Les bases de test sont désormais alignées.
 
-Contre-expertise indépendante (§19) : voir la section « Contre-expertise » ci-dessous.
+### Contre-expertise indépendante (§19)
+
+Agent distinct, sans accès en écriture au dépôt, preuves exécutées sur des copies de la réplique.
+
+1. **Premier verdict NO_GO (12 défauts)**, dont deux critiques. Une autorisation de 10 000 a permis de tracer 50 000 (enveloppe, facture, pneu, actions). Une réparation déclarée « supervision » échappait au BM. Corrections :
+   - la facture devient l'unique pièce d'argent ;
+   - une moto citée impose la nature maintenance ;
+   - rien ne peut être daté avant la décision BM ;
+   - l'annulation rend les autorisations caduques ;
+   - garage du devis seul, jamais suspendu ;
+   - « sans frais » = décision BM ;
+   - droits par colonne et vues financières filtrées ;
+   - quatre séparations des tâches ajoutées ; incident lié à la même moto.
+2. **Second verdict NO_GO** : double règlement et double vérification **concurrents**. Corrections : verrous sur la facture et sur le dossier ; une facture n'est couverte que par les autorisations décidées à sa date ; aucun engagement chez un garage suspendu. Tests de concurrence réels, rouges sans verrous.
+3. **Troisième verdict HUMAN_REVIEW.** A et B sont corrigés. L'interblocage mineur entre décision BM et annulation est corrigé (ordre de verrouillage unique : dossier puis autorisation). Point soumis au Branch Manager : libellé libre en supervision. **Décision du BM (31/10/2026) : bloquer côté serveur les libellés de réparation en supervision** (tests R02d, R02e ; carburant, transport, hébergement et ration restent acceptés).
+
+Risques résiduels acceptés :
+- un libellé de supervision volontairement maquillé reste détectable seulement à la vérification ABM/Finance ;
+- le Chef de zone lit le coût d'achat des pneus (visibilité de la phase 1) ;
+- régler un garage en espèces sur l'enveloppe exige d'abord une facture vérifiée (contrôle voulu, plus lourd pour le coordinateur) ;
+- le retour arrière ne réactive pas d'anciennes règles (`actif` = false en production, vérifié).
 
 ## G. Guide de prise en main
 

@@ -61,7 +61,7 @@ do $$ declare f record; begin
              ('public','moto_facture_deposer'), ('public','moto_facture_verifier'), ('public','moto_facture_paiement_constater'),
              ('public','moto_maintenance_cloturer'), ('public','moto_maintenance_annuler'),
              ('private','moto_piece_fin_valide'), ('private','moto_total_autorise'),
-             ('private','moto_autorisation_valide'), ('private','moto_premiere_decision'), ('private','moto_facture_utilisable'))
+             ('private','moto_autorisation_valide'), ('private','moto_premiere_decision'), ('private','moto_facture_utilisable'), ('private','moto_libelle_reparation'))
   loop execute format('drop function %s', f.sig); end loop;
 end $$;
 

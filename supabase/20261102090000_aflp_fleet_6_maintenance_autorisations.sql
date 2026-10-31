@@ -618,6 +618,8 @@ as $$
 declare a public.moto_autorisations; mt public.moto_maintenances; v_dec text := upper(coalesce(p_decision, '')); v_montant numeric;
 begin
   perform private.moto_exiger_classe(array['BM']);
+  -- Ordre de verrouillage commun à toutes les fonctions : dossier, puis autorisation (pas d'interblocage avec l'annulation).
+  perform 1 from public.moto_maintenances where id = (select maintenance_id from public.moto_autorisations where id = p_autorisation) for update;
   select * into a from public.moto_autorisations where id = p_autorisation for update;
   if not found or a.statut <> 'EN_ATTENTE' then perform private.moto_erreur('Demande introuvable ou déjà décidée.'); end if;
   if a.soumis_par = auth.uid() then perform private.moto_refus('Auto-autorisation interdite.'); end if;
@@ -1060,6 +1062,13 @@ begin
   return jsonb_build_object('id', a.id, 'statut', 'REALISEE');
 end $$;
 
+create or replace function private.moto_libelle_reparation(p_objet text)
+returns boolean language sql immutable set search_path to 'pg_temp'
+as $$
+  select coalesce(translate(lower(p_objet), 'àâäéèêëîïôöùûüç''’', 'aaaeeeeiioouuuc  ')
+         ~ '(repar|frein|plaquet|pneu|chambre a air|crevaison|vulcani|vidange|huile moteur|filtre|garage|mecani|piece|chaine|pignon|embrayage|moteur|batterie|ampoule|phare|retro|revision|entretien|soudure|cable|amortisseur|jante|rayon|bougie|carburateur|demarreur|klaxon|selle|guidon|kit)', false)
+$$;
+
 create or replace function public.moto_depense_declarer(p jsonb)
 returns jsonb language plpgsql security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
@@ -1081,6 +1090,11 @@ begin
   v_nature := case when v_moto is not null or v_action is not null or v_fact is not null or e.type_enveloppe = 'ENTRETIEN' then 'MAINTENANCE'
                    else coalesce(nullif(upper(p ->> 'nature'), ''), 'SUPERVISION') end;
   if v_nature not in ('SUPERVISION','MAINTENANCE') then perform private.moto_erreur('Nature : SUPERVISION ou MAINTENANCE.'); end if;
+  -- Décision du Branch Manager (31/10/2026) : un libellé de réparation ou d'entretien est refusé en supervision ;
+  -- il doit passer par un dossier de maintenance autorisé. Contrôle complémentaire : vérification ABM/Finance.
+  if v_nature = 'SUPERVISION' and private.moto_libelle_reparation(p ->> 'objet') then
+    perform private.moto_refus('Libellé de réparation ou d''entretien : cette dépense relève d''un dossier de maintenance autorisé par le Branch Manager, pas de la supervision.');
+  end if;
   if v_nature = 'MAINTENANCE' then
     -- Une enveloppe approuvée n'est jamais une autorisation : une dépense de maintenance règle une facture vérifiée,
     -- elle-même plafonnée par l'autorisation individuelle préalable du Branch Manager, même sur une enveloppe approuvée.
