@@ -44,7 +44,7 @@ Parcours démontrés dans le navigateur : création au passeport (sans châssis 
 ## 4. Fichiers produits
 
 - Interface : `moto/index.html`, `moto/moto-app.js`, `moto/moto-core.js`, `moto/moto-offline.js`, `moto/moto-formation.js`, `moto/moto.css`, `moto/portal-moto.css`
-- Portail : `index.html` (carte n° 6), `assets/operations/modules/moto-manager.svg` (illustration provisoire, voir § 6)
+- Portail : `index.html` (carte n° 6), `assets/operations/modules/moto-manager.webp` (photo d'une APSONIC AP150-30 fournie par M. KOUASSI le 30/10/2026, recadrée 16:9)
 - Base : 23 tables `moto_*`, 12 vues, ~45 fonctions, bucket privé `moto-documents`, rollback en deux niveaux
 - Tests : `tests/moto/` (serveur, unitaires, E2E, émulateur local, résultats, matrice)
 - Documentation : `docs/aflp-moto-manager/`
@@ -58,13 +58,13 @@ Fichiers interdits par `CLAUDE.md` **non modifiés** : `shared/auth-gate.js`, `s
 3. **Aucun compte General Manager ni Finance Manager actif** en production : une correction initiée par le BM n'aurait aujourd'hui aucun valideur.
 4. **Aucun rôle RH** dans FBMS : vérification du permis déclarative.
 5. **Pas d'appareil iPhone ni Android réel** : seul Chromium (émulation 390×844) a été testé. Safari iOS n'est pas vérifié.
-6. **Photo réelle demandée pour la carte** : l'environnement ne peut pas télécharger d'image ; photo d'une des 4 motos attendue de votre part.
+6. **Photo de la carte** : la photo fournie est un visuel commercial APSONIC (marque visible). Usage interne retenu à votre demande ; une photo prise par ANAGROCI d'une des 4 motos réceptionnées éliminerait toute question de droits.
 
 ## 6. Prochaines actions
 
 | # | Action | Responsable |
 |---|---|---|
-| 1 | Fournir la photo d'une APSONIC réceptionnée pour la carte du portail | M. KOUASSI |
+| 1 | Facultatif : remplacer le visuel commercial par une photo ANAGROCI d'une moto réceptionnée (même fichier `moto-manager.webp`) | M. KOUASSI |
 | 2 | Fournir le cahier de cadrage et la matrice V1 pour exécution des 78 scénarios | M. KOUASSI |
 | 3 | Revue de la pull request (supabase, index.html) | Revue humaine |
 | 4 | Appliquer les 3 migrations sur une branche Supabase de préproduction, puis contrôles § 3 du guide | Autorisation BM |

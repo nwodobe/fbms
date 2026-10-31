@@ -1,6 +1,7 @@
 /* Portail : 6 cartes métier (ajout AFLP Moto Manager) — deux rangées de trois,
    puis deux colonnes, puis une colonne. N'altère pas operations/portal-visual.css. */
 .portal-grid-six .portal-card:nth-child(4),.portal-grid-six .portal-card:nth-child(5){grid-column:span 2}
-.portal-card-moto .portal-card-media img{object-fit:cover;background:#E9F4E4}
+.portal-card-moto .portal-card-media{background:#FFFFFF}
+.portal-card-moto .portal-card-media img{object-fit:cover;object-position:center 40%;filter:none}
 @media(max-width:1100px){.portal-grid-six .portal-card:nth-child(4),.portal-grid-six .portal-card:nth-child(5),.portal-grid-six .portal-card:nth-child(6){grid-column:auto;max-width:none;justify-self:stretch}}
 @media(max-width:620px){.portal-grid-six .portal-card{grid-column:auto}}
