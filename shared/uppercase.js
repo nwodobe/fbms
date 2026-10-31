@@ -125,6 +125,10 @@
         "rt-to-producer-script",
         "../shared/rt-to-producer.js?v=20260828-rt-to-producer-1"
       );
+      appendScript(
+        "farmer-passport-hierarchy-fix-script",
+        "../shared/farmer-passport-hierarchy-fix.js?v=20260828-hierarchy-1"
+      );
     } catch (e) { /* ignorer */ }
   }
 
