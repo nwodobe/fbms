@@ -2,9 +2,10 @@
 -- AFLP FLEET (ex AFLP Moto Manager) — migration 5 : coordination logistique,
 -- inspections, actions correctives, enveloppes, catalogue serveur.
 --
--- STATUT : PRÉPARÉE, NON APPLIQUÉE EN PRODUCTION.
--- Application soumise à autorisation spécifique de M. KOUASSI (mandat
--- AFLP FLEET §16). Rejouable (create or replace / if not exists).
+-- STATUT : APPLIQUÉE EN PRODUCTION le 31/10/2026 sur autorisation écrite de
+-- M. KOUASSI (« Applique »), en parties successives ; empreinte des 106
+-- fonctions moto (code + droits) identique à la réplique testée, 28 tables,
+-- 15 vues, 30 politiques, 0 droit anon. Rejouable (create or replace / if not exists).
 -- Retour arrière : 20261101090100_aflp_fleet_5_rollback.sql.
 --
 -- Principes :
@@ -280,6 +281,7 @@ returns boolean language plpgsql immutable as $$
 begin
   raise exception 'Fonction retirée : utiliser private.moto_items_controles (catalogue serveur).' using errcode = 'P0001';
 end $$;
+alter function private.moto_items_valides(jsonb) set search_path = public, private, pg_temp;
 
 -- ---------------------------------------------------------------------
 -- 5. Photos datées

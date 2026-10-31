@@ -78,3 +78,10 @@ Voir `AFLP_FLEET_GUIDE.md`.
 5. Montants d'enveloppes : aucun montant par défaut, faute de source.
 6. Tests sur vrais téléphones Android et iPhone : non réalisés (émulation de largeur seulement).
 7. OCR : non proposé (fiabilité non démontrée) ; saisie manuelle et QR.
+
+## Mise en production (31/10/2026)
+
+- Migration 5 appliquée en production sur autorisation écrite de M. KOUASSI, en plusieurs parties. Pour les politiques déjà existantes, la commande `alter policy` a remplacé le couple suppression puis recréation.
+- Contrôle d'équivalence avec la réplique testée : 106 fonctions, empreinte du code et des droits identique (`16ce54dc…`). Mêmes nombres d'objets : 28 tables, 15 vues, 30 politiques, 25 déclencheurs de journal, 57 points de catalogue.
+- Sécurité : RLS active sur toutes les tables moto ; aucune écriture directe ; aucune fonction exécutable par `anon` ; `search_path` figé sur toutes les fonctions.
+- Les avertissements « SECURITY DEFINER exécutable par authenticated » du conseiller Supabase sont attendus : ces fonctions sont l'interface prévue, et chacune vérifie le rôle et le périmètre côté serveur.
