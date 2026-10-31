@@ -220,3 +220,22 @@ a{color:var(--emerald-dark)}
 .mm-bloc h3{font-family:var(--font-display);font-size:15px;color:var(--forest);margin:16px 0 6px}
 @media (min-width:720px){.mm-calendrier{grid-template-columns:repeat(3,1fr)}}
 @media (min-width:720px){.mm-passeport{grid-template-columns:240px 170px 1fr}}
+/* -- Maintenance (migration 6) ---------------------------------------------- */
+.mm-modale.mm-modale-large{width:min(920px,calc(100vw - 16px))}
+.mm-badge.mm-info{background:var(--info-bg);color:var(--info)}
+.mm-frise{list-style:none;display:flex;flex-wrap:wrap;gap:4px;padding:0;margin:0 0 12px;counter-reset:etape}
+.mm-frise li{counter-increment:etape;font-size:12px;padding:4px 8px;border-radius:999px;background:var(--mist);color:var(--muted);border:1px solid var(--line)}
+.mm-frise li::before{content:counter(etape) ". ";font-weight:700}
+.mm-frise li.mm-fait{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.mm-frise li.mm-courant{background:var(--forest);color:#fff;border-color:var(--forest)}
+.mm-cartes-decision{display:grid;gap:12px;grid-template-columns:1fr}
+.mm-decision{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:var(--radius);padding:12px 14px;background:var(--paper)}
+.mm-decision header{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.mm-decision dl{display:grid;gap:6px;margin:0}
+.mm-decision dt{font-size:12px;color:var(--muted);font-weight:600}
+.mm-decision dd{margin:0;overflow-wrap:anywhere}
+.mm-decision footer{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mm-kpis-serres .mm-kpi{padding:8px 10px}
+.mm-actions-dossier{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+@media (min-width:900px){.mm-cartes-decision{grid-template-columns:repeat(2,1fr)}}
+.mm-nowrap{white-space:nowrap}

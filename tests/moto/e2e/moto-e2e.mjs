@@ -523,9 +523,106 @@ try {
     return { ok: t === 1, obtenu: `section=${t}`, preuve };
   });
 
+  // 10. Migration 6 : maintenance, garages, autorisation individuelle du BM
+  async function ouvrirDossier(p, id) { await p.evaluate(i => { const b = document.createElement('button'); b.dataset.action = 'mnt_dossier'; b.dataset.id = i; b.hidden = true; document.querySelector('#motoVue').appendChild(b); b.click(); }, id); await p.locator('dialog.mm-modale-large').waitFor(); }
+  async function boutonDossier(p, texte) { await p.locator('dialog.mm-modale-large [data-action]', { hasText: texte }).first().click(); await p.locator('dialog.mm-modale').last().waitFor(); }
+  await etape('UI-MNT-01', 'Tableau de bord du coordinateur (§14)', 'Coordinateur ouvre l\'espace Maintenance sur téléphone', '4 sections ; moto sans modèle : diagnostic initial à établir, aucune échéance inventée', async () => {
+    const c = await contexte('lc', 'mobile'); const p = await page(c, '/moto/index.html#/maintenance'); await pret(p);
+    const h = await p.textContent('h1'); const sec = await p.locator('section.mm-bloc h2').allTextContents();
+    const diag = await p.locator('text=Diagnostic initial et historique d\'entretien à établir').count();
+    const deb = await debordement(p); const preuve = await capture(p, 'maintenance-coordinateur-mobile'); await c.close();
+    const att = ['Maintenance à programmer', 'Autorisations en attente', 'Réparations en cours', 'Dépenses et performance'];
+    return { ok: h === 'Maintenance du parc' && att.every(t => sec.includes(t)) && diag >= 1 && deb <= 1, obtenu: `${h} · ${sec.join(' | ')} · diagnostic=${diag} · débordement=${deb}`, preuve };
+  });
+  await etape('UI-MNT-02', 'Modèle technique et règle proposée (§5)', 'Coordinateur associe MOTO-001 au modèle APSONIC et propose la vidange en politique interne', 'modèle enregistré ; version BROUILLON inactive', async () => {
+    const c = await contexte('lc', 'bureau'); const p = await page(c, '/moto/index.html#/maintenance/regles'); await pret(p);
+    const hyp = await p.locator('text=Hypothèse non validée').count();
+    await p.locator('[data-action="mnt_modele"]').first().click();
+    await remplir(p, { code: 'APSONIC_AP150_30', motif: 'Plaque constructeur vérifiée (scénario E2E fictif)' }); const r1 = await valider(p);
+    await pret(p); await p.click('[data-mnt="version"]');
+    await remplir(p, { regle_code: 'VIDANGE', modele_code: 'APSONIC_AP150_30', intervalle_km: '1500', intervalle_jours: '60', rappel_avant_km: '400', proche_avant_km: '200',
+      nature_source: 'POLITIQUE_INTERNE', reference_source: 'Avis technique garage E2E FICTIF n° 1', motif: 'Validation technique obtenue (fictif)' });
+    const r2 = await valider(p);
+    const m = (await q('select modele_technique_code from public.moto_motos where id=$1', [motoId]))[0];
+    const v = (await q("select statut, nature_source from public.moto_regles_versions where nature_source='POLITIQUE_INTERNE' and regle_code='VIDANGE'"))[0];
+    const e = (await q("select statut from public.moto_v_echeances where moto_id=$1 and regle='VIDANGE'", [motoId]))[0];
+    await c.close();
+    return { ok: hyp >= 3 && r1 === 'ferme' && r2 === 'ferme' && m.modele_technique_code === 'APSONIC_AP150_30' && v?.statut === 'BROUILLON' && e?.statut === 'REGLE_NON_APPROUVEE', obtenu: `hypothèses=${hyp} · ${r1}/${r2} · ${m.modele_technique_code} · ${JSON.stringify(v)} · échéance=${e?.statut}` };
+  });
+  await etape('UI-MNT-03', 'Approbation BM d\'une règle ; hypothèse refusée (§4)', 'BM tente d\'approuver une hypothèse puis approuve la version requalifiée', 'hypothèse refusée ; version APPROUVEE, échéance calculée', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/maintenance/regles'); await pret(p);
+    await p.locator('tr', { hasText: 'Hypothèse non validée' }).first().locator('[data-action="mnt_version_approuver"]').click();
+    const toast = await attendre(async () => (await p.locator('text=Une hypothèse non validée ne peut pas être approuvée').count()) || null, 5000);
+    await p.locator('tr', { hasText: 'Politique interne' }).first().locator('[data-action="mnt_version_approuver"]').click();
+    await remplir(p, { motif: 'Décision BM de test E2E (fictive)' }); const r = await valider(p);
+    const v = (await q("select statut from public.moto_regles_versions where nature_source='POLITIQUE_INTERNE' and regle_code='VIDANGE'"))[0];
+    const e = (await q("select statut, prochaine_km from public.moto_v_echeances where moto_id=$1 and regle='VIDANGE'", [motoId]))[0];
+    await c.close();
+    return { ok: !!toast && r === 'ferme' && v.statut === 'APPROUVEE' && e.prochaine_km != null && e.statut !== 'REGLE_NON_APPROUVEE', obtenu: `refus hypothèse=${!!toast} · ${r} · ${v.statut} · ${JSON.stringify(e)}` };
+  });
+  await etape('UI-MNT-04', 'Garage enregistré ≠ agréé (§9)', 'Coordinateur enregistre un garage', 'statut CANDIDAT', async () => {
+    const c = await contexte('lc', 'bureau'); const p = await page(c, '/moto/index.html#/maintenance/garages'); await pret(p);
+    await p.click('[data-mnt="garage"]');
+    await remplir(p, { nom: 'GARAGE E2E FICTIF', localisation: 'VILLAGE FICTIF', clusters: 'SAKASSOU', types_interventions: 'VIDANGE, REPARATION' }); const r = await valider(p);
+    const g = (await q("select statut from public.moto_garages where nom='GARAGE E2E FICTIF'"))[0];
+    const preuve = await capture(p, 'maintenance-garages-bureau'); await c.close();
+    return { ok: r === 'ferme' && g?.statut === 'CANDIDAT', obtenu: `${r} · ${g?.statut}`, preuve };
+  });
+  let dossierId = null;
+  await etape('UI-MNT-05', 'Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)', 'Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet', 'EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement', async () => {
+    const c = await contexte('lc', 'mobile'); const p = await page(c, '/moto/index.html#/maintenance'); await pret(p);
+    await p.click('[data-mnt="nouveau"]');
+    await remplir(p, { moto_id: motoId, type_maintenance: 'REPARATION', description: 'Plaquettes de frein usées (fictif)' }); const r1 = await valider(p);
+    dossierId = (await attendre(async () => (await q("select id from public.moto_maintenances where moto_id=$1 and type_maintenance='REPARATION' order by demande_at desc limit 1", [motoId]))[0]?.id));
+    await p.locator('dialog.mm-modale-large').waitFor();
+    await boutonDossier(p, 'Enregistrer le devis');
+    await remplir(p, { garage_id: { contient: 'GARAGE E2E FICTIF' }, devis_montant: '20000', op1: 'REPARATION', lib1: 'Plaquettes avant', justification: 'Usure constatée à l\'inspection (fictif)',
+      consequence_report: 'Freinage dégradé', fichier: PDF }); const r2 = await valider(p);
+    await p.locator('dialog.mm-modale-large').waitFor();
+    await boutonDossier(p, 'Soumettre au Branch Manager');
+    await remplir(p, { perimetre: 'Remplacement plaquettes avant selon devis', consequence_report: 'Freinage dégradé, risque de chute' }); const r3 = await valider(p);
+    const x = (await q('select statut, montant_engage, devis_path from public.moto_maintenances where id=$1', [dossierId]))[0];
+    const preuve = await capture(p, 'maintenance-dossier-mobile'); await c.close();
+    return { ok: [r1, r2, r3].every(v => v === 'ferme') && x.statut === 'EN_ATTENTE_BM' && Number(x.montant_engage) === 0 && /^finmaint\//.test(x.devis_path || ''), obtenu: `${r1}/${r2}/${r3} · ${JSON.stringify(x)}`, preuve };
+  });
+  await etape('UI-MNT-06', 'Chef de zone : aucun pouvoir financier proposé (scénario 11)', 'Chef de zone ouvre l\'espace Maintenance et le dossier', 'pas d\'onglet Décisions, pas de bouton Autoriser ni Programmer, montants masqués', async () => {
+    const c = await contexte('zh', 'mobile'); const p = await page(c, '/moto/index.html#/maintenance'); await pret(p);
+    const onglet = await p.locator('nav.mm-onglets a', { hasText: 'Décisions' }).count();
+    await ouvrirDossier(p, dossierId);
+    const d = p.locator('dialog.mm-modale-large');
+    const aut = await d.locator('[data-action="mnt_decider"], [data-action="mnt_programmer"]').count(); const masque = await d.locator('text=accès réservé').count();
+    await c.close();
+    return { ok: onglet === 0 && aut === 0 && masque === 1, obtenu: `onglet=${onglet} · boutons financiers=${aut} · montants masqués=${masque}` };
+  });
+  await etape('UI-MNT-07', '« Décisions à prendre » : autorisation BM plafonnée (§15, scénario 15)', 'BM ouvre ses décisions sur téléphone et autorise 15 000 sur 20 000 demandés', 'carte concise ; autorisation nominative de 15 000', async () => {
+    const c = await contexte('bm', 'mobile'); const p = await page(c, '/moto/index.html#/maintenance'); await pret(p);
+    const carte = await p.locator('.mm-decision').count(); const txt = await p.locator('.mm-decision').first().textContent();
+    const preuve = await capture(p, 'maintenance-decisions-bm-mobile');
+    await p.locator('.mm-decision [data-action="mnt_decider"]').first().click();
+    await remplir(p, { decision: 'AUTORISEE', montant: '15000', commentaire: 'Plaquettes seules, disque à revoir (fictif)' }); const r = await valider(p);
+    const a = (await q('select statut, montant_autorise, decide_par from public.moto_autorisations where maintenance_id=$1', [dossierId]))[0];
+    const deb = await debordement(p); await c.close();
+    return { ok: carte === 1 && /Conséquence d'un report/.test(txt) && /20\s?000/.test(txt) && r === 'ferme' && a.statut === 'AUTORISEE' && Number(a.montant_autorise) === 15000 && a.decide_par === U.bm[0] && deb <= 1,
+             obtenu: `cartes=${carte} · ${r} · ${JSON.stringify(a)} · débordement=${deb}`, preuve };
+  });
+  await etape('UI-MNT-08', 'Engagement limité au plafond autorisé (scénario 15)', 'Coordinateur tente d\'engager 20 000 puis engage 15 000', 'refus serveur affiché ; PROGRAMMEE à 15 000', async () => {
+    const c = await contexte('lc', 'bureau'); const p = await page(c, '/moto/index.html#/maintenance/dossiers'); await pret(p);
+    await ouvrirDossier(p, dossierId); await boutonDossier(p, 'Programmer les travaux');
+    await remplir(p, { montant_engage: '20000' }); const r1 = await valider(p);
+    await remplir(p, { montant_engage: '15000' }); const r2 = await valider(p);
+    const x = (await q('select statut, montant_engage from public.moto_maintenances where id=$1', [dossierId]))[0];
+    await c.close();
+    return { ok: /plafond/.test(r1) && r2 === 'ferme' && x.statut === 'PROGRAMMEE' && Number(x.montant_engage) === 15000, obtenu: `${r1.slice(0, 120)} · ${r2} · ${JSON.stringify(x)}` };
+  });
+  await etape('UI-MNT-09', 'Pilotage BM : décisions de dépense en tête', 'BM ouvre le pilotage', 'bloc « Décisions de dépense à prendre (0) » et lien vers ses décisions', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/pilotage'); await pret(p);
+    const t = await p.locator('h2', { hasText: 'Décisions de dépense à prendre (0)' }).count(); const l = await p.locator('a[href="#/maintenance/decisions"]').count(); await c.close();
+    return { ok: t === 1 && l === 1, obtenu: `bloc=${t} · lien=${l}` };
+  });
+
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);
@@ -537,7 +634,7 @@ try {
 } finally {
   /* Refus serveur VOULUS par les scénarios négatifs (ex. UI-REM-02 : remise sans gilet) : le navigateur
      les journalise comme « Failed to load resource : 400 ». On les isole, tout le reste doit être nul. */
-  const ATTENDUS = [/HTTP 400 POST \/rest\/v1\/rpc\/moto_remettre/];
+  const ATTENDUS = [/HTTP 400 POST \/rest\/v1\/rpc\/moto_remettre/, /HTTP 400 POST \/rest\/v1\/rpc\/moto_maintenance_programmer/];
   const reseau = ERREURS_CONSOLE.filter(e => /^HTTP /.test(e.message));
   const reseauInattendu = reseau.filter(e => !ATTENDUS.some(r => r.test(e.message)));
   const console_ = ERREURS_CONSOLE.filter(e => !/^HTTP /.test(e.message) && !/favicon/i.test(e.message)

@@ -257,6 +257,7 @@
   var ESPACES = [
     { r: 'motos', l: 'Mes motos', ic: 'M' }, { r: 'operations', l: 'Opérations', ic: 'O' },
     { r: 'coordination', l: 'Coordination', ic: 'C', droit: 'coordination' },
+    { r: 'maintenance', l: 'Maintenance', ic: 'E', droit: 'maintenance_voir' },
     { r: 'pilotage', l: 'Pilotage', ic: 'P', droit: 'pilotage' }, { r: 'formation', l: 'Formation', ic: 'F' },
     { r: 'admin', l: 'Administration', ic: 'A', droit: 'admin' }
   ];
@@ -280,6 +281,7 @@
       if (r.espace === 'moto' && r.id) await vuePasseport(r.id, r.onglet || 'synthese');
       else if (r.espace === 'operations') await vueOperations();
       else if (r.espace === 'coordination' && peut('coordination')) await vueCoordination();
+      else if (r.espace === 'maintenance' && peut('maintenance_voir') && MNT) await MNT.vue(r.id);
       else if (r.espace === 'pilotage' && peut('pilotage')) await vuePilotage();
       else if (r.espace === 'formation') await vueFormation(r.id);
       else if (r.espace === 'admin' && peut('admin')) await vueAdmin();
@@ -471,14 +473,8 @@
       }), 'Aucun achat déclaré.') + '</section>';
   }
   async function ongletEntretiens(m) {
-    var r = await lireTable('moto_maintenances', function (q) { return q.eq('moto_id', m.id).order('demande_at', { ascending: false }); });
-    return tableau(['Demandé le', 'Type', 'Description', 'Statut', 'Garage', 'Coût estimé', 'Coût réel', 'Action'], r.map(function (x) {
-      var a = '';
-      if (peut('maintenance_decider') && x.statut === 'DEMANDEE' && x.demande_par !== S.profil.user_id) a = action('maintenance_decider', 'Décider', { id: x.id }, 'mm-primaire');
-      else if (peut('maintenance_decider') && x.statut === 'AUTORISEE') a = action('maintenance_demarrer', 'Démarrer', { id: x.id }, 'mm-primaire');
-      else if (peut('maintenance_decider') && x.statut === 'EN_COURS') a = action('maintenance_terminer', 'Terminer', { id: x.id, moto: m.id }, 'mm-primaire');
-      return [esc(C.dateFr(x.demande_at)), esc(C.libelle(x.type_maintenance)), esc(x.description), badge(x.statut), esc(x.garage_nom || '—'), esc(C.fcfa(x.cout_estime)), esc(C.fcfa(x.cout_reel)), a];
-    }), 'Aucun entretien.');
+    if (!MNT) return '<div class="mm-vide mm-ko">Module maintenance non chargé.</div>';
+    return MNT.ongletMoto(m);
   }
   async function ongletPneus(m) {
     var poses = await lireTable('moto_pneu_poses', function (q) { return q.eq('moto_id', m.id).order('pose_date', { ascending: false }); });
@@ -552,7 +548,7 @@
   function brancherActions(zone, m) {
     zone.addEventListener('click', function (e) {
       var b = e.target.closest('[data-action]'); if (!b) return;
-      var d = b.dataset, f = ACTIONS[d.action]; if (f) f(d, m);
+      var d = b.dataset, f = ACTIONS[d.action] || (MNT && MNT.actions[d.action]); if (f) f(d, m);
     });
   }
   function apres(id, onglet) { return function () { chargerFlotte().then(function () { vuePasseport(id, onglet); }); }; }
@@ -751,21 +747,6 @@
       modale('Vérifier le justificatif', champ({ n: 'statut', l: 'Décision', t: 'select', req: true, o: [['VERIFIE', 'Vérifié : reçu lisible et cohérent'], ['REJETE', 'Rejeté']] }) + champ({ n: 'motif', l: 'Motif (obligatoire si rejet)', t: 'textarea' }),
         function (v) { return rpc('moto_justificatif_verifier', { p_carburant: d.id, p_statut: v.statut, p_motif: v.motif }).then(function () { if (m) apres(m.id, 'carburant')(); else router(); }); });
     },
-    maintenance_decider: function (d, m) {
-      modale('Décision sur la demande d\'entretien', champ({ n: 'decision', l: 'Décision', t: 'select', req: true, o: [['AUTORISEE', 'Autoriser'], ['REFUSEE', 'Refuser']] }) + champ({ n: 'motif', l: 'Motif', t: 'textarea' }),
-        function (v) { return rpc('moto_maintenance_decider', { p_maintenance: d.id, p_decision: v.decision, p_motif: v.motif }).then(function () { if (m) apres(m.id, 'entretiens')(); else router(); }); });
-    },
-    maintenance_demarrer: function (d, m) {
-      modale('Début d\'intervention', champ({ n: 'garage', l: 'Garage intervenant', req: true }) + champ({ n: 'date', l: 'Date', t: 'date', v: aujourdhui(), req: true }) + '<p class="mm-note">La moto est immobilisée pendant l\'intervention.</p>',
-        function (v) { return rpc('moto_maintenance_demarrer', { p_maintenance: d.id, p_garage: v.garage, p_date: v.date }).then(apres(m.id, 'entretiens')); }, 'Démarrer');
-    },
-    maintenance_terminer: async function (d, m) {
-      var fac = await lireTable('moto_documents', function (q) { return q.eq('moto_id', m.id).eq('type_document', 'FACTURE').order('depose_at', { ascending: false }); });
-      modale('Fin d\'intervention', '<div class="mm-grille-form">' + champ({ n: 'cout_reel', l: 'Coût réel (FCFA, 0 si aucun)', t: 'nombre', req: true }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) +
-        champ({ n: 'facture_document_id', l: 'Facture déposée', t: 'select', large: true, o: fac.map(function (x) { return [x.id, 'Facture du ' + C.dateFr(x.depose_at) + (x.numero_reference ? ' · ' + x.numero_reference : '')]; }), aide: 'Déposez la facture dans l\'onglet Documents avant de clôturer une intervention payante.' }) +
-        champ({ n: 'remettre_en_service', l: 'Lever l\'immobilisation liée à cette maintenance', t: 'checkbox', v: true }) + '</div>',
-      function (v) { v.maintenance_id = d.id; return rpc('moto_maintenance_terminer', { p: v }).then(apres(m.id, 'entretiens')); }, 'Terminer');
-    },
     controle_remise: function (d, m) {
       var L = liste('REMISE_EN_SERVICE');
       modale('Contrôle de remise en service', champ({ n: 'intervenant_nom', l: 'Intervenant', req: true }) + champ({ n: 'garage_nom', l: 'Garage' }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) +
@@ -776,9 +757,9 @@
       var suite = { SIGNALE: ['IMMOBILISEE', 'DIAGNOSTIC'].concat(d.gravite !== 'CRITIQUE' ? ['CLOS'] : []), IMMOBILISEE: ['DIAGNOSTIC'], DIAGNOSTIC: ['AUTORISATION_DEPENSE', 'REPARATION', 'CONTROLE'].concat(d.gravite !== 'CRITIQUE' ? ['CLOS'] : []),
                     AUTORISATION_DEPENSE: ['REPARATION'], REPARATION: ['CONTROLE'], CONTROLE: ['REMIS_EN_SERVICE'], REMIS_EN_SERVICE: ['CLOS'] }[d.etape] || [];
       modale('Incident : étape suivante', '<p>Étape actuelle : ' + badge(d.etape) + '</p>' + champ({ n: 'etape', l: 'Nouvelle étape', t: 'select', req: true, o: suite.map(function (s) { return [s, C.libelle(s)]; }) }) +
-        champ({ n: 'cout', l: 'Montant (autorisation de dépense ou coût réel à la clôture)', t: 'nombre' }) + champ({ n: 'note', l: 'Note', t: 'textarea', req: true, min: 5 }) +
-        '<p class="mm-note">La remise en service exige un contrôle de remise en service APTE enregistré après l\'incident.</p>',
-      function (v) { return rpc('moto_incident_avancer', { p_incident: d.id, p_etape: v.etape, p_note: v.note, p_cout: C.nombreSaisi(v.cout) }).then(apres(m.id, 'incidents')); });
+        champ({ n: 'note', l: 'Note', t: 'textarea', req: true, min: 5 }) +
+        '<p class="mm-note">Aucun montant ne se saisit ici : le coût passe par un dossier de maintenance lié à l\'incident, autorisé par le Branch Manager (« Dépense autorisée » constate cette autorisation). La remise en service exige un contrôle APTE et des travaux contrôlés conformes.</p>',
+      function (v) { return rpc('moto_incident_avancer', { p_incident: d.id, p_etape: v.etape, p_note: v.note, p_cout: null }).then(apres(m.id, 'incidents')); });
     },
     pneu_poser: async function (d, m) {
       var stock = (await lireTable('moto_pneus', function (q) { return q.eq('statut', 'EN_STOCK'); }));
@@ -1137,10 +1118,13 @@
     if (peut('valider_budget')) d[9].filter(function (x) { return x.propose_par !== mine; }).forEach(function (x) { valid.push(['Budget proposé', C.fcfa(x.montant_autorise) + ' · ' + C.dateFr(x.periode_debut) + ' → ' + C.dateFr(x.periode_fin), action('budget_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
     if (peut('valider_corrections') || (S.profil.role === 'Finance Manager')) d[10].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Correction', x.cible_table.replace('moto_', '') + ' · ' + x.champ + ' : ' + (x.ancienne_valeur || '∅') + ' → ' + x.nouvelle_valeur + ' · ' + x.motif, action('correction_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
     if (peut('valider_corrections') || S.profil.role === 'Finance Manager') d[11].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Remboursement d\'avance', C.fcfa(x.montant), action('remboursement_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
-    if (peut('maintenance_decider')) d[12].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Demande d\'entretien', codeMoto(x.moto_id) + ' · ' + C.libelle(x.type_maintenance) + ' · ' + x.description, action('maintenance_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
+    var decisionsBm = peut('maintenance_autoriser') ? await lireTable('moto_v_decisions_bm', function (x) { return x.eq('statut', 'EN_ATTENTE'); }).catch(function () { return []; }) : [];
     vue().innerHTML = '<div class="mm-entete"><div><h1>Pilotage de la flotte</h1><p>Indicateurs calculés côté serveur sur les données réelles saisies.</p></div>' +
       (peut('exports') ? '<button type="button" class="mm-btn mm-primaire" id="pilExport">Exporter Excel</button>' : '') + '</div>' + bandeauHorsLigne() +
       (avert ? '<div class="mm-bandeau mm-info">' + esc(avert) + '</div>' : '') +
+      (peut('maintenance_autoriser') ? '<section class="mm-bloc' + (decisionsBm.length ? ' mm-bloc-alerte' : '') + '"><h2>Décisions de dépense à prendre (' + decisionsBm.length + ')</h2>' +
+        (decisionsBm.length ? '<p>' + esc(decisionsBm.length) + ' demande(s) de dépense d\'entretien ou de réparation attendent votre autorisation individuelle.</p>' : '<p>Aucune demande de dépense en attente.</p>') +
+        '<a class="mm-btn mm-primaire mm-petit" href="#/maintenance/decisions">Ouvrir « Décisions à prendre »</a></section>' : '') +
       (peut('exceptions') || peut('coordination') ? '<section class="mm-bloc mm-bloc-alerte"><h2>Exceptions à traiter (' + exceptions.length + ')</h2>' + tableau(['Exception', 'Moto', 'Détail', ''], exceptions.map(function (x) {
         return [badge(x.gravite === 1 ? 'CRITIQUE' : x.gravite === 2 ? 'MAJEURE' : 'MINEURE', x.type), esc(x.moto), esc(x.detail), x.moto_id ? '<a class="mm-btn mm-secondaire mm-petit" href="#/moto/' + esc(x.moto_id) + '">Ouvrir</a>' : '<a class="mm-btn mm-secondaire mm-petit" href="#/coordination">Coordination</a>'];
       }), 'Aucune exception : les opérations normales ne demandent pas votre validation.') + '<p class="mm-note">Seules les exceptions remontent ici : moto dangereuse ou immobilisée, réparation en retard, inspection manquante, dépense à autoriser, anomalie récurrente, risque d\'interruption.</p></section>' : '') +
@@ -1351,18 +1335,22 @@
       modale('Paramètres', '<div class="mm-grille-form">' + champ({ n: 'conso_seuil_verification_1', l: 'Seuil de vérification 1 (L/100 km)', t: 'nombre', pas: '0.1', v: p.conso_seuil_verification_1 && p.conso_seuil_verification_1.valeur }) +
         champ({ n: 'conso_seuil_verification_2', l: 'Seuil de vérification 2 (L/100 km)', t: 'nombre', pas: '0.1', v: p.conso_seuil_verification_2 && p.conso_seuil_verification_2.valeur }) +
         champ({ n: 'jours_operationnels_semaine', l: 'Jours opérationnels / semaine', t: 'nombre', pas: 1, v: p.jours_operationnels_semaine && p.jours_operationnels_semaine.valeur }) +
-        champ({ n: 'regle', l: 'Règle d\'entretien à paramétrer', t: 'select', o: regles.map(function (r) { return [r.code, r.libelle]; }) }) + champ({ n: 'intervalle_km', l: 'Intervalle (km)', t: 'nombre', pas: 1 }) +
-        champ({ n: 'intervalle_jours', l: 'Intervalle (jours)', t: 'nombre', pas: 1 }) + champ({ n: 'source', l: 'Source', t: 'select', vide: false, o: [['PARAMETRE_ANAGROCI', 'Paramètre ANAGROCI'], ['CONSTRUCTEUR_VERIFIE', 'Constructeur (manuel vérifié)']] }) +
-        champ({ n: 'reference_documentaire', l: 'Référence du manuel (obligatoire si constructeur)' }) + champ({ n: 'actif', l: 'Activer la règle', t: 'checkbox' }) + champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }) + '</div>',
+        '<p class="mm-note mm-large">Règles d\'entretien : espace Maintenance › Règles d\'entretien (versions par modèle, approuvées par le BM).</p>' +
+        champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }) + '</div>',
       async function (v) {
         var jobs = [['conso_seuil_verification_1', v.conso_seuil_verification_1], ['conso_seuil_verification_2', v.conso_seuil_verification_2], ['jours_operationnels_semaine', v.jours_operationnels_semaine]]
           .filter(function (x) { return x[1] != null && String(x[1]) !== String(p[x[0]] && p[x[0]].valeur); })
           .map(function (x) { return rpc('moto_parametre_modifier', { p_cle: x[0], p_valeur: C.nombreSaisi(x[1]), p_valeur_json: null, p_motif: v.motif }); });
-        if (v.regle) jobs.push(rpc('moto_regle_maintenance_definir', { p: { code: v.regle, intervalle_km: v.intervalle_km, intervalle_jours: v.intervalle_jours, source: v.source, reference_documentaire: v.reference_documentaire, actif: !!v.actif, motif: v.motif } }));
+        // Les règles d'entretien se gèrent désormais par versions dans l'espace Maintenance.
         await Promise.all(jobs); await chargerParametres(); vueAdmin(); return 'Paramètres enregistrés.';
       });
     }
   };
+
+  /* -- Module maintenance (moto-maintenance.js) ------------------------------ */
+  var MNT = g.MOTO_MAINTENANCE ? g.MOTO_MAINTENANCE({ C: C, OFF: OFF, S: S, esc: esc, $: $, $$: $$, peut: peut, vue: vue, tableau: tableau, action: action, champ: champ,
+    modale: modale, rpc: rpc, lireTable: lireTable, kpi: kpi, toast: toast, chargerFlotte: chargerFlotte, motoParId: motoParId, codeMoto: codeMoto, router: router,
+    ouvrirFichier: ouvrirFichier, aujourdhui: aujourdhui, messageErreur: messageErreur }) : null;
 
   /* -- Démarrage ------------------------------------------------------------- */
   function etatReseau() {

@@ -44,18 +44,25 @@
   var DROITS = {
     BM:        ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
                 'budgets', 'valider_budget', 'dotations', 'rapprochement', 'verifier_justificatifs', 'valider_corrections', 'valider_remboursements',
-                'maintenance_decider', 'incident_piloter', 'autoriser_depense', 'pneus', 'parametres', 'journal', 'terrain', 'exports',
-                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions'],
+                'incident_piloter', 'pneus', 'parametres', 'journal', 'terrain', 'exports',
+                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions',
+                // Migration 6 : le BM est le SEUL à autoriser une dépense d'entretien ou de réparation.
+                'maintenance_voir', 'maintenance_finances', 'maintenance_autoriser', 'maintenance_organiser', 'maintenance_controler', 'garages', 'garage_approuver',
+                'regle_proposer', 'regle_approuver', 'modele_definir', 'lever_immobilisation', 'maintenance_demande'],
     ABM:       ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
-                'verifier_justificatifs', 'demander_correction', 'maintenance_decider', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
-                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense'],
+                'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
+                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
+                'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',
+                'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande'],
     LOGISTIQUE: ['lire', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
-                'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes'],
-    ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'maintenance_decider', 'incident_piloter', 'autoriser_depense',
-                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier'],
+                'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes',
+                'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir'],
+    ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'incident_piloter',
+                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande'],
     UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat'],
-    FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports', 'verifier_depense'],
-    DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports']
+    FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports', 'verifier_depense',
+                'maintenance_voir', 'maintenance_finances', 'facture_verifier', 'paiement_constater', 'cloture_financiere'],
+    DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports', 'maintenance_voir', 'maintenance_finances']
   };
   function peut(classe, droit) { return !!(classe && DROITS[classe] && DROITS[classe].indexOf(droit) >= 0); }
 
@@ -69,6 +76,8 @@
     SIGNALE: 'Signalé', DIAGNOSTIC: 'Diagnostic', AUTORISATION_DEPENSE: 'Dépense autorisée', REPARATION: 'Réparation', CONTROLE: 'Contrôle',
     REMIS_EN_SERVICE: 'Remis en service', CLOS: 'Clos',
     DEMANDEE: 'Demandée', AUTORISEE: 'Autorisée', EN_COURS: 'En cours', TERMINEE: 'Terminée', REFUSEE: 'Refusée',
+    DEVIS_RECU: 'Devis reçu', EN_ATTENTE_BM: 'En attente du Branch Manager', PROGRAMMEE: 'Programmée', CONTROLEE: 'Contrôlée conforme',
+    PNEUMATIQUE: 'Pneumatique', RAPPEL: 'Rappel de planification', ATTEINTE: 'Échéance atteinte', MAINTENANCE: 'Maintenance',
     PROPOSE: 'Proposé', VALIDE: 'Validé', DEMANDE: 'Demandé', PAYE_DECLARE: 'Paiement déclaré', APPLIQUEE: 'Appliquée', REJETEE: 'Rejetée',
     ESPECES: 'Espèces', MOBILE_MONEY: 'Mobile Money', DOTATION: 'Dotation', AVANCE_PERSONNELLE: 'Avance personnelle',
     NORMAL: 'Normal', VERIFICATION: 'À vérifier', VERIFICATION_PRIORITAIRE: 'Vérification prioritaire', INVALIDE: 'Intervalle invalide',
