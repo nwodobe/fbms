@@ -1,7 +1,7 @@
 # AFLP FLEET phase 2 : maintenance, garages, autorisation BM (rapport de livraison)
 
 Mandat : « AFLP FLEET | PHASE 2 » (31/10/2026). Branche `feat/aflp-fleet-maintenance`.
-**Statut de déploiement : développé et testé sur réplique locale ; NON appliqué en production, NON fusionné** (le mandat n'autorise ni migration ni déploiement).
+**Statut de déploiement : migration 6 appliquée en production le 31/10/2026 et PR #271 fusionnée (commit `b92c856`), sur autorisation explicite de Monsieur KOUASSI.** Les intervalles APSONIC restent des hypothèses non actives.
 
 ## A. Audit initial (production lue le 31/10/2026, lecture seule)
 
@@ -136,27 +136,39 @@ Risques résiduels acceptés :
 
 `docs/aflp-moto-manager/AFLP_FLEET_GUIDE.md`, section « Maintenance et dépenses » (coordinateur, Branch Manager, Chef de zone, ABM, Finance).
 
-## H. Déploiement (en attente d'autorisation)
+## H. Déploiement (réalisé le 31/10/2026)
 
-1. Autorisation écrite du Branch Manager pour la migration 6 **et** pour la fusion.
-2. Appliquer `20261102090000_aflp_fleet_6_maintenance_autorisations.sql` (rejouable). Vérifier ensuite : fonctions, droits `anon` = 0, RLS sur les 6 nouvelles tables, 3 brouillons `HYPOTHESE`, 0 version approuvée.
-3. Fusionner la PR (publication GitHub Pages : interface `20261102-maint-1`).
-4. **Ordre impératif** : migration avant interface. L'interface seule appellerait des fonctions absentes ; la migration seule garde l'ancienne interface fonctionnelle sauf « Décider » (neutralisé, comportement voulu).
-5. Retour arrière : `20261102090100_aflp_fleet_6_rollback.sql`, puis rejouer la migration 5. Refusé dès qu'un dossier du nouveau circuit existe. **Rétablit les failles** décrites en A.
+Autorisations : « fusionne », puis choix « Migration 6 puis fusion », « Bloquer les libellés de réparation », « Relancer, j'approuverai » et « relance » (Monsieur KOUASSI).
+
+1. **État de départ vérifié** : 0 moto, 0 maintenance, 0 dépense, 0 enveloppe, 0 pneu, 0 incident ; empreinte normalisée des 106 fonctions identique à la réplique locale migrations 1 à 5.
+2. **Migration 6 appliquée en 4 parties** (taille maximale d'un appel), dans l'ordre, chacune réussie :
+   `aflp_fleet_6_partie1_tables_rls`, `aflp_fleet_6_partie2_circuit`, `aflp_fleet_6_partie3_remise_couts_stockage`, `aflp_fleet_6_partie4_vues`.
+   Le découpage a été prouvé en local : parties appliquées dans l'ordre = migration complète (même empreinte).
+3. **Équivalence production / réplique testée** : empreinte agrégée (code des fonctions sans commentaires, `security definer`, `search_path`, volatilité, droits `anon`/`authenticated` ; définition, options et droits des vues ; RLS et droits par colonne des tables ; politiques) :
+   production `e67fba02d2719667a606c66834e12956` = réplique `e67fba02d2719667a606c66834e12956`. 129 fonctions, 19 vues, 34 tables, 36 politiques.
+4. **Contrôles métier en production** : 0 fonction exécutable par `anon` ; RLS active sur les 6 nouvelles tables ; 3 règles APSONIC en `BROUILLON`, 0 approuvée ; montants (`devis_montant`, `cout_reel`) non lisibles directement par `authenticated` ; « Plaquettes de frein » refusé en supervision, « Carburant tournée » accepté ; aucune donnée créée (0 dossier, 0 autorisation, 0 facture, 0 dépense).
+5. **Fusion** : branche remise à jour avec `main` (aucun fichier commun), contrôles obligatoires verts, PR #271 fusionnée (`b92c856`). Publication GitHub Pages réussie (19:23 UTC), contrôle « La production est-elle utilisable ? » vert (19:24 UTC).
+6. **Non vérifié par moi** : ouverture de l'espace Maintenance sur le site publié dans un navigateur (navigateur et ordinateur non joignables depuis la session). À faire par un compte BM : ouvrir AFLP FLEET, onglet Maintenance, puis Décisions.
+7. Retour arrière : `20261102090100_aflp_fleet_6_rollback.sql`, puis rejouer la migration 5. Refusé dès qu'un dossier du nouveau circuit existe. **Rétablit les failles** décrites en A.
+
+### Avis de sécurité Supabase après application
+
+- `security_definer_view` (niveau ERROR) sur `moto_v_maintenance_dossiers`, `moto_v_decisions_bm`, `moto_v_couts` : **choix de conception assumé**. Ces vues s'exécutent avec les droits du propriétaire pour exposer les montants masqués aux seuls lecteurs financiers, alors que les colonnes sont révoquées pour `authenticated`. Elles portent `security_barrier` et filtrent elles-mêmes (`moto_dans_perimetre`, `moto_lecture_fin_maintenance`). Risque : toute modification future de ces vues doit conserver ces filtres ; un retrait ouvrirait la lecture à tous les comptes.
+- `authenticated_security_definer_function_executable` (WARN) sur les RPC `moto_*` : inhérent au modèle (toute écriture passe par une fonction contrôlée), préexistant.
 
 ## I. Statuts
 
 | Élément | Développé | Testé | Prêt pour déploiement | Déployé en production |
 |---|---|---|---|---|
-| Autorisation individuelle BM, tous chemins | ✓ | ✓ | ✓ | ✗ |
-| Dossier 10 étapes, travaux groupés, supplément | ✓ | ✓ | ✓ | ✗ |
-| Règles par modèle, versions, exceptions, rodage | ✓ | ✓ | ✓ | ✗ |
-| Moteur d'échéances et alertes | ✓ | ✓ | ✓ | ✗ |
-| Garages | ✓ | ✓ | ✓ | ✗ |
-| Six montants, anti double comptage | ✓ | ✓ | ✓ | ✗ |
-| Tableau coordinateur, Décisions BM, synthèse hebdomadaire | ✓ | ✓ (3 largeurs) | ✓ | ✗ |
+| Autorisation individuelle BM, tous chemins | ✓ | ✓ | ✓ | ✓ |
+| Dossier 10 étapes, travaux groupés, supplément | ✓ | ✓ | ✓ | ✓ |
+| Règles par modèle, versions, exceptions, rodage | ✓ | ✓ | ✓ | ✓ |
+| Moteur d'échéances et alertes | ✓ | ✓ | ✓ | ✓ |
+| Garages | ✓ | ✓ | ✓ | ✓ |
+| Six montants, anti double comptage | ✓ | ✓ | ✓ | ✓ |
+| Tableau coordinateur, Décisions BM, synthèse hebdomadaire | ✓ | ✓ (3 largeurs, réplique) | ✓ | ✓ (publié ; non ouvert en ligne par moi) |
 | Intervalles APSONIC validés | ✗ | — | — | ✗ (source constructeur manquante) |
 
-Statut global : **PARTIELLEMENT TERMINÉ** : tout ce que le mandat autorise est terminé et testé ; la mise en production et la validation constructeur des intervalles restent des décisions humaines.
+Statut global : **DÉPLOYÉ, AVEC DEUX RÉSERVES** : (1) les intervalles APSONIC restent des hypothèses non actives tant qu'une source constructeur n'est pas validée et approuvée par le BM ; (2) l'interface publiée n'a pas encore été ouverte avec un vrai compte BM.
 
-Limites connues : notifications seulement dans le tableau de bord (pas de SMS ni de courriel) ; tests sur vrais téléphones non réalisés ; la synthèse hebdomadaire est une vue consultable, pas un envoi automatique ; une dépense de garage étiquetée « supervision » sur une enveloppe de supervision n'est détectable qu'à la vérification (ABM/Finance) ; la file hors ligne ne transporte que la demande, jamais une décision.
+Limites connues : notifications seulement dans le tableau de bord (pas de SMS ni de courriel) ; tests sur vrais téléphones non réalisés ; la synthèse hebdomadaire est une vue consultable, pas un envoi automatique ; une dépense de supervision au libellé de réparation est refusée par le serveur, mais un libellé volontairement trompeur (sans mot de la liste) reste détectable seulement à la vérification ABM/Finance ; la file hors ligne ne transporte que la demande, jamais une décision.
