@@ -787,6 +787,37 @@ act("FL-25d", "Photo d'une autre moto refusée en synchronisation", "lc", "Inspe
       "payload": {"moto_id": M6, "niveau": "COORDINATION", "items": items("INSPECTION_MENSUELLE"), "compteur_km": 18470, "photos": photos(M5, ["COMPTEUR", "AVANT"])}}]) + ")) x", True, "déjà enregistrée")
 check("FL-REG", "Ancienne fonction de gravité client neutralisée", "retirée",
       "do $$ begin perform private.moto_items_valides('[]'::jsonb); exception when others then raise notice '%', sqlerrm; end $$; select 'retirée'", "retirée")
+# --- Corrections issues de la revue indépendante (NO_GO initial) -------------------------------
+q(f"update public.profils set fonction_operationnelle='Logistics Coordinator' where user_id='{U['uh_bro']}'")
+check("RV-01", "Revue : un Chef d'unité portant la fonction « coordinateur » reste Chef d'unité", "UNITE", f"select private.moto_classe_de('{U['uh_bro']}')", "UNITE")
+q(f"update public.profils set fonction_operationnelle=null where user_id='{U['uh_bro']}'")
+act("RV-02a", "Revue : l'utilisateur ne fait pas le contrôle de remise en service de sa moto", "zh", "ZH contrôle sa propre moto M6",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M6, "items": items("REMISE_EN_SERVICE"), "intervenant_nom": "X", "compteur_km": 18470}) + ")", False, "Indépendance")
+act("RV-02b", "Revue : le coordinateur ne contrôle pas sa propre moto", "lc", "Coordinateur, remise en service de M10",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M10, "items": items("REMISE_EN_SERVICE"), "intervenant_nom": "X", "compteur_km": 30}) + ")", False, "Indépendance")
+a6 = q(f"select id from public.moto_actions_correctives where moto_id='{M6}' and point_code='ECLAIRAGE'")
+run_as("lc", "select public.moto_action_planifier(" + lit({"action_id": a6, "action_prevue": "Ampoule à remplacer", "date_cible": str(today + datetime.timedelta(days=2))}) + ")")
+run_as("lc", "select public.moto_action_realiser(" + lit({"action_id": a6, "realise_at": str(today)}) + ")")
+act("RV-02c", "Revue : l'utilisateur ne vérifie pas la réparation de sa propre moto", "zh", "ZH vérifie l'action de M6", f"select public.moto_action_verifier('{a6}', 'VALIDEE', 'constat personnel')", False, "Indépendance")
+inc6 = act("RV-02d", "Revue : incident sur sa moto", "zh", "ZH déclare un incident majeur sur M6",
+           "select public.moto_incident_declarer(" + lit({"moto_id": M6, "type_incident": "PANNE", "gravite": "MAJEURE", "description": "Panne fictive de test revue", "client_op_id": str(uuid.uuid4())}) + ")")
+act("RV-02e", "Revue : l'utilisateur ne pilote pas le circuit incident de sa moto", "zh", "ZH avance l'incident de sa propre moto",
+    f"select public.moto_incident_avancer((select id from public.moto_incidents where moto_id='{M6}' order by declare_at desc limit 1), 'DIAGNOSTIC', 'auto-diagnostic')", False, "Indépendance")
+a9 = q(f"select id from public.moto_actions_correctives where moto_id='{M9}' and gravite='CRITIQUE' limit 1")
+act("RV-03", "Revue : une anomalie critique ne s'annule pas", "bm", "BM annule l'anomalie critique de M9", f"select public.moto_action_annuler('{a9}', 'Annulation sans vérification test')", False, "ne s'annule pas")
+put_object(f"depenses/{U['bm']}/note-bm-fictive.pdf")
+act("RV-04", "Revue : justificatifs d'autrui illisibles pour le coordinateur", "lc", "Coordinateur lit un justificatif du BM",
+    f"select count(*) from storage.objects where bucket_id='moto-documents' and name like 'depenses/{U['bm']}/%'", True, "0")
+act("RV-04b", "Revue : le BM lit les justificatifs du coordinateur", "bm", "BM lit le justificatif du coordinateur",
+    f"select count(*) from storage.objects where bucket_id='moto-documents' and name='{jp}'", True, "1")
+dup = photos(M6, ["COMPTEUR"])
+corr6 = {"remplace_id": q(f"select id from public.moto_controles where moto_id='{M6}' and niveau='COORDINATION' and remplace_par is null"), "motif_correction": "Correction pour test de photos"}
+act("RV-05a", "Revue : une seule photo citée pour plusieurs vues refusée", "lc", "Même fichier pour COMPTEUR et AVANT",
+    insp("lc", M6, km=18480, extra={**corr6, "photos": dup + [{"path": dup[0]["path"], "categorie": "AVANT"}]}), False, "déjà utilisée")
+act("RV-05b", "Revue : photo d'un contrôle antérieur refusée", "lc", "Photos d'une inspection précédente réutilisées",
+    insp("lc", M6, km=18480, extra={**corr6, "photos": [{"path": q(f"select storage_path from public.moto_photos where moto_id='{M6}' and categorie='COMPTEUR' order by prise_at limit 1"), "categorie": "COMPTEUR"}] + photos(M6, ["AVANT"])}), False, "déjà utilisée")
+act("RV-06", "Revue : un justificatif ne justifie qu'une dépense", "lc", "Seconde dépense avec la même facture",
+    "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": str(today), "montant": 5000, "objet": "Doublon de facture", "justificatif_path": jp}) + ")", False, "duplicate")
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "serveur.json"), "w", encoding="utf-8") as f:

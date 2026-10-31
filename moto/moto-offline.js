@@ -65,7 +65,8 @@
                statut: 'EN_ATTENTE', tentatives: 0, cree_le: new Date().toISOString(), fichiers: [], message: null };
     var jobs = (opts.fichiers || []).map(function (f) {
       var id = op.client_op_id + ':' + f.champ;
-      op.fichiers.push({ id: id, champ: f.champ, moto_id: f.moto_id, categorie: f.categorie, extension: f.extension || 'jpg', type_mime: f.blob.type || 'image/jpeg' });
+      op.fichiers.push({ id: id, champ: f.champ, moto_id: f.moto_id, categorie: f.categorie, extension: f.extension || 'jpg', type_mime: f.blob.type || 'image/jpeg',
+                         liste: f.liste || null, categorie_photo: f.categorie_photo || null });
       return ecrire('fichiers', { id: id, blob: f.blob });
     });
     return estimerEspace().then(function (e) {
@@ -114,6 +115,11 @@
         // Chemin déterministe : un fichier déjà envoyé lors d'une tentative interrompue n'est pas dupliqué.
         if (r && r.error && !/exist|duplicate|409/i.test(String(r.error.message || r.error.statusCode || ''))) throw r.error;
         op.payload[f.champ] = chemin;
+        // Photos multiples (inspections) : ajoutées à la liste attendue par le serveur, rattachées à LA moto de l'opération.
+        if (f.liste) {
+          var l = op.payload[f.liste] || (op.payload[f.liste] = []);
+          if (!l.some(function (x) { return x.path === chemin; })) l.push({ path: chemin, categorie: f.categorie_photo || 'AUTRE' });
+        }
       });
     });
     return Promise.all(jobs).then(function () { return ecrire('operations', op); });

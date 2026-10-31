@@ -1,0 +1,5 @@
+Empreinte A (1-4)              : ef09e95013eb635c86d89e8b812fd606
+Empreinte B (1-4, 5, retour, 1-4): ef09e95013eb635c86d89e8b812fd606
+Contraintes d'origine absentes ou modifiées : 0
+Contraintes conservées sur les colonnes facultatives ajoutées : moto_controles_confirmation_check moto_controles_confirmation_statut_check moto_controles_conformite_check moto_controles_niveau_check moto_motos_dates_check moto_motos_origine_check moto_motos_situation_parc_check moto_pneus_date_fabrication_check 
+RETOUR ARRIÈRE VÉRIFIÉ : fonctions, droits, vues et politiques identiques à l'état 1-4.

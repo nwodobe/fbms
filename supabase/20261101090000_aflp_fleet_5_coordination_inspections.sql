@@ -31,11 +31,13 @@ as $$
            when p.role = 'Assistant Branch Manager' then 'ABM'
            when p.role in ('Finance','Finance Manager') then 'FINANCE'
            when p.role = 'General Manager' then 'DIRECTION'
+           -- Chef de zone et Chef d'unité gardent TOUJOURS leur classe, quelle que soit la fonction saisie.
+           when p.role = 'Zonal Head' then 'ZONE'
+           when p.role = 'Unit Head' then 'UNITE'
+           -- Coordinateur : fonction opérationnelle modifiable par le seul Branch Manager (RLS profils + garde).
            when p.role = 'Logistics Coordinator'
              or public.aflp_norm(p.fonction_operationnelle) in ('LOGISTICS COORDINATOR','LOGISTICS_COORDINATOR','COORDINATEUR LOGISTIQUE')
              then 'LOGISTIQUE'
-           when p.role = 'Zonal Head' then 'ZONE'
-           when p.role = 'Unit Head' then 'UNITE'
            else null end
   from public.profils p
   where p.user_id = p_user and p.actif = true
@@ -55,6 +57,17 @@ as $$
   select a.beneficiaire_id from public.moto_affectations a
   where a.moto_id = p_moto and a.statut = 'ACTIVE' and a.type_affectation in ('REMISE','TRANSFERT') limit 1
 $$;
+
+-- Indépendance : l'affectataire ne contrôle ni ne débloque sa propre moto.
+create or replace function private.moto_exiger_independance(p_moto uuid, p_objet text)
+returns void language plpgsql stable security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+begin
+  if private.moto_affectataire(p_moto) = auth.uid() then
+    perform private.moto_refus('Indépendance : ' || p_objet || ' ne peut pas être fait par l''utilisateur de la moto.');
+  end if;
+end $$;
 
 -- Lecture : LOGISTIQUE voit tout le parc AFLP. Un bénéficiaire préaffecté
 -- voit la moto pour confirmer l'état contradictoire de remise.
@@ -299,9 +312,12 @@ begin
     end if;
     if nullif(ph ->> 'path', '') is null then perform private.moto_erreur('Photo sans fichier.'); end if;
     perform private.moto_stockage_valide(p_moto, ph ->> 'path', array['controle','photo']);
+    -- Une photo = un fichier distinct, jamais réutilisé d'un contrôle à l'autre.
+    if exists (select 1 from public.moto_photos where storage_path = ph ->> 'path') then
+      perform private.moto_erreur('Photo déjà utilisée : chaque vue exige un fichier distinct.');
+    end if;
     insert into public.moto_photos (moto_id, storage_path, categorie, controle_id, legende)
-    values (p_moto, ph ->> 'path', v_cat, p_controle, left(nullif(btrim(ph ->> 'legende'), ''), 200))
-    on conflict (storage_path) do nothing;
+    values (p_moto, ph ->> 'path', v_cat, p_controle, left(nullif(btrim(ph ->> 'legende'), ''), 200));
     v_cats := v_cats || v_cat; v_n := v_n + 1;
   end loop;
   if v_n < coalesce(p_min, 0) then
@@ -554,6 +570,7 @@ begin
   if not found or a.statut <> 'REALISEE' then perform private.moto_erreur('Seule une action réalisée peut être vérifiée.'); end if;
   if not private.moto_peut_operer(a.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
   if a.realise_par = auth.uid() then perform private.moto_refus('Séparation des tâches : la personne qui a réalisé ne vérifie pas son propre travail.'); end if;
+  perform private.moto_exiger_independance(a.moto_id, 'la vérification d''une réparation');
   if v_dec not in ('VALIDEE','REJETEE') then perform private.moto_erreur('Décision : VALIDEE ou REJETEE.'); end if;
   perform private.moto_motif(p_note, 5);
   perform set_config('moto.valideur', auth.uid()::text, true);
@@ -579,6 +596,9 @@ begin
   select * into a from public.moto_actions_correctives where id = p_action for update;
   if not found or a.statut in ('CLOTUREE','ANNULEE') then perform private.moto_erreur('Action introuvable ou déjà close.'); end if;
   if a.signale_par = auth.uid() then perform private.moto_refus('Le signalant n''annule pas son propre signalement.'); end if;
+  if a.gravite = 'CRITIQUE' then
+    perform private.moto_erreur('Une anomalie critique ne s''annule pas : elle se clôt par une vérification après correction.');
+  end if;
   update public.moto_actions_correctives set statut = 'ANNULEE', annule_par = auth.uid(), motif_annulation = btrim(p_motif) where id = a.id;
   return jsonb_build_object('id', a.id, 'statut', 'ANNULEE');
 end $$;
@@ -676,6 +696,7 @@ begin
   perform private.moto_exiger_classe(array['BM','ZONE','ABM','LOGISTIQUE']);
   perform private.moto_charger(v_moto, true);
   if not private.moto_peut_operer(v_moto) then perform private.moto_refus('Hors de votre périmètre.'); end if;
+  perform private.moto_exiger_independance(v_moto, 'le contrôle de remise en service');
   if nullif(btrim(p ->> 'intervenant_nom'), '') is null then perform private.moto_erreur('Nom de l''intervenant obligatoire.'); end if;
   v_chk := private.moto_items_controles('REMISE_EN_SERVICE', p -> 'items');
   v_crit := (v_chk ->> 'critique')::boolean;
@@ -704,6 +725,7 @@ begin
   if not found or im.fin is not null then perform private.moto_erreur('Immobilisation introuvable ou déjà levée.'); end if;
   if not private.moto_peut_operer(im.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
   if im.source_type in ('INCIDENT','MAINTENANCE') then perform private.moto_erreur('Cette immobilisation se lève par le circuit de l''incident ou de la maintenance.'); end if;
+  perform private.moto_exiger_independance(im.moto_id, 'la levée d''immobilisation');
   if not private.moto_controle_apte_depuis(im.moto_id, im.debut) then
     perform private.moto_erreur('Levée bloquée : un contrôle de remise en service APTE est exigé après l''immobilisation.');
   end if;
@@ -1171,6 +1193,8 @@ create table if not exists public.moto_depenses (
   check (statut not in ('JUSTIFIEE','VALIDEE') or justificatif_path is not null)
 );
 
+create unique index if not exists moto_depenses_justificatif_unique on public.moto_depenses (justificatif_path) where justificatif_path is not null;
+
 create or replace function private.moto_lecture_enveloppe(p_titulaire uuid)
 returns boolean language sql stable security definer
 set search_path to 'public', 'private', 'pg_temp'
@@ -1518,6 +1542,87 @@ begin
   update public.moto_pneus set statut = 'EN_STOCK' where id = private.moto_uuid(p, 'pneu_id') and statut = 'EN_REPARATION';
   return jsonb_build_object('id', v_id);
 end $$;
+-- Copies de la migration 2 avec contrôle d'indépendance de l'affectataire ajouté (revue indépendante du 31/10/2026).
+create or replace function public.moto_incident_avancer(p_incident uuid, p_etape text, p_note text, p_cout numeric default null)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare i public.moto_incidents; v_classe text; v_cible text := upper(coalesce(p_etape, '')); v_ok boolean; v_immo boolean;
+begin
+  v_classe := private.moto_exiger_classe(array['BM','ZONE','ABM']);
+  select * into i from public.moto_incidents where id = p_incident for update;
+  if not found then perform private.moto_erreur('Incident introuvable.'); end if;
+  if not private.moto_peut_operer(i.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
+  perform private.moto_exiger_independance(i.moto_id, 'cette étape');
+  perform private.moto_motif(p_note, 5);
+  v_immo := exists (select 1 from public.moto_immobilisations where source_type = 'INCIDENT' and source_id = i.id and fin is null);
+  v_ok := case i.etape
+    when 'SIGNALE' then v_cible in ('IMMOBILISEE','DIAGNOSTIC') or (v_cible = 'CLOS' and i.gravite <> 'CRITIQUE')
+    when 'IMMOBILISEE' then v_cible = 'DIAGNOSTIC'
+    when 'DIAGNOSTIC' then v_cible in ('AUTORISATION_DEPENSE','REPARATION','CONTROLE') or (v_cible = 'CLOS' and not v_immo and i.gravite <> 'CRITIQUE')
+    when 'AUTORISATION_DEPENSE' then v_cible = 'REPARATION'
+    when 'REPARATION' then v_cible = 'CONTROLE'
+    when 'CONTROLE' then v_cible = 'REMIS_EN_SERVICE'
+    when 'REMIS_EN_SERVICE' then v_cible = 'CLOS'
+    else false end;
+  if not v_ok then perform private.moto_erreur(format('Transition interdite : %s → %s.', i.etape, v_cible)); end if;
+  if v_cible = 'IMMOBILISEE' and not v_immo then
+    perform private.moto_ouvrir_immobilisation(i.moto_id, 'Incident '||i.type_incident, 'INCIDENT', i.id);
+  end if;
+  if v_cible = 'AUTORISATION_DEPENSE' then
+    if v_classe not in ('BM','ZONE') then perform private.moto_refus('Autorisation de dépense réservée au Branch Manager ou au Chef de Zone.'); end if;
+    if i.declare_par = auth.uid() then perform private.moto_refus('Le déclarant ne peut pas autoriser la dépense de son propre incident.'); end if;
+    if p_cout is null or p_cout <= 0 then perform private.moto_erreur('Montant estimé de la dépense obligatoire.'); end if;
+    perform set_config('moto.valideur', auth.uid()::text, true);
+    update public.moto_incidents set cout_estime = p_cout, depense_autorisee_par = auth.uid() where id = i.id;
+  end if;
+  if v_cible = 'REMIS_EN_SERVICE' then
+    if not private.moto_controle_apte_depuis(i.moto_id, i.declare_at) then
+      perform private.moto_erreur('Remise en service bloquée : contrôle de remise en service APTE obligatoire après l''incident.');
+    end if;
+    update public.moto_immobilisations set fin = now(), levee_par = auth.uid(), levee_motif = 'Remise en service après incident'
+    where source_type = 'INCIDENT' and source_id = i.id and fin is null;
+  end if;
+  if v_cible = 'CLOS' and p_cout is not null then update public.moto_incidents set cout_reel = p_cout where id = i.id; end if;
+  update public.moto_incidents set etape = v_cible,
+         clos_par = case when v_cible = 'CLOS' then auth.uid() else clos_par end,
+         clos_at = case when v_cible = 'CLOS' then now() else clos_at end
+  where id = i.id;
+  insert into public.moto_incident_etapes (incident_id, etape, note) values (i.id, v_cible, btrim(p_note));
+  perform private.moto_recalculer_statuts(i.moto_id);
+  return jsonb_build_object('id', i.id, 'etape', v_cible);
+end $$;
+
+create or replace function public.moto_maintenance_terminer(p jsonb)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare mt public.moto_maintenances; v_fact uuid := private.moto_uuid(p, 'facture_document_id'); v_remise boolean := coalesce((p ->> 'remettre_en_service')::boolean, false);
+begin
+  perform private.moto_exiger_classe(array['BM','ZONE','ABM']);
+  select * into mt from public.moto_maintenances where id = private.moto_uuid(p, 'maintenance_id') for update;
+  if not found or mt.statut <> 'EN_COURS' then perform private.moto_erreur('Seule une maintenance en cours peut être terminée.'); end if;
+  if not private.moto_peut_operer(mt.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
+  perform private.moto_exiger_independance(mt.moto_id, 'cette étape');
+  if v_fact is not null and not exists (select 1 from public.moto_documents where id = v_fact and moto_id = mt.moto_id and type_document = 'FACTURE') then
+    perform private.moto_erreur('La facture doit être un document FACTURE de cette moto.');
+  end if;
+  if private.moto_num(p, 'cout_reel') is null then perform private.moto_erreur('Coût réel obligatoire (0 si aucune dépense).'); end if;
+  if v_remise and private.moto_num(p, 'cout_reel') > 0 and v_fact is null then
+    perform private.moto_erreur('Facture obligatoire pour clôturer une intervention payante.');
+  end if;
+  perform private.moto_motif(coalesce(p ->> 'motif', 'Fin d''intervention'));
+  update public.moto_maintenances set statut = 'TERMINEE', cout_reel = private.moto_num(p, 'cout_reel'), facture_document_id = v_fact,
+         compteur_km = coalesce(private.moto_num(p, 'compteur_km'), compteur_km), garage_nom = coalesce(nullif(btrim(p ->> 'garage_nom'), ''), garage_nom),
+         termine_par = auth.uid(), termine_at = now() where id = mt.id;
+  perform private.moto_enregistrer_km(mt.moto_id, private.moto_num(p, 'compteur_km'), now(), 'MAINTENANCE');
+  if v_remise then
+    update public.moto_immobilisations set fin = now(), levee_par = auth.uid(), levee_motif = 'Fin de maintenance'
+    where moto_id = mt.moto_id and source_type = 'MAINTENANCE' and source_id = mt.id and fin is null;
+  end if;
+  perform private.moto_recalculer_statuts(mt.moto_id);
+  return jsonb_build_object('id', mt.id, 'statut', 'TERMINEE', 'remise_en_service', v_remise);
+end $$;
 -- @@GENERE_FIN
 
 -- ---------------------------------------------------------------------
@@ -1601,7 +1706,8 @@ end $$;
 drop policy if exists moto_documents_consultation on storage.objects;
 create policy moto_documents_consultation on storage.objects for select to authenticated
   using (bucket_id = 'moto-documents'
-         and (private.moto_dans_perimetre(private.moto_uuid_ou_null((storage.foldername(name))[1]))
+         and ((private.moto_uuid_ou_null((storage.foldername(name))[1]) is not null
+               and private.moto_dans_perimetre(private.moto_uuid_ou_null((storage.foldername(name))[1])))
               or ((storage.foldername(name))[1] = 'depenses'
                   and private.moto_lecture_enveloppe(private.moto_uuid_ou_null((storage.foldername(name))[2])))));
 
