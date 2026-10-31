@@ -158,7 +158,8 @@ function wait(ms){return new Promise(r=>setTimeout(r,ms));}
 
 async function main(){
   const srv=server();await new Promise(r=>srv.listen(PORT,'127.0.0.1',r));
-  const browser=await chromium.launch();
+  /* CHROMIUM_PATH permet d'utiliser un Chrome local quand le téléchargement Playwright est bloqué. */
+  const browser=await chromium.launch(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{});
   const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'allow'});
   await ctx.addInitScript({content:STUB});
   await ctx.route(/https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\/.*/,async route=>{
@@ -200,6 +201,7 @@ async function main(){
     assert.match(await page.textContent('body'),/Hors ligne/,'rechargement complet doit rester utilisable hors ligne');
 
     /* Producteur créé hors ligne, persistant dans IndexedDB. */
+    await wait(1500);
     await page.evaluate(()=>ANAGROCI_FB.openFarmerForm());
     await page.waitForSelector('#farmerForm');
     await page.fill('#ff_nom','PRODUCTEUR OFFLINE FICTIF');
@@ -208,6 +210,9 @@ async function main(){
     await page.fill('#ff_tel','0700000999');
     await page.click('#ff_submit');
     await page.waitForFunction(()=>document.body.textContent.includes('Farmer ID définitif attribué lors de la synchronisation.'),null,{timeout:10000});
+    /* Stabilisation 25/10/2026 : laisser finir la navigation programmée (1,2 s) après l'enregistrement,
+       sinon le formulaire suivant est détaché du DOM sur une machine lente. */
+    await wait(2000);
     let ops=await page.evaluate(()=>ANAGROCI_OFFLINE.list());
     const farmerOp=ops.find(x=>x.operation_type==='FARMER_ENROLL');
     assert.ok(farmerOp&&farmerOp.status==='PENDING','enrôlement doit rester PENDING');

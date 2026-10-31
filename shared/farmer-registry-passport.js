@@ -265,8 +265,13 @@
     return '<div class="fr-actions">' + actionButton('+ Ajouter une parcelle','openFarmerPlotForm()', '') + '</div>'
       + (rows.length ? rows.map(function (x) {
         var sync = syncLabel(x._sync_status);
-        return '<article class="fr-list-item"><div class="fr-list-head"><div><b>' + esc(x.local_name || 'Parcelle sans nom') + '</b>'
-          + '<div class="fr-meta">' + esc(fmt(x.declared_area) + ' ' + (x.area_unit || 'HA')) + ' · ' + esc(x.land_tenure_status || 'UNKNOWN')
+        /* Régularisation 25/10/2026 : statut de parcelle visible ; surface déclarée distincte de la surface GPS vérifiée. */
+        var plotStatus = String(x.status || 'ACTIVE').toUpperCase();
+        var statusBadge = plotStatus === 'REVIEW_REQUIRED' ? badge('À VÉRIFIER', 'fr-warn') : plotStatus === 'INACTIVE' ? badge('INACTIVE', 'fr-info') : '';
+        return '<article class="fr-list-item"><div class="fr-list-head"><div><b>' + esc(x.local_name || 'Parcelle sans nom') + '</b> ' + statusBadge
+          + '<div class="fr-meta">Déclarée : ' + esc(fmt(x.declared_area) + ' ' + (x.area_unit || 'HA'))
+          + ' · GPS vérifiée : ' + esc(x.gps_verified_area != null ? fmt(x.gps_verified_area) + ' ha' : 'non mesurée')
+          + ' · ' + esc(x.land_tenure_status || 'UNKNOWN')
           + ' · ' + esc(x.evidence_level || 'DECLARED') + '</div></div><div>' + badge(x.gps_status, x.gps_status === 'GPS_VERIFIED' ? 'fr-ok' : x.gps_status === 'POINT_CAPTURED' ? 'fr-info' : 'fr-warn')
           + ' ' + badge(sync[0], sync[1]) + '</div></div><div class="fr-meta">GPS : '
           + (x.latitude != null ? fmt(x.latitude, 6) + ', ' + fmt(x.longitude, 6) + ' · précision ' + fmt(x.gps_accuracy_m, 0) + ' m' : 'non capturé')
