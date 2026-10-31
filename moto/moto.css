@@ -1,4 +1,4 @@
-/* AFLP MOTO MANAGER — identité ANAGROCI / PJS Global, mobile d'abord. */
+/* AFLP FLEET (ex AFLP Moto Manager) — identité ANAGROCI / PJS Global, mobile d'abord. */
 :root{
   --forest:#053B23;--pine:#0A4A2C;--emerald:#1E8E3E;--emerald-dark:#00712C;--lime:#8DC556;--amber:#F0A500;
   --ink:#132F1F;--muted:#5E6F65;--line:#DCE5DF;--mist:#F3F7F4;--paper:#FFFFFF;--bg:#F6F8F6;
@@ -199,3 +199,24 @@ a{color:var(--emerald-dark)}
   .mm-etats{width:100%;justify-content:flex-start}
   .mm-nav{position:static}
 }
+
+/* -- AFLP FLEET : photos, calendrier, coordination ------------------------ */
+.mm-photo{display:block;width:100%;object-fit:cover;background:var(--mist);border-radius:10px}
+.mm-photo-vide{display:grid;place-items:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);text-align:center;padding:8px}
+.mm-photo-carte{aspect-ratio:16/9;margin:-2px 0 10px;max-height:180px}
+.mm-photo-passeport{aspect-ratio:4/3;max-height:260px}
+.mm-photo-galerie{aspect-ratio:4/3}
+.mm-galerie{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.mm-galerie figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px}
+.mm-galerie figcaption{font-size:12px;color:var(--muted);padding-top:4px;overflow-wrap:anywhere}
+.mm-apercu{display:block;max-width:100%;max-height:200px;margin-top:6px;border-radius:8px;border:1px solid var(--line)}
+.mm-photos .mm-grille-form{gap:8px}
+.mm-calendrier{display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 14px}
+.mm-phase{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.mm-phase b{font-family:var(--font-display);color:var(--forest)}
+.mm-phase span{font-size:13px;color:var(--muted)}
+.mm-phase-active{border-color:var(--emerald);box-shadow:inset 4px 0 0 var(--emerald);background:var(--ok-bg)}
+.mm-bloc-alerte{border-left:4px solid var(--amber)}
+.mm-bloc h3{font-family:var(--font-display);font-size:15px;color:var(--forest);margin:16px 0 6px}
+@media (min-width:720px){.mm-calendrier{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:720px){.mm-passeport{grid-template-columns:240px 170px 1fr}}

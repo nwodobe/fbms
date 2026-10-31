@@ -1,31 +1,31 @@
 {
- "date": "2026-10-31T00:01:05.589Z",
+ "date": "2026-10-31T13:11:04.034Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
    "id": "UI-PORT-mobile",
-   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "exigence": "Carte AFLP FLEET sur le portail (scénario 1)",
    "action": "Portail à {\"width\":390,\"height\":844}",
    "attendu": "carte visible, lien moto/index.html, aucun débordement",
-   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "obtenu": "titre=AFLP FLEET visible=true href=moto/index.html image=true débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/portail-mobile.png"
   },
   {
    "id": "UI-PORT-tablette",
-   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "exigence": "Carte AFLP FLEET sur le portail (scénario 1)",
    "action": "Portail à {\"width\":768,\"height\":1024}",
    "attendu": "carte visible, lien moto/index.html, aucun débordement",
-   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "obtenu": "titre=AFLP FLEET visible=true href=moto/index.html image=true débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/portail-tablette.png"
   },
   {
    "id": "UI-PORT-bureau",
-   "exigence": "Carte illustrée AFLP MOTO MANAGER sur le portail",
+   "exigence": "Carte AFLP FLEET sur le portail (scénario 1)",
    "action": "Portail à {\"width\":1440,\"height\":900}",
    "attendu": "carte visible, lien moto/index.html, aucun débordement",
-   "obtenu": "visible=true href=moto/index.html image=true débordement=0px",
+   "obtenu": "titre=AFLP FLEET visible=true href=moto/index.html image=true débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/portail-bureau.png"
   },
@@ -37,6 +37,15 @@
    "obtenu": "ferme · MOTO-001 · APSONIC AP150-30 · QR=1 · châssis=null",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/passeport-creation-bureau.png"
+  },
+  {
+   "id": "UI-FL-03",
+   "exigence": "Photo principale enregistrée à la création (scénario 3)",
+   "action": "Photo jointe au formulaire avec aperçu",
+   "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
+   "obtenu": "aperçu=1 chemin=84623fb2-8827-4d29-b612-65ed9bb8a27c/photo/f9a250ad-c0ce-4c2f-8ce6-b535203fd7b6.jpg affichée=true",
+   "resultat": "RÉUSSI",
+   "preuve": ""
   },
   {
    "id": "UI-INV-02",
@@ -129,6 +138,24 @@
    "preuve": ""
   },
   {
+   "id": "UI-ETAT-01",
+   "exigence": "État contradictoire avant remise (scénario 9)",
+   "action": "ABM enregistre l'état avec 5 photos",
+   "attendu": "état EN_ATTENTE, 5 photos datées, distinct du PV et de l'inspection",
+   "obtenu": "ferme · {\"confirmation_statut\":\"EN_ATTENTE\",\"n\":5}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-ETAT-02",
+   "exigence": "Le bénéficiaire accepte l'état depuis son téléphone",
+   "action": "Chef d'unité examine photos et points, accepte avec réserve",
+   "attendu": "ACCEPTEE_AVEC_RESERVES à son nom",
+   "obtenu": "ferme · ACCEPTEE_AVEC_RESERVES",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/etat-remise-beneficiaire-mobile.png"
+  },
+  {
    "id": "UI-REM-03",
    "exigence": "Remise officielle complète",
    "action": "ABM enregistre la remise",
@@ -150,8 +177,8 @@
    "id": "UI-OP-01",
    "exigence": "Écrans courts pour l'agent (390 px)",
    "action": "Opérations sur téléphone",
-   "attendu": "5 tuiles, aucun débordement horizontal",
-   "obtenu": "tuiles=5 · débordement=0px",
+   "attendu": "6 tuiles, aucun débordement horizontal",
+   "obtenu": "tuiles=6 · débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/operations-mobile.png"
   },
@@ -277,7 +304,7 @@
    "exigence": "Export Excel",
    "action": "BM exporte le classeur",
    "attendu": "fichier .xlsx avec les onglets de pilotage",
-   "obtenu": "onglets=Flotte, Consommation, Intervalles plein a plein, Couts, Disponibilite, Rapprochement dotations, Echeances, Alertes documents, Pneus, Incidents ouverts, Limites",
+   "obtenu": "onglets=AFLP FLEET, Flotte, Consommation, Intervalles plein a plein, Couts, Disponibilite, Rapprochement dotations, Echeances, Alertes documents, Pneus, Incidents ouverts, Limites",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/export-pilotage-e2e.xlsx"
   },
@@ -316,6 +343,60 @@
    "obtenu": "motos visibles=0",
    "resultat": "RÉUSSI",
    "preuve": ""
+  },
+  {
+   "id": "UI-FL-01",
+   "exigence": "Identité AFLP FLEET et anciennes routes (scénarios 1-2)",
+   "action": "Ouverture de #/motos et #/moto/<id>",
+   "attendu": "titre et en-tête AFLP FLEET, routes existantes fonctionnelles",
+   "obtenu": "titre=AFLP FLEET · ANAGROCI · en-tête=AFLP FLEET · cartes=1 · passeport=MOTO-001 · APSONIC AP150-30",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-FL-10",
+   "exigence": "Chef de zone : liste et inspection du mois (scénarios 10, 12)",
+   "action": "ZH inspecte MOTO-001 depuis Opérations, éclairage en défaut",
+   "attendu": "inspection ZONE enregistrée, résultat calculé par le serveur, tardive après le 15",
+   "obtenu": "ferme · {\"niveau\":\"ZONE\",\"conformite\":\"RESERVES\",\"periode\":\"2026-10-01T00:00:00.000Z\"} · statut=EFFECTUEE_HORS_DELAI",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/zone-inspections-mobile.png"
+  },
+  {
+   "id": "UI-FL-13",
+   "exigence": "Coordinateur : espace Coordination et inspection (scénarios 13, 19)",
+   "action": "Coordinateur ouvre Coordination et inspecte MOTO-001",
+   "attendu": "priorités visibles ; anomalie toujours ouverte : résultat au mieux « avec réserves »",
+   "obtenu": "Coordination logistique · priorités=2 · ferme · RESERVES · anomalie ouverte=1",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/coordination-mobile.png"
+  },
+  {
+   "id": "UI-FL-20",
+   "exigence": "Action corrective planifiée depuis la coordination (scénario 20)",
+   "action": "Coordinateur planifie la réparation de l'éclairage",
+   "attendu": "statut PLANIFIEE, garage et date cible enregistrés",
+   "obtenu": "ferme · {\"statut\":\"PLANIFIEE\",\"prestataire\":\"GARAGE E2E FICTIF\"}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-FL-06",
+   "exigence": "Intégrer une moto déjà en exploitation (scénarios 6, 7)",
+   "action": "Coordinateur intègre une moto sans marque connue",
+   "attendu": "marque et compteur « Non disponible », aucune dépense ou vidange créée",
+   "obtenu": "ferme · MOTO-002 · Marque et modèle non disponibles · mentions Non disponible=17 · dépenses=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/moto-en-exploitation-bureau.png"
+  },
+  {
+   "id": "UI-FL-BM",
+   "exigence": "Vue Branch Manager centrée sur les exceptions",
+   "action": "BM ouvre le pilotage",
+   "attendu": "section Exceptions à traiter, avec les motos immobilisées et inspections manquantes",
+   "obtenu": "section=1",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/pilotage-exceptions-bureau.png"
   },
   {
    "id": "UI-RWD-flotte-mobile",
@@ -372,6 +453,24 @@
    "preuve": "tests/moto/resultats/captures/administration-mobile.png"
   },
   {
+   "id": "UI-RWD-coordination-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "coordination à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/coordination-mobile.png"
+  },
+  {
+   "id": "UI-RWD-photos-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "photos à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photos-mobile.png"
+  },
+  {
    "id": "UI-RWD-flotte-tablette",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "flotte à 768×1024",
@@ -426,6 +525,24 @@
    "preuve": "tests/moto/resultats/captures/administration-tablette.png"
   },
   {
+   "id": "UI-RWD-coordination-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "coordination à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/coordination-tablette.png"
+  },
+  {
+   "id": "UI-RWD-photos-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "photos à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photos-tablette.png"
+  },
+  {
    "id": "UI-RWD-flotte-bureau",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "flotte à 1440×900",
@@ -478,6 +595,24 @@
    "obtenu": "débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/administration-bureau.png"
+  },
+  {
+   "id": "UI-RWD-coordination-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "coordination à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/coordination-bureau.png"
+  },
+  {
+   "id": "UI-RWD-photos-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "photos à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photos-bureau.png"
   },
   {
    "id": "UI-CONSOLE",

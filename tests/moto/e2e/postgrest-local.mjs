@@ -8,7 +8,7 @@
  * Refuse toute base dont l'hôte contient « supabase ».
  *
  * Couvre ce qu'utilise le module : GET table/vue (select=*, eq, neq, is.null,
- * order, limit, objet unique), POST rpc/<fonction>, dépôt et URL signée Storage.
+ * order, limit, objet unique), POST rpc/<fonction>, dépôt, URL signée et lecture signée Storage.
  */
 import pg from 'pg';
 
@@ -94,6 +94,17 @@ export function creerEmulateur({ host, port, database }) {
     return reponse(200, j);
   }
 
+  /* supabase-js envoie un Blob en multipart/form-data : on conserve le contenu du fichier lui-même. */
+  function extraireFichier(corps, contentType) {
+    const m = /boundary=([^;]+)/.exec(String(contentType || ''));
+    if (!m || !corps) return { corps, contentType };
+    const b = Buffer.from('--' + m[1]); const debut = corps.indexOf(Buffer.from('filename='));
+    if (debut < 0) return { corps, contentType };
+    const ent = corps.indexOf(Buffer.from('\r\n\r\n'), debut); const fin = corps.indexOf(b, ent);
+    const entete = corps.slice(corps.lastIndexOf(b, debut), ent).toString();
+    const t = /Content-Type:\s*([^\r\n]+)/i.exec(entete);
+    return { corps: corps.slice(ent + 4, fin - 2), contentType: t ? t[1].trim() : 'application/octet-stream' };
+  }
   async function stockage(methode, chemin, corps, contentType, sub) {
     let m = /^\/storage\/v1\/object\/sign\/([^/]+)\/(.+)$/.exec(chemin);
     if (m && methode === 'POST') {
@@ -101,12 +112,17 @@ export function creerEmulateur({ host, port, database }) {
       const ok = await enTantQue(sub, c => c.query('select 1 from storage.objects where bucket_id = $1 and name = $2', [bucket, nomD]).then(r => r.rowCount > 0));
       return ok ? reponse(200, { signedURL: `/object/sign/${bucket}/${nom}?token=test-local` }) : reponse(400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
     }
+    if (m && methode === 'GET') {  // lecture d'un fichier par URL signée (photos)
+      const [, bucket, nom] = m; const f = fichiers.get(bucket + '/' + decodeURIComponent(nom));
+      return f ? { status: 200, headers: { 'content-type': f.contentType || 'application/octet-stream', 'access-control-allow-origin': '*' }, body: Buffer.from(f.corps || []) }
+               : reponse(404, { message: 'Object not found' });
+    }
     m = /^\/storage\/v1\/object\/([^/]+)\/(.+)$/.exec(chemin);
     if (m && (methode === 'POST' || methode === 'PUT')) {
       const [, bucket, nom] = m; const nomD = decodeURIComponent(nom);
       try {
         await enTantQue(sub, c => c.query('insert into storage.objects (bucket_id, name, metadata) values ($1, $2, $3)', [bucket, nomD, JSON.stringify({ mimetype: contentType, size: corps ? corps.length : 0 })]));
-        fichiers.set(bucket + '/' + nomD, { corps, contentType });
+        fichiers.set(bucket + '/' + nomD, extraireFichier(corps, contentType));
         return reponse(200, { Key: `${bucket}/${nomD}`, Id: nomD });
       } catch (e) {
         if (e.code === '23505') return reponse(400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });

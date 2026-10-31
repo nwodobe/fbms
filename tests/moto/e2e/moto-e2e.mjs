@@ -41,6 +41,7 @@ const U = {
   zh: [uid(3), 'ZH E2E FICTIF', 'Zonal Head', null], uh: [uid(4), 'UH SAKASSOU E2E FICTIF', 'Unit Head', 'SAKASSOU'],
   uh2: [uid(5), 'UH BOTRO E2E FICTIF', 'Unit Head', 'BOTRO'], fin: [uid(6), 'FINANCE E2E FICTIF', 'Finance', null],
   agent: [uid(7), 'AGENT E2E FICTIF', 'Agent Recenseur', 'BROBO'], sup: [uid(8), 'SUPERVISOR E2E FICTIF', 'Supervisor', 'BROBO'],
+  lc: [uid(9), 'COORDINATEUR E2E FICTIF', 'Supervisor', null],
 };
 
 const RESULTATS = []; const ERREURS_CONSOLE = [];
@@ -79,6 +80,10 @@ for (const [k, [id, nom, role, cluster]] of Object.entries(U)) {
   await q('insert into auth.users (id, email) values ($1, $2) on conflict do nothing', [id, k + '.e2e@example.invalid']);
   await q('insert into public.profils (user_id, email, nom, role, cluster, actif) values ($1,$2,$3,$4,$5,true) on conflict do nothing', [id, k + '.e2e@example.invalid', nom, role, cluster]);
 }
+
+// Coordinateur logistique : fonction opérationnelle FBMS existante ; Chef de zone : zone de responsabilité renseignée.
+await q("update public.profils set fonction_operationnelle = 'Logistics Coordinator' where user_id = $1", [U.lc[0]]);
+await q("update public.profils set zone = 'GBEKE 1' where user_id = $1", [U.zh[0]]);
 
 const CDN = {
   'supabase.min.js': require.resolve('@supabase/supabase-js/dist/umd/supabase.js'),
@@ -147,10 +152,11 @@ try {
   for (const [l] of Object.entries(LARGEURS)) {
     const ctx = await contexte('bm', l); const p = await page(ctx, '/index.html');
     await p.waitForFunction(() => !document.getElementById('anagroci-authgate'), null, { timeout: 20000 });
-    await etape('UI-PORT-' + l, 'Carte illustrée AFLP MOTO MANAGER sur le portail', 'Portail à ' + JSON.stringify(LARGEURS[l]), 'carte visible, lien moto/index.html, aucun débordement', async () => {
+    await etape('UI-PORT-' + l, 'Carte AFLP FLEET sur le portail (scénario 1)', 'Portail à ' + JSON.stringify(LARGEURS[l]), 'carte visible, lien moto/index.html, aucun débordement', async () => {
       const carte = p.locator('a.portal-card-moto'); await carte.scrollIntoViewIfNeeded(); await p.waitForFunction(() => { const i = document.querySelector('a.portal-card-moto img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }).catch(() => {}); const vis = await carte.isVisible(); const href = await carte.getAttribute('href'); const img = await carte.locator('img').evaluate(i => i.complete && i.naturalWidth > 0);
       const deb = await debordement(p);
-      return { ok: vis && href === 'moto/index.html' && img && deb <= 1, obtenu: `visible=${vis} href=${href} image=${img} débordement=${deb}px`, preuve: await capture(p, 'portail-' + l) };
+      const titre = await carte.locator('h2').textContent();
+      return { ok: vis && href === 'moto/index.html' && img && deb <= 1 && titre === 'AFLP FLEET', obtenu: `titre=${titre} visible=${vis} href=${href} image=${img} débordement=${deb}px`, preuve: await capture(p, 'portail-' + l) };
     });
     await ctx.close();
   }
@@ -159,14 +165,21 @@ try {
   let ctxA = await contexte('abm'); let pA = await page(ctxA, '/moto/index.html#/admin'); await pret(pA);
   await etape('UI-INV-01', 'Passeport numérique : création', 'ABM crée une moto par le formulaire', 'redirection vers le passeport, code MOTO-001, QR affiché', async () => {
     await pA.click('[data-admin="creer"]');
-    await remplir(pA, { date_reception: '2026-10-30', cluster_code: 'SAKASSOU', compteur_km: '1' });
+    await remplir(pA, { marque: 'APSONIC', modele: 'AP150-30', date_reception: '2026-10-30', cluster_code: 'SAKASSOU', compteur_km: '1', photo: { ...PNG, name: 'photo-moto-fictive.png' } });
+    const apercu = await pA.locator('dialog.mm-modale .mm-apercu:not([hidden])').count();
     const r = await valider(pA);
     await pA.waitForSelector('.mm-passeport h1', { timeout: 15000 });
+    globalThis.__apercu = apercu;
     motoId = (await q("select id from public.moto_motos where code = 'MOTO-001'"))[0]?.id;
     const h1 = await pA.textContent('.mm-passeport h1');
     const qr = await attendre(() => pA.locator('#mmQr svg').count(), 8000);
     const chassis = (await q('select numero_chassis from public.moto_motos where id = $1', [motoId]))[0]?.numero_chassis;
     return { ok: r === 'ferme' && /MOTO-001/.test(h1) && qr > 0 && chassis === null, obtenu: `${r} · ${h1} · QR=${qr} · châssis=${chassis}`, preuve: await capture(pA, 'passeport-creation-bureau') };
+  });
+  await etape('UI-FL-03', 'Photo principale enregistrée à la création (scénario 3)', 'Photo jointe au formulaire avec aperçu', 'aperçu affiché, photo en stockage privé, visible au passeport', async () => {
+    const m = (await q('select photo_path from public.moto_motos where id=$1', [motoId]))[0];
+    const vis = await attendre(() => pA.locator('.mm-passeport img.mm-photo-passeport').evaluate(i => i.complete && i.naturalWidth > 0).catch(() => false), 8000);
+    return { ok: globalThis.__apercu === 1 && !!m.photo_path && m.photo_path.startsWith(motoId + '/photo/') && vis, obtenu: `aperçu=${globalThis.__apercu} chemin=${m.photo_path} affichée=${vis}` };
   });
   await etape('UI-INV-02', 'Identité depuis la carte grise', 'ABM saisit châssis et immatriculation fictifs', 'enregistré et journalisé avec motif', async () => {
     await pA.click('[data-action="identite"]');
@@ -241,7 +254,27 @@ try {
     await pA.locator('dialog.mm-modale .mm-annuler').click().catch(() => {});
     return { ok: /GILET/.test(r), obtenu: r };
   });
+  await etape('UI-ETAT-01', 'État contradictoire avant remise (scénario 9)', 'ABM enregistre l\'état avec 5 photos', 'état EN_ATTENTE, 5 photos datées, distinct du PV et de l\'inspection', async () => {
+    await pA.goto(BASE + '/moto/index.html#/moto/' + motoId); await pA.waitForSelector('[data-action="etat_remise"]');
+    await pA.click('[data-action="etat_remise"]');
+    const ph = n => ({ ...PNG, name: n + '-fictif.png' });
+    await remplir(pA, { compteur_km: '5', ph_AVANT: ph('avant'), ph_ARRIERE: ph('arriere'), ph_GAUCHE: ph('gauche'), ph_DROITE: ph('droite'), ph_COMPTEUR: ph('compteur'), observations: 'Rayure légère (fictif)', eq_CASQUE: true, eq_GILET_HAUTE_VISIBILITE: true });
+    await toutConforme(pA); const r = await valider(pA);
+    const e = (await q("select c.confirmation_statut, (select count(*)::int from public.moto_photos p where p.controle_id=c.id) n from public.moto_controles c where moto_id=$1 and type_controle='ETAT_REMISE'", [motoId]))[0];
+    return { ok: r === 'ferme' && e?.confirmation_statut === 'EN_ATTENTE' && e?.n === 5, obtenu: `${r} · ${JSON.stringify(e)}` };
+  });
+  await etape('UI-ETAT-02', 'Le bénéficiaire accepte l\'état depuis son téléphone', 'Chef d\'unité examine photos et points, accepte avec réserve', 'ACCEPTEE_AVEC_RESERVES à son nom', async () => {
+    const c = await contexte('uh', 'mobile'); const p = await page(c, '/moto/index.html#/operations'); await pret(p);
+    await p.waitForSelector('[data-etat]'); await p.click('[data-etat]');
+    await p.waitForFunction(() => [...document.querySelectorAll('dialog.mm-modale img.mm-photo-galerie')].some(i => i.complete && i.naturalWidth > 0), null, { timeout: 8000 }).catch(() => {});
+    const preuve = await capture(p, 'etat-remise-beneficiaire-mobile');
+    await remplir(p, { decision: 'ACCEPTEE_AVEC_RESERVES', commentaire: 'Rayure notée au PV papier' }); const r = await valider(p);
+    const e = (await q("select confirmation_statut, beneficiaire_id from public.moto_controles where moto_id=$1 and type_controle='ETAT_REMISE'", [motoId]))[0];
+    await c.close();
+    return { ok: r === 'ferme' && e.confirmation_statut === 'ACCEPTEE_AVEC_RESERVES' && e.beneficiaire_id === U.uh[0], obtenu: `${r} · ${e.confirmation_statut}`, preuve };
+  });
   await etape('UI-REM-03', 'Remise officielle complète', 'ABM enregistre la remise', 'REMISE, pas encore autorisée à circuler', async () => {
+    await pA.goto(BASE + '/moto/index.html#/moto/' + motoId); await pA.reload(); await pret(pA); await pA.waitForSelector('[data-action="remettre"]');
     await pA.click('[data-action="remettre"]');
     await remplir(pA, { pv_document_id: { contient: 'PV-E2E-001' }, compteur_km: '5', permis_categorie: 'A', permis_verifie_par_nom: 'RH E2E FICTIF', permis_verifie: true, eq_CASQUE: true, eq_GILET_HAUTE_VISIBILITE: true });
     const r = await valider(pA);
@@ -258,9 +291,9 @@ try {
 
   // 6. Chef d'unité sur téléphone : opérations, hors connexion, idempotence
   let ctxU = await contexte('uh', 'mobile'); let pU = await page(ctxU, '/moto/index.html#/operations'); await pret(pU);
-  await etape('UI-OP-01', 'Écrans courts pour l\'agent (390 px)', 'Opérations sur téléphone', '5 tuiles, aucun débordement horizontal', async () => {
+  await etape('UI-OP-01', 'Écrans courts pour l\'agent (390 px)', 'Opérations sur téléphone', '6 tuiles, aucun débordement horizontal', async () => {
     const n = await pU.locator('.mm-tuile').count(); const deb = await debordement(pU);
-    return { ok: n === 5 && deb <= 1, obtenu: `tuiles=${n} · débordement=${deb}px`, preuve: await capture(pU, 'operations-mobile') };
+    return { ok: n === 6 && deb <= 1, obtenu: `tuiles=${n} · débordement=${deb}px`, preuve: await capture(pU, 'operations-mobile') };
   });
   await etape('UI-OP-02', 'Contrôle de sécurité avant départ', 'Chef d\'unité valide le contrôle', 'contrôle APTE synchronisé', async () => {
     await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' }); await toutConforme(pU); const r = await valider(pU);
@@ -414,7 +447,7 @@ try {
   for (const compte of ['agent', 'sup']) {
     const c = await contexte(compte, 'mobile'); const p = await page(c, '/moto/index.html');
     await etape('UI-SEC-' + compte, 'Rôles non habilités', 'Ouverture par ' + U[compte][2], 'message d\'accès non prévu, aucune donnée moto', async () => {
-      await p.waitForSelector('text=Accès Moto Manager non prévu', { timeout: 15000 });
+      await p.waitForSelector('text=Accès AFLP FLEET non prévu', { timeout: 15000 });
       const motos = await p.locator('.mm-carte-moto').count();
       return { ok: motos === 0, obtenu: `cartes moto affichées=${motos}` };
     });
@@ -426,9 +459,73 @@ try {
       return { ok: n === 0, obtenu: `motos visibles=${n}` };
     }); await c.close(); }
 
+  // 10 bis. AFLP FLEET : inspections mensuelles, coordination, exceptions
+  // Donnée de test : la moto est datée en service le 20 du mois précédent pour rendre le mois courant exigible.
+  await q("update public.moto_motos set mise_en_service_at = date_trunc('month', current_date) - interval '11 days' where id = $1", [motoId]);
+  await etape('UI-FL-01', 'Identité AFLP FLEET et anciennes routes (scénarios 1-2)', 'Ouverture de #/motos et #/moto/<id>', 'titre et en-tête AFLP FLEET, routes existantes fonctionnelles', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/motos'); await pret(p);
+    const t = await p.title(), h = await p.textContent('.mm-marque strong'), n = await p.locator('.mm-carte-moto').count();
+    await p.goto(BASE + '/moto/index.html#/moto/' + motoId); await pret(p); const h1 = await p.textContent('.mm-passeport h1');
+    await c.close();
+    return { ok: /AFLP FLEET/.test(t) && h === 'AFLP FLEET' && n >= 1 && /MOTO-001/.test(h1), obtenu: `titre=${t} · en-tête=${h} · cartes=${n} · passeport=${h1}` };
+  });
+  await etape('UI-FL-10', 'Chef de zone : liste et inspection du mois (scénarios 10, 12)', 'ZH inspecte MOTO-001 depuis Opérations, éclairage en défaut', 'inspection ZONE enregistrée, résultat calculé par le serveur, tardive après le 15', async () => {
+    const c = await contexte('zh', 'mobile'); const p = await page(c, '/moto/index.html#/operations'); await pret(p);
+    await p.waitForSelector('[data-inspecter]'); const preuveListe = await capture(p, 'zone-inspections-mobile');
+    await p.click('[data-inspecter]');
+    await remplir(p, { compteur_km: '300', ph_COMPTEUR: { ...PNG, name: 'compteur.png' }, ph_AVANT: { ...PNG, name: 'avant.png' } });
+    await toutConforme(p);
+    const d = p.locator('dialog.mm-modale').last(); const items = await d.locator('.mm-item').all();
+    for (const it of items) if (/Phare, feu arrière/.test(await it.textContent())) await it.locator('input[value=ko]').check();
+    const r = await valider(p);
+    const x = await attendre(async () => (await q("select niveau, conformite, periode from public.moto_controles where moto_id=$1 and type_controle='INSPECTION_MENSUELLE'", [motoId]))[0]);
+    const st = (await q("select statut from public.moto_v_inspections_exigibles where moto_id=$1 and niveau='ZONE' and periode=date_trunc('month', current_date)::date", [motoId]))[0]?.statut;
+    await c.close();
+    const attenduStatut = new Date().getUTCDate() > 15 ? 'EFFECTUEE_HORS_DELAI' : 'EFFECTUEE';
+    return { ok: r === 'ferme' && x?.niveau === 'ZONE' && x?.conformite !== 'CONFORME' && st === attenduStatut, obtenu: `${r} · ${JSON.stringify(x)} · statut=${st}`, preuve: preuveListe };
+  });
+  await etape('UI-FL-13', 'Coordinateur : espace Coordination et inspection (scénarios 13, 19)', 'Coordinateur ouvre Coordination et inspecte MOTO-001', 'priorités visibles ; anomalie toujours ouverte : résultat au mieux « avec réserves »', async () => {
+    const c = await contexte('lc', 'mobile'); const p = await page(c, '/moto/index.html#/coordination'); await pret(p);
+    const h = await p.textContent('h1'); const prio = await p.locator('.mm-bloc-alerte .mm-table tbody tr').count();
+    await p.locator('[data-inspecter][data-niveau="COORDINATION"]').first().click();
+    await remplir(p, { compteur_km: '301', ph_COMPTEUR: { ...PNG, name: 'compteur2.png' }, ph_AVANT: { ...PNG, name: 'avant2.png' } });
+    await toutConforme(p); const r = await valider(p);
+    const x = await attendre(async () => (await q("select conformite from public.moto_controles where moto_id=$1 and niveau='COORDINATION'", [motoId]))[0]);
+    const a = (await q("select count(*)::int n from public.moto_actions_correctives where moto_id=$1 and point_code='ECLAIRAGE' and statut='OUVERTE'", [motoId]))[0].n;
+    await p.reload(); await pret(p); const preuve = await capture(p, 'coordination-mobile');
+    await c.close();
+    return { ok: h === 'Coordination logistique' && prio >= 1 && r === 'ferme' && x?.conformite === 'RESERVES' && a === 1, obtenu: `${h} · priorités=${prio} · ${r} · ${x?.conformite} · anomalie ouverte=${a}`, preuve };
+  });
+  await etape('UI-FL-20', 'Action corrective planifiée depuis la coordination (scénario 20)', 'Coordinateur planifie la réparation de l\'éclairage', 'statut PLANIFIEE, garage et date cible enregistrés', async () => {
+    const c = await contexte('lc', 'bureau'); const p = await page(c, '/moto/index.html#/coordination'); await pret(p);
+    await p.locator('[data-action="action_planifier"]').first().click();
+    const cible = new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10);
+    await remplir(p, { action_prevue: 'Remplacement ampoule feu arrière', prestataire: 'GARAGE E2E FICTIF', devis_montant: '2000', date_cible: cible });
+    const r = await valider(p);
+    const a = (await q("select statut, prestataire from public.moto_actions_correctives where moto_id=$1 and point_code='ECLAIRAGE'", [motoId]))[0];
+    await c.close();
+    return { ok: r === 'ferme' && a.statut === 'PLANIFIEE' && a.prestataire === 'GARAGE E2E FICTIF', obtenu: `${r} · ${JSON.stringify(a)}` };
+  });
+  await etape('UI-FL-06', 'Intégrer une moto déjà en exploitation (scénarios 6, 7)', 'Coordinateur intègre une moto sans marque connue', 'marque et compteur « Non disponible », aucune dépense ou vidange créée', async () => {
+    const c = await contexte('lc', 'bureau'); const p = await page(c, '/moto/index.html#/coordination'); await pret(p);
+    await p.click('[data-admin="integrer"]');
+    await remplir(p, { zone_code: 'GBEKE_1', date_debut_utilisation: '2026-02-01', historique_note: 'Utilisée depuis février 2026, historique non disponible (fictif)' });
+    const r = await valider(p); await p.waitForSelector('.mm-passeport h1', { timeout: 15000 });
+    const h1 = await p.textContent('.mm-passeport h1'); const nd = await p.locator('text=Non disponible').count();
+    const m = (await q("select id, marque, compteur_actuel_km from public.moto_motos where origine='EN_EXPLOITATION'"))[0];
+    const dep = (await q('select (select count(*) from public.moto_maintenances where moto_id=$1) + (select count(*) from public.moto_carburant where moto_id=$1) n', [m.id]))[0].n;
+    const preuve = await capture(p, 'moto-en-exploitation-bureau'); await c.close();
+    return { ok: r === 'ferme' && /Marque et modèle non disponibles/.test(h1) && nd >= 3 && m.marque === null && m.compteur_actuel_km === null && Number(dep) === 0, obtenu: `${r} · ${h1} · mentions Non disponible=${nd} · dépenses=${dep}`, preuve };
+  });
+  await etape('UI-FL-BM', 'Vue Branch Manager centrée sur les exceptions', 'BM ouvre le pilotage', 'section Exceptions à traiter, avec les motos immobilisées et inspections manquantes', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/pilotage'); await pret(p);
+    const t = await p.locator('h2', { hasText: 'Exceptions à traiter' }).count(); const preuve = await capture(p, 'pilotage-exceptions-bureau'); await c.close();
+    return { ok: t === 1, obtenu: `section=${t}`, preuve };
+  });
+
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['abm', '#/admin', 'administration']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);

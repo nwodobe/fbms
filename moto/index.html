@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#053B23">
 <meta name="robots" content="noindex,nofollow">
-<title>AFLP Moto Manager · ANAGROCI</title>
+<title>AFLP FLEET · ANAGROCI</title>
 <link rel="icon" href="../assets/logo-pjs-mark.png">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="./moto.css?v=20261031-1">
+<link rel="stylesheet" href="./moto.css?v=20261101-fleet-1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Clé de module « fbms » : niveaux bm / chef / agent (shared/auth-gate.js, inchangé).
      L'accès réel aux données moto est décidé par le serveur (RLS + fonctions moto_*). -->
 <script defer src="../shared/auth-gate.js?v=20261016-recovery-1" data-module="fbms"></script>
-<script defer src="./moto-core.js?v=20261031-1"></script>
-<script defer src="./moto-offline.js?v=20261031-1"></script>
-<script defer src="./moto-formation.js?v=20261031-1"></script>
-<script defer src="./moto-app.js?v=20261031-1"></script>
+<script defer src="./moto-core.js?v=20261101-fleet-1"></script>
+<script defer src="./moto-offline.js?v=20261101-fleet-1"></script>
+<script defer src="./moto-formation.js?v=20261101-fleet-1"></script>
+<script defer src="./moto-app.js?v=20261101-fleet-1"></script>
 <!-- Service worker EXISTANT de la suite (sw.js, non modifié) : mise en cache réseau d'abord des pages visitées, pour l'ouverture hors connexion. -->
 <script>if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(e){console.warn("[HORS LIGNE] Service Worker",e&&e.message?e.message:e);});});}</script>
 </head>
@@ -27,13 +27,13 @@
 <a class="mm-saut" href="#motoVue">Aller au contenu</a>
 <div id="motoApp">
 <header class="mm-topbar">
-  <a class="mm-marque" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global" width="34" height="34"><span><strong>AFLP MOTO MANAGER</strong><small>ANAGROCI Operations Suite</small></span></a>
-  <div class="mm-etats"><span id="motoReseau" class="mm-reseau">…</span><span id="motoFile" class="mm-file">…</span><span id="anagroci-userslot"></span></div>
+  <a class="mm-marque" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global" width="34" height="34"><span><strong>AFLP FLEET</strong><small>Gestion et suivi du parc de motos AFLP</small></span></a>
+  <div class="mm-etats"><span id="motoReseau" class="mm-reseau">…</span><span id="motoFile" class="mm-file">…</span><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>
 </header>
-<nav class="mm-nav" id="motoNav" aria-label="Espaces Moto Manager"></nav>
+<nav class="mm-nav" id="motoNav" aria-label="Espaces AFLP FLEET"></nav>
 <main class="mm-main" id="motoVue" tabindex="-1" aria-live="polite"><div class="mm-chargement">Vérification de l'accès…</div></main>
 <p class="mm-qui" id="motoQui"></p>
-<footer class="mm-pied">© ANAGROCI · PJS Global · Pilote AFLP 2027 · Moto Manager enregistre et rapproche ; il n'exécute aucun paiement.</footer>
+<footer class="mm-pied">© ANAGROCI · PJS Global · Pilote AFLP 2027 · AFLP FLEET enregistre et rapproche ; il n'exécute aucun paiement.</footer>
 </div>
 </body>
 </html>

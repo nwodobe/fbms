@@ -27,19 +27,34 @@
     'General Manager': 'DIRECTION'
   };
   function classeDepuisRole(role) { return CLASSES[String(role || '').trim()] || null; }
+  /* Même règle que private.moto_classe_de (serveur) : le coordinateur logistique
+     est reconnu par sa fonction opérationnelle FBMS, sans nouveau rôle. */
+  function normaliser(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase(); }
+  function classeDepuisProfil(p) {
+    p = p || {};
+    var c = classeDepuisRole(p.role);
+    if (c === 'BM' || c === 'ABM' || c === 'FINANCE' || c === 'DIRECTION') return c;
+    var f = normaliser(p.fonction_operationnelle);
+    if (String(p.role || '').trim() === 'Logistics Coordinator' || f === 'LOGISTICS COORDINATOR' || f === 'LOGISTICS_COORDINATOR' || f === 'COORDINATEUR LOGISTIQUE') return 'LOGISTIQUE';
+    return c;
+  }
 
   /* Ce que l'interface PROPOSE. La décision réelle est prise par le serveur
      (fonctions SECURITY DEFINER + RLS) : masquer un bouton ne protège rien. */
   var DROITS = {
     BM:        ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
                 'budgets', 'valider_budget', 'dotations', 'rapprochement', 'verifier_justificatifs', 'valider_corrections', 'valider_remboursements',
-                'maintenance_decider', 'incident_piloter', 'autoriser_depense', 'pneus', 'parametres', 'journal', 'terrain', 'exports'],
+                'maintenance_decider', 'incident_piloter', 'autoriser_depense', 'pneus', 'parametres', 'journal', 'terrain', 'exports',
+                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions'],
     ABM:       ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
-                'verifier_justificatifs', 'demander_correction', 'maintenance_decider', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports'],
+                'verifier_justificatifs', 'demander_correction', 'maintenance_decider', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
+                'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense'],
+    LOGISTIQUE: ['lire', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
+                'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes'],
     ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'maintenance_decider', 'incident_piloter', 'autoriser_depense',
-                'pneus', 'terrain', 'exports'],
-    UNITE:     ['lire', 'terrain', 'mes_dotations'],
-    FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports'],
+                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier'],
+    UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat'],
+    FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports', 'verifier_depense'],
     DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports']
   };
   function peut(classe, droit) { return !!(classe && DROITS[classe] && DROITS[classe].indexOf(droit) >= 0); }
@@ -62,6 +77,17 @@
     EN_STOCK: 'En stock', MONTE: 'Monté', REFORME: 'Réformé',
     PANNE: 'Panne', ACCIDENT: 'Accident', CREVAISON: 'Crevaison', ANOMALIE: 'Anomalie',
     MINEURE: 'Mineure', MAJEURE: 'Majeure', CRITIQUE: 'Critique',
+    PREVUE: 'Acquisition prévue', RECEPTIONNEE: 'Réceptionnée', AFFECTEE: 'Affectée', OPERATIONNELLE: 'Opérationnelle',
+    NEUVE: 'Moto neuve', EN_EXPLOITATION: 'Déjà en exploitation',
+    OUVERTE: 'Ouverte', PLANIFIEE: 'Planifiée', REALISEE: 'Réalisée, à vérifier', CLOTUREE: 'Clôturée (vérifiée)',
+    RESERVES: 'Conforme avec réserves', NON_EVALUABLE: 'Non évaluable (immobilisée)',
+    PROGRAMMEE: 'Programmée', EFFECTUEE: 'Effectuée dans les délais', EFFECTUEE_HORS_DELAI: 'Effectuée hors délai', NON_EFFECTUEE: 'Non effectuée',
+    SUPERVISION: 'Déplacements de supervision', ENTRETIEN: 'Entretien et réparation du parc', APPROUVEE: 'Approuvée',
+    DECLAREE: 'Déclarée, justificatif attendu', JUSTIFIEE: 'Justifiée, à vérifier', VALIDEE: 'Validée',
+    ACCEPTEE: 'Acceptée', ACCEPTEE_AVEC_RESERVES: 'Acceptée avec réserves',
+    ETAT_REMISE: 'État contradictoire avant remise', INSPECTION_MENSUELLE: 'Inspection mensuelle', INSPECTION_INITIALE: 'Inspection mécanique initiale',
+    AVANT_DEPART: 'Contrôle avant départ', REMISE_EN_SERVICE: 'Contrôle de remise en service',
+    ZONE: 'Chef de zone', COORDINATION: 'Coordinateur logistique', INDEPENDANTE: 'Contrôle indépendant',
     VIDANGE: 'Vidange', ENTRETIEN_PREVENTIF: 'Entretien préventif', REVISION: 'Révision',
     CARTE_GRISE: 'Carte grise', PLAQUE: 'Plaque d\'immatriculation', ASSURANCE: 'Assurance', RAPPORT_MECANICIEN: 'Rapport du mécanicien',
     PV_REMISE: 'Procès-verbal de remise', PHOTO: 'Photographie', PERMIS: 'Permis', FACTURE: 'Facture', JUSTIFICATIF: 'Justificatif', AUTRE: 'Autre',
@@ -244,13 +270,15 @@
   function exigeImmobilisation(op) {
     if (!op) return false;
     if (op.type === 'INCIDENT') return op.payload.gravite === 'CRITIQUE' || op.payload.type_incident === 'ACCIDENT' || op.payload.immobiliser === true;
-    if (op.type === 'CONTROLE_DEPART') return anomalieCritique(op.payload.items);
+    if (op.type === 'CONTROLE_DEPART' || op.type === 'INSPECTION_MENSUELLE') return anomalieCritique(op.payload.items);
+    if (op.type === 'ACTION_SIGNALER') return op.payload.gravite === 'CRITIQUE';
     return false;
   }
 
   /* -- 10. File hors connexion : planification et application ------------ */
   var MAX_TENTATIVES = 5;
-  var TYPES_HORS_LIGNE = ['RELEVE_KM', 'CONTROLE_DEPART', 'CARBURANT', 'INCIDENT', 'DOTATION_CONFIRMER', 'MAINTENANCE_DEMANDE', 'FORMATION'];
+  var TYPES_HORS_LIGNE = ['RELEVE_KM', 'CONTROLE_DEPART', 'CARBURANT', 'INCIDENT', 'DOTATION_CONFIRMER', 'MAINTENANCE_DEMANDE', 'FORMATION',
+                          'INSPECTION_MENSUELLE', 'ACTION_SIGNALER', 'DEPENSE'];
   function delaiReprise(tentatives) { return Math.min(30 * 60000, 15000 * Math.pow(2, Math.max(0, tentatives - 1))); }
   function operationsEligibles(ops, maintenant, limite) {
     var t = maintenant || Date.now();
@@ -292,7 +320,116 @@
     return null;
   }
 
+
+  /* -- 12. AFLP FLEET : inspections, actions, exceptions ------------------ */
+  /* Copies de secours (hors connexion) du catalogue serveur moto_catalogue_points.
+     La gravité RÉELLE est toujours celle du serveur : ces listes ne servent qu'à l'affichage. */
+  var ETAT_REMISE = [
+    { code: 'CARROSSERIE', libelle: 'Carrosserie, carénages et selle : état constaté et photographié', critique: false },
+    { code: 'PNEUS_ETAT', libelle: 'Pneus : usure et état visibles, sans coupure ni hernie', critique: true },
+    { code: 'ECLAIRAGE', libelle: 'Éclairage et clignotants fonctionnent', critique: false },
+    { code: 'COMPTEUR_FONCTIONNE', libelle: 'Compteur kilométrique lisible et fonctionnel', critique: false },
+    { code: 'RETROVISEURS', libelle: 'Rétroviseurs présents', critique: false },
+    { code: 'CLES', libelle: 'Clés remises (nombre noté en observation)', critique: false },
+    { code: 'OUTILLAGE', libelle: 'Trousse à outils remise', critique: false },
+    { code: 'DOCUMENTS_BORD', libelle: 'Copies des documents de bord remises', critique: false }
+  ];
+  var INSPECTION_MENSUELLE = [
+    { code: 'ETAT_GENERAL', libelle: 'État général (carrosserie, selle, cadre visible)', critique: false },
+    { code: 'COMPTEUR_FONCTIONNE', libelle: 'Compteur kilométrique lisible et fonctionnel', critique: false },
+    { code: 'PNEUS', libelle: 'Pneus : usure, pression, sans coupure ni hernie', critique: true },
+    { code: 'FREIN_AVANT', libelle: 'Frein avant efficace', critique: true },
+    { code: 'FREIN_ARRIERE', libelle: 'Frein arrière efficace', critique: true },
+    { code: 'DIRECTION', libelle: 'Direction souple, sans jeu', critique: true },
+    { code: 'FUITES', libelle: 'Aucune fuite de carburant ou d\'huile', critique: true },
+    { code: 'TRANSMISSION', libelle: 'Transmission : chaîne, pignons, tension', critique: false },
+    { code: 'ECLAIRAGE', libelle: 'Phare, feu arrière, clignotants', critique: false },
+    { code: 'DOCUMENTS', libelle: 'Documents de bord présents et valides', critique: false },
+    { code: 'EQUIPEMENTS', libelle: 'Casque et gilet présents et en bon état', critique: false }
+  ];
+  var CATALOGUE_SECOURS = { AVANT_DEPART: CONTROLE_DEPART, INSPECTION_INITIALE: INSPECTION_INITIALE, REMISE_EN_SERVICE: INSPECTION_INITIALE,
+                            ETAT_REMISE: ETAT_REMISE, INSPECTION_MENSUELLE: INSPECTION_MENSUELLE };
+  /* Catalogue serveur (lignes moto_catalogue_points) → liste d'affichage d'un type ; secours si absent. */
+  function listeControle(type, lignes) {
+    var l = (lignes || []).filter(function (x) { return x.type_controle === type && x.actif !== false; })
+      .sort(function (a, b) { return a.ordre - b.ordre; }).map(function (x) { return { code: x.code, libelle: x.libelle, critique: !!x.critique }; });
+    return l.length ? l : (CATALOGUE_SECOURS[type] || []);
+  }
+
+  /* Fenêtres mensuelles (mandat §8) : ZONE du 1er au 15, préparation du 16 au 19,
+     COORDINATION et contrôle INDÉPENDANT du 20 au dernier jour. */
+  function fenetreInspection(niveau, dateRef, params) {
+    params = params || {};
+    var d = new Date(dateRef || Date.now()), an = d.getUTCFullYear(), mo = d.getUTCMonth();
+    var fin = new Date(Date.UTC(an, mo + 1, 0)).getUTCDate();
+    var jf = params.zone_fin || 15, jd = params.coordination_debut || 20;
+    var iso = function (j) { return new Date(Date.UTC(an, mo, j)).toISOString().slice(0, 10); };
+    return niveau === 'ZONE' ? { debut: iso(1), fin: iso(jf) } : { debut: iso(jd), fin: iso(fin) };
+  }
+  function phaseDuMois(dateRef, params) {
+    params = params || {};
+    var j = new Date(dateRef || Date.now()).getUTCDate();
+    if (j <= (params.zone_fin || 15)) return { code: 'ZONE', libelle: 'Inspections des Chefs de zone (du 1er au ' + (params.zone_fin || 15) + ')' };
+    if (j < (params.coordination_debut || 20)) return { code: 'PREPARATION', libelle: 'Préparation des visites du coordinateur (du ' + ((params.zone_fin || 15) + 1) + ' au ' + ((params.coordination_debut || 20) - 1) + ')' };
+    return { code: 'COORDINATION', libelle: 'Inspections du coordinateur logistique (du ' + (params.coordination_debut || 20) + ' à la fin du mois)' };
+  }
+  /* Couverture = inspections faites dans la période / inspections exigibles échues ou faites.
+     Une inspection encore programmée (fenêtre ouverte) n'entre pas au dénominateur. */
+  function couvertureInspections(lignes) {
+    var echues = (lignes || []).filter(function (x) { return x.statut !== 'PROGRAMMEE'; });
+    var ok = echues.filter(function (x) { return x.statut === 'EFFECTUEE'; }).length;
+    return { exigibles: echues.length, dans_delai: ok, hors_delai: echues.filter(function (x) { return x.statut === 'EFFECTUEE_HORS_DELAI'; }).length,
+             non_effectuees: echues.filter(function (x) { return x.statut === 'NON_EFFECTUEE'; }).length,
+             programmees: (lignes || []).filter(function (x) { return x.statut === 'PROGRAMMEE'; }).length,
+             taux: echues.length ? arrondi(100 * ok / echues.length, 1) : null };
+  }
+  /* Résolution dans les délais = actions clôturées à temps / actions arrivées à échéance (date cible passée ou clôturées). */
+  function resolutionActions(actions, aujourdhuiIso) {
+    var t = aujourdhuiIso || new Date().toISOString().slice(0, 10);
+    var echues = (actions || []).filter(function (a) { return a.date_cible && a.statut !== 'ANNULEE' && (a.statut === 'CLOTUREE' || a.date_cible < t); });
+    var ok = echues.filter(function (a) { return a.statut === 'CLOTUREE' && a.verifie_at && String(a.verifie_at).slice(0, 10) <= a.date_cible; }).length;
+    return { echues: echues.length, a_temps: ok, taux: echues.length ? arrondi(100 * ok / echues.length, 1) : null };
+  }
+  /* Situation lisible : prévue, réceptionnée, affectée, opérationnelle (4 situations distinctes). */
+  function situationMoto(m) {
+    if (!m) return null;
+    if (m.situation_parc === 'PREVUE') return { code: 'PREVUE', libelle: 'Acquisition prévue' };
+    if (m.autorisee_a_circuler) return { code: 'OPERATIONNELLE', libelle: 'Opérationnelle' };
+    if (['REMISE', 'TRANSFEREE', 'PREAFFECTEE'].indexOf(m.statut_affectation) >= 0) return { code: 'AFFECTEE', libelle: m.statut_affectation === 'PREAFFECTEE' ? 'Préaffectée' : 'Affectée, non opérationnelle' };
+    return { code: 'RECEPTIONNEE', libelle: 'Réceptionnée' };
+  }
+  /* Exceptions pour le Branch Manager : uniquement ce qui exige une décision. */
+  function exceptionsDirection(flotte, exigibles, actions, enveloppes, aujourdhuiIso) {
+    var t = aujourdhuiIso || new Date().toISOString().slice(0, 10), out = [];
+    (flotte || []).forEach(function (m) {
+      if (m.situation_parc !== 'PREVUE' && ['IMMOBILISEE', 'EN_REPARATION'].indexOf(m.statut_technique) >= 0)
+        out.push({ gravite: 1, type: 'Moto immobilisée', moto: m.code, detail: libelle(m.statut_technique) + (m.actions_critiques_ouvertes ? ' · ' + m.actions_critiques_ouvertes + ' anomalie(s) critique(s) ouverte(s)' : ''), moto_id: m.id });
+      else if (Number(m.actions_critiques_ouvertes) > 0)
+        out.push({ gravite: 1, type: 'Anomalie critique ouverte', moto: m.code, detail: m.actions_critiques_ouvertes + ' anomalie(s)', moto_id: m.id });
+    });
+    (actions || []).forEach(function (a) {
+      if (['OUVERTE', 'PLANIFIEE', 'REALISEE'].indexOf(a.statut) < 0) return;
+      if (a.date_cible && a.date_cible < t) out.push({ gravite: 2, type: 'Réparation en retard', moto: a.moto_code, detail: a.anomalie + ' · échéance ' + a.date_cible, moto_id: a.moto_id });
+      else if (a.recurrente) out.push({ gravite: 3, type: 'Anomalie récurrente', moto: a.moto_code, detail: a.anomalie + ' · ' + a.occurrences + ' constat(s)', moto_id: a.moto_id });
+    });
+    (exigibles || []).forEach(function (x) {
+      if (x.statut === 'NON_EFFECTUEE') out.push({ gravite: 2, type: 'Inspection manquante', moto: x.code, detail: libelleNiveau(x.niveau) + ' · ' + x.periode.slice(0, 7), moto_id: x.moto_id });
+    });
+    (enveloppes || []).forEach(function (e) {
+      if (e.statut === 'DEMANDEE') out.push({ gravite: 3, type: 'Dépense à autoriser', moto: '—', detail: 'Enveloppe ' + libelle(e.type_enveloppe) + ' · ' + fcfa(e.montant_demande), enveloppe_id: e.id });
+    });
+    var actives = (flotte || []).filter(function (m) { return m.mise_en_service_at; });
+    var indispo = actives.filter(function (m) { return !m.autorisee_a_circuler; }).length;
+    if (actives.length && indispo / actives.length >= 0.25)
+      out.push({ gravite: 1, type: 'Risque d\'interruption AFLP', moto: '—', detail: indispo + ' moto(s) active(s) sur ' + actives.length + ' ne peuvent pas circuler' });
+    return out.sort(function (a, b) { return a.gravite - b.gravite; });
+  }
+  function libelleNiveau(n) { return { ZONE: 'Chef de zone', COORDINATION: 'Coordinateur logistique', INDEPENDANTE: 'Contrôle indépendant' }[n] || n; }
+
   return {
+    classeDepuisProfil: classeDepuisProfil, ETAT_REMISE: ETAT_REMISE, INSPECTION_MENSUELLE: INSPECTION_MENSUELLE, listeControle: listeControle,
+    fenetreInspection: fenetreInspection, phaseDuMois: phaseDuMois, couvertureInspections: couvertureInspections, resolutionActions: resolutionActions,
+    situationMoto: situationMoto, exceptionsDirection: exceptionsDirection, libelleNiveau: libelleNiveau,
     ND: ND, CLASSES: CLASSES, DROITS: DROITS, classeDepuisRole: classeDepuisRole, peut: peut, libelle: libelle,
     fcfa: fcfa, km: km, l100: l100, pct: pct, dateFr: dateFr, dateHeureFr: dateHeureFr, nombreSaisi: nombreSaisi, estNombre: estNombre,
     consoPleinAPlein: consoPleinAPlein, statutAlerte: statutAlerte, rapprochement: rapprochement, disponibilite: disponibilite, coutKm: coutKm,

@@ -1,10 +1,112 @@
+TAP version 13
+# Subtest: Classes métier : correspondance stricte avec private.moto_classe()
 ok 1 - Classes métier : correspondance stricte avec private.moto_classe()
+  ---
+  duration_ms: 2.306292
+  type: 'test'
+  ...
+# Subtest: Plein à plein : plein initial exclu, plein final inclus (3,50 L/100 km)
 ok 2 - Plein à plein : plein initial exclu, plein final inclus (3,50 L/100 km)
+  ---
+  duration_ms: 0.861526
+  type: 'test'
+  ...
+# Subtest: Plein à plein : justificatif rejeté exclu, seuils provisoires, données insuffisantes
 ok 3 - Plein à plein : justificatif rejeté exclu, seuils provisoires, données insuffisantes
+  ---
+  duration_ms: 13.557689
+  type: 'test'
+  ...
+# Subtest: Rapprochement : remis ≠ reçu ≠ justifié, échec exclu, pas de double comptage
 ok 4 - Rapprochement : remis ≠ reçu ≠ justifié, échec exclu, pas de double comptage
+  ---
+  duration_ms: 0.821545
+  type: 'test'
+  ...
+# Subtest: Disponibilité technique : jours prévus (lundi-samedi) et immobilisations
 ok 5 - Disponibilité technique : jours prévus (lundi-samedi) et immobilisations
+  ---
+  duration_ms: 0.890087
+  type: 'test'
+  ...
+# Subtest: Coût direct au km : dénominateur nul → non disponible
 ok 6 - Coût direct au km : dénominateur nul → non disponible
+  ---
+  duration_ms: 1.386085
+  type: 'test'
+  ...
+# Subtest: Sécurité : anomalie critique et immobilisation locale sans réseau
 ok 7 - Sécurité : anomalie critique et immobilisation locale sans réseau
+  ---
+  duration_ms: 0.595775
+  type: 'test'
+  ...
+# Subtest: Validations de saisie terrain
 ok 8 - Validations de saisie terrain
+  ---
+  duration_ms: 13.988053
+  type: 'test'
+  ...
+# Subtest: File hors connexion : SYNCHRONISE seulement sur réponse serveur, reprises limitées
 ok 9 - File hors connexion : SYNCHRONISE seulement sur réponse serveur, reprises limitées
+  ---
+  duration_ms: 1.202343
+  type: 'test'
+  ...
+# Subtest: Limites d'observation : quatre motos ne font pas une statistique
 ok 10 - Limites d'observation : quatre motos ne font pas une statistique
+  ---
+  duration_ms: 1.212822
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : coordinateur reconnu par sa fonction opérationnelle (même règle que le serveur)
+ok 11 - AFLP FLEET : coordinateur reconnu par sa fonction opérationnelle (même règle que le serveur)
+  ---
+  duration_ms: 0.520941
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : fenêtres mensuelles 1-15 / 16-19 / 20-fin
+ok 12 - AFLP FLEET : fenêtres mensuelles 1-15 / 16-19 / 20-fin
+  ---
+  duration_ms: 0.700692
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : couverture = faites dans les délais / échues (programmées exclues)
+ok 13 - AFLP FLEET : couverture = faites dans les délais / échues (programmées exclues)
+  ---
+  duration_ms: 0.421725
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : résolution dans les délais sur échéances réelles uniquement
+ok 14 - AFLP FLEET : résolution dans les délais sur échéances réelles uniquement
+  ---
+  duration_ms: 0.246509
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : prévue, réceptionnée, affectée, opérationnelle sont distinctes
+ok 15 - AFLP FLEET : prévue, réceptionnée, affectée, opérationnelle sont distinctes
+  ---
+  duration_ms: 0.216714
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : exceptions du Branch Manager limitées à ce qui demande une décision
+ok 16 - AFLP FLEET : exceptions du Branch Manager limitées à ce qui demande une décision
+  ---
+  duration_ms: 0.790805
+  type: 'test'
+  ...
+# Subtest: AFLP FLEET : catalogue serveur prioritaire, secours hors connexion
+ok 17 - AFLP FLEET : catalogue serveur prioritaire, secours hors connexion
+  ---
+  duration_ms: 0.316488
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 207.742012
