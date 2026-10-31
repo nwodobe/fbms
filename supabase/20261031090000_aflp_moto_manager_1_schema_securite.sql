@@ -3,8 +3,8 @@
 -- Fichier : supabase/20261031090000_aflp_moto_manager_1_schema_securite.sql
 -- Branche : feat/aflp-moto-manager
 --
--- STATUT : NON APPLIQUÉE EN PRODUCTION. Testée sur réplique locale
---          (tests/moto/executer_tests_moto.sh).
+-- STATUT : APPLIQUÉE EN PRODUCTION le 31/10/2026 sur autorisation de M. KOUASSI
+--          (empreintes md5 des fonctions vérifiées identiques à la version testée).
 --
 -- PRINCIPES :
 --   · Aucune écriture directe : toutes les tables moto_* sont en lecture RLS

@@ -2,7 +2,7 @@
 -- ANAGROCI FBMS — AFLP MOTO MANAGER (3/3) : vues de pilotage et indicateurs
 -- Fichier : supabase/20261031090200_aflp_moto_manager_3_vues_kpi.sql
 --
--- STATUT : NON APPLIQUÉE EN PRODUCTION. Testée sur réplique locale.
+-- STATUT : APPLIQUÉE EN PRODUCTION le 31/10/2026 sur autorisation de M. KOUASSI.
 --
 -- Toutes les vues sont security_invoker : la RLS des tables moto_* s'applique
 -- à l'utilisateur qui interroge. Une donnée manquante produit NULL (affiché

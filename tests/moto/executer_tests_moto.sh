@@ -11,7 +11,7 @@ P="psql -U postgres -d $DB -v ON_ERROR_STOP=1 -q"
 $P -f "$DIR/sql/00_complements_replica.sql" >/dev/null
 $P -f "$RACINE/supabase/20260925224332_aflp_data_1_referentiels_incidents.sql" 2>&1 | grep -v NOTICE || true
 for passe in 1 2; do   # passe 2 = idempotence : les migrations doivent pouvoir être rejouées
-  for f in 20261031090000_aflp_moto_manager_1_schema_securite 20261031090100_aflp_moto_manager_2_rpc 20261031090200_aflp_moto_manager_3_vues_kpi; do
+  for f in 20261031090000_aflp_moto_manager_1_schema_securite 20261031090100_aflp_moto_manager_2_rpc 20261031090200_aflp_moto_manager_3_vues_kpi 20261031090400_aflp_moto_manager_4_search_path; do
     $P -f "$RACINE/supabase/$f.sql" 2>&1 | grep -v NOTICE || true
   done
   echo "Passe $passe : migrations appliquées."

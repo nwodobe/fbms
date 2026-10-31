@@ -2,7 +2,7 @@
 -- ANAGROCI FBMS — AFLP MOTO MANAGER (2/3) : fonctions métier sécurisées
 -- Fichier : supabase/20261031090100_aflp_moto_manager_2_rpc.sql
 --
--- STATUT : NON APPLIQUÉE EN PRODUCTION. Testée sur réplique locale.
+-- STATUT : APPLIQUÉE EN PRODUCTION le 31/10/2026 sur autorisation de M. KOUASSI.
 --
 -- Toutes les écritures Moto Manager passent par ces fonctions. Chacune :
 --   · vérifie le compte actif, la classe métier et le périmètre côté serveur ;
