@@ -48,7 +48,7 @@ const serveur = createServer((req, res) => {
 await new Promise(ok => serveur.listen(PORT, '127.0.0.1', ok));
 
 /* -- Journal de recette ------------------------------------------------------ */
-const R = [], CONSOLE = [], REQUETES_ECRITURE = [];
+const R = [], CONSOLE = [], REQUETES_ECRITURE = [], OSM_APPELS = [], TELECHARGEMENTS = [];
 function noter(id, scenario, ok, obtenu, preuve, nature = 'SIMULÉ (Chromium, caméra/micro factices)') {
   R.push({ id, scenario, resultat: ok ? 'RÉUSSI' : 'ÉCHOUÉ', obtenu: String(obtenu).slice(0, 400), preuve: preuve || '', nature });
   console.log(`${ok ? '✓' : '✗'} ${id} ${scenario} — ${String(obtenu).slice(0, 180)}`);
@@ -76,6 +76,8 @@ async function contexte(opts = {}) {
   });
   await ctx.route(/cdn\.jsdelivr\.net\/npm\/@supabase/, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: DOUBLURE_SUPA }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  /* Doublure OpenStreetMap : réponse Nominatim FICTIVE ; chaque appel est consigné pour contrôler ce qui est envoyé. */
+  await ctx.route(/nominatim\.openstreetmap\.org/, r => { OSM_APPELS.push(r.request().url()); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ address: { village: 'Localité Fictive OSM', county: 'Sous-préfecture Fictive' } }) }); });
   if (opts.init) await ctx.addInitScript(opts.init);
   return ctx;
 }
@@ -85,6 +87,7 @@ async function nouvellePage(ctx) {
   p.on('pageerror', e => CONSOLE.push('pageerror: ' + e.message));
   p.on('request', q => { if (q.method() !== 'GET') REQUETES_ECRITURE.push(q.method() + ' ' + q.url()); });
   p.on('dialog', d => d.accept());
+  p.on('download', d => TELECHARGEMENTS.push(d));
   return p;
 }
 /* Lecture, depuis la page, d'un fichier conservé dans IndexedDB. */
@@ -145,7 +148,7 @@ await etape('T00', 'Ouverture du module, identité reprise de FBMS, villages du 
   await page.goto(BASE + '/fieldproof/index.html');
   await page.waitForSelector('text=Préparation du téléphone');
   const t = await page.textContent('#fpVue'); const qui = await page.textContent('#fpQui');
-  return { ok: /2 village\(s\) de votre périmètre/.test(t) && /AGENT FICTIF E2E/.test(qui), obtenu: (t.match(/\d+ village\(s\)[^(]*/) || ['?'])[0] + ' | ' + qui + ' (Diabo exclu : hors périmètre Botro)' };
+  return { ok: /2 village\(s\) de votre périmètre/.test(t) && /2 village\(s\) géolocalisé\(s\) et 1 hub\(s\) de la carte FBMS/.test(t) && /AGENT FICTIF E2E/.test(qui), obtenu: (t.match(/\d+ village\(s\)[^(]*/) || ['?'])[0] + ' | ' + (t.match(/\d+ village\(s\) géolocalisé[^:]*/) || ['?'])[0] + ' | ' + qui + ' (Diabo exclu : hors périmètre Botro)' };
 });
 
 await etape('T01', 'Création d\'une mission HORS LIGNE (cluster, village, activité ; rien de prérempli)', async () => {
@@ -165,6 +168,14 @@ await etape('T02', 'Capture de plusieurs photos (hors ligne), bandeau ajouté so
   const l = (await registre(page, MID)).filter(x => x.type === 'PHOTO');
   return { ok: l.length === 2 && l.every(x => x.local === 'VERIFIE' && /^[0-9a-f]{64}$/.test(x.sha256)), obtenu: l.map(x => `${x.id} ${x.largeur}×${x.hauteur} ${x.taille} o`).join(' | ') };
 });
+
+await etape('T02b', 'Galerie AUTOMATIQUE dès « Valider » : fichier final remis au téléphone sans geste supplémentaire, statut « à vérifier »', async () => {
+  const l = (await registre(page, MID)).filter(x => x.type === 'PHOTO');
+  const noms = []; let identiques = 0;
+  for (const d of TELECHARGEMENTS.slice(0, 2)) { const f = join(FICHIERS, 'auto-' + d.suggestedFilename()); await d.saveAs(f); noms.push(d.suggestedFilename()); if (l.some(x => x.sha256 === sha(readFileSync(f)))) identiques++; }
+  const texte = await page.textContent('.fp-revue-ok');
+  return { ok: TELECHARGEMENTS.length >= 2 && identiques === 2 && l.every(x => x.galerie === 'ENVOI_LANCE') && /album « Download »/.test(texte), obtenu: `${TELECHARGEMENTS.length} fichier(s) remis automatiquement · ${identiques}/2 identiques au registre · statuts ${l.map(x => x.galerie).join(',')} · ${noms.join(', ')}` };
+}, 'SIMULÉ — Chromium : « galerie » = dossier Téléchargements (Android) ; iPhone : feuille « Enregistrer » non testable ici');
 
 await etape('T03', 'Enregistrement de plusieurs vidéos (hors ligne)', async () => {
   await video(page, MID, 4200);
@@ -206,6 +217,18 @@ await etape('T06', 'Vidéo : bandeau incrusté sur les images décodées par ffm
 a=Image.open('${i1}').convert('L'); b=Image.open('${i2}').convert('L'); h=a.size[1]; w=a.size[0]
 box=(0,h-${Math.round(H * 0.32)},w,h); d=ImageChops.difference(a.crop(box),b.crop(box)).getbbox(); print(d is not None)`);
   return { ok: estBandeau(b1) && estBandeau(b2) && diff === 'True', obtenu: `bandeau début ${b1} · bandeau fin ${b2} · zone texte modifiée entre les deux images : ${diff}`, preuve: 'tests/fieldproof/resultats/fichiers/v1-0.6s.png' };
+});
+function ocr(fichier, hauteurBandeau) {
+  const crop = fichier.replace(/\.(jpg|png)$/, '-bandeau.png');
+  py(`from PIL import Image, ImageOps
+im=Image.open('${fichier}').convert('L'); w,h=im.size; b=im.crop((0,h-${hauteurBandeau},w,h)); b=ImageOps.invert(b).resize((w*2,${hauteurBandeau}*2)); b.save('${crop}')`);
+  return execFileSync('tesseract', [crop, '-', '-l', 'fra', '--psm', '6']).toString();
+}
+await etape('T07b', 'HORS LIGNE : nom de la localité tiré des villages FBMS, inscrit dans les PIXELS de la photo (OCR Tesseract)', async () => {
+  const loc = P1.localite || {};
+  const texte = ocr(P1.chemin, 320);
+  const lu = /Localit[ée] GPS ?: ?Village Fictif Alpha/i.test(texte.replace(/\s+/g, ' '));
+  return { ok: loc.source === 'FBMS' && loc.nom === 'Village Fictif Alpha' && loc.conformite === 'CONFORME' && lu && OSM_APPELS.length === 0, obtenu: `registre : « ${loc.texte} » · OCR : « ${(texte.split('\n').find(x => /Localit/i.test(x)) || '?').trim()} » · appels OpenStreetMap hors ligne : ${OSM_APPELS.length}`, preuve: 'tests/fieldproof/resultats/fichiers/' + P1.id + '-bandeau.png' };
 });
 await etape('T07', 'GPS activé : position et précision enregistrées (photo) ; début ET fin (vidéo)', async () => {
   return { ok: P1.gpsDebut && Math.abs(P1.gpsDebut.lat - 7.5) < 1e-6 && P1.gpsDebut.precision === 12 && V1.gpsDebut && V1.gpsFin && V1.fin > V1.debut, obtenu: `photo ${P1.gpsDebut.lat},${P1.gpsDebut.lon} ±${P1.gpsDebut.precision} · vidéo début ${JSON.stringify(V1.gpsDebut && [V1.gpsDebut.lat, V1.gpsDebut.lon])} fin ${JSON.stringify(V1.gpsFin && [V1.gpsFin.lat, V1.gpsFin.lon])} · ${V1.debut} → ${V1.fin}` };
@@ -279,6 +302,22 @@ await etape('T12', 'Contrôle d\'un dossier reçu : ZIP conforme ; fichier alté
   return { ok: ok1.length === 5 && ok1.every(s => s === 'Conforme') && ok2.includes('Modifié depuis sa création'), obtenu: `ZIP : ${ok1.join(', ')} · fichier altéré : ${ok2.join(', ')}` };
 });
 
+await etape('T24', 'EN LIGNE : nom du lieu OpenStreetMap + contrôle FBMS ; position au village Beta pour une mission déclarée à Alpha → ÉCART inscrit sur la photo', async () => {
+  await ctx.setOffline(false); await ctx.setGeolocation({ latitude: 7.56, longitude: -5.0, accuracy: 10 });
+  await page.goto(BASE + `/fieldproof/index.html#capture/${MID}/PHOTO`);
+  await page.waitForSelector('#fpDeclencheur:not([disabled])', { timeout: 20000 });
+  await page.waitForFunction(() => /Localité Fictive OSM/.test(document.querySelector('#fpBandeauApercu').textContent), null, { timeout: 20000 });
+  await page.click('#fpDeclencheur'); await page.waitForSelector('[data-valider]'); await page.click('[data-valider]'); await page.waitForSelector('.fp-revue-ok');
+  const l = (await registre(page, MID)).filter(x => x.type === 'PHOTO'); const x = l[l.length - 1];
+  const b = await lireFichier(page, x.id); const f = join(FICHIERS, x.id + '-osm-ecart.jpg'); writeFileSync(f, b);
+  const texte = ocr(f, 320).replace(/\s+/g, ' ');
+  const urlOk = OSM_APPELS.every(u => { const q = new URL(u).searchParams; return [...q.keys()].sort().join(',') === 'accept-language,addressdetails,format,lat,lon,zoom'; });
+  const desc = py(`from PIL import Image; print(Image.open('${f}').getexif().get(0x010E,''))`);
+  await ctx.setGeolocation(GPS); await ctx.setOffline(true);
+  return { ok: x.localite.source === 'OSM' && x.localite.conformite === 'ECART' && /Localit[ée] Fictive OSM/i.test(texte) && /[ÉE]CART/.test(texte) && urlOk && OSM_APPELS.length >= 1 && /Localite Fictive OSM/.test(desc),
+    obtenu: `registre : « ${x.localite.texte} » · OCR contient OSM + ÉCART : ${/[ÉE]CART/.test(texte)} · ${OSM_APPELS.length} appel(s) OSM, paramètres envoyés = coordonnées et options seulement : ${urlOk} · EXIF : « ${desc.slice(desc.indexOf('Localite'), desc.indexOf('Localite') + 60)}… »`, preuve: 'tests/fieldproof/resultats/fichiers/' + x.id + '-osm-ecart-bandeau.png' };
+});
+
 await etape('T13', 'Persistance après fermeture et réouverture (retour réseau) : mission, registre et fichiers retrouvés', async () => {
   await ctx.setOffline(false);
   await page.close();
@@ -289,12 +328,12 @@ await etape('T13', 'Persistance après fermeture et réouverture (retour réseau
   await p.waitForSelector('.fp-media');
   const n = await p.$$eval('.fp-media', l => l.length);
   const b = await lireFichier(p, V1.id);
-  return { ok: n === 5 && b && sha(b) === V1.sha256, obtenu: `${n} médias affichés · vidéo ${V1.id} relue, empreinte identique : ${b && sha(b) === V1.sha256}` };
+  return { ok: n === 6 && b && sha(b) === V1.sha256, obtenu: `${n} médias affichés · vidéo ${V1.id} relue, empreinte identique : ${b && sha(b) === V1.sha256}` };
 });
 const page2 = globalThis.__page;
 await etape('T14', 'Miniatures distinctes photo / vidéo dans la galerie de mission', async () => {
   const types = await page2.$$eval('.fp-type', l => l.map(e => e.textContent));
-  return { ok: types.filter(t => t === 'PHOTO').length === 3 && types.filter(t => /^▶ VIDÉO \d\d:\d\d$/.test(t)).length === 2, obtenu: types.join(' | ') };
+  return { ok: types.filter(t => t === 'PHOTO').length === 4 && types.filter(t => /^▶ VIDÉO \d\d:\d\d$/.test(t)).length === 2, obtenu: types.join(' | ') };
 });
 
 await etape('T15', 'Vidéo interrompue (fermeture pendant l\'enregistrement) : séquence préservée puis récupérée', async () => {

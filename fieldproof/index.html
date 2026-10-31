@@ -11,17 +11,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="./fp.css?v=20261101-1">
+<link rel="stylesheet" href="./fp.css?v=20261101-2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Référentiel des rôles et périmètres (lecture seule, inchangé). -->
 <script src="../shared/aflp-access.js?v=aflp-1.0.0"></script>
 <!-- Clé de module « fbms » : niveaux bm / chef / agent (shared/auth-gate.js, inchangé).
      Hors ligne, auth-gate reprend le profil mis en cache lors de la dernière connexion. -->
 <script defer src="../shared/auth-gate.js?v=20261016-recovery-1" data-module="fbms"></script>
-<script defer src="./fp-core.js?v=20261101-1"></script>
-<script defer src="./fp-store.js?v=20261101-1"></script>
-<script defer src="./fp-capture.js?v=20261101-1"></script>
-<script defer src="./fp-app.js?v=20261101-1"></script>
+<script defer src="./fp-core.js?v=20261101-2"></script>
+<script defer src="./fp-store.js?v=20261101-2"></script>
+<script defer src="./fp-capture.js?v=20261101-2"></script>
+<script defer src="./fp-app.js?v=20261101-2"></script>
 <!-- Service worker EXISTANT de la suite (sw.js, non modifié) : les pages et fichiers de ce module
      sont mis en cache à la première ouverture en ligne, puis rouverts sans réseau. -->
 <script>if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(e){console.warn("[HORS LIGNE] Service Worker",e&&e.message?e.message:e);});});}</script>

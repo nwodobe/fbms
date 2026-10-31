@@ -1,6 +1,6 @@
 # AFLP FIELD PROOF — note d'architecture et de compatibilité Android / iOS
 
-Version 1.0.0 · 31/10/2026 · branche `feature/aflp-field-proof`
+Version 1.1.0 · 31/10/2026 · branche `feature/aflp-field-proof`
 
 ## 1. Objectif réel
 
@@ -105,3 +105,33 @@ L'empreinte SHA-256 détecte une modification **après** la création du fichier
 avertissements figurent dans l'interface, le manifeste et le guide. Pour un niveau de preuve opposable, il
 faudrait un horodatage serveur (envoi de l'empreinte seule, sans le média) : écarté ici car le mandat interdit
 toute transmission automatique ; proposable comme évolution.
+
+## 8. Version 1.1.0 — nom de la localité et galerie automatique
+
+### Nom de la localité sur le bandeau (6e ligne)
+
+| Situation | Source du nom | Exemple de ligne |
+|---|---|---|
+| Hors réseau | Villages FBMS (`villages.gps_lat/gps_lng` ou `data.s1.gpsLat/gpsLng`, sous-préfecture `s1.sousPrefecture`) **et hubs de cluster de la carte FBMS** (`hubs_clusters.localite`, `gps_lat/gps_lng`), préparés sur le téléphone | `Localité GPS : Village X (S/P Botro) · à 0,4 km — village de la mission` |
+| Avec réseau, réglage actif (par défaut) | OpenStreetMap Nominatim + contrôle FBMS | `Localité GPS : Kondrobo, Botro (OSM) · FBMS : Village X — village de la mission` |
+| Position loin du village déclaré (> 5 km) | Contrôle FBMS | `… — ÉCART : 6,7 km du village de la mission` (texte en ambre) |
+| Sans GPS | — | `Localité : non déterminée (pas de position GPS)` |
+
+Seuils (`fp-core.js`) : au village ≤ 3 km, environs ≤ 15 km, au-delà « hors des villages FBMS » ; écart si le
+village déclaré est à plus de 5 km. La vidéo porte la localité **au début** de l'enregistrement.
+Couverture constatée en base le 31/10/2026 (lecture seule) : 60/60 villages actifs avec coordonnées et
+sous-préfecture, 6/6 hubs avec coordonnées et localité.
+
+**Transmission autorisée** par le Branch Manager (31/10/2026) : avec réseau, les **coordonnées seules** sont
+envoyées à `nominatim.openstreetmap.org` (aucun média, aucune identité), pendant l'écran de capture, au plus
+une requête toutes les 10 s et seulement après un déplacement de plus de 150 m (politique d'usage Nominatim).
+Le nom est préparé avant le déclenchement : aucune attente. Réglage désactivable sur l'accueil.
+Google Maps écarté : sa clé API facturée serait lisible dans les pages publiques de FBMS.
+
+### Galerie automatique
+
+Dès « Valider » (réglage actif par défaut) : Android → fichier remis au dossier Téléchargements, indexé par
+Galerie / Google Photos (album « Download ») ; iPhone → la fenêtre « Enregistrer l'image / la vidéo » s'ouvre
+dans le même geste (Apple exige ce dernier appui). Le statut reste « à vérifier » jusqu'à confirmation de
+l'agent, faute de retour du navigateur. Une écriture **garantie et confirmée** dans l'album Photos exige une
+application installée (architecture 2, APK Capacitor).

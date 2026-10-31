@@ -92,9 +92,9 @@
   var COUL = { fond: '#053B23', fond2: '#0A4A2C', accent: '#F0A500', texte: '#FFFFFF', doux: '#BFE0CB', alerte: '#FFD27A' };
   /* Hauteur du bandeau pour une largeur d'image donnée : 5 lignes lisibles
      sur un téléphone (≥ 12 px à l'écran) sans écraser la scène. */
-  function hauteurBandeau(largeur) { var t = taillePolice(largeur); return Math.round(t * 1.42 * 5 + t * 1.6); }
+  function hauteurBandeau(largeur) { var t = taillePolice(largeur); return Math.round(t * 1.42 * 6 + t * 1.6); }
   function taillePolice(largeur) { return Math.max(11, Math.round(largeur / 62)); }
-  function dessinerBandeau(ctx, x, y, largeur, lignes, statutCode) {
+  function dessinerBandeau(ctx, x, y, largeur, lignes, statutCode, alerteLocalite) {
     var t = taillePolice(largeur), h = hauteurBandeau(largeur), marge = Math.round(t * 0.9);
     var g = ctx.createLinearGradient(x, y, x + largeur, y);
     g.addColorStop(0, COUL.fond); g.addColorStop(1, COUL.fond2);
@@ -104,9 +104,9 @@
     ctx.textBaseline = 'middle';
     var pas = t * 1.42, y0 = y + t * 0.95 + pas / 2;
     lignes.forEach(function (l, i) {
-      var gras = i === 0, alerte = i === 4 && statutCode && statutCode !== 'OK';
+      var gras = i === 0, alerte = (i === 4 && statutCode && statutCode !== 'OK') || (i === 5 && alerteLocalite);
       ctx.font = (gras ? '700 ' : '500 ') + (gras ? Math.round(t * 1.05) : t) + 'px "IBM Plex Sans","Segoe UI",Roboto,Arial,sans-serif';
-      ctx.fillStyle = gras ? COUL.texte : (alerte ? COUL.alerte : (i === 3 ? COUL.texte : COUL.doux));
+      ctx.fillStyle = gras ? COUL.texte : (alerte ? COUL.alerte : (i === 3 || i === 5 ? COUL.texte : COUL.doux));
       ajuster(ctx, l, x + marge + Math.round(t / 2.6), y0 + i * pas, largeur - 2 * marge - Math.round(t / 2.6));
     });
     return h;
@@ -139,12 +139,12 @@
     var ctx = cv.getContext('2d');
     ctx.drawImage(source, 0, 0, sw, sh);
     var st = C.statutGps(meta.gpsDebut, meta.debut);
-    dessinerBandeau(ctx, 0, sh, sw, C.lignesBandeau(meta, meta.debut), st.code);
+    dessinerBandeau(ctx, 0, sh, sw, C.lignesBandeau(meta, meta.debut), st.code, C.localiteAlerte(meta.localite));
     return toBlob(cv, 'image/jpeg', 0.9).then(function (b) {
       return S.lireTranche(b, 0, b.size).then(function (buf) {
         var exif = C.segmentExif({
           date: meta.debut, artiste: meta.agent,
-          description: meta.idMedia + ' | ' + meta.activite + ' | ' + meta.cluster + ' / ' + meta.village + ' | ' + st.libelle,
+          description: meta.idMedia + ' | ' + meta.activite + ' | ' + meta.cluster + ' / ' + meta.village + ' | ' + st.libelle + (meta.localite ? ' | ' + meta.localite.texte : ''),
           gps: meta.gpsDebut && typeof meta.gpsDebut.lat === 'number' ? meta.gpsDebut : null
         });
         var avec = C.insererExif(new Uint8Array(buf), exif);
@@ -230,7 +230,7 @@
   Enregistreur.prototype._majBandeau = function (ms) {
     var m = Object.assign({}, this.cfg.meta, { type: 'VIDEO', dureeMs: ms });
     this.bctx.clearRect(0, 0, this.W, this.hb);
-    dessinerBandeau(this.bctx, 0, 0, this.W, C.lignesBandeau(m), C.statutGps(m.gpsDebut, m.debut).code);
+    dessinerBandeau(this.bctx, 0, 0, this.W, C.lignesBandeau(m), C.statutGps(m.gpsDebut, m.debut).code, C.localiteAlerte(m.localite));
     this.secondeAffichee = Math.floor(ms / 1000);
   };
   Enregistreur.prototype._dessiner = function () {

@@ -21,7 +21,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
 
   /* -- 1. Référentiels fonctionnels --------------------------------------- */
   /* Activités proposées à l'agent. Aucune n'est présélectionnée : l'agent
@@ -99,6 +99,78 @@
     return 'https://www.google.com/maps?q=' + arrondi(pos.lat, 6) + ',' + arrondi(pos.lon, 6);
   }
 
+  /* -- 4 bis. Localité GPS (hors ligne) ------------------------------------
+     Aucun service de cartes n'est appelé : hors réseau il serait inutilisable,
+     et envoyer la position à un tiers serait une transmission automatique.
+     La localité est déduite des coordonnées des villages FBMS (recensement),
+     préparées sur le téléphone. villages : [{ id, nom, lat, lon, sp, dep, qualif? }] —
+     on y ajoute les hubs de cluster de la carte FBMS (qualif « hub cluster X »). */
+  var RAYON_LOCALITE_KM = 3;   // en deçà : « au village »
+  var HORS_KM = 15;            // au-delà : hors des villages connus
+  var ECART_KM = 5;            // au-delà : écart avec le village déclaré
+  function coordValide(lat, lon) {
+    return typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon) &&
+      Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && !(lat === 0 && lon === 0);
+  }
+  function distanceKm(a, b) {
+    var R = 6371.0088, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+  function km(x) { return (x < 10 ? x.toFixed(1) : String(Math.round(x))).replace('.', ',') + ' km'; }
+  /* Nom de lieu renvoyé par OpenStreetMap (Nominatim, format jsonv2). */
+  function lieuOsm(rep) {
+    var a = (rep && rep.address) || {};
+    var nom = a.village || a.town || a.city || a.hamlet || a.suburb || a.municipality || a.locality || a.neighbourhood || '';
+    if (!nom && rep && rep.name) nom = rep.name;
+    var detail = a.county || a.state_district || a.state || '';
+    if (detail === nom) detail = a.state || '';
+    return nom ? { nom: nom, detail: detail } : null;
+  }
+  /* mission : { villageId, village } — village déclaré pour la mission.
+     osm (facultatif) : { nom, detail } obtenu en ligne pour cette position. */
+  function localiteGps(pos, villages, mission, osm) {
+    var r = localiteFbms(pos, villages, mission);
+    if (!osm || !osm.nom || r.code === 'ABSENT') return r;
+    var t = 'Localité GPS : ' + osm.nom + (osm.detail ? ', ' + osm.detail : '') + ' (OSM)';
+    if (r.nom) {
+      t += ' · FBMS : ' + (r.code === 'AU_VILLAGE' ? r.nom : r.code === 'ENVIRONS' ? km(r.distanceKm) + ' de ' + r.nom : 'hors villages (' + r.nom + ', ' + km(r.distanceKm) + ')');
+      if (r.conformite === 'ECART') t += ' — ÉCART : ' + km(r.distanceMissionKm) + ' du village de la mission';
+      else if (r.conformite === 'CONFORME') t += String(r.villageId) === String((mission || {}).villageId) ? ' — village de la mission' : ' — à ' + km(r.distanceMissionKm) + ' du village de la mission';
+    }
+    return Object.assign({}, r, { texte: t, osmNom: osm.nom, osmDetail: osm.detail || '', source: 'OSM' });
+  }
+  function localiteFbms(pos, villages, mission) {
+    mission = mission || {};
+    if (!pos || !coordValide(pos.lat, pos.lon)) return { code: 'ABSENT', texte: 'Localité : non déterminée (pas de position GPS)' };
+    var refs = (villages || []).filter(function (v) { return coordValide(v.lat, v.lon); });
+    if (!refs.length) return { code: 'SANS_REF', texte: 'Localité : non déterminée (aucun village FBMS géolocalisé sur ce téléphone)' };
+    var proche = null, dMin = Infinity, dMission = null;
+    refs.forEach(function (v) {
+      var dd = distanceKm(pos, v);
+      if (dd < dMin) { dMin = dd; proche = v; }
+      if (mission.villageId != null && String(v.id) === String(mission.villageId)) dMission = dd;
+    });
+    var sp = String(proche.sp || '').trim(), lieu = proche.nom + (proche.qualif ? ' (' + proche.qualif + ')' : sp ? ' (' + (/^(s\/p|sous-pr)/i.test(sp) ? sp : 'S/P ' + sp) + ')' : '');
+    var code = dMin <= RAYON_LOCALITE_KM ? 'AU_VILLAGE' : dMin <= HORS_KM ? 'ENVIRONS' : 'HORS';
+    var texte = code === 'AU_VILLAGE' ? 'Localité GPS : ' + lieu + ' · à ' + km(dMin)
+      : code === 'ENVIRONS' ? 'Localité GPS : à ' + km(dMin) + ' de ' + lieu
+      : 'Localité GPS : hors des villages FBMS (le plus proche : ' + proche.nom + ', ' + km(dMin) + ')';
+    var conformite = null;
+    if (dMission != null) {
+      conformite = dMission <= ECART_KM ? 'CONFORME' : 'ECART';
+      if (String(proche.id) === String(mission.villageId) && conformite === 'CONFORME') texte += ' — village de la mission';
+      else texte += conformite === 'ECART' ? ' — ÉCART : ' + km(dMission) + ' du village de la mission' : ' — à ' + km(dMission) + ' du village de la mission';
+    }
+    return {
+      code: code, texte: texte, villageId: proche.id, nom: proche.nom, sp: proche.sp || '', dep: proche.dep || '',
+      distanceKm: Math.round(dMin * 100) / 100, distanceMissionKm: dMission == null ? null : Math.round(dMission * 100) / 100, conformite: conformite, source: 'FBMS'
+    };
+  }
+  /* La ligne localité doit-elle être mise en évidence (couleur d'alerte) ? */
+  function localiteAlerte(l) { return !l || (l.code !== 'AU_VILLAGE' && l.code !== 'ENVIRONS' && !l.osmNom) || l.conformite === 'ECART'; }
+
   /* -- 5. Bandeau ----------------------------------------------------------- */
   /* Renvoie les lignes du bandeau. Le dessin (canvas) est fait par
      fp-capture.js : le texte est ici, pour être testé à l'identique.
@@ -120,7 +192,9 @@
       l5 = st.code === 'ABSENT' ? st.libelle + ' AU DÉBUT DE L\'ENREGISTREMENT'
          : 'Position au DÉBUT de l\'enregistrement : ' + coordonnees(m.gpsDebut) + '  ' + precisionTexte(m.gpsDebut) + '   ·   ' + st.libelle;
     }
-    return [l1, l2, l3, l4, l5];
+    var loc = m.localite || { texte: 'Localité : non déterminée' };
+    var l6 = video ? loc.texte.replace(/^Localité( GPS)? :/, 'Localité au DÉBUT :') : loc.texte;
+    return [l1, l2, l3, l4, l5, l6];
   }
 
   /* -- 6. Fichiers et manifeste --------------------------------------------- */
@@ -144,6 +218,7 @@
   var COLONNES_CSV = ['mission_id', 'media_id', 'type', 'fichier', 'agent', 'agent_id', 'cluster', 'village', 'village_id', 'activite',
     'debut_gmt', 'fin_gmt', 'duree_s', 'gps_debut_lat', 'gps_debut_lon', 'gps_debut_precision_m', 'gps_debut_statut',
     'gps_fin_lat', 'gps_fin_lon', 'gps_fin_precision_m', 'gps_fin_statut', 'micro', 'mime', 'largeur', 'hauteur',
+    'localite_osm', 'localite_gps', 'localite_sous_prefecture', 'localite_distance_km', 'distance_village_mission_km', 'localite_statut',
     'taille_octets', 'sha256', 'galerie_statut', 'commentaire'];
   function csvCellule(v) {
     if (v == null) return '';
@@ -165,6 +240,11 @@
       gps_fin_precision_m: gf.precision != null ? Math.round(gf.precision) : '',
       gps_fin_statut: m.type === 'VIDEO' ? statutGps(m.gpsFin, m.fin).code : '',
       micro: m.type === 'VIDEO' ? (m.micro ? 'OUI' : 'NON (vidéo muette)') : '',
+      localite_osm: m.localite && m.localite.osmNom ? m.localite.osmNom + (m.localite.osmDetail ? ', ' + m.localite.osmDetail : '') : '',
+      localite_gps: (m.localite && m.localite.nom) || '', localite_sous_prefecture: (m.localite && m.localite.sp) || '',
+      localite_distance_km: m.localite && m.localite.distanceKm != null ? m.localite.distanceKm : '',
+      distance_village_mission_km: m.localite && m.localite.distanceMissionKm != null ? m.localite.distanceMissionKm : '',
+      localite_statut: m.localite ? (m.localite.code + (m.localite.conformite ? '/' + m.localite.conformite : '')) : '',
       mime: m.mime, largeur: m.largeur, hauteur: m.hauteur, taille_octets: m.taille, sha256: m.sha256,
       galerie_statut: m.galerie || 'NON_ENREGISTRE', commentaire: m.commentaire || ''
     };
@@ -355,7 +435,7 @@
      Exif (TIFF little-endian) : date de prise de vue, description, auteur,
      logiciel et, si disponible, la position GPS. Les galeries Android/iOS
      l'affichent ; WhatsApp le supprime à l'envoi « en photo ». */
-  function asciiZ(s) { var u = utf8(String(s || '').replace(/[^\x20-\x7E]/g, '?')); var b = new Uint8Array(u.length + 1); b.set(u); return b; }
+  function asciiZ(s) { var u = utf8(String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[·—–]/g, '-').replace(/[^\x20-\x7E]/g, '?')); var b = new Uint8Array(u.length + 1); b.set(u); return b; }
   function exifDate(x) { var t = d(x); return t.getUTCFullYear() + ':' + p2(t.getUTCMonth() + 1) + ':' + p2(t.getUTCDate()) + ' ' + p2(t.getUTCHours()) + ':' + p2(t.getUTCMinutes()) + ':' + p2(t.getUTCSeconds()); }
   function rationnels(vals) {
     var b = new Uint8Array(8 * vals.length), v = new DataView(b.buffer);
@@ -495,7 +575,8 @@
     dateAbj: dateAbj, heureAbj: heureAbj, dateHeureAbj: dateHeureAbj, compactAbj: compactAbj, duree: duree,
     idMission: idMission, idMedia: idMedia,
     statutGps: statutGps, coordonnees: coordonnees, precisionTexte: precisionTexte, lienCarte: lienCarte,
-    lignesBandeau: lignesBandeau, slug: slug, extension: extension, nomFichier: nomFichier,
+    lignesBandeau: lignesBandeau, distanceKm: distanceKm, localiteGps: localiteGps, lieuOsm: lieuOsm, localiteAlerte: localiteAlerte,
+    RAYON_LOCALITE_KM: RAYON_LOCALITE_KM, HORS_KM: HORS_KM, ECART_KM: ECART_KM, slug: slug, extension: extension, nomFichier: nomFichier,
     COLONNES_CSV: COLONNES_CSV, manifesteCsv: manifesteCsv, manifesteJson: manifesteJson,
     Sha256: Sha256, sha256Hex: sha256Hex, crc32: crc32,
     planZip: planZip, lots: lots, lireZip: lireZip, zipEnteteLocale: zipEnteteLocale,

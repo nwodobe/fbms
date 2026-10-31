@@ -62,6 +62,8 @@ body.fp-mode-capture .fp-nav{display:none}
 
 .fp-pret{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .fp-pret li{padding-left:26px;position:relative}
+.fp-option{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0;font-weight:600;min-height:44px}
+.fp-option input{width:22px;height:22px;min-height:0;flex:0 0 auto;margin-top:2px}
 .fp-li-ok::before{content:'✓';position:absolute;left:0;color:var(--ok);font-weight:800}
 .fp-li-ko::before{content:'!';position:absolute;left:4px;color:var(--warn);font-weight:800}
 

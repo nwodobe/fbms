@@ -21,9 +21,17 @@
 4. Passez librement de PHOTO à VIDÉO : la mission reste la même.
 5. Sans GPS : vous pouvez photographier quand même ; le fichier portera **LOCALISATION NON VÉRIFIÉE**.
 
+## Nom du lieu sur la photo
+
+La dernière ligne du bandeau indique la **localité** : nom du village FBMS le plus proche (sans réseau) ou nom
+OpenStreetMap (avec réseau). Si vous êtes à plus de 5 km du village choisi pour la mission, elle affiche
+**ÉCART** : vérifiez que vous avez choisi le bon village. Avec réseau, seule votre position est envoyée à
+OpenStreetMap pour trouver ce nom ; vous pouvez couper cette recherche sur l'accueil.
+
 ## Mettre dans la galerie
 
-- Après validation : **Enregistrer dans la galerie**.
+- **Automatique** : dès « Valider », le fichier part vers la galerie (réglage sur l'accueil, actif par défaut).
+- Sinon, ou pour un ancien média : **Enregistrer dans la galerie**.
   - Android : le fichier va dans **Téléchargements** ; il apparaît dans Galerie / Google Photos (album
     « Download »).
   - iPhone : choisissez **Enregistrer l'image** ou **Enregistrer la vidéo** dans la fenêtre qui s'ouvre.
