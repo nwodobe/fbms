@@ -61,14 +61,17 @@ do $$ declare f record; begin
              ('public','moto_facture_deposer'), ('public','moto_facture_verifier'), ('public','moto_facture_paiement_constater'),
              ('public','moto_maintenance_cloturer'), ('public','moto_maintenance_annuler'),
              ('private','moto_piece_fin_valide'), ('private','moto_total_autorise'),
-             ('private','moto_autorisation_valide'))
+             ('private','moto_autorisation_valide'), ('private','moto_premiere_decision'), ('private','moto_facture_utilisable'))
   loop execute format('drop function %s', f.sig); end loop;
 end $$;
 
 -- Colonnes de rattachement (vides, vérifié ci-dessus) puis tables
 alter table public.moto_depenses drop constraint if exists moto_depenses_nature_check;
+alter table public.moto_depenses drop column if exists facture_id;
 alter table public.moto_depenses drop column if exists autorisation_id;
 alter table public.moto_depenses drop column if exists nature;
+alter table public.moto_pneus drop column if exists facture_id;
+alter table public.moto_pneu_reparations drop column if exists facture_id;
 alter table public.moto_pneus drop column if exists autorisation_id;
 alter table public.moto_pneu_reparations drop column if exists autorisation_id;
 drop table if exists public.moto_factures;
@@ -83,6 +86,14 @@ drop table if exists public.moto_garages;
 drop table if exists public.moto_regles_versions;
 drop table if exists public.moto_modeles_techniques;
 drop function if exists private.moto_lecture_fin_maintenance();   -- après les politiques qui l'utilisent
+
+-- Droit de lecture d'origine sur la table des dossiers (la migration 6 l'avait restreint par colonne)
+do $$ declare c record; begin
+  for c in select column_name from information_schema.columns where table_schema = 'public' and table_name = 'moto_maintenances' loop
+    execute format('revoke select (%I) on public.moto_maintenances from authenticated', c.column_name);
+  end loop;
+end $$;
+grant select on public.moto_maintenances to authenticated;
 
 -- Contraintes d'origine
 alter table public.moto_maintenances drop constraint if exists moto_maintenances_statut_check;

@@ -76,6 +76,7 @@ create table if not exists public.moto_regles_versions (
   propose_at timestamptz not null default now(),
   approuve_par uuid, approuve_at timestamptz, motif_approbation text,
   retire_par uuid, retire_at timestamptz,
+  check (approuve_par is null or propose_par is null or approuve_par <> propose_par),
   check ((modele_code is null) <> (moto_id is null)),
   check (intervalle_km is not null or intervalle_jours is not null),
   check (rappel_avant_km is null or intervalle_km is null or rappel_avant_km < intervalle_km),
@@ -196,7 +197,7 @@ create table if not exists public.moto_autorisations (
   client_op_id uuid unique,
   unique (maintenance_id, rang),
   check (decide_par is null or decide_par <> soumis_par),
-  check (statut <> 'AUTORISEE' or (montant_autorise is not null and montant_autorise > 0 and montant_autorise <= montant_demande and decide_par is not null)),
+  check (statut not in ('AUTORISEE') or (montant_autorise is not null and montant_autorise > 0 and montant_autorise <= montant_demande and decide_par is not null)),
   check (statut <> 'REFUSEE' or decide_par is not null)
 );
 create unique index if not exists moto_autorisations_une_en_attente on public.moto_autorisations (maintenance_id) where statut = 'EN_ATTENTE';
@@ -217,6 +218,7 @@ create table if not exists public.moto_factures (
   montant_paye numeric(14,0) not null default 0 check (montant_paye >= 0),
   paiement_reference text, paiement_date date, paiement_par uuid,
   check (verifie_par is null or verifie_par <> depose_par),
+  check (paiement_par is null or paiement_par <> verifie_par),
   check (montant_paye <= montant),
   check (montant_paye = 0 or statut = 'VERIFIEE')
 );
@@ -226,13 +228,15 @@ create unique index if not exists moto_factures_numero_unique on public.moto_fac
 
 -- Rattachement des coûts annexes à une autorisation BM
 alter table public.moto_depenses add column if not exists nature text;
-alter table public.moto_depenses add column if not exists autorisation_id uuid references public.moto_autorisations(id);
+-- Une seule source d'argent : la facture du dossier, plafonnée par l'autorisation BM.
+-- Dépense d'enveloppe « maintenance » = règlement d'une facture vérifiée ; pneu = répartition d'une facture vérifiée.
+alter table public.moto_depenses add column if not exists facture_id uuid references public.moto_factures(id);
 alter table public.moto_depenses drop constraint if exists moto_depenses_nature_check;
 alter table public.moto_depenses add constraint moto_depenses_nature_check
-  check (nature is null or (nature = 'SUPERVISION' and autorisation_id is null and action_id is null)
-                        or (nature = 'MAINTENANCE' and autorisation_id is not null));
-alter table public.moto_pneus add column if not exists autorisation_id uuid references public.moto_autorisations(id);
-alter table public.moto_pneu_reparations add column if not exists autorisation_id uuid references public.moto_autorisations(id);
+  check (nature is null or (nature = 'SUPERVISION' and facture_id is null and action_id is null and moto_id is null)
+                        or (nature = 'MAINTENANCE' and facture_id is not null));
+alter table public.moto_pneus add column if not exists facture_id uuid references public.moto_factures(id);
+alter table public.moto_pneu_reparations add column if not exists facture_id uuid references public.moto_factures(id);
 
 -- ---------------------------------------------------------------------
 -- 5. Fonctions utilitaires
@@ -260,17 +264,25 @@ create or replace function private.moto_total_autorise(p_mt uuid)
 returns numeric language sql stable security definer set search_path to 'public', 'pg_temp'
 as $$ select coalesce(sum(montant_autorise), 0) from public.moto_autorisations where maintenance_id = p_mt and statut = 'AUTORISEE' $$;
 
-create or replace function private.moto_autorisation_valide(p_aut uuid, p_moto uuid)
-returns public.moto_autorisations language plpgsql stable security definer set search_path to 'public', 'private', 'pg_temp'
+create or replace function private.moto_premiere_decision(p_mt uuid)
+returns date language sql stable security definer set search_path to 'public', 'pg_temp'
+as $$ select min(decide_at)::date from public.moto_autorisations where maintenance_id = p_mt and statut = 'AUTORISEE' $$;
+
+-- Facture utilisable comme pièce d'argent : vérifiée, dossier vivant, (moto attendue). Solde = montant − déjà réparti.
+create or replace function private.moto_facture_utilisable(p_facture uuid, p_moto uuid)
+returns public.moto_factures language plpgsql stable security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
-declare a public.moto_autorisations;
+declare f public.moto_factures;
 begin
-  select * into a from public.moto_autorisations where id = p_aut;
-  if not found or a.statut <> 'AUTORISEE' then
-    perform private.moto_refus('Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager introuvable ou non accordée.');
+  select * into f from public.moto_factures where id = p_facture;
+  if not found or f.statut <> 'VERIFIEE' then
+    perform private.moto_refus('Dépense de maintenance refusée : elle doit régler une facture vérifiée d''un dossier autorisé par le Branch Manager.');
   end if;
-  if p_moto is not null and a.moto_id <> p_moto then perform private.moto_erreur('L''autorisation BM concerne une autre moto.'); end if;
-  return a;
+  if p_moto is not null and f.moto_id <> p_moto then perform private.moto_erreur('La facture concerne une autre moto.'); end if;
+  if exists (select 1 from public.moto_maintenances where id = f.maintenance_id and statut in ('ANNULEE','REFUSEE')) then
+    perform private.moto_refus('Dossier annulé ou refusé : la facture n''est plus utilisable.');
+  end if;
+  return f;
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -348,6 +360,9 @@ begin
   perform private.moto_motif(p_motif, 10);
   select * into r from public.moto_regles_versions where id = p_version for update;
   if not found or r.statut <> 'BROUILLON' then perform private.moto_erreur('Version introuvable ou déjà traitée.'); end if;
+  if r.propose_par = auth.uid() then
+    perform private.moto_refus('Quatre yeux : le Branch Manager approuve une version proposée par un autre (coordinateur ou ABM).');
+  end if;
   if r.nature_source = 'HYPOTHESE' then
     perform private.moto_refus('Une hypothèse non validée ne peut pas devenir une politique opérationnelle : requalifiez-la (constructeur avec référence, ou politique interne avec validation technique).');
   end if;
@@ -450,6 +465,10 @@ begin
   if not private.moto_peut_operer(v_moto) then perform private.moto_refus('Moto hors de votre périmètre ou non affectée à votre compte.'); end if;
   if v_type not in ('VIDANGE','ENTRETIEN_PREVENTIF','REVISION','REPARATION','PANNE','DIAGNOSTIC','PNEUMATIQUE') then
     perform private.moto_erreur('Type de maintenance inconnu.');
+  end if;
+  if private.moto_uuid(p, 'incident_id') is not null
+     and not exists (select 1 from public.moto_incidents where id = private.moto_uuid(p, 'incident_id') and moto_id = v_moto) then
+    perform private.moto_erreur('L''incident lié doit concerner la même moto.');
   end if;
   perform private.moto_motif('Besoin de maintenance signalé');
   -- Les champs de décision éventuellement envoyés (statut, montant autorisé…) sont ignorés : une demande n'est jamais une autorisation.
@@ -559,6 +578,12 @@ begin
     perform private.moto_erreur('Montant inférieur au devis : justification détaillée exigée.');
   end if;
   if v_objet <> 'DIAGNOSTIC' and mt.garage_id is null then perform private.moto_erreur('Garage proposé obligatoire.'); end if;
+  if private.moto_uuid(p, 'garage_id') is not null and private.moto_uuid(p, 'garage_id') is distinct from mt.garage_id then
+    perform private.moto_erreur('Le garage soumis au BM est celui du dossier (devis) : enregistrez un nouveau devis pour en changer.');
+  end if;
+  if mt.garage_id is not null and exists (select 1 from public.moto_garages where id = mt.garage_id and statut = 'SUSPENDU') then
+    perform private.moto_refus('Garage suspendu : soumission impossible.');
+  end if;
   perform private.moto_piece_fin_valide(mt.moto_id, nullif(p ->> 'devis_path', ''), 'devis');
   if v_objet <> 'DIAGNOSTIC' and coalesce(nullif(p ->> 'devis_path', ''), mt.dernier_devis_path) is null then
     perform private.moto_erreur('Devis documenté obligatoire : déposez la pièce du devis.');
@@ -572,7 +597,7 @@ begin
   perform private.moto_motif(coalesce(nullif(p ->> 'motif', ''), 'Soumission au Branch Manager'));
   insert into public.moto_autorisations (maintenance_id, moto_id, rang, objet, garage_id, perimetre, travaux, montant_demande, devis_path,
          justification, consequence_report, urgence, client_op_id)
-  values (mt.id, mt.moto_id, v_rang, v_objet, coalesce(private.moto_uuid(p, 'garage_id'), mt.garage_id),
+  values (mt.id, mt.moto_id, v_rang, v_objet, mt.garage_id,
           btrim(coalesce(p ->> 'perimetre', '')), v_trav, v_m, coalesce(nullif(p ->> 'devis_path', ''), case when v_objet <> 'DIAGNOSTIC' then mt.dernier_devis_path end),
           btrim(coalesce(nullif(p ->> 'justification', ''), mt.dernier_devis_justification, mt.justification, '')), btrim(coalesce(p ->> 'consequence_report', mt.consequence_report, '')),
           coalesce(nullif(upper(p ->> 'urgence'), ''), mt.urgence, 'NORMALE'), v_client)
@@ -596,6 +621,12 @@ begin
   if not found or a.statut <> 'EN_ATTENTE' then perform private.moto_erreur('Demande introuvable ou déjà décidée.'); end if;
   if a.soumis_par = auth.uid() then perform private.moto_refus('Auto-autorisation interdite.'); end if;
   perform private.moto_exiger_independance(a.moto_id, 'l''autorisation de dépense');
+  if exists (select 1 from public.moto_maintenances where id = a.maintenance_id and statut in ('ANNULEE','CLOTUREE','CONTROLEE')) then
+    perform private.moto_erreur('Dossier clos ou annulé : aucune décision de dépense possible.');
+  end if;
+  if a.garage_id is not null and exists (select 1 from public.moto_garages where id = a.garage_id and statut = 'SUSPENDU') then
+    perform private.moto_refus('Garage suspendu depuis la demande : autorisation impossible, refusez ou faites requalifier.');
+  end if;
   if v_dec not in ('AUTORISEE','REFUSEE') then perform private.moto_erreur('Décision : AUTORISEE ou REFUSEE.'); end if;
   v_montant := case when v_dec = 'AUTORISEE' then coalesce(p_montant, a.montant_demande) end;
   if v_dec = 'AUTORISEE' and (v_montant <= 0 or v_montant > a.montant_demande) then
@@ -611,7 +642,7 @@ begin
         when v_dec = 'AUTORISEE' then 'AUTORISEE'
         when a.objet = 'DIAGNOSTIC' then 'DIAGNOSTIC'
         else 'REFUSEE' end,
-      garage_id = coalesce(garage_id, a.garage_id)
+      garage_id = mt.garage_id
     where id = mt.id;
   end if;
   if v_dec = 'REFUSEE' then
@@ -636,12 +667,15 @@ create or replace function public.moto_maintenance_programmer(p jsonb)
 returns jsonb language plpgsql security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
 declare mt public.moto_maintenances; v_eng numeric := coalesce(private.moto_num(p, 'montant_engage'), 0); v_aut numeric;
-        v_sans boolean := coalesce((p ->> 'sans_frais')::boolean, false);
+        v_sans boolean := coalesce((p ->> 'sans_frais')::boolean, false); v_classe text;
 begin
-  perform private.moto_exiger_classe(array['BM','ABM','LOGISTIQUE']);
+  v_classe := private.moto_exiger_classe(array['BM','ABM','LOGISTIQUE']);
   select * into mt from public.moto_maintenances where id = private.moto_uuid(p, 'maintenance_id') for update;
   if not found then perform private.moto_erreur('Dossier introuvable.'); end if;
   v_aut := private.moto_total_autorise(mt.id);
+  if v_sans and v_classe <> 'BM' then
+    perform private.moto_refus('Qualifier une intervention « sans frais » est une décision du Branch Manager.');
+  end if;
   if v_sans then
     -- Intervention sans aucun coût (garantie, intervention interne) : aucun engagement possible.
     if mt.statut not in ('DEMANDEE','DIAGNOSTIC','DEVIS_RECU') or v_aut > 0 then perform private.moto_erreur('« Sans frais » : uniquement avant toute autorisation.'); end if;
@@ -691,6 +725,9 @@ begin
     perform private.moto_erreur('Seul un dossier programmé (autorisé par le BM, ou sans frais motivé) peut démarrer.');
   end if;
   if p_date is null or p_date > current_date then perform private.moto_erreur('Date réelle de début obligatoire, pas dans le futur.'); end if;
+  if not mt.sans_frais and p_date < private.moto_premiere_decision(mt.id) then
+    perform private.moto_refus('Travaux antérieurs à l''autorisation du Branch Manager : une dépense ne se régularise pas après coup.');
+  end if;
   perform private.moto_motif('Début d''intervention');
   update public.moto_maintenances set statut = 'EN_COURS', date_intervention = p_date,
          garage_nom = coalesce(nullif(btrim(p_garage), ''), (select nom from public.moto_garages where id = mt.garage_id), garage_nom)
@@ -728,6 +765,8 @@ begin
   select count(*) into v_n from public.moto_maintenance_travaux where maintenance_id = mt.id and statut = 'PREVU'
     and (autorisation_id is null and mt.sans_frais or exists (select 1 from public.moto_autorisations a where a.id = autorisation_id and a.statut = 'AUTORISEE'));
   if v_n > 0 then perform private.moto_erreur(format('%s opération(s) autorisée(s) non déclarée(s) : précisez réalisée ou non.', v_n)); end if;
+  -- Opérations prévues mais jamais autorisées : non réalisées dans ce dossier (traçabilité, pas d'oubli silencieux).
+  update public.moto_maintenance_travaux set statut = 'NON_REALISE' where maintenance_id = mt.id and statut = 'PREVU';
   if not exists (select 1 from public.moto_maintenance_travaux where maintenance_id = mt.id and statut = 'REALISE') then
     perform private.moto_erreur('Aucune opération réalisée : annulez le dossier plutôt que de le terminer.');
   end if;
@@ -779,6 +818,9 @@ begin
   if nullif(p ->> 'date_facture', '') is null or (p ->> 'date_facture')::date > current_date then perform private.moto_erreur('Date de facture obligatoire, pas dans le futur.'); end if;
   if nullif(btrim(p ->> 'numero_facture'), '') is null then perform private.moto_erreur('Numéro de facture obligatoire.'); end if;
   if nullif(p ->> 'document_path', '') is null then perform private.moto_erreur('Pièce (scan de la facture) obligatoire.'); end if;
+  if not mt.sans_frais and (p ->> 'date_facture')::date < private.moto_premiere_decision(mt.id) then
+    perform private.moto_refus('Facture antérieure à l''autorisation du Branch Manager : elle ne peut pas régulariser une dépense.');
+  end if;
   perform private.moto_piece_fin_valide(mt.moto_id, p ->> 'document_path', 'facture');
   perform private.moto_motif('Dépôt de facture');
   insert into public.moto_factures (maintenance_id, moto_id, garage_id, numero_facture, date_facture, montant, document_path)
@@ -798,6 +840,9 @@ begin
   select * into f from public.moto_factures where id = p_facture for update;
   if not found or f.statut <> 'DEPOSEE' then perform private.moto_erreur('Facture introuvable ou déjà vérifiée.'); end if;
   if f.depose_par = auth.uid() then perform private.moto_refus('Auto-vérification interdite.'); end if;
+  if exists (select 1 from public.moto_autorisations where maintenance_id = f.maintenance_id and soumis_par = auth.uid()) then
+    perform private.moto_refus('Séparation des tâches : celui qui a soumis la demande au BM ne vérifie pas la facture.');
+  end if;
   if v_dec not in ('VERIFIEE','REJETEE') then perform private.moto_erreur('Décision : VERIFIEE ou REJETEE.'); end if;
   if v_dec = 'VERIFIEE' then
     v_aut := private.moto_total_autorise(f.maintenance_id);
@@ -823,7 +868,12 @@ begin
   perform private.moto_exiger_classe(array['FINANCE']);
   select * into f from public.moto_factures where id = p_facture for update;
   if not found or f.statut <> 'VERIFIEE' then perform private.moto_erreur('Seule une facture vérifiée peut être constatée payée.'); end if;
-  if p_montant is null or p_montant <= 0 or f.montant_paye + p_montant > f.montant then perform private.moto_erreur('Montant payé invalide (au plus le reste dû).'); end if;
+  if f.verifie_par = auth.uid() then perform private.moto_refus('Séparation des tâches : celui qui vérifie la facture ne constate pas son paiement.'); end if;
+  -- Reste dû = montant − paiements constatés − règlements par enveloppe déjà rattachés à cette facture.
+  if p_montant is null or p_montant <= 0 or f.montant_paye + p_montant
+       + coalesce((select sum(montant) from public.moto_depenses where facture_id = f.id and statut <> 'REJETEE'), 0) > f.montant then
+    perform private.moto_erreur('Montant payé invalide (au plus le reste dû, règlements par enveloppe compris).');
+  end if;
   if p_date is null or p_date > current_date then perform private.moto_erreur('Date de paiement réelle obligatoire.'); end if;
   perform private.moto_motif(p_reference, 3);
   update public.moto_factures set montant_paye = montant_paye + p_montant, paiement_date = p_date, paiement_reference = btrim(p_reference),
@@ -867,7 +917,8 @@ begin
   if not found or mt.statut not in ('DEMANDEE','DIAGNOSTIC','DEVIS_RECU','EN_ATTENTE_BM','REFUSEE','AUTORISEE') then
     perform private.moto_erreur('Annulation impossible après engagement : terminez ou contrôlez le dossier.');
   end if;
-  update public.moto_autorisations set statut = 'ANNULEE' where maintenance_id = mt.id and statut = 'EN_ATTENTE';
+  -- Une autorisation ne survit pas à l'annulation de son dossier (aucun engagement n'a encore eu lieu).
+  update public.moto_autorisations set statut = 'ANNULEE' where maintenance_id = mt.id and statut in ('EN_ATTENTE','AUTORISEE');
   update public.moto_maintenances set statut = 'ANNULEE', annule_par = auth.uid(), annule_at = now(), annule_motif = btrim(p_motif) where id = mt.id;
   return jsonb_build_object('id', mt.id, 'statut', 'ANNULEE');
 end $$;
@@ -888,6 +939,9 @@ begin
   if im.source_type = 'INCIDENT' then perform private.moto_erreur('Cette immobilisation se lève par le circuit de l''incident.'); end if;
   if im.source_type = 'MAINTENANCE' and not exists (select 1 from public.moto_maintenances where id = im.source_id and statut in ('CONTROLEE','CLOTUREE')) then
     perform private.moto_erreur('Levée bloquée : les travaux de maintenance ne sont pas contrôlés conformes.');
+  end if;
+  if im.source_type = 'MAINTENANCE' and exists (select 1 from public.moto_maintenances where id = im.source_id and controle_par = auth.uid()) then
+    perform private.moto_refus('Séparation des tâches : celui qui a contrôlé les travaux ne lève pas lui-même l''immobilisation.');
   end if;
   perform private.moto_exiger_independance(im.moto_id, 'la levée d''immobilisation');
   if not private.moto_controle_apte_depuis(im.moto_id, im.debut) then
@@ -912,7 +966,7 @@ returns jsonb language plpgsql security definer set search_path to 'public', 'pr
 as $$
 declare i public.moto_incidents; v_classe text; v_cible text := upper(coalesce(p_etape, '')); v_ok boolean; v_immo boolean;
 begin
-  v_classe := private.moto_exiger_classe(array['BM','ZONE','ABM','LOGISTIQUE']);
+  v_classe := private.moto_exiger_classe(array['BM','ZONE','ABM']);   -- inchangé : pas d'élargissement au coordinateur
   select * into i from public.moto_incidents where id = p_incident for update;
   if not found then perform private.moto_erreur('Incident introuvable.'); end if;
   if not private.moto_peut_operer(i.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
@@ -937,12 +991,19 @@ begin
   end if;
   if v_cible = 'AUTORISATION_DEPENSE' and not exists (
        select 1 from public.moto_autorisations a join public.moto_maintenances mt on mt.id = a.maintenance_id
-       where mt.incident_id = i.id and a.statut = 'AUTORISEE') then
+       where mt.incident_id = i.id and mt.moto_id = i.moto_id and a.statut = 'AUTORISEE') then
     perform private.moto_refus('Aucune autorisation du Branch Manager : soumettez le devis dans un dossier de maintenance lié à cet incident.');
   end if;
   if v_cible = 'REMIS_EN_SERVICE' then
     if not private.moto_controle_apte_depuis(i.moto_id, i.declare_at) then
       perform private.moto_erreur('Remise en service bloquée : contrôle de remise en service APTE obligatoire après l''incident.');
+    end if;
+    if (select c.realise_par from public.moto_controles c where c.moto_id = i.moto_id and c.type_controle = 'REMISE_EN_SERVICE' and c.resultat = 'APTE'
+          and c.date_controle >= i.declare_at order by c.date_controle desc limit 1) = auth.uid() then
+      perform private.moto_refus('Séparation des tâches : l''auteur du contrôle de remise en service ne remet pas lui-même la moto en service.');
+    end if;
+    if exists (select 1 from public.moto_maintenances where incident_id = i.id and controle_par = auth.uid()) then
+      perform private.moto_refus('Séparation des tâches : celui qui a contrôlé les travaux ne remet pas lui-même la moto en service.');
     end if;
     if exists (select 1 from public.moto_maintenances where incident_id = i.id and statut not in ('CONTROLEE','CLOTUREE','ANNULEE','REFUSEE')) then
       perform private.moto_erreur('Remise en service bloquée : les travaux liés à l''incident ne sont pas contrôlés conformes.');
@@ -978,12 +1039,8 @@ begin
     perform private.moto_erreur('Date de réalisation réelle obligatoire (ni future, ni antérieure au constat).');
   end if;
   if v_cout is not null and v_cout > 0 then
-    -- Le coût d'une action corrective est celui d'un dossier autorisé par le BM ; il n'est pas compté une seconde fois.
-    if a.maintenance_id is null or private.moto_total_autorise(a.maintenance_id) <= 0 then
-      perform private.moto_refus('Coût refusé : rattachez l''action à un dossier de maintenance autorisé par le Branch Manager.');
-    end if;
-    if v_cout > private.moto_total_autorise(a.maintenance_id) then perform private.moto_refus('Coût supérieur au montant autorisé par le BM.'); end if;
-    if nullif(p ->> 'justificatif_path', '') is null then perform private.moto_erreur('Facture ou justificatif obligatoire pour une dépense.'); end if;
+    -- Le coût d'une action corrective est celui de la facture de son dossier : jamais un second montant.
+    perform private.moto_refus('Aucun montant sur une action corrective : rattachez-la à un dossier de maintenance ; le coût est celui de sa facture, autorisée par le Branch Manager.');
   end if;
   if nullif(p ->> 'justificatif_path', '') is not null then
     perform private.moto_stockage_valide(a.moto_id, p ->> 'justificatif_path', array['maintenance','justificatif']);
@@ -1000,7 +1057,7 @@ returns jsonb language plpgsql security definer set search_path to 'public', 'pr
 as $$
 declare v_client uuid := private.moto_uuid(p, 'client_op_id'); v_prev jsonb; e public.moto_enveloppes; v_m numeric := private.moto_num(p, 'montant');
         v_conso numeric; v_id uuid; v_res jsonb; v_moto uuid := private.moto_uuid(p, 'moto_id'); v_action uuid := private.moto_uuid(p, 'action_id');
-        v_aut uuid := private.moto_uuid(p, 'autorisation_id'); v_nature text; a public.moto_autorisations; v_deja numeric;
+        v_fact uuid := private.moto_uuid(p, 'facture_id'); v_nature text; f public.moto_factures; v_deja numeric;
 begin
   v_prev := private.moto_op_existant(v_client); if v_prev is not null then return v_prev; end if;
   perform private.moto_exiger_classe(array['LOGISTIQUE','BM','ABM']);
@@ -1012,26 +1069,24 @@ begin
      or date_trunc('month', (p ->> 'date_depense')::date)::date <> e.periode then
     perform private.moto_erreur('Date de dépense obligatoire, dans le mois de l''enveloppe, pas dans le futur.');
   end if;
-  v_nature := coalesce(nullif(upper(p ->> 'nature'), ''),
-                       case when v_action is not null or v_aut is not null or e.type_enveloppe = 'ENTRETIEN' then 'MAINTENANCE' else 'SUPERVISION' end);
+  -- Toute dépense citant une moto, une action ou une facture est une dépense de maintenance : la nature n'est pas laissée au déclarant.
+  v_nature := case when v_moto is not null or v_action is not null or v_fact is not null or e.type_enveloppe = 'ENTRETIEN' then 'MAINTENANCE'
+                   else coalesce(nullif(upper(p ->> 'nature'), ''), 'SUPERVISION') end;
   if v_nature not in ('SUPERVISION','MAINTENANCE') then perform private.moto_erreur('Nature : SUPERVISION ou MAINTENANCE.'); end if;
-  if e.type_enveloppe = 'ENTRETIEN' and v_nature <> 'MAINTENANCE' then perform private.moto_erreur('L''enveloppe d''entretien ne finance que des dépenses de maintenance.'); end if;
-  if v_nature = 'SUPERVISION' and (v_action is not null or v_aut is not null) then
-    perform private.moto_erreur('Une dépense liée à une réparation est une dépense de maintenance.');
-  end if;
   if v_nature = 'MAINTENANCE' then
-    -- Une enveloppe approuvée n'est jamais une autorisation : chaque dépense de maintenance cite l'autorisation BM individuelle.
-    if v_aut is null then
-      perform private.moto_refus('Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée.');
+    -- Une enveloppe approuvée n'est jamais une autorisation : une dépense de maintenance règle une facture vérifiée,
+    -- elle-même plafonnée par l'autorisation individuelle préalable du Branch Manager, même sur une enveloppe approuvée.
+    if v_fact is null then
+      perform private.moto_refus('Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée ; citez la facture vérifiée que vous réglez.');
     end if;
-    a := private.moto_autorisation_valide(v_aut, v_moto);
-    v_moto := a.moto_id;
-    select coalesce(sum(montant), 0) into v_deja from public.moto_depenses where autorisation_id = a.id and statut <> 'REJETEE';
-    if v_deja + v_m > a.montant_autorise then
-      perform private.moto_refus(format('Montant supérieur à l''autorisation BM (%s FCFA autorisés, %s déjà déclarés).', a.montant_autorise, v_deja));
+    f := private.moto_facture_utilisable(v_fact, v_moto);
+    if (p ->> 'date_depense')::date < f.date_facture then perform private.moto_erreur('Règlement antérieur à la facture.'); end if;
+    select coalesce(sum(montant), 0) into v_deja from public.moto_depenses where facture_id = f.id and statut <> 'REJETEE';
+    if v_deja + f.montant_paye + v_m > f.montant then
+      perform private.moto_refus(format('Montant supérieur au reste dû de la facture (%s FCFA facturés, %s déjà réglés).', f.montant, v_deja + f.montant_paye));
     end if;
+    v_moto := f.moto_id;
   end if;
-  if v_moto is not null and not exists (select 1 from public.moto_motos where id = v_moto) then perform private.moto_erreur('Moto inconnue.'); end if;
   if v_action is not null and not exists (select 1 from public.moto_actions_correctives where id = v_action) then perform private.moto_erreur('Action corrective inconnue.'); end if;
   select coalesce(sum(montant), 0) into v_conso from public.moto_depenses where enveloppe_id = e.id and statut <> 'REJETEE';
   if v_conso + v_m > e.montant_approuve then
@@ -1039,9 +1094,9 @@ begin
   end if;
   if nullif(p ->> 'justificatif_path', '') is not null then perform private.moto_justificatif_depense_valide(p ->> 'justificatif_path'); end if;
   perform private.moto_motif('Déclaration de dépense');
-  insert into public.moto_depenses (enveloppe_id, date_depense, montant, objet, moto_id, action_id, justificatif_path, statut, client_op_id, nature, autorisation_id)
+  insert into public.moto_depenses (enveloppe_id, date_depense, montant, objet, moto_id, action_id, justificatif_path, statut, client_op_id, nature, facture_id)
   values (e.id, (p ->> 'date_depense')::date, v_m, btrim(coalesce(p ->> 'objet', '')), v_moto, v_action, nullif(p ->> 'justificatif_path', ''),
-          case when nullif(p ->> 'justificatif_path', '') is null then 'DECLAREE' else 'JUSTIFIEE' end, v_client, v_nature, v_aut)
+          case when nullif(p ->> 'justificatif_path', '') is null then 'DECLAREE' else 'JUSTIFIEE' end, v_client, v_nature, v_fact)
   returning id into v_id;
   v_res := jsonb_build_object('id', v_id, 'nature', v_nature, 'statut', case when nullif(p ->> 'justificatif_path', '') is null then 'DECLAREE' else 'JUSTIFIEE' end);
   perform private.moto_op_enregistrer(v_client, 'DEPENSE', 'SYNCHRONISE', v_res);
@@ -1051,7 +1106,7 @@ end $$;
 create or replace function public.moto_pneu_creer(p jsonb)
 returns jsonb language plpgsql security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
-declare v_id uuid; v_aut uuid := private.moto_uuid(p, 'autorisation_id'); a public.moto_autorisations; v_cout numeric := private.moto_num(p, 'cout_achat');
+declare v_id uuid; v_fact uuid := private.moto_uuid(p, 'facture_id'); f public.moto_factures; v_cout numeric := private.moto_num(p, 'cout_achat');
 begin
   perform private.moto_exiger_classe(array['BM','ABM','LOGISTIQUE']);
   if nullif(btrim(p ->> 'code'), '') is null or nullif(btrim(p ->> 'marque'), '') is null or nullif(btrim(p ->> 'dimensions'), '') is null then
@@ -1061,18 +1116,19 @@ begin
     perform private.moto_erreur('Date de fabrication : 4 chiffres du marquage DOT (semaine + année, ex. 2526), ou vide si illisible.');
   end if;
   if coalesce(v_cout, 0) > 0 then
-    if v_aut is null then perform private.moto_refus('Achat de pneu payant : autorisation individuelle préalable du Branch Manager obligatoire.'); end if;
-    a := private.moto_autorisation_valide(v_aut, null);
-    if v_cout + coalesce((select sum(cout_achat) from public.moto_pneus where autorisation_id = a.id), 0)
-             + coalesce((select sum(cout) from public.moto_pneu_reparations where autorisation_id = a.id), 0) > a.montant_autorise then
-      perform private.moto_refus('Coût supérieur au montant autorisé par le BM.');
+    if v_fact is null then perform private.moto_refus('Coût de pneu refusé : autorisation individuelle préalable du Branch Manager obligatoire ; citez la facture vérifiée du dossier autorisé.'); end if;
+    f := private.moto_facture_utilisable(v_fact, null);
+    -- Le coût est une RÉPARTITION de la facture, jamais un montant supplémentaire.
+    if v_cout + coalesce((select sum(cout_achat) from public.moto_pneus where facture_id = f.id), 0)
+             + coalesce((select sum(cout) from public.moto_pneu_reparations where facture_id = f.id), 0) > f.montant then
+      perform private.moto_refus('Coût supérieur au montant restant de la facture vérifiée.');
     end if;
   end if;
   perform private.moto_motif('Entrée en stock pneu');
-  insert into public.moto_pneus (code, marque, modele, dimensions, numero_serie, date_achat, cout_achat, fournisseur, date_fabrication, autorisation_id)
+  insert into public.moto_pneus (code, marque, modele, dimensions, numero_serie, date_achat, cout_achat, fournisseur, date_fabrication, facture_id)
   values (upper(btrim(p ->> 'code')), btrim(p ->> 'marque'), nullif(btrim(p ->> 'modele'), ''), btrim(p ->> 'dimensions'),
           nullif(btrim(p ->> 'numero_serie'), ''), nullif(p ->> 'date_achat', '')::date, v_cout,
-          nullif(btrim(p ->> 'fournisseur'), ''), nullif(btrim(p ->> 'date_fabrication'), ''), case when coalesce(v_cout, 0) > 0 then v_aut end)
+          nullif(btrim(p ->> 'fournisseur'), ''), nullif(btrim(p ->> 'date_fabrication'), ''), case when coalesce(v_cout, 0) > 0 then v_fact end)
   returning id into v_id;
   return jsonb_build_object('id', v_id);
 end $$;
@@ -1080,24 +1136,25 @@ end $$;
 create or replace function public.moto_pneu_reparation(p jsonb)
 returns jsonb language plpgsql security definer set search_path to 'public', 'private', 'pg_temp'
 as $$
-declare v_id uuid; v_moto uuid := private.moto_uuid(p, 'moto_id'); v_aut uuid := private.moto_uuid(p, 'autorisation_id');
-        v_cout numeric := coalesce(private.moto_num(p, 'cout'), 0); a public.moto_autorisations;
+declare v_id uuid; v_moto uuid := private.moto_uuid(p, 'moto_id'); v_fact uuid := private.moto_uuid(p, 'facture_id');
+        v_cout numeric := coalesce(private.moto_num(p, 'cout'), 0); f public.moto_factures;
 begin
   perform private.moto_exiger_classe(array['BM','ABM','ZONE','LOGISTIQUE']);
   if v_moto is not null and not private.moto_peut_operer(v_moto) then perform private.moto_refus('Hors de votre périmètre.'); end if;
   if not exists (select 1 from public.moto_pneus where id = private.moto_uuid(p, 'pneu_id')) then perform private.moto_erreur('Pneu introuvable.'); end if;
   if v_cout > 0 then
-    if v_aut is null then perform private.moto_refus('Réparation payante : autorisation individuelle préalable du Branch Manager obligatoire.'); end if;
-    a := private.moto_autorisation_valide(v_aut, v_moto);
-    if v_cout + coalesce((select sum(cout_achat) from public.moto_pneus where autorisation_id = a.id), 0)
-             + coalesce((select sum(cout) from public.moto_pneu_reparations where autorisation_id = a.id), 0) > a.montant_autorise then
-      perform private.moto_refus('Coût supérieur au montant autorisé par le BM.');
+    if v_fact is null then perform private.moto_refus('Coût de pneu refusé : autorisation individuelle préalable du Branch Manager obligatoire ; citez la facture vérifiée du dossier autorisé.'); end if;
+    f := private.moto_facture_utilisable(v_fact, v_moto);
+    -- Le coût est une RÉPARTITION de la facture, jamais un montant supplémentaire.
+    if v_cout + coalesce((select sum(cout_achat) from public.moto_pneus where facture_id = f.id), 0)
+             + coalesce((select sum(cout) from public.moto_pneu_reparations where facture_id = f.id), 0) > f.montant then
+      perform private.moto_refus('Coût supérieur au montant restant de la facture vérifiée.');
     end if;
   end if;
   perform private.moto_motif('Réparation pneu');
-  insert into public.moto_pneu_reparations (pneu_id, moto_id, date_reparation, compteur_km, cout, description, autorisation_id)
+  insert into public.moto_pneu_reparations (pneu_id, moto_id, date_reparation, compteur_km, cout, description, facture_id)
   values (private.moto_uuid(p, 'pneu_id'), v_moto, coalesce(nullif(p ->> 'date_reparation', '')::date, current_date),
-          private.moto_num(p, 'compteur_km'), v_cout, btrim(coalesce(p ->> 'description', 'Réparation')), case when v_cout > 0 then v_aut end)
+          private.moto_num(p, 'compteur_km'), v_cout, btrim(coalesce(p ->> 'description', 'Réparation')), case when v_cout > 0 then v_fact end)
   returning id into v_id;
   update public.moto_pneus set statut = 'EN_STOCK' where id = private.moto_uuid(p, 'pneu_id') and statut = 'EN_REPARATION';
   return jsonb_build_object('id', v_id);
@@ -1170,6 +1227,18 @@ create policy moto_garages_lecture on public.moto_garages for select to authenti
 drop policy if exists moto_maintenance_travaux_lecture on public.moto_maintenance_travaux;
 create policy moto_maintenance_travaux_lecture on public.moto_maintenance_travaux for select to authenticated
   using (exists (select 1 from public.moto_maintenances mt where mt.id = maintenance_id and private.moto_dans_perimetre(mt.moto_id)));
+-- Montants du dossier : droits par colonne. Les colonnes financières de moto_maintenances ne sont lisibles
+-- qu'au travers des vues filtrées (moto_v_maintenance_dossiers, moto_v_decisions_bm), qui les masquent hors lecture financière.
+do $$
+declare v_cols text;
+begin
+  select string_agg(quote_ident(column_name), ', ') into v_cols from information_schema.columns
+   where table_schema = 'public' and table_name = 'moto_maintenances'
+     and column_name not in ('cout_estime','cout_reel','devis_montant','devis_pieces','devis_main_oeuvre','devis_path','dernier_devis_path',
+                             'montant_engage','facture_document_id','dernier_devis_justification');
+  execute 'revoke select on public.moto_maintenances from authenticated';
+  execute format('grant select (%s) on public.moto_maintenances to authenticated', v_cols);
+end $$;
 -- Pièces et montants financiers : BM, ABM, Finance, Direction, coordinateur.
 drop policy if exists moto_autorisations_lecture on public.moto_autorisations;
 create policy moto_autorisations_lecture on public.moto_autorisations for select to authenticated using (private.moto_lecture_fin_maintenance());
@@ -1272,7 +1341,10 @@ from niveaux n;
 -- ---------------------------------------------------------------------
 -- 16. Vues financières : six montants distincts, aucun double comptage
 -- ---------------------------------------------------------------------
-create or replace view public.moto_v_maintenance_dossiers with (security_invoker = on) as
+drop view if exists public.moto_v_exceptions_bm;
+drop view if exists public.moto_v_maintenance_dossiers;
+-- Vue du propriétaire (lit les colonnes financières) : périmètre filtré explicitement, montants masqués hors lecture financière.
+create view public.moto_v_maintenance_dossiers with (security_barrier = true) as
 select mt.id, mt.moto_id, m.code as moto_code, m.cluster_code, m.zone_code, (select private.moto_nom_profil(af.beneficiaire_id) from public.moto_affectations af where af.moto_id = mt.moto_id and af.statut = 'ACTIVE' and af.type_affectation in ('REMISE','TRANSFERT') limit 1) as utilisateur,
        mt.type_maintenance, mt.statut, mt.description, mt.urgence, mt.incident_id, mt.demande_at, mt.demande_par,
        mt.garage_id, g.nom as garage_nom, g.statut as garage_statut, mt.date_souhaitee, mt.date_prevue, mt.date_fin_prevue,
@@ -1284,16 +1356,18 @@ select mt.id, mt.moto_id, m.code as moto_code, m.cluster_code, m.zone_code, (sel
        case when private.moto_lecture_fin_maintenance() then (select coalesce(sum(montant), 0) from public.moto_factures f where f.maintenance_id = mt.id and f.statut <> 'REJETEE') end as montant_facture,
        case when private.moto_lecture_fin_maintenance() then (select coalesce(sum(montant), 0) from public.moto_factures f where f.maintenance_id = mt.id and f.statut = 'VERIFIEE') end as montant_justifie,
        case when private.moto_lecture_fin_maintenance() then (select coalesce(sum(montant_paye), 0) from public.moto_factures f where f.maintenance_id = mt.id) end as montant_paye,
-       (select coalesce(sum(montant), 0) from public.moto_factures f where f.maintenance_id = mt.id and f.statut <> 'REJETEE') > (select coalesce(sum(az.montant_autorise), 0) from public.moto_autorisations az where az.maintenance_id = mt.id and az.statut = 'AUTORISEE') as facture_hors_autorisation,
+       private.moto_lecture_fin_maintenance() and (select coalesce(sum(montant), 0) from public.moto_factures f where f.maintenance_id = mt.id and f.statut <> 'REJETEE') > (select coalesce(sum(az.montant_autorise), 0) from public.moto_autorisations az where az.maintenance_id = mt.id and az.statut = 'AUTORISEE') as facture_hors_autorisation,
        (select a.id from public.moto_autorisations a where a.maintenance_id = mt.id and a.statut = 'EN_ATTENTE') as autorisation_en_attente_id,
        (select im.debut from public.moto_immobilisations im where im.source_type = 'MAINTENANCE' and im.source_id = mt.id order by im.debut desc limit 1) as immobilisation_debut,
        (select im.fin from public.moto_immobilisations im where im.source_type = 'MAINTENANCE' and im.source_id = mt.id order by im.debut desc limit 1) as immobilisation_fin,
        (mt.statut in ('PROGRAMMEE','EN_COURS') and mt.date_fin_prevue is not null and mt.date_fin_prevue < current_date) as en_retard,
        (select string_agg(t.operation_code || ':' || t.statut, ', ' order by t.created_at) from public.moto_maintenance_travaux t where t.maintenance_id = mt.id) as travaux
-from public.moto_maintenances mt join public.moto_motos m on m.id = mt.moto_id left join public.moto_garages g on g.id = mt.garage_id;
+from public.moto_maintenances mt join public.moto_motos m on m.id = mt.moto_id left join public.moto_garages g on g.id = mt.garage_id
+where private.moto_dans_perimetre(mt.moto_id);
 
 -- Décisions à prendre (Branch Manager)
-create or replace view public.moto_v_decisions_bm with (security_invoker = on) as
+drop view if exists public.moto_v_decisions_bm;
+create view public.moto_v_decisions_bm with (security_barrier = true) as
 select a.id as autorisation_id, a.maintenance_id, a.rang, a.objet, a.statut, m.code as moto_code, m.cluster_code,
        (select private.moto_nom_profil(af.beneficiaire_id) from public.moto_affectations af where af.moto_id = a.moto_id and af.statut = 'ACTIVE' and af.type_affectation in ('REMISE','TRANSFERT') limit 1) as utilisateur,
        mt.type_maintenance, mt.description as probleme, a.perimetre as proposition, g.nom as garage_nom, g.statut as garage_statut,
@@ -1302,7 +1376,8 @@ select a.id as autorisation_id, a.maintenance_id, a.rang, a.objet, a.statut, m.c
        a.soumis_par, private.moto_nom_profil(a.soumis_par) as soumis_par_nom, a.soumis_at,
        a.decide_par, private.moto_nom_profil(a.decide_par) as decide_par_nom, a.decide_at, a.montant_autorise, a.commentaire_decision
 from public.moto_autorisations a join public.moto_motos m on m.id = a.moto_id join public.moto_maintenances mt on mt.id = a.maintenance_id
-left join public.moto_garages g on g.id = a.garage_id;
+left join public.moto_garages g on g.id = a.garage_id
+where private.moto_lecture_fin_maintenance();
 
 -- Garages : prestations, délais réels, montants, répétitions (dérivés, jamais saisis)
 create or replace view public.moto_v_garages with (security_invoker = on) as
@@ -1320,26 +1395,39 @@ from public.moto_garages g;
 -- Coûts de flotte : le coût de maintenance est celui des factures VÉRIFIÉES (source unique).
 -- Les dépenses d'enveloppe, coûts d'actions correctives et coûts de pneus rattachés à une autorisation
 -- sont des traces de règlement : ils ne sont pas ajoutés une seconde fois.
-create or replace view public.moto_v_couts with (security_invoker = on) as
+drop view if exists public.moto_v_cout_km;
+drop view if exists public.moto_v_couts;
+-- Vue du propriétaire : périmètre filtré ; montants de maintenance masqués hors lecture financière.
+create view public.moto_v_couts with (security_barrier = true) as
 select m.id as moto_id, m.code, m.mise_en_service_at,
   (select min(r.compteur_km) from public.moto_releves_km r where r.moto_id = m.id and m.mise_en_service_at is not null and r.date_releve >= m.mise_en_service_at - interval '2 days') as km_debut,
   m.compteur_actuel_km as km_fin,
   coalesce((select sum(c.montant) from public.moto_carburant c where c.moto_id = m.id and c.justificatif_statut = 'VERIFIE'), 0) as cout_carburant_verifie,
   coalesce((select sum(c.montant) from public.moto_carburant c where c.moto_id = m.id and c.justificatif_statut = 'A_VERIFIER'), 0) as cout_carburant_a_verifier,
+  case when private.moto_lecture_fin_maintenance() then
   coalesce((select sum(f.montant) from public.moto_factures f where f.moto_id = m.id and f.statut = 'VERIFIEE'), 0)
     + coalesce((select sum(mt.cout_reel) from public.moto_maintenances mt where mt.moto_id = m.id and mt.statut = 'TERMINEE' and mt.cout_reel is not null
-                and not exists (select 1 from public.moto_factures f where f.maintenance_id = mt.id)), 0) as cout_maintenance,
-  coalesce((select sum(pr.cout) from public.moto_pneu_reparations pr where pr.moto_id = m.id and pr.autorisation_id is null), 0)
-    + coalesce((select sum(pn.cout_achat) from public.moto_pneus pn where pn.autorisation_id is null
+                and not exists (select 1 from public.moto_factures f where f.maintenance_id = mt.id)), 0) end as cout_maintenance,
+  coalesce((select sum(pr.cout) from public.moto_pneu_reparations pr where pr.moto_id = m.id and pr.facture_id is null), 0)
+    + coalesce((select sum(pn.cout_achat) from public.moto_pneus pn where pn.facture_id is null
                 and (select po.moto_id from public.moto_pneu_poses po where po.pneu_id = pn.id order by po.pose_date, po.id limit 1) = m.id), 0) as cout_pneus,
   coalesce((select sum(i.cout_reel) from public.moto_incidents i where i.moto_id = m.id and i.etape = 'CLOS'
             and not exists (select 1 from public.moto_maintenances mt where mt.incident_id = i.id)), 0) as cout_incidents,
-  coalesce((select sum(greatest(mt.montant_engage - coalesce((select sum(f.montant) from public.moto_factures f
+  case when private.moto_lecture_fin_maintenance() then coalesce((select sum(greatest(mt.montant_engage - coalesce((select sum(f.montant) from public.moto_factures f
               where f.maintenance_id = mt.id and f.statut <> 'REJETEE'), 0), 0))
-            from public.moto_maintenances mt where mt.moto_id = m.id and mt.statut not in ('ANNULEE','CLOTUREE')), 0) as engage_non_facture,
-  coalesce((select sum(f.montant) from public.moto_factures f where f.moto_id = m.id and f.statut = 'DEPOSEE'), 0) as facture_non_justifiee,
-  coalesce((select sum(f.montant_paye) from public.moto_factures f where f.moto_id = m.id), 0) as maintenance_payee
-from public.moto_motos m where m.actif;
+            from public.moto_maintenances mt where mt.moto_id = m.id and mt.statut not in ('ANNULEE','CLOTUREE')), 0) end as engage_non_facture,
+  case when private.moto_lecture_fin_maintenance() then coalesce((select sum(f.montant) from public.moto_factures f where f.moto_id = m.id and f.statut = 'DEPOSEE'), 0) end as facture_non_justifiee,
+  case when private.moto_lecture_fin_maintenance() then coalesce((select sum(f.montant_paye) from public.moto_factures f where f.moto_id = m.id), 0) end as maintenance_payee
+from public.moto_motos m where m.actif and private.moto_dans_perimetre(m.id);
+
+-- moto_v_cout_km : identique à la migration 3 (recréée car dépendante de moto_v_couts).
+create view public.moto_v_cout_km with (security_invoker = on) as
+ select moto_id, code, mise_en_service_at, km_debut, km_fin, cout_carburant_verifie, cout_carburant_a_verifier, cout_maintenance, cout_pneus, cout_incidents,
+    (km_fin - km_debut) as km_parcourus,
+    (((cout_carburant_verifie + cout_maintenance) + cout_pneus) + cout_incidents) as cout_direct_total,
+    case when ((km_fin - km_debut) > (0)::numeric) then round(((((cout_carburant_verifie + cout_maintenance) + cout_pneus) + cout_incidents) / (km_fin - km_debut)), 1)
+         else null::numeric end as fcfa_km
+   from public.moto_v_couts c;
 
 -- Exceptions (synthèse hebdomadaire du Branch Manager) : seulement ce qui demande une attention.
 create or replace view public.moto_v_exceptions_bm with (security_invoker = on) as
@@ -1371,7 +1459,7 @@ select 'DEPENSE_NON_JUSTIFIEE', m.code, 'Dépense déclarée sans justificatif d
 do $$
 declare v text;
 begin
-  foreach v in array array['moto_v_echeances','moto_v_maintenance_dossiers','moto_v_decisions_bm','moto_v_garages','moto_v_couts','moto_v_exceptions_bm'] loop
+  foreach v in array array['moto_v_echeances','moto_v_maintenance_dossiers','moto_v_decisions_bm','moto_v_garages','moto_v_couts','moto_v_cout_km','moto_v_exceptions_bm'] loop
     execute format('revoke all on public.%I from anon', v);
     execute format('grant select on public.%I to authenticated', v);
   end loop;

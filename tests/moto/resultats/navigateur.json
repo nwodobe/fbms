@@ -1,5 +1,5 @@
 {
- "date": "2026-10-31T17:41:01.292Z",
+ "date": "2026-10-31T18:09:05.184Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=b787759d-e433-4444-8959-a9d4d473afa2/photo/299c28d9-b55f-4c0d-9c17-3ff770a87560.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=51e841e4-fc23-45b1-8692-48689241807b/photo/43bbcdf4-0b91-4ffc-bddf-6bddbb18c7ea.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -439,7 +439,7 @@
    "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
    "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
    "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
-   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/b787759d-e433-4444-8959-a9d4d473afa2/devis/f9625335-84fe-4017-a0a4-edf0aea8f3e3.pdf\"}",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/51e841e4-fc23-45b1-8692-48689241807b/devis/7d3a8690-6acd-4fc3-9292-a57b55e6364e.pdf\"}",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
   },

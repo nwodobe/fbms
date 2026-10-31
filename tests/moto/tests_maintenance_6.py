@@ -230,7 +230,7 @@ act("S16a", "16", "lc", "Supplément chiffré par le garage", "select public.mot
 au2 = act("S16b", "16", "lc", "Supplément soumis au BM", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mt, "objet": "SUPPLEMENT", "montant_demande": 10000,
           "perimetre": "Plaquettes arrière découvertes au démontage", "consequence_report": "Freinage dégradé"}) + ")", True, "EN_ATTENTE")["id"]
 act("S16c", "16", "lc", "Engager le supplément avant décision", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt, "montant_engage": 50000}) + ")", False, "plafond")
-check("S24a", "24", "« Décisions à prendre » : seulement la demande en attente, montant demandé et déjà autorisé distincts", f"select count(*)||'/'||max(montant_demande)||'/'||max(deja_autorise) from public.moto_v_decisions_bm where statut='EN_ATTENTE' and maintenance_id='{mt}'", "1/10000/40000")
+act("S24a", "24", "bm", "« Décisions à prendre » : seulement la demande en attente, montant demandé et déjà autorisé distincts", f"select count(*)||'/'||max(montant_demande)||'/'||max(deja_autorise) from public.moto_v_decisions_bm where statut='EN_ATTENTE' and maintenance_id='{mt}'", True, "1/10000/40000")
 act("S16d", "16", "bm", "BM autorise le supplément", f"select public.moto_autorisation_decider('{au2}', 'AUTORISEE', 10000, null)", True, "AUTORISEE")
 act("S16e", "16", "lc", "Engagement porté à 50 000 après le supplément", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt, "montant_engage": 50000}) + ")", True, "50000")
 # Factures
@@ -272,7 +272,7 @@ act("S24c", "24", "abm", "L'ABM ne constate pas un paiement (Finance seulement)"
 act("S24d", "24", "fin", "Finance constate un paiement partiel", f"select public.moto_facture_paiement_constater('{f1}', 30000, current_date, 'VIR-TEST-01')", True, "30000")
 act("S24e", "24", "bm", "Payé ≠ justifié : aucun paiement déduit de la validation", f"select montant_justifie||'/'||montant_paye from public.moto_v_maintenance_dossiers where id='{mt}'", True, "50000/30000")
 act("S22d", "22", "fin", "Clôture financière (distincte de la technique)", f"select public.moto_maintenance_cloturer('{mt}', 'Pièces vérifiées')", True, "CLOTUREE")
-check("S18f", "18", "Coût de flotte : la facture est comptée une seule fois", f"select cout_maintenance from public.moto_v_couts where moto_id='{A1}'", "50000")
+act("S18f", "18", "bm", "Coût de flotte : la facture est comptée une seule fois", f"select cout_maintenance from public.moto_v_couts where moto_id='{A1}'", True, "50000")
 
 # ---------------------------------------------------------------------------
 # 13, 14, 17, 18. Enveloppe, hors ligne, dépenses rattachées
@@ -284,14 +284,15 @@ act("S13b", "13", "bm", "BM approuve le budget mensuel", f"select public.moto_en
 act("S13c", "13", "lc", "Dépense de maintenance sur budget approuvé, sans autorisation individuelle", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 5000,
     "objet": "Huile achetée en urgence", "moto_id": A2}) + ")", False, "même sur une enveloppe approuvée")
 act("S13d", "13", "lc", "Même dépense étiquetée « supervision » sur l'enveloppe d'entretien", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 5000,
-    "objet": "Huile achetée en urgence", "nature": "SUPERVISION"}) + ")", False, "ne finance que")
-act("S14b", "14", "lc", "Dépense rattachée à une autorisation inexistante", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 5000,
-    "objet": "Huile achetée en urgence", "autorisation_id": str(uuid.uuid4())}) + ")", False, "Branch Manager")
-act("S14c", "14", "lc", "Dépense au-delà du montant de l'autorisation BM", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 45000,
-    "objet": "Règlement garage au-delà", "autorisation_id": au}) + ")", False, "supérieur")
-act("S18g", "18", "lc", "Règlement de la facture par l'enveloppe, rattaché à l'autorisation", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 40000,
-    "objet": "Règlement facture FG-TEST-001", "autorisation_id": au}) + ")", True, "MAINTENANCE")
-check("S18h", "18", "Le règlement par enveloppe n'est pas ajouté une seconde fois au coût du parc", f"select cout_maintenance from public.moto_v_couts where moto_id='{A1}'", "50000")
+    "objet": "Huile achetée en urgence", "nature": "SUPERVISION"}) + ")", False, "Branch Manager")
+act("S14b", "14", "lc", "Dépense rattachée à une facture inexistante", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 5000,
+    "objet": "Huile achetée en urgence", "facture_id": str(uuid.uuid4())}) + ")", False, "Branch Manager")
+act("S14c", "14", "lc", "Règlement au-delà du reste dû (50 000 facturés, 30 000 déjà payés)", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 25000,
+    "objet": "Règlement garage au-delà", "facture_id": f1}) + ")", False, "reste dû")
+act("S18g", "18", "lc", "Règlement du reste dû par l'enveloppe (20 000), rattaché à la facture vérifiée", "select public.moto_depense_declarer(" + lit({"enveloppe_id": env, "date_depense": d(0), "montant": 20000,
+    "objet": "Règlement facture FG-TEST-001", "facture_id": f1}) + ")", True, "MAINTENANCE")
+act("R01a", "18", "fin", "Revue : paiement constaté au-delà du reste dû (enveloppe comprise)", f"select public.moto_facture_paiement_constater('{f1}', 1, current_date, 'VIR-TEST-X')", False, "reste dû")
+act("S18h", "18", "bm", "Le règlement par enveloppe n'est pas ajouté une seconde fois au coût du parc", f"select cout_maintenance from public.moto_v_couts where moto_id='{A1}'", True, "50000")
 act("S14d", "14", "lc", "Réparation de pneu payante sans autorisation", "select public.moto_pneu_reparation(" + lit({"pneu_id": q("select id from public.moto_pneus limit 1") or str(uuid.uuid4()), "moto_id": A2, "cout": 2000, "description": "Crevaison"}) + ")", False, "Branch Manager")
 # Hors ligne
 cop = str(uuid.uuid4())
@@ -312,12 +313,13 @@ check("S08b", "8", "Le contrôle ne crée ni dossier ni facture", "select count(
 mt8 = act("S08c", "8", "lc", "Entretien préventif interne demandé", "select public.moto_maintenance_demander(" + lit({"moto_id": A2, "type_maintenance": "ENTRETIEN_PREVENTIF", "description": "Contrôle préventif chaîne et freins"}) + ")", True, "DEMANDEE")["id"]
 act("S08d", "8", "lc", "Opérations prévues (sans devis payant)", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mt8, "garage_id": G, "devis_montant": 0,
     "travaux": [{"operation_code": "ENTRETIEN", "libelle": "Tension chaîne, réglage freins"}], "justification": "Contrôle préventif sans pièce à remplacer"}) + ")", True, "DEVIS_RECU")
-act("S08e", "8", "lc", "« Sans frais » avec un montant engagé", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt8, "sans_frais": True, "sans_frais_motif": "Intervention interne du coordinateur", "montant_engage": 2000, "date_prevue": d(0)}) + ")", False, "aucun montant")
-act("S08f", "8", "lc", "Intervention interne programmée sans frais", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt8, "sans_frais": True, "sans_frais_motif": "Intervention interne du coordinateur", "date_prevue": d(0)}) + ")", True, "PROGRAMMEE")
+act("R05", "14", "lc", "Revue : le coordinateur qualifie seul « sans frais »", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt8, "sans_frais": True, "sans_frais_motif": "Intervention interne du coordinateur", "date_prevue": d(0)}) + ")", False, "Branch Manager")
+act("S08e", "8", "bm", "« Sans frais » avec un montant engagé", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt8, "sans_frais": True, "sans_frais_motif": "Intervention interne du coordinateur", "montant_engage": 2000, "date_prevue": d(0)}) + ")", False, "aucun montant")
+act("S08f", "8", "bm", "Intervention interne qualifiée sans frais par le BM", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mt8, "sans_frais": True, "sans_frais_motif": "Intervention interne du coordinateur", "date_prevue": d(0)}) + ")", True, "PROGRAMMEE")
 act("S08g", "8", "lc", "Démarrage", f"select public.moto_maintenance_demarrer('{mt8}', null, current_date)", True, "EN_COURS")
 f8 = act("S14e", "14", "lc", "Facture déposée sur une intervention sans frais", "select public.moto_facture_deposer(" + lit({"maintenance_id": mt8, "numero_facture": "FG-TEST-SF", "date_facture": d(0), "montant": 7000, "document_path": piece(A2, "facture")}) + ")", True, "\"hors_autorisation\": true")["id"]
 act("S14f", "14", "fin", "Une facture ne régularise pas une dépense non autorisée", f"select public.moto_facture_verifier('{f8}', 'VERIFIEE', null)", False, "hors autorisation")
-check("S24f", "24", "Exception BM : facture hors autorisation signalée", f"select count(*) from public.moto_v_exceptions_bm where type='FACTURE_HORS_AUTORISATION' and moto_code=(select code from public.moto_motos where id='{A2}')", "1")
+act("S24f", "24", "bm", "Exception BM : facture hors autorisation signalée", f"select count(*) from public.moto_v_exceptions_bm where type='FACTURE_HORS_AUTORISATION' and moto_code=(select code from public.moto_motos where id='{A2}')", True, "1")
 act("S14g", "14", "fin", "Rejet motivé de la facture", f"select public.moto_facture_verifier('{f8}', 'REJETEE', 'Aucune autorisation BM préalable')", True, "REJETEE")
 
 # ---------------------------------------------------------------------------
@@ -389,7 +391,10 @@ act("ADV-10", "14", "lc", "Programmation après refus", "select public.moto_main
 act("ADV-11", "11", "zh", "Chef de zone : constat de paiement", f"select public.moto_facture_paiement_constater('{f1}', 1, current_date, 'X-TEST')", False, "rôle")
 act("ADV-12", "11", "uh_a", "Chef d'unité appelle directement la décision BM", f"select public.moto_autorisation_decider('{aub}', 'AUTORISEE', 5000, null)", False, "rôle")
 act("ADV-13", "3", "bm", "Approuver une version déjà approuvée", f"select public.moto_regle_version_approuver('{VERS['VIDANGE']}', current_date, 'Seconde approbation')", False, "déjà traitée")
-act("ADV-14", "3", "bm", "Nouvelle version VIDANGE (1 200 km) proposée par le BM", "select public.moto_regle_version_proposer(" + lit({"regle_code": "VIDANGE", "modele_code": "APSONIC_AP150_30", "intervalle_km": 1200, "intervalle_jours": 60,
+vbm = json.loads(run_as("bm", "select public.moto_regle_version_proposer(" + lit({"regle_code": "REVISION", "modele_code": "APSONIC_AP150_30", "intervalle_km": 4000, "nature_source": "POLITIQUE_INTERNE",
+      "reference_source": "Note BM FICTIVE de test quatre yeux", "motif": "Proposition du BM lui-même (revue)"}) + ")")[1])["id"]
+act("R08c", "3", "bm", "Revue : le BM approuve sa propre proposition", f"select public.moto_regle_version_approuver('{vbm}', current_date, 'contrôle quatre yeux revue')", False, "Quatre yeux")
+act("ADV-14", "3", "lc", "Nouvelle version VIDANGE (1 200 km) proposée par le coordinateur", "select public.moto_regle_version_proposer(" + lit({"regle_code": "VIDANGE", "modele_code": "APSONIC_AP150_30", "intervalle_km": 1200, "intervalle_jours": 60,
     "nature_source": "POLITIQUE_INTERNE", "reference_source": "Note technique FICTIVE v2 (conditions poussiéreuses)", "motif": "Raccourcissement pour pistes poussiéreuses"}) + ")", True, "BROUILLON")
 v3 = q("select id from public.moto_regles_versions where regle_code='VIDANGE' and modele_code='APSONIC_AP150_30' and statut='BROUILLON' and intervalle_km=1200")
 act("ADV-15", "3", "bm", "Approbation de la version 3", f"select public.moto_regle_version_approuver('{v3}', current_date, 'Nouvelle politique interne')", True, "APPROUVEE")
@@ -398,6 +403,73 @@ check("ADV-17", "7", "La nouvelle version recalcule depuis le même entretien v�
 act("ADV-18", "21", "lc", "Annuler un dossier après engagement", f"select public.moto_maintenance_annuler('{mt19}', 'Annulation pour masquer la dépense')", False, "Annulation impossible")
 act("ADV-19", "23", "uh_a", "Régression : le Chef d'unité lit toujours sa moto et ses échéances", f"select count(*) from public.moto_v_echeances where moto_id='{A1}'", True, "3")
 act("ADV-20", "23", "bm", "Régression : flotte lisible", f"select (count(*) >= 4)::text from public.moto_v_flotte", True, "true")
+
+# ---------------------------------------------------------------------------
+# Contre-épreuves de la revue indépendante (NO_GO initial)
+# ---------------------------------------------------------------------------
+# R01 : une autorisation ne sert qu'une fois — la facture est l'unique pièce d'argent
+mtr = json.loads(run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "PNEUMATIQUE", "description": "Pneu arrière à remplacer (revue)"}) + ")")[1])["id"]
+run_as("lc", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mtr, "garage_id": G, "devis_montant": 10000, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "PNEUMATIQUE", "libelle": "Pneu arrière"}], "justification": "Usure pneu arrière (revue)"}) + ")")
+aur = json.loads(run_as("lc", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mtr, "objet": "TRAVAUX", "montant_demande": 10000, "perimetre": "Pneu arrière selon devis", "consequence_report": "Crevaisons"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_autorisation_decider('{aur}', 'AUTORISEE', 10000, null)")
+run_as("lc", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mtr, "montant_engage": 10000, "date_prevue": d(0)}) + ")")
+fr = act("R01b", "18", "lc", "Revue : facture 10 000 pour l'autorisation de 10 000", "select public.moto_facture_deposer(" + lit({"maintenance_id": mtr, "numero_facture": "FG-REVUE-01", "date_facture": d(0), "montant": 10000, "document_path": piece(A1, "facture")}) + ")", True, "DEPOSEE")["id"]
+act("R01c", "18", "lc", "Revue : seconde facture sur la même autorisation", "select public.moto_facture_deposer(" + lit({"maintenance_id": mtr, "numero_facture": "FG-REVUE-02", "date_facture": d(0), "montant": 10000, "document_path": piece(A1, "facture")}) + ")", True, "\"hors_autorisation\": true")
+run_as("abm", f"select public.moto_facture_verifier('{fr}', 'VERIFIEE', null)")
+act("R01d", "18", "abm", "Revue : la seconde facture ne peut pas être vérifiée", f"select public.moto_facture_verifier((select id from public.moto_factures where numero_facture='FG-REVUE-02'), 'VERIFIEE', null)", False, "hors autorisation")
+act("R01e", "18", "lc", "Revue : pneu de 10 000 réparti sur la facture vérifiée", "select public.moto_pneu_creer(" + lit({"code": "PN-REVUE-1", "marque": "TEST", "dimensions": "2.75-18", "cout_achat": 10000, "facture_id": fr}) + ")")
+act("R01f", "18", "lc", "Revue : second pneu sur la même facture épuisée", "select public.moto_pneu_creer(" + lit({"code": "PN-REVUE-2", "marque": "TEST", "dimensions": "2.75-18", "cout_achat": 10000, "facture_id": fr}) + ")", False, "restant")
+act("R01g", "18", "bm", "Revue : coût tracé = 10 000 facturés vérifiés, pas davantage", f"select (select coalesce(sum(montant),0) from public.moto_factures where maintenance_id='{mtr}' and statut='VERIFIEE') + (select coalesce(sum(montant),0) from public.moto_depenses where facture_id='{fr}')", True, "10000")
+# R02 : réparation déguisée en supervision
+envs = json.loads(run_as("lc", "select public.moto_enveloppe_demander(" + lit({"type_enveloppe": "SUPERVISION", "periode": per, "montant_demande": 50000, "justification": "Tournées de supervision (revue)"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_enveloppe_decider('{envs}', 'APPROUVEE', null, null)")
+act("R02a", "13", "lc", "Revue : réparation déclarée « supervision » avec une moto", "select public.moto_depense_declarer(" + lit({"enveloppe_id": envs, "date_depense": d(0), "montant": 15000, "objet": "Réparation frein et plaquettes moto", "moto_id": A2, "nature": "SUPERVISION"}) + ")", False, "Branch Manager")
+act("R02b", "17", "lc", "Revue : même tentative hors ligne", "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit([{"type": "DEPENSE", "client_op_id": str(uuid.uuid4()), "payload": {"enveloppe_id": envs, "date_depense": d(0), "montant": 12000, "objet": "Remplacement embrayage", "moto_id": A2}}]) + ")) x", True, "REJETE")
+act("R02c", "13", "lc", "Revue : vraie dépense de supervision (sans moto) acceptée", "select public.moto_depense_declarer(" + lit({"enveloppe_id": envs, "date_depense": d(0), "montant": 5000, "objet": "Transport tournée de supervision"}) + ")", True, "SUPERVISION")
+# R03 : rien d'antérieur à la décision BM
+mtd = json.loads(run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Rétroviseur (revue dates)"}) + ")")[1])["id"]
+run_as("lc", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mtd, "garage_id": G, "devis_montant": 3000, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "REPARATION", "libelle": "Rétroviseur"}], "justification": "Rétroviseur cassé (revue)"}) + ")")
+aud = json.loads(run_as("lc", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mtd, "objet": "TRAVAUX", "montant_demande": 3000, "perimetre": "Rétroviseur selon devis", "consequence_report": "Visibilité"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_autorisation_decider('{aud}', 'AUTORISEE', 3000, null)")
+run_as("lc", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mtd, "montant_engage": 3000, "date_prevue": d(0)}) + ")")
+act("R03a", "14", "lc", "Revue : début des travaux daté avant la décision BM", f"select public.moto_maintenance_demarrer('{mtd}', null, current_date - 20)", False, "antérieurs")
+act("R03b", "14", "lc", "Revue : facture datée avant la décision BM", "select public.moto_facture_deposer(" + lit({"maintenance_id": mtd, "numero_facture": "FG-REVUE-ANT", "date_facture": d(-20), "montant": 3000, "document_path": piece(A1, "facture")}) + ")", False, "antérieure")
+# R04 : annulation → autorisation caduque
+mta = json.loads(run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Selle (revue annulation)"}) + ")")[1])["id"]
+run_as("lc", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mta, "garage_id": G, "devis_montant": 4000, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "REPARATION", "libelle": "Selle"}], "justification": "Selle déchirée (revue)"}) + ")")
+aua = json.loads(run_as("lc", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mta, "objet": "TRAVAUX", "montant_demande": 4000, "perimetre": "Selle selon devis", "consequence_report": "Confort"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_autorisation_decider('{aua}', 'AUTORISEE', 4000, null)")
+act("R04a", "14", "lc", "Revue : annulation d'un dossier autorisé, non engagé", f"select public.moto_maintenance_annuler('{mta}', 'Réparation finalement inutile (revue)')", True, "ANNULEE")
+check("R04b", "14", "Revue : l'autorisation tombe avec le dossier", f"select statut from public.moto_autorisations where id='{aua}'", "ANNULEE")
+act("R04c", "14", "lc", "Revue : programmer un dossier annulé", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mta, "montant_engage": 4000, "date_prevue": d(0)}) + ")", False, "autorisation")
+# R06 : le garage soumis au BM est celui du dossier
+g2 = json.loads(run_as("lc", "select public.moto_garage_enregistrer(" + lit({"nom": "GARAGE REVUE B", "localisation": "AUTRE VILLAGE FICTIF"}) + ")")[1])["id"]
+mtg = json.loads(run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Phare (revue garage)"}) + ")")[1])["id"]
+run_as("lc", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mtg, "garage_id": G, "devis_montant": 2000, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "REPARATION", "libelle": "Phare"}], "justification": "Phare cassé (revue)"}) + ")")
+act("R06a", "15", "lc", "Revue : soumettre au BM un autre garage que celui du devis", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mtg, "objet": "TRAVAUX", "montant_demande": 2000, "garage_id": g2, "perimetre": "Phare selon devis", "consequence_report": "Éclairage"}) + ")", False, "garage")
+run_as("bm", f"select public.moto_garage_statut('{G}', 'SUSPENDU', 'Suspension de test (revue garage)')")
+act("R06b", "15", "lc", "Revue : soumission avec un garage suspendu", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mtg, "objet": "TRAVAUX", "montant_demande": 2000, "perimetre": "Phare selon devis", "consequence_report": "Éclairage"}) + ")", False, "suspendu")
+run_as("bm", f"select public.moto_garage_statut('{G}', 'APPROUVE', 'Réapprobation de test (revue garage)')")
+# R07 : montants illisibles hors lecture financière
+act("R07a", "25", "zh", "Revue : Chef de zone lit le devis dans la table", f"select devis_montant from public.moto_maintenances where id='{mt}'", False, "permission")
+act("R07b", "25", "uh_a", "Revue : Chef d'unité lit le montant engagé", f"select montant_engage from public.moto_maintenances where id='{mt}'", False, "permission")
+act("R07c", "25", "zh", "Revue : Chef de zone lit les montants de maintenance du coût de flotte", f"select coalesce(cout_maintenance::text,'masqué')||'/'||coalesce(engage_non_facture::text,'masqué') from public.moto_v_couts where moto_id='{A1}'", True, "masqué/masqué")
+act("R07d", "25", "uh_a", "Revue : le Chef d'unité garde la lecture non financière de son dossier", f"select statut from public.moto_maintenances where id='{mt}'", True, "CLOTUREE")
+act("R07e", "25", "sup", "Revue : un profil hors module ne voit aucun dossier", "select count(*) from public.moto_v_maintenance_dossiers", True, "0")
+# R08 : séparations
+act("R08a", "12", "lc", "Revue : le soumetteur vérifie la facture (coordinateur non habilité)", f"select public.moto_facture_verifier((select id from public.moto_factures where numero_facture='FG-REVUE-02'), 'REJETEE', 'tentative du soumetteur')", False, "rôle")
+mtv = json.loads(run_as("abm", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Klaxon (revue séparation)"}) + ")")[1])["id"]
+run_as("abm", "select public.moto_maintenance_devis(" + lit({"maintenance_id": mtv, "garage_id": G, "devis_montant": 1500, "devis_path": piece(A1, "devis"), "travaux": [{"operation_code": "REPARATION", "libelle": "Klaxon"}], "justification": "Klaxon muet (revue)"}) + ")")
+auv = json.loads(run_as("abm", "select public.moto_autorisation_soumettre(" + lit({"maintenance_id": mtv, "objet": "TRAVAUX", "montant_demande": 1500, "perimetre": "Klaxon selon devis", "consequence_report": "Sécurité routière"}) + ")")[1])["id"]
+run_as("bm", f"select public.moto_autorisation_decider('{auv}', 'AUTORISEE', 1500, null)")
+run_as("abm", "select public.moto_maintenance_programmer(" + lit({"maintenance_id": mtv, "montant_engage": 1500, "date_prevue": d(0)}) + ")")
+fv = json.loads(run_as("lc", "select public.moto_facture_deposer(" + lit({"maintenance_id": mtv, "numero_facture": "FG-REVUE-SEP", "date_facture": d(0), "montant": 1500, "document_path": piece(A1, "facture")}) + ")")[1])["id"]
+act("R08b", "12", "abm", "Revue : l'ABM qui a soumis la demande vérifie la facture", f"select public.moto_facture_verifier('{fv}', 'VERIFIEE', null)", False, "Séparation")
+act("R08d", "12", "fin", "Revue : la Finance vérifie", f"select public.moto_facture_verifier('{fv}', 'VERIFIEE', null)", True, "VERIFIEE")
+act("R08e", "24", "fin", "Revue : le vérificateur constate lui-même le paiement", f"select public.moto_facture_paiement_constater('{fv}', 1500, current_date, 'VIR-REVUE')", False, "Séparation")
+# R09 : incident d'une autre moto
+inc_a2 = q(f"select id from public.moto_incidents where moto_id='{A3}' limit 1")
+act("R09", "19", "lc", "Revue : dossier de A1 lié à un incident de A3", "select public.moto_maintenance_demander(" + lit({"moto_id": A1, "type_maintenance": "REPARATION", "description": "Lien incident croisé (revue)", "incident_id": inc_a2}) + ")", False, "même moto")
 
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)

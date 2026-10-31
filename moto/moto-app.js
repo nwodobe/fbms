@@ -696,8 +696,8 @@
     },
     action_realiser: function (d) {
       modale('Réalisation de l\'action', '<div class="mm-grille-form">' + champ({ n: 'realise_at', l: 'Date réelle de réalisation', t: 'date', req: true, v: aujourdhui(), max: aujourdhui() }) +
-        champ({ n: 'cout_reel', l: 'Coût réel (FCFA, vide si aucun)', t: 'nombre', pas: 1 }) + champ({ n: 'justificatif', l: 'Facture ou justificatif', t: 'fichier', large: true, capture: true }) + '</div>' +
-        '<p class="mm-note">Une autre personne vérifiera la réparation avant clôture.</p>',
+        champ({ n: 'justificatif', l: 'Photo ou constat', t: 'fichier', large: true, capture: true }) + '</div>' +
+        '<p class="mm-note">Aucun montant ici : une réparation payante passe par un dossier de maintenance autorisé par le Branch Manager (espace Maintenance), et son coût est celui de la facture. Une autre personne vérifiera la réparation avant clôture.</p>',
       async function (v) {
         if (v.justificatif) { var f = await deposer(d.moto, 'maintenance', v.justificatif); v.justificatif_path = f.chemin; } delete v.justificatif;
         v.action_id = d.aid; await rpc('moto_action_realiser', { p: v }); router(); return 'Réalisation enregistrée : vérification attendue.';
@@ -772,12 +772,20 @@
         champ({ n: 'destination', l: 'Destination', t: 'select', req: true, o: [['EN_STOCK', 'Retour en stock'], ['EN_REPARATION', 'Réparation'], ['REFORME', 'Réforme (fin de vie)']] }) + champ({ n: 'motif_depose', l: 'Motif', t: 'textarea', req: true }),
         function (v) { v.pose_id = d.pose; return rpc('moto_pneu_deposer', { p: v }).then(apres(m.id, 'pneus')); });
     },
-    pneu_reparer: function (d, m) {
-      modale('Réparation de pneu', champ({ n: 'description', l: 'Description', req: true }) + champ({ n: 'cout', l: 'Coût (FCFA)', t: 'nombre' }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) + champ({ n: 'date_reparation', l: 'Date', t: 'date', v: aujourdhui() }),
-        function (v) { v.pneu_id = d.pneu; v.moto_id = m.id; return rpc('moto_pneu_reparation', { p: v }).then(apres(m.id, 'pneus')); });
+    pneu_reparer: async function (d, m) {
+      var fac = await optFacturesVerifiees(m.id);
+      modale('Réparation de pneu', champ({ n: 'description', l: 'Description', req: true }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) + champ({ n: 'date_reparation', l: 'Date', t: 'date', v: aujourdhui() }) +
+        (fac.length ? champ({ n: 'facture_id', l: 'Facture vérifiée (si payante)', t: 'select', o: fac }) + champ({ n: 'cout', l: 'Part de la facture (FCFA)', t: 'nombre', pas: 1 }) : '') +
+        '<p class="mm-note">Une réparation payante doit d\'abord être autorisée par le Branch Manager (dossier de maintenance) ; son coût est une part de la facture vérifiée, jamais un montant de plus.</p>',
+        function (v) { v.pneu_id = d.pneu; v.moto_id = m.id; v.cout = C.nombreSaisi(v.cout); return rpc('moto_pneu_reparation', { p: v }).then(apres(m.id, 'pneus')); });
     }
   };
 
+  async function optFacturesVerifiees(motoId) {
+    if (!peut('maintenance_finances')) return [];
+    var f = await lireTable('moto_factures', function (q) { var x = q.eq('statut', 'VERIFIEE').order('date_facture', { ascending: false }); return motoId ? x.eq('moto_id', motoId) : x; }).catch(function () { return []; });
+    return f.map(function (x) { return [x.id, codeMoto(x.moto_id) + ' · ' + x.numero_facture + ' · ' + C.fcfa(x.montant)]; });
+  }
   /* -- B. OPÉRATIONS -------------------------------------------------------- */
   async function vueOperations() {
     try { await chargerFlotte(); } catch (e) { /* le cache est déjà tenté dans chargerFlotte */ }
@@ -950,7 +958,7 @@
       q('moto_v_enveloppes', function (x) { return x.order('periode', { ascending: false }).limit(24); }),
       q('moto_depenses', function (x) { return x.order('date_depense', { ascending: false }).limit(200); }),
       q('moto_v_disponibilite'), q('moto_v_echeances'), q('moto_v_couts'), q('moto_v_conso_intervalles', function (x) { return x.neq('statut_alerte', 'NORMAL'); }),
-      q('moto_v_pneus'), q('moto_maintenances', function (x) { return x.neq('statut', 'TERMINEE'); })]);
+      q('moto_v_pneus'), q('moto_v_maintenance_dossiers')]);
     return { exigibles: r[0], actions: r[1], enveloppes: r[2], depenses: r[3], dispo: r[4], echeances: r[5], couts: r[6], conso: r[7], pneus: r[8], maintenances: r[9] };
   }
   async function vueCoordination() {
@@ -1005,9 +1013,10 @@
             peutInspecter(x) ? '<button type="button" class="mm-btn mm-primaire mm-petit" data-inspecter="' + esc(x.moto_id) + '" data-niveau="' + esc(x.niveau) + '">Inspecter</button>' : ''];
         }), 'Aucune inspection exigible ce mois (une moto mise en service après le début de la fenêtre n\'a pas d\'inspection rétroactive).') + '</section>' +
       '<section class="mm-bloc"><h2>C. Maintenance et anomalies (' + ouvertes.length + ' ouvertes)</h2>' + tableauActions(ouvertes, true) +
-        '<h3>Entretiens et réparations en cours</h3>' + tableau(['Moto', 'Type', 'Description', 'Statut'], D.maintenances.filter(function (x) { return ['DEMANDEE', 'AUTORISEE', 'EN_COURS'].indexOf(x.statut) >= 0; }).map(function (x) { return [esc(codeMoto(x.moto_id)), esc(C.libelle(x.type_maintenance)), esc(x.description), badge(x.statut)]; }), 'Aucun entretien en cours.') +
+        '<h3>Entretiens et réparations en cours</h3>' + tableau(['Moto', 'Type', 'Description', 'Statut'], D.maintenances.filter(function (x) { return ['CLOTUREE', 'ANNULEE', 'REFUSEE', 'CONTROLEE'].indexOf(x.statut) < 0; }).map(function (x) { return [esc(codeMoto(x.moto_id)), esc(C.libelle(x.type_maintenance)), esc(x.description), badge(x.statut)]; }), 'Aucun entretien en cours.') +
+        '<p class="mm-note">Dossiers détaillés, devis et décisions : espace <a class="mm-lien" href="#/maintenance">Maintenance</a>.</p>' +
         '<h3>Échéances</h3>' + tableau(['Moto', 'Règle', 'Statut'], D.echeances.filter(function (e) { return e.statut === 'DEPASSEE' || e.statut === 'PROCHE'; }).map(function (e) { return [esc(e.code), esc(e.libelle), badge(e.statut)]; }),
-          'Aucune échéance : les règles d\'entretien ne sont actives qu\'une fois paramétrées sur source vérifiée (aucune périodicité inventée).') +
+          'Aucune échéance : les règles d\'entretien ne sont actives qu\'une fois approuvées par le Branch Manager sur source documentée (aucune périodicité inventée).') +
         '<h3>Pneus montés</h3>' + tableau(['Pneu', 'Moto', 'Posé le', 'Km parcourus', 'DOT'], D.pneus.filter(function (p) { return p.statut === 'MONTE'; }).map(function (p) { return [esc(p.code + ' · ' + p.marque + ' ' + p.dimensions), esc(codeMoto(p.moto_actuelle_id) + ' ' + (p.position_actuelle || '')), esc(C.dateFr(p.premiere_pose)), esc(C.km(p.km_parcourus)), esc(p.date_fabrication || C.ND)]; }), 'Aucun pneu suivi.') + '</section>' +
       '<section class="mm-bloc"><h2>D. Dépenses</h2>' + tableau(['Enveloppe', 'Mois', 'Demandé', 'Approuvé', 'Consommé', 'Justifié', 'En attente', 'Solde', 'Statut', 'Action'], D.enveloppes.map(function (e) {
           var act = [];
@@ -1049,9 +1058,12 @@
         champ({ n: 'montant', l: 'Montant approuvé (FCFA)', t: 'nombre', pas: 1, v: d.montant, aide: 'Inférieur ou égal au montant demandé ; motif obligatoire si réduit.' }) + champ({ n: 'motif', l: 'Motif', t: 'textarea' }),
       function (v) { return rpc('moto_enveloppe_decider', { p_enveloppe: d.id, p_decision: v.decision, p_montant: C.nombreSaisi(v.montant), p_motif: v.motif }).then(function () { router(); return 'Décision enregistrée.'; }); });
     },
-    depense_declarer: function (d) {
+    depense_declarer: async function (d) {
+      var fac = await optFacturesVerifiees(null);
       modale('Déclarer une dépense', '<div class="mm-grille-form">' + champ({ n: 'date_depense', l: 'Date', t: 'date', req: true, v: aujourdhui(), max: aujourdhui() }) + champ({ n: 'montant', l: 'Montant (FCFA)', t: 'nombre', req: true, pas: 1 }) +
-        champ({ n: 'objet', l: 'Objet', req: true }) + champ({ n: 'moto_id', l: 'Moto concernée', t: 'select', o: optMotos() }) + champ({ n: 'justificatif', l: 'Justificatif (reçu, facture)', t: 'fichier', large: true, capture: true }) + '</div>',
+        champ({ n: 'objet', l: 'Objet', req: true }) + champ({ n: 'facture_id', l: 'Facture de garage réglée (dépense d\'entretien)', t: 'select', o: fac, aide: 'Obligatoire pour toute dépense d\'entretien ou de réparation : la facture doit être vérifiée et relever d\'une autorisation du Branch Manager.' }) +
+        champ({ n: 'justificatif', l: 'Justificatif (reçu)', t: 'fichier', large: true, capture: true }) + '</div>' +
+        '<p class="mm-note">Supervision : aucune moto ni réparation. Une enveloppe approuvée n\'autorise aucune dépense de réparation.</p>',
       async function (v) {
         if (v.justificatif) { var f = await deposerDepense(v.justificatif); v.justificatif_path = f; } delete v.justificatif;
         v.enveloppe_id = d.id; v.client_op_id = OFF.uuid(); var r = await rpc('moto_depense_declarer', { p: v }); router(); return 'Dépense ' + C.libelle(r.statut).toLowerCase() + '.';
@@ -1099,7 +1111,7 @@
       peut('rapprochement') ? q('moto_v_rapprochement') : Promise.resolve([]), q('moto_v_conso_intervalles', function (x) { return x.order('fin_date', { ascending: false }).limit(200); }),
       q('moto_documents', function (x) { return x.eq('statut', 'EN_VERIFICATION'); }), q('moto_carburant', function (x) { return x.eq('justificatif_statut', 'A_VERIFIER'); }),
       q('moto_budgets', function (x) { return x.eq('statut', 'PROPOSE'); }), q('moto_corrections', function (x) { return x.eq('statut', 'DEMANDEE'); }),
-      q('moto_remboursements', function (x) { return x.eq('statut', 'DEMANDE'); }), q('moto_maintenances', function (x) { return x.eq('statut', 'DEMANDEE'); }),
+      q('moto_remboursements', function (x) { return x.eq('statut', 'DEMANDE'); }), Promise.resolve([]),
       q('moto_v_pneus'), q('moto_v_qualite_donnees'), q('moto_v_formation'), q('moto_incidents', function (x) { return x.neq('etape', 'CLOS'); }),
       q('moto_v_inspections_exigibles'), q('moto_v_actions'), q('moto_v_enveloppes')]);
     var exceptions = C.exceptionsDirection(S.flotte, d[17], d[18], d[19], aujourdhui());
@@ -1327,7 +1339,8 @@
     },
     pneu: function () {
       modale('Pneu en stock', '<div class="mm-grille-form">' + [{ n: 'code', l: 'Code interne', req: true, ph: 'PN-001' }, { n: 'marque', l: 'Marque', req: true }, { n: 'modele', l: 'Modèle' }, { n: 'dimensions', l: 'Dimensions', req: true },
-        { n: 'numero_serie', l: 'N° de série ou marquage' }, { n: 'date_fabrication', l: 'Date de fabrication DOT (4 chiffres, si lisible)', ph: 'Ex. 2526 = semaine 25 de 2026' }, { n: 'date_achat', l: 'Date d\'achat', t: 'date' }, { n: 'cout_achat', l: 'Coût d\'achat (FCFA)', t: 'nombre', pas: 1 }, { n: 'fournisseur', l: 'Fournisseur' }].map(champ).join('') + '</div>',
+        { n: 'numero_serie', l: 'N° de série ou marquage' }, { n: 'date_fabrication', l: 'Date de fabrication DOT (4 chiffres, si lisible)', ph: 'Ex. 2526 = semaine 25 de 2026' }, { n: 'date_achat', l: 'Date d\'achat', t: 'date' }, { n: 'fournisseur', l: 'Fournisseur' }].map(champ).join('') + '</div>' +
+        '<p class="mm-note">Coût d\'un pneu acheté : part d\'une facture vérifiée d\'un dossier « Pneumatique » autorisé par le Branch Manager (à renseigner par le coordinateur).</p>',
       function (v) { return rpc('moto_pneu_creer', { p: v }).then(function () { return 'Pneu enregistré en stock.'; }); });
     },
     parametres: function (b, bu, d, regles) {

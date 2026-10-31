@@ -270,7 +270,7 @@
       if (['DEMANDEE', 'DIAGNOSTIC', 'DEVIS_RECU', 'REFUSEE'].indexOf(s) >= 0 && prep) a.push(action('mnt_devis', s === 'DEVIS_RECU' ? 'Remplacer le devis' : 'Enregistrer le devis', { id: x.id }, 'mm-primaire'));
       if (['DEMANDEE', 'DIAGNOSTIC'].indexOf(s) >= 0 && prep) a.push(action('mnt_soumettre', 'Diagnostic payant : demander au BM', { id: x.id, objet: 'DIAGNOSTIC' }));
       if (s === 'DEVIS_RECU' && prep) a.push(action('mnt_soumettre', 'Soumettre au Branch Manager', { id: x.id, objet: 'TRAVAUX' }, 'mm-primaire'));
-      if (['DEMANDEE', 'DIAGNOSTIC', 'DEVIS_RECU'].indexOf(s) >= 0 && org) a.push(action('mnt_sans_frais', 'Intervention sans frais', { id: x.id }));
+      if (['DEMANDEE', 'DIAGNOSTIC', 'DEVIS_RECU'].indexOf(s) >= 0 && peut('maintenance_autoriser')) a.push(action('mnt_sans_frais', 'Intervention sans frais', { id: x.id }));
       if (attente && peut('maintenance_autoriser')) a.push(action('mnt_decider', 'Autoriser ou refuser', { id: attente.autorisation_id }, 'mm-primaire'));
       if (['AUTORISEE', 'PROGRAMMEE', 'EN_COURS'].indexOf(s) >= 0 && org && !x.sans_frais) a.push(action('mnt_programmer', s === 'AUTORISEE' ? 'Programmer les travaux' : 'Ajuster l\'engagement', { id: x.id }, s === 'AUTORISEE' ? 'mm-primaire' : ''));
       if (s === 'PROGRAMMEE' && org) a.push(action('mnt_demarrer', 'Démarrer les travaux', { id: x.id }, 'mm-primaire'));
@@ -353,7 +353,7 @@
       },
       mnt_sans_frais: function (d) {
         modale('Intervention sans frais', champ({ n: 'sans_frais_motif', l: 'Motif (garantie, intervention interne…)', t: 'textarea', req: true, min: 10 }) + champ({ n: 'date_prevue', l: 'Date prévue', t: 'date', req: true, v: I.aujourdhui() }) +
-          '<p class="mm-note">Aucun montant ne pourra être engagé ni justifié sur ce dossier. Toute facture reçue devra faire l\'objet d\'une autorisation BM.</p>',
+          '<p class="mm-note">Décision du Branch Manager. Aucun montant ne pourra être engagé ni justifié sur ce dossier. Toute facture reçue devra faire l\'objet d\'une autorisation BM.</p>',
           function (v) { return rpc('moto_maintenance_programmer', { p: { maintenance_id: d.id, sans_frais: true, sans_frais_motif: v.sans_frais_motif, date_prevue: v.date_prevue } }).then(function () { return terminerOk(d.id); }); });
       },
       mnt_programmer: function (d, x) {
