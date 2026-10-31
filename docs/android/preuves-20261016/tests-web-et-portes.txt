@@ -1,0 +1,30 @@
+0 tests/campagnes-e2e.mjs Campagnes E2E : PASS (4 largeurs)
+0 tests/farmer-registry-complete.mjs Farmer Registry complet : syntaxe, offline, risque, garde-fous, preuves privées, performa
+0 tests/farmer-registry-phase1.mjs Farmer Registry Phase 1: contrôles statiques, runtime et cache local OK
+0 tests/field-buying-performance-static.mjs field-buying-performance-static: OK (optimisations dans le moteur unique)
+0 tests/field-buying-prefilled-edit-static.mjs field-buying-prefilled-edit-static: OK (édition dans le moteur unique)
+0 tests/field-buying-profiles-static.mjs FIELD BUYING profiles/media static checks: OK (moteur unique réconcilié)
+0 tests/lba-purchase-e2e.mjs LBA Purchase E2E : PASS (7 largeurs)
+0 tests/master-export-producteurs.mjs {"result":"PASS","feuilles":["Producteurs_Detailles","Producteurs_RAW"],"lignes":6}
+0 tests/offline-field-e2e.mjs   "result": "PASS",
+0 tests/offline-field-multi-user-e2e.mjs       "status": "PASS"
+0 tests/offline-field-static.mjs Offline FIELD BUYING static: PASS
+0 tests/operations-suite-static.mjs AFLP DATA static assertions: PASS
+0 tests/pjs-export-e2e.mjs       "producers_agri": "PASS"
+0 tests/pjs-export-static.mjs {"result":"PASS","datasets":19,"brand":"#053B23","formula_injection":true,"multi_campaign"
+0 tests/rt-cluster-filter-e2e.mjs 
+0 tests/rt-cluster-filter-static.mjs 
+0 tests/rt-farmer-edit-rights-static.mjs Droits RT/Producteurs : PASS
+0 tests/rt-to-producer.mjs PASS RT -> Producteur
+0 tests/sacherie-aflp-colonnes-droits-static.mjs Sacherie AFLP colonnes & droits static: PASS
+0 tests/sacherie-inventaires-journal-e2e.mjs Sacherie inventaires & journal e2e : PASS (3 largeurs, captures dans .captures-sacherie/)
+0 tests/sacherie-inventaires-periodicite.mjs Sacherie inventaires periodicite static: PASS
+0 tests/sacherie-journal-recherche.mjs Sacherie journal recherche static: PASS
+0 tests/sacherie-operational-p1-static.mjs Sacherie operational P1 static: PASS
+0 tests/sacherie-rls-dotation-rt.mjs Sacherie RLS DOTATION_RT static: PASS
+0 tests/sacherie-tolerance-pannes.mjs Sacherie tolérance aux pannes : PASS (1 requête en panne sur 10, rubrique rendue)
+0 tests/unit-head-enrollment-e2e.mjs {"resultat":"PASS","reussis":56,"echecs":0}
+0 tests/zonal-head-portee-globale.mjs Chef de Zone — portée globale, création et modification, aucune suppression : OK
+0 gate verifier-html 33 page(s) · 3 écart(s) historique(s) · 0 nouveau(x) · 3 remarque(s)
+0 gate verifier-liens     1 × cdnjs.cloudflare.com
+0 gate verifier-js 104 fichier(s) JavaScript · 1 erreur(s) héritée(s) · 0 nouvelle(s)
