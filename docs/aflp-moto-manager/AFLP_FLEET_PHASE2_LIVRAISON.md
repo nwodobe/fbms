@@ -1,7 +1,7 @@
 # AFLP FLEET phase 2 : maintenance, garages, autorisation BM (rapport de livraison)
 
 Mandat : « AFLP FLEET | PHASE 2 » (31/10/2026). Branche `feat/aflp-fleet-maintenance`.
-**Statut de déploiement : développé et testé sur réplique locale ; NON appliqué en production, NON fusionné** (le mandat n'autorise ni migration ni déploiement).
+**Statut de déploiement (31/10/2026, 20:30 UTC) : migration 6 appliquée en production, PR #271 fusionnée, interface publiée.** Production vérifiée identique à la version testée (voir H). Fonctionnement en conditions réelles non encore observé : aucune moto saisie.
 
 ## A. Audit initial (production lue le 31/10/2026, lecture seule)
 
@@ -136,9 +136,29 @@ Risques résiduels acceptés :
 
 `docs/aflp-moto-manager/AFLP_FLEET_GUIDE.md`, section « Maintenance et dépenses » (coordinateur, Branch Manager, Chef de zone, ABM, Finance).
 
-## H. Déploiement (en attente d'autorisation)
+## H. Déploiement
 
-1. Autorisation écrite du Branch Manager pour la migration 6 **et** pour la fusion.
+**Réalisé le 31/10/2026, sur autorisation du Branch Manager (« Migration 6 puis fusion »).**
+
+- Migration 6 appliquée en quatre parties entre 19:08 et 19:15 UTC (`aflp_fleet_6_partie1_tables_rls`, `partie2_circuit`, `partie3_remise_couts_stockage`, `partie4_vues`), depuis une autre session Claude que celle qui a mené la recette.
+- PR #271 fusionnée à 19:23 UTC (commit `b92c856`) ; `main` contient exactement la version testée du module et de la migration.
+- **Équivalence prouvée par empreinte**, production comparée à une réplique 1-6 reconstruite :
+
+| Objet | Production = réplique testée |
+|---|---|
+| 129 fonctions `moto_*` (corps normalisés + droits d'exécution) | ✓ `3f1ad835…` |
+| 19 vues, 19 options de vues | ✓ |
+| 34 politiques RLS, 34 tables sous RLS | ✓ |
+| 1 923 droits par colonne, 166 droits par table | ✓ |
+| 267 contraintes | ✓ |
+
+- État de production : fonctions exécutables par `anon` = 0 ; colonnes financières de `moto_maintenances` illisibles par `authenticated` ; 3 brouillons HYPOTHESE, 0 règle approuvée, 0 ancienne règle active ; 0 garage, 0 autorisation.
+- Contrôle de sécurité Supabase : 3 alertes « Security Definer View » sur `moto_v_couts`, `moto_v_decisions_bm` et `moto_v_maintenance_dossiers`. **Choix de conception, vérifié en production** : vues du propriétaire avec `security_barrier`, illisibles par `anon`, filtrées explicitement par périmètre ou lecture financière (tests R07a à R07e). Aucune autre alerte nouvelle sur le module.
+- Site publié : `moto/moto-maintenance.js` servi en ligne (espace « Décisions à prendre » présent). Contrôle visuel connecté dans Chrome **non réalisé** : navigateur de l'utilisateur injoignable depuis la session. Recette navigateur rejouée sur le code de `main` : 87/87, deux passages, 0 erreur console.
+- Correction de test après fusion : `valider()` confondait la fenêtre soumise avec le dossier rouvert aussitôt par l'application (faux échec UI-MNT-05/08, état serveur correct). Le test suit désormais la fenêtre soumise.
+
+Procédure de référence (pour un autre environnement) :
+
 2. Appliquer `20261102090000_aflp_fleet_6_maintenance_autorisations.sql` (rejouable). Vérifier ensuite : fonctions, droits `anon` = 0, RLS sur les 6 nouvelles tables, 3 brouillons `HYPOTHESE`, 0 version approuvée.
 3. Fusionner la PR (publication GitHub Pages : interface `20261102-maint-1`).
 4. **Ordre impératif** : migration avant interface. L'interface seule appellerait des fonctions absentes ; la migration seule garde l'ancienne interface fonctionnelle sauf « Décider » (neutralisé, comportement voulu).
@@ -148,15 +168,15 @@ Risques résiduels acceptés :
 
 | Élément | Développé | Testé | Prêt pour déploiement | Déployé en production |
 |---|---|---|---|---|
-| Autorisation individuelle BM, tous chemins | ✓ | ✓ | ✓ | ✗ |
-| Dossier 10 étapes, travaux groupés, supplément | ✓ | ✓ | ✓ | ✗ |
-| Règles par modèle, versions, exceptions, rodage | ✓ | ✓ | ✓ | ✗ |
-| Moteur d'échéances et alertes | ✓ | ✓ | ✓ | ✗ |
-| Garages | ✓ | ✓ | ✓ | ✗ |
-| Six montants, anti double comptage | ✓ | ✓ | ✓ | ✗ |
-| Tableau coordinateur, Décisions BM, synthèse hebdomadaire | ✓ | ✓ (3 largeurs) | ✓ | ✗ |
+| Autorisation individuelle BM, tous chemins | ✓ | ✓ | ✓ | ✓ |
+| Dossier 10 étapes, travaux groupés, supplément | ✓ | ✓ | ✓ | ✓ |
+| Règles par modèle, versions, exceptions, rodage | ✓ | ✓ | ✓ | ✓ (règles en brouillon) |
+| Moteur d'échéances et alertes | ✓ | ✓ | ✓ | ✓ |
+| Garages | ✓ | ✓ | ✓ | ✓ (aucun saisi) |
+| Six montants, anti double comptage | ✓ | ✓ | ✓ | ✓ |
+| Tableau coordinateur, Décisions BM, synthèse hebdomadaire | ✓ | ✓ (3 largeurs) | ✓ | ✓ (non vu connecté en ligne) |
 | Intervalles APSONIC validés | ✗ | — | — | ✗ (source constructeur manquante) |
 
-Statut global : **PARTIELLEMENT TERMINÉ** : tout ce que le mandat autorise est terminé et testé ; la mise en production et la validation constructeur des intervalles restent des décisions humaines.
+Statut global : **PARTIELLEMENT TERMINÉ**. Développé, testé, déployé et vérifié identique à la version testée. Restent : le contrôle visuel connecté sur le site publié, la validation constructeur des intervalles APSONIC et l'observation en conditions réelles, qui commencera avec la première moto saisie.
 
 Limites connues : notifications seulement dans le tableau de bord (pas de SMS ni de courriel) ; tests sur vrais téléphones non réalisés ; la synthèse hebdomadaire est une vue consultable, pas un envoi automatique ; une dépense de garage étiquetée « supervision » sur une enveloppe de supervision n'est détectable qu'à la vérification (ABM/Finance) ; la file hors ligne ne transporte que la demande, jamais une décision.

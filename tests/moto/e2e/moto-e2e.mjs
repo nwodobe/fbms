@@ -133,9 +133,15 @@ async function remplir(p, valeurs) {
   return d;
 }
 async function valider(p) {
-  const d = p.locator('dialog.mm-modale').last();
-  await d.locator('button[type=submit]').click();
-  const r = await attendre(async () => (await d.count()) === 0 ? 'ferme' : ((await d.locator('.mm-erreur:not([hidden])').count()) ? 'erreur:' + await d.locator('.mm-erreur').textContent() : null), 20000);
+  // On suit LA fenêtre soumise (poignée fixe), et non « la dernière fenêtre » : l'application peut
+  // fermer celle-ci puis rouvrir aussitôt le dossier, qu'un sélecteur réévalué confondrait avec elle.
+  const h = await p.locator('dialog.mm-modale').last().elementHandle();
+  await (await h.$('button[type=submit]')).click();
+  const r = await attendre(async () => {
+    if (!(await h.evaluate(e => e.isConnected && e.open))) return 'ferme';
+    const err = await h.$('.mm-erreur:not([hidden])');
+    return err ? 'erreur:' + (await err.textContent()) : null;
+  }, 20000);
   return r || 'délai dépassé';
 }
 async function toutConforme(p) { for (const r of await p.locator('dialog.mm-modale input[type=radio][value=ok]').all()) await r.check(); }
