@@ -1,0 +1,1842 @@
+{
+ "base": "fbms_moto_test",
+ "date": "2026-10-31T18:37:12.778359+00:00",
+ "resultats": [
+  {
+   "id": "S03a",
+   "scenario": "3",
+   "compte": "postgres (lecture)",
+   "action": "Les valeurs du mandat sont des brouillons « hypothèse » non approuvés",
+   "attendu": "3",
+   "obtenu": "3",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S01a",
+   "scenario": "1",
+   "compte": "postgres (lecture)",
+   "action": "Avant association, une APSONIC n'a aucune règle (diagnostic à établir)",
+   "attendu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "obtenu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S01b",
+   "scenario": "1",
+   "compte": "lc",
+   "action": "Coordinateur associe A1 au modèle APSONIC_AP150_30",
+   "attendu": "OK (APSONIC)",
+   "obtenu": "OK : {\"moto_id\": \"df3b0ec7-5135-4cf1-987b-2daff64c74cf\", \"modele_technique_code\": \"APSONIC_AP150_30\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02a",
+   "scenario": "2",
+   "compte": "lc",
+   "action": "Association du modèle APSONIC à la moto de JACKSON (marque inconnue)",
+   "attendu": "REFUS (incompatible)",
+   "obtenu": "REFUS : Modèle incompatible : la moto est enregistrée « marque inconnue modèle inconnu », le modèle technique exige APSONIC AP150-30.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02b",
+   "scenario": "2",
+   "compte": "bm",
+   "action": "Même tentative par le BM, marque ANAGROCI",
+   "attendu": "REFUS (incompatible)",
+   "obtenu": "REFUS : Modèle incompatible : la moto est enregistrée « ANAGROCI modèle inconnu », le modèle technique exige APSONIC AP150-30.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03b",
+   "scenario": "3",
+   "compte": "postgres (lecture)",
+   "action": "Brouillons seulement : aucune échéance n'est produite pour A1",
+   "attendu": "REGLE_NON_APPROUVEE",
+   "obtenu": "REGLE_NON_APPROUVEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03c",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "BM approuve une hypothèse non validée",
+   "attendu": "REFUS (hypothèse)",
+   "obtenu": "REFUS : Une hypothèse non validée ne peut pas devenir une politique opérationnelle : requalifiez-la (constructeur avec référence, ou politique interne avec validation technique).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03d",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Coordinateur approuve une règle",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03e",
+   "scenario": "3",
+   "compte": "abm",
+   "action": "ABM approuve une règle",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03f",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Règle « constructeur » sans référence documentaire",
+   "attendu": "REFUS (référence)",
+   "obtenu": "REFUS : Prescription constructeur : référence précise du document obligatoire (aucune prescription sans source).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03g-VIDANGE",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Coordinateur requalifie VIDANGE en politique interne (avis technique fictif)",
+   "attendu": "OK (BROUILLON)",
+   "obtenu": "OK : {\"id\": \"f5821e40-7dd4-48d9-992e-9e1c8c6b8cb8\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03g-ENTRETIEN",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Coordinateur requalifie ENTRETIEN en politique interne (avis technique fictif)",
+   "attendu": "OK (BROUILLON)",
+   "obtenu": "OK : {\"id\": \"f3cba78e-b13f-42b3-bb7d-33a237150393\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03g-REVISION",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Coordinateur requalifie REVISION en politique interne (avis technique fictif)",
+   "attendu": "OK (BROUILLON)",
+   "obtenu": "OK : {\"id\": \"5bce99ac-3328-44fe-b242-928884f4e9de\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03h",
+   "scenario": "3",
+   "compte": "postgres (lecture)",
+   "action": "Proposition validée mais non approuvée : toujours inactive",
+   "attendu": "REGLE_NON_APPROUVEE",
+   "obtenu": "REGLE_NON_APPROUVEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03i-VIDANGE",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "BM approuve VIDANGE avec date d'effet",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"f5821e40-7dd4-48d9-992e-9e1c8c6b8cb8\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-10-31\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03i-ENTRETIEN",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "BM approuve ENTRETIEN avec date d'effet",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"f3cba78e-b13f-42b3-bb7d-33a237150393\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-10-31\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03i-REVISION",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "BM approuve REVISION avec date d'effet",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"5bce99ac-3328-44fe-b242-928884f4e9de\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-10-31\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S01c",
+   "scenario": "1",
+   "compte": "postgres (lecture)",
+   "action": "A1 reçoit les 3 règles de son modèle, version et source tracées",
+   "attendu": "3/POLITIQUE_INTERNE/2",
+   "obtenu": "3/POLITIQUE_INTERNE/2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02c",
+   "scenario": "2",
+   "compte": "postgres (lecture)",
+   "action": "JACKSON ne reçoit pas les règles APSONIC",
+   "attendu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "obtenu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S04a",
+   "scenario": "4",
+   "compte": "postgres (lecture)",
+   "action": "APSONIC en exploitation sans entretien vérifié : état de référence requis, aucune base inventée",
+   "attendu": "ETAT_REFERENCE_REQUIS/null",
+   "obtenu": "ETAT_REFERENCE_REQUIS/null",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S04b",
+   "scenario": "4",
+   "compte": "postgres (lecture)",
+   "action": "Moto neuve : base = mise en service réelle, fiabilité signalée",
+   "attendu": "MISE_EN_SERVICE/0.0/1500.0",
+   "obtenu": "MISE_EN_SERVICE/0.0/1500.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05-1050",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Vidange à 1050 km depuis 0 : A_JOUR",
+   "attendu": "A_JOUR/-",
+   "obtenu": "A_JOUR/-",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05-1100",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Vidange à 1100 km depuis 0 : RAPPEL",
+   "attendu": "RAPPEL/KM",
+   "obtenu": "RAPPEL/KM",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05-1300",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Vidange à 1300 km depuis 0 : PROCHE",
+   "attendu": "PROCHE/KM",
+   "obtenu": "PROCHE/KM",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05-1500",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Vidange à 1500 km depuis 0 : ATTEINTE",
+   "attendu": "ATTEINTE/KM",
+   "obtenu": "ATTEINTE/KM",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05-1501",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Vidange à 1501 km depuis 0 : DEPASSEE",
+   "attendu": "DEPASSEE/KM",
+   "obtenu": "DEPASSEE/KM",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05b",
+   "scenario": "5",
+   "compte": "postgres (lecture)",
+   "action": "Seuils calculés depuis la base vérifiée (km restants exacts)",
+   "attendu": "-1.0",
+   "obtenu": "-1.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S06a",
+   "scenario": "6",
+   "compte": "postgres (lecture)",
+   "action": "A2 : 65 jours, 50 km : l'échéance calendaire arrive avant le kilométrage",
+   "attendu": "DEPASSEE/JOURS/true",
+   "obtenu": "DEPASSEE/JOURS/true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S06b",
+   "scenario": "6",
+   "compte": "postgres (lecture)",
+   "action": "Révision A2 (180 j, 5000 km) toujours à jour",
+   "attendu": "A_JOUR",
+   "obtenu": "A_JOUR",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-01",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur enregistre un garage fictif",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"7365600c-bdaa-46ee-b5d4-8ee1b7658fa4\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-02",
+   "scenario": "9",
+   "compte": "postgres (lecture)",
+   "action": "Enregistré ne veut pas dire agréé : statut CANDIDAT",
+   "attendu": "CANDIDAT",
+   "obtenu": "CANDIDAT",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-03",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur approuve le garage",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Approbation ou suspension d'un garage réservée au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-04",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur marque le garage évalué",
+   "attendu": "OK (EVALUE)",
+   "obtenu": "OK : {\"id\": \"7365600c-bdaa-46ee-b5d4-8ee1b7658fa4\", \"statut\": \"EVALUE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-05",
+   "scenario": "9",
+   "compte": "bm",
+   "action": "BM approuve le garage",
+   "attendu": "OK (APPROUVE)",
+   "obtenu": "OK : {\"id\": \"7365600c-bdaa-46ee-b5d4-8ee1b7658fa4\", \"statut\": \"APPROUVE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-06",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Chef d'unité lit les garages",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-07",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Mise à jour partielle sans perte des clusters",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"7365600c-bdaa-46ee-b5d4-8ee1b7658fa4\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "GAR-08",
+   "scenario": "9",
+   "compte": "postgres (lecture)",
+   "action": "Clusters conservés après mise à jour partielle",
+   "attendu": "SAKASSOU",
+   "obtenu": "SAKASSOU",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09a",
+   "scenario": "9",
+   "compte": "uh_a",
+   "action": "Chef d'unité signale la vidange",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09b",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur organise le diagnostic",
+   "attendu": "OK (DIAGNOSTIC)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"DIAGNOSTIC\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09c",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Devis sans pièce dans le stockage",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Fichier introuvable dans le stockage privé : déposez-le avant d'enregistrer.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09d",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur enregistre le devis (vidange + révision + pièces + main-d'œuvre)",
+   "attendu": "OK (DEVIS_RECU)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"DEVIS_RECU\", \"travaux\": 2}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14a",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Programmation sans autorisation BM",
+   "attendu": "REFUS (autorisation)",
+   "obtenu": "REFUS : Engagement impossible : aucune autorisation du Branch Manager enregistrée pour ce dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S10a",
+   "scenario": "10",
+   "compte": "bm",
+   "action": "BM se soumet une demande à lui-même",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09e",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Coordinateur soumet 50 000 au BM",
+   "attendu": "OK (EN_ATTENTE)",
+   "obtenu": "OK : {\"id\": \"4e3421e1-0063-41d8-8000-f2f1c4ebedc9\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09f",
+   "scenario": "9",
+   "compte": "lc",
+   "action": "Seconde demande simultanée sur le même dossier",
+   "attendu": "REFUS (déjà en attente)",
+   "obtenu": "REFUS : Une demande d'autorisation est déjà en attente de décision pour ce dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09g",
+   "scenario": "9",
+   "compte": "postgres (lecture)",
+   "action": "Dossier en attente BM, aucun engagement",
+   "attendu": "EN_ATTENTE_BM/0",
+   "obtenu": "EN_ATTENTE_BM/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S10b",
+   "scenario": "10",
+   "compte": "lc",
+   "action": "Coordinateur autorise sa propre demande",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S11a",
+   "scenario": "11",
+   "compte": "zh",
+   "action": "Chef de zone autorise la dépense",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S11b",
+   "scenario": "11",
+   "compte": "zh",
+   "action": "Chef de zone engage (programme) la dépense",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S11c",
+   "scenario": "11",
+   "compte": "zh",
+   "action": "Chef de zone par l'ancienne fonction de décision",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S12a",
+   "scenario": "12",
+   "compte": "abm",
+   "action": "ABM autorise à la place du BM",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S12b",
+   "scenario": "12",
+   "compte": "abm",
+   "action": "ABM engage sans décision BM",
+   "attendu": "REFUS (autorisation)",
+   "obtenu": "REFUS : Engagement impossible : aucune autorisation du Branch Manager enregistrée pour ce dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-01",
+   "scenario": "11",
+   "compte": "lc",
+   "action": "Écriture directe : insertion d'une autorisation",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_autorisations",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-02",
+   "scenario": "11",
+   "compte": "bm",
+   "action": "Écriture directe : BM passe la demande en AUTORISEE",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_autorisations",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-03",
+   "scenario": "11",
+   "compte": "lc",
+   "action": "Écriture directe : montant engagé modifié",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_maintenances",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-04",
+   "scenario": "15",
+   "compte": "bm",
+   "action": "BM autorise plus que demandé",
+   "attendu": "REFUS (au plus)",
+   "obtenu": "REFUS : Montant autorisé : positif et au plus égal au montant demandé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-05",
+   "scenario": "15",
+   "compte": "bm",
+   "action": "BM réduit le montant sans commentaire",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15a",
+   "scenario": "15",
+   "compte": "bm",
+   "action": "BM autorise 40 000 sur un devis de 50 000, commenté",
+   "attendu": "OK (40000)",
+   "obtenu": "OK : {\"id\": \"4e3421e1-0063-41d8-8000-f2f1c4ebedc9\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 40000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-06",
+   "scenario": "15",
+   "compte": "bm",
+   "action": "Décider deux fois la même demande",
+   "attendu": "REFUS (déjà décidée)",
+   "obtenu": "REFUS : Demande introuvable ou déjà décidée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15b",
+   "scenario": "15",
+   "compte": "postgres (lecture)",
+   "action": "Décision nominative et horodatée conservée",
+   "attendu": "true/true/40000",
+   "obtenu": "true/true/40000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15c",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Engager la totalité du devis (50 000) avec 40 000 autorisés",
+   "attendu": "REFUS (plafond)",
+   "obtenu": "REFUS : Engagement de 50000 FCFA supérieur au plafond autorisé par le BM (40000 FCFA) : soumettez un supplément.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15d",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Garage différent du garage autorisé",
+   "attendu": "REFUS (Garage différent)",
+   "obtenu": "REFUS : Garage différent du garage autorisé : nouvelle autorisation requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15e",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Programmation dans le plafond (40 000)",
+   "attendu": "OK (PROGRAMMEE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 40000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S15f",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Démarrage des travaux",
+   "attendu": "OK (EN_COURS)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"EN_COURS\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S16a",
+   "scenario": "16",
+   "compte": "lc",
+   "action": "Supplément chiffré par le garage",
+   "attendu": "OK (EN_COURS)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"EN_COURS\", \"travaux\": 1}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S16b",
+   "scenario": "16",
+   "compte": "lc",
+   "action": "Supplément soumis au BM",
+   "attendu": "OK (EN_ATTENTE)",
+   "obtenu": "OK : {\"id\": \"9ddb8074-22d8-4dd2-b31d-6d320b9f4d49\", \"rang\": 2, \"statut\": \"EN_ATTENTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S16c",
+   "scenario": "16",
+   "compte": "lc",
+   "action": "Engager le supplément avant décision",
+   "attendu": "REFUS (plafond)",
+   "obtenu": "REFUS : Engagement de 50000 FCFA supérieur au plafond autorisé par le BM (40000 FCFA) : soumettez un supplément.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24a",
+   "scenario": "24",
+   "compte": "bm",
+   "action": "« Décisions à prendre » : seulement la demande en attente, montant demandé et déjà autorisé distincts",
+   "attendu": "OK (1/10000/40000)",
+   "obtenu": "OK : 1/10000/40000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S16d",
+   "scenario": "16",
+   "compte": "bm",
+   "action": "BM autorise le supplément",
+   "attendu": "OK (AUTORISEE)",
+   "obtenu": "OK : {\"id\": \"9ddb8074-22d8-4dd2-b31d-6d320b9f4d49\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 10000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S16e",
+   "scenario": "16",
+   "compte": "lc",
+   "action": "Engagement porté à 50 000 après le supplément",
+   "attendu": "OK (50000)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"EN_COURS\", \"montant_engage\": 50000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18a",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Facture garage 50 000 déposée",
+   "attendu": "OK (\"hors_autorisation\": false)",
+   "obtenu": "OK : {\"id\": \"9def66cc-bbfb-471e-8ab6-7924095192bf\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18b",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Même numéro de facture, même garage",
+   "attendu": "REFUS (duplicate)",
+   "obtenu": "REFUS : duplicate key value violates unique constraint \"moto_factures_numero_unique\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18c",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Même pièce pour une seconde facture",
+   "attendu": "REFUS (duplicate)",
+   "obtenu": "REFUS : duplicate key value violates unique constraint \"moto_factures_document_path_key\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18d",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Pièce d'une autre moto",
+   "attendu": "REFUS (non conforme)",
+   "obtenu": "REFUS : Chemin non conforme : finmaint/<moto>/facture/<fichier> attendu.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21a",
+   "scenario": "21",
+   "compte": "uh_a",
+   "action": "Utilisateur déclare les travaux de sa moto terminés",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21b",
+   "scenario": "21",
+   "compte": "lc",
+   "action": "Fin des travaux sans kilométrage (inconnu ≠ 0)",
+   "attendu": "REFUS (Kilométrage)",
+   "obtenu": "REFUS : Kilométrage à la fin des travaux obligatoire (relevé réel).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21c",
+   "scenario": "21",
+   "compte": "lc",
+   "action": "Fin des travaux : vidange et plaquettes faites, entretien chaîne non fait",
+   "attendu": "OK (TERMINEE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"TERMINEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21d",
+   "scenario": "21",
+   "compte": "postgres (lecture)",
+   "action": "Terminé ≠ vérifié : l'échéance de vidange n'est pas encore actualisée",
+   "attendu": "MISE_EN_SERVICE/DEPASSEE",
+   "obtenu": "MISE_EN_SERVICE/DEPASSEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20a",
+   "scenario": "20",
+   "compte": "bm",
+   "action": "Levée de l'immobilisation avant contrôle des travaux",
+   "attendu": "REFUS (pas contrôlés)",
+   "obtenu": "REFUS : Levée bloquée : les travaux de maintenance ne sont pas contrôlés conformes.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21e",
+   "scenario": "21",
+   "compte": "lc",
+   "action": "Celui qui déclare les travaux les contrôle",
+   "attendu": "REFUS (Séparation)",
+   "obtenu": "REFUS : Séparation des tâches : celui qui déclare les travaux terminés ne les contrôle pas.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21f",
+   "scenario": "21",
+   "compte": "zh",
+   "action": "Contrôle technique NON CONFORME (fuite)",
+   "attendu": "OK (EN_COURS)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"EN_COURS\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21g",
+   "scenario": "21",
+   "compte": "lc",
+   "action": "Reprise des travaux déclarée",
+   "attendu": "OK (TERMINEE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"TERMINEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S21h",
+   "scenario": "21",
+   "compte": "zh",
+   "action": "Contrôle technique CONFORME",
+   "attendu": "OK (CONTROLEE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"CONTROLEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S07a",
+   "scenario": "7",
+   "compte": "postgres (lecture)",
+   "action": "Vidange vérifiée : son échéance repart de la réalisation contrôlée",
+   "attendu": "ENTRETIEN_VERIFIE/1512.0/3012.0/A_JOUR",
+   "obtenu": "ENTRETIEN_VERIFIE/1512.0/3012.0/A_JOUR",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S07b",
+   "scenario": "7",
+   "compte": "postgres (lecture)",
+   "action": "La révision générale n'est pas remise à zéro par la vidange",
+   "attendu": "MISE_EN_SERVICE/0.0",
+   "obtenu": "MISE_EN_SERVICE/0.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S07c",
+   "scenario": "7",
+   "compte": "postgres (lecture)",
+   "action": "L'entretien non réalisé n'est pas actualisé",
+   "attendu": "MISE_EN_SERVICE",
+   "obtenu": "MISE_EN_SERVICE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S22a",
+   "scenario": "22",
+   "compte": "postgres (lecture)",
+   "action": "Historique individuel des travaux conservé",
+   "attendu": "VIDANGE:REALISE,ENTRETIEN:NON_REALISE,REPARATION:REALISE",
+   "obtenu": "VIDANGE:REALISE,ENTRETIEN:NON_REALISE,REPARATION:REALISE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S22b",
+   "scenario": "22",
+   "compte": "postgres (lecture)",
+   "action": "Journal : chaque étape du dossier tracée",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S22c",
+   "scenario": "22",
+   "compte": "postgres (lecture)",
+   "action": "Deux autorisations conservées (initiale + supplément)",
+   "attendu": "TRAVAUX:40000,SUPPLEMENT:10000",
+   "obtenu": "TRAVAUX:40000,SUPPLEMENT:10000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20b",
+   "scenario": "20",
+   "compte": "bm",
+   "action": "Levée sans contrôle de remise en service APTE",
+   "attendu": "REFUS (APTE)",
+   "obtenu": "REFUS : Levée bloquée : un contrôle de remise en service APTE est exigé après l'immobilisation.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20c",
+   "scenario": "20",
+   "compte": "lc",
+   "action": "Contrôle de remise en service APTE (coordinateur)",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"881bb301-7405-4100-87e2-7d87929d2956\", \"resultat\": \"APTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20d",
+   "scenario": "20",
+   "compte": "lc",
+   "action": "Le coordinateur lève lui-même",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20e",
+   "scenario": "20",
+   "compte": "bm",
+   "action": "Levée par le BM, indépendant du contrôle",
+   "attendu": "OK (true)",
+   "obtenu": "OK : {\"id\": \"958c9367-6b67-4ab1-8c18-cac4b9959294\", \"levee\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18e",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Le déposant vérifie sa facture",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S12c",
+   "scenario": "12",
+   "compte": "abm",
+   "action": "ABM vérifie la facture (pièces), dans le plafond autorisé",
+   "attendu": "OK (VERIFIEE)",
+   "obtenu": "OK : {\"id\": \"9def66cc-bbfb-471e-8ab6-7924095192bf\", \"statut\": \"VERIFIEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24b",
+   "scenario": "24",
+   "compte": "bm",
+   "action": "Six montants distincts : estimé / autorisé / engagé / facturé / justifié / payé",
+   "attendu": "OK (60000/50000/50000/50000/50000/0)",
+   "obtenu": "OK : 60000/50000/50000/50000/50000/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24c",
+   "scenario": "24",
+   "compte": "abm",
+   "action": "L'ABM ne constate pas un paiement (Finance seulement)",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24d",
+   "scenario": "24",
+   "compte": "fin",
+   "action": "Finance constate un paiement partiel",
+   "attendu": "OK (30000)",
+   "obtenu": "OK : {\"id\": \"9def66cc-bbfb-471e-8ab6-7924095192bf\", \"montant_paye\": 30000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24e",
+   "scenario": "24",
+   "compte": "bm",
+   "action": "Payé ≠ justifié : aucun paiement déduit de la validation",
+   "attendu": "OK (50000/30000)",
+   "obtenu": "OK : 50000/30000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S22d",
+   "scenario": "22",
+   "compte": "fin",
+   "action": "Clôture financière (distincte de la technique)",
+   "attendu": "OK (CLOTUREE)",
+   "obtenu": "OK : {\"id\": \"73378255-3a58-4a5e-be91-7d44d0c83c45\", \"statut\": \"CLOTUREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18f",
+   "scenario": "18",
+   "compte": "bm",
+   "action": "Coût de flotte : la facture est comptée une seule fois",
+   "attendu": "OK (50000)",
+   "obtenu": "OK : 50000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S13a",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Coordinateur demande une enveloppe d'entretien",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"940a6422-a8b9-42ff-8815-b52f3f14c796\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S13b",
+   "scenario": "13",
+   "compte": "bm",
+   "action": "BM approuve le budget mensuel",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"940a6422-a8b9-42ff-8815-b52f3f14c796\", \"statut\": \"APPROUVEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S13c",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Dépense de maintenance sur budget approuvé, sans autorisation individuelle",
+   "attendu": "REFUS (même sur une enveloppe approuvée)",
+   "obtenu": "REFUS : Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée ; citez la facture vérifiée que vous réglez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S13d",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Même dépense étiquetée « supervision » sur l'enveloppe d'entretien",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée ; citez la facture vérifiée que vous réglez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14b",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Dépense rattachée à une facture inexistante",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Dépense de maintenance refusée : elle doit régler une facture vérifiée d'un dossier autorisé par le Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14c",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Règlement au-delà du reste dû (50 000 facturés, 30 000 déjà payés)",
+   "attendu": "REFUS (reste dû)",
+   "obtenu": "REFUS : Montant supérieur au reste dû de la facture (50000 FCFA facturés, 30000 déjà réglés).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18g",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Règlement du reste dû par l'enveloppe (20 000), rattaché à la facture vérifiée",
+   "attendu": "OK (MAINTENANCE)",
+   "obtenu": "OK : {\"id\": \"fc700869-c117-49bf-a4b5-49bde546f643\", \"nature\": \"MAINTENANCE\", \"statut\": \"DECLAREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01a",
+   "scenario": "18",
+   "compte": "fin",
+   "action": "Revue : paiement constaté au-delà du reste dû (enveloppe comprise)",
+   "attendu": "REFUS (reste dû)",
+   "obtenu": "REFUS : Montant payé invalide (au plus le reste dû, règlements par enveloppe compris).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S18h",
+   "scenario": "18",
+   "compte": "bm",
+   "action": "Le règlement par enveloppe n'est pas ajouté une seconde fois au coût du parc",
+   "attendu": "OK (50000)",
+   "obtenu": "OK : 50000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14d",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Réparation de pneu payante sans autorisation",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Coût de pneu refusé : autorisation individuelle préalable du Branch Manager obligatoire ; citez la facture vérifiée du dossier autorisé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S17a",
+   "scenario": "17",
+   "compte": "uh_b",
+   "action": "Lot hors ligne : demande avec « autorisation » injectée, décision, dépense",
+   "attendu": "OK (SYNCHRONISE,REJETE,REJETE)",
+   "obtenu": "OK : SYNCHRONISE,REJETE,REJETE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S17b",
+   "scenario": "17",
+   "compte": "postgres (lecture)",
+   "action": "La demande hors ligne reste une demande, sans autorisation créée",
+   "attendu": "DEMANDEE/0",
+   "obtenu": "DEMANDEE/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S17c",
+   "scenario": "17",
+   "compte": "lc",
+   "action": "Dépense de maintenance hors ligne sans autorisation",
+   "attendu": "OK (Branch Manager)",
+   "obtenu": "OK : Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée ; citez la facture vérifiée que vous réglez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08a",
+   "scenario": "8",
+   "compte": "uh_b",
+   "action": "Contrôle avant départ conforme",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"fa0b1a2a-6090-4c9f-816b-e9c168d3777e\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08b",
+   "scenario": "8",
+   "compte": "postgres (lecture)",
+   "action": "Le contrôle ne crée ni dossier ni facture",
+   "attendu": "4/7",
+   "obtenu": "4/7",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08c",
+   "scenario": "8",
+   "compte": "lc",
+   "action": "Entretien préventif interne demandé",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"aa0e931b-6631-410b-b337-117c6644dda9\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08d",
+   "scenario": "8",
+   "compte": "lc",
+   "action": "Opérations prévues (sans devis payant)",
+   "attendu": "OK (DEVIS_RECU)",
+   "obtenu": "OK : {\"id\": \"aa0e931b-6631-410b-b337-117c6644dda9\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R05",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Revue : le coordinateur qualifie seul « sans frais »",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Qualifier une intervention « sans frais » est une décision du Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08e",
+   "scenario": "8",
+   "compte": "bm",
+   "action": "« Sans frais » avec un montant engagé",
+   "attendu": "REFUS (aucun montant)",
+   "obtenu": "REFUS : Intervention sans frais : aucun montant ne peut être engagé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08f",
+   "scenario": "8",
+   "compte": "bm",
+   "action": "Intervention interne qualifiée sans frais par le BM",
+   "attendu": "OK (PROGRAMMEE)",
+   "obtenu": "OK : {\"id\": \"aa0e931b-6631-410b-b337-117c6644dda9\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08g",
+   "scenario": "8",
+   "compte": "lc",
+   "action": "Démarrage",
+   "attendu": "OK (EN_COURS)",
+   "obtenu": "OK : {\"id\": \"aa0e931b-6631-410b-b337-117c6644dda9\", \"statut\": \"EN_COURS\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14e",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Facture déposée sur une intervention sans frais",
+   "attendu": "OK (\"hors_autorisation\": true)",
+   "obtenu": "OK : {\"id\": \"66a645df-8ea9-4f56-9502-a5583dc974f3\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14f",
+   "scenario": "14",
+   "compte": "fin",
+   "action": "Une facture ne régularise pas une dépense non autorisée",
+   "attendu": "REFUS (hors autorisation)",
+   "obtenu": "REFUS : Facture hors autorisation : 0 FCFA vérifiés + 7000 > 0 FCFA autorisés par le BM à la date de la facture. Rejetez-la ; un supplément ne régularise pas une facture antérieure.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S24f",
+   "scenario": "24",
+   "compte": "bm",
+   "action": "Exception BM : facture hors autorisation signalée",
+   "attendu": "OK (1)",
+   "obtenu": "OK : 1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S14g",
+   "scenario": "14",
+   "compte": "fin",
+   "action": "Rejet motivé de la facture",
+   "attendu": "OK (REJETEE)",
+   "obtenu": "OK : {\"id\": \"66a645df-8ea9-4f56-9502-a5583dc974f3\", \"statut\": \"REJETEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19a",
+   "scenario": "19",
+   "compte": "uh_c",
+   "action": "Freins avant KO au départ sur A3",
+   "attendu": "OK (INAPTE)",
+   "obtenu": "OK : {\"id\": \"daeb1d5c-c70e-42d1-8492-51b4a7124975\", \"incident\": {\"id\": \"b69556e3-bcca-43de-b8f5-0ab855aab2ee\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19b",
+   "scenario": "19",
+   "compte": "zh",
+   "action": "Diagnostic de l'incident",
+   "attendu": "OK (DIAGNOSTIC)",
+   "obtenu": "OK : {\"id\": \"b69556e3-bcca-43de-b8f5-0ab855aab2ee\", \"etape\": \"DIAGNOSTIC\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19c",
+   "scenario": "19",
+   "compte": "zh",
+   "action": "Le Chef de zone « autorise » la dépense dans l'incident",
+   "attendu": "REFUS (Aucun montant)",
+   "obtenu": "REFUS : Aucun montant ne se saisit dans le circuit incident : le coût passe par un dossier de maintenance autorisé par le Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19d",
+   "scenario": "19",
+   "compte": "lc",
+   "action": "Dossier lié à l'incident",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"d3cfce3f-a22c-4770-82fd-0f2b823b6d4a\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19e",
+   "scenario": "19",
+   "compte": "lc",
+   "action": "Soumission urgente au BM",
+   "attendu": "OK (EN_ATTENTE)",
+   "obtenu": "OK : {\"id\": \"609b2f2d-3a49-4eb9-8123-7cac47a666a6\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19f",
+   "scenario": "19",
+   "compte": "postgres (lecture)",
+   "action": "En attente de décision, la moto reste immobilisée",
+   "attendu": "IMMOBILISEE",
+   "obtenu": "IMMOBILISEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19g",
+   "scenario": "19",
+   "compte": "bm",
+   "action": "BM autorise",
+   "attendu": "OK (AUTORISEE)",
+   "obtenu": "OK : {\"id\": \"609b2f2d-3a49-4eb9-8123-7cac47a666a6\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 15000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19h",
+   "scenario": "19",
+   "compte": "lc",
+   "action": "Facture déposée",
+   "attendu": "OK (DEPOSEE)",
+   "obtenu": "OK : {\"id\": \"5da4d1f2-489a-49f6-939d-1c707274781f\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19i",
+   "scenario": "19",
+   "compte": "abm",
+   "action": "Facture vérifiée",
+   "attendu": "OK (VERIFIEE)",
+   "obtenu": "OK : {\"id\": \"5da4d1f2-489a-49f6-939d-1c707274781f\", \"statut\": \"VERIFIEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19j",
+   "scenario": "19",
+   "compte": "fin",
+   "action": "Facture payée en totalité",
+   "attendu": "OK (15000)",
+   "obtenu": "OK : {\"id\": \"5da4d1f2-489a-49f6-939d-1c707274781f\", \"montant_paye\": 15000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19k",
+   "scenario": "19",
+   "compte": "postgres (lecture)",
+   "action": "Facture payée, travaux non déclarés : la moto reste immobilisée",
+   "attendu": "EN_REPARATION/false",
+   "obtenu": "EN_REPARATION/false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S19l",
+   "scenario": "19",
+   "compte": "bm",
+   "action": "Levée de l'immobilisation d'incident par la levée simple",
+   "attendu": "REFUS (circuit de l'incident)",
+   "obtenu": "REFUS : Cette immobilisation se lève par le circuit de l'incident.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20f",
+   "scenario": "20",
+   "compte": "abm",
+   "action": "Contrôle de remise en service APTE",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"57e00696-6c91-4815-933d-23e42d9ce03b\", \"resultat\": \"APTE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S20g",
+   "scenario": "20",
+   "compte": "zh",
+   "action": "Remise en service : travaux payés mais non contrôlés",
+   "attendu": "REFUS (travaux)",
+   "obtenu": "REFUS : Remise en service bloquée : les travaux liés à l'incident ne sont pas contrôlés conformes.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02d",
+   "scenario": "2",
+   "compte": "lc",
+   "action": "Exception par moto sans référence documentaire",
+   "attendu": "REFUS (référence)",
+   "obtenu": "REFUS : Exception par moto : référence documentaire obligatoire (diagnostic, avis technique…).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02e",
+   "scenario": "2",
+   "compte": "lc",
+   "action": "Exception documentée après diagnostic (fictif)",
+   "attendu": "OK (BROUILLON)",
+   "obtenu": "OK : {\"id\": \"de3afd60-a7e8-47d5-a64d-230a37985695\", \"statut\": \"BROUILLON\", \"version\": 1}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02f",
+   "scenario": "2",
+   "compte": "bm",
+   "action": "BM approuve l'exception",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"de3afd60-a7e8-47d5-a64d-230a37985695\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-10-31\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02g",
+   "scenario": "2",
+   "compte": "postgres (lecture)",
+   "action": "Exception approuvée, mais aucun entretien vérifié : état de référence requis (pas d'échéance depuis février)",
+   "attendu": "ETAT_REFERENCE_REQUIS/null",
+   "obtenu": "ETAT_REFERENCE_REQUIS/null",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02h",
+   "scenario": "2",
+   "compte": "postgres (lecture)",
+   "action": "Les autres opérations de JACKSON restent à établir",
+   "attendu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "obtenu": "DIAGNOSTIC_INITIAL_REQUIS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02i",
+   "scenario": "2",
+   "compte": "postgres (lecture)",
+   "action": "L'exception de JACKSON ne s'applique à aucune autre moto",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25a",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Chef d'unité lit les autorisations",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25b",
+   "scenario": "25",
+   "compte": "zh",
+   "action": "Chef de zone lit les factures",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25c",
+   "scenario": "25",
+   "compte": "zh",
+   "action": "Chef de zone : montants masqués dans les dossiers",
+   "attendu": "OK (masqué/masqué)",
+   "obtenu": "OK : masqué/masqué",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25d",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Chef d'unité lit les pièces financières stockées",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25e",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Chef d'unité dépose une pièce financière",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25f",
+   "scenario": "25",
+   "compte": "lc",
+   "action": "Coordinateur lit les pièces financières",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25g",
+   "scenario": "25",
+   "compte": "anon",
+   "action": "Anonyme lit les décisions",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for view moto_v_decisions_bm",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25h",
+   "scenario": "25",
+   "compte": "sup",
+   "action": "Supervisor hors module lit les factures",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25i",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Chef d'unité lit « Décisions à prendre »",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25j",
+   "scenario": "25",
+   "compte": "postgres (lecture)",
+   "action": "Aucune fonction moto exécutable par anon",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S25k",
+   "scenario": "25",
+   "compte": "postgres (lecture)",
+   "action": "RLS active sur toutes les tables de la migration 6",
+   "attendu": "6",
+   "obtenu": "6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-07",
+   "scenario": "10",
+   "compte": "bm2",
+   "action": "Le BM utilisateur de la moto autorise sa propre réparation",
+   "attendu": "REFUS (Indépendance)",
+   "obtenu": "REFUS : Indépendance : l'autorisation de dépense ne peut pas être fait par l'utilisateur de la moto.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-08",
+   "scenario": "10",
+   "compte": "bm",
+   "action": "Un autre BM décide (refus motivé)",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-09",
+   "scenario": "10",
+   "compte": "bm",
+   "action": "Refus motivé par un BM indépendant",
+   "attendu": "OK (REFUSEE)",
+   "obtenu": "OK : {\"id\": \"4e618036-8dd1-44af-b068-49b956697ef9\", \"statut\": \"REFUSEE\", \"montant_autorise\": null}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-10",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Programmation après refus",
+   "attendu": "REFUS (autorisation)",
+   "obtenu": "REFUS : Engagement impossible : aucune autorisation du Branch Manager enregistrée pour ce dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-11",
+   "scenario": "11",
+   "compte": "zh",
+   "action": "Chef de zone : constat de paiement",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-12",
+   "scenario": "11",
+   "compte": "uh_a",
+   "action": "Chef d'unité appelle directement la décision BM",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-13",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "Approuver une version déjà approuvée",
+   "attendu": "REFUS (déjà traitée)",
+   "obtenu": "REFUS : Version introuvable ou déjà traitée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08c",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "Revue : le BM approuve sa propre proposition",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : le Branch Manager approuve une version proposée par un autre (coordinateur ou ABM).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-14",
+   "scenario": "3",
+   "compte": "lc",
+   "action": "Nouvelle version VIDANGE (1 200 km) proposée par le coordinateur",
+   "attendu": "OK (BROUILLON)",
+   "obtenu": "OK : {\"id\": \"63717971-1276-41fb-a43d-6569d4bd751b\", \"statut\": \"BROUILLON\", \"version\": 3}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-15",
+   "scenario": "3",
+   "compte": "bm",
+   "action": "Approbation de la version 3",
+   "attendu": "OK (APPROUVEE)",
+   "obtenu": "OK : {\"id\": \"63717971-1276-41fb-a43d-6569d4bd751b\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-10-31\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-16",
+   "scenario": "22",
+   "compte": "postgres (lecture)",
+   "action": "Historique des paramètres : v2 remplacée conservée, v3 active",
+   "attendu": "2:REMPLACEE,3:APPROUVEE",
+   "obtenu": "2:REMPLACEE,3:APPROUVEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-17",
+   "scenario": "7",
+   "compte": "postgres (lecture)",
+   "action": "La nouvelle version recalcule depuis le même entretien vérifié",
+   "attendu": "3/2712.0",
+   "obtenu": "3/2712.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-18",
+   "scenario": "21",
+   "compte": "lc",
+   "action": "Annuler un dossier après engagement",
+   "attendu": "REFUS (Annulation impossible)",
+   "obtenu": "REFUS : Annulation impossible après engagement : terminez ou contrôlez le dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-19",
+   "scenario": "23",
+   "compte": "uh_a",
+   "action": "Régression : le Chef d'unité lit toujours sa moto et ses échéances",
+   "attendu": "OK (3)",
+   "obtenu": "OK : 3",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ADV-20",
+   "scenario": "23",
+   "compte": "bm",
+   "action": "Régression : flotte lisible",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01b",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Revue : facture 10 000 pour l'autorisation de 10 000",
+   "attendu": "OK (DEPOSEE)",
+   "obtenu": "OK : {\"id\": \"179bb207-6eb8-4292-bd36-b5303945e36f\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01c",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Revue : seconde facture sur la même autorisation",
+   "attendu": "OK (\"hors_autorisation\": true)",
+   "obtenu": "OK : {\"id\": \"26c09566-d02e-47d0-b018-1e726cff6655\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01d",
+   "scenario": "18",
+   "compte": "abm",
+   "action": "Revue : la seconde facture ne peut pas être vérifiée",
+   "attendu": "REFUS (hors autorisation)",
+   "obtenu": "REFUS : Facture hors autorisation : 10000 FCFA vérifiés + 10000 > 10000 FCFA autorisés par le BM à la date de la facture. Rejetez-la ; un supplément ne régularise pas une facture antérieure.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01e",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Revue : pneu de 10 000 réparti sur la facture vérifiée",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"7d26bb0a-802d-4278-b130-3413fce916a8\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01f",
+   "scenario": "18",
+   "compte": "lc",
+   "action": "Revue : second pneu sur la même facture épuisée",
+   "attendu": "REFUS (restant)",
+   "obtenu": "REFUS : Coût supérieur au montant restant de la facture vérifiée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01g",
+   "scenario": "18",
+   "compte": "bm",
+   "action": "Revue : coût tracé = 10 000 facturés vérifiés, pas davantage",
+   "attendu": "OK (10000)",
+   "obtenu": "OK : 10000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02a",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Revue : réparation déclarée « supervision » avec une moto",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Dépense de maintenance refusée : autorisation individuelle préalable du Branch Manager obligatoire, même sur une enveloppe approuvée ; citez la facture vérifiée que vous réglez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02b",
+   "scenario": "17",
+   "compte": "lc",
+   "action": "Revue : même tentative hors ligne",
+   "attendu": "OK (REJETE)",
+   "obtenu": "OK : REJETE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02d",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Décision BM : libellé de réparation refusé en supervision, même sans moto",
+   "attendu": "REFUS (dossier de maintenance)",
+   "obtenu": "REFUS : Libellé de réparation ou d'entretien : cette dépense relève d'un dossier de maintenance autorisé par le Branch Manager, pas de la supervision.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02e",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Décision BM : variante accentuée « Vidange + pièces »",
+   "attendu": "REFUS (dossier de maintenance)",
+   "obtenu": "REFUS : Libellé de réparation ou d'entretien : cette dépense relève d'un dossier de maintenance autorisé par le Branch Manager, pas de la supervision.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02c",
+   "scenario": "13",
+   "compte": "lc",
+   "action": "Revue : vraie dépense de supervision (sans moto) acceptée",
+   "attendu": "OK (SUPERVISION)",
+   "obtenu": "OK : {\"id\": \"b615bbde-4d5c-4273-9247-98df08643604\", \"nature\": \"SUPERVISION\", \"statut\": \"DECLAREE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R03a",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Revue : début des travaux daté avant la décision BM",
+   "attendu": "REFUS (antérieurs)",
+   "obtenu": "REFUS : Travaux antérieurs à l'autorisation du Branch Manager : une dépense ne se régularise pas après coup.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R03b",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Revue : facture datée avant la décision BM",
+   "attendu": "REFUS (antérieure)",
+   "obtenu": "REFUS : Facture antérieure à l'autorisation du Branch Manager : elle ne peut pas régulariser une dépense.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R04a",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Revue : annulation d'un dossier autorisé, non engagé",
+   "attendu": "OK (ANNULEE)",
+   "obtenu": "OK : {\"id\": \"c2bda819-2bf5-4242-bc27-8051b317de0d\", \"statut\": \"ANNULEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R04b",
+   "scenario": "14",
+   "compte": "postgres (lecture)",
+   "action": "Revue : l'autorisation tombe avec le dossier",
+   "attendu": "ANNULEE",
+   "obtenu": "ANNULEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R04c",
+   "scenario": "14",
+   "compte": "lc",
+   "action": "Revue : programmer un dossier annulé",
+   "attendu": "REFUS (autorisation)",
+   "obtenu": "REFUS : Engagement impossible : aucune autorisation du Branch Manager enregistrée pour ce dossier.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R06a",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Revue : soumettre au BM un autre garage que celui du devis",
+   "attendu": "REFUS (garage)",
+   "obtenu": "REFUS : Le garage soumis au BM est celui du dossier (devis) : enregistrez un nouveau devis pour en changer.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R06b",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Revue : soumission avec un garage suspendu",
+   "attendu": "REFUS (suspendu)",
+   "obtenu": "REFUS : Garage suspendu : soumission impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07a",
+   "scenario": "25",
+   "compte": "zh",
+   "action": "Revue : Chef de zone lit le devis dans la table",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_maintenances",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07b",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Revue : Chef d'unité lit le montant engagé",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_maintenances",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07c",
+   "scenario": "25",
+   "compte": "zh",
+   "action": "Revue : Chef de zone lit les montants de maintenance du coût de flotte",
+   "attendu": "OK (masqué/masqué)",
+   "obtenu": "OK : masqué/masqué",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07d",
+   "scenario": "25",
+   "compte": "uh_a",
+   "action": "Revue : le Chef d'unité garde la lecture non financière de son dossier",
+   "attendu": "OK (CLOTUREE)",
+   "obtenu": "OK : CLOTUREE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07e",
+   "scenario": "25",
+   "compte": "sup",
+   "action": "Revue : un profil hors module ne voit aucun dossier",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08a",
+   "scenario": "12",
+   "compte": "lc",
+   "action": "Revue : le soumetteur vérifie la facture (coordinateur non habilité)",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08b",
+   "scenario": "12",
+   "compte": "abm",
+   "action": "Revue : l'ABM qui a soumis la demande vérifie la facture",
+   "attendu": "REFUS (Séparation)",
+   "obtenu": "REFUS : Séparation des tâches : celui qui a soumis la demande au BM ne vérifie pas la facture.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08d",
+   "scenario": "12",
+   "compte": "fin",
+   "action": "Revue : la Finance vérifie",
+   "attendu": "OK (VERIFIEE)",
+   "obtenu": "OK : {\"id\": \"a4de44f8-54ab-4261-a8c0-b2296edaddd6\", \"statut\": \"VERIFIEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08e",
+   "scenario": "24",
+   "compte": "fin",
+   "action": "Revue : le vérificateur constate lui-même le paiement",
+   "attendu": "REFUS (Séparation)",
+   "obtenu": "REFUS : Séparation des tâches : celui qui vérifie la facture ne constate pas son paiement.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R09",
+   "scenario": "19",
+   "compte": "lc",
+   "action": "Revue : dossier de A1 lié à un incident de A3",
+   "attendu": "REFUS (même moto)",
+   "obtenu": "REFUS : L'incident lié doit concerner la même moto.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CONC-A",
+   "scenario": "18",
+   "compte": "fin + lc",
+   "action": "Concurrence : paiement Finance et règlement enveloppe simultanés (facture 5 000)",
+   "attendu": "1 seul passe ; total réglé 5000",
+   "obtenu": "paiement=True enveloppe=False (Montant supérieur au reste dû de la facture (5000 FCFA facturés, 5000 déjà réglés).\nCONTEXT:  PL/pgSQL function moto_ref) total=5000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CONC-B",
+   "scenario": "18",
+   "compte": "fin + fin2",
+   "action": "Concurrence : deux vérifications simultanées (autorisé 5 000)",
+   "attendu": "1 seule passe ; 5000 vérifiés",
+   "obtenu": "v1=True v2=False (Facture hors autorisation : 5000 FCFA vérifiés + 5000 > 5000 FCFA autorisés par le BM à la date de la facture. Rejetez-l) vérifié=5000",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CONC-C",
+   "scenario": "14",
+   "compte": "fin",
+   "action": "Facture d'hier non couverte par un supplément décidé aujourd'hui",
+   "attendu": "REFUS (date de la facture)",
+   "obtenu": "REFUS : Facture hors autorisation : 0 FCFA vérifiés + 8000 > 5000 FCFA autorisés par le BM à la date de la facture. Rejetez-la ; un supplément ne régularise pas une facture antérieure.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CONC-D",
+   "scenario": "15",
+   "compte": "lc",
+   "action": "Engagement supplémentaire chez un garage suspendu après la décision",
+   "attendu": "REFUS (suspendu)",
+   "obtenu": "REFUS : Garage suspendu : aucun engagement possible.",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}

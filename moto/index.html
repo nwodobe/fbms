@@ -11,15 +11,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="./moto.css?v=20261101-fleet-1">
+<link rel="stylesheet" href="./moto.css?v=20261102-maint-1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Clé de module « fbms » : niveaux bm / chef / agent (shared/auth-gate.js, inchangé).
      L'accès réel aux données moto est décidé par le serveur (RLS + fonctions moto_*). -->
 <script defer src="../shared/auth-gate.js?v=20261016-recovery-1" data-module="fbms"></script>
-<script defer src="./moto-core.js?v=20261101-fleet-1"></script>
-<script defer src="./moto-offline.js?v=20261101-fleet-1"></script>
-<script defer src="./moto-formation.js?v=20261101-fleet-1"></script>
-<script defer src="./moto-app.js?v=20261101-fleet-1"></script>
+<script defer src="./moto-core.js?v=20261102-maint-1"></script>
+<script defer src="./moto-offline.js?v=20261102-maint-1"></script>
+<script defer src="./moto-formation.js?v=20261102-maint-1"></script>
+<script defer src="./moto-maintenance.js?v=20261102-maint-1"></script>
+<script defer src="./moto-app.js?v=20261102-maint-1"></script>
 <!-- Service worker EXISTANT de la suite (sw.js, non modifié) : mise en cache réseau d'abord des pages visitées, pour l'ouverture hors connexion. -->
 <script>if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(e){console.warn("[HORS LIGNE] Service Worker",e&&e.message?e.message:e);});});}</script>
 </head>

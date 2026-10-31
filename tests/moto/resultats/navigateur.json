@@ -1,5 +1,5 @@
 {
- "date": "2026-10-31T13:11:04.034Z",
+ "date": "2026-10-31T18:42:07.184Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=84623fb2-8827-4d29-b612-65ed9bb8a27c/photo/f9a250ad-c0ce-4c2f-8ce6-b535203fd7b6.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=b01e4bf6-2c09-445f-a9a7-5778876115ca/photo/86a62ca6-af95-4577-80e8-7497d64a302e.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -385,7 +385,7 @@
    "exigence": "Intégrer une moto déjà en exploitation (scénarios 6, 7)",
    "action": "Coordinateur intègre une moto sans marque connue",
    "attendu": "marque et compteur « Non disponible », aucune dépense ou vidange créée",
-   "obtenu": "ferme · MOTO-002 · Marque et modèle non disponibles · mentions Non disponible=17 · dépenses=0",
+   "obtenu": "ferme · MOTO-002 · Marque et modèle non disponibles · mentions Non disponible=4 · dépenses=0",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/moto-en-exploitation-bureau.png"
   },
@@ -397,6 +397,87 @@
    "obtenu": "section=1",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/pilotage-exceptions-bureau.png"
+  },
+  {
+   "id": "UI-MNT-01",
+   "exigence": "Tableau de bord du coordinateur (§14)",
+   "action": "Coordinateur ouvre l'espace Maintenance sur téléphone",
+   "attendu": "4 sections ; moto sans modèle : diagnostic initial à établir, aucune échéance inventée",
+   "obtenu": "Maintenance du parc · Maintenance à programmer | Autorisations en attente | Réparations en cours | Dépenses et performance · diagnostic=1 · débordement=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-coordinateur-mobile.png"
+  },
+  {
+   "id": "UI-MNT-02",
+   "exigence": "Modèle technique et règle proposée (§5)",
+   "action": "Coordinateur associe MOTO-001 au modèle APSONIC et propose la vidange en politique interne",
+   "attendu": "modèle enregistré ; version BROUILLON inactive",
+   "obtenu": "hypothèses=3 · ferme/ferme · APSONIC_AP150_30 · {\"statut\":\"BROUILLON\",\"nature_source\":\"POLITIQUE_INTERNE\"} · échéance=REGLE_NON_APPROUVEE",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-MNT-03",
+   "exigence": "Approbation BM d'une règle ; hypothèse refusée (§4)",
+   "action": "BM tente d'approuver une hypothèse puis approuve la version requalifiée",
+   "attendu": "hypothèse refusée ; version APPROUVEE, échéance calculée",
+   "obtenu": "refus hypothèse=true · ferme · APPROUVEE · {\"statut\":\"A_JOUR\",\"prochaine_km\":\"1501.0\"}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-MNT-04",
+   "exigence": "Garage enregistré ≠ agréé (§9)",
+   "action": "Coordinateur enregistre un garage",
+   "attendu": "statut CANDIDAT",
+   "obtenu": "ferme · CANDIDAT",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-garages-bureau.png"
+  },
+  {
+   "id": "UI-MNT-05",
+   "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
+   "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
+   "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/b01e4bf6-2c09-445f-a9a7-5778876115ca/devis/d346dc82-8351-40ba-86bc-849e268c7be4.pdf\"}",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
+  },
+  {
+   "id": "UI-MNT-06",
+   "exigence": "Chef de zone : aucun pouvoir financier proposé (scénario 11)",
+   "action": "Chef de zone ouvre l'espace Maintenance et le dossier",
+   "attendu": "pas d'onglet Décisions, pas de bouton Autoriser ni Programmer, montants masqués",
+   "obtenu": "onglet=0 · boutons financiers=0 · montants masqués=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-MNT-07",
+   "exigence": "« Décisions à prendre » : autorisation BM plafonnée (§15, scénario 15)",
+   "action": "BM ouvre ses décisions sur téléphone et autorise 15 000 sur 20 000 demandés",
+   "attendu": "carte concise ; autorisation nominative de 15 000",
+   "obtenu": "cartes=1 · ferme · {\"statut\":\"AUTORISEE\",\"montant_autorise\":\"15000\",\"decide_par\":\"00000000-0000-4000-9000-000000000001\"} · débordement=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-decisions-bm-mobile.png"
+  },
+  {
+   "id": "UI-MNT-08",
+   "exigence": "Engagement limité au plafond autorisé (scénario 15)",
+   "action": "Coordinateur tente d'engager 20 000 puis engage 15 000",
+   "attendu": "refus serveur affiché ; PROGRAMMEE à 15 000",
+   "obtenu": "erreur:Engagement de 20000 FCFA supérieur au plafond autorisé par le BM (15000 FCFA) : soumettez un supplément. · ferme · {\"statut\":\"PROGRAMMEE\",\"montant_engage\":\"15000\"}",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "UI-MNT-09",
+   "exigence": "Pilotage BM : décisions de dépense en tête",
+   "action": "BM ouvre le pilotage",
+   "attendu": "bloc « Décisions de dépense à prendre (0) » et lien vers ses décisions",
+   "obtenu": "bloc=1 · lien=1",
+   "resultat": "RÉUSSI",
+   "preuve": ""
   },
   {
    "id": "UI-RWD-flotte-mobile",
@@ -471,6 +552,33 @@
    "preuve": "tests/moto/resultats/captures/photos-mobile.png"
   },
   {
+   "id": "UI-RWD-maintenance-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "maintenance à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-mobile.png"
+  },
+  {
+   "id": "UI-RWD-decisions-bm-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "decisions-bm à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/decisions-bm-mobile.png"
+  },
+  {
+   "id": "UI-RWD-entretiens-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "entretiens à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/entretiens-mobile.png"
+  },
+  {
    "id": "UI-RWD-flotte-tablette",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "flotte à 768×1024",
@@ -541,6 +649,33 @@
    "obtenu": "débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/photos-tablette.png"
+  },
+  {
+   "id": "UI-RWD-maintenance-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "maintenance à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-tablette.png"
+  },
+  {
+   "id": "UI-RWD-decisions-bm-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "decisions-bm à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/decisions-bm-tablette.png"
+  },
+  {
+   "id": "UI-RWD-entretiens-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "entretiens à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/entretiens-tablette.png"
   },
   {
    "id": "UI-RWD-flotte-bureau",
@@ -615,11 +750,38 @@
    "preuve": "tests/moto/resultats/captures/photos-bureau.png"
   },
   {
+   "id": "UI-RWD-maintenance-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "maintenance à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/maintenance-bureau.png"
+  },
+  {
+   "id": "UI-RWD-decisions-bm-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "decisions-bm à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/decisions-bm-bureau.png"
+  },
+  {
+   "id": "UI-RWD-entretiens-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "entretiens à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/entretiens-bureau.png"
+  },
+  {
    "id": "UI-CONSOLE",
    "exigence": "Aucune erreur console",
    "action": "Erreurs JavaScript et réponses HTTP en erreur sur toutes les pages",
    "attendu": "0 inattendue",
-   "obtenu": "console=0 · réseau inattendu=0 · refus attendus=1",
+   "obtenu": "console=0 · réseau inattendu=0 · refus attendus=2",
    "resultat": "RÉUSSI",
    "preuve": ""
   }
@@ -631,6 +793,14 @@
   },
   {
    "page": "/moto/index.html#/admin",
+   "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  },
+  {
+   "page": "/moto/index.html#/maintenance/dossiers",
+   "message": "HTTP 400 POST /rest/v1/rpc/moto_maintenance_programmer"
+  },
+  {
+   "page": "/moto/index.html#/maintenance/dossiers",
    "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
   }
  ]
