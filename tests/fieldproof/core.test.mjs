@@ -124,5 +124,45 @@ t('Vérification : conforme, modifié, absent, hors manifeste', () => {
 });
 t('Estimation taille vidéo 2 min 720p ≈ 39 Mo', () => { const n = C.tailleVideoEstimee('STANDARD', 120); return n > 35e6 && n < 45e6; });
 
+/* Localité GPS hors ligne (référentiel villages FBMS) */
+const VIL = [{ id: 'a', nom: 'Village Fictif Alpha', lat: 7.5, lon: -5.0, sp: 'S/P Une' }, { id: 'b', nom: 'Village Fictif Beta', lat: 7.56, lon: -5.0, sp: 'S/P Deux' }, { id: 'z', nom: 'Sans coordonnées', lat: null, lon: null }];
+t('Distance haversine : 0,06° de latitude ≈ 6,67 km', () => { const d = C.distanceKm({ lat: 7.5, lon: -5 }, { lat: 7.56, lon: -5 }); return Math.abs(d - 6.672) < 0.01; });
+t('Localité : au village de la mission → nom, S/P, conforme', () => {
+  const l = C.localiteGps({ lat: 7.501, lon: -5.0 }, VIL, { villageId: 'a' });
+  return l.code === 'AU_VILLAGE' && l.nom === 'Village Fictif Alpha' && l.conformite === 'CONFORME' && l.texte === 'Localité GPS : Village Fictif Alpha (S/P Une) · à 0,1 km — village de la mission' && C.localiteGps({ lat: 7.5, lon: -5 }, [{ id: 'q', nom: 'Q', lat: 7.5, lon: -5, sp: 'Botro' }], {}).texte.includes('(S/P Botro)');
+});
+t('Localité : position au village Beta, mission déclarée à Alpha (6,7 km) → ÉCART', () => {
+  const l = C.localiteGps({ lat: 7.56, lon: -5.0 }, VIL, { villageId: 'a' });
+  return l.nom === 'Village Fictif Beta' && l.conformite === 'ECART' && /ÉCART : 6,7 km du village de la mission/.test(l.texte) && C.localiteAlerte(l);
+});
+t('Localité : environs (4 km) sans écart', () => { const l = C.localiteGps({ lat: 7.536, lon: -5.0 }, VIL, { villageId: 'b' }); return l.code === 'ENVIRONS' && /à 2,7 km de Village Fictif Beta/.test(l.texte) || (l.code === 'AU_VILLAGE' && l.conformite === 'CONFORME'); });
+t('Localité : hors des villages FBMS au-delà de 15 km', () => { const l = C.localiteGps({ lat: 7.8, lon: -5.0 }, VIL, {}); return l.code === 'HORS' && /hors des villages FBMS \(le plus proche : Village Fictif Beta, 27 km\)/.test(l.texte) && l.conformite === null; });
+t('Localité : sans GPS → non déterminée', () => C.localiteGps(null, VIL, {}).code === 'ABSENT');
+t('Localité : référentiel sans coordonnées → non déterminée', () => C.localiteGps({ lat: 7.5, lon: -5 }, [VIL[2]], {}).code === 'SANS_REF');
+t('Localité : coordonnées 0,0 ignorées', () => C.localiteGps({ lat: 0, lon: 0 }, VIL, {}).code === 'ABSENT');
+t('Bandeau : 6e ligne localité ; vidéo libellée « au DÉBUT »', () => {
+  const loc = C.localiteGps({ lat: 7.5, lon: -5 }, VIL, { villageId: 'a' });
+  const p = C.lignesBandeau({ ...base, gpsDebut: { lat: 7.5, lon: -5, precision: 9, horodatage: now }, localite: loc }, now);
+  const v = C.lignesBandeau({ ...base, type: 'VIDEO', dureeMs: 1000, gpsDebut: { lat: 7.5, lon: -5, precision: 9, horodatage: now }, localite: loc });
+  return p.length === 6 && p[5].startsWith('Localité GPS : Village Fictif Alpha') && v[5].startsWith('Localité au DÉBUT : Village Fictif Alpha');
+});
+t('Manifeste CSV : colonnes de localité renseignées', () => {
+  const loc = C.localiteGps({ lat: 7.56, lon: -5 }, VIL, { villageId: 'a' });
+  const csv = C.manifesteCsv(mission, [{ ...medias[0], localite: loc }]);
+  return csv.includes('localite_gps;localite_sous_prefecture;localite_distance_km;distance_village_mission_km;localite_statut') && csv.includes('Village Fictif Beta;S/P Deux;0;6.67;AU_VILLAGE/ECART');
+});
+
+t('OSM : nom de lieu extrait de la réponse Nominatim', () => { const l = C.lieuOsm({ address: { village: 'Localité Fictive OSM', county: 'Sous-préfecture Fictive' } }); return l.nom === 'Localité Fictive OSM' && l.detail === 'Sous-préfecture Fictive'; });
+t('OSM + FBMS : nom OSM affiché, contrôle FBMS conservé (écart)', () => {
+  const l = C.localiteGps({ lat: 7.56, lon: -5 }, VIL, { villageId: 'a' }, { nom: 'Localité Fictive OSM', detail: 'S/P Fictive' });
+  return l.texte.startsWith('Localité GPS : Localité Fictive OSM, S/P Fictive (OSM) · FBMS : Village Fictif Beta') && /ÉCART : 6,7 km/.test(l.texte) && l.conformite === 'ECART' && l.source === 'OSM';
+});
+t('OSM ignoré sans position GPS', () => C.localiteGps(null, VIL, {}, { nom: 'X' }).code === 'ABSENT');
+
+t('Hub de la carte FBMS : nommé avec sa qualification, sans fausse conformité', () => {
+  const l = C.localiteGps({ lat: 7.70, lon: -5 }, VIL.concat([{ id: 'hub:1', nom: 'Localité Hub', qualif: 'hub cluster Botro', lat: 7.70, lon: -5 }]), { villageId: 'a' });
+  return l.texte.startsWith('Localité GPS : Localité Hub (hub cluster Botro) · à 0,0 km') && l.conformite === 'ECART';
+});
+
 console.log(`\n${ok} réussis, ${ko} échoués`);
 process.exit(ko ? 1 : 0);

@@ -9,7 +9,7 @@
   'use strict';
   var C = global.FP_CORE, S = global.FP_STORE, K = global.FP_CAPTURE;
   var doc = global.document, nav = global.navigator;
-  var app = { profil: null, villages: [], refMaj: null, urls: [], flux: null, loc: null, enreg: null, capture: null };
+  var app = { profil: null, villages: [], hubs: [], refMaj: null, urls: [], flux: null, loc: null, enreg: null, capture: null };
   var LOT_MAX = 450 * 1048576;     // taille maximale d'un ZIP exporté
   var SEUIL_WHATSAPP_MEDIA = 16 * 1048576;
 
@@ -40,7 +40,7 @@
   }
 
   /* -- Référentiel villages (lecture seule, périmètre RLS) ------------------ */
-  function cleRef() { return 'villages:' + (app.profil && app.profil.user_id || 'inconnu'); }
+  function cleRef() { return 'villages:v2:' + (app.profil && app.profil.user_id || 'inconnu'); }
   function client() {
     if (app.sb) return app.sb;
     if (!global.supabase || !global.supabase.createClient) return null;
@@ -51,25 +51,43 @@
   function preparerReferentiel(force) {
     return S.refLire(cleRef()).then(function (r) {
       if (r && r.valeur) { app.villages = r.valeur; app.refMaj = r.maj; }
+      S.refLire(cleRef().replace('villages:', 'hubs:')).then(function (h) { if (h && h.valeur) app.hubs = h.valeur; });
       if (!enLigne() || (!force && r && Date.now() - new Date(r.maj) < 6 * 3600 * 1000)) return;
       var sb = client(); if (!sb) return;
-      return sb.from('villages').select('id,village,cluster,s1:data->s1').eq('deleted', false).then(function (res) {
+      return sb.from('villages').select('id,village,cluster,gps_lat,gps_lng,s1:data->s1').eq('deleted', false).then(function (res) {
         if (res.error) throw res.error;
         var l = (res.data || []).map(function (v) {
           var s1 = v.s1 || {};
-          return { id: v.id, nom: v.village || s1.village || '', cluster: libelleCluster(v.cluster || s1.cluster || '') };
+          var lat = nombre(v.gps_lat != null ? v.gps_lat : s1.gpsLat), lon = nombre(v.gps_lng != null ? v.gps_lng : s1.gpsLng);
+          return { id: v.id, nom: v.village || s1.village || '', cluster: libelleCluster(v.cluster || s1.cluster || ''), lat: lat, lon: lon, sp: s1.sousPrefecture || '', dep: s1.departement || '' };
         }).filter(function (v) {
           if (!v.nom) return false;
           var A = global.AFLP_ACCESS;
           return !(A && A.inScope) || A.inScope(app.profil, { cluster: v.cluster });
         }).sort(function (a, b) { return (a.cluster + a.nom).localeCompare(b.cluster + b.nom, 'fr'); });
         app.villages = l; app.refMaj = new Date().toISOString();
-        return S.refEcrire(cleRef(), l);
+        return S.refEcrire(cleRef(), l).then(preparerHubs);
       }).catch(function (e) {
         if (!(r && r.valeur)) avis('Référentiel des villages non chargé : ' + (e && e.message || e) + '. Reconnectez-vous au réseau pour préparer le mode terrain.', 'warn', 8000);
       });
     });
   }
+  /* Hubs de cluster de la carte FBMS (fbms/fbms_carte.html, table hubs_clusters) :
+     points de repère supplémentaires pour nommer la localité (lecture seule). */
+  function preparerHubs() {
+    var sb = client(); if (!sb) return;
+    return sb.from('hubs_clusters').select('id_hub,nom,localite,departement,gps_lat,gps_lng').eq('deleted', false).then(function (res) {
+      if (res.error) return;
+      var l = (res.data || []).map(function (h) {
+        return { id: 'hub:' + h.id_hub, nom: h.localite || h.nom || '', qualif: 'hub cluster ' + (h.nom || ''), dep: h.departement || '', lat: nombre(h.gps_lat), lon: nombre(h.gps_lng), hub: true };
+      }).filter(function (h) { return h.nom && h.lat != null && h.lon != null; });
+      app.hubs = l;
+      return S.refEcrire(cleRef().replace('villages:', 'hubs:'), l);
+    }).catch(function () { /* facultatif : les villages suffisent */ });
+  }
+  function reperes() { return app.villages.concat(app.hubs || []); }
+  function nombre(x) { var n = typeof x === 'number' ? x : parseFloat(String(x == null ? '' : x).replace(',', '.')); return isFinite(n) ? n : null; }
+  function nbGeolocalises() { return app.villages.filter(function (v) { return v.lat != null && v.lon != null; }).length; }
   function clusters() {
     var vus = {}, l = [];
     app.villages.forEach(function (v) { if (v.cluster && !vus[v.cluster]) { vus[v.cluster] = 1; l.push(v.cluster); } });
@@ -87,6 +105,11 @@
     if (g === 'CONFIRME_AGENT') return '<span class="fp-badge fp-b-ok">Galerie : confirmé par l\'agent</span>';
     if (g === 'ENVOI_LANCE') return '<span class="fp-badge fp-b-warn">Galerie : à vérifier</span>';
     return '<span class="fp-badge fp-b-ko">Pas encore dans la galerie</span>';
+  }
+  function badgeLocalite(l) {
+    if (!l || !l.nom) return '';
+    var ecart = l.conformite === 'ECART';
+    return '<span class="fp-badge ' + (ecart ? 'fp-b-ko' : l.code === 'AU_VILLAGE' ? 'fp-b-ok' : 'fp-b-warn') + '">' + esc((ecart ? 'Écart · ' : '') + l.nom + ' ' + String(l.distanceKm).replace('.', ',') + ' km') + '</span>';
   }
   function badgeGps(pos, quand) {
     var s = C.statutGps(pos, quand);
@@ -110,10 +133,13 @@
       }
       h += '<section class="fp-carte"><h2>Préparation du téléphone</h2><ul class="fp-pret">' +
         ligneEtat(app.villages.length > 0, app.villages.length ? app.villages.length + ' village(s) de votre périmètre disponibles hors ligne' + (app.refMaj ? ' (mis à jour le ' + C.dateHeureAbj(app.refMaj) + ')' : '') : 'Villages non préparés : connectez-vous une fois au réseau') +
+        ligneEtat(nbGeolocalises() > 0, nbGeolocalises() + ' village(s) géolocalisé(s)' + (app.hubs.length ? ' et ' + app.hubs.length + ' hub(s) de la carte FBMS' : '') + ' : nom de la localité affiché sur les médias, sans réseau') +
         ligneEtat(K.cameraDisponible(), K.cameraDisponible() ? 'Caméra accessible depuis l\'application' : 'Caméra non accessible dans ce navigateur') +
         ligneEtat(K.videoDisponible(), K.videoDisponible() ? 'Vidéo avec bandeau incrusté disponible (' + esc((K.typeVideo() || 'format par défaut').split(';')[0]) + ')' : 'Vidéo avec bandeau non prise en charge par ce navigateur') +
         ligneEtat(!esp || esp.libre > 300 * 1048576, esp ? 'Espace disponible pour l\'application : ' + C.octetsTexte(esp.libre) : 'Espace disponible : inconnu sur ce navigateur') +
-        '</ul><div class="fp-actions"><button class="fp-btn" data-preparer>' + (enLigne() ? 'Mettre à jour les villages' : 'Hors ligne : mise à jour impossible') + '</button><a class="fp-btn fp-btn-lien" href="#aide">Autorisations et bonnes pratiques</a>' +
+        '</ul><label class="fp-option"><input type="checkbox" id="fpGalerieAuto"' + (galerieAuto() ? ' checked' : '') + '> Enregistrer automatiquement chaque photo et vidéo validée dans la galerie du téléphone</label>' +
+        '<label class="fp-option"><input type="checkbox" id="fpOsm"' + (osmActif() ? ' checked' : '') + '> Avec réseau, rechercher le nom du lieu sur OpenStreetMap (seules les coordonnées GPS sont envoyées)</label>' +
+        '<div class="fp-actions"><button class="fp-btn" data-preparer>' + (enLigne() ? 'Mettre à jour les villages' : 'Hors ligne : mise à jour impossible') + '</button><a class="fp-btn fp-btn-lien" href="#aide">Autorisations et bonnes pratiques</a>' +
         (app.auth && (app.auth.niveau === 'bm' || app.auth.niveau === 'chef') ? '<a class="fp-btn fp-btn-lien" href="#verifier">Contrôler un dossier reçu</a>' : '') + '</div></section>';
       h += '<section><h2 class="fp-titre-section">Mes missions <small>(' + miss.length + ')</small></h2>';
       if (!miss.length) h += '<p class="fp-vide">Aucune mission sur ce téléphone. Créez une mission avant de prendre des photos ou des vidéos.</p>';
@@ -196,7 +222,7 @@
       '<span class="fp-type ' + (video ? 'fp-type-v' : 'fp-type-p') + '">' + (video ? '▶ VIDÉO ' + C.duree(x.dureeMs) : 'PHOTO') + '</span></button>' +
       '<div class="fp-media-corps"><strong class="fp-mono">' + esc(x.id.split('-').pop()) + '</strong> <span>' + esc(C.heureAbj(x.debut)) + '</span>' +
       (video && !x.micro ? ' <span class="fp-badge fp-b-warn">Muette</span>' : '') + (x.statut === 'RECUPERE' ? ' <span class="fp-badge fp-b-warn">Récupérée</span>' : '') +
-      '<div class="fp-badges">' + badgeGps(x.gpsDebut, x.debut) + badgeGalerie(x) + (x.local === 'VERIFIE' ? '' : '<span class="fp-badge fp-b-ko">Copie locale absente</span>') + '</div>' +
+      '<div class="fp-badges">' + badgeGps(x.gpsDebut, x.debut) + badgeLocalite(x.localite) + badgeGalerie(x) + (x.local === 'VERIFIE' ? '' : '<span class="fp-badge fp-b-ko">Copie locale absente</span>') + '</div>' +
       '<div class="fp-media-actions"><button class="fp-btn fp-btn-petit" data-galerie="' + esc(x.id) + '">Galerie</button><button class="fp-btn fp-btn-petit" data-partager="' + esc(x.id) + '">Partager</button><button class="fp-btn fp-btn-petit" data-details="' + esc(x.id) + '">Détails</button></div></div></article>';
   }
 
@@ -210,6 +236,7 @@
         x.type === 'VIDEO' ? ['Fin', x.fin ? C.dateHeureAbj(x.fin) : '—'] : null, x.type === 'VIDEO' ? ['Durée réelle', C.duree(x.dureeMs)] : null,
         [x.type === 'VIDEO' ? 'Position au début' : 'Position', x.gpsDebut ? C.coordonnees(x.gpsDebut) + ' ' + C.precisionTexte(x.gpsDebut) : 'Non disponible'],
         ['Statut localisation', C.statutGps(x.gpsDebut, x.debut).libelle],
+        [x.type === 'VIDEO' ? 'Localité au début' : 'Localité GPS', x.localite ? x.localite.texte.replace(/^Localité( GPS)? : /, '') : 'Non déterminée'],
         x.type === 'VIDEO' ? ['Position à la fin', x.gpsFin ? C.coordonnees(x.gpsFin) + ' ' + C.precisionTexte(x.gpsFin) : 'Non disponible'] : null,
         x.type === 'VIDEO' ? ['Son', x.micro ? 'Enregistré' : 'Vidéo muette (micro indisponible)'] : null,
         ['Format', x.mime + ' · ' + x.largeur + '×' + x.hauteur], ['Taille', C.octetsTexte(x.taille)], ['Empreinte SHA-256', x.sha256],
@@ -249,8 +276,9 @@
   function peutPartager(fichiers) { try { return !!(nav.share && nav.canShare && nav.canShare({ files: fichiers })); } catch (e) { return false; } }
   function telecharger(blob, nom) {
     var a = doc.createElement('a'), u = URL.createObjectURL(blob);
-    a.href = u; a.download = nom; a.rel = 'noopener'; doc.body.appendChild(a); a.click();
-    setTimeout(function () { a.remove(); URL.revokeObjectURL(u); }, 60000);
+    a.href = u; a.download = nom; a.rel = 'noopener'; a.hidden = true; a.setAttribute('aria-hidden', 'true');
+    doc.body.appendChild(a); a.click(); a.remove();   // lien retiré aussitôt (ne reste pas dans la page)
+    setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
   }
   function chargerFichiers(ids) {
     return Promise.all(ids.map(function (id) { return Promise.all([S.media(id), S.fichier(id)]); })).then(function (l) {
@@ -289,9 +317,59 @@
       });
     });
   }
+  function galerieAuto() { return pref('galerieAuto', '1') === '1'; }
+  function osmActif() { return pref('osm', '1') === '1'; }
+
+  /* -- Nom du lieu en ligne (OpenStreetMap / Nominatim) ----------------------
+     Autorisé par le Branch Manager (31/10/2026). Seules les coordonnées sont
+     envoyées, jamais un média. Appel uniquement pendant l'écran de capture,
+     avec réseau, au plus une fois toutes les 10 s et seulement si l'agent a
+     bougé de plus de 150 m (politique d'usage Nominatim : 1 requête/s max).
+     Le résultat est préparé AVANT le déclenchement : aucune attente. */
+  var OSM_URL = 'https://nominatim.openstreetmap.org/reverse';
+  function majOsm(pos) {
+    if (!osmActif() || !pos || !enLigne() || app.osmEnCours) return;
+    var g = app.osm;
+    if (g && C.distanceKm(g, pos) < 0.15 && Date.now() - g.at < 600000) return;
+    if (app.osmDernier && Date.now() - app.osmDernier < 10000) return;
+    app.osmEnCours = true; app.osmDernier = Date.now();
+    var q = OSM_URL + '?format=jsonv2&zoom=14&addressdetails=1&accept-language=fr&lat=' + pos.lat.toFixed(6) + '&lon=' + pos.lon.toFixed(6);
+    var ctl = global.AbortController ? new AbortController() : null, t = setTimeout(function () { if (ctl) ctl.abort(); }, 8000);
+    fetch(q, { signal: ctl ? ctl.signal : undefined, credentials: 'omit', referrerPolicy: 'strict-origin-when-cross-origin' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) { var l = C.lieuOsm(j); if (l) app.osm = { lat: pos.lat, lon: pos.lon, at: Date.now(), nom: l.nom, detail: l.detail }; })
+      .catch(function () { /* hors réseau ou service indisponible : repli FBMS */ })
+      .then(function () { clearTimeout(t); app.osmEnCours = false; apercuBandeau(); });
+  }
+  /* Le nom en ligne n'est utilisé que s'il correspond à la position actuelle. */
+  function osmPour(pos) {
+    var g = app.osm;
+    return g && pos && C.distanceKm(g, pos) <= 0.3 && Date.now() - g.at <= 600000 ? { nom: g.nom, detail: g.detail } : null;
+  }
+  /* Lance l'enregistrement galerie du fichier en attente, dans le geste de
+     l'agent. iPhone : fenêtre de partage (« Enregistrer l'image / la vidéo »).
+     Autres : téléchargement direct (dossier Téléchargements, indexé par la
+     galerie). Renvoie une promesse { ok, voie, message } qui ne rejette jamais. */
+  function galerieImmediate(a, m) {
+    try {
+      var proto = { id: a.meta.idMedia, cluster: m.cluster, village: m.village, debut: a.meta.debut, mime: a.mime };
+      var f = fichierPour(proto, a.blob);
+      if (estIOS()) {
+        if (!peutPartager([f])) return Promise.resolve({ ok: false, message: 'Ce navigateur ne propose pas l\'enregistrement dans Photos : utilisez le bouton ci-dessous.' });
+        return nav.share({ files: [f] }).then(function () { return { ok: true, voie: 'PARTAGE' }; }, function (e) {
+          return { ok: false, message: e && e.name === 'AbortError' ? 'Enregistrement dans Photos annulé : le fichier n\'est pas dans la galerie.' : 'La fenêtre « Enregistrer » n\'a pas pu s\'ouvrir automatiquement.' };
+        });
+      }
+      telecharger(f, f.name);
+      return Promise.resolve({ ok: true, voie: 'TELECHARGEMENT' });
+    } catch (e) { return Promise.resolve({ ok: false, message: 'Enregistrement automatique impossible : ' + (e && e.message || e) }); }
+  }
   function confirmerGalerie(ids) {
     Promise.all(ids.map(function (id) { return S.media(id).then(function (x) { if (x) { x.galerie = 'CONFIRME_AGENT'; x.galerieConfirmeLe = new Date().toISOString(); return S.enregistrerMedia(x); } }); }))
-      .then(function () { fermerDialogue(); avis('Présence dans la galerie confirmée.', 'ok'); rafraichir(); });
+      .then(function () {
+        fermerDialogue(); avis('Présence dans la galerie confirmée.', 'ok'); rafraichir();
+        var b = $('.fp-revue-ok [data-confirmer-galerie]'); if (b) { b.outerHTML = '<span class="fp-badge fp-b-ok">Galerie : confirmé par l\'agent</span>'; }
+      });
   }
   function texteMission(m, l) {
     var p = l.filter(function (x) { return x.media.type === 'PHOTO'; }).length;
@@ -418,6 +496,7 @@
       app.loc.abonner(function (l) {
         var g = $('#fpGps'); if (!g) return;
         var pos = l.position(), s = C.statutGps(pos);
+        if (pos) majOsm(pos);
         g.textContent = pos ? 'GPS ' + C.precisionTexte(pos) : (l.erreur ? 'Sans GPS' : 'GPS…');
         g.className = 'fp-etat ' + (s.code === 'OK' ? 'fp-ok' : 'fp-ko');
         g.title = l.erreur || s.libelle;
@@ -432,12 +511,14 @@
   function alerte(t, douce) { var a = $('#fpAlerte'); if (!a) return; a.hidden = !t; a.textContent = t || ''; a.className = 'fp-alerte' + (douce ? ' fp-alerte-douce' : ''); }
   function metaCapture() {
     var c = app.capture, m = c.mission;
-    return { type: c.mode, agent: m.agent, cluster: m.cluster, village: m.village, activite: m.activite, gpsDebut: app.loc ? app.loc.position() : null, debut: new Date().toISOString() };
+    var gps = app.loc ? app.loc.position() : null;
+    return { type: c.mode, agent: m.agent, cluster: m.cluster, village: m.village, activite: m.activite, gpsDebut: gps, debut: new Date().toISOString(),
+      localite: C.localiteGps(gps, reperes(), { villageId: m.villageId, village: m.village }, osmPour(gps)) };
   }
   function apercuBandeau() {
     var z = $('#fpBandeauApercu'); if (!z || !app.capture) return;
     var meta = metaCapture(); meta.idMedia = app.capture.prochainId || '…';
-    if (app.enreg && app.enreg.etat === 'ENREGISTREMENT') { meta.debut = app.enreg.cfg.meta.debut; meta.gpsDebut = app.enreg.cfg.meta.gpsDebut; meta.dureeMs = app.enreg.dureeMs(); }
+    if (app.enreg && app.enreg.etat === 'ENREGISTREMENT') { meta.debut = app.enreg.cfg.meta.debut; meta.gpsDebut = app.enreg.cfg.meta.gpsDebut; meta.localite = app.enreg.cfg.meta.localite; meta.dureeMs = app.enreg.dureeMs(); }
     z.innerHTML = C.lignesBandeau(meta).map(function (l, i) { return '<div class="fp-bl' + (i === 0 ? ' fp-bl-titre' : '') + '">' + esc(l) + '</div>'; }).join('');
   }
   function prochainId() {
@@ -507,12 +588,15 @@
   function valider() {
     var c = app.capture, a = c.enAttente, m = c.mission; if (!a) return;
     var bouton = $('[data-valider]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
+    /* Galerie AUTOMATIQUE : déclenchée dans le geste de l'agent (appui sur
+       « Valider »), sinon iPhone refuse d'ouvrir la fenêtre d'enregistrement. */
+    var galerie = galerieAuto() ? galerieImmediate(a, m) : null;
     var img = $('#fpRevue .fp-lecteur');
     var vig = a.vignette || vignette(img);
     S.empreinte(a.blob).then(function (sha) {
       var x = {
         id: a.meta.idMedia, missionId: m.id, type: a.meta.type, statut: a.statut || 'FINAL', agent: m.agent, cluster: m.cluster, village: m.village,
-        debut: a.meta.debut, fin: a.fin || null, dureeMs: a.dureeMs != null ? a.dureeMs : null, gpsDebut: a.meta.gpsDebut, gpsFin: a.gpsFin || null,
+        debut: a.meta.debut, fin: a.fin || null, dureeMs: a.dureeMs != null ? a.dureeMs : null, gpsDebut: a.meta.gpsDebut, gpsFin: a.gpsFin || null, localite: a.meta.localite || null,
         micro: a.meta.type === 'VIDEO' ? !!c.micro : null, mime: a.mime, largeur: a.largeur, hauteur: a.hauteur, taille: a.blob.size, sha256: sha,
         qualite: a.qualite || null, raisonArret: a.raison || null, galerie: 'NON_ENREGISTRE', local: 'NON', vignette: vig,
         commentaire: ($('#fpComMedia').value || '').trim(), appareil: nav.userAgent.slice(0, 160), application: 'AFLP FIELD PROOF ' + C.VERSION
@@ -524,9 +608,13 @@
         .then(function () { return a.meta.type === 'VIDEO' ? S.effacerMorceaux(x.id) : null; })
         .then(function () { m[a.meta.type === 'VIDEO' ? 'nbVideos' : 'nbPhotos'] = (m[a.meta.type === 'VIDEO' ? 'nbVideos' : 'nbPhotos'] || 0) + 1; return S.enregistrerMission(m); })
         .then(function () { return S.persister(); })
-        .then(function () {
+        .then(function () { return galerie ? galerie.then(function (r) { if (r.ok) { x.galerie = 'ENVOI_LANCE'; x.galerieLe = new Date().toISOString(); return S.enregistrerMedia(x).then(function () { return r; }); } return r; }) : { ok: false, manuel: true }; })
+        .then(function (g) {
           c.enAttente = null;
-          $('#fpRevue').innerHTML = '<div class="fp-revue fp-revue-ok"><p><b>' + esc(x.id) + '</b> conservé dans l\'application (relu et contrôlé).</p><p class="fp-note fp-note-warn">Il n\'est <b>pas encore</b> dans la galerie du téléphone.</p><div class="fp-actions"><button class="fp-btn fp-btn-principal" data-galerie="' + esc(x.id) + '">Enregistrer dans la galerie</button><button class="fp-btn" data-continuer>Continuer la capture</button></div></div>';
+          var gal = g.ok
+            ? '<p class="fp-note">' + (g.voie === 'PARTAGE' ? 'Envoyé vers <b>Photos</b>.' : 'Enregistré dans <b>Téléchargements</b> : visible dans <b>Galerie / Google Photos</b>, album « Download ».') + ' Vérifiez-le dans la galerie, puis confirmez.</p><div class="fp-actions"><button class="fp-btn fp-btn-principal" data-confirmer-galerie="' + esc(x.id) + '">Oui, c\'est dans ma galerie</button>'
+            : '<p class="fp-note fp-note-warn">' + (g.manuel ? 'Il n\'est <b>pas encore</b> dans la galerie du téléphone.' : esc(g.message || 'La galerie n\'a pas pu être ouverte automatiquement.')) + '</p><div class="fp-actions"><button class="fp-btn fp-btn-principal" data-galerie="' + esc(x.id) + '">Enregistrer dans la galerie</button>';
+          $('#fpRevue').innerHTML = '<div class="fp-revue fp-revue-ok"><p><b>' + esc(x.id) + '</b> conservé dans l\'application (relu et contrôlé).</p>' + gal + '<button class="fp-btn" data-continuer>Continuer la capture</button></div></div>';
           $('#fpDeclencheur').disabled = false; $('#fpChrono').hidden = true;
           return prochainId();
         });
@@ -547,7 +635,7 @@
       var meta = metaCapture(); meta.idMedia = c.prochainId;
       /* Registre provisoire : permet de récupérer la vidéo si l'application
          est fermée pendant l'enregistrement. */
-      return S.enregistrerMedia({ id: meta.idMedia, missionId: c.mission.id, type: 'VIDEO', statut: 'ENREGISTREMENT', debut: meta.debut, gpsDebut: meta.gpsDebut, micro: !!c.micro, qualite: q, agent: c.mission.agent, cluster: c.mission.cluster, village: c.mission.village, galerie: 'NON_ENREGISTRE', local: 'NON' }).then(function () {
+      return S.enregistrerMedia({ id: meta.idMedia, missionId: c.mission.id, type: 'VIDEO', statut: 'ENREGISTREMENT', debut: meta.debut, gpsDebut: meta.gpsDebut, localite: meta.localite || null, micro: !!c.micro, qualite: q, agent: c.mission.agent, cluster: c.mission.cluster, village: c.mission.village, galerie: 'NON_ENREGISTRE', local: 'NON' }).then(function () {
         var averti = false;
         app.enreg = new K.Enregistreur({
           videoEl: $('#fpCam'), flux: app.flux, micro: c.micro, meta: meta, qualite: q,
@@ -639,7 +727,8 @@
       '<section class="fp-carte fp-texte"><h2>Pourquoi ces autorisations ?</h2><ul>' +
       '<li><b>Caméra</b> : prendre la photo ou la vidéo maintenant, dans l\'application. Une image de la galerie ne peut pas servir de preuve.</li>' +
       '<li><b>Micro</b> (vidéo seulement) : enregistrer le son. Si vous refusez, la vidéo est muette et le dossier l\'indique.</li>' +
-      '<li><b>Localisation</b> : lue uniquement pendant l\'écran de capture, pour inscrire la position sur le média. Elle n\'est jamais envoyée ni suivie en continu. Sans GPS, le média porte « LOCALISATION NON VÉRIFIÉE ».</li>' +
+      '<li><b>Localisation</b> : lue uniquement pendant l\'écran de capture, pour inscrire la position et le nom du lieu sur le média. Pas de suivi continu. Sans GPS, le média porte « LOCALISATION NON VÉRIFIÉE ».</li>' +
+      '<li><b>Nom du lieu</b> : sans réseau, il vient des villages FBMS enregistrés sur le téléphone. Avec réseau (réglage activé par défaut), la position — et rien d\'autre — est envoyée à <b>OpenStreetMap</b> pour obtenir le nom de la localité. Si la position est loin du village déclaré, le bandeau affiche un <b>ÉCART</b>.</li>' +
       '<li><b>Galerie / fichiers</b> : c\'est vous qui enregistrez chaque fichier dans la galerie et qui choisissez de le partager. Rien ne part tout seul.</li></ul>' +
       '<h2>Personnes photographiées ou filmées</h2><ul><li>Annoncez le but (dossier de mission AFLP) avant de photographier ou de filmer.</li><li>Respectez tout refus. Ne filmez pas d\'enfants sans l\'accord d\'un parent présent.</li><li>N\'utilisez pas ces images hors du cadre ANAGROCI.</li></ul>' +
       '<h2>Sur le terrain</h2><ul><li>Préparez le téléphone au bureau : connexion une fois, villages mis à jour, batterie chargée.</li><li>Gardez l\'écran allumé pendant une vidéo : verrouiller le téléphone arrête l\'enregistrement (la partie filmée est conservée).</li><li>Vidéo recommandée : 2 minutes par séquence (≈ 40 Mo en 720p). Plusieurs séquences courtes valent mieux qu\'une très longue.</li><li>Pour transmettre une preuve vérifiable par WhatsApp : 📎 → <b>Document</b>.</li>' +
@@ -704,6 +793,8 @@
     if (!app.profil.user_id) app.profil.user_id = app.profil.id || app.profil.email || 'inconnu';
     $('#fpQui').textContent = 'Connecté : ' + (app.profil.nom || app.profil.email || '') + ' · ' + (app.profil.role || '') + ' — identité reprise de FBMS.';
     doc.addEventListener('click', clic);
+    doc.addEventListener('change', function (ev) { if (ev.target && ev.target.id === 'fpOsm') { setPref('osm', ev.target.checked ? '1' : '0'); if (!ev.target.checked) app.osm = null; avis(ev.target.checked ? 'Recherche du nom du lieu en ligne activée.' : 'Recherche en ligne désactivée : nom tiré des villages FBMS uniquement.', 'info'); }
+      if (ev.target && ev.target.id === 'fpGalerieAuto') { setPref('galerieAuto', ev.target.checked ? '1' : '0'); avis(ev.target.checked ? 'Enregistrement automatique dans la galerie activé.' : 'Enregistrement automatique désactivé : utilisez « Galerie » sur chaque média.', 'info'); } });
     global.addEventListener('hashchange', router);
     global.addEventListener('online', function () { majReseau(); preparerReferentiel(false); });
     global.addEventListener('offline', majReseau);

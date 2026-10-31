@@ -14,7 +14,7 @@ Données : 100 % fictives (agent « AGENT FICTIF E2E », villages « Village Fic
 Conséquence : **aucune compatibilité Android ou iPhone n'est déclarée.** Les résultats ci-dessous prouvent
 que la logique et les fichiers produits sont corrects dans Chromium ; la recette appareils du §4 reste due.
 
-## 2. Résultats : 32/32 unitaires, 26/26 navigateur, 1/1 hors ligne (deux passes consécutives stables)
+## 2. Résultats v1.1.0 : 46/46 unitaires, 29/29 navigateur, 1/1 hors ligne
 
 | # | Scénario du mandat | Résultat observé | Statut |
 |---|---|---|---|
@@ -39,6 +39,10 @@ que la logique et les fichiers produits sont corrects dans Chromium ; la recette
 | — | Accessibilité axe-core WCAG 2.1 A/AA | 0 violation sur 6 écrans réels du module (390×844) | RÉUSSI (T22) |
 | — | Aucune transmission | 0 écriture Supabase, 0 requête POST/PUT sur toute la recette | RÉUSSI (T19) |
 | — | Erreurs console | 0 | RÉUSSI (T21) |
+| v1.1 | Galerie automatique dès « Valider » | 2 fichiers remis sans geste, identiques au registre (SHA-256), statut « à vérifier » | RÉUSSI — Chromium (T02b) |
+| v1.1 | Localité hors ligne inscrite sur la photo | OCR Tesseract du bandeau du fichier : « Localité GPS : Village Fictif Alpha (S/P …) · à 0,0 km — village de la mission » ; 0 appel réseau | RÉUSSI (T07b) |
+| v1.1 | Localité en ligne + écart | Nom OpenStreetMap (doublure) + « ÉCART : 6,7 km du village de la mission » lus par OCR sur le fichier ; requête limitée aux coordonnées et options ; EXIF à jour | RÉUSSI (T24) |
+| v1.1 | Hubs de la carte FBMS | Hub fictif chargé comme repère (« 2 village(s) géolocalisé(s) et 1 hub(s) ») | RÉUSSI (T00) |
 
 ## 3. Défauts trouvés par la recette et corrigés
 
