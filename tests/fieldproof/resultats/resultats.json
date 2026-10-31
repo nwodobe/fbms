@@ -1,0 +1,242 @@
+{
+  "date": "2026-10-31T18:51:49.499Z",
+  "navigateur": "Chromium /usr/bin/google-chrome",
+  "mime_video": "video/mp4;codecs=avc1.42E01E,opus",
+  "ffprobe_video": "mov,mp4,m4a,3gp,3g2,mj2",
+  "reussis": 29,
+  "total": 29,
+  "resultats": [
+    {
+      "id": "T00",
+      "scenario": "Ouverture du module, identité reprise de FBMS, villages du périmètre préparés",
+      "resultat": "RÉUSSI",
+      "obtenu": "2 village(s) de votre périmètre disponibles hors ligne  | 2 village(s) géolocalisé(s) et 1 hub(s) de la carte FBMS  | Connecté : AGENT FICTIF E2E · Unit Head — identité reprise de FBMS. (Diabo exclu : hors périmètre Botro)",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T01",
+      "scenario": "Création d'une mission HORS LIGNE (cluster, village, activité ; rien de prérempli)",
+      "resultat": "RÉUSSI",
+      "obtenu": "FP-20261031-4264EE · réseau « Hors ligne » · activité non présélectionnée : true",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T02",
+      "scenario": "Capture de plusieurs photos (hors ligne), bandeau ajouté sous l'image",
+      "resultat": "RÉUSSI",
+      "obtenu": "FP-20261031-4264EE-P01 1920×1394 120378 o | FP-20261031-4264EE-P02 1920×1394 121277 o",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T02b",
+      "scenario": "Galerie AUTOMATIQUE dès « Valider » : fichier final remis au téléphone sans geste supplémentaire, statut « à vérifier »",
+      "resultat": "RÉUSSI",
+      "obtenu": "2 fichier(s) remis automatiquement · 2/2 identiques au registre · statuts ENVOI_LANCE,ENVOI_LANCE · AFLP_FP-20261031-4264EE-P01_BOTRO_VILLAGE-FICTIF-ALPHA_20261031-185100.jpg, AFLP_FP-20261031-4264EE-P02_BOTRO_VILLAGE-FICTIF-ALPHA_20261031-185100.jpg",
+      "preuve": "",
+      "nature": "SIMULÉ — Chromium : « galerie » = dossier Téléchargements (Android) ; iPhone : feuille « Enregistrer » non testable ici"
+    },
+    {
+      "id": "T03",
+      "scenario": "Enregistrement de plusieurs vidéos (hors ligne)",
+      "resultat": "RÉUSSI",
+      "obtenu": "FP-20261031-4264EE-V01 video/mp4;codecs=avc1.42E01E,opus 4.3s 482688 o | FP-20261031-4264EE-V02 video/mp4;codecs=avc1.42E01E,opus 2.3s 268245 o",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T04a",
+      "scenario": "Photo : bandeau incrusté dans les PIXELS du fichier final (lu par PIL)",
+      "resultat": "RÉUSSI",
+      "obtenu": "fichier 1920×1394 · couleur bas 9,67,39 (bandeau) · couleur haut 0,144,0 (scène)",
+      "preuve": "tests/fieldproof/resultats/fichiers/FP-20261031-4264EE-P01.jpg",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T04b",
+      "scenario": "Photo : EXIF date, auteur et GPS relus hors navigateur ; empreinte identique au registre",
+      "resultat": "RÉUSSI",
+      "obtenu": "AGENT FICTIF E2E|N7.5|W5.0|2026:10:31 18:51:00 · sha256 registre = fichier : true",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T05",
+      "scenario": "Vidéo lisible hors navigateur (ffprobe) : image + son, durée cohérente",
+      "resultat": "RÉUSSI",
+      "obtenu": "mov,mp4,m4a,3gp,3g2,mj2 · vidéo h264 1280×934 · audio opus · durée fichier 4.277067s / registre 4.282s",
+      "preuve": "tests/fieldproof/resultats/fichiers/FP-20261031-4264EE-V01.mp4",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T06",
+      "scenario": "Vidéo : bandeau incrusté sur les images décodées par ffmpeg (début ET fin), compteur qui évolue",
+      "resultat": "RÉUSSI",
+      "obtenu": "bandeau début 8,66,38 · bandeau fin 9,66,39 · zone texte modifiée entre les deux images : True",
+      "preuve": "tests/fieldproof/resultats/fichiers/v1-0.6s.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T07b",
+      "scenario": "HORS LIGNE : nom de la localité tiré des villages FBMS, inscrit dans les PIXELS de la photo (OCR Tesseract)",
+      "resultat": "RÉUSSI",
+      "obtenu": "registre : « Localité GPS : Village Fictif Alpha (S/P Fictive Une) · à 0,0 km — village de la mission » · OCR : « Localité GPS : Village Fictif Alpha (S/P Fictive Une) : à 0,0 km — village de la mission » · appels OpenStreetMap hors ligne : 0",
+      "preuve": "tests/fieldproof/resultats/fichiers/FP-20261031-4264EE-P01-bandeau.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T07",
+      "scenario": "GPS activé : position et précision enregistrées (photo) ; début ET fin (vidéo)",
+      "resultat": "RÉUSSI",
+      "obtenu": "photo 7.5,-5 ±12 · vidéo début [7.5,-5] fin [7.5,-5] · 2026-10-31T18:51:01.549Z → 2026-10-31T18:51:05.831Z",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T08",
+      "scenario": "Sans GPS (autorisation retirée) : capture autorisée, avertissement, statut LOCALISATION NON VÉRIFIÉE",
+      "resultat": "RÉUSSI",
+      "obtenu": "FP-20261031-4264EE-P03 gps=null · alerte « Localisation refusée : les médias porteront la mention LOCALISATION NO… » · bandeau « …LOCALISATION NON VÉRIFIÉEL » · EXIF GPS présent : False",
+      "preuve": "tests/fieldproof/resultats/fichiers/FP-20261031-4264EE-P03-sans-gps.jpg",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T09",
+      "scenario": "Enregistrement « galerie » : téléchargement du fichier final identique, statut « à vérifier » puis confirmé par l'agent",
+      "resultat": "RÉUSSI",
+      "obtenu": "AFLP_FP-20261031-4264EE-P01_BOTRO_VILLAGE-FICTIF-ALPHA_20261031-185100.jpg · empreinte identique · statut avant confirmation : ENVOI_LANCE",
+      "preuve": "",
+      "nature": "SIMULÉ — sur Chromium bureau, « galerie » = dossier Téléchargements"
+    },
+    {
+      "id": "T10",
+      "scenario": "Partage : jamais automatique ; repli « Télécharger » quand le partage de fichiers est indisponible",
+      "resultat": "RÉUSSI",
+      "obtenu": "partage natif disponible : false · dialogue : « Le partage direct de fichiers n'est pas disponible dans ce navigateur. Téléchargez les fichiers, puis joignez-les depuis WhatsApp (📎 → Docu… »",
+      "preuve": "",
+      "nature": "SIMULÉ — WhatsApp non testable hors téléphone"
+    },
+    {
+      "id": "T11",
+      "scenario": "Export du dossier HORS LIGNE : ZIP valide (unzip -t), 3 photos + 2 vidéos + manifestes, empreintes conformes",
+      "resultat": "RÉUSSI",
+      "obtenu": "AFLP_FP-20261031-4264EE_VILLAGE-FICTIF-ALPHA.zip · 1117135 o · 8 entrées · 5/5 empreintes conformes · CSV 5 lignes · No errors detected in compressed data of /home/claude/fbms/tests/fieldproof/resultats/fichiers/AFLP_FP-20261031-4264EE_VILLAGE-FICTIF-ALPHA.zip.",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T12",
+      "scenario": "Contrôle d'un dossier reçu : ZIP conforme ; fichier altéré détecté « Modifié »",
+      "resultat": "RÉUSSI",
+      "obtenu": "ZIP : Conforme, Conforme, Conforme, Conforme, Conforme · fichier altéré : Modifié depuis sa création, Absent, Absent, Absent, Absent",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T24",
+      "scenario": "EN LIGNE : nom du lieu OpenStreetMap + contrôle FBMS ; position au village Beta pour une mission déclarée à Alpha → ÉCART inscrit sur la photo",
+      "resultat": "RÉUSSI",
+      "obtenu": "registre : « Localité GPS : Localité Fictive OSM, Sous-préfecture Fictive (OSM) · FBMS : Village Fictif Beta — ÉCART : 6,7 km du village de la mission » · OCR contient OSM + ÉCART : true · 1 appel(s) OSM, paramètres envoyés = coordonnées et options seulement : true · EXIF : « Localite GPS : Localite Fictive OSM, Sous-prefecture Fictive… »",
+      "preuve": "tests/fieldproof/resultats/fichiers/FP-20261031-4264EE-P04-osm-ecart-bandeau.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T13",
+      "scenario": "Persistance après fermeture et réouverture (retour réseau) : mission, registre et fichiers retrouvés",
+      "resultat": "RÉUSSI",
+      "obtenu": "6 médias affichés · vidéo FP-20261031-4264EE-V01 relue, empreinte identique : true",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T14",
+      "scenario": "Miniatures distinctes photo / vidéo dans la galerie de mission",
+      "resultat": "RÉUSSI",
+      "obtenu": "PHOTO | PHOTO | ▶ VIDÉO 00:04 | ▶ VIDÉO 00:02 | PHOTO | PHOTO",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T15",
+      "scenario": "Vidéo interrompue (fermeture pendant l'enregistrement) : séquence préservée puis récupérée",
+      "resultat": "RÉUSSI",
+      "obtenu": "3 segments écrits avant la coupure · FP-20261031-4264EE-V03 récupérée · 326485 o · lisible ffprobe : true (mov,mp4,m4a,3gp,3g2,mj2)",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T16",
+      "scenario": "Micro refusé : la vidéo est enregistrée MUETTE et le signale (ffprobe : pas de piste audio)",
+      "resultat": "RÉUSSI",
+      "obtenu": "alerte « Micro indisponible (Accès au micro refusé. Autorisez-le dans les réglages du navigateur (i » · registre micro=false · piste audio dans le fichier : false",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T17",
+      "scenario": "Caméra refusée : message clair, aucune capture possible, aucun recours à la galerie",
+      "resultat": "RÉUSSI",
+      "obtenu": "déclencheur désactivé : true · champ d'import de fichier : 0 · « Accès à la caméra refusé. Autorisez-le dans les réglages du navigateur (icône à gauche de l'adresse, ou Réglages > Safar… »",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T18",
+      "scenario": "Stockage presque plein pendant une vidéo : arrêt EXPLICITE, séquence conservée et validable",
+      "resultat": "RÉUSSI",
+      "obtenu": "raison STOCKAGE · 4s conservées · 437349 o · « Espace de stockage presque épuisé (10,0 Mo restants) : enregistrement arrêté pour protéger la séquence déjà fi »",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T19",
+      "scenario": "Aucune transmission : zéro écriture Supabase, zéro requête POST/PUT pendant toute la recette",
+      "resultat": "RÉUSSI",
+      "obtenu": "écritures Supabase : 0 · requêtes non-GET : 0",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T20-mobile",
+      "scenario": "Interfaces 390×844 : accueil, mission, capture photo/vidéo, portail — sans débordement horizontal",
+      "resultat": "RÉUSSI",
+      "obtenu": "aucun débordement · carte portail OK, clic → module",
+      "preuve": "tests/fieldproof/resultats/captures/mobile-*.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T20-tablette",
+      "scenario": "Interfaces 768×1024 : accueil, mission, capture photo/vidéo, portail — sans débordement horizontal",
+      "resultat": "RÉUSSI",
+      "obtenu": "aucun débordement · carte portail OK, clic → module",
+      "preuve": "tests/fieldproof/resultats/captures/tablette-*.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T20-bureau",
+      "scenario": "Interfaces 1440×900 : accueil, mission, capture photo/vidéo, portail — sans débordement horizontal",
+      "resultat": "RÉUSSI",
+      "obtenu": "aucun débordement · carte portail OK, clic → module",
+      "preuve": "tests/fieldproof/resultats/captures/bureau-*.png",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T22",
+      "scenario": "Accessibilité axe-core (WCAG 2.1 A/AA) sur les écrans réels du module, 390×844",
+      "resultat": "RÉUSSI",
+      "obtenu": "accueil → 0 | nouvelle → 0 | mission → 0 | capture → 0 | aide → 0 | verifier → 0",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    },
+    {
+      "id": "T21",
+      "scenario": "Aucune erreur console sur l'ensemble des parcours",
+      "resultat": "RÉUSSI",
+      "obtenu": "0 erreur (10 message(s) réseau attendus en mode hors ligne ignorés)",
+      "preuve": "",
+      "nature": "SIMULÉ (Chromium, caméra/micro factices)"
+    }
+  ]
+}
