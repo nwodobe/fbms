@@ -369,6 +369,12 @@ run_as("bm", f"select public.moto_permis_verifier('{w2}', 'CONFORME', 'RH FICTIF
 act("W9", "Revue 4", "bm", "Quatre yeux : le BM qui a validé ce permis l'annule", f"select public.moto_permis_annuler_erreur('{w2}', 'Tentative d''annulation par le vérificateur lui-même')", False, "Quatre yeux")
 act("W10", "Revue 4", "bm_b", "Un autre BM peut l'annuler", f"select public.moto_permis_annuler_erreur('{w2}', 'Annulation de contrôle par un second Branch Manager')", True, "ANNULE")
 
+# Cinquième vérification : un BM ne peut pas, seul, faire passer le numéro d'un vrai titulaire à un tiers.
+act("W11", "Revue 5", "bm", "Le BM qui a annulé valide lui-même un dépôt sur ce numéro",
+    f"select public.moto_permis_verifier((select id from public.moto_permis where titulaire_id='{U['lc']}' and statut='EN_VERIFICATION'), 'CONFORME', 'RH FICTIF', true)", False, "Quatre yeux")
+act("W12", "Revue 5", "abm", "L'ABM valide ce dépôt sur original", f"select public.moto_permis_verifier((select id from public.moto_permis where titulaire_id='{U['lc']}' and statut='EN_VERIFICATION'), 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+check("W13", "Revue 5", "Le motif de l'annulation est tracé au journal", f"select (motif like 'Numéro appartenant au coordinateur%')::text from public.moto_journal where table_nom='moto_permis' and nouvelle_valeur->>'statut'='ANNULE' and enregistrement_id='{w}' order by at desc limit 1", "true")
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "permis_carnet_7.json"), "w", encoding="utf-8") as f:

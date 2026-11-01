@@ -1,6 +1,6 @@
 {
  "base": "fbms_moto_test",
- "date": "2026-11-01T08:54:43.220493+00:00",
+ "date": "2026-11-01T08:59:05.290500+00:00",
  "resultats": [
   {
    "id": "SEC-01",
@@ -44,7 +44,7 @@
    "compte": "abm",
    "action": "ABM crée moto 1 (SAKASSOU)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"code\": \"MOTO-001\", \"origine\": \"NEUVE\", \"qr_token\": \"706c1157-67b3-4f1a-be3f-1d5f5199dc78\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"code\": \"MOTO-001\", \"origine\": \"NEUVE\", \"qr_token\": \"ffd00c0d-1b9f-434e-8f79-1040c1abc7ad\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -53,7 +53,7 @@
    "compte": "abm",
    "action": "ABM crée moto 2 (BOTRO)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"f946226b-1030-4e57-9188-90979bb8cae8\", \"code\": \"MOTO-002\", \"origine\": \"NEUVE\", \"qr_token\": \"13a23b95-c5f6-4f86-827d-a611f3c34893\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"535eb2de-4bc0-42e4-8f62-33cdc8b20034\", \"code\": \"MOTO-002\", \"origine\": \"NEUVE\", \"qr_token\": \"ef8eded6-3e20-4d98-8ee4-45a08a3e2a4f\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -62,7 +62,7 @@
    "compte": "abm",
    "action": "ABM crée moto 3 (BROBO)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"1456db90-15f7-4264-be2a-312d2d880d8a\", \"code\": \"MOTO-003\", \"origine\": \"NEUVE\", \"qr_token\": \"d4bae9ee-ca19-47eb-87e9-4329a0d98c2b\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"b509e1bf-c1e8-4a70-b1c4-67796513c9d0\", \"code\": \"MOTO-003\", \"origine\": \"NEUVE\", \"qr_token\": \"6b32873b-4d08-445b-9fb2-d47e158dcce5\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -71,7 +71,7 @@
    "compte": "abm",
    "action": "ABM crée moto 4 (N'Djébonoua)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"87e7a7f8-ae7a-4abe-9c2e-fb591cfb0065\", \"code\": \"MOTO-004\", \"origine\": \"NEUVE\", \"qr_token\": \"b7a5de7e-3ac0-42a1-ab53-62e4ef8e61f9\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"f684d9b3-d411-4139-bb5f-f353c0ddc078\", \"code\": \"MOTO-004\", \"origine\": \"NEUVE\", \"qr_token\": \"403ad6df-0a10-4986-9e8f-c5cfd4d584e6\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -116,7 +116,7 @@
    "compte": "abm",
    "action": "Châssis et immatriculation fictifs M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"row_version\": 2}",
+   "obtenu": "OK : {\"id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"row_version\": 2}",
    "resultat": "RÉUSSI"
   },
   {
@@ -215,7 +215,7 @@
    "compte": "abm",
    "action": "Carte grise M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"1af46886-7595-4eec-8fbb-1727296455a9\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"7db41aee-be72-46e2-91b6-70e9d0bcd388\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -224,7 +224,7 @@
    "compte": "abm",
    "action": "Plaque M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b4118902-0b9e-4d3b-a733-1182e9a1434d\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"b5ed02c6-f2de-4be5-94eb-a92fcdff4373\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -233,7 +233,7 @@
    "compte": "abm",
    "action": "Assurance M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"d44abbbe-7a44-4a82-9393-89ce772de3de\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"5e9ea2b3-7864-4d39-a5a4-c5a002ddbbcd\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -269,7 +269,7 @@
    "compte": "bm",
    "action": "BM vérifie carte grise M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"1af46886-7595-4eec-8fbb-1727296455a9\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"7db41aee-be72-46e2-91b6-70e9d0bcd388\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -278,7 +278,7 @@
    "compte": "bm",
    "action": "BM vérifie plaque M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b4118902-0b9e-4d3b-a733-1182e9a1434d\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"b5ed02c6-f2de-4be5-94eb-a92fcdff4373\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -287,7 +287,7 @@
    "compte": "bm",
    "action": "BM vérifie assurance M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"d44abbbe-7a44-4a82-9393-89ce772de3de\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"5e9ea2b3-7864-4d39-a5a4-c5a002ddbbcd\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -305,7 +305,7 @@
    "compte": "abm",
    "action": "Assurance expirée M2",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b08d21cb-1d3e-48ff-bfd7-d4a0bbf10867\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"c7028c83-658f-4d19-9fa5-4166e52aa828\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -341,7 +341,7 @@
    "compte": "abm",
    "action": "Inspection M2 avec freins KO déclarée APTE par le client",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"4efd056e-aec8-41de-95d8-9e095e47a3c8\", \"resultat\": \"INAPTE\", \"etat_reference\": false, \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"97199af2-8190-47f5-9b00-b9b48e6f21ee\", \"resultat\": \"INAPTE\", \"etat_reference\": false, \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -359,7 +359,7 @@
    "compte": "abm",
    "action": "Inspection M1 APTE",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"d8cdc774-1143-4ed6-b7b4-8d31f354fc15\", \"resultat\": \"APTE\", \"etat_reference\": false, \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"63085437-9022-4249-b683-ed515d1d28f5\", \"resultat\": \"APTE\", \"etat_reference\": false, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -404,7 +404,7 @@
    "compte": "bm",
    "action": "BM préaffecte M1 à UH Sakassou",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ac83af00-691e-4c1d-9856-a7fb614a090a\", \"statut_affectation\": \"PREAFFECTEE\"}",
+   "obtenu": "OK : {\"id\": \"1082e0e5-4fb1-4a8d-b6d5-5dddb6725d1b\", \"statut_affectation\": \"PREAFFECTEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -422,7 +422,7 @@
    "compte": "bm",
    "action": "BM préaffecte M4 à UH N'Djébonoua",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"cb3d1912-763d-4a41-8966-e4dca3250f35\", \"statut_affectation\": \"PREAFFECTEE\"}",
+   "obtenu": "OK : {\"id\": \"5d7b8918-0afe-4cfc-ab78-187205bccc6a\", \"statut_affectation\": \"PREAFFECTEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -449,7 +449,7 @@
    "compte": "abm",
    "action": "Dépôt du PV signé numérisé M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"131b9a8b-bf6c-4008-9660-89b6f43c5b40\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"a8c2e216-32bb-447a-8f93-98b1bf2222a2\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -467,7 +467,7 @@
    "compte": "bm",
    "action": "BM vérifie le PV",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"131b9a8b-bf6c-4008-9660-89b6f43c5b40\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"a8c2e216-32bb-447a-8f93-98b1bf2222a2\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -503,7 +503,7 @@
    "compte": "abm",
    "action": "ABM enregistre l'état de M1 avec 5 photos",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"79918a70-5ce6-4323-badb-340240840aa5\", \"anomalie_critique\": false, \"confirmation_statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"99168584-26ca-47e1-8c1b-a7e54079c935\", \"anomalie_critique\": false, \"confirmation_statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -521,7 +521,7 @@
    "compte": "uh_sak",
    "action": "UH Sakassou accepte avec réserve",
    "attendu": "OK (RESERVES)",
-   "obtenu": "OK : {\"id\": \"79918a70-5ce6-4323-badb-340240840aa5\", \"confirmation_statut\": \"ACCEPTEE_AVEC_RESERVES\"}",
+   "obtenu": "OK : {\"id\": \"99168584-26ca-47e1-8c1b-a7e54079c935\", \"confirmation_statut\": \"ACCEPTEE_AVEC_RESERVES\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -539,7 +539,7 @@
    "compte": "abm",
    "action": "ABM enregistre la remise de M1",
    "attendu": "OK (REMISE)",
-   "obtenu": "OK : {\"id\": \"5efe35dc-8860-4e40-8b9b-4f1dcafaa55a\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"79918a70-5ce6-4323-badb-340240840aa5\", \"statut_affectation\": \"REMISE\"}",
+   "obtenu": "OK : {\"id\": \"df83161b-2212-4be7-9329-cf5f3797bc3e\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"99168584-26ca-47e1-8c1b-a7e54079c935\", \"statut_affectation\": \"REMISE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -575,7 +575,7 @@
    "compte": "bm",
    "action": "BM autorise la circulation de M1",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -674,7 +674,7 @@
    "compte": "uh_sak",
    "action": "Relevé 40 km",
    "attendu": "OK",
-   "obtenu": "OK : {\"moto_id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"compteur_km\": 40}",
+   "obtenu": "OK : {\"moto_id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"compteur_km\": 40}",
    "resultat": "RÉUSSI"
   },
   {
@@ -683,7 +683,7 @@
    "compte": "uh_sak",
    "action": "Rejeu client_op_id identique",
    "attendu": "OK (doublon)",
-   "obtenu": "OK : {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"compteur_km\": 40}",
+   "obtenu": "OK : {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"compteur_km\": 40}",
    "resultat": "RÉUSSI"
   },
   {
@@ -728,7 +728,7 @@
    "compte": "uh_sak",
    "action": "Contrôle OK",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"c07e8109-0cfe-4407-b886-d514f4ee3bc8\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"25e3a2ba-5ada-49f6-b8c6-42b48dafaa26\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -746,7 +746,7 @@
    "compte": "uh_sak",
    "action": "Lot : 1 valide, 1 conflit, 1 id invalide, 1 type interdit",
    "attendu": "OK",
-   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"resultat\": {\"moto_id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"compteur_km\": 55}, \"client_op_id\": \"b5d86822-018b-43d0-b9b3-09274bc9c91b\"}, {\"code\": \"P0001\", \"statut\": \"REJETE\", \"message\": \"CONFLIT_COMPTEUR : 1 km est inférieur au relevé antérieur (55.0 km). Demandez",
+   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"resultat\": {\"moto_id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"compteur_km\": 55}, \"client_op_id\": \"60f47385-55d0-486c-b1e3-ca0d6d52c92f\"}, {\"code\": \"P0001\", \"statut\": \"REJETE\", \"message\": \"CONFLIT_COMPTEUR : 1 km est inférieur au relevé antérieur (55.0 km). Demandez",
    "resultat": "RÉUSSI"
   },
   {
@@ -764,7 +764,7 @@
    "compte": "uh_sak",
    "action": "Même lot renvoyé",
    "attendu": "OK",
-   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"message\": null, \"resultat\": {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"compteur_km\": 55}, \"client_op_id\": \"b5d86822-018b-43d0-b9b3-09274bc9c91b\"}, {\"statut\": \"REJETE\", \"doublon\": true, \"message\": \"C",
+   "obtenu": "OK : [{\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"message\": null, \"resultat\": {\"statut\": \"SYNCHRONISE\", \"doublon\": true, \"moto_id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"compteur_km\": 55}, \"client_op_id\": \"60f47385-55d0-486c-b1e3-ca0d6d52c92f\"}, {\"statut\": \"REJETE\", \"doublon\": true, \"message\": \"C",
    "resultat": "RÉUSSI"
   },
   {
@@ -809,7 +809,7 @@
    "compte": "abm",
    "action": "ABM propose 30 000 FCFA (fictif)",
    "attendu": "OK (PROPOSE)",
-   "obtenu": "OK : {\"id\": \"1ea87a2e-3213-4500-b80c-239599a24486\", \"statut\": \"PROPOSE\"}",
+   "obtenu": "OK : {\"id\": \"979cc4f8-8dac-47b3-ab87-c332372c1e27\", \"statut\": \"PROPOSE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -827,7 +827,7 @@
    "compte": "bm",
    "action": "BM valide le budget",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"id\": \"1ea87a2e-3213-4500-b80c-239599a24486\", \"statut\": \"VALIDE\"}",
+   "obtenu": "OK : {\"id\": \"979cc4f8-8dac-47b3-ab87-c332372c1e27\", \"statut\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -836,7 +836,7 @@
    "compte": "abm",
    "action": "ABM remet 10 000 FCFA en espèces",
    "attendu": "OK (REMISE_DECLAREE)",
-   "obtenu": "OK : {\"id\": \"daf3faae-954d-43b1-b1e7-c03b031ed898\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"61adafbe-a2ec-4424-b437-d67944d2ff48\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -854,7 +854,7 @@
    "compte": "abm",
    "action": "Mobile Money 10 000 + 100 de frais",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"c4ad8190-73de-48e5-b793-fe6ab0435204\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"e1c3a853-c45d-4b4d-a87a-4bb2f8089122\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -863,7 +863,7 @@
    "compte": "abm",
    "action": "Mobile Money 5 000",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"389aa35c-0926-4825-8231-c89a0db14d82\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"b1ab606d-969b-46db-b902-053e45b716c9\", \"note\": \"En attente de confirmation de réception par le bénéficiaire.\", \"statut\": \"REMISE_DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -881,7 +881,7 @@
    "compte": "abm",
    "action": "ABM déclare l'échec MM-TEST-0002",
    "attendu": "OK (ECHOUEE)",
-   "obtenu": "OK : {\"id\": \"389aa35c-0926-4825-8231-c89a0db14d82\", \"statut\": \"ECHOUEE\"}",
+   "obtenu": "OK : {\"id\": \"b1ab606d-969b-46db-b902-053e45b716c9\", \"statut\": \"ECHOUEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -908,7 +908,7 @@
    "compte": "uh_sak",
    "action": "UH confirme 10 000 espèces",
    "attendu": "OK (CONFIRMEE)",
-   "obtenu": "OK : {\"id\": \"daf3faae-954d-43b1-b1e7-c03b031ed898\", \"statut\": \"CONFIRMEE\", \"montant_recu\": 10000}",
+   "obtenu": "OK : {\"id\": \"61adafbe-a2ec-4424-b437-d67944d2ff48\", \"statut\": \"CONFIRMEE\", \"montant_recu\": 10000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -917,7 +917,7 @@
    "compte": "uh_sak",
    "action": "UH déclare 9 900 reçus sur 10 000 MM",
    "attendu": "OK (CONTESTEE)",
-   "obtenu": "OK : {\"id\": \"c4ad8190-73de-48e5-b793-fe6ab0435204\", \"statut\": \"CONTESTEE\", \"montant_recu\": 9900}",
+   "obtenu": "OK : {\"id\": \"e1c3a853-c45d-4b4d-a87a-4bb2f8089122\", \"statut\": \"CONTESTEE\", \"montant_recu\": 9900}",
    "resultat": "RÉUSSI"
   },
   {
@@ -935,7 +935,7 @@
    "compte": "uh_sak",
    "action": "Plein initial complet (référence)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"a3f8bd60-7096-44af-8b69-4ad1fc15445d\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "obtenu": "OK : {\"id\": \"6c7afe17-2d92-4a58-a01f-6ccb820e38ec\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -944,7 +944,7 @@
    "compte": "uh_sak",
    "action": "Plein partiel",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"823107be-913c-4f72-80ab-20c501c25613\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "obtenu": "OK : {\"id\": \"6c84935d-9e7b-4552-bc82-1469625273cc\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -953,7 +953,7 @@
    "compte": "uh_sak",
    "action": "Plein complet de contrôle",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b7f8e076-5e28-4646-968d-c83df5876397\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "obtenu": "OK : {\"id\": \"eac40571-d4a7-46d9-b67c-712d78a4ea9b\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1007,7 +1007,7 @@
    "compte": "uh_sak",
    "action": "Avance personnelle de l'agent",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"d9b8c6b2-4920-42f2-8ca4-a5ee1983d02b\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
+   "obtenu": "OK : {\"id\": \"7b42809c-7619-4f8d-b481-30a591fce022\", \"note\": \"Achat enregistré. Il ne vaut pas justificatif vérifié tant que l'ABM ou Finance ne l'a pas contrôlé.\", \"justificatif_statut\": \"A_VERIFIER\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1025,7 +1025,7 @@
    "compte": "fin",
    "action": "Finance vérifie l'achat 1",
    "attendu": "OK (VERIFIE)",
-   "obtenu": "OK : {\"id\": \"a3f8bd60-7096-44af-8b69-4ad1fc15445d\", \"justificatif_statut\": \"VERIFIE\"}",
+   "obtenu": "OK : {\"id\": \"6c7afe17-2d92-4a58-a01f-6ccb820e38ec\", \"justificatif_statut\": \"VERIFIE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1034,7 +1034,7 @@
    "compte": "fin",
    "action": "Finance vérifie l'achat 2",
    "attendu": "OK (VERIFIE)",
-   "obtenu": "OK : {\"id\": \"823107be-913c-4f72-80ab-20c501c25613\", \"justificatif_statut\": \"VERIFIE\"}",
+   "obtenu": "OK : {\"id\": \"6c84935d-9e7b-4552-bc82-1469625273cc\", \"justificatif_statut\": \"VERIFIE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1043,7 +1043,7 @@
    "compte": "fin",
    "action": "Finance vérifie l'achat 3",
    "attendu": "OK (VERIFIE)",
-   "obtenu": "OK : {\"id\": \"b7f8e076-5e28-4646-968d-c83df5876397\", \"justificatif_statut\": \"VERIFIE\"}",
+   "obtenu": "OK : {\"id\": \"eac40571-d4a7-46d9-b67c-712d78a4ea9b\", \"justificatif_statut\": \"VERIFIE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1052,7 +1052,7 @@
    "compte": "fin",
    "action": "Finance vérifie l'achat 5",
    "attendu": "OK (VERIFIE)",
-   "obtenu": "OK : {\"id\": \"d9b8c6b2-4920-42f2-8ca4-a5ee1983d02b\", \"justificatif_statut\": \"VERIFIE\"}",
+   "obtenu": "OK : {\"id\": \"7b42809c-7619-4f8d-b481-30a591fce022\", \"justificatif_statut\": \"VERIFIE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1079,7 +1079,7 @@
    "compte": "abm",
    "action": "Restitution de 475",
    "attendu": "OK (13900)",
-   "obtenu": "OK : {\"id\": \"bc4e3d3a-5e02-4d3f-bdbd-a4d2fb2eb95f\", \"solde_restant\": 13900}",
+   "obtenu": "OK : {\"id\": \"e7c2749c-376d-4ed6-8a97-01e753f00c04\", \"solde_restant\": 13900}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1088,7 +1088,7 @@
    "compte": "abm",
    "action": "ABM demande le remboursement de l'avance",
    "attendu": "OK (2125)",
-   "obtenu": "OK : {\"id\": \"6ec135a9-c483-4801-9c25-623f55346a04\", \"statut\": \"DEMANDE\", \"montant\": 2125}",
+   "obtenu": "OK : {\"id\": \"db3b8e8d-1d70-4138-a992-4d58429eccc6\", \"statut\": \"DEMANDE\", \"montant\": 2125}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1115,7 +1115,7 @@
    "compte": "fm",
    "action": "Finance Manager valide",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"id\": \"6ec135a9-c483-4801-9c25-623f55346a04\", \"statut\": \"VALIDE\"}",
+   "obtenu": "OK : {\"id\": \"db3b8e8d-1d70-4138-a992-4d58429eccc6\", \"statut\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1124,7 +1124,7 @@
    "compte": "fin",
    "action": "Finance déclare le paiement MM",
    "attendu": "OK (PAYE_DECLARE)",
-   "obtenu": "OK : {\"id\": \"6ec135a9-c483-4801-9c25-623f55346a04\", \"statut\": \"PAYE_DECLARE\"}",
+   "obtenu": "OK : {\"id\": \"db3b8e8d-1d70-4138-a992-4d58429eccc6\", \"statut\": \"PAYE_DECLARE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1142,7 +1142,7 @@
    "compte": "abm",
    "action": "ABM demande la correction des frais MM",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"8fe5b7e9-f0bc-48e1-a197-7213816100be\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"9fc678b1-5758-40e6-9d62-b92d36b5664d\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1169,7 +1169,7 @@
    "compte": "bm",
    "action": "BM applique la correction",
    "attendu": "OK (APPLIQUEE)",
-   "obtenu": "OK : {\"id\": \"8fe5b7e9-f0bc-48e1-a197-7213816100be\", \"statut\": \"APPLIQUEE\"}",
+   "obtenu": "OK : {\"id\": \"9fc678b1-5758-40e6-9d62-b92d36b5664d\", \"statut\": \"APPLIQUEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1187,7 +1187,7 @@
    "compte": "bm",
    "action": "BM demande correction compteur relevé",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"1d2ca3f3-d34b-4cda-89e8-1544f7f01a8f\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"169737c8-55d9-48c0-b23a-defe01818374\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1205,7 +1205,7 @@
    "compte": "gm",
    "action": "General Manager rejette",
    "attendu": "OK (REJETEE)",
-   "obtenu": "OK : {\"id\": \"1d2ca3f3-d34b-4cda-89e8-1544f7f01a8f\", \"statut\": \"REJETEE\"}",
+   "obtenu": "OK : {\"id\": \"169737c8-55d9-48c0-b23a-defe01818374\", \"statut\": \"REJETEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1214,7 +1214,7 @@
    "compte": "uh_sak",
    "action": "Contrôle avant départ freins KO",
    "attendu": "OK (INAPTE)",
-   "obtenu": "OK : {\"id\": \"aff95e59-5955-447c-b136-e6414034c161\", \"incident\": {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"4ae1d3ca-693a-4f69-a1ad-a78bcefc6ee1\", \"incident\": {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1250,7 +1250,7 @@
    "compte": "zh",
    "action": "ZH : diagnostic",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"DIAGNOSTIC\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"DIAGNOSTIC\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1277,7 +1277,7 @@
    "compte": "abm",
    "action": "Demande",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1286,7 +1286,7 @@
    "compte": "abm",
    "action": "Fiche garage fictive",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"2deb7462-4a0a-4c62-8c9a-1a952c823eed\"}",
+   "obtenu": "OK : {\"id\": \"939e8682-4e89-4e54-becc-87fa16fabba0\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1295,7 +1295,7 @@
    "compte": "abm",
    "action": "Devis fictif",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1304,7 +1304,7 @@
    "compte": "abm",
    "action": "Soumission",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"6a170b13-a085-4e77-81c2-160189aa533d\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"e011e52c-f5e0-4772-83d0-43d6301f47af\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1313,7 +1313,7 @@
    "compte": "bm",
    "action": "Décision BM",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"6a170b13-a085-4e77-81c2-160189aa533d\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 8000}",
+   "obtenu": "OK : {\"id\": \"e011e52c-f5e0-4772-83d0-43d6301f47af\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 8000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1322,7 +1322,7 @@
    "compte": "zh",
    "action": "ZH constate l'autorisation BM",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"AUTORISATION_DEPENSE\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"AUTORISATION_DEPENSE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1331,7 +1331,7 @@
    "compte": "abm",
    "action": "ABM programme 8 000",
    "attendu": "OK (PROGRAMMEE)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 8000}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 8000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1340,7 +1340,7 @@
    "compte": "abm",
    "action": "ABM démarre",
    "attendu": "OK (EN_COURS)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"EN_COURS\"}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"EN_COURS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1349,7 +1349,7 @@
    "compte": "zh",
    "action": "ZH : réparation",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"REPARATION\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"REPARATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1358,7 +1358,7 @@
    "compte": "abm",
    "action": "ABM déclare les travaux",
    "attendu": "OK (TERMINEE)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"TERMINEE\"}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"TERMINEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1367,7 +1367,7 @@
    "compte": "zh",
    "action": "ZH : étape contrôle",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"CONTROLE\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"CONTROLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1385,7 +1385,7 @@
    "compte": "abm",
    "action": "ABM enregistre le contrôle APTE",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"d4a03042-0aea-45a9-865a-81a7730318d1\", \"resultat\": \"APTE\"}",
+   "obtenu": "OK : {\"id\": \"4bd2271b-15f1-4556-9081-7769ece336eb\", \"resultat\": \"APTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1403,7 +1403,7 @@
    "compte": "zh",
    "action": "ZH contrôle les travaux",
    "attendu": "OK (CONTROLEE)",
-   "obtenu": "OK : {\"id\": \"ebc49f14-79da-4c0a-b962-d1dd9a9ff169\", \"statut\": \"CONTROLEE\"}",
+   "obtenu": "OK : {\"id\": \"2b3dc55d-002b-4190-ad1d-26eae8b8318f\", \"statut\": \"CONTROLEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1421,7 +1421,7 @@
    "compte": "bm",
    "action": "BM remet en service",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"REMIS_EN_SERVICE\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"REMIS_EN_SERVICE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1430,7 +1430,7 @@
    "compte": "bm",
    "action": "BM lève l'immobilisation de maintenance",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"7718b27e-0b77-4146-8eed-89869113f2b0\", \"levee\": true}",
+   "obtenu": "OK : {\"id\": \"8f653efa-ba37-421a-875d-d29d1a160573\", \"levee\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1439,7 +1439,7 @@
    "compte": "zh",
    "action": "ZH clôt l'incident",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"170e6043-12f4-44eb-8971-3deda9fd201c\", \"etape\": \"CLOS\"}",
+   "obtenu": "OK : {\"id\": \"90cbf587-74db-41d9-99cf-3402b741c73a\", \"etape\": \"CLOS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1448,7 +1448,7 @@
    "compte": "abm",
    "action": "ABM dépose la facture 8 000",
    "attendu": "OK (DEPOSEE)",
-   "obtenu": "OK : {\"id\": \"8f8a4851-cbc2-4e97-87c4-deb27b7ad805\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"a5040399-7173-4398-9c5c-8452d77dabc5\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1457,7 +1457,7 @@
    "compte": "fin",
    "action": "Finance vérifie",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"8f8a4851-cbc2-4e97-87c4-deb27b7ad805\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"a5040399-7173-4398-9c5c-8452d77dabc5\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1484,7 +1484,7 @@
    "compte": "uh_sak",
    "action": "UH déclare un accident",
    "attendu": "OK (INC-)",
-   "obtenu": "OK : {\"id\": \"96b010d6-bb21-48b9-81dd-bc52ec1c1793\", \"immobilisee\": true, \"aflp_incident_id\": \"INC-20261101-064AB7\"}",
+   "obtenu": "OK : {\"id\": \"678ad833-84fd-4080-9cfd-ea2c84fb50eb\", \"immobilisee\": true, \"aflp_incident_id\": \"INC-20261101-B05FF0\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1511,7 +1511,7 @@
    "compte": "uh_sak",
    "action": "Relevé km pendant immobilisation",
    "attendu": "OK",
-   "obtenu": "OK : {\"moto_id\": \"ab112a16-232f-4e96-9d27-6b6a7073ce04\", \"compteur_km\": 207}",
+   "obtenu": "OK : {\"moto_id\": \"1ede43bd-f120-404b-b718-d9dd7f9618be\", \"compteur_km\": 207}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1520,7 +1520,7 @@
    "compte": "uh_sak",
    "action": "UH demande une vidange (statut AUTORISEE injecté)",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1556,7 +1556,7 @@
    "compte": "abm",
    "action": "ABM enregistre le devis 5 000",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1565,7 +1565,7 @@
    "compte": "abm",
    "action": "ABM soumet 5 000",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"2b084f5d-cdef-4ebf-842d-dc0150a3e42a\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"7536f788-0f18-419e-8e0c-fd929f80aa9d\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1574,7 +1574,7 @@
    "compte": "bm",
    "action": "BM autorise 5 000",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"2b084f5d-cdef-4ebf-842d-dc0150a3e42a\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 5000}",
+   "obtenu": "OK : {\"id\": \"7536f788-0f18-419e-8e0c-fd929f80aa9d\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 5000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1592,7 +1592,7 @@
    "compte": "abm",
    "action": "ABM engage 5 000",
    "attendu": "OK (PROGRAMMEE)",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 5000}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 5000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1601,7 +1601,7 @@
    "compte": "abm",
    "action": "ABM démarre au garage fictif",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"EN_COURS\"}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"EN_COURS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1628,7 +1628,7 @@
    "compte": "abm",
    "action": "ABM dépose la facture",
    "attendu": "OK (DEPOSEE)",
-   "obtenu": "OK : {\"id\": \"932dcfb5-9c2c-4428-a710-8e4188fbd5b6\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"cf9fddb8-14cb-40f8-b746-2d8f784736b4\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1637,7 +1637,7 @@
    "compte": "abm",
    "action": "Fin des travaux",
    "attendu": "OK (TERMINEE)",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"TERMINEE\"}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"TERMINEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1691,7 +1691,7 @@
    "compte": "zh",
    "action": "ZH contrôle la vidange",
    "attendu": "OK (CONTROLEE)",
-   "obtenu": "OK : {\"id\": \"83d042ab-3ad3-48fb-ba56-6e5f09d93c82\", \"statut\": \"CONTROLEE\"}",
+   "obtenu": "OK : {\"id\": \"554c3d21-6ab4-4b13-baec-aea35ba99681\", \"statut\": \"CONTROLEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1700,7 +1700,7 @@
    "compte": "fin",
    "action": "Finance vérifie",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"932dcfb5-9c2c-4428-a710-8e4188fbd5b6\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"cf9fddb8-14cb-40f8-b746-2d8f784736b4\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1718,7 +1718,7 @@
    "compte": "abm",
    "action": "Demande",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"506fd6d9-3a3f-4bba-8d93-a31208ccfdf1\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"437aab97-7b39-472d-8e2e-2b4cc00e9a3f\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1727,7 +1727,7 @@
    "compte": "abm",
    "action": "Devis fictif",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"506fd6d9-3a3f-4bba-8d93-a31208ccfdf1\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"437aab97-7b39-472d-8e2e-2b4cc00e9a3f\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1736,7 +1736,7 @@
    "compte": "abm",
    "action": "Soumission",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"d33c65b2-2a87-4279-b6d0-d216fa05eb78\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"17e173ac-e8a1-4627-b648-c01d25e50849\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1745,7 +1745,7 @@
    "compte": "bm",
    "action": "Décision BM",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"d33c65b2-2a87-4279-b6d0-d216fa05eb78\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 13000}",
+   "obtenu": "OK : {\"id\": \"17e173ac-e8a1-4627-b648-c01d25e50849\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 13000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1754,7 +1754,7 @@
    "compte": "abm",
    "action": "Facture 13 000",
    "attendu": "OK (DEPOSEE)",
-   "obtenu": "OK : {\"id\": \"c7a57a46-2728-4d15-ab50-ec099f39fa5d\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"c6c11a40-e867-4af3-a969-f6075cb9866c\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1763,7 +1763,7 @@
    "compte": "fin",
    "action": "Finance vérifie",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"c7a57a46-2728-4d15-ab50-ec099f39fa5d\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"c6c11a40-e867-4af3-a969-f6075cb9866c\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1772,7 +1772,7 @@
    "compte": "abm",
    "action": "Entrée en stock d'un pneu fictif",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"42c273dd-acce-41d1-b28e-a73195b8812a\"}",
+   "obtenu": "OK : {\"id\": \"fab43920-704b-4a65-a69f-6bfbe333ca30\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1781,7 +1781,7 @@
    "compte": "abm",
    "action": "Montage arrière à 208 km",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"9f368dda-3583-4c7c-ac4d-e2d23ee424b7\"}",
+   "obtenu": "OK : {\"id\": \"d4a2e3cb-e17d-4ce6-b8c1-6ade211ec436\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1790,7 +1790,7 @@
    "compte": "abm",
    "action": "Entrée en stock d'un second pneu fictif",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"e8b6e566-8ac6-455a-a1b7-bc5aa4216d68\"}",
+   "obtenu": "OK : {\"id\": \"824b80a5-6970-4eaa-b866-7380089ee7ed\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1808,7 +1808,7 @@
    "compte": "zh",
    "action": "Réparation crevaison",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"3706b2c3-93a4-4d31-bfac-9f5b609bdccf\"}",
+   "obtenu": "OK : {\"id\": \"62424338-0709-46a3-965e-9a0b1724bdd9\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1817,7 +1817,7 @@
    "compte": "abm",
    "action": "Dépose à 708 km, réforme",
    "attendu": "OK (500)",
-   "obtenu": "OK : {\"id\": \"9f368dda-3583-4c7c-ac4d-e2d23ee424b7\", \"km_parcourus\": 500.0}",
+   "obtenu": "OK : {\"id\": \"d4a2e3cb-e17d-4ce6-b8c1-6ade211ec436\", \"km_parcourus\": 500.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1862,7 +1862,7 @@
    "compte": "uh_sak",
    "action": "UH réussit un quiz 4/5",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"99db3ce2-f069-4c0b-b2fc-c8efe1177950\", \"reussi\": true}",
+   "obtenu": "OK : {\"id\": \"8bdfa0b3-5726-47ef-b1b3-e80a662e19fd\", \"reussi\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1997,7 +1997,7 @@
    "compte": "lc",
    "action": "Coordinateur crée M5 (Brobo) réceptionnée",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ffe695f3-6888-4736-80e1-2c4f32194d7d\", \"code\": \"MOTO-005\", \"origine\": \"NEUVE\", \"qr_token\": \"36457e5f-b241-44c5-a3f4-59e2b5d500fc\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"68996376-2bac-40be-80ed-de719a0c3496\", \"code\": \"MOTO-005\", \"origine\": \"NEUVE\", \"qr_token\": \"0b139453-afaf-4f8d-b7fd-923d9cdfc119\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2024,16 +2024,16 @@
    "compte": "lc",
    "action": "Coordinateur enregistre la photo principale de M5",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"f33929dd-3ef2-4fdd-af75-c8910a96c697\", \"principale\": true}",
+   "obtenu": "OK : {\"id\": \"d634508c-3094-4d20-9372-0dfef9797247\", \"principale\": true}",
    "resultat": "RÉUSSI"
   },
   {
    "id": "FL-03e",
    "exigence": "Photo visible au passeport (vue flotte)",
    "compte": "postgres (lecture)",
-   "action": "ffe695f3-6888-4736-80e1-2c4f32194d7d/photo/7c4b35f4-0a08-4593-83ee-137c50bce871.jpg",
-   "attendu": "ffe695f3-6888-4736-80e1-2c4f32194d7d/photo/7c4b35f4-0a08-4593-83ee-137c50bce871.jpg",
-   "obtenu": "ffe695f3-6888-4736-80e1-2c4f32194d7d/photo/7c4b35f4-0a08-4593-83ee-137c50bce871.jpg",
+   "action": "68996376-2bac-40be-80ed-de719a0c3496/photo/29cfd3d1-7f23-41d1-b11c-8e8e85267e5f.jpg",
+   "attendu": "68996376-2bac-40be-80ed-de719a0c3496/photo/29cfd3d1-7f23-41d1-b11c-8e8e85267e5f.jpg",
+   "obtenu": "68996376-2bac-40be-80ed-de719a0c3496/photo/29cfd3d1-7f23-41d1-b11c-8e8e85267e5f.jpg",
    "resultat": "RÉUSSI"
   },
   {
@@ -2096,7 +2096,7 @@
    "compte": "lc",
    "action": "Coordinateur intègre la moto du Chef de zone (marque inconnue)",
    "attendu": "OK (EN_EXPLOITATION)",
-   "obtenu": "OK : {\"id\": \"b8982c41-6cbe-49f2-90a5-4e06cce6f411\", \"code\": \"MOTO-006\", \"origine\": \"EN_EXPLOITATION\", \"qr_token\": \"262e31ac-b4fc-4fa0-8e70-ddc546879753\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"ce14947a-c8bb-4dd1-a8f0-893de54f185e\", \"code\": \"MOTO-006\", \"origine\": \"EN_EXPLOITATION\", \"qr_token\": \"60011a74-390c-4cc3-9777-9662c32d222c\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2141,7 +2141,7 @@
    "compte": "lc",
    "action": "Référence complète, anomalie éclairage existante",
    "attendu": "OK (etat_reference\": true)",
-   "obtenu": "OK : {\"id\": \"da6451c6-02ec-4a96-a141-fd58542b0209\", \"resultat\": \"APTE\", \"etat_reference\": true, \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"0059b93d-f1da-4bbc-b1e3-001ba903f64a\", \"resultat\": \"APTE\", \"etat_reference\": true, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2168,7 +2168,7 @@
    "compte": "lc",
    "action": "Moto prévue pour le 2e Chef de zone",
    "attendu": "OK (PREVUE)",
-   "obtenu": "OK : {\"id\": \"553a1d0f-1020-43af-843c-739f8b9841ce\", \"code\": \"MOTO-007\", \"origine\": \"NEUVE\", \"qr_token\": \"8aed19ef-1c44-42bb-b9aa-47a45262cafa\", \"situation_parc\": \"PREVUE\"}",
+   "obtenu": "OK : {\"id\": \"2bc450f2-e1b1-488b-ac18-1897d0323a4b\", \"code\": \"MOTO-007\", \"origine\": \"NEUVE\", \"qr_token\": \"165efdca-1c19-4813-81d4-891608a9b91c\", \"situation_parc\": \"PREVUE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2222,7 +2222,7 @@
    "compte": "lc",
    "action": "Coordinateur crée M7",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"f10e1d29-77be-4859-a9af-cb37c4262099\", \"code\": \"MOTO-008\", \"origine\": \"NEUVE\", \"qr_token\": \"a28ef5bb-08e1-4702-af86-7f042ec29461\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"b565191a-a277-402d-9a51-5302364d1394\", \"code\": \"MOTO-008\", \"origine\": \"NEUVE\", \"qr_token\": \"98f80347-5059-4964-8689-0a99805249af\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2258,7 +2258,7 @@
    "compte": "lc",
    "action": "Freins KO envoyés critique=false, résultat APTE",
    "attendu": "OK (\"anomalie_critique\": true)",
-   "obtenu": "OK : {\"id\": \"4c34f0d4-8e28-4377-bb76-216c8544a802\", \"resultat\": \"INAPTE\", \"etat_reference\": false, \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"e61d9737-dde8-4713-b922-2d7919993bcf\", \"resultat\": \"INAPTE\", \"etat_reference\": false, \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2285,7 +2285,7 @@
    "compte": "uh_sak",
    "action": "Départ M1 freins KO critique=false",
    "attendu": "OK (\"anomalie_critique\": true)",
-   "obtenu": "OK : {\"id\": \"62513640-614e-4346-93d4-397045bdcacf\", \"incident\": {\"id\": \"f3d9e476-1477-4136-acae-4ae9aafcf653\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"9e7cf20c-d7d8-4aea-9503-dc850da81c9d\", \"incident\": {\"id\": \"2f54075c-c1d9-4844-b91d-cdf851c27160\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2303,7 +2303,7 @@
    "compte": "lc",
    "action": "Contrôle APTE après réparation",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"edda2518-ac3f-4f0f-b245-411f6c13e480\", \"resultat\": \"APTE\"}",
+   "obtenu": "OK : {\"id\": \"66b65bf8-b645-45a1-a1a2-316f889039a4\", \"resultat\": \"APTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2321,7 +2321,7 @@
    "compte": "lc",
    "action": "Coordinateur planifie (garage, devis, date cible)",
    "attendu": "OK (PLANIFIEE)",
-   "obtenu": "OK : {\"id\": \"04197305-5287-4aa5-9fcf-f1296b424314\", \"statut\": \"PLANIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"2ded7a34-1943-4785-bd26-4564abe7d4fb\", \"statut\": \"PLANIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2339,7 +2339,7 @@
    "compte": "lc",
    "action": "Demande",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"0d53e4a7-8300-48bf-90aa-43161b387542\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"bd103ed3-3761-42d0-b012-981f154fab39\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2348,7 +2348,7 @@
    "compte": "lc",
    "action": "Devis fictif",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"0d53e4a7-8300-48bf-90aa-43161b387542\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"bd103ed3-3761-42d0-b012-981f154fab39\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2357,7 +2357,7 @@
    "compte": "lc",
    "action": "Soumission",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"37ba8571-4957-47ac-8fde-38e0d97fc2c6\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"47797797-2276-4a8c-b238-f80e49faf736\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2366,7 +2366,7 @@
    "compte": "bm",
    "action": "Décision BM",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"37ba8571-4957-47ac-8fde-38e0d97fc2c6\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 9000}",
+   "obtenu": "OK : {\"id\": \"47797797-2276-4a8c-b238-f80e49faf736\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 9000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2384,7 +2384,7 @@
    "compte": "lc",
    "action": "Réalisation avec facture fictive",
    "attendu": "OK (REALISEE)",
-   "obtenu": "OK : {\"id\": \"04197305-5287-4aa5-9fcf-f1296b424314\", \"statut\": \"REALISEE\"}",
+   "obtenu": "OK : {\"id\": \"2ded7a34-1943-4785-bd26-4564abe7d4fb\", \"statut\": \"REALISEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2402,7 +2402,7 @@
    "compte": "zh",
    "action": "Chef de zone vérifie et clôt",
    "attendu": "OK (CLOTUREE)",
-   "obtenu": "OK : {\"id\": \"04197305-5287-4aa5-9fcf-f1296b424314\", \"statut\": \"CLOTUREE\"}",
+   "obtenu": "OK : {\"id\": \"2ded7a34-1943-4785-bd26-4564abe7d4fb\", \"statut\": \"CLOTUREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2411,7 +2411,7 @@
    "compte": "bm",
    "action": "BM lève l'immobilisation (contrôle fait par le coordinateur)",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"6c617705-060e-437a-8dd7-8454b140822d\", \"levee\": true}",
+   "obtenu": "OK : {\"id\": \"c3206682-e336-4825-b2db-b16cf6c608c6\", \"levee\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2429,7 +2429,7 @@
    "compte": "abm",
    "action": "Inspection initiale APTE de M7",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"b0b9b9d9-7439-412d-9a73-fca5346ec581\", \"resultat\": \"APTE\", \"etat_reference\": false, \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"8a41791a-35d3-4219-b7ac-5373bfc92187\", \"resultat\": \"APTE\", \"etat_reference\": false, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2447,7 +2447,7 @@
    "compte": "lc",
    "action": "Coordinateur crée M8",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"e36013a5-c736-43c2-87e9-9723b0c369b9\", \"code\": \"MOTO-009\", \"origine\": \"NEUVE\", \"qr_token\": \"e2881aae-4ab1-4489-b2f0-7f0bbee54a4c\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"3639e01c-5ed3-4cec-834f-2ead8ff89c54\", \"code\": \"MOTO-009\", \"origine\": \"NEUVE\", \"qr_token\": \"05930f20-d9db-40d1-b136-218cd1e7f42e\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2456,7 +2456,7 @@
    "compte": "abm",
    "action": "Remise de la moto M5",
    "attendu": "OK (REMISE)",
-   "obtenu": "OK : {\"id\": \"5da6e91a-92f7-4cce-893e-80b1e368d1cc\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"eb08c3f8-40fb-4c83-a6d0-bdbd43823959\", \"statut_affectation\": \"REMISE\"}",
+   "obtenu": "OK : {\"id\": \"a40bb9ee-14dc-4d07-a865-eb276b174f30\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"554bea5f-b365-422b-8763-8c70bbb5779d\", \"statut_affectation\": \"REMISE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2465,7 +2465,7 @@
    "compte": "bm",
    "action": "Mise en service M5",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"ffe695f3-6888-4736-80e1-2c4f32194d7d\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"68996376-2bac-40be-80ed-de719a0c3496\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2492,7 +2492,7 @@
    "compte": "lc",
    "action": "Moto pour l'ABM",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"2daa8ed1-20c2-4dcc-aaa1-beff021bfede\", \"code\": \"MOTO-010\", \"origine\": \"NEUVE\", \"qr_token\": \"7b04c51f-2924-48f3-9bbc-19137dfab747\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"22b45078-9c32-4db8-9aaa-b9a1411e438e\", \"code\": \"MOTO-010\", \"origine\": \"NEUVE\", \"qr_token\": \"21f9a5bb-ef16-4565-875d-fd0830b87fe3\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2501,7 +2501,7 @@
    "compte": "bm",
    "action": "Moto du coordinateur",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"003b2159-46bb-4956-8b5c-b0898d5b54da\", \"code\": \"MOTO-011\", \"origine\": \"NEUVE\", \"qr_token\": \"2a393624-4144-4751-9772-7a968dbc0074\", \"situation_parc\": \"RECEPTIONNEE\"}",
+   "obtenu": "OK : {\"id\": \"f94272d3-dfc4-41a8-9f04-8b2ac6b2acdf\", \"code\": \"MOTO-011\", \"origine\": \"NEUVE\", \"qr_token\": \"d0a57ff3-e420-44e4-8255-fd752b905eb6\", \"situation_parc\": \"RECEPTIONNEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2510,7 +2510,7 @@
    "compte": "abm",
    "action": "Remise de la moto M6",
    "attendu": "OK (REMISE)",
-   "obtenu": "OK : {\"id\": \"97b05aa9-8e43-4398-8820-085f29f10c73\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"9d0aae31-93fc-4c45-8410-b257e4d41798\", \"statut_affectation\": \"REMISE\"}",
+   "obtenu": "OK : {\"id\": \"7f3b2b2d-0f0b-44f8-a0e5-9e9a1911ecf6\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"88bf6ec9-cfda-4edd-886a-c031079e3d3d\", \"statut_affectation\": \"REMISE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2519,7 +2519,7 @@
    "compte": "bm",
    "action": "Mise en service M6",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b8982c41-6cbe-49f2-90a5-4e06cce6f411\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"ce14947a-c8bb-4dd1-a8f0-893de54f185e\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2528,7 +2528,7 @@
    "compte": "lc",
    "action": "Remise de la moto M9",
    "attendu": "OK (REMISE)",
-   "obtenu": "OK : {\"id\": \"bef7c45f-9317-49c6-ae7e-8521dc938ea2\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"919111ed-8e75-4d42-b298-7553ab48e61a\", \"statut_affectation\": \"REMISE\"}",
+   "obtenu": "OK : {\"id\": \"ee80aaf0-f414-47ea-b1dd-13f5e42192af\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"83efe511-49f4-4807-8fc8-3f95f88b5f11\", \"statut_affectation\": \"REMISE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2537,7 +2537,7 @@
    "compte": "bm",
    "action": "Mise en service M9",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"2daa8ed1-20c2-4dcc-aaa1-beff021bfede\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"22b45078-9c32-4db8-9aaa-b9a1411e438e\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2555,7 +2555,7 @@
    "compte": "abm",
    "action": "Remise de la moto M10",
    "attendu": "OK (REMISE)",
-   "obtenu": "OK : {\"id\": \"05769f23-644f-492f-8200-2a6d4bfc291c\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"24f1ee1d-f7f5-4177-b77d-97669aa3e24f\", \"statut_affectation\": \"REMISE\"}",
+   "obtenu": "OK : {\"id\": \"d16e9c78-9a6b-46aa-8447-f5a3a08605e5\", \"note\": \"Remise enregistrée. L'autorisation de circulation (mise en service) reste une décision distincte du Branch Manager.\", \"etat_remise_id\": \"47f7055c-e8d8-4b9e-9d6b-4e1dbf6a4131\", \"statut_affectation\": \"REMISE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2564,7 +2564,7 @@
    "compte": "bm",
    "action": "Mise en service M10",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"003b2159-46bb-4956-8b5c-b0898d5b54da\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"f94272d3-dfc4-41a8-9f04-8b2ac6b2acdf\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2591,7 +2591,7 @@
    "compte": "lc",
    "action": "COORDINATION sur M1",
    "attendu": "OK (COORDINATION)",
-   "obtenu": "OK : {\"id\": \"90a992a2-6a63-4679-912c-011089b273bf\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"CONFORME\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
+   "obtenu": "OK : {\"id\": \"cd3030fa-8344-43ee-853c-ab4a6ddcfd5d\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"CONFORME\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2600,7 +2600,7 @@
    "compte": "lc",
    "action": "COORDINATION sur M6",
    "attendu": "OK (COORDINATION)",
-   "obtenu": "OK : {\"id\": \"9427d668-1a2d-4f9b-b167-fbdd68e1545e\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 1}",
+   "obtenu": "OK : {\"id\": \"05330640-2f94-46cf-bf6e-fd335fb1c9b8\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2609,7 +2609,7 @@
    "compte": "lc",
    "action": "COORDINATION sur M9, pneus KO",
    "attendu": "OK (NON_CONFORME)",
-   "obtenu": "OK : {\"id\": \"88372288-f705-4ad5-96f8-be6b5b301775\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"NON_CONFORME\", \"dans_delai\": true, \"anomalie_critique\": true, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
+   "obtenu": "OK : {\"id\": \"0a0ce58d-be4f-4b1f-b88f-700d658781fe\", \"niveau\": \"COORDINATION\", \"periode\": \"2026-11-01\", \"conformite\": \"NON_CONFORME\", \"dans_delai\": true, \"anomalie_critique\": true, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2663,7 +2663,7 @@
    "compte": "zh2",
    "action": "ZH2 désigné, INDEPENDANTE sur M10",
    "attendu": "OK (INDEPENDANTE)",
-   "obtenu": "OK : {\"id\": \"1d437b5c-eda5-4bff-bbe3-d31008717267\", \"niveau\": \"INDEPENDANTE\", \"periode\": \"2026-11-01\", \"conformite\": \"CONFORME\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
+   "obtenu": "OK : {\"id\": \"494470f5-37b4-407c-a979-29aa36dc0205\", \"niveau\": \"INDEPENDANTE\", \"periode\": \"2026-11-01\", \"conformite\": \"CONFORME\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2681,7 +2681,7 @@
    "compte": "zh",
    "action": "ZONE sur M1 (Sakassou, GBEKE 1), éclairage KO",
    "attendu": "OK (\"dans_delai\": true)",
-   "obtenu": "OK : {\"id\": \"55839f49-ba98-4d94-b990-cf96542ec583\", \"niveau\": \"ZONE\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
+   "obtenu": "OK : {\"id\": \"ac9dfbd3-9a65-4c60-bd52-b69a3520f80a\", \"niveau\": \"ZONE\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2771,7 +2771,7 @@
    "compte": "zh",
    "action": "ZH corrige son inspection, tout OK cette fois",
    "attendu": "OK (RESERVES)",
-   "obtenu": "OK : {\"id\": \"ab594b38-0c9b-42be-9f6f-eaa2769eb689\", \"niveau\": \"ZONE\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 1}",
+   "obtenu": "OK : {\"id\": \"10143151-7660-4585-babd-45c051336b3e\", \"niveau\": \"ZONE\", \"periode\": \"2026-11-01\", \"conformite\": \"RESERVES\", \"dans_delai\": true, \"anomalie_critique\": false, \"compteur_incoherent\": false, \"actions_ouvertes_avant\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2798,7 +2798,7 @@
    "compte": "lc",
    "action": "Coordinateur demande 50 000 (fictif)",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"ba4db9a0-668f-409f-b667-52dbfccbef0c\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"87b8131f-b0b0-4000-ad8a-475a2de9cfa7\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2816,7 +2816,7 @@
    "compte": "bm",
    "action": "BM approuve 40 000",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"ba4db9a0-668f-409f-b667-52dbfccbef0c\", \"statut\": \"APPROUVEE\"}",
+   "obtenu": "OK : {\"id\": \"87b8131f-b0b0-4000-ad8a-475a2de9cfa7\", \"statut\": \"APPROUVEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2825,7 +2825,7 @@
    "compte": "lc",
    "action": "Dépense 30 000 sans justificatif",
    "attendu": "OK (DECLAREE)",
-   "obtenu": "OK : {\"id\": \"6a6efe53-81b2-4da8-b92a-cf417d65620f\", \"nature\": \"SUPERVISION\", \"statut\": \"DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"0fd7ff51-5d22-4d33-9381-b6a05a6e14ea\", \"nature\": \"SUPERVISION\", \"statut\": \"DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2852,7 +2852,7 @@
    "compte": "lc",
    "action": "Coordinateur ajoute son justificatif",
    "attendu": "OK (JUSTIFIEE)",
-   "obtenu": "OK : {\"id\": \"6a6efe53-81b2-4da8-b92a-cf417d65620f\", \"statut\": \"JUSTIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"0fd7ff51-5d22-4d33-9381-b6a05a6e14ea\", \"statut\": \"JUSTIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2870,7 +2870,7 @@
    "compte": "abm",
    "action": "ABM valide",
    "attendu": "OK (VALIDEE)",
-   "obtenu": "OK : {\"id\": \"6a6efe53-81b2-4da8-b92a-cf417d65620f\", \"statut\": \"VALIDEE\"}",
+   "obtenu": "OK : {\"id\": \"0fd7ff51-5d22-4d33-9381-b6a05a6e14ea\", \"statut\": \"VALIDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2951,7 +2951,7 @@
    "compte": "lc",
    "action": "Demande de vidange sur M8",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"1418bb09-7531-4eb7-a35c-f0b3241594e2\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"b9ab231b-0cd7-477f-b6ac-1973ca4ff543\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2987,7 +2987,7 @@
    "compte": "lc",
    "action": "Coordinateur entre un pneu",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"55649f60-9772-41f4-a418-06e354154f66\"}",
+   "obtenu": "OK : {\"id\": \"ff16ab8d-d955-44ba-bc7a-52832b680889\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2996,7 +2996,7 @@
    "compte": "lc",
    "action": "Pose arrière sur M5 à 20 km",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"48ba37d5-0d4c-4ca1-9a1c-c3457ec5834a\"}",
+   "obtenu": "OK : {\"id\": \"9bd18a37-caf2-4826-af26-f094a7fc9914\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -3005,7 +3005,7 @@
    "compte": "lc",
    "action": "Dépose à 520 km",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"48ba37d5-0d4c-4ca1-9a1c-c3457ec5834a\", \"km_parcourus\": 500.0}",
+   "obtenu": "OK : {\"id\": \"9bd18a37-caf2-4826-af26-f094a7fc9914\", \"km_parcourus\": 500.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -3039,9 +3039,9 @@
    "id": "FL-25c",
    "exigence": "Photos rattachées à la bonne moto après synchronisation",
    "compte": "postgres (lecture)",
-   "action": "2/ffe695f3-6888-4736-80e1-2c4f32194d7d",
-   "attendu": "2/ffe695f3-6888-4736-80e1-2c4f32194d7d",
-   "obtenu": "2/ffe695f3-6888-4736-80e1-2c4f32194d7d",
+   "action": "2/68996376-2bac-40be-80ed-de719a0c3496",
+   "attendu": "2/68996376-2bac-40be-80ed-de719a0c3496",
+   "obtenu": "2/68996376-2bac-40be-80ed-de719a0c3496",
    "resultat": "RÉUSSI"
   },
   {
@@ -3104,7 +3104,7 @@
    "compte": "zh",
    "action": "ZH déclare un incident majeur sur M6",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"b6beb7f6-e232-4bcc-bbdf-b02e02856704\", \"immobilisee\": false, \"aflp_incident_id\": null}",
+   "obtenu": "OK : {\"id\": \"3aaf5a6b-d2cb-4c50-bb89-79ccc87c0cb9\", \"immobilisee\": false, \"aflp_incident_id\": null}",
    "resultat": "RÉUSSI"
   },
   {
