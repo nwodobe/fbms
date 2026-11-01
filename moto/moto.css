@@ -318,3 +318,30 @@ a{color:var(--emerald-dark)}
   body.mm-impression-carnet .mm-main{padding:0;max-width:none}
   body.mm-impression-carnet .mm-carnet-ev{grid-template-columns:110px minmax(0,1fr) auto;border-left-width:3px}
 }
+
+/* -- Migration 8 : journal de mission (caméra, lecture du compteur, suivi) -- */
+.mm-bloc-mission{border-left:4px solid var(--amber)}
+.mm-mission-btn{width:100%;min-height:56px;font-size:17px}
+.mm-mission-cours{margin:0 0 10px;padding:10px 12px;background:var(--warn-bg);border-radius:10px;color:var(--ink)}
+.mm-mission-cours small{color:var(--muted)}
+.mm-kpis-mission{margin-top:12px}
+.mm-filtres{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 14px}
+.mm-lien-btn{background:none;border:0;padding:2px 0;color:var(--emerald-dark);text-decoration:underline;font:inherit;cursor:pointer;min-height:32px}
+.mm-photo-compteur{margin:0 0 12px}
+.mm-photo-compteur img{display:block;width:100%;max-width:640px;height:auto;border-radius:10px;background:#000}
+.mm-photo-compteur figcaption{font-size:13px;color:var(--muted);margin-top:4px}
+dialog.mm-camera{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#000;color:#fff;display:flex;flex-direction:column}
+dialog.mm-camera:not([open]){display:none}
+dialog.mm-camera::backdrop{background:#000}
+.mm-camera-scene{position:relative;flex:1 1 auto;overflow:hidden;min-height:0}
+.mm-camera-scene video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mm-visee{position:absolute;left:8%;right:8%;top:38%;height:20%;border:3px solid var(--amber);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.mm-visee span{position:absolute;left:0;right:0;top:-34px;text-align:center;font-weight:600;font-size:14px;text-shadow:0 1px 3px #000}
+.mm-camera-barre{flex:0 0 auto;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--forest)}
+.mm-camera-gps{margin:0 0 8px;font-size:13px}
+.mm-camera-gps.mm-ok{color:#BFE0CB}.mm-camera-gps.mm-warn{color:#FFD27A}
+.mm-camera-actions{display:flex;gap:10px}
+.mm-camera-actions .mm-btn{flex:1;min-height:52px}
+.mm-camera .mm-erreur{color:#FFD27A}
+@media (min-width:720px){.mm-visee{left:20%;right:20%}}
+.mm-actions-entete{display:flex;flex-wrap:wrap;gap:8px}

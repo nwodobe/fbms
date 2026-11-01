@@ -16,11 +16,11 @@
   g.MOTO_CARNET = function (I) {
     var C = I.C, esc = I.esc, $$ = I.$$, rpc = I.rpc, lire = I.lireTable, kpi = I.kpi, ND = C.ND;
     var FILTRES = [['TOUT', 'Tout'], ['MAINTENANCE', 'Entretiens et réparations'], ['FINANCES', 'Décisions et factures'], ['CONTROLE', 'Contrôles et anomalies'],
-      ['PNEU', 'Pneus'], ['CARBURANT', 'Carburant'], ['INCIDENT', 'Incidents et immobilisations'], ['AFFECTATION', 'Affectations et parc'], ['DOCUMENT', 'Documents']];
+      ['PNEU', 'Pneus'], ['CARBURANT', 'Carburant'], ['INCIDENT', 'Incidents et immobilisations'], ['AFFECTATION', 'Affectations et parc'], ['MISSION', 'Missions'], ['DOCUMENT', 'Documents']];
     var GROUPE = { MAINTENANCE: 'MAINTENANCE', AUTORISATION: 'FINANCES', FACTURE: 'FINANCES', CONTROLE: 'CONTROLE', ANOMALIE: 'CONTROLE', PNEU: 'PNEU',
-      CARBURANT: 'CARBURANT', INCIDENT: 'INCIDENT', IMMOBILISATION: 'INCIDENT', AFFECTATION: 'AFFECTATION', PARC: 'AFFECTATION', DOCUMENT: 'DOCUMENT' };
+      CARBURANT: 'CARBURANT', INCIDENT: 'INCIDENT', IMMOBILISATION: 'INCIDENT', AFFECTATION: 'AFFECTATION', PARC: 'AFFECTATION', MISSION: 'MISSION', DOCUMENT: 'DOCUMENT' };
     var LIB_CAT = { MAINTENANCE: 'Entretien', AUTORISATION: 'Décision BM', FACTURE: 'Facture', CONTROLE: 'Contrôle', ANOMALIE: 'Anomalie', PNEU: 'Pneu',
-      CARBURANT: 'Carburant', INCIDENT: 'Incident', IMMOBILISATION: 'Immobilisation', AFFECTATION: 'Affectation', PARC: 'Parc', DOCUMENT: 'Document' };
+      CARBURANT: 'Carburant', INCIDENT: 'Incident', IMMOBILISATION: 'Immobilisation', AFFECTATION: 'Affectation', PARC: 'Parc', MISSION: 'Mission', DOCUMENT: 'Document' };
     var LIB_NATURE = { AUTORISE: 'autorisé', FACTURE: 'facturé', PAYE: 'payé', PNEU: 'pneu', CARBURANT: 'carburant' };
     var cache = { moto: null, lignes: [], couts: null, km: null, filtre: 'TOUT' };
 

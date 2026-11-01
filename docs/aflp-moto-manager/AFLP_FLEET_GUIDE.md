@@ -162,3 +162,81 @@ Les filtres isolent une rubrique (par exemple « Entretiens et réparations »).
 Le Chef de zone et le Chef d'unité voient toute la chronologie technique, mais ni les décisions de dépense, ni les factures, ni les montants d'entretien (« Accès réservé »).
 
 Pour une moto intégrée sans historique (cas JACKSON), le carnet commence au début du suivi fiable : rien n'est reconstitué avant.
+
+# Journal de mission et kilométrage contrôlé par photo (migration 8)
+
+Chaque sortie avec une moto est une **mission** : photo du compteur au départ, photo du compteur à l'arrivée. Ce journal sert à connaître la distance parcourue par chaque agent pour les missions, les kilomètres roulés hors mission et le coût d'un kilomètre utile. Il ne sert pas à sanctionner : un écart déclenche une vérification.
+
+## Chef d'unité (et tout conducteur)
+
+**Au départ** (espace Opérations, bloc « Ma mission ») :
+1. **Démarrer une mission**.
+2. Alignez les chiffres du compteur dans le cadre orange, puis **Photographier le compteur**. La photo est prise par l'application : la galerie n'est pas accessible.
+3. Le téléphone **propose** le chiffre lu. Vérifiez-le sur le compteur : s'il est faux, corrigez-le. S'il n'a rien pu lire, saisissez le chiffre en lisant le compteur.
+4. Choisissez l'objet et la destination (le choix précédent est repris), puis **Valider le départ**.
+
+**À l'arrivée** : **Terminer la mission**, photographiez, confirmez le chiffre, validez.
+
+**Sans réseau** : tout fonctionne. La mission part automatiquement au retour de la connexion. Gardez le téléphone à l'heure : un écart avec l'heure du serveur est signalé.
+
+**Ce que voient vos responsables** : la photo du compteur (date, heure, moto, votre nom, localité), le chiffre retenu et s'il a été lu, corrigé ou saisi. **Jamais vos coordonnées GPS** sur la photo. La position exacte est conservée à part, pour le Chef de zone, le coordinateur, l'ABM et le BM.
+
+**Le serveur refuse** :
+- un compteur inférieur au précédent ;
+- une deuxième mission ouverte ;
+- une moto immobilisée ou non mise en service ;
+- un conducteur sans permis vérifié ;
+- une photo absente ou déjà utilisée.
+
+En cas d'erreur sur un compteur déjà envoyé, demandez une correction au Chef de zone. La correction est validée par un autre responsable.
+
+## Chef de zone, coordinateur, ABM
+
+Espace **Missions** :
+- missions du mois ;
+- km de mission et hors mission par agent et par moto ;
+- missions non clôturées à temps ;
+- part des relevés corrigés ou saisis ;
+- **écarts à vérifier**.
+
+Pour un écart :
+1. Ouvrez les photos : cliquez sur le compteur. L'application vérifie que la photo n'a pas été modifiée (empreinte).
+2. Entendez l'agent.
+3. Décidez « Justifié » ou « Non justifié », avec un motif.
+
+Le conducteur ne tranche jamais ses propres écarts.
+
+**Chaque mois, obligatoire** : un responsable autre que les conducteurs lance **« Contrôler les photos du mois »**. L'application recalcule l'empreinte de chaque photo. Une différence ouvre l'écart « Photo modifiée ou remplacée ». Un contrôle non conforme ne s'efface pas : seul le BM ou l'ABM peut le lever, avec un motif, s'il était infondé.
+
+Regardez aussi le bandeau des photos (heure, moto) : une ancienne photo réutilisée se trahit d'abord là, et par un relevé « saisi » ou « corrigé ».
+
+Une mission ouverte par erreur ou jamais clôturée s'**annule**, avec un motif. Elle n'est jamais estimée : ses kilomètres apparaîtront comme « hors mission » au départ suivant.
+
+## Branch Manager
+
+Les mêmes vues, plus le **coût par kilomètre de mission** et la **consommation aux 100 km de mission**. L'export Excel contient quatre onglets : Missions, Par agent, Coûts, Écarts.
+
+Les **seuils** se règlent en Administration. Ils sont provisoires, à ajuster après deux semaines d'essai avec les 4 Chefs d'unité :
+
+| Paramètre | Valeur initiale |
+|---|---|
+| Km hors mission | 5 km |
+| Continuité du compteur | 100 km |
+| Vitesse moyenne | 90 km/h |
+| Distance par mission | 250 km |
+| Écart d'horloge | 10 min |
+| Délai de synchronisation | 7 jours |
+| Conservation des photos | 12 mois |
+
+`moto_missions_photos_a_purger()` liste les photos arrivées en fin de conservation.
+
+## Finance et Direction
+
+Vous voyez les missions, distances, photos et coûts. Vous ne voyez aucune coordonnée GPS.
+
+## Ce que la lecture automatique fait, et ne fait pas
+
+- **Gratuite et locale.** Elle tourne sur le téléphone, hors réseau, sans service payant ; la photo n'est envoyée à aucun tiers.
+- **Prudente.** Elle ne propose un chiffre que si chaque chiffre est reconnu nettement et si la valeur est vraisemblable par rapport au dernier relevé ; sinon, elle s'abstient.
+- **Non éprouvée sur les vraies motos.** Elle n'a pas encore été mesurée sur des photos réelles de compteurs APSONIC (voir le rapport de livraison).
+- **Jamais seule.** Le chiffre retenu reste toujours celui que l'agent confirme.

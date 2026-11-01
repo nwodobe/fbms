@@ -130,6 +130,15 @@
     if (!sb) return Promise.resolve({ envoyees: 0 });
     if (global.navigator && navigator.onLine === false) return Promise.resolve({ envoyees: 0, horsLigne: true });
     syncEnCours = lister().then(function (ops) {
+      /* Fin de mission dont le départ a été refusé : elle ne partira jamais, on la marque refusée
+         (l'agent peut la retirer de l'appareil ; le responsable annulera la mission si besoin). */
+      var refuses = {};
+      ops.forEach(function (o) { if (o.type === 'MISSION_DEPART' && o.statut === 'REJETE' && o.payload) refuses[o.payload.mission_id] = o.message || 'départ refusé'; });
+      var orphelines = ops.filter(function (o) { return o.type === 'MISSION_ARRIVEE' && o.statut === 'EN_ATTENTE' && o.payload && refuses[o.payload.mission_id]; });
+      return Promise.all(orphelines.map(function (o) {
+        return ecrire('operations', CORE.appliquerResultat(o, { statut: 'REJETE', message: 'Départ de cette mission refusé par le serveur (' + refuses[o.payload.mission_id] + ') : arrivée non envoyée.' }));
+      })).then(function () { return orphelines.length ? lister() : ops; });
+    }).then(function (ops) {
       var lot = CORE.operationsEligibles(ops, Date.now(), 20);
       if (!lot.length) return { envoyees: 0 };
       var prets = [];
@@ -142,7 +151,13 @@
       }, Promise.resolve()).then(function () {
         if (!prets.length) return { envoyees: 0 };
         return Promise.resolve().then(function () {
-          return sb.rpc('moto_sync_batch', { p_operations: prets.map(function (o) { return { client_op_id: o.client_op_id, type: o.type, payload: o.payload }; }) });
+          /* Missions : l'heure du téléphone AU MOMENT DE L'ENVOI est comparée à celle du serveur
+             (écart anormal = horloge faussée ou déréglée ; jamais bloquant). */
+          var envoi = new Date().toISOString();
+          return sb.rpc('moto_sync_batch', { p_operations: prets.map(function (o) {
+            var pl = /^MISSION_/.test(o.type) ? Object.assign({}, o.payload, { horloge_envoi: envoi }) : o.payload;
+            return { client_op_id: o.client_op_id, type: o.type, payload: pl };
+          }) });
         }).then(function (r) {
             if (r.error) throw r.error;
             var parId = {}; (r.data || []).forEach(function (x) { parId[x.client_op_id] = x; });

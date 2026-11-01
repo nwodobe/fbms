@@ -1,0 +1,31 @@
+{
+ "n": 300,
+ "juste": 295,
+ "faux": 1,
+ "abstention": 4,
+ "parType": {
+  "TAMBOUR": {
+   "juste": 99,
+   "faux": 0,
+   "abstention": 1
+  },
+  "LCD": {
+   "juste": 97,
+   "faux": 0,
+   "abstention": 3
+  },
+  "TAMBOUR_DIXIEMES": {
+   "juste": 99,
+   "faux": 1,
+   "abstention": 0
+  }
+ },
+ "faux_ex": [
+  {
+   "type": "TAMBOUR_DIXIEMES",
+   "attendu": 21961.6,
+   "lu": 21961,
+   "texte": "21961"
+  }
+ ]
+}

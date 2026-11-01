@@ -1,5 +1,5 @@
 {
- "date": "2026-11-01T09:06:58.872Z",
+ "date": "2026-11-01T13:17:19.940Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=b1d157ed-6f95-4d7a-9b71-1962eb7710b1/photo/61b43c48-5f47-4bae-b801-9a52cd30cdfa.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=764a178b-e4f8-4c11-aaa9-8e095c733d62/photo/8aa5481e-b3a2-481f-b069-bc73c1bc71ba.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -466,7 +466,7 @@
    "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
    "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
    "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
-   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/b1d157ed-6f95-4d7a-9b71-1962eb7710b1/devis/ccc3ae4b-3283-440b-ad4b-97c2170377c4.pdf\"}",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/764a178b-e4f8-4c11-aaa9-8e095c733d62/devis/09a9a0e9-f300-44b3-8146-5a3b8232ec32.pdf\"}",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
   },
@@ -529,9 +529,63 @@
    "exigence": "Documents scannés dès l'enregistrement d'une moto",
    "action": "Coordinateur enregistre une moto avec la carte grise scannée (2 pages, recadrage, rotation)",
    "attendu": "moto créée, carte grise EN_VERIFICATION, PDF valide de 2 pages",
-   "obtenu": "ferme · EN_VERIFICATION · 19a7bdd0-1d9a-4a97-9d2d-70e28382b118/document/7164b907-3919-4a0c-8814-235951dfcfe1.pdf · PDF valide · 2 page(s)",
+   "obtenu": "ferme · EN_VERIFICATION · cecdc247-2c41-4e06-8f02-f27922b5a24b/document/a99416d7-fb41-4dfa-a561-81a2e69997dd.pdf · PDF valide · 2 page(s)",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/scanner-mobile.png"
+  },
+  {
+   "id": "UI-MIS-01",
+   "exigence": "Départ de mission en 4 gestes (migration 8)",
+   "action": "Chef d'unité à 390 px : Démarrer → Photographier → (objet, destination) → Valider",
+   "attendu": "lecture proposée = compteur affiché ; mission OUVERTE, origine LU_CONFIRME, photo ≤ 60 Ko sans EXIF",
+   "obtenu": "proposé=314 (affiché 314) · ferme · OUVERTE · 314.0 · LU_CONFIRME · GPS OK · photo 28820 octets · sans EXIF=true · positions=1",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-depart-confirmation-mobile.png"
+  },
+  {
+   "id": "UI-MIS-02",
+   "exigence": "Fin de mission : lecture corrigée par l'agent",
+   "action": "Chef d'unité : Terminer → Photographier → corrige le chiffre → Valider",
+   "attendu": "mission CLOTUREE, origine LU_CORRIGE, distance = arrivée − départ, compteur moto à jour",
+   "obtenu": "proposé=342 · ferme · CLOTUREE · distance=29.0 · LU_CORRIGE · compteur moto=343.0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-apres-cloture-mobile.png"
+  },
+  {
+   "id": "UI-MIS-03",
+   "exigence": "Départ hors connexion, lecture invraisemblable, GPS refusé",
+   "action": "Sans réseau : la caméra montre un compteur inférieur au dernier relevé ; l'agent saisit le chiffre",
+   "attendu": "aucune proposition ; file locale ; synchronisée au retour : origine SAISI, écart GPS_ABSENT",
+   "obtenu": "proposé=\"\" · Lecture automatique impossible (chiffres incertains) : saisi · ferme · avant réseau=0 · SAISI · GPS_ABSENT",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-hors-connexion-mobile.png"
+  },
+  {
+   "id": "UI-MIS-04",
+   "exigence": "Suivi BM : missions, photo et empreinte, export",
+   "action": "BM ouvre « Missions », ouvre la photo du départ, exporte",
+   "attendu": "tableau des missions, empreinte conforme, classeur Missions / Par agent / Coûts / Écarts",
+   "obtenu": "lignes=2 · Empreinte conforme : la photo est celle prise au moment du r · onglets=Missions,Par agent,Coûts,Écarts",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-photo-bm.png"
+  },
+  {
+   "id": "UI-MIS-05",
+   "exigence": "Finance : distances, photos et coûts, jamais de coordonnées",
+   "action": "Finance ouvre « Missions » puis interroge les positions",
+   "attendu": "missions et coût par km visibles ; 0 position lisible",
+   "obtenu": "missions=2 · bloc coûts=1 · positions lisibles=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-finance.png"
+  },
+  {
+   "id": "UI-MIS-06",
+   "exigence": "Chef de zone : écart vérifié, jamais par le conducteur",
+   "action": "Chef de zone justifie l'écart GPS absent (motif) ; le Chef d'unité ne voit aucun bouton de décision",
+   "attendu": "écart JUSTIFIEE, trace du décideur",
+   "obtenu": "boutons agent=0 · ferme · JUSTIFIEE",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-zone-tablette.png"
   },
   {
    "id": "UI-RWD-flotte-mobile",
@@ -660,6 +714,33 @@
    "preuve": "tests/moto/resultats/captures/entretiens-mobile.png"
   },
   {
+   "id": "UI-RWD-missions-agent-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-agent à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-agent-mobile.png"
+  },
+  {
+   "id": "UI-RWD-missions-bm-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-bm à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-bm-mobile.png"
+  },
+  {
+   "id": "UI-RWD-missions-zone-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-zone à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-zone-mobile.png"
+  },
+  {
    "id": "UI-RWD-flotte-tablette",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "flotte à 768×1024",
@@ -786,6 +867,33 @@
    "preuve": "tests/moto/resultats/captures/entretiens-tablette.png"
   },
   {
+   "id": "UI-RWD-missions-agent-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-agent à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-agent-tablette.png"
+  },
+  {
+   "id": "UI-RWD-missions-bm-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-bm à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-bm-tablette.png"
+  },
+  {
+   "id": "UI-RWD-missions-zone-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-zone à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-zone-tablette.png"
+  },
+  {
    "id": "UI-RWD-flotte-bureau",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "flotte à 1440×900",
@@ -910,6 +1018,33 @@
    "obtenu": "débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/entretiens-bureau.png"
+  },
+  {
+   "id": "UI-RWD-missions-agent-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-agent à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-agent-bureau.png"
+  },
+  {
+   "id": "UI-RWD-missions-bm-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-bm à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-bm-bureau.png"
+  },
+  {
+   "id": "UI-RWD-missions-zone-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "missions-zone à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/missions-zone-bureau.png"
   },
   {
    "id": "UI-CONSOLE",
