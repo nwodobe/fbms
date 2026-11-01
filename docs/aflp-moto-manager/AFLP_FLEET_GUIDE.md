@@ -206,6 +206,10 @@ Pour un écart :
 
 Le conducteur ne tranche jamais ses propres écarts.
 
+**Chaque mois, obligatoire** : un responsable autre que les conducteurs lance **« Contrôler les photos du mois »**. L'application recalcule l'empreinte de chaque photo. Une différence ouvre l'écart « Photo modifiée ou remplacée ». Un contrôle non conforme ne s'efface pas : seul le BM ou l'ABM peut le lever, avec un motif, s'il était infondé.
+
+Regardez aussi le bandeau des photos (heure, moto) : une ancienne photo réutilisée se trahit d'abord là, et par un relevé « saisi » ou « corrigé ».
+
 Une mission ouverte par erreur ou jamais clôturée s'**annule**, avec un motif. Elle n'est jamais estimée : ses kilomètres apparaîtront comme « hors mission » au départ suivant.
 
 ## Branch Manager
