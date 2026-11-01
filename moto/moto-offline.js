@@ -130,6 +130,15 @@
     if (!sb) return Promise.resolve({ envoyees: 0 });
     if (global.navigator && navigator.onLine === false) return Promise.resolve({ envoyees: 0, horsLigne: true });
     syncEnCours = lister().then(function (ops) {
+      /* Fin de mission dont le départ a été refusé : elle ne partira jamais, on la marque refusée
+         (l'agent peut la retirer de l'appareil ; le responsable annulera la mission si besoin). */
+      var refuses = {};
+      ops.forEach(function (o) { if (o.type === 'MISSION_DEPART' && o.statut === 'REJETE' && o.payload) refuses[o.payload.mission_id] = o.message || 'départ refusé'; });
+      var orphelines = ops.filter(function (o) { return o.type === 'MISSION_ARRIVEE' && o.statut === 'EN_ATTENTE' && o.payload && refuses[o.payload.mission_id]; });
+      return Promise.all(orphelines.map(function (o) {
+        return ecrire('operations', CORE.appliquerResultat(o, { statut: 'REJETE', message: 'Départ de cette mission refusé par le serveur (' + refuses[o.payload.mission_id] + ') : arrivée non envoyée.' }));
+      })).then(function () { return orphelines.length ? lister() : ops; });
+    }).then(function (ops) {
       var lot = CORE.operationsEligibles(ops, Date.now(), 20);
       if (!lot.length) return { envoyees: 0 };
       var prets = [];

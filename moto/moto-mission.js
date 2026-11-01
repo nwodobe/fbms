@@ -28,7 +28,8 @@
     var LIB_OBJET = {}; OBJETS.forEach(function (o) { LIB_OBJET[o[0]] = o[1]; });
     var LIB_ECART = { HORS_MISSION: 'Km hors mission', CONTINUITE: 'Continuité du compteur', VITESSE: 'Vitesse impossible', DISTANCE: 'Distance hors norme',
       HORLOGE: 'Horloge du téléphone', GPS_ABSENT: 'GPS absent', CLOTURE_TARDIVE: 'Clôture tardive',
-      SAISIE_DIFFEREE_DEPART: 'Départ envoyé tardivement', SAISIE_DIFFEREE_ARRIVEE: 'Arrivée envoyée tardivement' };
+      SAISIE_DIFFEREE_DEPART: 'Départ envoyé tardivement', SAISIE_DIFFEREE_ARRIVEE: 'Arrivée envoyée tardivement',
+      ORDRE_RELEVES: 'Relevés reçus dans le désordre', EMPREINTE_DIFFERENTE: 'Photo modifiée ou remplacée', PHOTO_ATYPIQUE: 'Photo de taille inhabituelle' };
     var LIB_ORIGINE = { LU_CONFIRME: 'Lu, confirmé', LU_CORRIGE: 'Lu, corrigé', SAISI: 'Saisi' };
     var LIB_STATUT = { OUVERTE: 'En cours', CLOTUREE: 'Clôturée', ANNULEE: 'Annulée' };
     var CIBLE_OCTETS = 60000;
@@ -288,7 +289,8 @@
       d.missions.forEach(function (x) { motos[x.moto_id] = x.moto_code; gens[x.conducteur_id] = x.conducteur_nom; });
       var moisOpts = []; for (var i = 0; i < 12; i++) { var x = new Date(); x.setUTCDate(1); x.setUTCMonth(x.getUTCMonth() - i); var v = x.toISOString().slice(0, 8) + '01'; moisOpts.push([v, x.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' })]); }
       I.vue().innerHTML = '<div class="mm-entete"><div><h1>' + (suivi ? 'Missions et kilométrage' : 'Mes missions') + '</h1><p>Chaque mission : compteur photographié au départ et à l\'arrivée. Les écarts déclenchent une vérification, jamais une sanction automatique.</p></div>' +
-        '<button type="button" class="mm-btn mm-secondaire" data-mission-export>Exporter (Excel)</button></div>' +
+        '<div class="mm-actions-entete">' + (suivi ? '<button type="button" class="mm-btn mm-secondaire" data-mission-controle>Contrôler les photos du mois</button> ' : '') +
+        '<button type="button" class="mm-btn mm-secondaire" data-mission-export>Exporter (Excel)</button></div></div>' +
         '<div class="mm-filtres">' + I.champ({ n: 'mm_mois', l: 'Mois', t: 'select', o: moisOpts, v: d.mois, vide: false }) +
         (suivi ? I.champ({ n: 'mm_moto', l: 'Moto', t: 'select', o: Object.keys(motos).map(function (k) { return [k, motos[k]]; }), v: etat.moto }) +
           I.champ({ n: 'mm_agent', l: 'Agent', t: 'select', o: Object.keys(gens).map(function (k) { return [k, gens[k]]; }), v: etat.agent }) : '') + '</div>' +
@@ -322,6 +324,7 @@
       $$('[data-photo-mission]').forEach(function (b) { b.onclick = function () { voirPhoto(b.dataset.photoMission, b.dataset.sha); }; });
       $$('[data-action]', I.vue()).forEach(function (b) { b.onclick = function () { var f = ACTIONS[b.dataset.action]; if (f) f(b.dataset); }; });
       var ex = $('[data-mission-export]'); if (ex) ex.onclick = exporter;
+      var ct = $('[data-mission-controle]'); if (ct) ct.onclick = function () { controlerTout(missions, ct); };
     }
     async function voirPhoto(chemin, sha) {
       var r = await S.sb.storage.from('moto-documents').createSignedUrl(chemin, 300);
@@ -330,8 +333,26 @@
       I.modale('Photo du compteur', '<figure class="mm-photo-compteur"><img src="' + esc(url) + '" alt="Photo du compteur"></figure><p class="mm-note" data-empreinte>Empreinte : vérification…</p>', null);
       try {
         var blob = await (await fetch(url)).blob(), h = await empreinte(blob), el = document.querySelector('dialog.mm-modale [data-empreinte]');
+        // Contrôle enregistré par une personne autre que le déposant (le serveur ignore le déposant).
+        if (C.peut(S.classe, 'missions_suivi')) rpc('moto_mission_photo_controler', { p_chemin: chemin, p_sha256: h }).catch(function () {});
         if (el) { var bon = sha && h === sha; el.className = 'mm-bandeau ' + (bon ? 'mm-ok' : 'mm-ko'); el.textContent = bon ? 'Empreinte conforme : la photo est celle prise au moment du relevé, non modifiée.' : 'Empreinte DIFFÉRENTE de celle enregistrée : photo modifiée ou remplacée. Signalez-le au Branch Manager.'; }
       } catch (e) { var el2 = document.querySelector('dialog.mm-modale [data-empreinte]'); if (el2) el2.textContent = 'Empreinte non vérifiable hors connexion.'; }
+    }
+    /* Recalcule l'empreinte de chaque photo du mois et l'enregistre (écart si différente). */
+    async function controlerTout(missions, bouton) {
+      var chemins = []; missions.forEach(function (x) { if (x.photo_depart) chemins.push(x.photo_depart); if (x.photo_arrivee) chemins.push(x.photo_arrivee); });
+      var ok = 0, ko = 0, err = 0; bouton.disabled = true;
+      for (var i = 0; i < chemins.length; i++) {
+        bouton.textContent = 'Contrôle ' + (i + 1) + ' / ' + chemins.length + '…';
+        try {
+          var r = await S.sb.storage.from('moto-documents').createSignedUrl(chemins[i], 120); if (r.error) throw r.error;
+          var h = await empreinte(await (await fetch(r.data.signedUrl)).blob());
+          var res = await rpc('moto_mission_photo_controler', { p_chemin: chemins[i], p_sha256: h });
+          if (res && res.conforme === false) ko++; else ok++;
+        } catch (e) { err++; }
+      }
+      I.toast(chemins.length + ' photo(s) contrôlée(s) : ' + ok + ' conforme(s), ' + ko + ' différente(s)' + (err ? ', ' + err + ' non vérifiable(s)' : '') + '.', ko ? 'ko' : 'ok');
+      setTimeout(vue, 300);
     }
     async function exporter() {
       try {

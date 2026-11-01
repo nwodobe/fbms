@@ -1,5 +1,5 @@
 {
- "date": "2026-11-01T12:49:49.933Z",
+ "date": "2026-11-01T13:00:49.999Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=ebde59fe-71f1-4644-8f40-41e36efe4207/photo/c63d60ef-5c93-48d7-b78b-72bb491df905.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=359ff901-3eac-4626-8a2f-211fccfb9f10/photo/710ca447-adf1-4fe7-884c-f87f6d0f863c.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -466,7 +466,7 @@
    "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
    "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
    "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
-   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/ebde59fe-71f1-4644-8f40-41e36efe4207/devis/8d0fba11-4e27-4264-8c20-9a5d02d822d2.pdf\"}",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/359ff901-3eac-4626-8a2f-211fccfb9f10/devis/53f8c7c0-e1ff-4957-9918-6628f4ac3bd7.pdf\"}",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
   },
@@ -529,7 +529,7 @@
    "exigence": "Documents scannés dès l'enregistrement d'une moto",
    "action": "Coordinateur enregistre une moto avec la carte grise scannée (2 pages, recadrage, rotation)",
    "attendu": "moto créée, carte grise EN_VERIFICATION, PDF valide de 2 pages",
-   "obtenu": "ferme · EN_VERIFICATION · 40200908-1226-42f4-a74a-e1ef6f7683eb/document/51915298-60be-4f06-8e24-51083ffe7310.pdf · PDF valide · 2 page(s)",
+   "obtenu": "ferme · EN_VERIFICATION · f3d90c8d-79fb-4f5a-87a6-62afbfd20a3c/document/50d6582a-12af-4dca-bab5-99490855fa52.pdf · PDF valide · 2 page(s)",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/scanner-mobile.png"
   },
@@ -538,7 +538,7 @@
    "exigence": "Départ de mission en 4 gestes (migration 8)",
    "action": "Chef d'unité à 390 px : Démarrer → Photographier → (objet, destination) → Valider",
    "attendu": "lecture proposée = compteur affiché ; mission OUVERTE, origine LU_CONFIRME, photo ≤ 60 Ko sans EXIF",
-   "obtenu": "proposé=314 (affiché 314) · ferme · OUVERTE · 314.0 · LU_CONFIRME · GPS OK · photo 28792 octets · sans EXIF=true · positions=1",
+   "obtenu": "proposé=314 (affiché 314) · ferme · OUVERTE · 314.0 · LU_CONFIRME · GPS OK · photo 28807 octets · sans EXIF=true · positions=1",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/mission-depart-confirmation-mobile.png"
   },

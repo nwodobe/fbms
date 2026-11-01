@@ -133,7 +133,9 @@ permis_fixture("uh_b"); permis_fixture("zh"); permis_fixture("uh_a")
 def photo(user, moto_id, client, taille=42000, mime="image/jpeg", deposer=True, deposant=None, etag=None):
     chemin = f"{moto_id}/mission/{client}-photo_path.jpg"
     if deposer:
-        meta = json.dumps({"size": taille, "mimetype": mime, "eTag": '"' + (etag or secrets.token_hex(16)) + '"'})
+        m = {"size": taille, "mimetype": mime}
+        if etag != "ABSENT": m["eTag"] = '"' + (etag or secrets.token_hex(16)) + '"'
+        meta = json.dumps(m)
         ok, out = run_as(deposant or user, f"insert into storage.objects (bucket_id, name, metadata) values ('moto-documents', '{chemin}', '{meta}'::jsonb)")
         if not ok: raise RuntimeError("dépôt photo : " + out)
     return chemin
@@ -398,7 +400,7 @@ act("X02", "Contre-expertise", "uh_x", "Départ à 13 h (capture hors connexion)
 mx = q(f"select id from public.moto_missions where moto_id='{M6}' and statut='OUVERTE'")
 act("X03", "Contre-expertise", "uh_x", "Arrivée avec le MÊME fichier (eTag identique) et une empreinte inventée", "select public.moto_mission_cloturer(" + lit(charge("uh_x", M6, 815, -12 * 60, mission_id=mx, etag="e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1")) + ")", False, "déjà été utilisée")
 act("X04", "Contre-expertise", "uh_x", "Clôture normale", "select public.moto_mission_cloturer(" + lit(charge("uh_x", M6, 815, -12 * 60, mission_id=mx)) + ")", True, "CLOTUREE")
-act("X05", "Contre-expertise", "uh_x", "Départ ANTIDATÉ avant la mission déjà clôturée (chevauchement)", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 815, -12 * 60 - 30)) + ")", False, "antérieure au dernier relevé")
+act("X05", "Contre-expertise", "uh_x", "Départ ANTIDATÉ avant la mission déjà clôturée (chevauchement)", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 815, -12 * 60 - 30)) + ")", False, "chevauchent")
 act("X06", "Contre-expertise", "uh_exp", "Permis expiré hier : départ « maintenant »", "select public.moto_mission_demarrer(" + lit(charge("uh_exp", M7, 900, -1)) + ")", False, "Aucun permis valide")
 act("X06b", "Contre-expertise", "uh_exp", "Permis expiré hier : départ antidaté de 3 jours", "select public.moto_mission_demarrer(" + lit(charge("uh_exp", M7, 900, -3 * 24 * 60)) + ")", False, "Aucun permis valide")
 # Hors connexion : arrivée reçue AVANT son départ = erreur temporaire, puis tout passe
@@ -435,6 +437,34 @@ act("X12c", "Contre-expertise", "dir", "La Direction valide (quatre yeux respect
 # Purge réservée au BM, limitée aux photos en fin de conservation
 act("X13", "Contre-expertise", "uh_a", "Un agent purge des photos", "select public.moto_missions_photos_purger(array['x'])", False, "rôle")
 act("X13b", "Contre-expertise", "bm", "Le BM ne peut pas purger une photo récente", f"select public.moto_missions_photos_purger(array(select chemin from public.moto_mission_photos limit 3))", True, "0")
+
+# ===========================================================================
+# Y. Contre-vérification : régressions corrigées
+# ===========================================================================
+M8 = moto("uh_y", 1500)
+act("Y01a", "Contre-vérification", "uh_y", "Relevé ordinaire synchronisé AVANT un départ photographié plus tôt", "select public.moto_releve_km(" + lit({"moto_id": M8, "compteur_km": 1510, "date_releve": t(-40)}) + ")", True)
+m8 = str(uuid.uuid4())
+act("Y01", "Contre-vérification", "uh_y", "Départ honnête reçu dans le désordre : accepté et signalé (plus de rejet définitif)", "select public.moto_mission_demarrer(" + lit(charge("uh_y", M8, 1505, -60, mission_id=m8)) + ")", True, "ORDRE_RELEVES")
+act("Y02a", "Contre-vérification", "zh", "Le Chef de zone relève le compteur pendant la mission", "select public.moto_releve_km(" + lit({"moto_id": M8, "compteur_km": 1531, "date_releve": t(-10)}) + ")", True)
+act("Y02", "Contre-vérification", "uh_y", "Arrivée photographiée plus tôt, reçue après ce relevé : acceptée", "select public.moto_mission_cloturer(" + lit(charge("uh_y", M8, 1520, -30, mission_id=m8)) + ")", True, "CLOTUREE")
+act("Y03a", "Contre-vérification", "bm", "Le BM ramène la conservation des photos à 0 mois", "select public.moto_parametre_modifier('mission_photos_conservation_mois', 0, null, 'Tentative de contournement de la conservation')", True)
+act("Y03", "Contre-vérification", "bm", "… puis purge les photos de la mission du jour : rien n'est supprimé (plancher de 12 mois)", f"select public.moto_missions_photos_purger(array(select chemin from public.moto_mission_photos where mission_id='{m8}'))", True, "0")
+check("Y03b", "Contre-vérification", "Les deux photos de la mission sont toujours là", f"select count(*) from public.moto_mission_photos where mission_id='{m8}'", "2")
+q("update public.moto_parametres set valeur = 12 where cle = 'mission_photos_conservation_mois'")
+act("Y04", "Contre-vérification", "uh_y", "Téléphone en avance de 10 minutes : accepté (l'écart d'horloge est signalé, pas rejeté)", "select public.moto_mission_demarrer(" + lit(charge("uh_y", M8, 1531, 10, horloge=-10)) + ")", True, "OUVERTE")
+m8b = q(f"select id from public.moto_missions where moto_id='{M8}' and statut='OUVERTE'")
+act("Y05", "Contre-vérification", "uh_y", "Photo sans empreinte du stockage (eTag absent)", "select public.moto_mission_cloturer(" + lit(charge("uh_y", M8, 1540, 11, mission_id=m8b, etag="ABSENT")) + ")", False, "empreinte du stockage absente")
+act("Y06", "Contre-vérification", "uh_y", "Photo de 150 Ko (inhabituelle) : acceptée et signalée", "select public.moto_mission_cloturer(" + lit(charge("uh_y", M8, 1540, 11, mission_id=m8b, taille=150000)) + ")", True, "PHOTO_ATYPIQUE")
+ph1, sha1 = q(f"select chemin||'|'||sha256 from public.moto_mission_photos where mission_id='{m8}' and moment='DEPART'").split("|")
+ph2 = q(f"select chemin from public.moto_mission_photos where mission_id='{m8}' and moment='ARRIVEE'")
+phbm = q(f"select chemin from public.moto_mission_photos where mission_id='{rb['id'] if isinstance(rb, dict) else rb}' and moment='DEPART'")
+act("Y07", "Contre-vérification", "bm", "Le BM « contrôle » la photo qu'il a lui-même déposée : ignoré", f"select public.moto_mission_photo_controler('{phbm}', '{sha1}')", True, "IGNORE_DEPOSANT")
+act("Y07b", "Contre-vérification", "fin", "La Finance recalcule l'empreinte : conforme", f"select public.moto_mission_photo_controler('{ph1}', '{sha1}')", True, '"conforme": true')
+act("Y07c", "Contre-vérification", "zh", "Le Chef de zone recalcule une empreinte différente (photo modifiée)", f"select public.moto_mission_photo_controler('{ph2}', '{secrets.token_hex(32)}')", True, '"conforme": false')
+check("Y07d", "Contre-vérification", "Écart EMPREINTE_DIFFERENTE ouvert, contrôle tracé", f"select (select count(*) from public.moto_mission_anomalies where mission_id='{m8}' and type_anomalie='EMPREINTE_DIFFERENTE')||'|'||(select controle_conforme from public.moto_mission_photos where chemin='{ph2}')", "1|false")
+act("Y07e", "Contre-vérification", "uh_y", "Un agent appelle le contrôle", f"select public.moto_mission_photo_controler('{ph2}', '{sha1}')", False, "rôle")
+act("Y08", "Contre-vérification", "zh_c", "Carnet d'une moto d'une autre zone : aucune mission", f"select count(*) from public.moto_carnet('{M6}') where categorie='MISSION'", True, "0")
+act("Y08b", "Contre-vérification", "zh", "Carnet de sa zone : missions visibles", f"select count(*) > 0 from public.moto_carnet('{M6}') where categorie='MISSION'", True, "t")
 
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
