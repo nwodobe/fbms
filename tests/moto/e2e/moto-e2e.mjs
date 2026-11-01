@@ -533,6 +533,29 @@ try {
     return { ok: /Réussi/.test(t || '') && n === 1, obtenu: `"${(t || '').slice(0, 90)}" · base=${n}` };
   });
 
+  // 9 bis. Supports de formation (migration 9) : présentation PDF jointe au module, stockage privé.
+  await etape('UI-FOR-02', 'Présentation PDF jointe au module (BM / ABM seulement)', 'BM dépose un PDF fictif sur « Contrôle de sécurité »', 'fichier dans moto-formation/CONTROLE_SECURITE/, support enregistré', async () => {
+    await pB.goto(BASE + '/moto/index.html#/formation/CONTROLE_SECURITE'); await pret(pB);
+    await pB.waitForSelector('[data-support-depot] input', { state: 'attached', timeout: 10000 });
+    await pB.setInputFiles('[data-support-depot] input', { name: 'A_controle_fictif.pdf', mimeType: 'application/pdf', buffer: PDF.buffer });
+    await pB.waitForSelector('[data-support-pdf]', { timeout: 10000 });
+    const r = (await q("select s.module_code, s.chemin, s.nom_fichier, (select count(*) from storage.objects o where o.bucket_id='moto-formation' and o.name=s.chemin)::int f from public.moto_formation_supports s"))[0] || {};
+    return { ok: r.module_code === 'CONTROLE_SECURITE' && /^CONTROLE_SECURITE\/[0-9a-f-]{36}\.pdf$/.test(r.chemin || '') && r.f === 1 && r.nom_fichier === 'A_controle_fictif.pdf', obtenu: `${r.module_code} · ${r.chemin} · fichier=${r.f}`, preuve: await capture(pB, 'formation-support-bm') };
+  });
+  await etape('UI-FOR-03', 'Le Chef d\'unité consulte la présentation, sans pouvoir déposer', 'Chef d\'unité ouvre la Formation puis le module', 'badge « Présentation PDF » sur la carte, lien signé, aucun bouton de dépôt, autres modules sans PDF', async () => {
+    await pU.goto(BASE + '/moto/index.html#/formation'); await pret(pU);
+    await pU.waitForSelector('.mm-carte-moto', { timeout: 10000 });
+    const badges = await pU.evaluate(() => [...document.querySelectorAll('a.mm-carte-moto')].map(a => a.querySelector('h2').textContent + '=' + /Présentation PDF/.test(a.textContent) + '/' + /Non commencé · /.test(a.textContent)));
+    await pU.goto(BASE + '/moto/index.html#/formation/CONTROLE_SECURITE'); await pret(pU);
+    await pU.waitForSelector('[data-support-pdf]', { timeout: 10000 });
+    const href = await pU.getAttribute('[data-support-pdf]', 'href'); const cible = await pU.getAttribute('[data-support-pdf]', 'target');
+    const depot = await pU.locator('[data-support-depot]').count();
+    const lecture = await pU.evaluate(async (u) => { const r = await fetch(u); return r.status + ' ' + (await r.text()).slice(0, 8); }, href);
+    const avecPdf = badges.filter(b => /=true\//.test(b)).length, ancienBadge = badges.filter(b => /\/true$/.test(b)).length;
+    return { ok: avecPdf === 1 && /=true\//.test(badges[0]) && ancienBadge === 0 && /moto-formation\/CONTROLE_SECURITE\//.test(href || '') && cible === '_blank' && depot === 0 && /^200 %PDF/.test(lecture),
+      obtenu: `cartes=${badges.join(' | ')} · lien=${(href || '').replace(/\?.*/, '')} · dépôt=${depot} · lecture=${lecture}`, preuve: await capture(pU, 'formation-support-uh') };
+  });
+
   // 10. Accès refusés et périmètres
   for (const compte of ['agent', 'sup']) {
     const c = await contexte(compte, 'mobile'); const p = await page(c, '/moto/index.html');
@@ -871,7 +894,7 @@ try {
 
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens'], ['uh', '#/missions', 'missions-agent'], ['bm', '#/missions', 'missions-bm'], ['zh', '#/missions', 'missions-zone']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['uh', '#/formation/CONTROLE_SECURITE', 'formation-module'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens'], ['uh', '#/missions', 'missions-agent'], ['bm', '#/missions', 'missions-bm'], ['zh', '#/missions', 'missions-zone']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);
