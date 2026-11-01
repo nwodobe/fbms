@@ -108,12 +108,23 @@ for k, nom, role, cluster, zone, fonction in PROFILS:
                  f"{('$z$'+zone+'$z$') if zone else 'null'}, {('$f$'+fonction+'$f$') if fonction else 'null'}, true) on conflict do nothing;")
 q("\n".join(setup))
 
+def permis_fixture(user):
+    """Migration 7 : une affectation REMISE exige un permis CONFORME et valide (déclencheur). Fixture directe, fictive."""
+    if q("select to_regclass('public.moto_permis') is not null") != "t": return
+    dep = U['lc'] if user == 'abm' else U['abm']
+    q(f"""insert into public.moto_permis (titulaire_id, nom_titulaire, numero_permis, categories, date_expiration, document_path, statut,
+            verification_rh_nom, categorie_adaptee, depose_par, verifie_par, verifie_at)
+          select '{U[user]}', 'TITULAIRE FICTIF', 'FX-{U[user][-6:]}', '{{A}}', current_date + 700, 'permis/{U[user]}/fixture.pdf', 'CONFORME',
+                 'RH FICTIF', true, '{dep}', '{U['bm']}', now()
+          where not exists (select 1 from public.moto_permis where titulaire_id = '{U[user]}' and statut = 'CONFORME')""")
+
 def moto(user_benef, marque, modele, origine, jours_service, km0, cluster="SAKASSOU"):
     ok, out = run_as("abm", "select public.moto_creer(" + lit({k: v for k, v in {"marque": marque, "modele": modele, "cluster_code": cluster,
                      "date_reception": d(-jours_service - 1), "origine": origine, "motif": "Moto de test migration 6 (fictive)"}.items() if v is not None}) + ")")
     if not ok: raise RuntimeError(out)
     mid = json.loads(out)["id"]
     debut = f"now() - interval '{jours_service} days'"
+    permis_fixture(user_benef)
     q(f"""update public.moto_motos set mise_en_service_at = {debut}, statut_affectation = 'REMISE', compteur_actuel_km = {km0}, origine = '{origine}' where id = '{mid}';
           insert into public.moto_affectations (moto_id, beneficiaire_id, cluster_code, type_affectation, statut, date_debut, compteur_km, motif, cree_par)
           values ('{mid}', '{U[user_benef]}', '{cluster}', 'REMISE', 'ACTIVE', ({debut})::date, {km0}, 'Fixture test M6', '{U['abm']}');
@@ -379,6 +390,7 @@ check("S25k", "25", "RLS active sur toutes les tables de la migration 6", "selec
 # Adversariaux complémentaires
 # ---------------------------------------------------------------------------
 q(f"update public.moto_affectations set statut='CLOTUREE' where moto_id='{A2}' and statut='ACTIVE'")
+permis_fixture('bm2')
 q(f"insert into public.moto_affectations (moto_id, beneficiaire_id, cluster_code, type_affectation, statut, date_debut, motif, cree_par) values ('{A2}', '{U['bm2']}', 'BROBO', 'REMISE', 'ACTIVE', current_date, 'Fixture : moto du BM', '{U['abm']}')")
 mtb = run_as("lc", "select public.moto_maintenance_demander(" + lit({"moto_id": A2, "type_maintenance": "REPARATION", "description": "Réparation sur la moto du BM"}) + ")")
 mtb = json.loads(mtb[1])["id"]

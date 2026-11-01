@@ -27,5 +27,10 @@ for passe in 1 2; do   # la migration 6 doit, elle aussi, pouvoir être rejouée
   appliquer 20261102090000_aflp_fleet_6_maintenance_autorisations
   echo "Passe $passe : migration 6 AFLP FLEET (maintenance, autorisations BM) appliquée."
 done
+for passe in 1 2; do   # la migration 7 doit pouvoir être rejouée
+  appliquer 20261103090000_aflp_fleet_7_permis_carnet
+  echo "Passe $passe : migration 7 AFLP FLEET (permis des conducteurs, carnet de suivi) appliquée."
+done
 python3 "$DIR/tests_serveur_moto.py" "$DB"
 [ -f "$DIR/tests_maintenance_6.py" ] && python3 "$DIR/tests_maintenance_6.py" "$DB"
+[ -f "$DIR/tests_permis_carnet_7.py" ] && python3 "$DIR/tests_permis_carnet_7.py" "$DB"

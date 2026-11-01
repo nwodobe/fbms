@@ -96,6 +96,19 @@ def items(typ, ko=(), falsifier=False):
 def put_object(path):
     q(f"insert into storage.objects (bucket_id, name, owner) values ('moto-documents', '{path}', '{U['abm']}') on conflict do nothing")
 
+def permis_pour(benef):
+    """Migration 7 : la remise exige un permis enregistré, vérifié CONFORME (autre personne) et valide."""
+    if q("select to_regclass('public.moto_permis') is not null") != "t": return
+    if q(f"select count(*) from public.moto_permis where titulaire_id='{U[benef]}' and statut='CONFORME'") != "0": return
+    pth = f"permis/{U[benef]}/{uuid.uuid4()}.pdf"; put_object(pth)
+    deposant = "lc" if benef == "abm" else "abm"
+    ok, out = run_as(deposant, "select public.moto_permis_enregistrer(" + lit({"titulaire_id": U[benef], "nom_titulaire": "TITULAIRE FICTIF " + benef.upper(),
+                     "numero_permis": "TEST-" + U[benef][-6:], "categories": ["A"], "date_expiration": str(today + datetime.timedelta(days=700)),
+                     "document_path": pth}) + ")")
+    assert ok, out
+    ok, out = run_as("bm", f"select public.moto_permis_verifier('{json.loads(out)['id']}', 'CONFORME', 'RH FICTIF', true)")
+    assert ok, out
+
 # ---------------------------------------------------------------------------
 # Préparation : comptes fictifs
 # ---------------------------------------------------------------------------
@@ -265,8 +278,6 @@ pv = depot("abm", M1, "PV_REMISE", "document", tid="REM-02", label="Dépôt du P
 act("REM-03", "PV non vérifié refusé", "abm", "Remise avec PV non vérifié",
     "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"]}) + ")", False, "Procès-verbal")
 act("REM-04", "Vérification PV par un tiers", "bm", "BM vérifie le PV", f"select public.moto_document_verifier('{pv['id']}', 'CONFORME')")
-act("REM-05", "Permis vérifié RH obligatoire", "abm", "Remise sans vérification du permis",
-    "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"], "permis_verifie": False}) + ")", False, "permis")
 act("REM-06", "Équipements de sécurité obligatoires", "abm", "Remise sans gilet",
     "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"], "equipements": {"CASQUE": True}}) + ")", False, "GILET")
 act("REM-07", "Documents conformes obligatoires", "abm", "Remise de M4 (aucun document)",
@@ -286,6 +297,10 @@ act("REM-07d", "Confirmation par le bénéficiaire uniquement", "abm", "ABM conf
     f"select public.moto_etat_remise_confirmer('{etat['id']}', 'ACCEPTEE')", False, "bénéficiaire")
 act("REM-07e", "Bénéficiaire accepte avec réserves", "uh_sak", "UH Sakassou accepte avec réserve",
     f"select public.moto_etat_remise_confirmer('{etat['id']}', 'ACCEPTEE_AVEC_RESERVES', 'Rayure notée au PV')", True, "RESERVES")
+act("REM-05", "Permis vérifié obligatoire (migration 7 : permis enregistré et CONFORME, la case déclarative ne suffit plus)", "abm",
+    "Remise avec la case « permis vérifié » cochée mais sans permis enregistré",
+    "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"]}) + ")", False, "permis") if q("select to_regclass('public.moto_permis') is not null") == "t" else None
+permis_pour("uh_sak")
 act("REM-08", "Remise complète", "abm", "ABM enregistre la remise de M1",
     "select public.moto_remettre(" + lit({**remise_base, "pv_document_id": pv["id"]}) + ")", True, "REMISE")
 check("REM-09", "Statut affectation REMISE, pas encore en service", "REMISE/false",
@@ -563,7 +578,12 @@ check("PNE-06", "Coût par km sur données réelles", "(12000+1000)/500 = 26.00 
 # ---------------------------------------------------------------------------
 # I. Indicateurs, formation, régression
 # ---------------------------------------------------------------------------
-check("KPI-01", "Disponibilité : dénominateur présent", "taux calculé (non NULL)", f"select (taux_disponibilite_pct is not null)::text from public.moto_v_disponibilite where moto_id='{M1}'", "true")
+# Indépendant du jour d'exécution : un dimanche (hors 6 jours opérationnels), une moto mise en service le jour même
+# n'a encore aucun jour opérationnel prévu → « Non disponible » est la bonne réponse (constaté le dimanche 01/11/2026).
+if int(q("select extract(isodow from current_date)::int")) > int(float(q("select private.moto_param('jours_operationnels_semaine')"))):
+    check("KPI-01", "Disponibilité : aucun jour opérationnel écoulé (dimanche) → Non disponible", "aucune ligne", f"select count(*) from public.moto_v_disponibilite where moto_id='{M1}'", "0")
+else:
+    check("KPI-01", "Disponibilité : dénominateur présent", "taux calculé (non NULL)", f"select (taux_disponibilite_pct is not null)::text from public.moto_v_disponibilite where moto_id='{M1}'", "true")
 check("KPI-02", "Disponibilité : moto non en service → absente (Non disponible)", "0", f"select count(*) from public.moto_v_disponibilite where moto_id='{M3}'", "0")
 act("KPI-03", "M6 : coût = factures vérifiées (5 000 + 8 000 + pneus 13 000) ; pneus et incident non recomptés", "bm", "Lecture du coût/km de M1",
     f"select cout_carburant_verifie||'+'||cout_maintenance||'+'||cout_pneus||'+'||cout_incidents from public.moto_v_cout_km where moto_id='{M1}'", True, "7650+26000+0+0")
@@ -625,6 +645,7 @@ def chaine_service(moto, benef, label, chassis, km=12):
     ok, out = run_as(agent, "select public.moto_etat_remise_enregistrer(" + lit({"moto_id": moto, "items": items("ETAT_REMISE"), "compteur_km": km,
                      "date_remise_prevue": str(today), "photos": photos(moto, CATS_REMISE)}) + ")")
     run_as(benef, f"select public.moto_etat_remise_confirmer('{json.loads(out)['id']}', 'ACCEPTEE')")
+    permis_pour(benef)
     r = act(f"FL-SVC-{label}", "Chaîne de remise complète (PV + état contradictoire distincts)", agent, f"Remise de la moto {label}",
             "select public.moto_remettre(" + lit({**remise_base, "moto_id": moto, "pv_document_id": pvid, "compteur_km": km}) + ")", True, "REMISE")
     act(f"FL-MES-{label}", "Mise en service distincte", "bm", f"Mise en service {label}", f"select public.moto_mettre_en_service('{moto}', 'Autorisation test {label}')")
@@ -745,8 +766,14 @@ pv5 = chaine_service(M5, "uh_bro", "M5", "TEST-FL-CH-05")
 check("FL-09b", "PV de remise ≠ inspection mécanique ≠ état contradictoire", "t",
       f"select a.pv_document_id is not null and a.etat_remise_id is not null and (select type_controle from public.moto_controles where id=a.etat_remise_id)='ETAT_REMISE' "
       f"and exists (select 1 from public.moto_controles where moto_id='{M5}' and type_controle='INSPECTION_INITIALE') from public.moto_affectations a where a.moto_id='{M5}' and a.statut='ACTIVE'", "t")
-check("FL-16", "Mise en service en cours de mois : aucune inspection rétroactive exigée", "0",
-      f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode=date_trunc('month', current_date)::date", "0")
+# Le 1er du mois, une mise en service le jour même couvre tout le mois : l'inspection du mois est due (règle
+# « mise en service ≤ début de fenêtre »). On vérifie alors l'absence d'inspection pour les mois ANTÉRIEURS.
+if datetime.date.today().day == 1:
+    check("FL-16", "Mise en service le 1er : aucune inspection exigée pour une période antérieure", "0",
+          f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode < date_trunc('month', current_date)::date", "0")
+else:
+    check("FL-16", "Mise en service en cours de mois : aucune inspection rétroactive exigée", "0",
+          f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode=date_trunc('month', current_date)::date", "0")
 # --- 13, 14. Motos du Chef de zone, de l'ABM, du coordinateur -------------------------------
 r = act("FL-13a", "Moto M9 (ABM)", "lc", "Moto pour l'ABM", "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "zone_code": "GBEKE_1", "date_reception": str(today)}) + ")")
 M9 = r["id"]
