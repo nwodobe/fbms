@@ -57,11 +57,18 @@ create table if not exists public.moto_permis (
 alter table public.moto_permis add column if not exists retire_par uuid;
 alter table public.moto_permis add column if not exists retire_at timestamptz;
 alter table public.moto_permis add column if not exists motif_retrait text;
+alter table public.moto_permis add column if not exists leve_par uuid;
+alter table public.moto_permis add column if not exists leve_at timestamptz;
+alter table public.moto_permis add column if not exists motif_levee text;
 alter table public.moto_permis add column if not exists numero_cle text
   generated always as (regexp_replace(upper(numero_permis), '[^A-Z0-9]', '', 'g')) stored;
 alter table public.moto_permis drop constraint if exists moto_permis_statut_check;
 alter table public.moto_permis add constraint moto_permis_statut_check
-  check (statut in ('EN_VERIFICATION','CONFORME','NON_CONFORME','REMPLACE','RETIRE'));
+  check (statut in ('EN_VERIFICATION','CONFORME','NON_CONFORME','REMPLACE','RETIRE','RETRAIT_LEVE'));
+alter table public.moto_permis drop constraint if exists moto_permis_levee_check;
+alter table public.moto_permis add constraint moto_permis_levee_check
+  check (statut <> 'RETRAIT_LEVE' or (leve_par is not null and leve_at is not null and length(btrim(coalesce(motif_levee, ''))) >= 10));
+create index if not exists moto_permis_numero_retire_idx on public.moto_permis (numero_cle) where statut = 'RETIRE';
 alter table public.moto_permis drop constraint if exists moto_permis_retrait_check;
 alter table public.moto_permis add constraint moto_permis_retrait_check
   check (statut <> 'RETIRE' or (retire_par is not null and retire_at is not null and length(btrim(coalesce(motif_retrait, ''))) >= 10));
@@ -157,6 +164,9 @@ begin
   -- Comparaison sur les seuls lettres et chiffres : « TEST-0004 », « TEST 0004 » et « test0004 » sont le même permis.
   v_cle := regexp_replace(v_num, '[^A-Z0-9]', '', 'g');
   perform pg_advisory_xact_lock(hashtext('moto_permis:' || v_cle));
+  if exists (select 1 from public.moto_permis where numero_cle = v_cle and statut = 'RETIRE') then
+    perform private.moto_refus('Ce numéro de permis a été retiré : aucun dépôt possible tant que le Branch Manager n''a pas levé le retrait.');
+  end if;
   if exists (select 1 from public.moto_permis where numero_cle = v_cle and statut in ('EN_VERIFICATION','CONFORME') and titulaire_id <> v_tit) then
     perform private.moto_erreur('Ce numéro de permis est déjà enregistré pour un autre conducteur.');
   end if;
@@ -184,6 +194,9 @@ begin
   if r.titulaire_id = auth.uid() then perform private.moto_refus('Le titulaire ne vérifie pas son propre permis.'); end if;
   if v_dec = 'CONFORME' then
     perform pg_advisory_xact_lock(hashtext('moto_permis:' || r.numero_cle));
+    if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut = 'RETIRE') then
+      perform private.moto_refus('Ce numéro de permis a été retiré : il ne peut pas être déclaré conforme tant que le Branch Manager n''a pas levé le retrait.');
+    end if;
     if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut = 'CONFORME' and titulaire_id <> r.titulaire_id) then
       perform private.moto_erreur('Ce numéro de permis est déjà reconnu pour un autre conducteur : déclarez ce dépôt non conforme.');
     end if;
@@ -226,10 +239,28 @@ begin
   if not found or r.statut <> 'CONFORME' then perform private.moto_erreur('Seul un permis CONFORME peut être retiré.'); end if;
   if r.titulaire_id = auth.uid() then perform private.moto_refus('Le titulaire ne retire pas son propre permis.'); end if;
   perform private.moto_motif(p_motif, 10);
+  perform pg_advisory_xact_lock(hashtext('moto_permis:' || r.numero_cle));
   update public.moto_permis set statut = 'RETIRE', retire_par = auth.uid(), retire_at = now(), motif_retrait = btrim(p_motif) where id = r.id;
   return jsonb_build_object('id', r.id, 'statut', 'RETIRE',
     'affectations_actives', (select count(*) from public.moto_affectations a where a.beneficiaire_id = r.titulaire_id and a.statut = 'ACTIVE'
                                                                         and a.type_affectation in ('REMISE','TRANSFERT')));
+end $$;
+
+-- Levée d'un retrait (erreur, suspension terminée) : Branch Manager seul, motif obligatoire.
+-- Le permis ne redevient PAS valide : le conducteur doit redéposer son permis, qui sera vérifié sur original.
+create or replace function public.moto_permis_lever_retrait(p_permis uuid, p_motif text)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare r public.moto_permis;
+begin
+  perform private.moto_exiger_classe(array['BM']);
+  select * into r from public.moto_permis where id = p_permis for update;
+  if not found or r.statut <> 'RETIRE' then perform private.moto_erreur('Seul un permis RETIRÉ peut voir son retrait levé.'); end if;
+  perform private.moto_motif(p_motif, 10);
+  update public.moto_permis set statut = 'RETRAIT_LEVE', leve_par = auth.uid(), leve_at = now(), motif_levee = btrim(p_motif) where id = r.id;
+  return jsonb_build_object('id', r.id, 'statut', 'RETRAIT_LEVE',
+    'note', 'Retrait levé. Le permis doit être redéposé puis vérifié sur original pour redevenir valide.');
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -242,16 +273,23 @@ set search_path to 'public', 'private', 'pg_temp'
 as $$
 declare r public.moto_permis;
 begin
-  if new.type_affectation in ('REMISE','TRANSFERT') then
+  if new.type_affectation in ('REMISE','TRANSFERT') and new.statut = 'ACTIVE' then
     if tg_op = 'UPDATE' and new.type_affectation = old.type_affectation and new.beneficiaire_id = old.beneficiaire_id
-       and new.permis_id is not distinct from old.permis_id then
+       and new.permis_id is not distinct from old.permis_id and new.statut = old.statut then
       return new;
     end if;
     r := private.moto_permis_valide(new.beneficiaire_id, coalesce(new.date_debut, current_date));
     -- Verrou partagé : un retrait simultané du permis attend la fin de la remise (ou l'inverse).
     if r.id is not null then
       perform 1 from public.moto_permis where id = r.id and statut = 'CONFORME' for share;
-      if not found then r := null; end if;
+      -- Le permis a changé pendant l'attente (renouvellement vérifié, retrait) : on relit une fois.
+      if not found then
+        r := private.moto_permis_valide(new.beneficiaire_id, coalesce(new.date_debut, current_date));
+        if r.id is not null then
+          perform 1 from public.moto_permis where id = r.id and statut = 'CONFORME' for share;
+          if not found then r := null; end if;
+        end if;
+      end if;
     end if;
     if r.id is null then
       perform private.moto_erreur('Remise bloquée : le bénéficiaire n''a pas de permis enregistré, vérifié CONFORME et en cours de validité (Administration › Conducteurs et permis).');
@@ -266,7 +304,7 @@ begin
 end $$;
 
 drop trigger if exists moto_affectations_permis_trg on public.moto_affectations;
-create trigger moto_affectations_permis_trg before insert or update of type_affectation, beneficiaire_id, permis_id on public.moto_affectations
+create trigger moto_affectations_permis_trg before insert or update of type_affectation, beneficiaire_id, permis_id, statut on public.moto_affectations
   for each row execute function private.moto_affectation_permis();
 
 -- La case déclarative « permis vérifié » est remplacée par le contrôle du permis enregistré.
@@ -341,6 +379,8 @@ select p.id, p.titulaire_id, private.moto_nom_profil(p.titulaire_id) as titulair
        p.categories, p.date_delivrance, p.date_expiration, p.sans_expiration, p.autorite_delivrance, p.document_path, p.nom_fichier, p.pages,
        p.statut, p.verification_rh_nom, p.categorie_adaptee, p.motif_verification, p.depose_par, private.moto_nom_profil(p.depose_par) as depose_par_nom,
        p.depose_at, p.verifie_par, private.moto_nom_profil(p.verifie_par) as verifie_par_nom, p.verifie_at,
+       p.retire_par, private.moto_nom_profil(p.retire_par) as retire_par_nom, p.retire_at, p.motif_retrait,
+       p.leve_par, private.moto_nom_profil(p.leve_par) as leve_par_nom, p.leve_at, p.motif_levee, p.numero_cle,
        case when p.sans_expiration or p.date_expiration is null then null else p.date_expiration - current_date end as jours_restants,
        case when p.statut <> 'CONFORME' then p.statut
             when p.sans_expiration then 'VALIDE'
@@ -590,7 +630,7 @@ declare
   v_old jsonb := case when tg_op in ('UPDATE','DELETE') then jsonb_build_object('id', old.id, 'titulaire_id', old.titulaire_id, 'statut', old.statut,
                    'depose_par', old.depose_par, 'verifie_par', old.verifie_par, 'retire_par', old.retire_par) end;
   v_new jsonb := case when tg_op in ('INSERT','UPDATE') then jsonb_build_object('id', new.id, 'titulaire_id', new.titulaire_id, 'statut', new.statut,
-                   'depose_par', new.depose_par, 'verifie_par', new.verifie_par, 'retire_par', new.retire_par) end;
+                   'depose_par', new.depose_par, 'verifie_par', new.verifie_par, 'retire_par', new.retire_par, 'leve_par', new.leve_par) end;
   v_val text := nullif(current_setting('moto.valideur', true), '');
 begin
   if tg_op = 'UPDATE' and v_old = v_new then return new; end if;

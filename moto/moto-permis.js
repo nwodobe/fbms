@@ -17,8 +17,8 @@
         rpc = I.rpc, lire = I.lireTable, peut = I.peut, ND = C.ND;
     var CATEGORIES = ['A1', 'A', 'B', 'C', 'D', 'E'];
     var LIB = { VALIDE: 'Valide', EXPIRE_BIENTOT: 'Expire bientôt', EXPIRE: 'Expiré', EN_VERIFICATION: 'À vérifier sur l\'original',
-      CONFORME: 'Conforme', NON_CONFORME: 'Non conforme', REMPLACE: 'Remplacé (renouvelé)', RETIRE: 'Retiré', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', AUCUN: 'Aucun permis enregistré' };
-    var TON = { VALIDE: 'ok', CONFORME: 'ok', EXPIRE_BIENTOT: 'warn', EN_VERIFICATION: 'warn', EXPIRE: 'ko', NON_CONFORME: 'ko', AUCUN_PERMIS_VALIDE: 'ko', AUCUN: 'ko', REMPLACE: 'neutre', RETIRE: 'ko' };
+      CONFORME: 'Conforme', NON_CONFORME: 'Non conforme', REMPLACE: 'Remplacé (renouvelé)', RETIRE: 'Retiré', RETRAIT_LEVE: 'Retrait levé (à redéposer)', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', AUCUN: 'Aucun permis enregistré' };
+    var TON = { VALIDE: 'ok', CONFORME: 'ok', EXPIRE_BIENTOT: 'warn', EN_VERIFICATION: 'warn', EXPIRE: 'ko', NON_CONFORME: 'ko', AUCUN_PERMIS_VALIDE: 'ko', AUCUN: 'ko', REMPLACE: 'neutre', RETIRE: 'ko', RETRAIT_LEVE: 'warn' };
     function b(code, texte) { return '<span class="mm-badge mm-badge-long mm-' + (TON[code] || 'neutre') + '">' + esc(texte || LIB[code] || code) + '</span>'; }
     function validite(p) {
       if (!p) return b('AUCUN');
@@ -74,8 +74,11 @@
     }
 
     /* -- Vérification sur original (ABM, BM) ----------------------------------- */
-    function verifier(p, apres) {
+    function verifier(p, apres, tous) {
+      var retraits = (tous || []).filter(function (x) { return x.titulaire_id === p.titulaire_id && (x.statut === 'RETIRE' || x.statut === 'RETRAIT_LEVE'); });
       modale('Vérifier le permis · ' + p.nom_titulaire,
+        (retraits.length ? '<p class="mm-bandeau mm-ko">Historique : permis retiré le ' + esc(C.dateFr(retraits[0].retire_at)) + ' (' + esc(retraits[0].motif_retrait || '') + ')' +
+          (retraits[0].leve_at ? ', retrait levé le ' + esc(C.dateFr(retraits[0].leve_at)) + ' (' + esc(retraits[0].motif_levee || '') + ')' : '') + '. Contrôlez l\'original avec une attention particulière.</p>' : '') +
         '<dl class="mm-mini mm-permis-recap"><div><dt>Numéro</dt><dd>' + esc(p.numero_permis) + '</dd></div><div><dt>Catégories</dt><dd>' + esc((p.categories || []).join(', ')) + '</dd></div>' +
         '<div><dt>Délivré le</dt><dd>' + esc(C.dateFr(p.date_delivrance)) + '</dd></div><div><dt>Expire le</dt><dd>' + esc(p.sans_expiration ? 'Aucune date sur le document' : C.dateFr(p.date_expiration)) + '</dd></div>' +
         '<div><dt>Déposé par</dt><dd>' + esc(p.depose_par_nom || ND) + ' · ' + esc(C.dateHeureFr(p.depose_at)) + '</dd></div></dl>' +
@@ -96,6 +99,13 @@
         '<p class="mm-bandeau mm-ko">Effet immédiat : plus aucune remise ni transfert pour ce conducteur. S\'il a déjà une moto, il apparaît dans les alertes : retirez l\'affectation.</p>' +
         champ({ n: 'motif', l: 'Motif (suspension, retrait par l\'autorité, fraude…) · 10 caractères minimum', t: 'textarea', req: true, min: 10 }),
         function (v) { return rpc('moto_permis_retirer', { p_permis: p.id, p_motif: v.motif }).then(function (r) { if (apres) apres(); return 'Permis retiré.' + (r.affectations_actives ? ' Ce conducteur a ' + r.affectations_actives + ' moto(s) : retirez l\'affectation.' : ''); }); }, 'Retirer le permis');
+    }
+    function lever(p, apres) {
+      modale('Lever le retrait · ' + p.nom_titulaire,
+        '<p class="mm-note">Retiré le ' + esc(C.dateFr(p.retire_at)) + ' par ' + esc(p.retire_par_nom || ND) + ' : ' + esc(p.motif_retrait || '') + '</p>' +
+        '<p class="mm-bandeau mm-warn">La levée ne rend pas le permis valide : le conducteur devra le redéposer, et il sera vérifié sur l\'original.</p>' +
+        champ({ n: 'motif', l: 'Motif de la levée (10 caractères minimum)', t: 'textarea', req: true, min: 10 }),
+        function (v) { return rpc('moto_permis_lever_retrait', { p_permis: p.id, p_motif: v.motif }).then(function (r) { if (apres) apres(); return r.note; }); }, 'Lever le retrait');
     }
     function peutVerifier(p) { return peut('permis_verifier') && p && p.statut === 'EN_VERIFICATION' && p.depose_par !== S.profil.user_id && p.titulaire_id !== S.profil.user_id; }
 
@@ -118,6 +128,7 @@
           return [esc(x.nom), esc(fonction(x) + (x.cluster_code ? ' · ' + x.cluster_code : '')), esc(p ? p.numero_permis : ND), esc(p ? (p.categories || []).join(', ') : ND), validite(p),
             (p ? action('pm_scan', 'Scan', { chemin: p.document_path }) + ' ' : '') +
             (p && p.statut === 'CONFORME' && peut('permis_verifier') && p.titulaire_id !== S.profil.user_id ? action('pm_retirer', 'Retirer', { id: p.id }, 'mm-danger') + ' ' : '') +
+            (p && p.statut === 'RETIRE' && peut('mettre_en_service') ? action('pm_lever', 'Lever le retrait', { id: p.id }) + ' ' : '') +
             (peut('permis_enregistrer') && !att && x.user_id !== S.profil.user_id ? action('pm_enregistrer', p ? 'Renouveler' : 'Scanner le permis', { uid: x.user_id, nom: x.nom }, p ? 'mm-secondaire' : 'mm-primaire') : '')];
         }), 'Aucun conducteur éligible (Chef d\'unité, Chef de zone, ABM, coordinateur).') + '</section>' +
         '<p class="mm-note">Catégorie adaptée : la règle légale applicable aux APSONIC AP150-30 (cylindrée 150 cm³) est à confirmer par les RH ; le vérificateur l\'atteste pour chaque permis.</p>';
@@ -125,7 +136,8 @@
         var x = e.target.closest('[data-action]'); if (!x) return;
         if (x.dataset.action === 'pm_scan') I.ouvrirFichier(x.dataset.chemin);
         if (x.dataset.action === 'pm_enregistrer') enregistrer(x.dataset.uid, x.dataset.nom, vue);
-        if (x.dataset.action === 'pm_verifier') verifier(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue);
+        if (x.dataset.action === 'pm_verifier') verifier(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue, permis);
+        if (x.dataset.action === 'pm_lever') lever(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue);
         if (x.dataset.action === 'pm_retirer') retirer(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue);
       };
     }

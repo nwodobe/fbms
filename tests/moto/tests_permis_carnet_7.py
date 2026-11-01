@@ -318,6 +318,26 @@ act("X6d", "Revue", "uh_a", "Nom de fichier libre", f"insert into storage.object
 p_x7 = act("X7", "Revue", "lc", "« sans_expiration » envoyé en texte (« oui »)",
            "select public.moto_permis_enregistrer(" + lit({**permis("zh", "CI-ZH 000123"), "date_expiration": None, "sans_expiration": "oui"}) + ")", True, "EN_VERIFICATION")
 
+# ===========================================================================
+# Y. Contre-vérification : un permis retiré ne se réactive pas par redépôt
+# ===========================================================================
+act("Y1", "Revue 2", "uh_c", "Le titulaire redépose le numéro qui vient de lui être retiré", "select public.moto_permis_enregistrer(" + lit(permis("uh_c", "CI-PC 000777")) + ")", False, "retiré")
+act("Y2", "Revue 2", "lc", "Un autre conducteur dépose ce numéro retiré", "select public.moto_permis_enregistrer(" + lit(permis("uh_a", "CI PC000777")) + ")", False, "retiré")
+# Renouvellement déposé AVANT le retrait, puis tentative de vérification APRÈS le retrait.
+q(f"""insert into public.moto_permis (titulaire_id, nom_titulaire, numero_permis, categories, date_expiration, document_path, depose_par)
+      values ('{U['uh_c']}', 'TITULAIRE FICTIF', 'CI-PC 000777', '{{A}}', current_date + 900, 'permis/{U['uh_c']}/{uuid.uuid4()}.pdf', '{U['lc']}')""")
+p_y3 = q(f"select id from public.moto_permis where titulaire_id='{U['uh_c']}' and statut='EN_VERIFICATION'")
+act("Y3", "Revue 2", "bm", "Vérifier conforme un dépôt du numéro retiré (déposé avant le retrait)", f"select public.moto_permis_verifier('{p_y3}', 'CONFORME', 'RH FICTIF', true)", False, "retiré")
+act("Y4", "Revue 2", "lc", "Le retrait figure dans la vue du vérificateur", f"select motif_retrait is not null and retire_par_nom is not null from public.moto_v_permis where id='{p_c}'", True, "t")
+act("Y5", "Revue 2", "abm", "L'ABM lève un retrait (réservé au BM)", f"select public.moto_permis_lever_retrait('{p_c}', 'Levée tentée par l''ABM (test)')", False, "rôle")
+act("Y6", "Revue 2", "bm", "Le BM lève le retrait (motif)", f"select public.moto_permis_lever_retrait('{p_c}', 'Suspension terminée, notification fictive reçue')", True, "RETRAIT_LEVE")
+act("Y7", "Revue 2", "bm", "Après levée, le dépôt en attente peut être vérifié sur original", f"select public.moto_permis_verifier('{p_y3}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+check("Y8", "Revue 2", "La levée seule n'a pas rendu valide l'ancien permis (statut RETRAIT_LEVE, pas CONFORME)", f"select statut from public.moto_permis where id='{p_c}'", "RETRAIT_LEVE")
+# Le déclencheur ignore les affectations clôturées (purge possible) et la clôture reste permise.
+try: q(f"update public.moto_affectations set permis_id = null where statut = 'CLOTUREE' and permis_id is not null"); y9 = "OK"
+except RuntimeError as e: y9 = str(e)
+record("Y9", "Revue 2", "postgres (écriture directe)", "Purge de permis_id sur les affectations clôturées", "OK", y9 == "OK", y9[:200])
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "permis_carnet_7.json"), "w", encoding="utf-8") as f:
