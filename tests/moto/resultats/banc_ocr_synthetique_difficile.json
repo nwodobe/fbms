@@ -1,0 +1,37 @@
+{
+ "n": 300,
+ "juste": 33,
+ "faux": 2,
+ "abstention": 265,
+ "parType": {
+  "TAMBOUR": {
+   "juste": 10,
+   "faux": 0,
+   "abstention": 90
+  },
+  "LCD": {
+   "juste": 8,
+   "faux": 0,
+   "abstention": 92
+  },
+  "TAMBOUR_DIXIEMES": {
+   "juste": 15,
+   "faux": 2,
+   "abstention": 83
+  }
+ },
+ "faux_ex": [
+  {
+   "type": "TAMBOUR_DIXIEMES",
+   "attendu": 24037.9,
+   "lu": 24037,
+   "texte": "24037"
+  },
+  {
+   "type": "TAMBOUR_DIXIEMES",
+   "attendu": 11944.7,
+   "lu": 11947,
+   "texte": "11947"
+  }
+ ]
+}

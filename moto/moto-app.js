@@ -264,6 +264,7 @@
     { r: 'coordination', l: 'Coordination', ic: 'C', droit: 'coordination' },
     { r: 'maintenance', l: 'Maintenance', ic: 'E', droit: 'maintenance_voir' },
     { r: 'conducteurs', l: 'Conducteurs', ic: 'D', droit: 'permis_voir' },
+    { r: 'missions', l: 'Missions', ic: 'K', droit: 'missions' },
     { r: 'pilotage', l: 'Pilotage', ic: 'P', droit: 'pilotage' }, { r: 'formation', l: 'Formation', ic: 'F' },
     { r: 'admin', l: 'Administration', ic: 'A', droit: 'admin' }
   ];
@@ -289,6 +290,7 @@
       else if (r.espace === 'coordination' && peut('coordination')) await vueCoordination();
       else if (r.espace === 'maintenance' && peut('maintenance_voir') && MNT) await MNT.vue(r.id);
       else if (r.espace === 'conducteurs' && peut('permis_voir') && PERMIS) await PERMIS.vue();
+      else if (r.espace === 'missions' && peut('missions') && MISSION) await MISSION.vue();
       else if (r.espace === 'pilotage' && peut('pilotage')) await vuePilotage();
       else if (r.espace === 'formation') await vueFormation(r.id);
       else if (r.espace === 'admin' && peut('admin')) await vueAdmin();
@@ -806,6 +808,7 @@
     var immo = m ? await OFF.immobilisationLocale(m.id) : null;
     var dot = await mesDotations();
     var etats = await rpc('moto_mes_etats_a_confirmer').catch(function () { return []; });
+    var blocMission = MISSION && m ? await MISSION.blocOperations(m).catch(function () { return ''; }) : '';
     var aInspecter = [];
     if (S.classe === 'ZONE') {
       var maZone = String(S.profil.zone || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase().replace(/\s+/g, '_');
@@ -815,7 +818,7 @@
     vue().innerHTML = '<div class="mm-entete"><div><h1>Opérations</h1><p>Saisies terrain : elles fonctionnent sans réseau et partent automatiquement au retour de la connexion.</p></div></div>' + bandeauHorsLigne() +
       (liste.length ? '<div class="mm-champ mm-large"><label for="opMoto">Moto</label><select id="opMoto">' + liste.map(function (x) { return '<option value="' + esc(x.id) + '"' + (m && x.id === m.id ? ' selected' : '') + '>' + esc(x.code + ' · ' + (x.immatriculation || 'immatriculation en attente')) + '</option>'; }).join('') + '</select></div>' : '') +
       (m ? (immo || !m.autorisee_a_circuler ? '<div class="mm-bandeau mm-ko" role="alert"><b>Ne pas circuler.</b> ' + (immo ? 'Immobilisation de sécurité enregistrée sur cet appareil le ' + esc(C.dateHeureFr(immo.depuis)) + '.' : 'Moto non autorisée à circuler (' + esc(C.libelle(m.statut_technique)) + ').') + '</div>' : '') +
-        '<div class="mm-tuiles">' +
+        blocMission + '<div class="mm-tuiles">' +
         tuile('controle', 'Contrôle avant départ', 'Freins, pneus, direction, équipements', (immo || ['IMMOBILISEE', 'EN_REPARATION'].indexOf(m.statut_technique) >= 0) ? 'Moto immobilisée : un responsable doit d\'abord la remettre en service.' : null) +
         tuile('releve', 'Relevé kilométrique', 'Compteur du jour') + tuile('carburant', 'Achat de carburant', 'Litres, montant, plein, photo du reçu') +
         tuile('incident', 'Déclarer un incident', 'Panne, accident, crevaison, anomalie', null, 'mm-tuile-alerte') + tuile('entretien', 'Demande d\'entretien', 'Vidange, réparation, révision') +
@@ -840,6 +843,7 @@
     $$('[data-confirmer]').forEach(function (b) { b.onclick = function () { confirmerDotation(b.dataset.confirmer, b.dataset.montant); }; });
     $$('[data-etat]').forEach(function (b) { b.onclick = function () { confirmerEtat(etats.filter(function (x) { return x.id === b.dataset.etat; })[0]); }; });
     $$('[data-inspecter]').forEach(function (b) { b.onclick = function () { var mm = motoParId(b.dataset.inspecter); if (mm) ACTIONS.inspection_mensuelle({ niveau: 'ZONE' }, mm); }; });
+    if (MISSION && m) MISSION.brancherOperations(vue(), m, vueOperations);
     afficherFile();
   }
   function sessionStorageLire(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
@@ -1420,6 +1424,7 @@
     aujourdhui: aujourdhui, messageErreur: messageErreur, chargerScript: chargerScript, CDN_XLSX: CDN_XLSX };
   var PERMIS = g.MOTO_PERMIS ? g.MOTO_PERMIS(INTERFACE_MODULES) : null;
   var CARNET = g.MOTO_CARNET ? g.MOTO_CARNET(INTERFACE_MODULES) : null;
+  var MISSION = g.MOTO_MISSION ? g.MOTO_MISSION(INTERFACE_MODULES) : null;
   var MNT = g.MOTO_MAINTENANCE ? g.MOTO_MAINTENANCE({ C: C, OFF: OFF, S: S, esc: esc, $: $, $$: $$, peut: peut, vue: vue, tableau: tableau, action: action, champ: champ,
     modale: modale, rpc: rpc, lireTable: lireTable, kpi: kpi, toast: toast, chargerFlotte: chargerFlotte, motoParId: motoParId, codeMoto: codeMoto, router: router,
     ouvrirFichier: ouvrirFichier, aujourdhui: aujourdhui, messageErreur: messageErreur }) : null;

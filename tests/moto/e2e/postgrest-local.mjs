@@ -121,8 +121,10 @@ export function creerEmulateur({ host, port, database }) {
     if (m && (methode === 'POST' || methode === 'PUT')) {
       const [, bucket, nom] = m; const nomD = decodeURIComponent(nom);
       try {
-        await enTantQue(sub, c => c.query('insert into storage.objects (bucket_id, name, metadata) values ($1, $2, $3)', [bucket, nomD, JSON.stringify({ mimetype: contentType, size: corps ? corps.length : 0 })]));
-        fichiers.set(bucket + '/' + nomD, extraireFichier(corps, contentType));
+        // Comme Supabase : métadonnées du FICHIER (type et taille réels), pas de l'enveloppe multipart.
+        const f = extraireFichier(corps, contentType);
+        await enTantQue(sub, c => c.query('insert into storage.objects (bucket_id, name, metadata) values ($1, $2, $3)', [bucket, nomD, JSON.stringify({ mimetype: f.contentType, size: f.corps ? f.corps.length : 0 })]));
+        fichiers.set(bucket + '/' + nomD, f);
         return reponse(200, { Key: `${bucket}/${nomD}`, Id: nomD });
       } catch (e) {
         if (e.code === '23505') return reponse(400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });

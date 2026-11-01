@@ -93,9 +93,10 @@ const CDN = {
 };
 const navigateur = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 let blocageSync = 0; // nombre de réponses moto_sync_batch à « perdre » après traitement serveur
-async function contexte(compte, largeur = 'bureau') {
+async function contexte(compte, largeur = 'bureau', options = {}) {
   const [id] = U[compte];
-  const ctx = await navigateur.newContext({ viewport: LARGEURS[largeur], acceptDownloads: true, serviceWorkers: 'block' });
+  const ctx = await (options.navigateur || navigateur).newContext({ viewport: LARGEURS[largeur], acceptDownloads: true, serviceWorkers: 'block',
+    ...(options.geolocation ? { geolocation: options.geolocation, permissions: ['geolocation', 'camera'] } : options.camera ? { permissions: ['camera'] } : {}) });
   await ctx.addInitScript(([cle, s]) => { try { localStorage.setItem(cle, JSON.stringify(s)); } catch (e) {} }, ['sb-jmbdgpdthzpszfnddwzi-auth-token', session(id, compte + '.e2e@example.invalid')]);
   await ctx.route(SUPA + '/**', async route => {
     const r = route.request();
@@ -741,9 +742,118 @@ try {
     return { ok: r === 'ferme' && doc.statut === 'EN_VERIFICATION' && /\.pdf$/.test(doc.storage_path || '') && pdf === 'PDF valide · 2 page(s)', obtenu: `${r} · ${doc.statut} · ${doc.storage_path} · ${pdf}`, preuve: preuveScan };
   });
 
+  // 10 bis. Journal de mission (migration 8) : caméra simulée montrant un compteur FICTIF.
+  async function imageCompteur(valeur) {
+    const pg = await navigateur.newPage({ viewport: { width: 720, height: 960 } });
+    const chiffres = String(valeur).padStart(6, '0').split('').map(c => `<span>${c}</span>`).join('');
+    await pg.setContent(`<body style="margin:0;background:#1c1f22;height:960px;display:grid;place-items:center;font-family:sans-serif">
+      <div style="position:absolute;top:120px;left:160px;width:400px;height:240px;border-radius:200px 200px 0 0;border:10px solid #555;border-bottom:0"></div>
+      <div style="position:absolute;top:400px;left:180px;width:360px;height:130px;background:#000;border:4px solid #777;border-radius:8px;display:flex;gap:6px;align-items:center;justify-content:center">
+        <style>span{display:inline-block;width:48px;height:100px;background:#111;color:#f2f2f2;font:bold 84px monospace;line-height:100px;text-align:center}</style>${chiffres}</div>
+      <p style="position:absolute;top:600px;color:#888">TABLEAU DE BORD FICTIF · TEST E2E</p></body>`);
+    const b = await pg.screenshot({ type: 'jpeg', quality: 92 }); await pg.close();
+    const f = join(SORTIE, `camera-compteur-${valeur}.mjpeg`); writeFileSync(f, Buffer.concat([b, b, b, b, b])); return f;
+  }
+  async function navigateurCamera(fichier) {
+    return chromium.launch({ executablePath: process.env.CHROMIUM || undefined, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--use-file-for-fake-video-capture=' + fichier] });
+  }
+  const M1 = (await q("select id, compteur_actuel_km from public.moto_motos where code = 'MOTO-001'"))[0];
+  await q("update public.moto_immobilisations set fin = now(), levee_par = $2, levee_motif = 'Préparation recette mission (fixture)' where moto_id = $1 and fin is null", [M1.id, U.bm[0]]);
+  await q('select private.moto_recalculer_statuts($1)', [M1.id]);
+  const K = Math.ceil(Number(M1.compteur_actuel_km || 0)) + 1;
+  const camDep = await navigateurCamera(await imageCompteur(K + 12)), camArr = await navigateurCamera(await imageCompteur(K + 40));
+  const GPS = { latitude: 7.69, longitude: -5.03, accuracy: 15 };   // point fictif arrondi
+  async function photographier(p) {
+    const cam = p.locator('dialog.mm-camera'); await cam.waitFor();
+    await p.locator('dialog.mm-camera [data-photo]:not([disabled])').waitFor({ timeout: 15000 });
+    await p.waitForTimeout(600);
+    await p.click('dialog.mm-camera [data-photo]'); await cam.waitFor({ state: 'detached' });
+    return p.locator('dialog.mm-modale').last().waitFor();
+  }
+  await etape('UI-MIS-01', 'Départ de mission en 4 gestes (migration 8)', 'Chef d\'unité à 390 px : Démarrer → Photographier → (objet, destination) → Valider', 'lecture proposée = compteur affiché ; mission OUVERTE, origine LU_CONFIRME, photo ≤ 60 Ko sans EXIF', async () => {
+    const c = await contexte('uh', 'mobile', { navigateur: camDep, geolocation: GPS }); const p = await page(c, '/moto/index.html#/operations'); await pret(p);
+    await p.click('[data-mission="depart"]'); await photographier(p);
+    const propose = await p.locator('dialog.mm-modale input[name="compteur_km"]').inputValue();
+    const preuveConf = await capture(p, 'mission-depart-confirmation-mobile');
+    await remplir(p, { objet: 'ACHAT_COLLECTE', destination: 'VILLAGE FICTIF E2E' });
+    globalThis.__depots = [];
+    const r = await valider(p);
+    const mi = await attendre(async () => (await q("select statut, depart_km, depart_origine, depart_lu_km, depart_gps_statut from public.moto_missions where moto_id = $1 order by created_at desc limit 1", [M1.id]))[0], 10000);
+    const ph = (await q("select (o.metadata->>'size')::int as taille from public.moto_mission_photos p join storage.objects o on o.name = p.chemin where p.moment = 'DEPART' order by p.created_at desc limit 1"))[0] || {};
+    const dep = (globalThis.__depots || []).filter(d => /\/mission\//.test(d.url)).pop();
+    const sansExif = dep ? !dep.corps.includes(Buffer.from('Exif')) : false;
+    if (dep) { const d0 = dep.corps.indexOf(Buffer.from([0xff, 0xd8])), d1 = dep.corps.lastIndexOf(Buffer.from([0xff, 0xd9])); if (d0 >= 0 && d1 > d0) writeFileSync(join(CAPTURES, 'mission-photo-partagee.jpg'), dep.corps.slice(d0, d1 + 2)); }
+    const pos = (await q("select count(*)::int n from public.moto_mission_positions pp join public.moto_missions m on m.id = pp.mission_id where m.moto_id = $1", [M1.id]))[0].n;
+    await c.close();
+    return { ok: Number(propose) === K + 12 && r === 'ferme' && mi && mi.statut === 'OUVERTE' && Number(mi.depart_km) === K + 12 && mi.depart_origine === 'LU_CONFIRME' && ph.taille > 0 && ph.taille <= 60000 && sansExif && pos === 1,
+      obtenu: `proposé=${propose} (affiché ${K + 12}) · ${r} · ${mi && mi.statut} · ${mi && mi.depart_km} · ${mi && mi.depart_origine} · GPS ${mi && mi.depart_gps_statut} · photo ${ph.taille} octets · sans EXIF=${sansExif} · positions=${pos}`, preuve: preuveConf };
+  });
+  await etape('UI-MIS-02', 'Fin de mission : lecture corrigée par l\'agent', 'Chef d\'unité : Terminer → Photographier → corrige le chiffre → Valider', 'mission CLOTUREE, origine LU_CORRIGE, distance = arrivée − départ, compteur moto à jour', async () => {
+    const c = await contexte('uh', 'mobile', { navigateur: camArr, geolocation: GPS }); const p = await page(c, '/moto/index.html#/operations'); await pret(p);
+    await p.locator('[data-mission="arrivee"]').waitFor({ timeout: 10000 });
+    await p.click('[data-mission="arrivee"]'); await photographier(p);
+    const propose = await p.locator('dialog.mm-modale input[name="compteur_km"]').inputValue();
+    await remplir(p, { compteur_km: K + 41 });
+    const r = await valider(p);
+    const mi = await attendre(async () => (await q("select statut, arrivee_km - depart_km as distance, arrivee_origine, arrivee_lu_km from public.moto_missions where moto_id = $1 and statut = 'CLOTUREE' order by created_at desc limit 1", [M1.id]))[0], 10000);
+    const cpt = (await q('select compteur_actuel_km from public.moto_motos where id = $1', [M1.id]))[0].compteur_actuel_km;
+    const preuve = await capture(p, 'mission-apres-cloture-mobile'); await c.close();
+    return { ok: Number(propose) === K + 40 && r === 'ferme' && mi && mi.arrivee_origine === 'LU_CORRIGE' && Number(mi.distance) === 29 && Number(mi.arrivee_lu_km) === K + 40 && Number(cpt) === K + 41,
+      obtenu: `proposé=${propose} · ${r} · ${mi && mi.statut} · distance=${mi && mi.distance} · ${mi && mi.arrivee_origine} · compteur moto=${cpt}`, preuve };
+  });
+  await etape('UI-MIS-03', 'Départ hors connexion, lecture invraisemblable, GPS refusé', 'Sans réseau : la caméra montre un compteur inférieur au dernier relevé ; l\'agent saisit le chiffre', 'aucune proposition ; file locale ; synchronisée au retour : origine SAISI, écart GPS_ABSENT', async () => {
+    const c = await contexte('uh', 'mobile', { navigateur: camArr, camera: true }); const p = await page(c, '/moto/index.html#/operations'); await pret(p);
+    await c.setOffline(true);
+    await p.click('[data-mission="depart"]'); await photographier(p);
+    const propose = await p.locator('dialog.mm-modale input[name="compteur_km"]').inputValue();
+    const avis = await p.locator('dialog.mm-modale .mm-bandeau.mm-warn').first().textContent();
+    await remplir(p, { compteur_km: K + 45, objet: 'SUPERVISION', destination: 'CLUSTER FICTIF E2E' });
+    const r = await valider(p);
+    const avant = (await q("select count(*)::int n from public.moto_missions where moto_id = $1 and statut = 'OUVERTE'", [M1.id]))[0].n;
+    await c.setOffline(false);
+    await p.evaluate(() => window.dispatchEvent(new Event('online')));
+    const mi = await attendre(async () => (await q("select depart_origine, depart_gps_statut, (select string_agg(type_anomalie, ',') from public.moto_mission_anomalies a where a.mission_id = m.id) ecarts from public.moto_missions m where moto_id = $1 and statut = 'OUVERTE'", [M1.id]))[0], 20000);
+    const preuve = await capture(p, 'mission-hors-connexion-mobile'); await c.close();
+    return { ok: propose === '' && /impossible/i.test(avis) && r === 'ferme' && avant === 0 && mi && mi.depart_origine === 'SAISI' && mi.depart_gps_statut === 'ABSENT' && /GPS_ABSENT/.test(mi.ecarts || ''),
+      obtenu: `proposé="${propose}" · ${avis.trim().slice(0, 60)} · ${r} · avant réseau=${avant} · ${mi && mi.depart_origine} · ${mi && mi.ecarts}`, preuve };
+  });
+  await camDep.close(); await camArr.close();
+  await etape('UI-MIS-04', 'Suivi BM : missions, photo et empreinte, export', 'BM ouvre « Missions », ouvre la photo du départ, exporte', 'tableau des missions, empreinte conforme, classeur Missions / Par agent / Coûts / Écarts', async () => {
+    const c = await contexte('bm'); const p = await page(c, '/moto/index.html#/missions'); await pret(p);
+    const lignes = await p.locator('section.mm-bloc', { hasText: 'Missions du mois' }).locator('tbody tr').count();
+    await p.locator('[data-photo-mission]').first().click();
+    const emp = await attendre(async () => { const t = await p.locator('dialog.mm-modale [data-empreinte]').textContent(); return /conforme|DIFFÉRENTE|non vérifiable/i.test(t) ? t : null; }, 10000);
+    const preuve = await capture(p, 'missions-photo-bm');
+    await p.locator('dialog.mm-modale .mm-fermer').click();
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-mission-export]')]);
+    const f = join(SORTIE, 'missions-e2e.xlsx'); await dl.saveAs(f);
+    const X = require('xlsx'); const feuilles = X.readFile(f).SheetNames.join(',');
+    await c.close();
+    return { ok: lignes >= 2 && /Empreinte conforme/.test(emp || '') && feuilles === 'Missions,Par agent,Coûts,Écarts', obtenu: `lignes=${lignes} · ${String(emp).slice(0, 60)} · onglets=${feuilles}`, preuve };
+  });
+  await etape('UI-MIS-05', 'Finance : distances, photos et coûts, jamais de coordonnées', 'Finance ouvre « Missions » puis interroge les positions', 'missions et coût par km visibles ; 0 position lisible', async () => {
+    const c = await contexte('fin'); const p = await page(c, '/moto/index.html#/missions'); await pret(p);
+    const lignes = await p.locator('section.mm-bloc', { hasText: 'Missions du mois' }).locator('tbody tr').count();
+    const couts = await p.locator('section.mm-bloc', { hasText: 'Coût par kilomètre de mission' }).count();
+    const pos = await p.evaluate(async () => { const r = await window.MOTO_APP.etat.sb.from('moto_mission_positions').select('*'); return r.error ? 'erreur' : r.data.length; });
+    const preuve = await capture(p, 'missions-finance'); await c.close();
+    return { ok: lignes >= 2 && couts === 1 && pos === 0, obtenu: `missions=${lignes} · bloc coûts=${couts} · positions lisibles=${pos}`, preuve };
+  });
+  await etape('UI-MIS-06', 'Chef de zone : écart vérifié, jamais par le conducteur', 'Chef de zone justifie l\'écart GPS absent (motif) ; le Chef d\'unité ne voit aucun bouton de décision', 'écart JUSTIFIEE, trace du décideur', async () => {
+    const cu = await contexte('uh', 'mobile'); const pu = await page(cu, '/moto/index.html#/missions'); await pret(pu);
+    const boutonsAgent = await pu.locator('[data-action="mission_ecart"]').count(); await cu.close();
+    const c = await contexte('zh', 'tablette'); const p = await page(c, '/moto/index.html#/missions'); await pret(p);
+    await p.locator('[data-action="mission_ecart"][data-decision="JUSTIFIEE"]').first().click();
+    await remplir(p, { motif: 'GPS coupé par l\'agent, trajet confirmé par téléphone' });
+    const r = await valider(p);
+    const e = (await q("select statut, traite_par from public.moto_mission_anomalies where type_anomalie = 'GPS_ABSENT' order by created_at desc limit 1"))[0] || {};
+    const preuve = await capture(p, 'missions-zone-tablette'); await c.close();
+    return { ok: boutonsAgent === 0 && r === 'ferme' && e.statut === 'JUSTIFIEE' && e.traite_par === U.zh[0], obtenu: `boutons agent=${boutonsAgent} · ${r} · ${e.statut}`, preuve };
+  });
+
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens'], ['uh', '#/missions', 'missions-agent'], ['bm', '#/missions', 'missions-bm'], ['zh', '#/missions', 'missions-zone']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);

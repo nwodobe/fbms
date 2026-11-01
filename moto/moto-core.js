@@ -50,22 +50,26 @@
                 'maintenance_voir', 'maintenance_finances', 'maintenance_autoriser', 'maintenance_organiser', 'maintenance_controler', 'garages', 'garage_approuver',
                 'regle_proposer', 'regle_approuver', 'modele_definir', 'lever_immobilisation', 'maintenance_demande',
                 // Migration 7 : permis des conducteurs (contrôle sur original par le BM ou l'ABM).
-                'permis_voir', 'permis_enregistrer', 'permis_verifier'],
+                'permis_voir', 'permis_enregistrer', 'permis_verifier',
+                // Migration 8 : journal de mission (photo du compteur au départ et à l'arrivée).
+                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
     ABM:       ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
                 'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',
-                'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande', 'permis_voir', 'permis_enregistrer', 'permis_verifier', 'mon_permis'],
+                'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande', 'permis_voir', 'permis_enregistrer', 'permis_verifier', 'mon_permis',
+                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
     LOGISTIQUE: ['lire', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
                 'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir',
-                'permis_voir', 'permis_enregistrer', 'mon_permis'],
+                'permis_voir', 'permis_enregistrer', 'mon_permis', 'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
     ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'incident_piloter',
-                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande', 'mon_permis'],
-    UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat', 'mon_permis'],
+                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande', 'mon_permis',
+                'missions', 'missions_suivi', 'missions_traiter'],
+    UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat', 'mon_permis', 'missions'],
     FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports', 'verifier_depense',
-                'maintenance_voir', 'maintenance_finances', 'facture_verifier', 'paiement_constater', 'cloture_financiere'],
-    DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports', 'maintenance_voir', 'maintenance_finances']
+                'maintenance_voir', 'maintenance_finances', 'facture_verifier', 'paiement_constater', 'cloture_financiere', 'missions', 'missions_suivi', 'missions_couts'],
+    DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports', 'maintenance_voir', 'maintenance_finances', 'missions', 'missions_suivi', 'missions_couts']
   };
   function peut(classe, droit) { return !!(classe && DROITS[classe] && DROITS[classe].indexOf(droit) >= 0); }
 
@@ -291,7 +295,7 @@
   /* -- 10. File hors connexion : planification et application ------------ */
   var MAX_TENTATIVES = 5;
   var TYPES_HORS_LIGNE = ['RELEVE_KM', 'CONTROLE_DEPART', 'CARBURANT', 'INCIDENT', 'DOTATION_CONFIRMER', 'MAINTENANCE_DEMANDE', 'FORMATION',
-                          'INSPECTION_MENSUELLE', 'ACTION_SIGNALER', 'DEPENSE'];
+                          'INSPECTION_MENSUELLE', 'ACTION_SIGNALER', 'DEPENSE', 'MISSION_DEPART', 'MISSION_ARRIVEE'];
   function delaiReprise(tentatives) { return Math.min(30 * 60000, 15000 * Math.pow(2, Math.max(0, tentatives - 1))); }
   function operationsEligibles(ops, maintenant, limite) {
     var t = maintenant || Date.now();

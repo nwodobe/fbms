@@ -31,6 +31,14 @@ for passe in 1 2; do   # la migration 7 doit pouvoir être rejouée
   appliquer 20261103090000_aflp_fleet_7_permis_carnet
   echo "Passe $passe : migration 7 AFLP FLEET (permis des conducteurs, carnet de suivi) appliquée."
 done
+for passe in 1 2; do   # la migration 8 doit pouvoir être rejouée
+  appliquer 20261104090000_aflp_fleet_8_missions_kilometrage
+  echo "Passe $passe : migration 8 AFLP FLEET (journal de mission, kilométrage contrôlé par photo) appliquée."
+done
 python3 "$DIR/tests_serveur_moto.py" "$DB"
 [ -f "$DIR/tests_maintenance_6.py" ] && python3 "$DIR/tests_maintenance_6.py" "$DB"
 [ -f "$DIR/tests_permis_carnet_7.py" ] && python3 "$DIR/tests_permis_carnet_7.py" "$DB"
+if [ "${MOTO_GABARIT:-0}" = "1" ]; then   # copie de travail pour itérer sur la suite 8 sans tout reconstruire
+  psql -U postgres -d postgres -q -c "drop database if exists fbms_moto_m8_base" -c "create database fbms_moto_m8_base template $DB"
+fi
+[ -f "$DIR/tests_missions_8.py" ] && python3 "$DIR/tests_missions_8.py" "$DB"

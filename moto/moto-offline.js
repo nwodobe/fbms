@@ -142,7 +142,13 @@
       }, Promise.resolve()).then(function () {
         if (!prets.length) return { envoyees: 0 };
         return Promise.resolve().then(function () {
-          return sb.rpc('moto_sync_batch', { p_operations: prets.map(function (o) { return { client_op_id: o.client_op_id, type: o.type, payload: o.payload }; }) });
+          /* Missions : l'heure du téléphone AU MOMENT DE L'ENVOI est comparée à celle du serveur
+             (écart anormal = horloge faussée ou déréglée ; jamais bloquant). */
+          var envoi = new Date().toISOString();
+          return sb.rpc('moto_sync_batch', { p_operations: prets.map(function (o) {
+            var pl = /^MISSION_/.test(o.type) ? Object.assign({}, o.payload, { horloge_envoi: envoi }) : o.payload;
+            return { client_op_id: o.client_op_id, type: o.type, payload: pl };
+          }) });
         }).then(function (r) {
             if (r.error) throw r.error;
             var parId = {}; (r.data || []).forEach(function (x) { parId[x.client_op_id] = x; });

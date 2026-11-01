@@ -1,0 +1,1014 @@
+{
+ "base": "fbms_moto_test",
+ "date": "2026-11-01T12:30:26.270343+00:00",
+ "resultats": [
+  {
+   "id": "D01",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "L'agent démarre une mission (lecture proposée confirmée)",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D02",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "Renvoi de la même opération (rejeu hors ligne)",
+   "attendu": "OK (doublon)",
+   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"SYNCHRONISE\", \"doublon\": true, \"anomalies\": [], \"compteur_km\": 1000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D02b",
+   "domaine": "Départ",
+   "compte": "postgres (lecture)",
+   "action": "Le rejeu n'a créé ni mission ni relevé en double",
+   "attendu": "1/1",
+   "obtenu": "1/1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D03",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "Deuxième mission ouverte sur la même moto",
+   "attendu": "REFUS (déjà ouverte)",
+   "obtenu": "REFUS : Une mission est déjà ouverte sur cette moto (UH8 A FICTIF, depuis le 01/11/2026 10:30) : elle doit être clôturée d'abord.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D04",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Un agent démarre une mission sur la moto d'un autre",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Moto hors de votre périmètre ou non affectée à votre compte.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D05",
+   "domaine": "Départ",
+   "compte": "uh_c",
+   "action": "Moto non mise en service",
+   "attendu": "REFUS (non mise en service)",
+   "obtenu": "REFUS : Moto non mise en service : saisie terrain impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D06",
+   "domaine": "Départ",
+   "compte": "zh",
+   "action": "Moto immobilisée",
+   "attendu": "REFUS (immobilisée)",
+   "obtenu": "REFUS : Moto immobilisée : mission impossible tant que l'immobilisation n'est pas levée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D07",
+   "domaine": "Départ",
+   "compte": "abm",
+   "action": "Conducteur sans permis vérifié (l'ABM, sur une moto libre)",
+   "attendu": "REFUS (permis)",
+   "obtenu": "REFUS : Aucun permis valide et vérifié à votre nom : mission impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D08",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Compteur de départ inférieur au dernier relevé (compteur qui recule)",
+   "attendu": "REFUS (CONFLIT_COMPTEUR)",
+   "obtenu": "REFUS : CONFLIT_COMPTEUR : 4990 km est inférieur au relevé antérieur (5000.0 km). Demandez une correction.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D09",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Départ sans photo",
+   "attendu": "REFUS (Photo du compteur obligatoire)",
+   "obtenu": "REFUS : Photo du compteur obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D10",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Photo annoncée mais jamais déposée",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Photo du compteur introuvable sur le serveur : relancez la synchronisation.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D11",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Photo déposée par une autre personne",
+   "attendu": "REFUS (conducteur lui-même)",
+   "obtenu": "REFUS : La photo doit être déposée par le conducteur lui-même.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D12",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Photo trop lourde (non compressée)",
+   "attendu": "REFUS (trop lourde)",
+   "obtenu": "REFUS : Photo trop lourde (900000 octets, maximum 200000).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D13",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Chemin de photo d'une autre opération",
+   "attendu": "REFUS (chemin inattendu)",
+   "obtenu": "REFUS : Photo du compteur : chemin inattendu.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D14",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Lecture « confirmée » différente du compteur transmis",
+   "attendu": "REFUS (LU_CORRIGE attendue)",
+   "obtenu": "REFUS : Lecture confirmée différente du compteur transmis : origine LU_CORRIGE attendue.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D14b",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Saisie manuelle accompagnée d'une lecture",
+   "attendu": "REFUS (aucune lecture)",
+   "obtenu": "REFUS : Relevé saisi : aucune lecture proposée ne doit être transmise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D14c",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Lecture « corrigée » identique à la proposition",
+   "attendu": "REFUS (LU_CONFIRME attendue)",
+   "obtenu": "REFUS : Lecture corrigée identique à la proposition : origine LU_CONFIRME attendue.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D15",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Heure de capture dans le futur",
+   "attendu": "REFUS (futur)",
+   "obtenu": "REFUS : Heure de capture dans le futur : vérifiez l'heure du téléphone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D15b",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Capture trop ancienne (au-delà du délai hors connexion)",
+   "attendu": "REFUS (trop ancienne)",
+   "obtenu": "REFUS : Capture trop ancienne : synchronisez au plus tard dans le délai prévu.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D16",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Objet de mission inconnu",
+   "attendu": "REFUS (Objet de mission inconnu)",
+   "obtenu": "REFUS : Objet de mission inconnu.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D16b",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Objet « autre » sans précision",
+   "attendu": "REFUS (check)",
+   "obtenu": "REFUS : new row for relation \"moto_missions\" violates check constraint \"moto_missions_check\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D17",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Destination vide",
+   "attendu": "REFUS (Destination obligatoire)",
+   "obtenu": "REFUS : Destination obligatoire (village ou cluster).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D18",
+   "domaine": "Départ",
+   "compte": "fin",
+   "action": "La Finance démarre une mission",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D19",
+   "domaine": "Départ",
+   "compte": "anon",
+   "action": "Anonyme démarre une mission",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_mission_demarrer",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D20",
+   "domaine": "Départ",
+   "compte": "postgres (lecture)",
+   "action": "Aucun refus n'a laissé de mission, de relevé ou de photo enregistrée sur la moto B",
+   "attendu": "0/0/0",
+   "obtenu": "0/0/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A01",
+   "domaine": "Arrivée",
+   "compte": "zh",
+   "action": "Un autre que le conducteur clôture la mission",
+   "attendu": "REFUS (Seul le conducteur)",
+   "obtenu": "REFUS : Seul le conducteur qui a ouvert la mission peut la clôturer.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A02",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Compteur d'arrivée inférieur au départ",
+   "attendu": "REFUS (inférieur au compteur de départ)",
+   "obtenu": "REFUS : Compteur d'arrivée (990 km) inférieur au compteur de départ (1000.0 km).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A03",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Arrivée sans photo",
+   "attendu": "REFUS (Photo du compteur obligatoire)",
+   "obtenu": "REFUS : Photo du compteur obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A04",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Arrivée avec la photo du départ (même empreinte)",
+   "attendu": "REFUS (déjà été utilisée)",
+   "obtenu": "REFUS : Cette photo a déjà été utilisée pour un autre relevé : reprenez une photo du compteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A04b",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Heure d'arrivée antérieure au départ",
+   "attendu": "REFUS (antérieure au départ)",
+   "obtenu": "REFUS : Heure d'arrivée antérieure au départ.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A05",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Clôture correcte (lecture corrigée par l'agent)",
+   "attendu": "OK (CLOTUREE)",
+   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"CLOTUREE\", \"anomalies\": [], \"distance_km\": 42.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A05b",
+   "domaine": "Arrivée",
+   "compte": "postgres (lecture)",
+   "action": "Distance, origines et lecture proposée conservées",
+   "attendu": "42.0|LU_CONFIRME|LU_CORRIGE|1047.0",
+   "obtenu": "42.0|LU_CONFIRME|LU_CORRIGE|1047.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A05c",
+   "domaine": "Arrivée",
+   "compte": "postgres (lecture)",
+   "action": "Le compteur de la moto est mis à jour (échéances d'entretien)",
+   "attendu": "1042.0",
+   "obtenu": "1042.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A05d",
+   "domaine": "Arrivée",
+   "compte": "postgres (lecture)",
+   "action": "Deux vrais relevés de source MISSION",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A05e",
+   "domaine": "Arrivée",
+   "compte": "postgres (lecture)",
+   "action": "Positions de départ et d'arrivée enregistrées à part",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A06",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Seconde clôture de la même mission",
+   "attendu": "REFUS (déjà clôturée)",
+   "obtenu": "REFUS : Mission déjà clôturée ou annulée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A07",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Clôture d'une mission inexistante",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Mission introuvable (le départ a-t-il été synchronisé ?).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E01",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "Départ 18 km après la fin de la mission précédente",
+   "attendu": "OK (HORS_MISSION)",
+   "obtenu": "OK : {\"id\": \"68001e8a-8e0c-4362-b46a-268505a149fd\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 1060}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E01b",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "Kilomètres hors mission calculés",
+   "attendu": "18.0",
+   "obtenu": "18.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E02",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "300 km en 10 minutes : vitesse et distance hors norme",
+   "attendu": "OK (VITESSE)",
+   "obtenu": "OK : {\"id\": \"68001e8a-8e0c-4362-b46a-268505a149fd\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"DISTANCE\", \"HORS_MISSION\", \"VITESSE\"], \"distance_km\": 300.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E02b",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "Écarts VITESSE et DISTANCE enregistrés",
+   "attendu": "DISTANCE,HORS_MISSION,VITESSE",
+   "obtenu": "DISTANCE,HORS_MISSION,VITESSE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E03",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "Compteur 200 km au-delà du dernier relevé (photo d'une autre moto ?)",
+   "attendu": "OK (CONTINUITE)",
+   "obtenu": "OK : {\"id\": \"76222f1a-533f-4fdd-8fa1-96e3fe8a6939\", \"statut\": \"OUVERTE\", \"anomalies\": [\"CONTINUITE\", \"HORS_MISSION\"], \"compteur_km\": 1560}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E04",
+   "domaine": "Arrivée",
+   "compte": "uh_a",
+   "action": "Horloge du téléphone décalée de 30 minutes, GPS absent",
+   "attendu": "OK (HORLOGE)",
+   "obtenu": "OK : {\"id\": \"76222f1a-533f-4fdd-8fa1-96e3fe8a6939\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CONTINUITE\", \"GPS_ABSENT\", \"HORLOGE\", \"HORS_MISSION\"], \"distance_km\": 15.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E04b",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "Écarts HORLOGE et GPS_ABSENT enregistrés à l'arrivée",
+   "attendu": "GPS_ABSENT,HORLOGE",
+   "obtenu": "GPS_ABSENT,HORLOGE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E04c",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "Aucune position enregistrée quand le GPS est absent",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E05",
+   "domaine": "Départ",
+   "compte": "uh_b",
+   "action": "Départ la veille (synchronisé aujourd'hui)",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"c6536c6b-b9f6-4601-acb7-07d95e3558d2\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 5000}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E05b",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "Mission signalée « non clôturée à temps »",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E06",
+   "domaine": "Arrivée",
+   "compte": "uh_b",
+   "action": "Clôture tardive : signalée, jamais estimée",
+   "attendu": "OK (CLOTURE_TARDIVE)",
+   "obtenu": "OK : {\"id\": \"c6536c6b-b9f6-4601-acb7-07d95e3558d2\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CLOTURE_TARDIVE\"], \"distance_km\": 30.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "E06b",
+   "domaine": "Écarts",
+   "compte": "postgres (lecture)",
+   "action": "La distance retenue est celle des deux compteurs photographiés",
+   "attendu": "30.0",
+   "obtenu": "30.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T01",
+   "domaine": "Écarts",
+   "compte": "uh_a",
+   "action": "Le conducteur justifie son propre écart",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T02",
+   "domaine": "Écarts",
+   "compte": "fin",
+   "action": "La Finance tranche un écart",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T03",
+   "domaine": "Écarts",
+   "compte": "zh",
+   "action": "Décision sans motif suffisant",
+   "attendu": "REFUS (motif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T04",
+   "domaine": "Écarts",
+   "compte": "zh",
+   "action": "Le Chef de zone justifie l'écart (motif vérifié)",
+   "attendu": "OK (JUSTIFIEE)",
+   "obtenu": "OK : {\"id\": \"c0a8cf52-be2e-4857-89fd-cdc862f69b05\", \"statut\": \"JUSTIFIEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T05",
+   "domaine": "Écarts",
+   "compte": "bm",
+   "action": "Seconde décision sur le même écart",
+   "attendu": "REFUS (déjà vérifié)",
+   "obtenu": "REFUS : Écart déjà vérifié.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N00",
+   "domaine": "Départ",
+   "compte": "uh_a",
+   "action": "Mission ouverte par erreur",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"3ceed3c3-f859-46f2-95d5-73e8156b6c45\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1575}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N01",
+   "domaine": "Annulation",
+   "compte": "uh_a",
+   "action": "Le conducteur annule sa propre mission",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N02",
+   "domaine": "Annulation",
+   "compte": "zh",
+   "action": "Annulation sans motif suffisant",
+   "attendu": "REFUS (motif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N03",
+   "domaine": "Annulation",
+   "compte": "zh",
+   "action": "Le Chef de zone annule (motif)",
+   "attendu": "OK (ANNULEE)",
+   "obtenu": "OK : {\"id\": \"3ceed3c3-f859-46f2-95d5-73e8156b6c45\", \"statut\": \"ANNULEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N04",
+   "domaine": "Annulation",
+   "compte": "zh",
+   "action": "Annulation d'une mission déjà clôturée",
+   "attendu": "REFUS (ouverte)",
+   "obtenu": "REFUS : Seule une mission ouverte peut être annulée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "N05",
+   "domaine": "Annulation",
+   "compte": "postgres (lecture)",
+   "action": "La mission annulée n'a aucune distance (jamais estimée) et le relevé de départ reste",
+   "attendu": "NULL|1",
+   "obtenu": "NULL|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L01",
+   "domaine": "Lecture",
+   "compte": "uh_a",
+   "action": "L'agent voit ses missions",
+   "attendu": "OK (4)",
+   "obtenu": "OK : 4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L02",
+   "domaine": "Lecture",
+   "compte": "uh_b",
+   "action": "Un autre agent ne voit pas les missions de A",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L03",
+   "domaine": "Lecture",
+   "compte": "zh",
+   "action": "Le Chef de zone voit les missions de sa zone",
+   "attendu": "OK (5)",
+   "obtenu": "OK : 5",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L04",
+   "domaine": "Lecture",
+   "compte": "fin",
+   "action": "La Finance voit missions et distances",
+   "attendu": "OK (4)",
+   "obtenu": "OK : 4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L05",
+   "domaine": "Lecture",
+   "compte": "fin",
+   "action": "La Finance ne voit AUCUNE coordonnée",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L06",
+   "domaine": "Lecture",
+   "compte": "dir",
+   "action": "La Direction ne voit aucune coordonnée",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L07",
+   "domaine": "Lecture",
+   "compte": "uh_a",
+   "action": "L'agent ne voit pas les coordonnées (même les siennes)",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L08",
+   "domaine": "Lecture",
+   "compte": "zh",
+   "action": "Le Chef de zone voit les coordonnées",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L09",
+   "domaine": "Lecture",
+   "compte": "lc",
+   "action": "Le coordinateur voit les coordonnées",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L10",
+   "domaine": "Lecture",
+   "compte": "abm",
+   "action": "L'ABM voit les coordonnées",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L11",
+   "domaine": "Lecture",
+   "compte": "anon",
+   "action": "Anonyme lit les missions",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for view moto_v_missions",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L12",
+   "domaine": "Lecture",
+   "compte": "anon",
+   "action": "Anonyme lit les positions",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_mission_positions",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L13",
+   "domaine": "Lecture",
+   "compte": "postgres (lecture)",
+   "action": "Les vues de mission n'exposent aucune coordonnée",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L14",
+   "domaine": "Lecture",
+   "compte": "postgres (lecture)",
+   "action": "Le journal ne contient aucune coordonnée et aucune position n'y est journalisée",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L15",
+   "domaine": "Lecture",
+   "compte": "uh_a",
+   "action": "L'agent voit les écarts de ses missions (transparence)",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L16",
+   "domaine": "Lecture",
+   "compte": "fin",
+   "action": "La Finance voit les photos de compteur (contrôle collectif)",
+   "attendu": "OK",
+   "obtenu": "OK : 16",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L16b",
+   "domaine": "Lecture",
+   "compte": "fin",
+   "action": "… et en voit au moins les 8 du test",
+   "attendu": ">= 8",
+   "obtenu": "16",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W01",
+   "domaine": "Écriture directe",
+   "compte": "bm",
+   "action": "Insertion directe d'une mission",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_missions",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W02",
+   "domaine": "Écriture directe",
+   "compte": "bm",
+   "action": "Modification directe d'une distance",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_missions",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W03",
+   "domaine": "Écriture directe",
+   "compte": "zh",
+   "action": "Suppression directe d'un écart",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_mission_anomalies",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W04",
+   "domaine": "Écriture directe",
+   "compte": "postgres (écriture directe)",
+   "action": "Même le propriétaire ne modifie pas une position",
+   "attendu": "REFUS (immuable)",
+   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 3 at RAISE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W05",
+   "domaine": "Écriture directe",
+   "compte": "postgres (écriture directe)",
+   "action": "Une empreinte de photo ne se réécrit pas",
+   "attendu": "REFUS (immuable)",
+   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 3 at RAISE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S01",
+   "domaine": "Stockage",
+   "compte": "uh_a",
+   "action": "L'agent dépose une photo de mission pour une moto qui n'est pas la sienne",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02",
+   "domaine": "Stockage",
+   "compte": "fin",
+   "action": "La Finance dépose une photo de mission",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03",
+   "domaine": "Stockage",
+   "compte": "lc",
+   "action": "Le coordinateur peut déposer (conducteur occasionnel)",
+   "attendu": "OK",
+   "obtenu": "OK : ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C01",
+   "domaine": "Correction",
+   "compte": "abm",
+   "action": "Demande : compteur de départ porté au-dessus de l'arrivée",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"c4797682-13b5-4605-96a5-c46a87874034\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C02",
+   "domaine": "Correction",
+   "compte": "bm",
+   "action": "Validation : refusée, le départ dépasserait l'arrivée",
+   "attendu": "REFUS (Correction refusée)",
+   "obtenu": "REFUS : Correction refusée : le compteur de départ dépasserait celui d'arrivée de la mission.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C03",
+   "domaine": "Correction",
+   "compte": "abm",
+   "action": "Seconde demande sur le même relevé tant que la première attend",
+   "attendu": "REFUS (déjà en attente)",
+   "obtenu": "REFUS : Une correction est déjà en attente sur ce champ.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C04",
+   "domaine": "Correction",
+   "compte": "bm",
+   "action": "Rejet de la demande incohérente",
+   "attendu": "OK (REJETEE)",
+   "obtenu": "OK : {\"id\": \"c4797682-13b5-4605-96a5-c46a87874034\", \"statut\": \"REJETEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C05",
+   "domaine": "Correction",
+   "compte": "abm",
+   "action": "Demande : compteur d'arrivée corrigé (photo relue)",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"698efdf5-e2bd-4d42-8a62-dfd056defb60\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C06",
+   "domaine": "Correction",
+   "compte": "abm",
+   "action": "Auto-approbation de sa propre demande",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C07",
+   "domaine": "Correction",
+   "compte": "bm",
+   "action": "Le BM valide la correction",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"id\": \"698efdf5-e2bd-4d42-8a62-dfd056defb60\", \"statut\": \"APPLIQUEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C08",
+   "domaine": "Correction",
+   "compte": "postgres (lecture)",
+   "action": "La distance de la mission suit la correction",
+   "attendu": "33.0",
+   "obtenu": "33.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C09",
+   "domaine": "Correction",
+   "compte": "postgres (lecture)",
+   "action": "La correction est journalisée avec son valideur",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B01",
+   "domaine": "Hors connexion",
+   "compte": "uh_b",
+   "action": "Lot : départ puis arrivée saisis sans réseau",
+   "attendu": "OK (SYNCHRONISE,SYNCHRONISE)",
+   "obtenu": "OK : SYNCHRONISE,SYNCHRONISE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B02",
+   "domaine": "Hors connexion",
+   "compte": "uh_b",
+   "action": "Le même lot renvoyé (réponse perdue)",
+   "attendu": "OK (true,true)",
+   "obtenu": "OK : true,true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B03",
+   "domaine": "Hors connexion",
+   "compte": "postgres (lecture)",
+   "action": "Une seule mission, deux relevés, distance juste",
+   "attendu": "1|15.0",
+   "obtenu": "1|15.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B04",
+   "domaine": "Hors connexion",
+   "compte": "uh_b",
+   "action": "Lot dont le départ recule : départ et arrivée refusés, rien d'estimé",
+   "attendu": "OK (REJETE,REJETE)",
+   "obtenu": "OK : REJETE,REJETE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B05",
+   "domaine": "Hors connexion",
+   "compte": "postgres (lecture)",
+   "action": "Aucune mission créée par le lot refusé",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B06",
+   "domaine": "Hors connexion",
+   "compte": "uh_b",
+   "action": "Trois missions saisies sans réseau, un seul lot",
+   "attendu": "OK (6)",
+   "obtenu": "OK : 6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B07",
+   "domaine": "Hors connexion",
+   "compte": "uh_b",
+   "action": "Rejeu du lot : aucun doublon",
+   "attendu": "OK (6)",
+   "obtenu": "OK : 6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "K01",
+   "domaine": "Concurrence",
+   "compte": "zh / zh_b",
+   "action": "Deux départs simultanés sur la même moto : un seul accepté",
+   "attendu": "1 OK, 1 REFUS",
+   "obtenu": "{\"a\": \"{\\\"id\\\": \\\"0154796b-e85b-4b2a-88f5-5a379a5c8bbe\\\", \\\"statut\\\": \\\"OUVERTE\\\", \\\"anomalies\\\":\", \"b\": \"Une mission est déjà ouverte sur cette moto (ZH8 FICTIF, depuis le 01/11/2026 12\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "K02",
+   "domaine": "Concurrence",
+   "compte": "postgres (lecture)",
+   "action": "Une seule mission ouverte sur la moto",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01",
+   "domaine": "Carnet",
+   "compte": "fin",
+   "action": "Les missions apparaissent dans le carnet de la moto",
+   "attendu": "OK (4)",
+   "obtenu": "OK : 4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02",
+   "domaine": "Carnet",
+   "compte": "fin",
+   "action": "Le carnet ne porte aucune coordonnée",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R03",
+   "domaine": "Coûts",
+   "compte": "fin",
+   "action": "Coût par km de mission (carburant vérifié du mois)",
+   "attendu": "OK (357.0|8750)",
+   "obtenu": "OK : 357.0|8750",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R04",
+   "domaine": "Coûts",
+   "compte": "fin",
+   "action": "FCFA par km de mission et litres aux 100 km de mission",
+   "attendu": "24.5|2.80",
+   "obtenu": "24.5|2.80",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R05",
+   "domaine": "Tableau",
+   "compte": "zh",
+   "action": "Synthèse mensuelle : km de mission et hors mission de l'agent A",
+   "attendu": "OK (357.0|218.0|1)",
+   "obtenu": "OK : 357.0|218.0|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R06",
+   "domaine": "Tableau",
+   "compte": "zh",
+   "action": "Part des relevés corrigés et saisis (signal de contrôle)",
+   "attendu": "OK (1|1)",
+   "obtenu": "OK : 1|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07",
+   "domaine": "Purge",
+   "compte": "bm",
+   "action": "Le BM liste les photos arrivées en fin de conservation",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08",
+   "domaine": "Purge",
+   "compte": "uh_a",
+   "action": "Un agent liste les photos à purger",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R09",
+   "domaine": "Paramètres",
+   "compte": "postgres (lecture)",
+   "action": "Seuils paramétrables présents (provisoires)",
+   "attendu": "8",
+   "obtenu": "8",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}
