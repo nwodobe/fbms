@@ -167,7 +167,8 @@ begin
   if exists (select 1 from public.moto_permis where numero_cle = v_cle and statut = 'RETIRE') then
     perform private.moto_refus('Ce numéro de permis a été retiré : aucun dépôt possible tant que le Branch Manager n''a pas levé le retrait.');
   end if;
-  if exists (select 1 from public.moto_permis where numero_cle = v_cle and statut in ('EN_VERIFICATION','CONFORME') and titulaire_id <> v_tit) then
+  -- Un numéro appartient à une seule personne : réservé dès qu'il a été déposé (hors dépôt rejeté), même retiré, levé ou remplacé.
+  if exists (select 1 from public.moto_permis where numero_cle = v_cle and statut <> 'NON_CONFORME' and titulaire_id <> v_tit) then
     perform private.moto_erreur('Ce numéro de permis est déjà enregistré pour un autre conducteur.');
   end if;
   perform private.moto_motif(coalesce(nullif(btrim(p ->> 'motif'), ''), 'Enregistrement du permis de conduire'));
@@ -188,6 +189,7 @@ as $$
 declare r public.moto_permis; v_dec text := upper(coalesce(p_statut, ''));
 begin
   perform private.moto_exiger_classe(array['BM','ABM']);
+  perform pg_advisory_xact_lock(hashtext('moto_permis:' || (select numero_cle from public.moto_permis where id = p_permis)));   -- numéro, puis ligne
   select * into r from public.moto_permis where id = p_permis for update;
   if not found or r.statut <> 'EN_VERIFICATION' then perform private.moto_erreur('Permis introuvable ou déjà vérifié.'); end if;
   if r.depose_par = auth.uid() then perform private.moto_refus('Séparation des tâches : la personne qui a déposé le permis ne le vérifie pas.'); end if;
@@ -197,8 +199,11 @@ begin
     if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut = 'RETIRE') then
       perform private.moto_refus('Ce numéro de permis a été retiré : il ne peut pas être déclaré conforme tant que le Branch Manager n''a pas levé le retrait.');
     end if;
-    if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut = 'CONFORME' and titulaire_id <> r.titulaire_id) then
+    if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut <> 'NON_CONFORME' and titulaire_id <> r.titulaire_id) then
       perform private.moto_erreur('Ce numéro de permis est déjà reconnu pour un autre conducteur : déclarez ce dépôt non conforme.');
+    end if;
+    if exists (select 1 from public.moto_permis where titulaire_id = r.titulaire_id and statut = 'RETRAIT_LEVE' and leve_par = auth.uid()) then
+      perform private.moto_refus('Quatre yeux : la personne qui a levé le retrait ne vérifie pas le nouveau dépôt ; faites-le vérifier par l''ABM.');
     end if;
     if length(btrim(coalesce(p_verification_rh_nom, ''))) < 3 then
       perform private.moto_erreur('Nom de la personne (RH) qui a contrôlé l''original obligatoire.');
@@ -235,11 +240,12 @@ as $$
 declare r public.moto_permis;
 begin
   perform private.moto_exiger_classe(array['BM','ABM']);
+  -- Ordre des verrous commun à toutes les fonctions : numéro (verrou consultatif), puis ligne.
+  perform pg_advisory_xact_lock(hashtext('moto_permis:' || (select numero_cle from public.moto_permis where id = p_permis)));
   select * into r from public.moto_permis where id = p_permis for update;
   if not found or r.statut <> 'CONFORME' then perform private.moto_erreur('Seul un permis CONFORME peut être retiré.'); end if;
   if r.titulaire_id = auth.uid() then perform private.moto_refus('Le titulaire ne retire pas son propre permis.'); end if;
   perform private.moto_motif(p_motif, 10);
-  perform pg_advisory_xact_lock(hashtext('moto_permis:' || r.numero_cle));
   update public.moto_permis set statut = 'RETIRE', retire_par = auth.uid(), retire_at = now(), motif_retrait = btrim(p_motif) where id = r.id;
   return jsonb_build_object('id', r.id, 'statut', 'RETIRE',
     'affectations_actives', (select count(*) from public.moto_affectations a where a.beneficiaire_id = r.titulaire_id and a.statut = 'ACTIVE'
@@ -255,6 +261,7 @@ as $$
 declare r public.moto_permis;
 begin
   perform private.moto_exiger_classe(array['BM']);
+  perform pg_advisory_xact_lock(hashtext('moto_permis:' || (select numero_cle from public.moto_permis where id = p_permis)));   -- numéro, puis ligne
   select * into r from public.moto_permis where id = p_permis for update;
   if not found or r.statut <> 'RETIRE' then perform private.moto_erreur('Seul un permis RETIRÉ peut voir son retrait levé.'); end if;
   perform private.moto_motif(p_motif, 10);

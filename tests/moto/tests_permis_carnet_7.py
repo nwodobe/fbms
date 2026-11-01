@@ -331,12 +331,19 @@ act("Y3", "Revue 2", "bm", "Vérifier conforme un dépôt du numéro retiré (d�
 act("Y4", "Revue 2", "lc", "Le retrait figure dans la vue du vérificateur", f"select motif_retrait is not null and retire_par_nom is not null from public.moto_v_permis where id='{p_c}'", True, "t")
 act("Y5", "Revue 2", "abm", "L'ABM lève un retrait (réservé au BM)", f"select public.moto_permis_lever_retrait('{p_c}', 'Levée tentée par l''ABM (test)')", False, "rôle")
 act("Y6", "Revue 2", "bm", "Le BM lève le retrait (motif)", f"select public.moto_permis_lever_retrait('{p_c}', 'Suspension terminée, notification fictive reçue')", True, "RETRAIT_LEVE")
-act("Y7", "Revue 2", "bm", "Après levée, le dépôt en attente peut être vérifié sur original", f"select public.moto_permis_verifier('{p_y3}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+act("Y7", "Revue 3", "bm", "Quatre yeux : le BM qui a levé le retrait vérifie lui-même le redépôt", f"select public.moto_permis_verifier('{p_y3}', 'CONFORME', 'RH FICTIF', true)", False, "Quatre yeux")
+act("Y7b", "Revue 2", "abm", "Après levée, l'ABM vérifie le dépôt sur original", f"select public.moto_permis_verifier('{p_y3}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
 check("Y8", "Revue 2", "La levée seule n'a pas rendu valide l'ancien permis (statut RETRAIT_LEVE, pas CONFORME)", f"select statut from public.moto_permis where id='{p_c}'", "RETRAIT_LEVE")
 # Le déclencheur ignore les affectations clôturées (purge possible) et la clôture reste permise.
 try: q(f"update public.moto_affectations set permis_id = null where statut = 'CLOTUREE' and permis_id is not null"); y9 = "OK"
 except RuntimeError as e: y9 = str(e)
 record("Y9", "Revue 2", "postgres (écriture directe)", "Purge de permis_id sur les affectations clôturées", "OK", y9 == "OK", y9[:200])
+
+# ===========================================================================
+# Z. Troisième vérification : numéro réservé à son titulaire, quatre yeux après levée
+# ===========================================================================
+act("Z1", "Revue 3", "lc", "Après levée du retrait, un autre conducteur reprend le numéro", "select public.moto_permis_enregistrer(" + lit(permis("abm", "CI-PC-000777")) + ")", False, "autre conducteur")
+act("Z2", "Revue 3", "lc", "Numéro d'un permis REMPLACÉ repris par un autre conducteur", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI PA 000001")) + ")", False, "autre conducteur")
 
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
