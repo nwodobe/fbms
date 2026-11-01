@@ -96,3 +96,69 @@ Espace **Maintenance** : Tableau de bord · Décisions à prendre · Dossiers ·
 
 ## Ce qui actualise une échéance
 Seule une opération **réalisée et contrôlée conforme** remet à zéro **sa propre** échéance (une vidange ne remet pas à zéro la révision). Une inspection mensuelle ou un contrôle avant départ ne prouvent pas qu'un entretien a été fait et ne créent aucune facture.
+
+# Documents scannés, permis des conducteurs, carnet de suivi (migration 7)
+
+Trois nouveautés :
+- **scanner** les documents ;
+- rattacher le **permis** au conducteur, et non plus à la moto ;
+- consulter le **carnet de suivi**, qui retrace toute la vie d'une moto.
+
+## Scanner un document
+
+1. Touchez **Scanner**.
+2. Photographiez la page (**Photographier une page**), ou importez la photo depuis la galerie.
+3. Recommencez pour le verso. Une même numérisation peut contenir jusqu'à 6 pages.
+4. Si besoin, ajustez chaque page :
+   - **Pivoter** la redresse ;
+   - **Recadrer** : faites glisser les quatre coins pour ne garder que le document ;
+   - **↑** change l'ordre des pages.
+5. Laissez le **mode document** coché : le document est plus lisible et le fichier plus léger.
+6. Touchez **Valider le document** : les pages forment un seul PDF, assemblé sur le téléphone, même sans réseau.
+7. Un PDF déjà numérisé s'ajoute directement avec **Importer un PDF**.
+
+**Rien n'est lu automatiquement.** Vous recopiez les numéros en lisant le document. C'est voulu : une lecture automatique jamais éprouvée sur nos cartes grises et nos permis pourrait inventer un numéro de châssis ou de permis.
+
+Où trouver le scan :
+- **Enregistrer une moto**, **Intégrer une moto en exploitation** et **Enregistrer la réception physique** proposent directement la carte grise, l'assurance et la plaque. Pour l'assurance, la date d'expiration est obligatoire.
+- Le passeport, onglet **Documents**, permet ensuite de compléter.
+- Chaque document reste **En vérification** jusqu'au contrôle par un autre responsable.
+
+## Permis de conduire
+
+Le permis appartient au conducteur : il le suit d'une moto à l'autre.
+
+- **Conducteur** (Chef d'unité, Chef de zone, ABM, coordinateur) :
+  - ouvrez **Mes motos**, bloc **Mon permis de conduire**, puis **Scanner mon permis** ;
+  - recopiez nom, numéro, catégories, dates ;
+  - à l'échéance, touchez **Scanner un permis renouvelé**. L'ancien permis reste valable jusqu'au contrôle du nouveau.
+- **BM, ABM, coordinateur**, espace **Conducteurs** : vous voyez tous les conducteurs et pouvez scanner un permis pour l'un d'eux.
+- **Contrôle sur original** : il est fait par l'**ABM ou le Branch Manager**, jamais par la personne qui a déposé le permis ni par son titulaire. On ouvre le scan, on le compare à l'original, puis on indique qui (RH) a vu l'original et on confirme que la catégorie est adaptée à la moto.
+- **Remise et transfert** : le serveur les refuse sans permis contrôlé conforme et en cours de validité. La catégorie et le nom du vérificateur sont repris du permis enregistré ; il n'y a plus de case à cocher.
+- **Alertes** : l'espace Conducteurs signale tout conducteur affecté dont le permis expire dans moins de 30 jours (réglable) ou n'est plus valide.
+- **Confidentialité** : un permis n'est visible que du BM, de l'ABM, du coordinateur et de son titulaire. Ni le Chef de zone ni la Finance ni la Direction n'y ont accès.
+
+## Carnet de suivi d'une moto
+
+Dans le passeport, ouvrez l'onglet **Carnet de suivi**. Il présente toute la vie de la moto, du plus récent au plus ancien :
+- réception, affectations (avec le permis vérifié), mise en service ;
+- inspections et anomalies ;
+- entretiens et réparations : besoin, travaux, contrôle, clôture ;
+- décisions du BM, factures et paiements ;
+- pneus ;
+- carburant (un total par mois) ;
+- incidents, immobilisations et documents.
+
+En tête du carnet, les coûts :
+- coût d'entretien documenté (factures vérifiées, chacune comptée une seule fois) ;
+- carburant vérifié ;
+- coût direct par kilomètre ;
+- nombre d'interventions ;
+- jours d'immobilisation cumulés ;
+- engagements pas encore facturés.
+
+Les filtres isolent une rubrique (par exemple « Entretiens et réparations »). **Exporter (Excel)** produit un classeur à deux onglets, Synthèse et Carnet ; **Imprimer / PDF** imprime le carnet seul.
+
+Le Chef de zone et le Chef d'unité voient toute la chronologie technique, mais ni les décisions de dépense, ni les factures, ni les montants d'entretien (« Accès réservé »).
+
+Pour une moto intégrée sans historique (cas JACKSON), le carnet commence au début du suivi fiable : rien n'est reconstitué avant.
