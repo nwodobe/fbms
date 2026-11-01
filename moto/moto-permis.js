@@ -17,8 +17,8 @@
         rpc = I.rpc, lire = I.lireTable, peut = I.peut, ND = C.ND;
     var CATEGORIES = ['A1', 'A', 'B', 'C', 'D', 'E'];
     var LIB = { VALIDE: 'Valide', EXPIRE_BIENTOT: 'Expire bientôt', EXPIRE: 'Expiré', EN_VERIFICATION: 'À vérifier sur l\'original',
-      CONFORME: 'Conforme', NON_CONFORME: 'Non conforme', REMPLACE: 'Remplacé (renouvelé)', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', AUCUN: 'Aucun permis enregistré' };
-    var TON = { VALIDE: 'ok', CONFORME: 'ok', EXPIRE_BIENTOT: 'warn', EN_VERIFICATION: 'warn', EXPIRE: 'ko', NON_CONFORME: 'ko', AUCUN_PERMIS_VALIDE: 'ko', AUCUN: 'ko', REMPLACE: 'neutre' };
+      CONFORME: 'Conforme', NON_CONFORME: 'Non conforme', REMPLACE: 'Remplacé (renouvelé)', RETIRE: 'Retiré', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', AUCUN: 'Aucun permis enregistré' };
+    var TON = { VALIDE: 'ok', CONFORME: 'ok', EXPIRE_BIENTOT: 'warn', EN_VERIFICATION: 'warn', EXPIRE: 'ko', NON_CONFORME: 'ko', AUCUN_PERMIS_VALIDE: 'ko', AUCUN: 'ko', REMPLACE: 'neutre', RETIRE: 'ko' };
     function b(code, texte) { return '<span class="mm-badge mm-badge-long mm-' + (TON[code] || 'neutre') + '">' + esc(texte || LIB[code] || code) + '</span>'; }
     function validite(p) {
       if (!p) return b('AUCUN');
@@ -67,7 +67,7 @@
           var chemin = await deposer(titulaire, v.scan);
           var r = await rpc('moto_permis_enregistrer', { p: { titulaire_id: titulaire, nom_titulaire: v.nom_titulaire, numero_permis: v.numero_permis, categories: cats,
             date_delivrance: v.date_delivrance, date_expiration: v.sans_expiration ? null : v.date_expiration, sans_expiration: !!v.sans_expiration,
-            autorite_delivrance: v.autorite_delivrance, document_path: chemin, nom_fichier: v.scan.name } });
+            autorite_delivrance: v.autorite_delivrance, document_path: chemin, nom_fichier: v.scan.name, pages: v.scan._pages || null } });
           if (apres) apres();
           return r.note;
         }, 'Enregistrer le permis');
@@ -91,6 +91,12 @@
         }, 'Enregistrer la décision');
       var d = $$('dialog.mm-modale').pop(); if (d) d.addEventListener('click', function (e) { var x = e.target.closest('[data-action="voir_fichier"]'); if (x) I.ouvrirFichier(x.dataset.chemin); });
     }
+    function retirer(p, apres) {
+      modale('Retirer le permis · ' + p.nom_titulaire,
+        '<p class="mm-bandeau mm-ko">Effet immédiat : plus aucune remise ni transfert pour ce conducteur. S\'il a déjà une moto, il apparaît dans les alertes : retirez l\'affectation.</p>' +
+        champ({ n: 'motif', l: 'Motif (suspension, retrait par l\'autorité, fraude…) · 10 caractères minimum', t: 'textarea', req: true, min: 10 }),
+        function (v) { return rpc('moto_permis_retirer', { p_permis: p.id, p_motif: v.motif }).then(function (r) { if (apres) apres(); return 'Permis retiré.' + (r.affectations_actives ? ' Ce conducteur a ' + r.affectations_actives + ' moto(s) : retirez l\'affectation.' : ''); }); }, 'Retirer le permis');
+    }
     function peutVerifier(p) { return peut('permis_verifier') && p && p.statut === 'EN_VERIFICATION' && p.depose_par !== S.profil.user_id && p.titulaire_id !== S.profil.user_id; }
 
     /* -- Espace « Conducteurs » ------------------------------------------------ */
@@ -101,7 +107,7 @@
       var attente = permis.filter(function (p) { return p.statut === 'EN_VERIFICATION'; });
       I.vue().innerHTML = '<div class="mm-entete"><div><h1>Conducteurs et permis</h1><p>Le permis suit le conducteur. Remise et transfert sont refusés par le serveur sans permis contrôlé conforme et en cours de validité.</p></div></div>' +
         (alertes.length ? '<section class="mm-bloc mm-alerte-bloc"><h2>À traiter : conducteurs affectés</h2>' + tableau(['Moto', 'Conducteur', 'Situation', 'Expiration'], alertes.map(function (a) {
-          return [esc(a.moto_code), esc(a.beneficiaire_nom || ND), b(a.statut_validite, a.statut_validite === 'EXPIRE_BIENTOT' ? 'Expire dans ' + a.jours_restants + ' j' : null), esc(a.date_expiration ? C.dateFr(a.date_expiration) : ND)];
+          return [esc(a.moto_code), esc(a.beneficiaire_nom || ND), b(a.statut_validite, a.statut_validite === 'EXPIRE_BIENTOT' ? 'Expire dans ' + a.jours_restants + ' j' : a.statut_validite === 'EXPIRE' ? 'Expiré depuis ' + (-a.jours_restants) + ' j' : null), esc(a.date_expiration ? C.dateFr(a.date_expiration) : ND)];
         }), '') + '<p class="mm-note">Un conducteur sans permis valide ne doit pas circuler : faites renouveler le permis ou retirez l\'affectation.</p></section>' : '') +
         (attente.length ? '<section class="mm-bloc"><h2>Permis à vérifier sur l\'original (' + attente.length + ')</h2>' + tableau(['Conducteur', 'Numéro', 'Catégories', 'Déposé par', ''], attente.map(function (p) {
           return [esc(p.nom_titulaire), esc(p.numero_permis), esc((p.categories || []).join(', ')), esc((p.depose_par_nom || ND) + ' · ' + C.dateFr(p.depose_at)),
@@ -111,6 +117,7 @@
           var p = principal(permis, x.user_id), att = enAttente(permis, x.user_id);
           return [esc(x.nom), esc(fonction(x) + (x.cluster_code ? ' · ' + x.cluster_code : '')), esc(p ? p.numero_permis : ND), esc(p ? (p.categories || []).join(', ') : ND), validite(p),
             (p ? action('pm_scan', 'Scan', { chemin: p.document_path }) + ' ' : '') +
+            (p && p.statut === 'CONFORME' && peut('permis_verifier') && p.titulaire_id !== S.profil.user_id ? action('pm_retirer', 'Retirer', { id: p.id }, 'mm-danger') + ' ' : '') +
             (peut('permis_enregistrer') && !att && x.user_id !== S.profil.user_id ? action('pm_enregistrer', p ? 'Renouveler' : 'Scanner le permis', { uid: x.user_id, nom: x.nom }, p ? 'mm-secondaire' : 'mm-primaire') : '')];
         }), 'Aucun conducteur éligible (Chef d\'unité, Chef de zone, ABM, coordinateur).') + '</section>' +
         '<p class="mm-note">Catégorie adaptée : la règle légale applicable aux APSONIC AP150-30 (cylindrée 150 cm³) est à confirmer par les RH ; le vérificateur l\'atteste pour chaque permis.</p>';
@@ -119,6 +126,7 @@
         if (x.dataset.action === 'pm_scan') I.ouvrirFichier(x.dataset.chemin);
         if (x.dataset.action === 'pm_enregistrer') enregistrer(x.dataset.uid, x.dataset.nom, vue);
         if (x.dataset.action === 'pm_verifier') verifier(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue);
+        if (x.dataset.action === 'pm_retirer') retirer(permis.filter(function (p) { return p.id === x.dataset.id; })[0], vue);
       };
     }
 

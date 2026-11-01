@@ -105,7 +105,7 @@
     PV_REMISE: 'Procès-verbal de remise', PHOTO: 'Photographie', PERMIS: 'Permis', FACTURE: 'Facture', JUSTIFICATIF: 'Justificatif', AUTRE: 'Autre',
     PREAFFECTATION: 'Préaffectation', TRANSFERT: 'Transfert', ACTIVE: 'Active', CLOTUREE: 'Clôturée',
     SYNCHRONISE: 'Synchronisé', BLOQUE: 'Bloqué (relance manuelle)',
-    REMPLACE: 'Remplacé', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', LEVEE: 'Levée', EN_COURS_IMMO: 'En cours'
+    REMPLACE: 'Remplacé', RETIRE: 'Retiré', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', LEVEE: 'Levée', EN_COURS_IMMO: 'En cours'
   };
   function libelle(code) { return code == null || code === '' ? ND : (LIBELLES[code] || String(code)); }
 

@@ -44,7 +44,7 @@
       }
       bloc.querySelector('[data-scan-ouvrir]').onclick = function () {
         ouvrir(bloc.getAttribute('data-scan-titre'), function (file, pages) {
-          definir(file, pages + ' page(s) numérisée(s) · PDF de ' + taille(file.size) + ' prêt à être enregistré.');
+          file._pages = pages; definir(file, pages + ' page(s) numérisée(s) · PDF de ' + taille(file.size) + ' prêt à être enregistré.');
         });
       };
       bloc.querySelector('[data-scan-pdf]').onchange = function (e) {
@@ -52,7 +52,10 @@
         if (!f) return;
         if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) { etat.textContent = 'Ce fichier n\'est pas un PDF. Pour une photo, utilisez « Scanner ».'; return; }
         if (f.size > LIMITE) { etat.textContent = 'PDF trop volumineux (' + taille(f.size) + ', 9,5 Mo maximum).'; return; }
-        definir(f, 'PDF importé : ' + f.name + ' (' + taille(f.size) + ').');
+        f.slice(0, 5).arrayBuffer().then(function (b) {
+          if (String.fromCharCode.apply(null, new Uint8Array(b)) !== '%PDF-') { etat.textContent = 'Ce fichier n\'est pas un vrai PDF (en-tête absent). Utilisez « Scanner ».'; return; }
+          definir(f, 'PDF importé : ' + f.name + ' (' + taille(f.size) + ').');
+        });
       };
       vider.onclick = function () { definir(null); };
     });
@@ -180,17 +183,24 @@
   }
 
   /* -- Traitement d'image ---------------------------------------------------- */
+  var GARDE = 2400;   // côté maximal conservé en mémoire par page (téléphones d'entrée de gamme)
   function charger(f) {
     return new Promise(function (ok, ko) {
       var url = URL.createObjectURL(f), img = new Image();
-      img.onload = function () { URL.revokeObjectURL(url); ok(img); };
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var k = Math.min(1, GARDE / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); img.src = '';
+        ok(c);
+      };
       img.onerror = function () { URL.revokeObjectURL(url); ko(new Error('image')); };
       img.src = url;
     });
   }
   // Rotation → recadrage → mise à l'échelle → mode document.
   function rendre(p, cote, modeDoc) {
-    var iw = p.img.naturalWidth || p.img.width, ih = p.img.naturalHeight || p.img.height, quart = p.rot % 180 !== 0;
+    var iw = p.img.width, ih = p.img.height, quart = p.rot % 180 !== 0;
     var rw = quart ? ih : iw, rh = quart ? iw : ih;
     var sx = p.cadre.x * rw, sy = p.cadre.y * rh, sw = p.cadre.l * rw, sh = p.cadre.h * rh;
     var k = Math.min(1, cote / Math.max(sw, sh)), cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));

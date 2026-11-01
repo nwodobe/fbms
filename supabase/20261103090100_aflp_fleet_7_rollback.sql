@@ -3,7 +3,11 @@
 -- Restaure au texte près l'état issu des migrations 1 à 6.
 -- REFUSÉ s'il existe déjà un permis enregistré (donnée réelle à préserver) :
 -- dans ce cas, exporter puis décider explicitement.
--- Les fichiers déjà déposés sous permis/ dans le stockage ne sont pas supprimés.
+-- Restent après retour arrière, à purger par décision explicite :
+--   * les fichiers déposés sous permis/ dans le stockage (scans) ;
+--   * les entrées de moto_journal où table_nom = 'moto_permis' (sans nom, numéro ni chemin depuis la correction de la revue).
+-- Couplage : l'interface de la migration 7 n'envoie plus les champs déclaratifs du permis ;
+-- revenir aussi à l'interface précédente (fusion inverse) avant toute remise.
 -- =====================================================================
 begin;
 
@@ -21,6 +25,7 @@ drop trigger if exists moto_affectations_permis_trg on public.moto_affectations;
 drop function if exists private.moto_affectation_permis();
 drop function if exists public.moto_permis_verifier(uuid, text, text, boolean, text);
 drop function if exists public.moto_permis_enregistrer(jsonb);
+drop function if exists public.moto_permis_retirer(uuid, text);
 
 -- Définitions d'origine (migration 2 pour le contrôle de remise, migration 6 pour le stockage)
 create or replace function private.moto_controle_remise(p_moto uuid, p jsonb)
@@ -80,6 +85,16 @@ alter policy moto_documents_consultation on storage.objects
 alter table public.moto_affectations drop column if exists permis_id;
 drop function if exists private.moto_permis_valide(uuid, date);
 drop table if exists public.moto_permis;
+drop function if exists private.moto_journaliser_permis();
+drop function if exists private.moto_chemin_permis_valide(text, uuid);
+drop index if exists public.moto_factures_moto_idx;
+drop index if exists public.moto_autorisations_moto_idx;
+drop index if exists public.moto_pneu_reparations_moto_idx;
+drop index if exists public.moto_actions_correctives_moto_idx;
+drop index if exists public.moto_pneu_poses_moto_idx;
+-- Lecture du journal d'origine (migration 1).
+alter policy moto_journal_lecture on public.moto_journal
+  using ((private.moto_classe() = any (array['BM','ABM','DIRECTION'])) or private.moto_est_finance_manager());
 drop function if exists private.moto_lecture_permis(uuid);
 delete from public.moto_parametres where cle = 'permis_alerte_jours';
 

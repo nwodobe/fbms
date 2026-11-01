@@ -112,7 +112,7 @@ p_a = act("P01", "Permis", "uh_a", "Le Chef d'unité scanne et enregistre son pr
 act("P02", "Permis", "uh_a", "Le Chef d'unité enregistre le permis d'un collègue", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI-PB 000001")) + ")", False, "Seuls le Branch Manager")
 act("P03", "Permis", "zh", "Le Chef de zone enregistre le permis d'un Chef d'unité", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI-PB 000001")) + ")", False, "Seuls le Branch Manager")
 act("P04", "Permis", "lc", "Enregistrement sans scan déposé (chemin inexistant)",
-    "select public.moto_permis_enregistrer(" + lit({**permis("uh_b", "CI-PB 000001"), "document_path": f"permis/{U['uh_b']}/absent.pdf"}) + ")", False, "introuvable")
+    "select public.moto_permis_enregistrer(" + lit({**permis("uh_b", "CI-PB 000001"), "document_path": f"permis/{U['uh_b']}/{uuid.uuid4()}.pdf"}) + ")", False, "introuvable")
 act("P05", "Permis", "lc", "Scan rangé dans le dossier d'un autre titulaire",
     "select public.moto_permis_enregistrer(" + lit({**permis("uh_b", "CI-PB 000001"), "document_path": scan("uh_c")}) + ")", False, "Scan du permis obligatoire")
 act("P06", "Permis", "lc", "Ni date d'expiration, ni « aucune date sur le document »",
@@ -220,7 +220,7 @@ act("R05", "Alertes", "lc", "Permis du conducteur affecté qui expire dans 10 jo
 q(f"""alter table public.moto_permis disable trigger moto_permis_journal_trg;
       update public.moto_permis set date_expiration = current_date - 1, date_delivrance = current_date - 3000 where id = '{p_b}';
       alter table public.moto_permis enable trigger moto_permis_journal_trg;""")
-act("R06", "Alertes", "bm", "Permis expiré pendant l'affectation : signalé « aucun permis valide »", f"select statut_validite from public.moto_permis_alertes() where moto_id='{R}'", True, "AUCUN_PERMIS_VALIDE")
+act("R06", "Alertes", "bm", "Permis expiré pendant l'affectation : signalé EXPIRE, avec sa date", f"select statut_validite||'|'||date_expiration from public.moto_permis_alertes() where moto_id='{R}'", True, "EXPIRE|" + d(-1))
 act("R07", "Alertes", "uh_b", "Un Chef d'unité n'accède pas aux alertes de permis", "select count(*) from public.moto_permis_alertes()", True, "0")
 act("R08", "Alertes", "zh", "Le Chef de zone n'accède pas aux alertes de permis", "select count(*) from public.moto_permis_alertes()", True, "0")
 act("R09", "Alertes", "anon", "Anonyme appelle les alertes", "select count(*) from public.moto_permis_alertes()", False, "permission")
@@ -269,6 +269,54 @@ t0 = time.time(); ok, _ = run_as("bm6", f"select count(*) from {carnet}"); dt = 
 record("C15", "Carnet", "bm6", "Temps de réponse du carnet (psql compris)", "< 2 s", ok and dt < 2, f"{dt:.2f} s")
 act("C16", "Carnet", "bm6", "Remise avec permis visible dans le carnet de la moto de test",
     f"select count(*) > 0 from public.moto_carnet('{R}') where categorie='AFFECTATION' and detail like '%permis vérifié (A, B)%'", True, "t")
+
+# ===========================================================================
+# X. Contre-épreuves de la contre-expertise (NO_GO initial)
+# ===========================================================================
+# X1. Journal : aucune donnée d'identité, lecture réservée
+act("X1a", "Revue", "dir", "La Direction lit le journal des permis", "select count(*) from public.moto_journal where table_nom='moto_permis'", True, "0")
+q(f"insert into auth.users (id, email) values ('{uid(211)}', 'fm7@example.invalid') on conflict do nothing; insert into public.profils (user_id, email, nom, role, actif) values ('{uid(211)}', 'fm7@example.invalid', 'FINANCE MANAGER7 FICTIF', 'Finance Manager', true) on conflict do nothing;")
+U["fm"] = uid(211)
+act("X1b", "Revue", "fm", "Le Finance Manager lit le journal des permis", "select count(*) from public.moto_journal where table_nom='moto_permis'", True, "0")
+act("X1c", "Revue", "fm", "Non-régression : le Finance Manager lit toujours le reste du journal", "select (count(*) > 0)::text from public.moto_journal where table_nom <> 'moto_permis'", True, "true")
+check("X1d", "Revue", "Le journal des permis ne contient ni numéro, ni nom, ni chemin de scan",
+      "select count(*) from public.moto_journal where table_nom='moto_permis' and (coalesce(nouvelle_valeur,'{}')::text ~ '(numero_permis|nom_titulaire|document_path)' or coalesce(ancienne_valeur,'{}')::text ~ '(numero_permis|nom_titulaire|document_path)')", "0")
+act("X1e", "Revue", "bm", "Le BM garde la trace des décisions sur les permis", f"select (count(*) > 0)::text from public.moto_journal where table_nom='moto_permis' and enregistrement_id='{p_a}'", True, "true")
+# X2. Numéro écrit autrement = même permis
+for i, variante in enumerate(["CIPA000001", "ci pa 000001", "CI/PA.000001"]):
+    act(f"X2{chr(97+i)}", "Revue", "lc", f"Numéro d'un autre conducteur écrit autrement : « {variante} »", "select public.moto_permis_enregistrer(" + lit(permis("uh_c", variante)) + ")", False, "autre conducteur")
+# X3. Retrait d'un permis conforme
+p_c = act("X3a", "Revue", "lc", "Permis du Chef d'unité C (préparation)", "select public.moto_permis_enregistrer(" + lit(permis("uh_c", "CI-PC 000777")) + ")", True)["id"]
+act("X3b", "Revue", "bm", "Le BM le déclare conforme", f"select public.moto_permis_verifier('{p_c}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+act("X3c", "Revue", "lc", "Le coordinateur retire un permis", f"select public.moto_permis_retirer('{p_c}', 'Suspension annoncée par l''autorité')", False, "rôle")
+act("X3d", "Revue", "bm", "Retrait sans motif suffisant", f"select public.moto_permis_retirer('{p_c}', 'court')", False, "motif")
+act("X3e", "Revue", "abm", "L'ABM retire le permis (motif)", f"select public.moto_permis_retirer('{p_c}', 'Retrait de permis notifié par l''autorité (fictif)')", True, "RETIRE")
+try: remise_directe("uh_c"); x3 = "OK"
+except RuntimeError as e: x3 = str(e)
+record("X3f", "Revue", "postgres (écriture directe)", "Remise après retrait du permis", "REFUS (permis)", "Remise bloquée" in x3, x3[:200])
+act("X3g", "Revue", "bm", "Un permis retiré ne se « retire » pas deux fois", f"select public.moto_permis_retirer('{p_c}', 'Second retrait de test inutile')", False, "CONFORME")
+act("X3h", "Revue", "abm", "Le titulaire ABM ne retire pas son propre permis", f"select public.moto_permis_retirer('{p_abm}', 'Tentative de retrait de son propre permis')", False, "titulaire")
+# X4. Le déclencheur couvre aussi les mises à jour
+q(f"update public.moto_affectations set statut='CLOTUREE', date_fin=current_date where moto_id='{R}' and statut='ACTIVE'")
+q(f"insert into public.moto_affectations (moto_id, beneficiaire_id, cluster_code, type_affectation, statut, date_debut, motif, cree_par) values ('{R}', '{U['uh_c']}', 'BROBO', 'PREAFFECTATION', 'ACTIVE', current_date, 'Test X4', '{U['abm']}')")
+try: q(f"update public.moto_affectations set type_affectation='REMISE' where moto_id='{R}' and statut='ACTIVE'"); x4 = "OK"
+except RuntimeError as e: x4 = str(e)
+record("X4a", "Revue", "postgres (écriture directe)", "Préaffectation transformée en REMISE par UPDATE (permis retiré)", "REFUS (permis)", "Remise bloquée" in x4, x4[:200])
+q(f"update public.moto_affectations set statut='CLOTUREE' where moto_id='{R}' and statut='ACTIVE'")
+remise_directe("uh_b") if q(f"select count(*) from public.moto_permis where titulaire_id='{U['uh_b']}' and statut='CONFORME' and (sans_expiration or date_expiration >= current_date)") != "0" else None
+# X5. Alertes : droits du permis, statut RETIRE et EXPIRE
+act("X5a", "Revue", "dir", "La Direction n'accède plus aux alertes de permis", "select count(*) from public.moto_permis_alertes()", True, "0")
+q(f"update public.moto_affectations set statut='CLOTUREE' where moto_id='{R}' and statut='ACTIVE'")
+q(f"alter table public.moto_affectations disable trigger moto_affectations_permis_trg; insert into public.moto_affectations (moto_id, beneficiaire_id, cluster_code, type_affectation, statut, date_debut, motif, cree_par) values ('{R}', '{U['uh_c']}', 'BROBO', 'REMISE', 'ACTIVE', current_date, 'Fixture : remise antérieure au retrait', '{U['abm']}'); alter table public.moto_affectations enable trigger moto_affectations_permis_trg;")
+act("X5b", "Revue", "bm", "Permis retiré après la remise : l'alerte dit RETIRE", f"select statut_validite from public.moto_permis_alertes() where moto_id='{R}'", True, "RETIRE")
+# X6. Stockage : chemin strict, éligibilité même pour soi
+act("X6a", "Revue", "uh_a", "Sous-dossier « .. » dans permis/", f"insert into storage.objects (bucket_id, name) values ('moto-documents', 'permis/{U['uh_a']}/../{U['uh_b']}/{uuid.uuid4()}.pdf')", False, "row-level security")
+act("X6b", "Revue", "uh_a", "Extension non PDF", f"insert into storage.objects (bucket_id, name) values ('moto-documents', 'permis/{U['uh_a']}/{uuid.uuid4()}.html')", False, "row-level security")
+act("X6c", "Revue", "fin", "La Finance (non éligible) dépose dans son propre dossier permis", f"insert into storage.objects (bucket_id, name) values ('moto-documents', 'permis/{U['fin']}/{uuid.uuid4()}.pdf')", False, "row-level security")
+act("X6d", "Revue", "uh_a", "Nom de fichier libre", f"insert into storage.objects (bucket_id, name) values ('moto-documents', 'permis/{U['uh_a']}/mon-permis.pdf')", False, "row-level security")
+# X7. Saisie tolérante
+p_x7 = act("X7", "Revue", "lc", "« sans_expiration » envoyé en texte (« oui »)",
+           "select public.moto_permis_enregistrer(" + lit({**permis("zh", "CI-ZH 000123"), "date_expiration": None, "sans_expiration": "oui"}) + ")", True, "EN_VERIFICATION")
 
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
