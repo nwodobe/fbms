@@ -1,0 +1,1266 @@
+{
+ "base": "fbms_moto_test",
+ "date": "2026-11-01T09:05:17.556346+00:00",
+ "resultats": [
+  {
+   "id": "P01",
+   "domaine": "Permis",
+   "compte": "uh_a",
+   "action": "Le Chef d'unité scanne et enregistre son propre permis",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"122f22a7-0cf9-4541-838e-33adc80c90f9\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P02",
+   "domaine": "Permis",
+   "compte": "uh_a",
+   "action": "Le Chef d'unité enregistre le permis d'un collègue",
+   "attendu": "REFUS (Seuls le Branch Manager)",
+   "obtenu": "REFUS : Seuls le Branch Manager, l'ABM, le coordinateur logistique ou le titulaire lui-même enregistrent un permis.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P03",
+   "domaine": "Permis",
+   "compte": "zh",
+   "action": "Le Chef de zone enregistre le permis d'un Chef d'unité",
+   "attendu": "REFUS (Seuls le Branch Manager)",
+   "obtenu": "REFUS : Seuls le Branch Manager, l'ABM, le coordinateur logistique ou le titulaire lui-même enregistrent un permis.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P04",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Enregistrement sans scan déposé (chemin inexistant)",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Fichier introuvable dans le stockage privé : déposez le scan avant d'enregistrer.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P05",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Scan rangé dans le dossier d'un autre titulaire",
+   "attendu": "REFUS (Scan du permis obligatoire)",
+   "obtenu": "REFUS : Scan du permis obligatoire (chemin permis/<titulaire>/<identifiant>.pdf).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P06",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Ni date d'expiration, ni « aucune date sur le document »",
+   "attendu": "REFUS (expiration obligatoire)",
+   "obtenu": "REFUS : Date d'expiration obligatoire. Si le document n'en porte aucune, cochez « aucune date d'expiration sur le document ».",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P06b",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Date d'expiration ET « aucune date » cochée",
+   "attendu": "REFUS (pas les deux)",
+   "obtenu": "REFUS : Indiquez une date d'expiration OU « aucune date d'expiration sur le document », pas les deux.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P07",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Permis expiré",
+   "attendu": "REFUS (expiré)",
+   "obtenu": "REFUS : Permis expiré : il ne peut pas servir de permis de conduite.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P08",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Numéro de permis piégé (balise HTML)",
+   "attendu": "REFUS (Numéro de permis invalide)",
+   "obtenu": "REFUS : Numéro de permis invalide : recopiez-le exactement depuis le document (lettres, chiffres, espaces, / . -).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P09",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Aucune catégorie",
+   "attendu": "REFUS (catégorie)",
+   "obtenu": "REFUS : Au moins une catégorie de permis est obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P09b",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Catégorie fantaisiste",
+   "attendu": "REFUS (non reconnue)",
+   "obtenu": "REFUS : Catégorie de permis non reconnue : MOTO.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P09c",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Délivré dans le futur",
+   "attendu": "REFUS (futur)",
+   "obtenu": "REFUS : Date de délivrance dans le futur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P10",
+   "domaine": "Permis",
+   "compte": "uh_a",
+   "action": "Second permis alors qu'un premier attend sa vérification",
+   "attendu": "REFUS (déjà en attente)",
+   "obtenu": "REFUS : Un permis est déjà en attente de vérification pour ce conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P11",
+   "domaine": "Permis",
+   "compte": "abm",
+   "action": "Permis pour un profil hors programme (Supervisor sans fonction moto)",
+   "attendu": "REFUS (Titulaire invalide)",
+   "obtenu": "REFUS : Titulaire invalide : compte inactif ou profil non éligible à une moto AFLP.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P12",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Le coordinateur enregistre le permis d'un Chef d'unité (2 catégories, sans date d'expiration)",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"79239d1a-8108-475a-a19e-d2975b291831\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P12b",
+   "domaine": "Permis",
+   "compte": "postgres (lecture)",
+   "action": "Numéro normalisé en majuscules, catégories dédoublonnées et triées",
+   "attendu": "CI-PB 000001|A,B",
+   "obtenu": "CI-PB 000001|A,B",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P13",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Même numéro pour un autre conducteur",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P14",
+   "domaine": "Permis",
+   "compte": "lc",
+   "action": "Le coordinateur enregistre le permis de l'ABM",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"6d25baf4-8168-4419-87cc-0af8918dffed\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V01",
+   "domaine": "Vérification",
+   "compte": "lc",
+   "action": "Le coordinateur vérifie un permis",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V02",
+   "domaine": "Vérification",
+   "compte": "zh",
+   "action": "Le Chef de zone vérifie un permis",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V03",
+   "domaine": "Vérification",
+   "compte": "abm",
+   "action": "L'ABM vérifie son propre permis",
+   "attendu": "REFUS (titulaire)",
+   "obtenu": "REFUS : Le titulaire ne vérifie pas son propre permis.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V04a",
+   "domaine": "Vérification",
+   "compte": "abm",
+   "action": "L'ABM dépose le permis d'un Chef d'unité",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"6af52969-c4b8-4c93-b433-5a66014a6253\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V04",
+   "domaine": "Vérification",
+   "compte": "abm",
+   "action": "Le déposant vérifie le permis qu'il a déposé",
+   "attendu": "REFUS (Séparation)",
+   "obtenu": "REFUS : Séparation des tâches : la personne qui a déposé le permis ne le vérifie pas.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V05",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Conforme sans nom de la personne RH qui a vu l'original",
+   "attendu": "REFUS (RH)",
+   "obtenu": "REFUS : Nom de la personne (RH) qui a contrôlé l'original obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V06",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Conforme sans confirmer la catégorie adaptée",
+   "attendu": "REFUS (catégorie)",
+   "obtenu": "REFUS : Confirmez que la catégorie du permis est adaptée à la moto confiée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V07",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Non conforme sans motif",
+   "attendu": "REFUS (motif)",
+   "obtenu": "REFUS : Motif obligatoire (5 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V08",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Le BM déclare conforme le permis du Chef d'unité A",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"122f22a7-0cf9-4541-838e-33adc80c90f9\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V09",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Seconde vérification du même permis",
+   "attendu": "REFUS (déjà vérifié)",
+   "obtenu": "REFUS : Permis introuvable ou déjà vérifié.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V10",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Non conforme motivé (photo illisible)",
+   "attendu": "OK (NON_CONFORME)",
+   "obtenu": "OK : {\"id\": \"6af52969-c4b8-4c93-b433-5a66014a6253\", \"statut\": \"NON_CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V11",
+   "domaine": "Vérification",
+   "compte": "abm",
+   "action": "L'ABM vérifie le permis déposé par le coordinateur (sans expiration)",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"79239d1a-8108-475a-a19e-d2975b291831\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V12",
+   "domaine": "Vérification",
+   "compte": "bm",
+   "action": "Le BM vérifie le permis de l'ABM",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"6d25baf4-8168-4419-87cc-0af8918dffed\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V13",
+   "domaine": "Vérification",
+   "compte": "uh_a",
+   "action": "Renouvellement : même numéro, nouvelle date d'expiration",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"1bded134-6f6b-40f3-8115-a38592ada3d7\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V13b",
+   "domaine": "Vérification",
+   "compte": "postgres (lecture)",
+   "action": "Pendant le renouvellement, l'ancien permis reste CONFORME",
+   "attendu": "CONFORME",
+   "obtenu": "CONFORME",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V14",
+   "domaine": "Vérification",
+   "compte": "abm",
+   "action": "L'ABM vérifie le renouvellement",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"1bded134-6f6b-40f3-8115-a38592ada3d7\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V14b",
+   "domaine": "Vérification",
+   "compte": "postgres (lecture)",
+   "action": "L'ancien permis passe REMPLACE, un seul CONFORME par titulaire",
+   "attendu": "REMPLACE/1",
+   "obtenu": "REMPLACE/1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V15",
+   "domaine": "Écriture directe",
+   "compte": "bm",
+   "action": "Insertion directe dans moto_permis",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_permis",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V16",
+   "domaine": "Écriture directe",
+   "compte": "bm",
+   "action": "Mise à jour directe du statut",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_permis",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V17",
+   "domaine": "Écriture directe",
+   "compte": "anon",
+   "action": "Anonyme appelle l'enregistrement",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_permis_enregistrer",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L01",
+   "domaine": "Lecture",
+   "compte": "uh_a",
+   "action": "Le titulaire voit ses permis (actuel + remplacé)",
+   "attendu": "OK (2)",
+   "obtenu": "OK : 2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L02",
+   "domaine": "Lecture",
+   "compte": "uh_b",
+   "action": "Un autre Chef d'unité ne voit pas le permis de A",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L02b",
+   "domaine": "Lecture",
+   "compte": "uh_b",
+   "action": "Table de base : idem",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L03",
+   "domaine": "Lecture",
+   "compte": "zh",
+   "action": "Le Chef de zone ne voit aucun permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L04",
+   "domaine": "Lecture",
+   "compte": "fin",
+   "action": "La Finance ne voit aucun permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L05",
+   "domaine": "Lecture",
+   "compte": "dir",
+   "action": "La Direction ne voit aucun permis (minimisation)",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L06",
+   "domaine": "Lecture",
+   "compte": "lc",
+   "action": "Le coordinateur voit les permis (préparation des remises)",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L07",
+   "domaine": "Lecture",
+   "compte": "anon",
+   "action": "Anonyme lit les permis",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for view moto_v_permis",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L08",
+   "domaine": "Lecture",
+   "compte": "lc",
+   "action": "Statut de validité calculé : sans date d'expiration = VALIDE",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : VALIDE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S01",
+   "domaine": "Stockage",
+   "compte": "uh_a",
+   "action": "Le titulaire dépose son scan",
+   "attendu": "OK",
+   "obtenu": "OK : ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S02",
+   "domaine": "Stockage",
+   "compte": "uh_a",
+   "action": "Dépôt dans le dossier permis d'un autre",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S03",
+   "domaine": "Stockage",
+   "compte": "zh",
+   "action": "Le Chef de zone dépose dans le dossier permis d'un Chef d'unité",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S04",
+   "domaine": "Stockage",
+   "compte": "lc",
+   "action": "Le coordinateur dépose le scan d'un Chef d'unité",
+   "attendu": "OK",
+   "obtenu": "OK : ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S05",
+   "domaine": "Stockage",
+   "compte": "lc",
+   "action": "Dossier permis d'un profil hors programme",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S06",
+   "domaine": "Stockage",
+   "compte": "uh_b",
+   "action": "Lecture des scans de permis d'un autre conducteur",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S07",
+   "domaine": "Stockage",
+   "compte": "zh",
+   "action": "Le Chef de zone lit les scans de permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S08",
+   "domaine": "Stockage",
+   "compte": "uh_a",
+   "action": "Le titulaire relit ses propres scans",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S09",
+   "domaine": "Stockage",
+   "compte": "abm",
+   "action": "Non-régression : l'ABM dépose toujours un document de moto",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R01",
+   "domaine": "Remise",
+   "compte": "postgres (écriture directe)",
+   "action": "Remise à un conducteur dont le seul permis est NON CONFORME (case cochée côté client)",
+   "attendu": "REFUS (permis)",
+   "obtenu": "ERROR:  Remise bloquée : le bénéficiaire n'a pas de permis enregistré, vérifié CONFORME et en cours de validité (Administration › Conducteurs et permis).\nCONTEXT:  PL/pgSQL function moto_erreur(text) line 2 at RAISE\nSQL statement \"SELECT pr",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R02",
+   "domaine": "Remise",
+   "compte": "postgres (écriture directe)",
+   "action": "Remise avec permis CONFORME : catégorie et vérificateur repris du permis enregistré, pas de la saisie",
+   "attendu": "A, B|RH FICTIF|true",
+   "obtenu": "A, B|RH FICTIF|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R03",
+   "domaine": "Remise",
+   "compte": "postgres (écriture directe)",
+   "action": "Remise à un conducteur dont le permis a expiré hier",
+   "attendu": "REFUS (permis)",
+   "obtenu": "ERROR:  Remise bloquée : le bénéficiaire n'a pas de permis enregistré, vérifié CONFORME et en cours de validité (Administration › Conducteurs et permis).\nCONTEXT:  PL/pgSQL function moto_erreur(text) line 2 at RAISE\nSQL statement \"SELECT pr",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R04",
+   "domaine": "Remise",
+   "compte": "abm",
+   "action": "Un permis déjà expiré ne peut pas être enregistré",
+   "attendu": "REFUS (expiré)",
+   "obtenu": "REFUS : Permis expiré : il ne peut pas servir de permis de conduite.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R05",
+   "domaine": "Alertes",
+   "compte": "lc",
+   "action": "Permis du conducteur affecté qui expire dans 10 jours",
+   "attendu": "OK (EXPIRE_BIENTOT|10)",
+   "obtenu": "OK : EXPIRE_BIENTOT|10",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R06",
+   "domaine": "Alertes",
+   "compte": "bm",
+   "action": "Permis expiré pendant l'affectation : signalé EXPIRE, avec sa date",
+   "attendu": "OK (EXPIRE|2026-10-31)",
+   "obtenu": "OK : EXPIRE|2026-10-31",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R07",
+   "domaine": "Alertes",
+   "compte": "uh_b",
+   "action": "Un Chef d'unité n'accède pas aux alertes de permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R08",
+   "domaine": "Alertes",
+   "compte": "zh",
+   "action": "Le Chef de zone n'accède pas aux alertes de permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R09",
+   "domaine": "Alertes",
+   "compte": "anon",
+   "action": "Anonyme appelle les alertes",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_permis_alertes",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R10",
+   "domaine": "Journal",
+   "compte": "postgres (lecture)",
+   "action": "Chaque écriture de permis est journalisée (auteur et motif)",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C01",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Le BM voit décisions et factures avec leurs montants",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C02",
+   "domaine": "Carnet",
+   "compte": "fin6",
+   "action": "La Finance voit les montants facturés et payés",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C03",
+   "domaine": "Carnet",
+   "compte": "zh6",
+   "action": "Le Chef de zone voit la chronologie, sans aucun événement financier",
+   "attendu": "OK (true|0|0)",
+   "obtenu": "OK : true|0|0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C04",
+   "domaine": "Carnet",
+   "compte": "uh6_a",
+   "action": "Le Chef d'unité du cluster voit l'historique technique, sans montant d'entretien",
+   "attendu": "OK (0|0)",
+   "obtenu": "OK : 0|0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C05",
+   "domaine": "Carnet",
+   "compte": "uh6_b",
+   "action": "Un Chef d'unité d'un autre cluster lit le carnet",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Moto hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C06",
+   "domaine": "Carnet",
+   "compte": "sup6",
+   "action": "Un profil hors module lit le carnet",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Moto hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C07",
+   "domaine": "Carnet",
+   "compte": "anon",
+   "action": "Anonyme lit le carnet",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_carnet",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C08",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Aucun double comptage : total FACTURE du carnet = factures de la moto",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C09",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Paiements distincts des factures : total PAYE = montants payés constatés",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C10",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Ordre chronologique décroissant, aucune date vide",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C11",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Les contrôles avant départ sans défaut n'encombrent pas le carnet",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C12",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Chaque dossier de maintenance de la moto apparaît",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C13",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Moto déjà en exploitation (cas JACKSON) : aucun entretien ni coût inventé avant le suivi fiable",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C14",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Carburant : total des synthèses mensuelles = total des achats",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C15",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Temps de réponse du carnet (psql compris)",
+   "attendu": "< 2 s",
+   "obtenu": "0.09 s",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "C16",
+   "domaine": "Carnet",
+   "compte": "bm6",
+   "action": "Remise avec permis visible dans le carnet de la moto de test",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X1a",
+   "domaine": "Revue",
+   "compte": "dir",
+   "action": "La Direction lit le journal des permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X1b",
+   "domaine": "Revue",
+   "compte": "fm",
+   "action": "Le Finance Manager lit le journal des permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X1c",
+   "domaine": "Revue",
+   "compte": "fm",
+   "action": "Non-régression : le Finance Manager lit toujours le reste du journal",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X1d",
+   "domaine": "Revue",
+   "compte": "postgres (lecture)",
+   "action": "Le journal des permis ne contient ni numéro, ni nom, ni chemin de scan",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X1e",
+   "domaine": "Revue",
+   "compte": "bm",
+   "action": "Le BM garde la trace des décisions sur les permis",
+   "attendu": "OK (true)",
+   "obtenu": "OK : true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X2a",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "Numéro d'un autre conducteur écrit autrement : « CIPA000001 »",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X2b",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "Numéro d'un autre conducteur écrit autrement : « ci pa 000001 »",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X2c",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "Numéro d'un autre conducteur écrit autrement : « CI/PA.000001 »",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3a",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "Permis du Chef d'unité C (préparation)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"f863cdb2-715b-43b5-89ed-8ab1e80cca87\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3b",
+   "domaine": "Revue",
+   "compte": "bm",
+   "action": "Le BM le déclare conforme",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"f863cdb2-715b-43b5-89ed-8ab1e80cca87\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3c",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "Le coordinateur retire un permis",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3d",
+   "domaine": "Revue",
+   "compte": "bm",
+   "action": "Retrait sans motif suffisant",
+   "attendu": "REFUS (motif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3e",
+   "domaine": "Revue",
+   "compte": "abm",
+   "action": "L'ABM retire le permis (motif)",
+   "attendu": "OK (RETIRE)",
+   "obtenu": "OK : {\"id\": \"f863cdb2-715b-43b5-89ed-8ab1e80cca87\", \"statut\": \"RETIRE\", \"affectations_actives\": 0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3f",
+   "domaine": "Revue",
+   "compte": "postgres (écriture directe)",
+   "action": "Remise après retrait du permis",
+   "attendu": "REFUS (permis)",
+   "obtenu": "ERROR:  Remise bloquée : le bénéficiaire n'a pas de permis enregistré, vérifié CONFORME et en cours de validité (Administration › Conducteurs et permis).\nCONTEXT:  PL/pgSQL function moto_erreur(text) ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3g",
+   "domaine": "Revue",
+   "compte": "bm",
+   "action": "Un permis retiré ne se « retire » pas deux fois",
+   "attendu": "REFUS (CONFORME)",
+   "obtenu": "REFUS : Seul un permis CONFORME peut être retiré.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X3h",
+   "domaine": "Revue",
+   "compte": "abm",
+   "action": "Le titulaire ABM ne retire pas son propre permis",
+   "attendu": "REFUS (titulaire)",
+   "obtenu": "REFUS : Le titulaire ne retire pas son propre permis.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X4a",
+   "domaine": "Revue",
+   "compte": "postgres (écriture directe)",
+   "action": "Préaffectation transformée en REMISE par UPDATE (permis retiré)",
+   "attendu": "REFUS (permis)",
+   "obtenu": "ERROR:  Remise bloquée : le bénéficiaire n'a pas de permis enregistré, vérifié CONFORME et en cours de validité (Administration › Conducteurs et permis).\nCONTEXT:  PL/pgSQL function moto_erreur(text) ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X5a",
+   "domaine": "Revue",
+   "compte": "dir",
+   "action": "La Direction n'accède plus aux alertes de permis",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X5b",
+   "domaine": "Revue",
+   "compte": "bm",
+   "action": "Permis retiré après la remise : l'alerte dit RETIRE",
+   "attendu": "OK (RETIRE)",
+   "obtenu": "OK : RETIRE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X6a",
+   "domaine": "Revue",
+   "compte": "uh_a",
+   "action": "Sous-dossier « .. » dans permis/",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X6b",
+   "domaine": "Revue",
+   "compte": "uh_a",
+   "action": "Extension non PDF",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X6c",
+   "domaine": "Revue",
+   "compte": "fin",
+   "action": "La Finance (non éligible) dépose dans son propre dossier permis",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X6d",
+   "domaine": "Revue",
+   "compte": "uh_a",
+   "action": "Nom de fichier libre",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X7",
+   "domaine": "Revue",
+   "compte": "lc",
+   "action": "« sans_expiration » envoyé en texte (« oui »)",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"152aa17d-add9-4244-99ec-2f797f01af0a\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y1",
+   "domaine": "Revue 2",
+   "compte": "uh_c",
+   "action": "Le titulaire redépose le numéro qui vient de lui être retiré",
+   "attendu": "REFUS (retiré)",
+   "obtenu": "REFUS : Ce numéro de permis a été retiré : aucun dépôt possible tant que le Branch Manager n'a pas levé le retrait.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y2",
+   "domaine": "Revue 2",
+   "compte": "lc",
+   "action": "Un autre conducteur dépose ce numéro retiré",
+   "attendu": "REFUS (retiré)",
+   "obtenu": "REFUS : Ce numéro de permis a été retiré : aucun dépôt possible tant que le Branch Manager n'a pas levé le retrait.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y3",
+   "domaine": "Revue 2",
+   "compte": "bm",
+   "action": "Vérifier conforme un dépôt du numéro retiré (déposé avant le retrait)",
+   "attendu": "REFUS (retiré)",
+   "obtenu": "REFUS : Ce numéro de permis a été retiré : il ne peut pas être déclaré conforme tant que le Branch Manager n'a pas levé le retrait.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y4",
+   "domaine": "Revue 2",
+   "compte": "lc",
+   "action": "Le retrait figure dans la vue du vérificateur",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y5",
+   "domaine": "Revue 2",
+   "compte": "abm",
+   "action": "L'ABM lève un retrait (réservé au BM)",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y6",
+   "domaine": "Revue 2",
+   "compte": "bm",
+   "action": "Le BM lève le retrait (motif)",
+   "attendu": "OK (RETRAIT_LEVE)",
+   "obtenu": "OK : {\"id\": \"f863cdb2-715b-43b5-89ed-8ab1e80cca87\", \"note\": \"Retrait levé. Le permis doit être redéposé puis vérifié sur original pour redevenir valide.\", \"statut\": \"RETRAIT_LEVE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y7",
+   "domaine": "Revue 3",
+   "compte": "bm",
+   "action": "Quatre yeux : le BM qui a levé le retrait vérifie lui-même le redépôt",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : la personne qui a levé le retrait ne vérifie pas le nouveau dépôt ; faites-le vérifier par l'ABM.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y7b",
+   "domaine": "Revue 2",
+   "compte": "abm",
+   "action": "Après levée, l'ABM vérifie le dépôt sur original",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"9df19d76-30e8-4b70-be79-ec988cc1aaa9\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y8",
+   "domaine": "Revue 2",
+   "compte": "postgres (lecture)",
+   "action": "La levée seule n'a pas rendu valide l'ancien permis (statut RETRAIT_LEVE, pas CONFORME)",
+   "attendu": "RETRAIT_LEVE",
+   "obtenu": "RETRAIT_LEVE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Y9",
+   "domaine": "Revue 2",
+   "compte": "postgres (écriture directe)",
+   "action": "Purge de permis_id sur les affectations clôturées",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Z1",
+   "domaine": "Revue 3",
+   "compte": "lc",
+   "action": "Après levée du retrait, un autre conducteur reprend le numéro",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "Z2",
+   "domaine": "Revue 3",
+   "compte": "lc",
+   "action": "Numéro d'un permis REMPLACÉ repris par un autre conducteur",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W1",
+   "domaine": "Revue 4",
+   "compte": "lc",
+   "action": "Un tiers dépose le numéro du coordinateur",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"fa330c9a-aaa7-4855-8170-01fc142277c7\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W2",
+   "domaine": "Revue 4",
+   "compte": "abm",
+   "action": "L'ABM le valide par erreur",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"fa330c9a-aaa7-4855-8170-01fc142277c7\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W3",
+   "domaine": "Revue 4",
+   "compte": "lc",
+   "action": "Le vrai titulaire (coordinateur) est bloqué",
+   "attendu": "REFUS (autre conducteur)",
+   "obtenu": "REFUS : Ce numéro de permis est déjà enregistré pour un autre conducteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W4",
+   "domaine": "Revue 4",
+   "compte": "abm",
+   "action": "L'ABM annule pour erreur de titulaire (réservé au BM)",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W5",
+   "domaine": "Revue 4",
+   "compte": "bm",
+   "action": "Annulation sans motif détaillé",
+   "attendu": "REFUS (motif)",
+   "obtenu": "REFUS : Motif obligatoire (15 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W6",
+   "domaine": "Revue 4",
+   "compte": "bm",
+   "action": "Le BM annule pour erreur de titulaire (motif détaillé)",
+   "attendu": "OK (ANNULE)",
+   "obtenu": "OK : {\"id\": \"fa330c9a-aaa7-4855-8170-01fc142277c7\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W7",
+   "domaine": "Revue 4",
+   "compte": "lc",
+   "action": "Le vrai titulaire dépose désormais son permis",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"id\": \"199ab08a-50af-4031-aba2-3c8efa7a746d\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W8",
+   "domaine": "Revue 4",
+   "compte": "bm",
+   "action": "Un dépôt en attente ne s'annule pas (il se déclare non conforme)",
+   "attendu": "REFUS (non conforme)",
+   "obtenu": "REFUS : Seul un permis validé (conforme, remplacé, retiré ou levé) s'annule ainsi ; un dépôt en attente se déclare non conforme.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W9a",
+   "domaine": "Revue 4",
+   "compte": "lc",
+   "action": "Second cas : dépôt d'un numéro neuf pour uh_b",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"34e50c45-bcd3-4bfd-84e7-09f8d1449104\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W9",
+   "domaine": "Revue 4",
+   "compte": "bm",
+   "action": "Quatre yeux : le BM qui a validé ce permis l'annule",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : la personne qui a validé ce permis ne l'annule pas.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W10",
+   "domaine": "Revue 4",
+   "compte": "bm_b",
+   "action": "Un autre BM peut l'annuler",
+   "attendu": "OK (ANNULE)",
+   "obtenu": "OK : {\"id\": \"34e50c45-bcd3-4bfd-84e7-09f8d1449104\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W11",
+   "domaine": "Revue 5",
+   "compte": "bm",
+   "action": "Le BM qui a annulé valide lui-même un dépôt sur ce numéro",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : vous avez déjà libéré ce numéro (annulation ou rejet d'un autre conducteur) ; faites vérifier ce dépôt par l'ABM.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W12",
+   "domaine": "Revue 5",
+   "compte": "abm",
+   "action": "L'ABM valide ce dépôt sur original",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"199ab08a-50af-4031-aba2-3c8efa7a746d\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "W13",
+   "domaine": "Revue 5",
+   "compte": "postgres (lecture)",
+   "action": "Le motif de l'annulation est tracé au journal",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V20a",
+   "domaine": "Revue 6",
+   "compte": "uh_d",
+   "action": "Le vrai titulaire dépose son permis",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"a1e29faa-1485-4bab-88bf-3c8880dadec6\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V20b",
+   "domaine": "Revue 6",
+   "compte": "bm",
+   "action": "Le BM le rejette (faux motif)",
+   "attendu": "OK (NON_CONFORME)",
+   "obtenu": "OK : {\"id\": \"a1e29faa-1485-4bab-88bf-3c8880dadec6\", \"statut\": \"NON_CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V20c",
+   "domaine": "Revue 6",
+   "compte": "uh_e",
+   "action": "Un tiers dépose ce numéro libéré",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"66c838a3-7208-4810-9287-f9a2abe8d40c\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V20",
+   "domaine": "Revue 6",
+   "compte": "bm",
+   "action": "Le même BM valide le dépôt du tiers",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : vous avez déjà libéré ce numéro (annulation ou rejet d'un autre conducteur) ; faites vérifier ce dépôt par l'ABM.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V21",
+   "domaine": "Revue 6",
+   "compte": "bm",
+   "action": "Le BM reste libre de rejeter ce dépôt (sens prudent)",
+   "attendu": "OK (NON_CONFORME)",
+   "obtenu": "OK : {\"id\": \"66c838a3-7208-4810-9287-f9a2abe8d40c\", \"statut\": \"NON_CONFORME\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V22a",
+   "domaine": "Revue 6",
+   "compte": "uh_d",
+   "action": "Le vrai titulaire redépose",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"72bd44fe-be13-4f19-bb79-6ae6ca0d0f41\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V22",
+   "domaine": "Revue 6",
+   "compte": "bm",
+   "action": "Numéro disputé entre deux personnes : le BM qui a rejeté l'une ne tranche pas seul",
+   "attendu": "REFUS (Quatre yeux)",
+   "obtenu": "REFUS : Quatre yeux : vous avez déjà libéré ce numéro (annulation ou rejet d'un autre conducteur) ; faites vérifier ce dépôt par l'ABM.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V23",
+   "domaine": "Revue 6",
+   "compte": "abm",
+   "action": "L'ABM valide le dépôt du vrai titulaire sur original",
+   "attendu": "OK (CONFORME)",
+   "obtenu": "OK : {\"id\": \"72bd44fe-be13-4f19-bb79-6ae6ca0d0f41\", \"statut\": \"CONFORME\"}",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}

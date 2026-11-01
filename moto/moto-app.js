@@ -65,6 +65,7 @@
 
   /* -- Formulaires génériques ---------------------------------------------- */
   function champ(f) {
+    if (f.t === 'scan') return g.MOTO_SCAN ? g.MOTO_SCAN.champ(f) : champ({ n: f.n, l: f.l, t: 'fichier', req: f.req, large: true, capture: true, aide: f.aide });
     var id = 'f_' + f.n, req = f.req ? ' required' : '', aide = f.aide ? '<small class="mm-aide">' + esc(f.aide) + '</small>' : '';
     var v = f.v == null ? '' : f.v;
     if (f.t === 'select') {
@@ -92,6 +93,7 @@
       if (!el.name) return;
       if (el.type === 'checkbox') o[el.name] = el.checked;
       else if (el.type === 'radio') { if (el.checked) o[el.name] = el.value === 'true' ? true : el.value === 'false' ? false : el.value; }
+      else if (el.hasAttribute('data-scan')) o[el.name] = el._scan || null;
       else if (el.type === 'file') o[el.name] = el.files && el.files[0] ? el.files[0] : null;
       else o[el.name] = el.value.trim() === '' ? null : el.value.trim();
     });
@@ -125,12 +127,15 @@
     form.addEventListener('submit', async function (e) {
       e.preventDefault(); if (!soumettre) return fermer();
       if (!form.checkValidity()) { err.hidden = false; err.textContent = 'Complétez les champs obligatoires (*).'; form.reportValidity(); return; }
+      var scanManquant = $$('input[data-scan][data-req]', form).filter(function (x) { return !x._scan; })[0];
+      if (scanManquant) { err.hidden = false; err.textContent = 'Document obligatoire : scannez-le ou importez le PDF (' + (scanManquant.closest('[data-scan-titre]').getAttribute('data-scan-titre')) + ').'; return; }
       var btn = $('button[type=submit]', form); btn.disabled = true; err.hidden = true;
       try { var r = await soumettre(lireFormulaire(form), form); fermer(); if (r !== false) toast(typeof r === 'string' ? r : 'Enregistré.', 'ok'); }
       catch (ex) { err.hidden = false; err.textContent = messageErreur(ex); btn.disabled = false; }
     });
+    if (g.MOTO_SCAN) g.MOTO_SCAN.brancher(d);
     if (d.showModal) d.showModal(); else d.setAttribute('open', '');
-    var premier = $('input,select,textarea', d); if (premier) premier.focus();
+    var premier = $('input:not([type=hidden]),select,textarea', d); if (premier) premier.focus();
     return d;
   }
 
@@ -258,6 +263,7 @@
     { r: 'motos', l: 'Mes motos', ic: 'M' }, { r: 'operations', l: 'Opérations', ic: 'O' },
     { r: 'coordination', l: 'Coordination', ic: 'C', droit: 'coordination' },
     { r: 'maintenance', l: 'Maintenance', ic: 'E', droit: 'maintenance_voir' },
+    { r: 'conducteurs', l: 'Conducteurs', ic: 'D', droit: 'permis_voir' },
     { r: 'pilotage', l: 'Pilotage', ic: 'P', droit: 'pilotage' }, { r: 'formation', l: 'Formation', ic: 'F' },
     { r: 'admin', l: 'Administration', ic: 'A', droit: 'admin' }
   ];
@@ -282,6 +288,7 @@
       else if (r.espace === 'operations') await vueOperations();
       else if (r.espace === 'coordination' && peut('coordination')) await vueCoordination();
       else if (r.espace === 'maintenance' && peut('maintenance_voir') && MNT) await MNT.vue(r.id);
+      else if (r.espace === 'conducteurs' && peut('permis_voir') && PERMIS) await PERMIS.vue();
       else if (r.espace === 'pilotage' && peut('pilotage')) await vuePilotage();
       else if (r.espace === 'formation') await vueFormation(r.id);
       else if (r.espace === 'admin' && peut('admin')) await vueAdmin();
@@ -306,6 +313,10 @@
       (liste.length ? '<div class="mm-grille-motos" id="mmGrille">' + liste.map(function (m, i) { return carteMoto(m, immos[i]); }).join('') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto à afficher.</b><p>' + (S.classe === 'UNITE' ? 'Aucune moto ne vous a encore été remise. La remise officielle se fait au bureau ANAGROCI de Bouaké.' : 'Aucune moto enregistrée dans votre périmètre.') + '</p></div>');
     chargerPhotos(vue());
+    if (PERMIS && peut('mon_permis')) {
+      var html = await PERMIS.blocMonPermis();
+      if (html) { var e = document.createElement('div'); e.innerHTML = html; var ent = $('.mm-entete', vue()); ent.parentNode.insertBefore(e.firstChild, ent.nextSibling); PERMIS.brancherMonPermis(vue(), vueMotos); }
+    }
   }
   function carteMoto(m, immoLocale) {
     var circule = m.autorisee_a_circuler && !immoLocale;
@@ -322,7 +333,7 @@
   }
 
   /* -- Passeport numérique --------------------------------------------------- */
-  var ONGLETS = [['synthese', 'Synthèse'], ['documents', 'Documents'], ['affectations', 'Affectations'], ['kilometrage', 'Kilométrage'], ['controles', 'Contrôles'],
+  var ONGLETS = [['synthese', 'Synthèse'], ['carnet', 'Carnet de suivi'], ['documents', 'Documents'], ['affectations', 'Affectations'], ['kilometrage', 'Kilométrage'], ['controles', 'Contrôles'],
                  ['photos', 'Photos'], ['anomalies', 'Anomalies'], ['carburant', 'Carburant'], ['entretiens', 'Entretiens'], ['pneus', 'Pneus'], ['incidents', 'Incidents'], ['journal', 'Journal']];
   async function vuePasseport(id, onglet) {
     // Toujours relire l'état serveur : un autre responsable a pu changer les statuts.
@@ -345,7 +356,7 @@
       }).join('') + '</nav><div id="mmOnglet" class="mm-onglet"><div class="mm-chargement">Chargement…</div></div>';
     dessinerQr(m);
     var cible = $('#mmOnglet');
-    var rendu = { synthese: ongletSynthese, documents: ongletDocuments, affectations: ongletAffectations, kilometrage: ongletKm, controles: ongletControles,
+    var rendu = { synthese: ongletSynthese, carnet: function (x) { return CARNET ? CARNET.onglet(x) : '<div class="mm-vide mm-ko">Carnet non chargé.</div>'; }, documents: ongletDocuments, affectations: ongletAffectations, kilometrage: ongletKm, controles: ongletControles,
                   photos: ongletPhotos, anomalies: ongletAnomalies,
                   carburant: ongletCarburant, entretiens: ongletEntretiens, pneus: ongletPneus, incidents: ongletIncidents, journal: ongletJournal }[onglet] || ongletSynthese;
     chargerPhotos($('.mm-passeport'));
@@ -548,7 +559,7 @@
   function brancherActions(zone, m) {
     zone.addEventListener('click', function (e) {
       var b = e.target.closest('[data-action]'); if (!b) return;
-      var d = b.dataset, f = ACTIONS[d.action] || (MNT && MNT.actions[d.action]); if (f) f(d, m);
+      var d = b.dataset, f = ACTIONS[d.action] || (MNT && MNT.actions[d.action]) || (CARNET && CARNET.actions[d.action]); if (f) f(d, m);
     });
   }
   function apres(id, onglet) { return function () { chargerFlotte().then(function () { vuePasseport(id, onglet); }); }; }
@@ -568,11 +579,11 @@
       function (v) { var motif = v.motif; delete v.motif; v.row_version = m.row_version; return rpc('moto_modifier_identite', { p_moto: m.id, p: v, p_motif: motif }).then(apres(m.id)); });
     },
     document: function (d, m) {
-      var types = S.classe === 'ZONE' ? ['RAPPORT_MECANICIEN', 'PHOTO', 'FACTURE'] : ['CARTE_GRISE', 'PLAQUE', 'ASSURANCE', 'PV_REMISE', 'RAPPORT_MECANICIEN', 'PERMIS', 'FACTURE', 'PHOTO', 'AUTRE'];
+      var types = S.classe === 'ZONE' ? ['RAPPORT_MECANICIEN', 'PHOTO', 'FACTURE'] : ['CARTE_GRISE', 'PLAQUE', 'ASSURANCE', 'PV_REMISE', 'RAPPORT_MECANICIEN', 'FACTURE', 'PHOTO', 'AUTRE'];
       modale('Déposer un document', '<div class="mm-grille-form">' + champ({ n: 'type_document', l: 'Type', t: 'select', req: true, o: types.map(function (t) { return [t, C.libelle(t)]; }) }) +
         champ({ n: 'numero_reference', l: 'Numéro / référence' }) + champ({ n: 'date_emission', l: 'Date d\'émission', t: 'date' }) + champ({ n: 'date_expiration', l: 'Date d\'expiration', t: 'date', aide: 'Assurance : obligatoire pour l\'alerte d\'expiration.' }) +
-        champ({ n: 'fichier', l: 'Fichier numérisé (PDF ou photo)', t: 'fichier', req: true, large: true, capture: true }) + '</div>' +
-        '<p class="mm-note">Le procès-verbal de remise est signé sur papier puis numérisé ici. Le document sera vérifié par un autre responsable.</p>',
+        champ({ n: 'fichier', l: 'Document numérisé', t: 'scan', req: true, aide: 'Recto et verso dans un seul PDF. Saisissez les champs ci-dessus en lisant le document : rien n\'est rempli automatiquement.' }) + '</div>' +
+        '<p class="mm-note">Le procès-verbal de remise est signé sur papier puis numérisé ici. Le document sera vérifié par un autre responsable. Le permis de conduire se rattache désormais au conducteur : espace « Conducteurs ».</p>',
       async function (v) {
         var cat = { RAPPORT_MECANICIEN: 'controle', FACTURE: 'maintenance', PHOTO: 'photo' }[v.type_document] || 'document';
         var f = await deposer(m.id, cat, v.fichier);
@@ -608,10 +619,12 @@
         { n: 'compteur_km', l: 'Kilométrage à la réception', t: 'nombre', req: true }, { n: 'marque', l: 'Marque', req: true, v: m.marque }, { n: 'modele', l: 'Modèle', req: true, v: m.modele },
         { n: 'couleur', l: 'Couleur', v: m.couleur }, { n: 'fournisseur', l: 'Fournisseur', v: m.fournisseur },
         { n: 'numero_chassis', l: 'N° de châssis', aide: 'Recopié du document réel uniquement ; sinon laisser vide.' }, { n: 'immatriculation', l: 'Immatriculation', aide: 'Vide tant que la plaque n\'est pas reçue.' }].map(champ).join('') + '</div>' +
-        champPhoto('photo', 'Photo principale', false), async function (v) {
+        champPhoto('photo', 'Photo principale', false) + champsDocsMoto(), async function (v) {
         var photo = v.photo; delete v.photo; v.moto_id = m.id;
+        var docs = extraireDocsMoto(v);
         await rpc('moto_receptionner', { p: v });
-        var msg = 'Réception enregistrée. Prochaine étape : documents puis inspection mécanique initiale.';
+        var msg = 'Réception enregistrée. Prochaine étape : ' + (docs.length ? 'vérification des documents' : 'documents') + ' puis inspection mécanique initiale.';
+        if (docs.length) msg += await enregistrerDocsMoto(m.id, docs);
         if (photo) { try { var f = await deposer(m.id, 'photo', photo); await rpc('moto_photo_ajouter', { p: { moto_id: m.id, path: f.chemin, principale: true } }); } catch (e) { msg += ' Photo non enregistrée : ' + messageErreur(e); } }
         apres(m.id)(); return msg;
       }, 'Enregistrer la réception');
@@ -714,14 +727,11 @@
       modale('Remise officielle de ' + m.code, '<div class="mm-grille-form">' +
         champ({ n: 'pv_document_id', l: 'Procès-verbal signé, numérisé et vérifié', t: 'select', req: true, large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at) + (x.numero_reference ? ' · ' + x.numero_reference : '')]; }),
                aide: docs.length ? '' : 'Aucun PV vérifié : déposez le PV numérisé (onglet Documents) et faites-le vérifier par un autre responsable.' }) +
-        champ({ n: 'compteur_km', l: 'Compteur à la remise', t: 'nombre', req: true }) + champ({ n: 'permis_categorie', l: 'Catégorie de permis', req: true, ph: 'Ex. A' }) +
-        champ({ n: 'permis_verifie_par_nom', l: 'Permis vérifié par (RH)', req: true }) + champ({ n: 'permis_verifie_at', l: 'Date de vérification RH', t: 'date', v: aujourdhui() }) +
-        champ({ n: 'permis_verifie', l: 'Je confirme que le permis adapté a été vérifié par les RH', t: 'checkbox' }) + '</div>' +
+        champ({ n: 'compteur_km', l: 'Compteur à la remise', t: 'nombre', req: true }) + '</div>' + (PERMIS ? await PERMIS.infoRemise(m.beneficiaire_id) : '') +
         '<fieldset class="mm-champ mm-large"><legend>Équipements de sécurité remis</legend>' + eq.map(function (k) { return '<label class="mm-case"><input type="checkbox" name="eq_' + esc(k) + '"> ' + esc(k.replace(/_/g, ' ').toLowerCase()) + '</label>'; }).join('') + '</fieldset>',
       function (v) {
         var equip = {}; eq.forEach(function (k) { equip[k] = !!v['eq_' + k]; });
-        return rpc('moto_remettre', { p: { moto_id: m.id, pv_document_id: v.pv_document_id, compteur_km: v.compteur_km, permis_verifie: !!v.permis_verifie, permis_categorie: v.permis_categorie,
-          permis_verifie_par_nom: v.permis_verifie_par_nom, permis_verifie_at: v.permis_verifie_at, equipements: equip } }).then(function (r) { apres(m.id)(); return r.note; });
+        return rpc('moto_remettre', { p: { moto_id: m.id, pv_document_id: v.pv_document_id, compteur_km: v.compteur_km, equipements: equip } }).then(function (r) { apres(m.id)(); return r.note; });
       }, 'Enregistrer la remise');
     },
     mise_en_service: function (d, m) {
@@ -734,10 +744,11 @@
       var eq = (S.params.equipements_obligatoires && S.params.equipements_obligatoires.valeur_json) || [];
       modale('Transférer ' + m.code, '<div class="mm-grille-form">' + champ({ n: 'beneficiaire_id', l: 'Nouveau bénéficiaire', t: 'select', req: true, large: true, o: b.map(function (x) { return [x.user_id, x.nom + ' · ' + (x.cluster_code || x.role)]; }) }) +
         champ({ n: 'pv_document_id', l: 'PV de transfert vérifié', t: 'select', req: true, large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at)]; }) }) +
-        champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre', req: true }) + champ({ n: 'permis_categorie', l: 'Catégorie de permis', req: true }) + champ({ n: 'permis_verifie_par_nom', l: 'Permis vérifié par (RH)', req: true }) +
-        champ({ n: 'permis_verifie', l: 'Permis vérifié par les RH', t: 'checkbox' }) + '</div><fieldset class="mm-champ mm-large"><legend>Équipements</legend>' +
+        champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre', req: true }) + '</div><div data-info-permis>' + (PERMIS ? await PERMIS.infoRemise(null) : '') + '</div><fieldset class="mm-champ mm-large"><legend>Équipements</legend>' +
         eq.map(function (k) { return '<label class="mm-case"><input type="checkbox" name="eq_' + esc(k) + '"> ' + esc(k.replace(/_/g, ' ').toLowerCase()) + '</label>'; }).join('') + '</fieldset>' + champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }),
       function (v) { var equip = {}; eq.forEach(function (k) { equip[k] = !!v['eq_' + k]; }); v.equipements = equip; v.moto_id = m.id; return rpc('moto_transferer', { p: v }).then(apres(m.id)); }, 'Transférer');
+      var dlg = $$('dialog.mm-modale').pop(), sel = dlg && $('select[name="beneficiaire_id"]', dlg);
+      if (sel && PERMIS) sel.addEventListener('change', async function () { $('[data-info-permis]', dlg).innerHTML = await PERMIS.infoRemise(sel.value || null); });
     },
     retirer: function (d, m) {
       modale('Retirer l\'affectation de ' + m.code, '<p class="mm-bandeau mm-warn">La moto redevient non affectée et perd son autorisation de circulation.</p>' + champ({ n: 'motif', l: 'Motif (10 caractères minimum)', t: 'textarea', req: true, min: 10 }),
@@ -1262,6 +1273,44 @@
     $$('[data-echec]').forEach(function (x) { x.onclick = function () { modale('Transaction échouée', champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }), function (v) { return rpc('moto_dotation_signaler_echec', { p_dotation: x.dataset.echec, p_motif: v.motif }).then(vueAdmin); }, 'Déclarer échouée'); }; });
   }
   function tuileAdmin(code, t, s) { return '<button type="button" class="mm-tuile" data-admin="' + code + '"><b>' + esc(t) + '</b><span>' + esc(s) + '</span></button>'; }
+  /* Documents scannés dès l'enregistrement : carte grise, assurance, plaque.
+     Facultatifs (le dossier peut rester « à compléter ») ; chacun est vérifié ensuite par un autre responsable. */
+  var DOCS_ENREG = [
+    { t: 'CARTE_GRISE', l: 'Carte grise', ref: 'N° de la carte grise', emis: true },
+    { t: 'ASSURANCE', l: 'Attestation d\'assurance', ref: 'N° de police', exp: true },
+    { t: 'PLAQUE', l: 'Plaque d\'immatriculation (photo)', ref: 'N° inscrit sur la plaque' }];
+  function champsDocsMoto() {
+    return '<fieldset class="mm-champ mm-large mm-docs-enreg"><legend>Documents de la moto (à scanner s\'ils sont disponibles)</legend>' +
+      '<p class="mm-note">Scannez chaque document puis recopiez ses références en le lisant. Aucun champ n\'est rempli automatiquement : un numéro mal lu ne doit jamais entrer dans le dossier.</p>' +
+      DOCS_ENREG.map(function (d) {
+        return '<div class="mm-doc-enreg"><h3>' + esc(d.l) + '</h3><div class="mm-grille-form">' +
+          champ({ n: 'scan_' + d.t, l: d.l + ' numérisée', t: 'scan' }) + champ({ n: 'ref_' + d.t, l: d.ref }) +
+          (d.emis ? champ({ n: 'emis_' + d.t, l: 'Date de délivrance', t: 'date', max: aujourdhui() }) : '') +
+          (d.exp ? champ({ n: 'exp_' + d.t, l: 'Date d\'expiration', t: 'date', aide: 'Obligatoire si l\'assurance est scannée : elle déclenche l\'alerte avant échéance.' }) : '') + '</div></div>';
+      }).join('') + '</fieldset>';
+  }
+  function extraireDocsMoto(v) {
+    var docs = DOCS_ENREG.map(function (d) {
+      var x = { t: d.t, l: d.l, fichier: v['scan_' + d.t], ref: v['ref_' + d.t], emis: v['emis_' + d.t], exp: v['exp_' + d.t] };
+      ['scan_', 'ref_', 'emis_', 'exp_'].forEach(function (k) { delete v[k + d.t]; });
+      return x;
+    }).filter(function (x) { return x.fichier; });
+    docs.forEach(function (x) { if (x.t === 'ASSURANCE' && !x.exp) throw new Error('Assurance scannée : sa date d\'expiration est obligatoire.'); });
+    return docs;
+  }
+  async function enregistrerDocsMoto(motoId, docs) {
+    var ok = 0, ko = [];
+    for (var i = 0; i < docs.length; i++) {
+      var x = docs[i];
+      try {
+        var f = await deposer(motoId, 'document', x.fichier);
+        await rpc('moto_document_enregistrer', { p: { moto_id: motoId, type_document: x.t, numero_reference: x.ref, date_emission: x.emis, date_expiration: x.exp,
+          storage_path: f.chemin, nom_fichier: f.nom, motif: 'Document scanné à l\'enregistrement de la moto' } });
+        ok++;
+      } catch (e) { ko.push(x.l + ' : ' + messageErreur(e)); }
+    }
+    return (ok ? ' ' + ok + ' document(s) déposé(s), en attente de vérification.' : '') + (ko.length ? ' Non enregistré(s) (à refaire depuis l\'onglet Documents) : ' + ko.join(' ; ') + '.' : '');
+  }
   function optClusters() { return [['SAKASSOU', 'Sakassou'], ['BOTRO', 'Botro'], ['BROBO', 'Brobo'], ['DJEBONOUA', 'N\'Djébonoua'], ['BEOUMI', 'Béoumi'], ['DIABO', 'Diabo']]; }
   function optMotos() { return S.flotte.map(function (m) { return [m.id, m.code + ' · ' + (m.immatriculation || 'immat. en attente')]; }); }
   var ADMIN = {
@@ -1276,11 +1325,14 @@
         { n: 'cluster_code', l: 'Localisation (cluster)', t: 'select', o: optClusters() },
         { n: 'beneficiaire_prevu_id', l: 'Utilisateur prévu', t: 'select', o: b.map(function (x) { return [x.user_id, x.nom + ' · ' + x.role]; }) },
         { n: 'beneficiaire_prevu_libelle', l: 'Utilisateur prévu (sans compte)', ph: 'Ex. Deuxième Chef de zone' },
-        { n: 'observations', l: 'Observations', t: 'textarea' }].map(champ).join('') + '</div>' + champPhoto('photo', 'Photo principale de la moto', false) +
-        '<p class="mm-note">Le dossier peut être créé avant toutes les pièces : il reste « Dossier à compléter ». Création ≠ autorisation de circuler. Documents administratifs : onglet Documents du passeport.</p>',
+        { n: 'observations', l: 'Observations', t: 'textarea' }].map(champ).join('') + '</div>' + champPhoto('photo', 'Photo principale de la moto', false) + champsDocsMoto() +
+        '<p class="mm-note">Le dossier peut être créé avant toutes les pièces : il reste « Dossier à compléter ». Création ≠ autorisation de circuler. Les documents manquants s\'ajoutent ensuite depuis l\'onglet Documents du passeport.</p>',
       async function (v) {
         var photo = v.photo; delete v.photo;
+        var docs = extraireDocsMoto(v);
+        if (docs.length && v.situation_parc === 'PREVUE') throw new Error('Moto « acquisition prévue » : scannez ses documents après sa réception.');
         var r = await rpc('moto_creer', { p: v }), msg = 'Moto ' + r.code + ' enregistrée (' + C.libelle(r.situation_parc).toLowerCase() + ').';
+        if (docs.length) msg += await enregistrerDocsMoto(r.id, docs);
         if (photo) { try { var f = await deposer(r.id, 'photo', photo); await rpc('moto_photo_ajouter', { p: { moto_id: r.id, path: f.chemin, principale: true } }); } catch (e) { msg += ' Photo non enregistrée : ' + messageErreur(e) + ' (à refaire depuis le passeport).'; } }
         location.hash = '#/moto/' + r.id; return msg;
       }, 'Enregistrer');
@@ -1294,11 +1346,13 @@
           { n: 'zone_code', l: 'Zone', t: 'select', o: [['GBEKE_1', 'GBEKE 1'], ['GBEKE_2', 'GBEKE 2']] }, { n: 'cluster_code', l: 'Cluster', t: 'select', o: optClusters() },
           { n: 'beneficiaire_prevu_id', l: 'Utilisateur actuel', t: 'select', o: b.map(function (x) { return [x.user_id, x.nom + ' · ' + x.role]; }) },
           { n: 'historique_note', l: 'Historique réellement connu', t: 'textarea', aide: 'Ex. « Utilisée depuis février 2026 ; aucun justificatif d\'entretien disponible ».' },
-          { n: 'observations', l: 'Observations', t: 'textarea' }].map(champ).join('') + '</div>' + champPhoto('photo', 'Photo principale', false) +
+          { n: 'observations', l: 'Observations', t: 'textarea' }].map(champ).join('') + '</div>' + champPhoto('photo', 'Photo principale', false) + champsDocsMoto() +
         '<p class="mm-note">Étape suivante, depuis le passeport : « État technique de référence » par un intervenant qualifié (compteur, inventaire photo, anomalies). Le suivi fiable commence à cette date.</p>',
       async function (v) {
         var photo = v.photo; delete v.photo; v.origine = 'EN_EXPLOITATION';
+        var docs = extraireDocsMoto(v);
         var r = await rpc('moto_creer', { p: v }), msg = 'Moto ' + r.code + ' intégrée. Programmez l\'état technique de référence.';
+        if (docs.length) msg += await enregistrerDocsMoto(r.id, docs);
         if (photo) { try { var f = await deposer(r.id, 'photo', photo); await rpc('moto_photo_ajouter', { p: { moto_id: r.id, path: f.chemin, principale: true } }); } catch (e) { msg += ' Photo non enregistrée : ' + messageErreur(e); } }
         location.hash = '#/moto/' + r.id; return msg;
       }, 'Intégrer');
@@ -1361,6 +1415,11 @@
   };
 
   /* -- Module maintenance (moto-maintenance.js) ------------------------------ */
+  var INTERFACE_MODULES = { C: C, OFF: OFF, S: S, esc: esc, $: $, $$: $$, peut: peut, vue: vue, tableau: tableau, action: action, champ: champ, badge: badge,
+    modale: modale, rpc: rpc, lireTable: lireTable, kpi: kpi, toast: toast, nomMoto: nomMoto, beneficiaires: beneficiaires, ouvrirFichier: ouvrirFichier,
+    aujourdhui: aujourdhui, messageErreur: messageErreur, chargerScript: chargerScript, CDN_XLSX: CDN_XLSX };
+  var PERMIS = g.MOTO_PERMIS ? g.MOTO_PERMIS(INTERFACE_MODULES) : null;
+  var CARNET = g.MOTO_CARNET ? g.MOTO_CARNET(INTERFACE_MODULES) : null;
   var MNT = g.MOTO_MAINTENANCE ? g.MOTO_MAINTENANCE({ C: C, OFF: OFF, S: S, esc: esc, $: $, $$: $$, peut: peut, vue: vue, tableau: tableau, action: action, champ: champ,
     modale: modale, rpc: rpc, lireTable: lireTable, kpi: kpi, toast: toast, chargerFlotte: chargerFlotte, motoParId: motoParId, codeMoto: codeMoto, router: router,
     ouvrirFichier: ouvrirFichier, aujourdhui: aujourdhui, messageErreur: messageErreur }) : null;

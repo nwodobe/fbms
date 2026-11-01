@@ -18,6 +18,7 @@ import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'no
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright';
 import { creerEmulateur, session } from './postgrest-local.mjs';
 
@@ -98,6 +99,7 @@ async function contexte(compte, largeur = 'bureau') {
   await ctx.addInitScript(([cle, s]) => { try { localStorage.setItem(cle, JSON.stringify(s)); } catch (e) {} }, ['sb-jmbdgpdthzpszfnddwzi-auth-token', session(id, compte + '.e2e@example.invalid')]);
   await ctx.route(SUPA + '/**', async route => {
     const r = route.request();
+    if (r.method() === 'POST' && /\/storage\/v1\/object\/moto-documents\//.test(r.url())) (globalThis.__depots = globalThis.__depots || []).push({ url: r.url(), corps: r.postDataBuffer() });
     const rep = await emu.traiter({ methode: r.method(), url: r.url(), entetes: r.headers(), corps: r.postDataBuffer() });
     if (blocageSync > 0 && /\/rpc\/moto_sync_batch$/.test(r.url())) { blocageSync--; return route.abort('connectionreset'); }
     return route.fulfill({ status: rep.status, headers: rep.headers, body: rep.body });
@@ -122,6 +124,8 @@ async function remplir(p, valeurs) {
   const d = p.locator('dialog.mm-modale').last();
   await d.waitFor();
   for (const [n, v] of Object.entries(valeurs)) {
+    const blocScan = d.locator(`[data-scan-champ="${n}"]`);
+    if (await blocScan.count()) { await scanner(p, blocScan, v); continue; }
     const el = d.locator(`[name="${n}"]`).first();
     const tag = await el.evaluate(e => e.tagName + ':' + (e.type || ''));
     if (tag.startsWith('SELECT')) { if (typeof v === 'object' && v.libelle) await el.selectOption({ label: v.libelle }); else if (typeof v === 'object' && v.contient) { const opt = await el.locator('option', { hasText: v.contient }).first().getAttribute('value'); await el.selectOption(opt); } else await el.selectOption(String(v)); }
@@ -132,10 +136,27 @@ async function remplir(p, valeurs) {
   }
   return d;
 }
+// Champ « scan » : un PDF est importé tel quel ; une ou plusieurs images passent par le scanner (recadrage, mode document, PDF).
+async function scanner(p, bloc, v) {
+  const fichiers = Array.isArray(v) ? v : [v];
+  if (fichiers.length === 1 && fichiers[0].mimeType === 'application/pdf') { await bloc.locator('[data-scan-pdf]').setInputFiles(fichiers[0]); return; }
+  await bloc.locator('[data-scan-ouvrir]').click();
+  const sd = p.locator('dialog.mm-scan-dialog').last(); await sd.waitFor();
+  await sd.locator('[data-galerie]').setInputFiles(fichiers);
+  await sd.locator('.mm-scan-page').nth(fichiers.length - 1).waitFor();
+  await sd.locator('[data-valider]').click();
+  await bloc.locator('.mm-scan-etat.mm-scan-ok').waitFor({ timeout: 15000 });
+}
 async function valider(p) {
-  const d = p.locator('dialog.mm-modale').last();
-  await d.locator('button[type=submit]').click();
-  const r = await attendre(async () => (await d.count()) === 0 ? 'ferme' : ((await d.locator('.mm-erreur:not([hidden])').count()) ? 'erreur:' + await d.locator('.mm-erreur').textContent() : null), 20000);
+  // On suit LA fenêtre soumise (poignée fixe), et non « la dernière fenêtre » : l'application peut
+  // fermer celle-ci puis rouvrir aussitôt le dossier, qu'un sélecteur réévalué confondrait avec elle.
+  const h = await p.locator('dialog.mm-modale').last().elementHandle();
+  await (await h.$('button[type=submit]')).click();
+  const r = await attendre(async () => {
+    if (!(await h.evaluate(e => e.isConnected && e.open))) return 'ferme';
+    const err = await h.$('.mm-erreur:not([hidden])');
+    return err ? 'erreur:' + (await err.textContent()) : null;
+  }, 20000);
   return r || 'délai dépassé';
 }
 async function toutConforme(p) { for (const r of await p.locator('dialog.mm-modale input[type=radio][value=ok]').all()) await r.check(); }
@@ -144,6 +165,19 @@ async function debordement(p) { return p.evaluate(() => document.documentElement
 
 const PDF = { name: 'scan-fictif.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% document fictif de test E2E\n%%EOF\n') };
 const PNG = { name: 'recu-fictif.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') };
+
+async function imageDocument(texte, l, h) {
+  const pg = await navigateur.newPage({ viewport: { width: l, height: h } });
+  await pg.setContent(`<body style="margin:0;background:#cfd8cf;display:grid;place-items:center;height:100vh;font-family:sans-serif"><div style="background:#fbfbf6;width:82%;height:76%;border:2px solid #556;padding:18px;box-sizing:border-box"><h1 style="margin:0 0 10px;font-size:26px">${texte}</h1><p>DOCUMENT FICTIF DE TEST — AUCUNE DONNÉE RÉELLE</p><p>N° E2E-0001 · Catégorie A</p></div></body>`);
+  const b = await pg.screenshot({ type: 'jpeg', quality: 85 }); await pg.close(); return b;
+}
+function verifierPdf(buf) {
+  const f = join(SORTIE, 'scan-e2e-verif.pdf'); writeFileSync(f, buf);
+  const r = spawnSync('python3', ['-I', '-c', 'import sys,pypdf; r=pypdf.PdfReader(sys.argv[1]); print(len(r.pages))', f], { encoding: 'utf8' });
+  return r.status === 0 ? `PDF valide · ${r.stdout.trim()} page(s)` : 'PDF invalide : ' + (r.stderr || '').trim().split('\n').pop();
+}
+const IMG_RECTO = { name: 'recto-fictif.jpg', mimeType: 'image/jpeg', buffer: await imageDocument('PERMIS DE CONDUIRE (FICTIF) · RECTO', 1200, 800) };
+const IMG_VERSO = { name: 'verso-fictif.jpg', mimeType: 'image/jpeg', buffer: await imageDocument('VERSO (FICTIF)', 1200, 800) };
 
 /* ======================================================================= */
 let motoId = null;
@@ -249,7 +283,7 @@ try {
   await etape('UI-REM-02', 'Remise : équipements obligatoires', 'ABM tente la remise sans gilet', 'refus serveur affiché dans la fenêtre', async () => {
     await pA.goto(BASE + '/moto/index.html#/moto/' + motoId); await pA.waitForSelector('[data-action="remettre"]');
     await pA.click('[data-action="remettre"]');
-    await remplir(pA, { pv_document_id: { contient: 'PV-E2E-001' }, compteur_km: '5', permis_categorie: 'A', permis_verifie_par_nom: 'RH E2E FICTIF', permis_verifie: true, eq_CASQUE: true });
+    await remplir(pA, { pv_document_id: { contient: 'PV-E2E-001' }, compteur_km: '5', eq_CASQUE: true });
     const r = await valider(pA);
     await pA.locator('dialog.mm-modale .mm-annuler').click().catch(() => {});
     return { ok: /GILET/.test(r), obtenu: r };
@@ -273,13 +307,50 @@ try {
     await c.close();
     return { ok: r === 'ferme' && e.confirmation_statut === 'ACCEPTEE_AVEC_RESERVES' && e.beneficiaire_id === U.uh[0], obtenu: `${r} · ${e.confirmation_statut}`, preuve };
   });
-  await etape('UI-REM-03', 'Remise officielle complète', 'ABM enregistre la remise', 'REMISE, pas encore autorisée à circuler', async () => {
+  // Migration 7 : le conducteur scanne son permis, le BM le contrôle sur l'original ; la remise reprend ce permis.
+  await etape('UI-PRM-01', 'Permis scanné par le conducteur lui-même (migration 7)', 'Chef d\'unité : « Scanner mon permis » (recto + verso), saisie des informations', 'permis EN_VERIFICATION, scan PDF de 2 pages dans permis/<titulaire>/', async () => {
+    const c = await contexte('uh', 'mobile'); const p = await page(c, '/moto/index.html#/motos'); await pret(p);
+    await p.waitForSelector('[data-mon-permis]'); const avant = await p.locator('.mm-mon-permis .mm-badge').textContent();
+    await p.click('[data-mon-permis]');
+    globalThis.__depots = [];
+    await remplir(p, { scan: [IMG_RECTO, IMG_VERSO], numero_permis: 'E2E-PERMIS-0001', date_delivrance: '2024-01-15', date_expiration: '2034-01-14', cat_A: true });
+    const preuve = await capture(p, 'permis-saisie-mobile');
+    const r = await valider(p);
+    const x = (await q("select statut, document_path, pages, array_to_string(categories, ',') cats from public.moto_permis where titulaire_id=$1", [U.uh[0]]))[0] || {};
+    const dep = (globalThis.__depots || []).filter(d => /\/permis\//.test(d.url)).pop();
+    const pdf = dep ? verifierPdf(dep.corps) : 'aucun dépôt';
+    await c.close();
+    return { ok: r === 'ferme' && x.statut === 'EN_VERIFICATION' && (x.document_path || '').startsWith('permis/' + U.uh[0] + '/') && pdf === 'PDF valide · 2 page(s)' && /Aucun permis/.test(avant),
+      obtenu: `${r} · ${x.statut} · ${x.cats} · ${pdf} · avant=${avant}`, preuve };
+  });
+  await etape('UI-PRM-02', 'Contrôle sur original par le Branch Manager (migration 7)', 'BM ouvre « Conducteurs », ouvre le scan et déclare le permis conforme', 'permis CONFORME, vérificateur RH enregistré', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/conducteurs'); await pret(p);
+    const lien = await p.locator('#motoNav a[data-route="conducteurs"]').count();
+    await p.click('[data-action="pm_verifier"]');
+    await remplir(p, { statut: 'CONFORME', rh: 'RH E2E FICTIF', adaptee: true });
+    const preuve = await capture(p, 'permis-verification-bureau');
+    const r = await valider(p);
+    const x = (await q("select statut, verification_rh_nom from public.moto_permis where titulaire_id=$1", [U.uh[0]]))[0] || {};
+    await c.close();
+    return { ok: lien === 1 && r === 'ferme' && x.statut === 'CONFORME' && x.verification_rh_nom === 'RH E2E FICTIF', obtenu: `menu=${lien} · ${r} · ${x.statut} · ${x.verification_rh_nom}`, preuve };
+  });
+  await etape('UI-PRM-03', 'Chef de zone : aucun accès aux permis des autres', 'Chef de zone ouvre l\'application puis #/conducteurs', 'pas de menu Conducteurs, aucune donnée de permis affichée', async () => {
+    const c = await contexte('zh', 'mobile'); const p = await page(c, '/moto/index.html#/conducteurs'); await pret(p);
+    const lien = await p.locator('#motoNav a[data-route="conducteurs"]').count(); const txt = await p.locator('#motoVue').textContent(); await c.close();
+    return { ok: lien === 0 && !/E2E-PERMIS-0001/.test(txt), obtenu: `menu=${lien} · numéro visible=${/E2E-PERMIS-0001/.test(txt)}` };
+  });
+  await etape('UI-REM-03', 'Remise officielle complète', 'ABM enregistre la remise ; le permis vérifié est repris automatiquement', 'REMISE, permis repris (A, RH E2E FICTIF), pas encore autorisée à circuler', async () => {
     await pA.goto(BASE + '/moto/index.html#/moto/' + motoId); await pA.reload(); await pret(pA); await pA.waitForSelector('[data-action="remettre"]');
     await pA.click('[data-action="remettre"]');
-    await remplir(pA, { pv_document_id: { contient: 'PV-E2E-001' }, compteur_km: '5', permis_categorie: 'A', permis_verifie_par_nom: 'RH E2E FICTIF', permis_verifie: true, eq_CASQUE: true, eq_GILET_HAUTE_VISIBILITE: true });
+    const info = await pA.locator('dialog.mm-modale .mm-bandeau.mm-ok').textContent().catch(() => '');
+    await remplir(pA, { pv_document_id: { contient: 'PV-E2E-001' }, compteur_km: '5', eq_CASQUE: true, eq_GILET_HAUTE_VISIBILITE: true });
     const r = await valider(pA);
+    const a = (await q("select permis_categorie, permis_verifie_par_nom, permis_id is not null lie from public.moto_affectations where moto_id=$1 and type_affectation='REMISE'", [motoId]))[0] || {};
+    globalThis.__remise = { info, a };
     const m = (await q('select statut_affectation, mise_en_service_at from public.moto_motos where id=$1', [motoId]))[0];
-    return { ok: r === 'ferme' && m.statut_affectation === 'REMISE' && !m.mise_en_service_at, obtenu: `${r} · ${m.statut_affectation} · service=${!!m.mise_en_service_at}` };
+    const a2 = globalThis.__remise.a;
+    return { ok: r === 'ferme' && m.statut_affectation === 'REMISE' && !m.mise_en_service_at && /conforme/.test(globalThis.__remise.info) && a2.permis_categorie === 'A' && a2.permis_verifie_par_nom === 'RH E2E FICTIF' && a2.lie,
+      obtenu: `${r} · ${m.statut_affectation} · service=${!!m.mise_en_service_at} · permis repris=${a2.permis_categorie}/${a2.permis_verifie_par_nom}` };
   });
   await etape('UI-MES-01', 'Autorisation de circulation : décision distincte', 'BM autorise la circulation', 'autorisée à circuler', async () => {
     await pB.goto(BASE + '/moto/index.html#/moto/' + motoId); await pB.waitForSelector('[data-action="mise_en_service"]');
@@ -620,9 +691,59 @@ try {
     return { ok: t === 1 && l === 1, obtenu: `bloc=${t} · lien=${l}` };
   });
 
+  // 10 bis. Carnet de suivi et documents scannés à l'enregistrement (migration 7)
+  await etape('UI-CARNET-01', 'Carnet de suivi complet (Branch Manager)', 'BM ouvre le carnet de MOTO-001, filtre « Décisions et factures », exporte', 'remise avec permis, entretien, décision BM chiffrée ; filtre ; fichier Excel', async () => {
+    const c = await contexte('bm', 'bureau'); const p = await page(c, '/moto/index.html#/moto/' + motoId + '/carnet'); await pret(p);
+    await p.waitForSelector('[data-carnet]');
+    const tout = await p.locator('.mm-carnet-ev').count();
+    const remise = await p.locator('.mm-carnet-ev', { hasText: 'Remise officielle' }).filter({ hasText: 'permis vérifié' }).count();
+    const decision = await p.locator('.mm-carnet-ev', { hasText: 'Décision du Branch Manager' }).locator('.mm-carnet-montant').count();
+    const preuve = await capture(p, 'carnet-bm-bureau');
+    await p.click('[data-action="carnet_filtre"][data-f="FINANCES"]');
+    const filtres = await p.locator('.mm-carnet-ev').count(); const autres = await p.locator('.mm-carnet-ev:not(.mm-cat-finances)').count();
+    const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 20000 }), p.click('[data-action="carnet_export"]')]);
+    const f = join(SORTIE, 'carnet-e2e.xlsx'); await dl.saveAs(f);
+    const X = require('xlsx'); const wb = X.readFile(f); const lignes = X.utils.sheet_to_json(wb.Sheets['Carnet']).length;
+    await c.close();
+    return { ok: tout >= 8 && remise === 1 && decision >= 1 && filtres >= 1 && autres === 0 && wb.SheetNames.join(',') === 'Synthèse,Carnet' && lignes === tout,
+      obtenu: `événements=${tout} · remise+permis=${remise} · décision chiffrée=${decision} · filtre=${filtres}/${autres} hors rubrique · Excel ${wb.SheetNames.join('+')} ${lignes} lignes`, preuve };
+  });
+  await etape('UI-CARNET-02', 'Carnet vu par le Chef d\'unité : historique sans montants d\'entretien', 'Chef d\'unité ouvre le carnet de sa moto', 'chronologie visible, aucune décision ni facture, coût « Accès réservé »', async () => {
+    const c = await contexte('uh', 'mobile'); const p = await page(c, '/moto/index.html#/moto/' + motoId + '/carnet'); await pret(p);
+    await p.waitForSelector('[data-carnet]');
+    const n = await p.locator('.mm-carnet-ev').count(); const fin = await p.locator('.mm-carnet-ev', { hasText: /Décision du Branch Manager|Facture n°/ }).count();
+    const reserve = await p.locator('.mm-kpi', { hasText: 'Accès réservé' }).count(); const deb = await debordement(p);
+    const preuve = await capture(p, 'carnet-uh-mobile'); await c.close();
+    return { ok: n >= 5 && fin === 0 && reserve === 1 && deb <= 1, obtenu: `événements=${n} · financiers=${fin} · accès réservé=${reserve} · débordement=${deb}px`, preuve };
+  });
+  await etape('UI-SCAN-01', 'Documents scannés dès l\'enregistrement d\'une moto', 'Coordinateur enregistre une moto avec la carte grise scannée (2 pages, recadrage, rotation)', 'moto créée, carte grise EN_VERIFICATION, PDF valide de 2 pages', async () => {
+    const c = await contexte('lc', 'mobile'); const p = await page(c, '/moto/index.html#/coordination'); await pret(p);
+    await p.click('[data-admin="creer"]');
+    await remplir(p, { situation_parc: 'RECEPTIONNEE', marque: 'APSONIC', modele: 'AP150-30', date_reception: '2026-10-31', cluster_code: 'BOTRO', ref_CARTE_GRISE: 'E2E-CG-0002' });
+    const bloc = p.locator('[data-scan-champ="scan_CARTE_GRISE"]');
+    await bloc.locator('[data-scan-ouvrir]').click();
+    const sd = p.locator('dialog.mm-scan-dialog').last(); await sd.waitFor();
+    await sd.locator('[data-galerie]').setInputFiles([IMG_RECTO, IMG_VERSO]); await sd.locator('.mm-scan-page').nth(1).waitFor();
+    await sd.locator('.mm-scan-page').nth(1).locator('[data-rot]').click();
+    await sd.locator('.mm-scan-page').nth(0).locator('[data-cadre]').click();
+    const cd = p.locator('dialog.mm-scan-cadre'); await cd.waitFor();
+    const coin = cd.locator('.mm-coin-se'); const bb = await coin.boundingBox();
+    await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.mouse.down(); await p.mouse.move(bb.x - 40, bb.y - 30, { steps: 5 }); await p.mouse.up();
+    await cd.locator('button[type=submit]').click(); await cd.waitFor({ state: 'detached' });
+    const preuveScan = await capture(p, 'scanner-mobile');
+    await sd.locator('[data-valider]').click(); await bloc.locator('.mm-scan-etat.mm-scan-ok').waitFor({ timeout: 15000 });
+    globalThis.__depots = [];
+    const r = await valider(p);
+    const doc = (await q("select d.statut, d.numero_reference, d.storage_path from public.moto_documents d join public.moto_motos m on m.id=d.moto_id where d.type_document='CARTE_GRISE' and d.numero_reference='E2E-CG-0002'"))[0] || {};
+    const dep = (globalThis.__depots || []).filter(d => /\/document\//.test(d.url)).pop();
+    const pdf = dep ? verifierPdf(dep.corps) : 'aucun dépôt';
+    await c.close();
+    return { ok: r === 'ferme' && doc.statut === 'EN_VERIFICATION' && /\.pdf$/.test(doc.storage_path || '') && pdf === 'PDF valide · 2 page(s)', obtenu: `${r} · ${doc.statut} · ${doc.storage_path} · ${pdf}`, preuve: preuveScan };
+  });
+
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);
