@@ -292,7 +292,9 @@ begin
   if v_at < now() - make_interval(days => coalesce(private.moto_param('mission_delai_saisie_jours'), 7)::integer) then
     perform private.moto_erreur('Capture trop ancienne : synchronisez au plus tard dans le délai prévu.');
   end if;
-  return v_at;
+  -- Téléphone en avance (toléré, signalé par l'écart HORLOGE) : jamais de relevé daté dans le futur,
+  -- il bloquerait les saisies suivantes de la moto.
+  return least(v_at, now());
 end $$;
 
 -- Cohérence d'une mission après correction de l'un de ses relevés (circuit à quatre yeux).
@@ -370,9 +372,14 @@ begin
   if private.moto_permis_valide(auth.uid(), current_date) is null or private.moto_permis_valide(auth.uid(), v_at::date) is null then
     perform private.moto_refus('Aucun permis valide et vérifié à votre nom : mission impossible.');
   end if;
-  select mi.id, mi.depart_at, private.moto_nom_profil(mi.conducteur_id) as nom into v_ouverte
+  select mi.id, mi.depart_at, mi.conducteur_id, private.moto_nom_profil(mi.conducteur_id) as nom into v_ouverte
   from public.moto_missions mi where mi.moto_id = v_moto and mi.statut = 'OUVERTE';
   if found then
+    if v_ouverte.conducteur_id <> auth.uid() and v_at < v_ouverte.depart_at then
+      -- Mission plus ANCIENNE saisie hors connexion pendant qu'une autre est en cours : elle passera
+      -- dès la clôture de celle-ci (erreur temporaire, nouvelle tentative automatique).
+      raise exception 'Mission antérieure en attente : une mission plus récente est en cours sur cette moto, nouvel envoi après sa clôture.' using errcode = '55000';
+    end if;
     perform private.moto_erreur(format('Une mission est déjà ouverte sur cette moto (%s, depuis le %s) : elle doit être clôturée d''abord.',
                                        coalesce(v_ouverte.nom, 'conducteur inconnu'), to_char(v_ouverte.depart_at, 'DD/MM/YYYY HH24:MI')));
   end if;
@@ -385,11 +392,15 @@ begin
   if length(btrim(coalesce(p ->> 'destination', ''))) < 2 then perform private.moto_erreur('Destination obligatoire (village ou cluster).'); end if;
   if v_km is null then perform private.moto_erreur('Compteur de départ obligatoire.'); end if;
   -- Deux missions ne se chevauchent jamais (même moto ou même conducteur) : refus.
-  if exists (select 1 from public.moto_missions where moto_id = v_moto and statut = 'CLOTUREE' and arrivee_at > v_at) then
-    perform private.moto_erreur('Départ antérieur à la fin d''une mission déjà clôturée sur cette moto : deux missions ne se chevauchent pas.');
+  -- Refus seulement si le départ tombe PENDANT une mission clôturée (fin retenue : la plus tôt de
+  -- l'heure déclarée et de l'heure de réception, pour ne pas pénaliser un téléphone en avance).
+  if exists (select 1 from public.moto_missions where moto_id = v_moto and statut = 'CLOTUREE'
+             and v_at >= depart_at and v_at < least(arrivee_at, arrivee_recu_at)) then
+    perform private.moto_erreur('Départ pendant une mission déjà clôturée sur cette moto : deux missions ne se chevauchent pas.');
   end if;
-  if exists (select 1 from public.moto_missions where conducteur_id = auth.uid() and statut = 'CLOTUREE' and arrivee_at > v_at) then
-    perform private.moto_erreur('Départ antérieur à la fin de votre mission précédente : deux missions ne se chevauchent pas.');
+  if exists (select 1 from public.moto_missions where conducteur_id = auth.uid() and statut = 'CLOTUREE'
+             and v_at >= depart_at and v_at < least(arrivee_at, arrivee_recu_at)) then
+    perform private.moto_erreur('Départ pendant une autre de vos missions : deux missions ne se chevauchent pas.');
   end if;
   -- Un relevé plus récent déjà reçu (synchronisation dans le désordre) : accepté, signalé plus bas.
   select max(r.date_releve) into v_dern_at from public.moto_releves_km r where r.moto_id = v_moto;
@@ -473,6 +484,11 @@ begin
   if v_km is null then perform private.moto_erreur('Compteur d''arrivée obligatoire.'); end if;
   v_at := private.moto_mission_capture(p);
   if v_at < mi.depart_at then perform private.moto_erreur('Heure d''arrivée antérieure au départ.'); end if;
+  if exists (select 1 from public.moto_missions x where x.id <> mi.id and x.statut <> 'ANNULEE'
+             and (x.moto_id = mi.moto_id or x.conducteur_id = mi.conducteur_id)
+             and x.depart_at > mi.depart_at and x.depart_at < v_at) then
+    perform private.moto_erreur('Arrivée après le départ d''une autre mission (même moto ou même conducteur) : deux missions ne se chevauchent pas.');
+  end if;
   v_dern_at := (select max(r.date_releve) from public.moto_releves_km r where r.moto_id = mi.moto_id);
   v_dep_km := mi.depart_km;
   if v_km < v_dep_km then
@@ -596,6 +612,7 @@ begin
   if ph.depose_par = auth.uid() then return jsonb_build_object('chemin', p_chemin, 'controle', 'IGNORE_DEPOSANT'); end if;
   if v_sha !~ '^[0-9a-f]{64}$' then perform private.moto_erreur('Empreinte calculée invalide.'); end if;
   v_ok := v_sha = ph.sha256;
+  insert into public.moto_mission_photo_controles (photo_id, sha256_calcule, conforme) values (ph.id, v_sha, v_ok);
   if ph.controle_at is null or ph.controle_conforme then
     update public.moto_mission_photos set controle_sha256 = v_sha, controle_conforme = v_ok, controle_par = auth.uid(), controle_at = now() where id = ph.id;
   end if;
@@ -604,6 +621,36 @@ begin
       format('Photo (%s) : l''empreinte recalculée par %s ne correspond pas à celle déclarée à la capture (photo modifiée ou remplacée).', lower(ph.moment), private.moto_nom_profil(auth.uid())), null, null);
   end if;
   return jsonb_build_object('chemin', p_chemin, 'conforme', v_ok);
+end $$;
+
+create table if not exists public.moto_mission_photo_controles (
+  id uuid primary key default gen_random_uuid(),
+  photo_id uuid not null references public.moto_mission_photos(id),
+  sha256_calcule text,
+  conforme boolean,
+  action text not null default 'CONTROLE' check (action in ('CONTROLE','LEVEE')),
+  motif text,
+  par uuid not null default auth.uid(),
+  at timestamptz not null default now()
+);
+create index if not exists moto_mission_photo_controles_photo_idx on public.moto_mission_photo_controles (photo_id, at);
+
+-- Un « non conforme » infondé se lève par le BM ou l'ABM (autre que le contrôleur), avec motif.
+create or replace function public.moto_mission_photo_controle_lever(p_chemin text, p_motif text)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare ph public.moto_mission_photos;
+begin
+  perform private.moto_exiger_classe(array['ABM','BM']);
+  select * into ph from public.moto_mission_photos where chemin = p_chemin for update;
+  if not found then perform private.moto_erreur('Photo introuvable.'); end if;
+  if ph.controle_conforme is distinct from false then perform private.moto_erreur('Aucun contrôle non conforme à lever sur cette photo.'); end if;
+  if ph.controle_par = auth.uid() or ph.depose_par = auth.uid() then perform private.moto_refus('Quatre yeux : ni le contrôleur ni le déposant ne lèvent ce contrôle.'); end if;
+  perform private.moto_motif(p_motif, 15);
+  update public.moto_mission_photos set controle_conforme = null, controle_sha256 = null, controle_par = null, controle_at = null where id = ph.id;
+  insert into public.moto_mission_photo_controles (photo_id, action, motif) values (ph.id, 'LEVEE', btrim(p_motif));
+  return jsonb_build_object('chemin', p_chemin, 'statut', 'LEVE');
 end $$;
 
 -- Purge documentée (BM) : après suppression des fichiers par l'API Storage, retire leurs lignes.
@@ -616,6 +663,9 @@ begin
   perform private.moto_exiger_classe(array['BM']);
   perform set_config('moto.purge', 'on', true);
   perform private.moto_motif('Purge des photos de compteur arrivées en fin de conservation');
+  delete from public.moto_mission_photo_controles c using public.moto_mission_photos ph
+  where c.photo_id = ph.id and ph.chemin = any(coalesce(p_chemins, '{}'))
+    and ph.created_at < now() - make_interval(months => greatest(12, coalesce(private.moto_param('mission_photos_conservation_mois'), 12))::integer);
   delete from public.moto_mission_photos ph
   where ph.chemin = any(coalesce(p_chemins, '{}'))
     and ph.created_at < now() - make_interval(months => greatest(12, coalesce(private.moto_param('mission_photos_conservation_mois'), 12))::integer);   -- jamais moins de 12 mois
@@ -720,6 +770,13 @@ alter table public.moto_missions enable row level security;
 alter table public.moto_mission_photos enable row level security;
 alter table public.moto_mission_positions enable row level security;
 alter table public.moto_mission_anomalies enable row level security;
+alter table public.moto_mission_photo_controles enable row level security;
+revoke all on public.moto_mission_photo_controles from anon;
+revoke insert, update, delete, truncate, references, trigger on public.moto_mission_photo_controles from authenticated;
+grant select on public.moto_mission_photo_controles to authenticated;
+drop policy if exists moto_mission_photo_controles_lecture on public.moto_mission_photo_controles;
+create policy moto_mission_photo_controles_lecture on public.moto_mission_photo_controles for select to authenticated
+  using (exists (select 1 from public.moto_mission_photos ph where ph.id = photo_id and private.moto_mission_lecture_id(ph.mission_id)));
 revoke all on public.moto_missions, public.moto_mission_photos, public.moto_mission_positions, public.moto_mission_anomalies from anon;
 revoke insert, update, delete, truncate, references, trigger
   on public.moto_missions, public.moto_mission_photos, public.moto_mission_positions, public.moto_mission_anomalies from authenticated;
@@ -738,7 +795,7 @@ create policy moto_mission_positions_lecture on public.moto_mission_positions fo
 do $$
 declare t text;
 begin
-  foreach t in array array['moto_missions','moto_mission_photos','moto_mission_anomalies'] loop
+  foreach t in array array['moto_missions','moto_mission_photos','moto_mission_anomalies','moto_mission_photo_controles'] loop
     execute format('drop trigger if exists %I on public.%I', t || '_journal_trg', t);
     execute format('create trigger %I after insert or update or delete on public.%I for each row execute function private.moto_journaliser()', t || '_journal_trg', t);
   end loop;

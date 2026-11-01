@@ -466,6 +466,43 @@ act("Y07e", "Contre-vérification", "uh_y", "Un agent appelle le contrôle", f"s
 act("Y08", "Contre-vérification", "zh_c", "Carnet d'une moto d'une autre zone : aucune mission", f"select count(*) from public.moto_carnet('{M6}') where categorie='MISSION'", True, "0")
 act("Y08b", "Contre-vérification", "zh", "Carnet de sa zone : missions visibles", f"select count(*) > 0 from public.moto_carnet('{M6}') where categorie='MISSION'", True, "t")
 
+# ===========================================================================
+# Z. Troisième vérification : réserve N1 et levée d'un contrôle infondé
+# ===========================================================================
+q(f"insert into auth.users (id, email) values ('{uid(316)}', 'uhz8@example.invalid'), ('{uid(317)}', 'uhw8@example.invalid') on conflict do nothing")
+q(f"""insert into public.profils (user_id, email, nom, role, cluster, zone, actif) values
+      ('{uid(316)}', 'uhz8@example.invalid', 'UH8 Z FICTIF', 'Unit Head', 'SAKASSOU', 'GBEKE 1', true),
+      ('{uid(317)}', 'uhw8@example.invalid', 'UH8 W FICTIF', 'Unit Head', 'SAKASSOU', 'GBEKE 1', true) on conflict do nothing""")
+U.update({"uh_z": uid(316), "uh_w": uid(317)})
+M9 = moto("uh_z", 3000); permis_fixture("lc")
+# Cas 1 : téléphone en avance de 12 min à la clôture, le coordinateur repart aussitôt avec la moto
+zd = act("Z01a", "Réserve N1", "uh_z", "Départ", "select public.moto_mission_demarrer(" + lit(charge("uh_z", M9, 3000, -30)) + ")", True, "OUVERTE")
+zid = zd["id"] if isinstance(zd, dict) else zd
+act("Z01b", "Réserve N1", "uh_z", "Clôture avec un téléphone en avance de 12 minutes", "select public.moto_mission_cloturer(" + lit(charge("uh_z", M9, 3010, 12, mission_id=zid, horloge=-12)) + ")", True, "HORLOGE")
+act("Z01", "Réserve N1", "lc", "Le coordinateur, à l'heure juste, part aussitôt : accepté", "select public.moto_mission_demarrer(" + lit(charge("lc", M9, 3010, 1)) + ")", True, "OUVERTE")
+lz = q(f"select id from public.moto_missions where moto_id='{M9}' and statut='OUVERTE'")
+act("Z01c", "Réserve N1", "lc", "Il clôture", "select public.moto_mission_cloturer(" + lit(charge("lc", M9, 3020, 2, mission_id=lz)) + ")", True, "CLOTUREE")
+# Cas 2 : une mission plus ancienne saisie hors connexion, synchronisée après une mission plus récente
+M10 = moto("uh_w", 4000)
+q(f"update public.moto_releves_km set date_releve = now() - interval '10 days' where moto_id = '{M10}'")
+act("Z02a", "Réserve N1", "uh_w", "Mission récente (−120 → −90 min), en ligne", "select public.moto_mission_demarrer(" + lit(charge("uh_w", M10, 4020, -120)) + ")", True, "OUVERTE")
+wz = q(f"select id from public.moto_missions where moto_id='{M10}' and statut='OUVERTE'")
+act("Z02b", "Réserve N1", "uh_w", "… clôturée", "select public.moto_mission_cloturer(" + lit(charge("uh_w", M10, 4050, -90, mission_id=wz)) + ")", True, "CLOTUREE")
+mo = str(uuid.uuid4())
+lot = [{"client_op_id": (a := charge("uh_w", M10, 4000, -180, mission_id=mo))["client_op_id"], "type": "MISSION_DEPART", "payload": a},
+       {"client_op_id": (b := charge("uh_w", M10, 4020, -150, mission_id=mo))["client_op_id"], "type": "MISSION_ARRIVEE", "payload": b}]
+act("Z02", "Réserve N1", "uh_w", "Mission plus ancienne (−180 → −150 min) synchronisée ensuite : acceptée", "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit(lot) + ")) x", True, "SYNCHRONISE,SYNCHRONISE")
+check("Z02c", "Réserve N1", "Les deux missions comptent, sans double comptage (20 + 30 km, 0 hors mission)", f"select sum(km_mission)||'|'||sum(km_hors_mission) from public.moto_v_missions_mois where moto_id='{M10}'", "50.0|0.0")
+act("Z03", "Réserve N1", "uh_w", "Départ PENDANT une mission clôturée : toujours refusé", "select public.moto_mission_demarrer(" + lit(charge("uh_w", M10, 4030, -100)) + ")", False, "chevauchent")
+# Levée d'un contrôle d'empreinte infondé
+phz = q(f"select chemin from public.moto_mission_photos where mission_id='{zid}' and moment='DEPART'")
+act("Z04a", "Contrôle infondé", "fin", "La Finance envoie une empreinte inventée", f"select public.moto_mission_photo_controler('{phz}', '{secrets.token_hex(32)}')", True, '"conforme": false')
+act("Z04b", "Contrôle infondé", "zh", "Un contrôle honnête ensuite ne l'efface pas", f"select public.moto_mission_photo_controler('{phz}', (select sha256 from public.moto_mission_photos where chemin='{phz}'))", True, '"conforme": true')
+check("Z04c", "Contrôle infondé", "État toujours non conforme, historique de 2 contrôles", f"select (select controle_conforme from public.moto_mission_photos where chemin='{phz}')||'|'||(select count(*) from public.moto_mission_photo_controles c join public.moto_mission_photos p on p.id=c.photo_id where p.chemin='{phz}')", "false|2")
+act("Z04d", "Contrôle infondé", "zh", "Le Chef de zone lève le contrôle", f"select public.moto_mission_photo_controle_lever('{phz}', 'Contrôle infondé, empreinte vérifiée à nouveau')", False, "rôle")
+act("Z04", "Contrôle infondé", "abm", "L'ABM lève le non-conforme avec motif", f"select public.moto_mission_photo_controle_lever('{phz}', 'Contrôle infondé : empreinte recalculée conforme par le Chef de zone')", True, "LEVE")
+check("Z04e", "Contrôle infondé", "Photo remise à « non contrôlée », levée tracée", f"select coalesce((select controle_conforme::text from public.moto_mission_photos where chemin='{phz}'),'NULL')||'|'||(select count(*) from public.moto_mission_photo_controles c join public.moto_mission_photos p on p.id=c.photo_id where p.chemin='{phz}' and action='LEVEE')", "NULL|1")
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "missions_8.json"), "w", encoding="utf-8") as f:

@@ -33,8 +33,10 @@ drop function if exists public.moto_mission_anomalie_traiter(uuid, text, text);
 drop function if exists public.moto_missions_photos_a_purger();
 drop function if exists public.moto_missions_photos_purger(text[]);
 drop function if exists public.moto_mission_photo_controler(text, text);
+drop function if exists public.moto_mission_photo_controle_lever(text, text);
 
 drop table if exists public.moto_mission_anomalies;
+drop table if exists public.moto_mission_photo_controles;
 drop table if exists public.moto_mission_positions;
 drop table if exists public.moto_mission_photos;
 
