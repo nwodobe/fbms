@@ -345,6 +345,30 @@ record("Y9", "Revue 2", "postgres (écriture directe)", "Purge de permis_id sur 
 act("Z1", "Revue 3", "lc", "Après levée du retrait, un autre conducteur reprend le numéro", "select public.moto_permis_enregistrer(" + lit(permis("abm", "CI-PC-000777")) + ")", False, "autre conducteur")
 act("Z2", "Revue 3", "lc", "Numéro d'un permis REMPLACÉ repris par un autre conducteur", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI PA 000001")) + ")", False, "autre conducteur")
 
+# ===========================================================================
+# W. Quatrième vérification : numéro validé à tort pour un tiers (usurpation)
+# ===========================================================================
+q(f"insert into auth.users (id, email) values ('{uid(212)}', 'bmb7@example.invalid') on conflict do nothing; insert into public.profils (user_id, email, nom, role, actif) values ('{uid(212)}', 'bmb7@example.invalid', 'BM7 BIS FICTIF', 'Branch Manager', true) on conflict do nothing;")
+U["bm_b"] = uid(212)
+# Le coordinateur (bénéficiaire) n'a pas encore de permis : un tiers (uh_b, sans dépôt en attente) dépose SON numéro.
+q(f"update public.moto_permis set statut='NON_CONFORME', verifie_par='{U['bm']}', verifie_at=now(), motif_verification='Nettoyage avant scénario W' where titulaire_id='{U['uh_b']}' and statut='EN_VERIFICATION'")
+w = act("W1", "Revue 4", "lc", "Un tiers dépose le numéro du coordinateur", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI-LC 424242")) + ")", True)
+w = w["id"] if isinstance(w, dict) else ""
+act("W2", "Revue 4", "abm", "L'ABM le valide par erreur", f"select public.moto_permis_verifier('{w}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+act("W3", "Revue 4", "lc", "Le vrai titulaire (coordinateur) est bloqué", "select public.moto_permis_enregistrer(" + lit(permis("lc", "CI LC 424242")) + ")", False, "autre conducteur")
+act("W4", "Revue 4", "abm", "L'ABM annule pour erreur de titulaire (réservé au BM)", f"select public.moto_permis_annuler_erreur('{w}', 'Numéro appartenant au coordinateur, saisi pour un tiers')", False, "rôle")
+act("W5", "Revue 4", "bm", "Annulation sans motif détaillé", f"select public.moto_permis_annuler_erreur('{w}', 'erreur')", False, "motif")
+act("W6", "Revue 4", "bm", "Le BM annule pour erreur de titulaire (motif détaillé)", f"select public.moto_permis_annuler_erreur('{w}', 'Numéro appartenant au coordinateur, saisi pour un tiers')", True, "ANNULE")
+act("W7", "Revue 4", "lc", "Le vrai titulaire dépose désormais son permis", "select public.moto_permis_enregistrer(" + lit({**permis("lc", "CI LC 424242"), "titulaire_id": U['lc']}) + ")", True, "EN_VERIFICATION")
+act("W8", "Revue 4", "bm", "Un dépôt en attente ne s'annule pas (il se déclare non conforme)",
+    f"select public.moto_permis_annuler_erreur((select id from public.moto_permis where titulaire_id='{U['lc']}' and statut='EN_VERIFICATION'), 'Tentative sur un dépôt en attente de vérification')", False, "non conforme")
+# Quatre yeux : le BM qui a validé ne l'annule pas.
+w2 = act("W9a", "Revue 4", "lc", "Second cas : dépôt d'un numéro neuf pour uh_b", "select public.moto_permis_enregistrer(" + lit(permis("uh_b", "CI-UB 909090")) + ")", True)
+w2 = w2["id"] if isinstance(w2, dict) else ""
+run_as("bm", f"select public.moto_permis_verifier('{w2}', 'CONFORME', 'RH FICTIF', true)")
+act("W9", "Revue 4", "bm", "Quatre yeux : le BM qui a validé ce permis l'annule", f"select public.moto_permis_annuler_erreur('{w2}', 'Tentative d''annulation par le vérificateur lui-même')", False, "Quatre yeux")
+act("W10", "Revue 4", "bm_b", "Un autre BM peut l'annuler", f"select public.moto_permis_annuler_erreur('{w2}', 'Annulation de contrôle par un second Branch Manager')", True, "ANNULE")
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "permis_carnet_7.json"), "w", encoding="utf-8") as f:

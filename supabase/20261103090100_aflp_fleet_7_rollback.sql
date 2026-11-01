@@ -27,6 +27,7 @@ drop function if exists public.moto_permis_verifier(uuid, text, text, boolean, t
 drop function if exists public.moto_permis_enregistrer(jsonb);
 drop function if exists public.moto_permis_retirer(uuid, text);
 drop function if exists public.moto_permis_lever_retrait(uuid, text);
+drop function if exists public.moto_permis_annuler_erreur(uuid, text);
 
 -- Définitions d'origine (migration 2 pour le contrôle de remise, migration 6 pour le stockage)
 create or replace function private.moto_controle_remise(p_moto uuid, p jsonb)
