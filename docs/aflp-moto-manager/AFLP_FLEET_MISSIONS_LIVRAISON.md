@@ -66,7 +66,8 @@ Refus :
 - saisie différée de plus de 12 h ;
 - relevés reçus dans le désordre ;
 - photo de taille inhabituelle ;
-- empreinte différente.
+- empreinte différente ;
+- missions qui se chevauchent (l'arrivée annule automatiquement la mission, jamais estimée).
 
 Les écarts sont traités par un responsable, jamais par le conducteur. Une mission non clôturée n'est jamais estimée : elle est annulée avec un motif.
 
@@ -99,7 +100,7 @@ Le journal ne contient aucune coordonnée.
 | Contrôle | Résultat |
 |---|---|
 | Suites serveur existantes (1 à 7) | 352 + 204 + 140 réussis, aucune régression |
-| Suite serveur migration 8 (`tests/moto/tests_missions_8.py`) | **175/175**, dont 63 attaques issues de la contre-expertise |
+| Suite serveur migration 8 (`tests/moto/tests_missions_8.py`) | **180/180**, dont 68 attaques issues de la contre-expertise |
 | Navigateur, 3 largeurs (`tests/moto/e2e/moto-e2e.mjs`) | **117/117**, dont 6 parcours de mission avec une caméra simulée |
 | Retour arrière (`tests/moto/verifier_rollback_8.sh`) | Empreintes identiques, rejouable |
 | Portes du dépôt (HTML, liens, JavaScript) | 0 nouveau défaut |
@@ -122,7 +123,7 @@ Le journal ne contient aucune coordonnée.
 | 1 | NO_GO | 3 bloquants : empreinte non vérifiée, compteur « NaN », départ antidaté. 6 majeurs : permis expiré contourné, arrivée hors connexion perdue, km hors mission doublés, continuité, Chef de zone hors zone, interblocage |
 | 2 | NO_GO | Les 9 corrections sont confirmées, mais 2 régressions : saisies hors connexion rejetées à tort, purge par le BM seul |
 | 3 | GO pour le pilote, sous réserve | Réserve N1 : départs honnêtes refusés quand les missions arrivent dans le désordre |
-| 4 | *voir statut ci-dessous* | Vérification de la levée de N1 |
+| 4 | **GO** | N1 levée, aucun chevauchement accepté ni double comptage. Restait : arrivée refusée pour chevauchement qui bloquait la moto (désormais annulée automatiquement avec écart CHEVAUCHEMENT) ; l'auteur d'une levée ne recontrôle pas la photo (corrigé) |
 
 Tous les défauts sont corrigés et couverts par un test.
 
@@ -130,6 +131,7 @@ Tous les défauts sont corrigés et couverts par un test.
 - **Empreinte non recalculée par le serveur.** Elle est contrôlée par un responsable qui ouvre la photo, et obligatoirement **une fois par mois** pour toutes les photos. Un même fichier redéposé est refusé par l'empreinte du stockage. Une ancienne photo **réencodée** n'est détectable que par la relecture humaine du bandeau. Une fonction Edge ne changerait rien à ce cas.
 - **Faux GPS et photo d'une autre moto :** non détectables par une application web. Ce risque est accepté (pas de QR) et réduit par le contrôle de continuité du compteur.
 - **Seuils provisoires :** à ajuster après deux semaines avec les 4 Chefs d'unité.
+- **Horloge en avance :** une heure de capture dans le futur est ramenée à l'heure de réception (écart HORLOGE). Une fenêtre résiduelle de quelques minutes peut refuser un départ capturé juste avant ; c'est sans fausse donnée.
 - **Volume :** les politiques de lecture appellent des fonctions par ligne. C'est sans enjeu pour 4 motos, mais à mesurer avant d'étendre.
 
 ## E. Mise en production (sur autorisation du Branch Manager uniquement)

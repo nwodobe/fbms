@@ -29,7 +29,7 @@
     var LIB_ECART = { HORS_MISSION: 'Km hors mission', CONTINUITE: 'Continuité du compteur', VITESSE: 'Vitesse impossible', DISTANCE: 'Distance hors norme',
       HORLOGE: 'Horloge du téléphone', GPS_ABSENT: 'GPS absent', CLOTURE_TARDIVE: 'Clôture tardive',
       SAISIE_DIFFEREE_DEPART: 'Départ envoyé tardivement', SAISIE_DIFFEREE_ARRIVEE: 'Arrivée envoyée tardivement',
-      ORDRE_RELEVES: 'Relevés reçus dans le désordre', EMPREINTE_DIFFERENTE: 'Photo modifiée ou remplacée', PHOTO_ATYPIQUE: 'Photo de taille inhabituelle' };
+      ORDRE_RELEVES: 'Relevés reçus dans le désordre', EMPREINTE_DIFFERENTE: 'Photo modifiée ou remplacée', PHOTO_ATYPIQUE: 'Photo de taille inhabituelle', CHEVAUCHEMENT: 'Missions qui se chevauchent' };
     var LIB_ORIGINE = { LU_CONFIRME: 'Lu, confirmé', LU_CORRIGE: 'Lu, corrigé', SAISI: 'Saisi' };
     var LIB_STATUT = { OUVERTE: 'En cours', CLOTUREE: 'Clôturée', ANNULEE: 'Annulée' };
     var CIBLE_OCTETS = 60000;

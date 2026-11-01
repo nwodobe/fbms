@@ -1,6 +1,6 @@
 {
  "base": "fbms_moto_test",
- "date": "2026-11-01T13:09:34.308160+00:00",
+ "date": "2026-11-01T13:15:33.516139+00:00",
  "resultats": [
   {
    "id": "P01",
@@ -8,7 +8,7 @@
    "compte": "uh_a",
    "action": "Le Chef d'unité scanne et enregistre son propre permis",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"92391b9d-35b6-4a37-9fd7-fba4ccbe6211\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"12959502-e64d-4305-b222-71dc631c9ad5\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -134,7 +134,7 @@
    "compte": "lc",
    "action": "Le coordinateur enregistre le permis d'un Chef d'unité (2 catégories, sans date d'expiration)",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"2af3e4ae-1148-483f-b23d-4054e9d07225\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"fefac072-964e-44dd-86dc-9d53622db410\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -161,7 +161,7 @@
    "compte": "lc",
    "action": "Le coordinateur enregistre le permis de l'ABM",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"e80cf755-c824-431b-9f82-c71d0260af85\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"3ff23769-9f2e-485d-a28c-89bd192fa2dc\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -197,7 +197,7 @@
    "compte": "abm",
    "action": "L'ABM dépose le permis d'un Chef d'unité",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"fb44139a-9f0c-44f2-b79d-758516107a6b\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"f7bafa6b-9643-46e4-bdcb-a9e04b40363b\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -242,7 +242,7 @@
    "compte": "bm",
    "action": "Le BM déclare conforme le permis du Chef d'unité A",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"92391b9d-35b6-4a37-9fd7-fba4ccbe6211\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"12959502-e64d-4305-b222-71dc631c9ad5\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -260,7 +260,7 @@
    "compte": "bm",
    "action": "Non conforme motivé (photo illisible)",
    "attendu": "OK (NON_CONFORME)",
-   "obtenu": "OK : {\"id\": \"fb44139a-9f0c-44f2-b79d-758516107a6b\", \"statut\": \"NON_CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"f7bafa6b-9643-46e4-bdcb-a9e04b40363b\", \"statut\": \"NON_CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -269,7 +269,7 @@
    "compte": "abm",
    "action": "L'ABM vérifie le permis déposé par le coordinateur (sans expiration)",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"2af3e4ae-1148-483f-b23d-4054e9d07225\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"fefac072-964e-44dd-86dc-9d53622db410\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -278,7 +278,7 @@
    "compte": "bm",
    "action": "Le BM vérifie le permis de l'ABM",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"e80cf755-c824-431b-9f82-c71d0260af85\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"3ff23769-9f2e-485d-a28c-89bd192fa2dc\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -287,7 +287,7 @@
    "compte": "uh_a",
    "action": "Renouvellement : même numéro, nouvelle date d'expiration",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"7d6168b4-48e8-472b-b2ef-2dd2281cfdf5\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"4a73b4fd-4bac-4a19-a5ca-e5cb925f4d0f\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -305,7 +305,7 @@
    "compte": "abm",
    "action": "L'ABM vérifie le renouvellement",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"7d6168b4-48e8-472b-b2ef-2dd2281cfdf5\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"4a73b4fd-4bac-4a19-a5ca-e5cb925f4d0f\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -818,7 +818,7 @@
    "compte": "lc",
    "action": "Permis du Chef d'unité C (préparation)",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"76b4feb6-f954-4c13-a645-24b6550f10d8\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"0ac83736-55ed-4a55-bb43-8e210bb6f89c\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -827,7 +827,7 @@
    "compte": "bm",
    "action": "Le BM le déclare conforme",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"76b4feb6-f954-4c13-a645-24b6550f10d8\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"0ac83736-55ed-4a55-bb43-8e210bb6f89c\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -854,7 +854,7 @@
    "compte": "abm",
    "action": "L'ABM retire le permis (motif)",
    "attendu": "OK (RETIRE)",
-   "obtenu": "OK : {\"id\": \"76b4feb6-f954-4c13-a645-24b6550f10d8\", \"statut\": \"RETIRE\", \"affectations_actives\": 0}",
+   "obtenu": "OK : {\"id\": \"0ac83736-55ed-4a55-bb43-8e210bb6f89c\", \"statut\": \"RETIRE\", \"affectations_actives\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -953,7 +953,7 @@
    "compte": "lc",
    "action": "« sans_expiration » envoyé en texte (« oui »)",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"ecbed91d-e37b-4c93-ab1b-201f4f630f1f\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"d3fa5b2e-5f0e-40ca-b0a4-713e3b3e211e\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1007,7 +1007,7 @@
    "compte": "bm",
    "action": "Le BM lève le retrait (motif)",
    "attendu": "OK (RETRAIT_LEVE)",
-   "obtenu": "OK : {\"id\": \"76b4feb6-f954-4c13-a645-24b6550f10d8\", \"note\": \"Retrait levé. Le permis doit être redéposé puis vérifié sur original pour redevenir valide.\", \"statut\": \"RETRAIT_LEVE\"}",
+   "obtenu": "OK : {\"id\": \"0ac83736-55ed-4a55-bb43-8e210bb6f89c\", \"note\": \"Retrait levé. Le permis doit être redéposé puis vérifié sur original pour redevenir valide.\", \"statut\": \"RETRAIT_LEVE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1025,7 +1025,7 @@
    "compte": "abm",
    "action": "Après levée, l'ABM vérifie le dépôt sur original",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"bd2d0a74-d7d5-45e2-b976-458120791b73\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"02fba5a7-bd77-4087-aa3c-59675cf6d7fb\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1070,7 +1070,7 @@
    "compte": "lc",
    "action": "Un tiers dépose le numéro du coordinateur",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"6b44f7e8-2a94-4e34-a567-49168153717c\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"79bac99e-f2a0-47fa-bad9-7d051a82774e\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1079,7 +1079,7 @@
    "compte": "abm",
    "action": "L'ABM le valide par erreur",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"6b44f7e8-2a94-4e34-a567-49168153717c\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"79bac99e-f2a0-47fa-bad9-7d051a82774e\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1115,7 +1115,7 @@
    "compte": "bm",
    "action": "Le BM annule pour erreur de titulaire (motif détaillé)",
    "attendu": "OK (ANNULE)",
-   "obtenu": "OK : {\"id\": \"6b44f7e8-2a94-4e34-a567-49168153717c\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
+   "obtenu": "OK : {\"id\": \"79bac99e-f2a0-47fa-bad9-7d051a82774e\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1124,7 +1124,7 @@
    "compte": "lc",
    "action": "Le vrai titulaire dépose désormais son permis",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"id\": \"16085976-5f4a-4dee-968a-d03e1fc8c19e\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"db1fc6e6-a238-4cc3-89c8-7960d6f760aa\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1142,7 +1142,7 @@
    "compte": "lc",
    "action": "Second cas : dépôt d'un numéro neuf pour uh_b",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"5ceac210-397d-47c8-9403-0c62b1385321\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"0a57267a-96dc-42fa-ae4c-ab12c93eccd6\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1160,7 +1160,7 @@
    "compte": "bm_b",
    "action": "Un autre BM peut l'annuler",
    "attendu": "OK (ANNULE)",
-   "obtenu": "OK : {\"id\": \"5ceac210-397d-47c8-9403-0c62b1385321\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
+   "obtenu": "OK : {\"id\": \"0a57267a-96dc-42fa-ae4c-ab12c93eccd6\", \"note\": \"Permis annulé pour erreur de titulaire : le numéro est libéré pour son vrai titulaire.\", \"statut\": \"ANNULE\", \"affectations_actives\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1178,7 +1178,7 @@
    "compte": "abm",
    "action": "L'ABM valide ce dépôt sur original",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"16085976-5f4a-4dee-968a-d03e1fc8c19e\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"db1fc6e6-a238-4cc3-89c8-7960d6f760aa\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1196,7 +1196,7 @@
    "compte": "uh_d",
    "action": "Le vrai titulaire dépose son permis",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"a6636e16-d6a5-4eeb-b8df-8b9691641b6f\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"c9b4363d-ecb6-49b2-a289-29f33e5da5c2\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1205,7 +1205,7 @@
    "compte": "bm",
    "action": "Le BM le rejette (faux motif)",
    "attendu": "OK (NON_CONFORME)",
-   "obtenu": "OK : {\"id\": \"a6636e16-d6a5-4eeb-b8df-8b9691641b6f\", \"statut\": \"NON_CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"c9b4363d-ecb6-49b2-a289-29f33e5da5c2\", \"statut\": \"NON_CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1214,7 +1214,7 @@
    "compte": "uh_e",
    "action": "Un tiers dépose ce numéro libéré",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"d88a5b1e-5e0a-4235-b6b0-5d6350d15de0\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"d45330e7-90f8-41d6-81e0-543d8a4400c6\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1232,7 +1232,7 @@
    "compte": "bm",
    "action": "Le BM reste libre de rejeter ce dépôt (sens prudent)",
    "attendu": "OK (NON_CONFORME)",
-   "obtenu": "OK : {\"id\": \"d88a5b1e-5e0a-4235-b6b0-5d6350d15de0\", \"statut\": \"NON_CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"d45330e7-90f8-41d6-81e0-543d8a4400c6\", \"statut\": \"NON_CONFORME\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1241,7 +1241,7 @@
    "compte": "uh_d",
    "action": "Le vrai titulaire redépose",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"32dbfa85-8c99-4e7e-85b6-cf7de6dac4de\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"id\": \"bfe3a9de-9fdc-40b2-ae54-5d91529dffe4\", \"note\": \"Permis enregistré : à vérifier sur l'original par l'ABM ou le Branch Manager (autre personne que le déposant).\", \"statut\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1259,7 +1259,7 @@
    "compte": "abm",
    "action": "L'ABM valide le dépôt du vrai titulaire sur original",
    "attendu": "OK (CONFORME)",
-   "obtenu": "OK : {\"id\": \"32dbfa85-8c99-4e7e-85b6-cf7de6dac4de\", \"statut\": \"CONFORME\"}",
+   "obtenu": "OK : {\"id\": \"bfe3a9de-9fdc-40b2-ae54-5d91529dffe4\", \"statut\": \"CONFORME\"}",
    "resultat": "RÉUSSI"
   }
  ]

@@ -83,6 +83,7 @@ create table if not exists public.moto_missions (
   annule_par uuid,
   annule_at timestamptz,
   annule_motif text,
+  annule_systeme boolean not null default false,   -- annulation automatique (chevauchement), sans auteur
   created_at timestamptz not null default now(),
   check (objet <> 'AUTRE' or length(btrim(coalesce(objet_detail, ''))) >= 5),
   check (statut <> 'CLOTUREE' or (arrivee_releve_id is not null and arrivee_at is not null and arrivee_origine is not null
@@ -91,7 +92,7 @@ create table if not exists public.moto_missions (
   check (arrivee_at is null or arrivee_at >= depart_at),
   check (arrivee_km is null or arrivee_km >= depart_km),
   check ((arrivee_km is null) = (arrivee_releve_id is null)),
-  check (statut <> 'ANNULEE' or (annule_par is not null and annule_at is not null and length(btrim(coalesce(annule_motif, ''))) >= 10)),
+  check (statut <> 'ANNULEE' or ((annule_par is not null or annule_systeme) and annule_at is not null and length(btrim(coalesce(annule_motif, ''))) >= 10)),
   check (annule_par is null or annule_par <> conducteur_id),
   check ((depart_origine = 'SAISI') = (depart_lu_km is null)),
   check (arrivee_origine is null or (arrivee_origine = 'SAISI') = (arrivee_lu_km is null))
@@ -139,7 +140,7 @@ create table if not exists public.moto_mission_anomalies (
   moto_id uuid not null references public.moto_motos(id),
   conducteur_id uuid not null,
   type_anomalie text not null check (type_anomalie in ('HORS_MISSION','CONTINUITE','VITESSE','DISTANCE','HORLOGE','GPS_ABSENT','CLOTURE_TARDIVE',
-                                                'SAISIE_DIFFEREE_DEPART','SAISIE_DIFFEREE_ARRIVEE','ORDRE_RELEVES','EMPREINTE_DIFFERENTE','PHOTO_ATYPIQUE')),
+                                                'SAISIE_DIFFEREE_DEPART','SAISIE_DIFFEREE_ARRIVEE','ORDRE_RELEVES','EMPREINTE_DIFFERENTE','PHOTO_ATYPIQUE','CHEVAUCHEMENT')),
   detail text not null,
   valeur numeric,
   seuil numeric,
@@ -487,7 +488,17 @@ begin
   if exists (select 1 from public.moto_missions x where x.id <> mi.id and x.statut <> 'ANNULEE'
              and (x.moto_id = mi.moto_id or x.conducteur_id = mi.conducteur_id)
              and x.depart_at > mi.depart_at and x.depart_at < v_at) then
-    perform private.moto_erreur('Arrivée après le départ d''une autre mission (même moto ou même conducteur) : deux missions ne se chevauchent pas.');
+    -- Jamais de mission bloquée pour toujours : elle est annulée automatiquement (jamais estimée)
+    -- et l'écart CHEVAUCHEMENT est ouvert pour vérification. L'opération est considérée comme traitée.
+    perform private.moto_motif('Annulation automatique : chevauchement');
+    update public.moto_missions set statut = 'ANNULEE', annule_systeme = true, annule_at = now(),
+           annule_motif = 'Annulation automatique : l''arrivée photographiée le ' || to_char(v_at, 'DD/MM/YYYY HH24:MI') || ' chevauche une autre mission de la moto ou du conducteur.'
+    where id = v_id;
+    perform private.moto_mission_signaler(v_id, 'CHEVAUCHEMENT',
+      format('Arrivée photographiée le %s à %s km, après le départ d''une autre mission : mission annulée automatiquement, à vérifier avec l''agent.', to_char(v_at, 'DD/MM/YYYY HH24:MI'), v_km), v_km, null);
+    v_res := jsonb_build_object('id', v_id, 'statut', 'ANNULEE', 'anomalies', jsonb_build_array('CHEVAUCHEMENT'));
+    perform private.moto_op_enregistrer(v_client, 'MISSION_ARRIVEE', 'SYNCHRONISE', v_res);
+    return v_res;
   end if;
   v_dern_at := (select max(r.date_releve) from public.moto_releves_km r where r.moto_id = mi.moto_id);
   v_dep_km := mi.depart_km;
@@ -538,6 +549,10 @@ begin
   if now() - v_at > make_interval(hours => v_seuil::integer) then
     perform private.moto_mission_signaler(v_id, 'SAISIE_DIFFEREE_ARRIVEE', format('Arrivée photographiée le %s, reçue %s heure(s) plus tard.', to_char(v_at, 'DD/MM/YYYY HH24:MI'), round(extract(epoch from now() - v_at) / 3600)), round(extract(epoch from now() - v_at) / 3600), v_seuil);
   end if;
+  update public.moto_mission_anomalies a set detail = a.detail || ' [une mission antérieure a été synchronisée ensuite : se fier au km hors mission recalculé du tableau]'
+  where a.type_anomalie = 'HORS_MISSION' and a.statut = 'A_VERIFIER' and a.mission_id <> v_id
+    and a.mission_id in (select x.id from public.moto_missions x where x.moto_id = mi.moto_id and x.depart_at > v_at)
+    and a.detail not like '%mission antérieure a été synchronisée%';
   v_res := jsonb_build_object('id', v_id, 'statut', 'CLOTUREE', 'distance_km', v_dist,
                               'anomalies', (select coalesce(jsonb_agg(type_anomalie), '[]'::jsonb) from public.moto_mission_anomalies where mission_id = v_id));
   perform private.moto_op_enregistrer(v_client, 'MISSION_ARRIVEE', 'SYNCHRONISE', v_res);
@@ -610,6 +625,9 @@ begin
   select * into ph from public.moto_mission_photos where chemin = p_chemin for update;
   if not found or not private.moto_mission_lecture_id(ph.mission_id) then perform private.moto_erreur('Photo introuvable.'); end if;
   if ph.depose_par = auth.uid() then return jsonb_build_object('chemin', p_chemin, 'controle', 'IGNORE_DEPOSANT'); end if;
+  if exists (select 1 from public.moto_mission_photo_controles c where c.photo_id = ph.id and c.action = 'LEVEE' and c.par = auth.uid()) then
+    perform private.moto_refus('Quatre yeux : la personne qui a levé un contrôle sur cette photo ne la recontrôle pas.');
+  end if;
   if v_sha !~ '^[0-9a-f]{64}$' then perform private.moto_erreur('Empreinte calculée invalide.'); end if;
   v_ok := v_sha = ph.sha256;
   insert into public.moto_mission_photo_controles (photo_id, sha256_calcule, conforme) values (ph.id, v_sha, v_ok);

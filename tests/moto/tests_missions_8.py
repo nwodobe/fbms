@@ -503,6 +503,14 @@ act("Z04d", "Contrôle infondé", "zh", "Le Chef de zone lève le contrôle", f"
 act("Z04", "Contrôle infondé", "abm", "L'ABM lève le non-conforme avec motif", f"select public.moto_mission_photo_controle_lever('{phz}', 'Contrôle infondé : empreinte recalculée conforme par le Chef de zone')", True, "LEVE")
 check("Z04e", "Contrôle infondé", "Photo remise à « non contrôlée », levée tracée", f"select coalesce((select controle_conforme::text from public.moto_mission_photos where chemin='{phz}'),'NULL')||'|'||(select count(*) from public.moto_mission_photo_controles c join public.moto_mission_photos p on p.id=c.photo_id where p.chemin='{phz}' and action='LEVEE')", "NULL|1")
 
+# Quatrième vérification : arrivée qui chevauche → annulation automatique, moto jamais bloquée
+mc = str(uuid.uuid4())
+act("Z05a", "Quatrième vérification", "uh_w", "Départ inséré entre deux missions (−140 min) : accepté", "select public.moto_mission_demarrer(" + lit(charge("uh_w", M10, 4020, -140, mission_id=mc)) + ")", True, "OUVERTE")
+act("Z05", "Quatrième vérification", "uh_w", "Son arrivée (−80 min) chevauche la mission suivante : annulée automatiquement, écart ouvert", "select public.moto_mission_cloturer(" + lit(charge("uh_w", M10, 4020, -80, mission_id=mc)) + ")", True, "CHEVAUCHEMENT")
+check("Z05b", "Quatrième vérification", "Mission ANNULEE (système), aucun relevé d'arrivée, aucune distance estimée", f"select statut||'|'||annule_systeme||'|'||coalesce(arrivee_km::text,'NULL') from public.moto_missions where id='{mc}'", "ANNULEE|true|NULL")
+act("Z05c", "Quatrième vérification", "uh_w", "La moto n'est pas bloquée : nouveau départ accepté", "select public.moto_mission_demarrer(" + lit(charge("uh_w", M10, 4050, 3)) + ")", True, "OUVERTE")
+act("Z06", "Quatrième vérification", "abm", "L'auteur de la levée recontrôle la photo", f"select public.moto_mission_photo_controler('{phz}', (select sha256 from public.moto_mission_photos where chemin='{phz}'))", False, "Quatre yeux")
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "missions_8.json"), "w", encoding="utf-8") as f:
