@@ -1,6 +1,6 @@
 {
  "base": "fbms_moto_test",
- "date": "2026-11-01T08:59:53.053881+00:00",
+ "date": "2026-11-01T09:05:07.600091+00:00",
  "resultats": [
   {
    "id": "S03a",
@@ -26,7 +26,7 @@
    "compte": "lc",
    "action": "Coordinateur associe A1 au modèle APSONIC_AP150_30",
    "attendu": "OK (APSONIC)",
-   "obtenu": "OK : {\"moto_id\": \"d04d4475-5672-4066-9723-bed139d0706e\", \"modele_technique_code\": \"APSONIC_AP150_30\"}",
+   "obtenu": "OK : {\"moto_id\": \"d7f5912a-5e5f-4a34-9e1a-62bfc04734a6\", \"modele_technique_code\": \"APSONIC_AP150_30\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -98,7 +98,7 @@
    "compte": "lc",
    "action": "Coordinateur requalifie VIDANGE en politique interne (avis technique fictif)",
    "attendu": "OK (BROUILLON)",
-   "obtenu": "OK : {\"id\": \"b828c971-8f33-40b3-ab03-247574037c6b\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "obtenu": "OK : {\"id\": \"e0cff416-bf91-474d-8fb2-90ba82c51ff9\", \"statut\": \"BROUILLON\", \"version\": 2}",
    "resultat": "RÉUSSI"
   },
   {
@@ -107,7 +107,7 @@
    "compte": "lc",
    "action": "Coordinateur requalifie ENTRETIEN en politique interne (avis technique fictif)",
    "attendu": "OK (BROUILLON)",
-   "obtenu": "OK : {\"id\": \"4619cdb8-67c7-488b-9069-719e5dd97d23\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "obtenu": "OK : {\"id\": \"db9540f7-7def-41cd-a33c-3e82c2ec3a78\", \"statut\": \"BROUILLON\", \"version\": 2}",
    "resultat": "RÉUSSI"
   },
   {
@@ -116,7 +116,7 @@
    "compte": "lc",
    "action": "Coordinateur requalifie REVISION en politique interne (avis technique fictif)",
    "attendu": "OK (BROUILLON)",
-   "obtenu": "OK : {\"id\": \"c4cbb0c6-a428-4986-8bd5-c8b1582db0cc\", \"statut\": \"BROUILLON\", \"version\": 2}",
+   "obtenu": "OK : {\"id\": \"640e7acc-067a-41a7-9f95-cb75024f7b4e\", \"statut\": \"BROUILLON\", \"version\": 2}",
    "resultat": "RÉUSSI"
   },
   {
@@ -134,7 +134,7 @@
    "compte": "bm",
    "action": "BM approuve VIDANGE avec date d'effet",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"b828c971-8f33-40b3-ab03-247574037c6b\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
+   "obtenu": "OK : {\"id\": \"e0cff416-bf91-474d-8fb2-90ba82c51ff9\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -143,7 +143,7 @@
    "compte": "bm",
    "action": "BM approuve ENTRETIEN avec date d'effet",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"4619cdb8-67c7-488b-9069-719e5dd97d23\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
+   "obtenu": "OK : {\"id\": \"db9540f7-7def-41cd-a33c-3e82c2ec3a78\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -152,7 +152,7 @@
    "compte": "bm",
    "action": "BM approuve REVISION avec date d'effet",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"c4cbb0c6-a428-4986-8bd5-c8b1582db0cc\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
+   "obtenu": "OK : {\"id\": \"640e7acc-067a-41a7-9f95-cb75024f7b4e\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -269,7 +269,7 @@
    "compte": "lc",
    "action": "Coordinateur enregistre un garage fictif",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"00708636-c20e-40e0-b714-ebb02a16a7a0\"}",
+   "obtenu": "OK : {\"id\": \"b494243f-a22b-4011-97b3-2bf984014e48\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -296,7 +296,7 @@
    "compte": "lc",
    "action": "Coordinateur marque le garage évalué",
    "attendu": "OK (EVALUE)",
-   "obtenu": "OK : {\"id\": \"00708636-c20e-40e0-b714-ebb02a16a7a0\", \"statut\": \"EVALUE\"}",
+   "obtenu": "OK : {\"id\": \"b494243f-a22b-4011-97b3-2bf984014e48\", \"statut\": \"EVALUE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -305,7 +305,7 @@
    "compte": "bm",
    "action": "BM approuve le garage",
    "attendu": "OK (APPROUVE)",
-   "obtenu": "OK : {\"id\": \"00708636-c20e-40e0-b714-ebb02a16a7a0\", \"statut\": \"APPROUVE\"}",
+   "obtenu": "OK : {\"id\": \"b494243f-a22b-4011-97b3-2bf984014e48\", \"statut\": \"APPROUVE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -323,7 +323,7 @@
    "compte": "lc",
    "action": "Mise à jour partielle sans perte des clusters",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"00708636-c20e-40e0-b714-ebb02a16a7a0\"}",
+   "obtenu": "OK : {\"id\": \"b494243f-a22b-4011-97b3-2bf984014e48\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -341,7 +341,7 @@
    "compte": "uh_a",
    "action": "Chef d'unité signale la vidange",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -350,7 +350,7 @@
    "compte": "lc",
    "action": "Coordinateur organise le diagnostic",
    "attendu": "OK (DIAGNOSTIC)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"DIAGNOSTIC\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"DIAGNOSTIC\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -368,7 +368,7 @@
    "compte": "lc",
    "action": "Coordinateur enregistre le devis (vidange + révision + pièces + main-d'œuvre)",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"DEVIS_RECU\", \"travaux\": 2}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"DEVIS_RECU\", \"travaux\": 2}",
    "resultat": "RÉUSSI"
   },
   {
@@ -395,7 +395,7 @@
    "compte": "lc",
    "action": "Coordinateur soumet 50 000 au BM",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"48a39853-8624-4303-82f2-bbf62913b80f\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"5094ff81-72bf-4df0-8ac2-8c4b2a364fd9\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -521,7 +521,7 @@
    "compte": "bm",
    "action": "BM autorise 40 000 sur un devis de 50 000, commenté",
    "attendu": "OK (40000)",
-   "obtenu": "OK : {\"id\": \"48a39853-8624-4303-82f2-bbf62913b80f\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 40000}",
+   "obtenu": "OK : {\"id\": \"5094ff81-72bf-4df0-8ac2-8c4b2a364fd9\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 40000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -566,7 +566,7 @@
    "compte": "lc",
    "action": "Programmation dans le plafond (40 000)",
    "attendu": "OK (PROGRAMMEE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 40000}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 40000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -575,7 +575,7 @@
    "compte": "lc",
    "action": "Démarrage des travaux",
    "attendu": "OK (EN_COURS)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"EN_COURS\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"EN_COURS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -584,7 +584,7 @@
    "compte": "lc",
    "action": "Supplément chiffré par le garage",
    "attendu": "OK (EN_COURS)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"EN_COURS\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"EN_COURS\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -593,7 +593,7 @@
    "compte": "lc",
    "action": "Supplément soumis au BM",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"a7464cbe-a3bd-42cb-a7c7-00ead763dc9c\", \"rang\": 2, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"9245fa7a-74eb-4f26-adb5-040316ceb52f\", \"rang\": 2, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -620,7 +620,7 @@
    "compte": "bm",
    "action": "BM autorise le supplément",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"a7464cbe-a3bd-42cb-a7c7-00ead763dc9c\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 10000}",
+   "obtenu": "OK : {\"id\": \"9245fa7a-74eb-4f26-adb5-040316ceb52f\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 10000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -629,7 +629,7 @@
    "compte": "lc",
    "action": "Engagement porté à 50 000 après le supplément",
    "attendu": "OK (50000)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"EN_COURS\", \"montant_engage\": 50000}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"EN_COURS\", \"montant_engage\": 50000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -638,7 +638,7 @@
    "compte": "lc",
    "action": "Facture garage 50 000 déposée",
    "attendu": "OK (\"hors_autorisation\": false)",
-   "obtenu": "OK : {\"id\": \"6401fd4a-2a04-4718-bb61-1ee1b2907b0d\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"767fb48c-140a-4678-a4b7-0e258338e47f\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -692,7 +692,7 @@
    "compte": "lc",
    "action": "Fin des travaux : vidange et plaquettes faites, entretien chaîne non fait",
    "attendu": "OK (TERMINEE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"TERMINEE\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"TERMINEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -728,7 +728,7 @@
    "compte": "zh",
    "action": "Contrôle technique NON CONFORME (fuite)",
    "attendu": "OK (EN_COURS)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"EN_COURS\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"EN_COURS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -737,7 +737,7 @@
    "compte": "lc",
    "action": "Reprise des travaux déclarée",
    "attendu": "OK (TERMINEE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"TERMINEE\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"TERMINEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -746,7 +746,7 @@
    "compte": "zh",
    "action": "Contrôle technique CONFORME",
    "attendu": "OK (CONTROLEE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"CONTROLEE\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"CONTROLEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -818,7 +818,7 @@
    "compte": "lc",
    "action": "Contrôle de remise en service APTE (coordinateur)",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"9710bdf9-2bb4-49af-af33-d649ce7fcaf1\", \"resultat\": \"APTE\"}",
+   "obtenu": "OK : {\"id\": \"5ee0eb55-f3b5-4905-b657-47f7c60080c6\", \"resultat\": \"APTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -836,7 +836,7 @@
    "compte": "bm",
    "action": "Levée par le BM, indépendant du contrôle",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"1555a0bf-04f3-458d-b25e-c9fbbdafe1e7\", \"levee\": true}",
+   "obtenu": "OK : {\"id\": \"4496a5f4-52d2-4d68-91fe-c1b59f97aec4\", \"levee\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -854,7 +854,7 @@
    "compte": "abm",
    "action": "ABM vérifie la facture (pièces), dans le plafond autorisé",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"6401fd4a-2a04-4718-bb61-1ee1b2907b0d\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"767fb48c-140a-4678-a4b7-0e258338e47f\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -881,7 +881,7 @@
    "compte": "fin",
    "action": "Finance constate un paiement partiel",
    "attendu": "OK (30000)",
-   "obtenu": "OK : {\"id\": \"6401fd4a-2a04-4718-bb61-1ee1b2907b0d\", \"montant_paye\": 30000}",
+   "obtenu": "OK : {\"id\": \"767fb48c-140a-4678-a4b7-0e258338e47f\", \"montant_paye\": 30000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -899,7 +899,7 @@
    "compte": "fin",
    "action": "Clôture financière (distincte de la technique)",
    "attendu": "OK (CLOTUREE)",
-   "obtenu": "OK : {\"id\": \"78912b90-5aff-4502-a547-f1355bcd8d06\", \"statut\": \"CLOTUREE\"}",
+   "obtenu": "OK : {\"id\": \"f9b5f28f-6baa-46a3-8844-5175e3385a9e\", \"statut\": \"CLOTUREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -917,7 +917,7 @@
    "compte": "lc",
    "action": "Coordinateur demande une enveloppe d'entretien",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"b07f66bf-348a-44f3-b2f7-dd6ce156e8b6\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"58b4ee6a-b18a-49b9-8aa5-d6d502b0589b\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -926,7 +926,7 @@
    "compte": "bm",
    "action": "BM approuve le budget mensuel",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"b07f66bf-348a-44f3-b2f7-dd6ce156e8b6\", \"statut\": \"APPROUVEE\"}",
+   "obtenu": "OK : {\"id\": \"58b4ee6a-b18a-49b9-8aa5-d6d502b0589b\", \"statut\": \"APPROUVEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -971,7 +971,7 @@
    "compte": "lc",
    "action": "Règlement du reste dû par l'enveloppe (20 000), rattaché à la facture vérifiée",
    "attendu": "OK (MAINTENANCE)",
-   "obtenu": "OK : {\"id\": \"7a5f5773-9f69-47ea-ad34-20c9a383cf6c\", \"nature\": \"MAINTENANCE\", \"statut\": \"DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"d71f8688-4c7c-4096-8818-0aebcde6f2b2\", \"nature\": \"MAINTENANCE\", \"statut\": \"DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1034,7 +1034,7 @@
    "compte": "uh_b",
    "action": "Contrôle avant départ conforme",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"e4d6ca29-b9ad-4100-bfc8-dd6c0b8f324a\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"ca0ff750-8120-47b4-a055-6474f9722367\", \"incident\": null, \"resultat\": \"APTE\", \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1052,7 +1052,7 @@
    "compte": "lc",
    "action": "Entretien préventif interne demandé",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"a64b6fbf-769e-45db-acb6-500d1512453a\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"da5da239-5801-46a9-8362-9b84b732ec76\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1061,7 +1061,7 @@
    "compte": "lc",
    "action": "Opérations prévues (sans devis payant)",
    "attendu": "OK (DEVIS_RECU)",
-   "obtenu": "OK : {\"id\": \"a64b6fbf-769e-45db-acb6-500d1512453a\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
+   "obtenu": "OK : {\"id\": \"da5da239-5801-46a9-8362-9b84b732ec76\", \"statut\": \"DEVIS_RECU\", \"travaux\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1088,7 +1088,7 @@
    "compte": "bm",
    "action": "Intervention interne qualifiée sans frais par le BM",
    "attendu": "OK (PROGRAMMEE)",
-   "obtenu": "OK : {\"id\": \"a64b6fbf-769e-45db-acb6-500d1512453a\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 0}",
+   "obtenu": "OK : {\"id\": \"da5da239-5801-46a9-8362-9b84b732ec76\", \"statut\": \"PROGRAMMEE\", \"montant_engage\": 0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1097,7 +1097,7 @@
    "compte": "lc",
    "action": "Démarrage",
    "attendu": "OK (EN_COURS)",
-   "obtenu": "OK : {\"id\": \"a64b6fbf-769e-45db-acb6-500d1512453a\", \"statut\": \"EN_COURS\"}",
+   "obtenu": "OK : {\"id\": \"da5da239-5801-46a9-8362-9b84b732ec76\", \"statut\": \"EN_COURS\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1106,7 +1106,7 @@
    "compte": "lc",
    "action": "Facture déposée sur une intervention sans frais",
    "attendu": "OK (\"hors_autorisation\": true)",
-   "obtenu": "OK : {\"id\": \"bbfab092-fea3-4a37-b4d5-44a1ab9dccb6\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
+   "obtenu": "OK : {\"id\": \"3d1ee124-d9c0-4d76-8a07-1db60c38907f\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1133,7 +1133,7 @@
    "compte": "fin",
    "action": "Rejet motivé de la facture",
    "attendu": "OK (REJETEE)",
-   "obtenu": "OK : {\"id\": \"bbfab092-fea3-4a37-b4d5-44a1ab9dccb6\", \"statut\": \"REJETEE\"}",
+   "obtenu": "OK : {\"id\": \"3d1ee124-d9c0-4d76-8a07-1db60c38907f\", \"statut\": \"REJETEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1142,7 +1142,7 @@
    "compte": "uh_c",
    "action": "Freins avant KO au départ sur A3",
    "attendu": "OK (INAPTE)",
-   "obtenu": "OK : {\"id\": \"a3214933-2066-4c80-9b54-4fe065e44327\", \"incident\": {\"id\": \"bd3e8052-8a78-4f6b-9e05-0194f0a7ad7d\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"e2443aba-fd8a-411a-a4e8-c31452499f3d\", \"incident\": {\"id\": \"60e1928f-4b69-4f2c-b85c-136830211282\", \"immobilisee\": true, \"aflp_incident_id\": null}, \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1151,7 +1151,7 @@
    "compte": "zh",
    "action": "Diagnostic de l'incident",
    "attendu": "OK (DIAGNOSTIC)",
-   "obtenu": "OK : {\"id\": \"bd3e8052-8a78-4f6b-9e05-0194f0a7ad7d\", \"etape\": \"DIAGNOSTIC\"}",
+   "obtenu": "OK : {\"id\": \"60e1928f-4b69-4f2c-b85c-136830211282\", \"etape\": \"DIAGNOSTIC\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1169,7 +1169,7 @@
    "compte": "lc",
    "action": "Dossier lié à l'incident",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"4e2526fd-e591-415b-bb6c-1656bb1f45bb\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"d16bdee2-2639-4190-9a3b-124d79014658\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1178,7 +1178,7 @@
    "compte": "lc",
    "action": "Soumission urgente au BM",
    "attendu": "OK (EN_ATTENTE)",
-   "obtenu": "OK : {\"id\": \"91752b35-edb8-4696-8abc-aaf95d375c49\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
+   "obtenu": "OK : {\"id\": \"06331c41-7da8-4e2a-a288-d35e1a63971f\", \"rang\": 1, \"statut\": \"EN_ATTENTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1196,7 +1196,7 @@
    "compte": "bm",
    "action": "BM autorise",
    "attendu": "OK (AUTORISEE)",
-   "obtenu": "OK : {\"id\": \"91752b35-edb8-4696-8abc-aaf95d375c49\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 15000}",
+   "obtenu": "OK : {\"id\": \"06331c41-7da8-4e2a-a288-d35e1a63971f\", \"statut\": \"AUTORISEE\", \"montant_autorise\": 15000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1205,7 +1205,7 @@
    "compte": "lc",
    "action": "Facture déposée",
    "attendu": "OK (DEPOSEE)",
-   "obtenu": "OK : {\"id\": \"74da0ac8-f2b8-45cf-9cba-413353489277\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"ef587ff9-275d-4a10-8246-43fb4486a5b1\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1214,7 +1214,7 @@
    "compte": "abm",
    "action": "Facture vérifiée",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"74da0ac8-f2b8-45cf-9cba-413353489277\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"ef587ff9-275d-4a10-8246-43fb4486a5b1\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1223,7 +1223,7 @@
    "compte": "fin",
    "action": "Facture payée en totalité",
    "attendu": "OK (15000)",
-   "obtenu": "OK : {\"id\": \"74da0ac8-f2b8-45cf-9cba-413353489277\", \"montant_paye\": 15000}",
+   "obtenu": "OK : {\"id\": \"ef587ff9-275d-4a10-8246-43fb4486a5b1\", \"montant_paye\": 15000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1250,7 +1250,7 @@
    "compte": "abm",
    "action": "Contrôle de remise en service APTE",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"08cf6709-2dea-47a1-b0fd-ec04997a3591\", \"resultat\": \"APTE\"}",
+   "obtenu": "OK : {\"id\": \"1079ff58-65b4-4548-94d1-dbbfd2b11aff\", \"resultat\": \"APTE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1277,7 +1277,7 @@
    "compte": "lc",
    "action": "Exception documentée après diagnostic (fictif)",
    "attendu": "OK (BROUILLON)",
-   "obtenu": "OK : {\"id\": \"4ec5d79b-b52f-4c6c-bf3a-e811d1445799\", \"statut\": \"BROUILLON\", \"version\": 1}",
+   "obtenu": "OK : {\"id\": \"0e68710e-9a15-452f-8347-707f3188dd4d\", \"statut\": \"BROUILLON\", \"version\": 1}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1286,7 +1286,7 @@
    "compte": "bm",
    "action": "BM approuve l'exception",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"4ec5d79b-b52f-4c6c-bf3a-e811d1445799\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
+   "obtenu": "OK : {\"id\": \"0e68710e-9a15-452f-8347-707f3188dd4d\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1439,7 +1439,7 @@
    "compte": "bm",
    "action": "Refus motivé par un BM indépendant",
    "attendu": "OK (REFUSEE)",
-   "obtenu": "OK : {\"id\": \"1cfb8629-71b8-4b07-a6cf-640942108062\", \"statut\": \"REFUSEE\", \"montant_autorise\": null}",
+   "obtenu": "OK : {\"id\": \"5211b5d3-5c2a-474a-82ca-416e3f2e115b\", \"statut\": \"REFUSEE\", \"montant_autorise\": null}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1493,7 +1493,7 @@
    "compte": "lc",
    "action": "Nouvelle version VIDANGE (1 200 km) proposée par le coordinateur",
    "attendu": "OK (BROUILLON)",
-   "obtenu": "OK : {\"id\": \"2e8a3aa0-38e5-4396-bcc8-b58559e38f51\", \"statut\": \"BROUILLON\", \"version\": 3}",
+   "obtenu": "OK : {\"id\": \"96870011-bf4e-4b75-9191-ee114b9ed0a7\", \"statut\": \"BROUILLON\", \"version\": 3}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1502,7 +1502,7 @@
    "compte": "bm",
    "action": "Approbation de la version 3",
    "attendu": "OK (APPROUVEE)",
-   "obtenu": "OK : {\"id\": \"2e8a3aa0-38e5-4396-bcc8-b58559e38f51\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
+   "obtenu": "OK : {\"id\": \"96870011-bf4e-4b75-9191-ee114b9ed0a7\", \"statut\": \"APPROUVEE\", \"date_effet\": \"2026-11-01\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1556,7 +1556,7 @@
    "compte": "lc",
    "action": "Revue : facture 10 000 pour l'autorisation de 10 000",
    "attendu": "OK (DEPOSEE)",
-   "obtenu": "OK : {\"id\": \"28c0dd81-e48f-4e39-807c-3f6b15eec5bb\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
+   "obtenu": "OK : {\"id\": \"231fb632-3ce8-4268-ac8f-ccc2f5683929\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1565,7 +1565,7 @@
    "compte": "lc",
    "action": "Revue : seconde facture sur la même autorisation",
    "attendu": "OK (\"hors_autorisation\": true)",
-   "obtenu": "OK : {\"id\": \"b971874a-a620-4d6a-9b40-f4b0a2efce0d\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
+   "obtenu": "OK : {\"id\": \"06496896-9c83-4a5a-b2cb-25b2a7ade2fd\", \"statut\": \"DEPOSEE\", \"hors_autorisation\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1583,7 +1583,7 @@
    "compte": "lc",
    "action": "Revue : pneu de 10 000 réparti sur la facture vérifiée",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"908c3134-9624-4997-ae42-680420d24bbe\"}",
+   "obtenu": "OK : {\"id\": \"d1732a3d-e864-4c4b-9882-529a501a13b2\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1646,7 +1646,7 @@
    "compte": "lc",
    "action": "Revue : vraie dépense de supervision (sans moto) acceptée",
    "attendu": "OK (SUPERVISION)",
-   "obtenu": "OK : {\"id\": \"3d30949f-35be-4bdf-ad60-efa571683ed1\", \"nature\": \"SUPERVISION\", \"statut\": \"DECLAREE\"}",
+   "obtenu": "OK : {\"id\": \"7614ddfb-d2bf-4b3a-9db1-58905cfd71b0\", \"nature\": \"SUPERVISION\", \"statut\": \"DECLAREE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1673,7 +1673,7 @@
    "compte": "lc",
    "action": "Revue : annulation d'un dossier autorisé, non engagé",
    "attendu": "OK (ANNULEE)",
-   "obtenu": "OK : {\"id\": \"8ff261ed-37c5-447b-ad42-a2db94c155c8\", \"statut\": \"ANNULEE\"}",
+   "obtenu": "OK : {\"id\": \"8345133b-a58f-4c4d-a013-ac25823fa89e\", \"statut\": \"ANNULEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1781,7 +1781,7 @@
    "compte": "fin",
    "action": "Revue : la Finance vérifie",
    "attendu": "OK (VERIFIEE)",
-   "obtenu": "OK : {\"id\": \"9122c6cb-3ebe-48bc-94e5-e0deb1a5b4af\", \"statut\": \"VERIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"09c66b72-0f9a-4033-ae02-97cb0e771fe0\", \"statut\": \"VERIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {

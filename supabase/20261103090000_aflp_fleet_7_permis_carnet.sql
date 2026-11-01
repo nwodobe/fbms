@@ -208,9 +208,13 @@ begin
     if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut not in ('NON_CONFORME','ANNULE') and titulaire_id <> r.titulaire_id) then
       perform private.moto_erreur('Ce numéro de permis est déjà reconnu pour un autre conducteur : déclarez ce dépôt non conforme.');
     end if;
-    -- Quatre yeux sur le numéro : qui a annulé un permis portant ce numéro ne valide pas le dépôt suivant.
-    if exists (select 1 from public.moto_permis where numero_cle = r.numero_cle and statut = 'ANNULE' and annule_par = auth.uid()) then
-      perform private.moto_refus('Quatre yeux : la personne qui a annulé un permis portant ce numéro ne valide pas le nouveau dépôt ; faites-le vérifier par l''ABM.');
+    -- Quatre yeux sur le numéro : qui a LIBÉRÉ ce numéro (annulation, ou rejet du dépôt d'une autre personne)
+    -- ne valide pas un dépôt portant ce numéro ; une seule personne ne peut pas faire passer un numéro d'un titulaire à un autre.
+    if exists (select 1 from public.moto_permis
+               where numero_cle = r.numero_cle and id <> r.id
+                 and ((statut = 'ANNULE' and annule_par = auth.uid())
+                   or (statut = 'NON_CONFORME' and verifie_par = auth.uid() and titulaire_id <> r.titulaire_id))) then
+      perform private.moto_refus('Quatre yeux : vous avez déjà libéré ce numéro (annulation ou rejet d''un autre conducteur) ; faites vérifier ce dépôt par l''ABM.');
     end if;
     if exists (select 1 from public.moto_permis where titulaire_id = r.titulaire_id and statut = 'RETRAIT_LEVE' and leve_par = auth.uid()) then
       perform private.moto_refus('Quatre yeux : la personne qui a levé le retrait ne vérifie pas le nouveau dépôt ; faites-le vérifier par l''ABM.');

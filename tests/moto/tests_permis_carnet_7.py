@@ -375,6 +375,18 @@ act("W11", "Revue 5", "bm", "Le BM qui a annulé valide lui-même un dépôt sur
 act("W12", "Revue 5", "abm", "L'ABM valide ce dépôt sur original", f"select public.moto_permis_verifier((select id from public.moto_permis where titulaire_id='{U['lc']}' and statut='EN_VERIFICATION'), 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
 check("W13", "Revue 5", "Le motif de l'annulation est tracé au journal", f"select (motif like 'Numéro appartenant au coordinateur%')::text from public.moto_journal where table_nom='moto_permis' and nouvelle_valeur->>'statut'='ANNULE' and enregistrement_id='{w}' order by at desc limit 1", "true")
 
+# Sixième vérification : rejet abusif du vrai titulaire, puis validation d'un tiers par le même BM.
+q(f"insert into auth.users (id, email) values ('{uid(213)}', 'uhd7@example.invalid'), ('{uid(214)}', 'uhe7@example.invalid') on conflict do nothing; insert into public.profils (user_id, email, nom, role, cluster, zone, actif) values ('{uid(213)}', 'uhd7@example.invalid', 'UH7 D FICTIF', 'Unit Head', 'BROBO', 'GBEKE 1', true), ('{uid(214)}', 'uhe7@example.invalid', 'UH7 E FICTIF', 'Unit Head', 'BOTRO', 'GBEKE 1', true) on conflict do nothing;")
+U["uh_d"] = uid(213); U["uh_e"] = uid(214)
+vrai = act("V20a", "Revue 6", "uh_d", "Le vrai titulaire dépose son permis", "select public.moto_permis_enregistrer(" + lit(permis("uh_d", "VRAI-NC-213")) + ")", True)["id"]
+act("V20b", "Revue 6", "bm", "Le BM le rejette (faux motif)", f"select public.moto_permis_verifier('{vrai}', 'NON_CONFORME', null, null, 'Rejet abusif pour le test')", True, "NON_CONFORME")
+tiers = act("V20c", "Revue 6", "uh_e", "Un tiers dépose ce numéro libéré", "select public.moto_permis_enregistrer(" + lit(permis("uh_e", "vrai nc 213")) + ")", True)["id"]
+act("V20", "Revue 6", "bm", "Le même BM valide le dépôt du tiers", f"select public.moto_permis_verifier('{tiers}', 'CONFORME', 'RH FICTIF', true)", False, "Quatre yeux")
+act("V21", "Revue 6", "bm", "Le BM reste libre de rejeter ce dépôt (sens prudent)", f"select public.moto_permis_verifier('{tiers}', 'NON_CONFORME', null, null, 'Numéro contesté, à instruire')", True, "NON_CONFORME")
+vrai2 = act("V22a", "Revue 6", "uh_d", "Le vrai titulaire redépose", "select public.moto_permis_enregistrer(" + lit(permis("uh_d", "VRAI-NC-213")) + ")", True)["id"]
+act("V22", "Revue 6", "bm", "Numéro disputé entre deux personnes : le BM qui a rejeté l'une ne tranche pas seul", f"select public.moto_permis_verifier('{vrai2}', 'CONFORME', 'RH FICTIF', true)", False, "Quatre yeux")
+act("V23", "Revue 6", "abm", "L'ABM valide le dépôt du vrai titulaire sur original", f"select public.moto_permis_verifier('{vrai2}', 'CONFORME', 'RH FICTIF', true)", True, "CONFORME")
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, "permis_carnet_7.json"), "w", encoding="utf-8") as f:

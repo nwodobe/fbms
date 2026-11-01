@@ -1,5 +1,5 @@
 {
- "date": "2026-11-01T09:01:47.403Z",
+ "date": "2026-11-01T09:06:58.872Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=ee9aa221-6c5e-4225-a9ef-f0bb0dc68ca9/photo/90cb7dc2-e402-4572-990a-05543bbb6f6c.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=b1d157ed-6f95-4d7a-9b71-1962eb7710b1/photo/61b43c48-5f47-4bae-b801-9a52cd30cdfa.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -466,7 +466,7 @@
    "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
    "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
    "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
-   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/ee9aa221-6c5e-4225-a9ef-f0bb0dc68ca9/devis/c35a17d0-ed81-4082-80d1-2cb3857e70e6.pdf\"}",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/b1d157ed-6f95-4d7a-9b71-1962eb7710b1/devis/ccc3ae4b-3283-440b-ad4b-97c2170377c4.pdf\"}",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
   },
@@ -529,7 +529,7 @@
    "exigence": "Documents scannés dès l'enregistrement d'une moto",
    "action": "Coordinateur enregistre une moto avec la carte grise scannée (2 pages, recadrage, rotation)",
    "attendu": "moto créée, carte grise EN_VERIFICATION, PDF valide de 2 pages",
-   "obtenu": "ferme · EN_VERIFICATION · d210f411-1eb2-44de-a72e-191247e2a3f0/document/67e0fa59-11b6-4e7c-ab02-ce9157ef91e3.pdf · PDF valide · 2 page(s)",
+   "obtenu": "ferme · EN_VERIFICATION · 19a7bdd0-1d9a-4a97-9d2d-70e28382b118/document/7164b907-3919-4a0c-8814-235951dfcfe1.pdf · PDF valide · 2 page(s)",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/scanner-mobile.png"
   },
