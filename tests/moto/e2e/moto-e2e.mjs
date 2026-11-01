@@ -162,6 +162,15 @@ async function valider(p) {
 }
 async function toutConforme(p) { for (const r of await p.locator('dialog.mm-modale input[type=radio][value=ok]').all()) await r.check(); }
 async function capture(p, nom) { const f = join(CAPTURES, nom + '.png'); await p.screenshot({ path: f, fullPage: true }); return 'tests/moto/resultats/captures/' + nom + '.png'; }
+// Formulaire entier, déplié (supports de formation) : la hauteur de la fenêtre est rétablie ensuite.
+async function captureFormulaire(p, nom) {
+  const vp = p.viewportSize();
+  await p.setViewportSize({ width: vp.width, height: 2000 });
+  await p.evaluate(() => document.querySelectorAll('dialog.mm-modale, dialog.mm-modale *').forEach(c => { c.scrollTop = 0; }));
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: join(CAPTURES, nom + '.png') });
+  await p.setViewportSize(vp);
+}
 async function debordement(p) { return p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); }
 
 const PDF = { name: 'scan-fictif.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% document fictif de test E2E\n%%EOF\n') };
@@ -368,7 +377,9 @@ try {
     return { ok: n === 6 && deb <= 1, obtenu: `tuiles=${n} · débordement=${deb}px`, preuve: await capture(pU, 'operations-mobile') };
   });
   await etape('UI-OP-02', 'Contrôle de sécurité avant départ', 'Chef d\'unité valide le contrôle', 'contrôle APTE synchronisé', async () => {
-    await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' }); await toutConforme(pU); const r = await valider(pU);
+    await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' });
+    await toutConforme(pU); await captureFormulaire(pU, 'controle-avant-depart-mobile');   // support de formation (thème A)
+    const r = await valider(pU);
     const c = await attendre(async () => (await q("select resultat from public.moto_controles where moto_id=$1 and type_controle='AVANT_DEPART'", [motoId]))[0]?.resultat);
     return { ok: r === 'ferme' && c === 'APTE', obtenu: `${r} · ${c}` };
   });
