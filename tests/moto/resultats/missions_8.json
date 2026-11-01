@@ -1,6 +1,6 @@
 {
  "base": "fbms_moto_test",
- "date": "2026-11-01T12:30:26.270343+00:00",
+ "date": "2026-11-01T12:48:21.635443+00:00",
  "resultats": [
   {
    "id": "D01",
@@ -8,7 +8,7 @@
    "compte": "uh_a",
    "action": "L'agent démarre une mission (lecture proposée confirmée)",
    "attendu": "OK (OUVERTE)",
-   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1000}",
+   "obtenu": "OK : {\"id\": \"9b7616e5-b371-44f8-a364-b8bc14ee31d3\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -17,7 +17,7 @@
    "compte": "uh_a",
    "action": "Renvoi de la même opération (rejeu hors ligne)",
    "attendu": "OK (doublon)",
-   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"SYNCHRONISE\", \"doublon\": true, \"anomalies\": [], \"compteur_km\": 1000}",
+   "obtenu": "OK : {\"id\": \"9b7616e5-b371-44f8-a364-b8bc14ee31d3\", \"statut\": \"SYNCHRONISE\", \"doublon\": true, \"anomalies\": [], \"compteur_km\": 1000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -35,7 +35,7 @@
    "compte": "uh_a",
    "action": "Deuxième mission ouverte sur la même moto",
    "attendu": "REFUS (déjà ouverte)",
-   "obtenu": "REFUS : Une mission est déjà ouverte sur cette moto (UH8 A FICTIF, depuis le 01/11/2026 10:30) : elle doit être clôturée d'abord.",
+   "obtenu": "REFUS : Une mission est déjà ouverte sur cette moto (UH8 A FICTIF, depuis le 01/11/2026 10:48) : elle doit être clôturée d'abord.",
    "resultat": "RÉUSSI"
   },
   {
@@ -278,7 +278,7 @@
    "compte": "uh_a",
    "action": "Clôture correcte (lecture corrigée par l'agent)",
    "attendu": "OK (CLOTUREE)",
-   "obtenu": "OK : {\"id\": \"3be0869b-0294-43cd-9110-8dab91e74d34\", \"statut\": \"CLOTUREE\", \"anomalies\": [], \"distance_km\": 42.0}",
+   "obtenu": "OK : {\"id\": \"9b7616e5-b371-44f8-a364-b8bc14ee31d3\", \"statut\": \"CLOTUREE\", \"anomalies\": [], \"distance_km\": 42.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -332,7 +332,7 @@
    "compte": "uh_a",
    "action": "Clôture d'une mission inexistante",
    "attendu": "REFUS (introuvable)",
-   "obtenu": "REFUS : Mission introuvable (le départ a-t-il été synchronisé ?).",
+   "obtenu": "REFUS : Mission introuvable : le départ n'est pas encore synchronisé.",
    "resultat": "RÉUSSI"
   },
   {
@@ -341,7 +341,7 @@
    "compte": "uh_a",
    "action": "Départ 18 km après la fin de la mission précédente",
    "attendu": "OK (HORS_MISSION)",
-   "obtenu": "OK : {\"id\": \"68001e8a-8e0c-4362-b46a-268505a149fd\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 1060}",
+   "obtenu": "OK : {\"id\": \"f9de4238-d3e0-4ed2-b52b-390df8b3b41e\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 1060}",
    "resultat": "RÉUSSI"
   },
   {
@@ -359,7 +359,7 @@
    "compte": "uh_a",
    "action": "300 km en 10 minutes : vitesse et distance hors norme",
    "attendu": "OK (VITESSE)",
-   "obtenu": "OK : {\"id\": \"68001e8a-8e0c-4362-b46a-268505a149fd\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"DISTANCE\", \"HORS_MISSION\", \"VITESSE\"], \"distance_km\": 300.0}",
+   "obtenu": "OK : {\"id\": \"f9de4238-d3e0-4ed2-b52b-390df8b3b41e\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"DISTANCE\", \"HORS_MISSION\", \"VITESSE\"], \"distance_km\": 300.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -377,7 +377,7 @@
    "compte": "uh_a",
    "action": "Compteur 200 km au-delà du dernier relevé (photo d'une autre moto ?)",
    "attendu": "OK (CONTINUITE)",
-   "obtenu": "OK : {\"id\": \"76222f1a-533f-4fdd-8fa1-96e3fe8a6939\", \"statut\": \"OUVERTE\", \"anomalies\": [\"CONTINUITE\", \"HORS_MISSION\"], \"compteur_km\": 1560}",
+   "obtenu": "OK : {\"id\": \"42d5216c-3e82-475c-b7f5-d4c053ad053e\", \"statut\": \"OUVERTE\", \"anomalies\": [\"CONTINUITE\", \"HORS_MISSION\"], \"compteur_km\": 1560}",
    "resultat": "RÉUSSI"
   },
   {
@@ -386,7 +386,7 @@
    "compte": "uh_a",
    "action": "Horloge du téléphone décalée de 30 minutes, GPS absent",
    "attendu": "OK (HORLOGE)",
-   "obtenu": "OK : {\"id\": \"76222f1a-533f-4fdd-8fa1-96e3fe8a6939\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CONTINUITE\", \"GPS_ABSENT\", \"HORLOGE\", \"HORS_MISSION\"], \"distance_km\": 15.0}",
+   "obtenu": "OK : {\"id\": \"42d5216c-3e82-475c-b7f5-d4c053ad053e\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CONTINUITE\", \"GPS_ABSENT\", \"HORLOGE\", \"HORS_MISSION\"], \"distance_km\": 15.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -413,7 +413,7 @@
    "compte": "uh_b",
    "action": "Départ la veille (synchronisé aujourd'hui)",
    "attendu": "OK (OUVERTE)",
-   "obtenu": "OK : {\"id\": \"c6536c6b-b9f6-4601-acb7-07d95e3558d2\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 5000}",
+   "obtenu": "OK : {\"id\": \"5316254a-5b9e-4e03-8071-c6a281262026\", \"statut\": \"OUVERTE\", \"anomalies\": [\"SAISIE_DIFFEREE_DEPART\"], \"compteur_km\": 5000}",
    "resultat": "RÉUSSI"
   },
   {
@@ -431,7 +431,7 @@
    "compte": "uh_b",
    "action": "Clôture tardive : signalée, jamais estimée",
    "attendu": "OK (CLOTURE_TARDIVE)",
-   "obtenu": "OK : {\"id\": \"c6536c6b-b9f6-4601-acb7-07d95e3558d2\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CLOTURE_TARDIVE\"], \"distance_km\": 30.0}",
+   "obtenu": "OK : {\"id\": \"5316254a-5b9e-4e03-8071-c6a281262026\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CLOTURE_TARDIVE\", \"SAISIE_DIFFEREE_DEPART\"], \"distance_km\": 30.0}",
    "resultat": "RÉUSSI"
   },
   {
@@ -476,7 +476,7 @@
    "compte": "zh",
    "action": "Le Chef de zone justifie l'écart (motif vérifié)",
    "attendu": "OK (JUSTIFIEE)",
-   "obtenu": "OK : {\"id\": \"c0a8cf52-be2e-4857-89fd-cdc862f69b05\", \"statut\": \"JUSTIFIEE\"}",
+   "obtenu": "OK : {\"id\": \"1bd966fe-e1af-4bf0-b954-89584491f707\", \"statut\": \"JUSTIFIEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -494,7 +494,7 @@
    "compte": "uh_a",
    "action": "Mission ouverte par erreur",
    "attendu": "OK (OUVERTE)",
-   "obtenu": "OK : {\"id\": \"3ceed3c3-f859-46f2-95d5-73e8156b6c45\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1575}",
+   "obtenu": "OK : {\"id\": \"a61a7dc8-f905-4dd3-93fa-2b5707b5af55\", \"statut\": \"OUVERTE\", \"anomalies\": [], \"compteur_km\": 1575}",
    "resultat": "RÉUSSI"
   },
   {
@@ -521,7 +521,7 @@
    "compte": "zh",
    "action": "Le Chef de zone annule (motif)",
    "attendu": "OK (ANNULEE)",
-   "obtenu": "OK : {\"id\": \"3ceed3c3-f859-46f2-95d5-73e8156b6c45\", \"statut\": \"ANNULEE\"}",
+   "obtenu": "OK : {\"id\": \"a61a7dc8-f905-4dd3-93fa-2b5707b5af55\", \"statut\": \"ANNULEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -683,16 +683,16 @@
    "compte": "fin",
    "action": "La Finance voit les photos de compteur (contrôle collectif)",
    "attendu": "OK",
-   "obtenu": "OK : 16",
+   "obtenu": "OK : 7",
    "resultat": "RÉUSSI"
   },
   {
    "id": "L16b",
    "domaine": "Lecture",
    "compte": "fin",
-   "action": "… et en voit au moins les 8 du test",
-   "attendu": ">= 8",
-   "obtenu": "16",
+   "action": "… exactement celles rattachées à une mission (pas les fichiers orphelins de départs refusés)",
+   "attendu": "7",
+   "obtenu": "7",
    "resultat": "RÉUSSI"
   },
   {
@@ -728,7 +728,7 @@
    "compte": "postgres (écriture directe)",
    "action": "Même le propriétaire ne modifie pas une position",
    "attendu": "REFUS (immuable)",
-   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 3 at RAISE",
+   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 4 at RAISE",
    "resultat": "RÉUSSI"
   },
   {
@@ -737,7 +737,7 @@
    "compte": "postgres (écriture directe)",
    "action": "Une empreinte de photo ne se réécrit pas",
    "attendu": "REFUS (immuable)",
-   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 3 at RAISE",
+   "obtenu": "ERROR:  Les photos et positions de mission ne se modifient pas.\nCONTEXT:  PL/pgSQL function private.moto_mission_immuable() line 4 at RAISE",
    "resultat": "RÉUSSI"
   },
   {
@@ -773,7 +773,7 @@
    "compte": "abm",
    "action": "Demande : compteur de départ porté au-dessus de l'arrivée",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"c4797682-13b5-4605-96a5-c46a87874034\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"11de5931-073e-448b-8ba5-3921a76e8c60\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -782,7 +782,7 @@
    "compte": "bm",
    "action": "Validation : refusée, le départ dépasserait l'arrivée",
    "attendu": "REFUS (Correction refusée)",
-   "obtenu": "REFUS : Correction refusée : le compteur de départ dépasserait celui d'arrivée de la mission.",
+   "obtenu": "REFUS : Correction refusée : la valeur dépasserait un relevé postérieur de la moto.",
    "resultat": "RÉUSSI"
   },
   {
@@ -800,7 +800,7 @@
    "compte": "bm",
    "action": "Rejet de la demande incohérente",
    "attendu": "OK (REJETEE)",
-   "obtenu": "OK : {\"id\": \"c4797682-13b5-4605-96a5-c46a87874034\", \"statut\": \"REJETEE\"}",
+   "obtenu": "OK : {\"id\": \"11de5931-073e-448b-8ba5-3921a76e8c60\", \"statut\": \"REJETEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -809,7 +809,7 @@
    "compte": "abm",
    "action": "Demande : compteur d'arrivée corrigé (photo relue)",
    "attendu": "OK (DEMANDEE)",
-   "obtenu": "OK : {\"id\": \"698efdf5-e2bd-4d42-8a62-dfd056defb60\", \"statut\": \"DEMANDEE\"}",
+   "obtenu": "OK : {\"id\": \"456152a1-1ab9-4dae-b7df-c6506c6ab4b3\", \"statut\": \"DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -827,7 +827,7 @@
    "compte": "bm",
    "action": "Le BM valide la correction",
    "attendu": "OK (APPLIQUEE)",
-   "obtenu": "OK : {\"id\": \"698efdf5-e2bd-4d42-8a62-dfd056defb60\", \"statut\": \"APPLIQUEE\"}",
+   "obtenu": "OK : {\"id\": \"456152a1-1ab9-4dae-b7df-c6506c6ab4b3\", \"statut\": \"APPLIQUEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -879,9 +879,9 @@
    "id": "B04",
    "domaine": "Hors connexion",
    "compte": "uh_b",
-   "action": "Lot dont le départ recule : départ et arrivée refusés, rien d'estimé",
-   "attendu": "OK (REJETE,REJETE)",
-   "obtenu": "OK : REJETE,REJETE",
+   "action": "Lot dont le départ recule : départ refusé, arrivée laissée en attente (jamais estimée)",
+   "attendu": "OK (REJETE,ERREUR_TEMPORAIRE)",
+   "obtenu": "OK : REJETE,ERREUR_TEMPORAIRE",
    "resultat": "RÉUSSI"
   },
   {
@@ -917,7 +917,7 @@
    "compte": "zh / zh_b",
    "action": "Deux départs simultanés sur la même moto : un seul accepté",
    "attendu": "1 OK, 1 REFUS",
-   "obtenu": "{\"a\": \"{\\\"id\\\": \\\"0154796b-e85b-4b2a-88f5-5a379a5c8bbe\\\", \\\"statut\\\": \\\"OUVERTE\\\", \\\"anomalies\\\":\", \"b\": \"Une mission est déjà ouverte sur cette moto (ZH8 FICTIF, depuis le 01/11/2026 12\"}",
+   "obtenu": "{\"a\": \"{\\\"id\\\": \\\"0569a1f4-aebb-4dc1-b4c0-5444f6271b04\\\", \\\"statut\\\": \\\"OUVERTE\\\", \\\"anomalies\\\":\", \"b\": \"Une mission est déjà ouverte sur cette moto (ZH8 FICTIF, depuis le 01/11/2026 12\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1006,8 +1006,287 @@
    "domaine": "Paramètres",
    "compte": "postgres (lecture)",
    "action": "Seuils paramétrables présents (provisoires)",
-   "attendu": "8",
-   "obtenu": "8",
+   "attendu": "9",
+   "obtenu": "9",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X01",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Compteur « NaN » (bloquerait la moto)",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Valeur numérique invalide pour « compteur_km ».",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X01b",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Compteur « Infinity »",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Valeur numérique invalide pour « compteur_km ».",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X01c",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Relevé ordinaire « NaN » (moto_num corrigé pour toutes les saisies)",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Valeur numérique invalide pour « compteur_km ».",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X01d",
+   "domaine": "Contre-expertise",
+   "compte": "postgres (lecture)",
+   "action": "Le compteur de la moto est intact",
+   "attendu": "800.0",
+   "obtenu": "800.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X02",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Départ à 13 h (capture hors connexion) : accepté et signalé SAISIE_DIFFEREE",
+   "attendu": "OK (SAISIE_DIFFEREE_DEPART)",
+   "obtenu": "OK : {\"id\": \"f053bc5c-0788-4e26-b8e6-8dfaa52375a1\", \"statut\": \"OUVERTE\", \"anomalies\": [\"SAISIE_DIFFEREE_DEPART\"], \"compteur_km\": 805}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X03",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Arrivée avec le MÊME fichier (eTag identique) et une empreinte inventée",
+   "attendu": "REFUS (déjà été utilisée)",
+   "obtenu": "REFUS : Cette photo a déjà été utilisée pour un autre relevé : reprenez une photo du compteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X04",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Clôture normale",
+   "attendu": "OK (CLOTUREE)",
+   "obtenu": "OK : {\"id\": \"f053bc5c-0788-4e26-b8e6-8dfaa52375a1\", \"statut\": \"CLOTUREE\", \"anomalies\": [\"CLOTURE_TARDIVE\", \"SAISIE_DIFFEREE_ARRIVEE\", \"SAISIE_DIFFEREE_DEPART\"], \"distance_km\": 10.0}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X05",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Départ ANTIDATÉ avant la mission déjà clôturée (chevauchement)",
+   "attendu": "REFUS (antérieure au dernier relevé)",
+   "obtenu": "REFUS : Heure de départ (01/11/2026 00:18) antérieure au dernier relevé de la moto (01/11/2026 00:48) : vérifiez l'heure du téléphone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X06",
+   "domaine": "Contre-expertise",
+   "compte": "uh_exp",
+   "action": "Permis expiré hier : départ « maintenant »",
+   "attendu": "REFUS (Aucun permis valide)",
+   "obtenu": "REFUS : Aucun permis valide et vérifié à votre nom : mission impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X06b",
+   "domaine": "Contre-expertise",
+   "compte": "uh_exp",
+   "action": "Permis expiré hier : départ antidaté de 3 jours",
+   "attendu": "REFUS (Aucun permis valide)",
+   "obtenu": "REFUS : Aucun permis valide et vérifié à votre nom : mission impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X07",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Lot : arrivée seule (départ pas encore envoyé)",
+   "attendu": "OK (ERREUR_TEMPORAIRE)",
+   "obtenu": "OK : ERREUR_TEMPORAIRE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X07b",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Lot suivant : départ puis arrivée renvoyée",
+   "attendu": "OK (SYNCHRONISE,SYNCHRONISE)",
+   "obtenu": "OK : SYNCHRONISE,SYNCHRONISE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X07c",
+   "domaine": "Contre-expertise",
+   "compte": "postgres (lecture)",
+   "action": "La mission est bien clôturée",
+   "attendu": "CLOTUREE",
+   "obtenu": "CLOTUREE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X08a",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Départ à 840 (10 km hors mission)",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"fd95d801-e10f-416f-8f26-72f1ac4d4643\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 840}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X08b",
+   "domaine": "Contre-expertise",
+   "compte": "zh",
+   "action": "Annulation de cette mission",
+   "attendu": "OK (ANNULEE)",
+   "obtenu": "OK : {\"id\": \"fd95d801-e10f-416f-8f26-72f1ac4d4643\", \"statut\": \"ANNULEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X08c",
+   "domaine": "Contre-expertise",
+   "compte": "uh_x",
+   "action": "Départ suivant à 860",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"2a40e389-86a6-4324-a527-87bf8718d866\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 860}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X08d",
+   "domaine": "Contre-expertise",
+   "compte": "postgres (lecture)",
+   "action": "Km hors mission du mois : 5 + 30 (et non 5 + 10 + 30)",
+   "attendu": "35.0",
+   "obtenu": "35.0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X09a",
+   "domaine": "Contre-expertise",
+   "compte": "abm",
+   "action": "Demande : arrivée corrigée 830 → 900 (au-delà des relevés suivants)",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"02df3a0a-96d0-4c25-ba3b-472647c8e3f7\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X09",
+   "domaine": "Contre-expertise",
+   "compte": "bm",
+   "action": "Validation refusée : le compteur dépasserait un relevé postérieur",
+   "attendu": "REFUS (relevé postérieur)",
+   "obtenu": "REFUS : Correction refusée : la valeur dépasserait un relevé postérieur de la moto.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X10",
+   "domaine": "Contre-expertise",
+   "compte": "zh_c",
+   "action": "Chef de zone GBEKE 2 : missions d'une moto GBEKE 1",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X10b",
+   "domaine": "Contre-expertise",
+   "compte": "zh_c",
+   "action": "… positions",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X10c",
+   "domaine": "Contre-expertise",
+   "compte": "zh_c",
+   "action": "… justifie un écart",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X10d",
+   "domaine": "Contre-expertise",
+   "compte": "zh_c",
+   "action": "… annule une mission",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Mission hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X11",
+   "domaine": "Contre-expertise",
+   "compte": "uh_y",
+   "action": "Autre Chef d'unité du cluster : photos de mission de la moto X",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X11b",
+   "domaine": "Contre-expertise",
+   "compte": "zh",
+   "action": "Son Chef de zone les lit",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X12a",
+   "domaine": "Contre-expertise",
+   "compte": "bm",
+   "action": "Le BM conduit lui-même (mission sur la moto B)",
+   "attendu": "OK (OUVERTE)",
+   "obtenu": "OK : {\"id\": \"81341c16-5009-4b85-9921-51bb3ae6e60e\", \"statut\": \"OUVERTE\", \"anomalies\": [\"HORS_MISSION\"], \"compteur_km\": 5100}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X12b",
+   "domaine": "Contre-expertise",
+   "compte": "abm",
+   "action": "Demande de correction du relevé de départ du BM",
+   "attendu": "OK (DEMANDEE)",
+   "obtenu": "OK : {\"id\": \"a8aaf18e-d1c8-4416-bed6-6e02a2f0bfa7\", \"statut\": \"DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X12",
+   "domaine": "Contre-expertise",
+   "compte": "bm",
+   "action": "Le BM valide la correction de son propre relevé",
+   "attendu": "REFUS (propre relevé)",
+   "obtenu": "REFUS : Quatre yeux : vous ne validez pas la correction de votre propre relevé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X12c",
+   "domaine": "Contre-expertise",
+   "compte": "dir",
+   "action": "La Direction valide (quatre yeux respectés)",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"id\": \"a8aaf18e-d1c8-4416-bed6-6e02a2f0bfa7\", \"statut\": \"APPLIQUEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X13",
+   "domaine": "Contre-expertise",
+   "compte": "uh_a",
+   "action": "Un agent purge des photos",
+   "attendu": "REFUS (rôle)",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X13b",
+   "domaine": "Contre-expertise",
+   "compte": "bm",
+   "action": "Le BM ne peut pas purger une photo récente",
+   "attendu": "OK (0)",
+   "obtenu": "OK : 0",
    "resultat": "RÉUSSI"
   }
  ]

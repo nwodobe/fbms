@@ -10,6 +10,7 @@
  * Couvre ce qu'utilise le module : GET table/vue (select=*, eq, neq, is.null,
  * order, limit, objet unique), POST rpc/<fonction>, dépôt, URL signée et lecture signée Storage.
  */
+import { createHash } from 'node:crypto';
 import pg from 'pg';
 
 export function creerEmulateur({ host, port, database }) {
@@ -123,7 +124,7 @@ export function creerEmulateur({ host, port, database }) {
       try {
         // Comme Supabase : métadonnées du FICHIER (type et taille réels), pas de l'enveloppe multipart.
         const f = extraireFichier(corps, contentType);
-        await enTantQue(sub, c => c.query('insert into storage.objects (bucket_id, name, metadata) values ($1, $2, $3)', [bucket, nomD, JSON.stringify({ mimetype: f.contentType, size: f.corps ? f.corps.length : 0 })]));
+        await enTantQue(sub, c => c.query('insert into storage.objects (bucket_id, name, metadata) values ($1, $2, $3)', [bucket, nomD, JSON.stringify({ mimetype: f.contentType, size: f.corps ? f.corps.length : 0, eTag: '"' + createHash('md5').update(f.corps || Buffer.alloc(0)).digest('hex') + '"' })]));
         fichiers.set(bucket + '/' + nomD, f);
         return reponse(200, { Key: `${bucket}/${nomD}`, Id: nomD });
       } catch (e) {

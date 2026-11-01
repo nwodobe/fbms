@@ -97,11 +97,12 @@ for k, nom, role, cluster, zone, fonction in PROFILS:
 q("\n".join(setup))
 
 def permis_fixture(user):
-    dep = U['lc'] if user == 'abm' else U['abm']
+    dep = U['lc'] if user in ('abm', 'bm') else U['abm']
+    verif = U['abm'] if user == 'bm' else U['bm']
     q(f"""insert into public.moto_permis (titulaire_id, nom_titulaire, numero_permis, categories, date_expiration, document_path, statut,
             verification_rh_nom, categorie_adaptee, depose_par, verifie_par, verifie_at)
           select '{U[user]}', 'TITULAIRE FICTIF', 'FX8-{U[user][-6:]}', '{{A}}', current_date + 700, 'permis/{U[user]}/fixture8.pdf', 'CONFORME',
-                 'RH FICTIF', true, '{dep}', '{U['bm']}', now()
+                 'RH FICTIF', true, '{dep}', '{verif}', now()
           where not exists (select 1 from public.moto_permis where titulaire_id = '{U[user]}' and statut = 'CONFORME')""")
 
 def moto(user_benef, km0, cluster="SAKASSOU", en_service=True, permis=True, zone="GBEKE 1"):
@@ -129,20 +130,20 @@ M4 = moto("zh", 7000, "SAKASSOU")            # moto du Chef de zone, à immobili
 M5 = moto("uh_np", 2000, "SAKASSOU", permis=False)  # moto libre (aucune affectation)
 permis_fixture("uh_b"); permis_fixture("zh"); permis_fixture("uh_a")
 
-def photo(user, moto_id, client, taille=42000, mime="image/jpeg", deposer=True, deposant=None):
+def photo(user, moto_id, client, taille=42000, mime="image/jpeg", deposer=True, deposant=None, etag=None):
     chemin = f"{moto_id}/mission/{client}-photo_path.jpg"
     if deposer:
-        meta = json.dumps({"size": taille, "mimetype": mime})
+        meta = json.dumps({"size": taille, "mimetype": mime, "eTag": '"' + (etag or secrets.token_hex(16)) + '"'})
         ok, out = run_as(deposant or user, f"insert into storage.objects (bucket_id, name, metadata) values ('moto-documents', '{chemin}', '{meta}'::jsonb)")
         if not ok: raise RuntimeError("dépôt photo : " + out)
     return chemin
 
 def charge(user, moto_id, km, minutes, origine="LU_CONFIRME", lu="=", mission_id=None, gps=True, horloge=0, objet="ACHAT_COLLECTE",
-           destination="VILLAGE FICTIF A", deposer=True, deposant=None, taille=42000, sha=None, client=None, **extra):
+           destination="VILLAGE FICTIF A", deposer=True, deposant=None, taille=42000, sha=None, client=None, etag=None, **extra):
     client = client or str(uuid.uuid4())
     p = {"client_op_id": client, "moto_id": moto_id, "compteur_km": km, "capture_at": t(minutes), "origine": origine,
          "objet": objet, "destination": destination, "localite": "LOCALITE FICTIVE", "horloge_envoi": t(-horloge),
-         "photo_path": photo(user, moto_id, client, taille=taille, deposer=deposer, deposant=deposant), "photo_sha256": sha or secrets.token_hex(32)}
+         "photo_path": photo(user, moto_id, client, taille=taille, deposer=deposer, deposant=deposant, etag=etag), "photo_sha256": sha or secrets.token_hex(32)}
     if origine != "SAISI": p["lu_km"] = km if lu == "=" else lu
     if mission_id: p["mission_id"] = mission_id
     if gps: p.update({"latitude": 7.5, "longitude": -5.0, "precision_m": 12, "gps_at": t(minutes), "gps_statut": "OK"})
@@ -275,7 +276,8 @@ check("L14", "Lecture", "Le journal ne contient aucune coordonnée et aucune pos
 act("L15", "Lecture", "uh_a", "L'agent voit les écarts de ses missions (transparence)", f"select count(*) > 0 from public.moto_v_mission_ecarts where conducteur_id='{U['uh_a']}'", True, "t")
 act("L16", "Lecture", "fin", "La Finance voit les photos de compteur (contrôle collectif)", f"select count(*) from storage.objects where bucket_id='moto-documents' and name like '{M1}/mission/%'", True, None)
 ok_l16, n_l16 = run_as("fin", f"select count(*) from storage.objects where bucket_id='moto-documents' and name like '{M1}/mission/%'")
-record("L16b", "Lecture", "fin", "… et en voit au moins les 8 du test", ">= 8", ok_l16 and int(n_l16 or 0) >= 8, n_l16)
+attendu_l16 = q(f"select count(*) from public.moto_mission_photos ph join public.moto_missions m on m.id = ph.mission_id where m.moto_id='{M1}'")
+record("L16b", "Lecture", "fin", "… exactement celles rattachées à une mission (pas les fichiers orphelins de départs refusés)", attendu_l16, ok_l16 and n_l16 == attendu_l16, n_l16)
 
 # ===========================================================================
 # W. Écritures directes interdites, photos et positions immuables
@@ -331,8 +333,8 @@ mid_c = str(uuid.uuid4())
 dep_c = charge("uh_b", M2, 5000, -3, mission_id=mid_c); arr_c = charge("uh_b", M2, 5070, -2, mission_id=mid_c)
 lot2 = [{"client_op_id": dep_c["client_op_id"], "type": "MISSION_DEPART", "payload": dep_c},
         {"client_op_id": arr_c["client_op_id"], "type": "MISSION_ARRIVEE", "payload": arr_c}]
-act("B04", "Hors connexion", "uh_b", "Lot dont le départ recule : départ et arrivée refusés, rien d'estimé",
-    "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit(lot2) + ")) x", True, "REJETE,REJETE")
+act("B04", "Hors connexion", "uh_b", "Lot dont le départ recule : départ refusé, arrivée laissée en attente (jamais estimée)",
+    "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit(lot2) + ")) x", True, "REJETE,ERREUR_TEMPORAIRE")
 check("B05", "Hors connexion", "Aucune mission créée par le lot refusé", f"select count(*) from public.moto_missions where id='{mid_c}'", "0")
 # Trois missions saisies sans réseau, synchronisées en un lot
 ops = []; km = 5055
@@ -373,7 +375,66 @@ act("R06", "Tableau", "zh", "Part des relevés corrigés et saisis (signal de co
     f"select releves_lus_corriges||'|'||releves_saisis from public.moto_v_missions_mois where conducteur_id='{U['uh_a']}' and mois = date_trunc('month', now())::date", True, "1|1")
 act("R07", "Purge", "bm", "Le BM liste les photos arrivées en fin de conservation", "select count(*) from public.moto_missions_photos_a_purger()", True, "0")
 act("R08", "Purge", "uh_a", "Un agent liste les photos à purger", "select count(*) from public.moto_missions_photos_a_purger()", False, "rôle")
-check("R09", "Paramètres", "Seuils paramétrables présents (provisoires)", "select count(*) from public.moto_parametres where cle like 'mission\\_%' and provisoire", "8")
+check("R09", "Paramètres", "Seuils paramétrables présents (provisoires)", "select count(*) from public.moto_parametres where cle like 'mission\\_%' and provisoire", "9")
+
+# ===========================================================================
+# X. Contre-expertise : défauts prouvés, corrigés et rejoués
+# ===========================================================================
+q(f"insert into auth.users (id, email) values ('{uid(312)}', 'uhx8@example.invalid'), ('{uid(313)}', 'zhc8@example.invalid'), ('{uid(314)}', 'uhexp8@example.invalid'), ('{uid(315)}', 'uhy8@example.invalid') on conflict do nothing")
+q(f"""insert into public.profils (user_id, email, nom, role, cluster, zone, actif) values
+      ('{uid(312)}', 'uhx8@example.invalid', 'UH8 X FICTIF', 'Unit Head', 'SAKASSOU', 'GBEKE 1', true),
+      ('{uid(313)}', 'zhc8@example.invalid', 'ZH8 GBEKE2 FICTIF', 'Zonal Head', null, 'GBEKE 2', true),
+      ('{uid(314)}', 'uhexp8@example.invalid', 'UH8 PERMIS EXPIRE FICTIF', 'Unit Head', 'SAKASSOU', 'GBEKE 1', true),
+      ('{uid(315)}', 'uhy8@example.invalid', 'UH8 Y FICTIF', 'Unit Head', 'SAKASSOU', 'GBEKE 1', true) on conflict do nothing""")
+U.update({"uh_x": uid(312), "zh_c": uid(313), "uh_exp": uid(314), "uh_y": uid(315)})
+M6 = moto("uh_x", 800)
+M7 = moto("uh_exp", 900)
+q(f"update public.moto_permis set date_expiration = current_date - 1 where titulaire_id = '{U['uh_exp']}'")
+act("X01", "Contre-expertise", "uh_x", "Compteur « NaN » (bloquerait la moto)", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, "NaN", -30)) + ")", False, "invalide")
+act("X01b", "Contre-expertise", "uh_x", "Compteur « Infinity »", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, "Infinity", -30)) + ")", False, "invalide")
+act("X01c", "Contre-expertise", "uh_x", "Relevé ordinaire « NaN » (moto_num corrigé pour toutes les saisies)", "select public.moto_releve_km(" + lit({"moto_id": M6, "compteur_km": "NaN"}) + ")", False, "invalide")
+check("X01d", "Contre-expertise", "Le compteur de la moto est intact", f"select compteur_actuel_km from public.moto_motos where id='{M6}'", "800.0")
+act("X02", "Contre-expertise", "uh_x", "Départ à 13 h (capture hors connexion) : accepté et signalé SAISIE_DIFFEREE", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 805, -13 * 60, etag="e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1")) + ")", True, "SAISIE_DIFFEREE_DEPART")
+mx = q(f"select id from public.moto_missions where moto_id='{M6}' and statut='OUVERTE'")
+act("X03", "Contre-expertise", "uh_x", "Arrivée avec le MÊME fichier (eTag identique) et une empreinte inventée", "select public.moto_mission_cloturer(" + lit(charge("uh_x", M6, 815, -12 * 60, mission_id=mx, etag="e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1")) + ")", False, "déjà été utilisée")
+act("X04", "Contre-expertise", "uh_x", "Clôture normale", "select public.moto_mission_cloturer(" + lit(charge("uh_x", M6, 815, -12 * 60, mission_id=mx)) + ")", True, "CLOTUREE")
+act("X05", "Contre-expertise", "uh_x", "Départ ANTIDATÉ avant la mission déjà clôturée (chevauchement)", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 815, -12 * 60 - 30)) + ")", False, "antérieure au dernier relevé")
+act("X06", "Contre-expertise", "uh_exp", "Permis expiré hier : départ « maintenant »", "select public.moto_mission_demarrer(" + lit(charge("uh_exp", M7, 900, -1)) + ")", False, "Aucun permis valide")
+act("X06b", "Contre-expertise", "uh_exp", "Permis expiré hier : départ antidaté de 3 jours", "select public.moto_mission_demarrer(" + lit(charge("uh_exp", M7, 900, -3 * 24 * 60)) + ")", False, "Aucun permis valide")
+# Hors connexion : arrivée reçue AVANT son départ = erreur temporaire, puis tout passe
+mid = str(uuid.uuid4()); dpx = charge("uh_x", M6, 820, -60, mission_id=mid); arx = charge("uh_x", M6, 830, -50, mission_id=mid)
+act("X07", "Contre-expertise", "uh_x", "Lot : arrivée seule (départ pas encore envoyé)", "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit([{"client_op_id": arx["client_op_id"], "type": "MISSION_ARRIVEE", "payload": arx}]) + ")) x", True, "ERREUR_TEMPORAIRE")
+act("X07b", "Contre-expertise", "uh_x", "Lot suivant : départ puis arrivée renvoyée", "select string_agg(x->>'statut', ',') from jsonb_array_elements(public.moto_sync_batch(" + lit([{"client_op_id": dpx["client_op_id"], "type": "MISSION_DEPART", "payload": dpx}, {"client_op_id": arx["client_op_id"], "type": "MISSION_ARRIVEE", "payload": arx}]) + ")) x", True, "SYNCHRONISE,SYNCHRONISE")
+check("X07c", "Contre-expertise", "La mission est bien clôturée", f"select statut from public.moto_missions where id='{mid}'", "CLOTUREE")
+# Annulation : pas de double comptage des km hors mission
+ann = act("X08a", "Contre-expertise", "uh_x", "Départ à 840 (10 km hors mission)", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 840, -40)) + ")", True, "OUVERTE")
+act("X08b", "Contre-expertise", "zh", "Annulation de cette mission", f"select public.moto_mission_annuler('{ann['id'] if isinstance(ann, dict) else ann}', 'Mission ouverte par erreur pour le test')", True, "ANNULEE")
+act("X08c", "Contre-expertise", "uh_x", "Départ suivant à 860", "select public.moto_mission_demarrer(" + lit(charge("uh_x", M6, 860, -30)) + ")", True, "OUVERTE")
+check("X08d", "Contre-expertise", "Km hors mission du mois : 5 + 30 (et non 5 + 10 + 30)", f"select sum(km_hors_mission) from public.moto_v_missions_mois where moto_id='{M6}'", "35.0")
+# Correction qui casserait la continuité
+rel = q(f"select arrivee_releve_id from public.moto_missions where id='{mid}'")
+cc = act("X09a", "Contre-expertise", "abm", "Demande : arrivée corrigée 830 → 900 (au-delà des relevés suivants)", "select public.moto_correction_demander(" + lit({"cible_table": "moto_releves_km", "cible_id": rel, "champ": "compteur_km", "nouvelle_valeur": "900", "motif": "Test de continuité du compteur"}) + ")", True, "DEMANDEE")
+act("X09", "Contre-expertise", "bm", "Validation refusée : le compteur dépasserait un relevé postérieur", f"select public.moto_correction_decider('{cc['id'] if isinstance(cc, dict) else cc}', 'APPLIQUEE', 'Validation du test')", False, "relevé postérieur")
+# Chef de zone d'une autre zone : lecture, positions et écritures refusées
+an6 = q(f"select id from public.moto_mission_anomalies where moto_id='{M6}' and statut='A_VERIFIER' limit 1")
+act("X10", "Contre-expertise", "zh_c", "Chef de zone GBEKE 2 : missions d'une moto GBEKE 1", f"select count(*) from public.moto_missions where moto_id='{M6}'", True, "0")
+act("X10b", "Contre-expertise", "zh_c", "… positions", f"select count(*) from public.moto_mission_positions pp join public.moto_missions m on m.id = pp.mission_id where m.moto_id='{M6}'", True, "0")
+act("X10c", "Contre-expertise", "zh_c", "… justifie un écart", f"select public.moto_mission_anomalie_traiter('{an6}', 'JUSTIFIEE', 'Tentative hors de sa zone de responsabilité')", False, "périmètre")
+ouv = q(f"select id from public.moto_missions where moto_id='{M6}' and statut='OUVERTE'")
+act("X10d", "Contre-expertise", "zh_c", "… annule une mission", f"select public.moto_mission_annuler('{ouv}', 'Tentative hors de sa zone de responsabilité')", False, "périmètre")
+# Photos de mission : un autre Chef d'unité du cluster ne les lit pas
+act("X11", "Contre-expertise", "uh_y", "Autre Chef d'unité du cluster : photos de mission de la moto X", f"select count(*) from storage.objects where bucket_id='moto-documents' and name like '{M6}/mission/%'", True, "0")
+act("X11b", "Contre-expertise", "zh", "Son Chef de zone les lit", f"select count(*) > 0 from storage.objects where bucket_id='moto-documents' and name like '{M6}/mission/%'", True, "t")
+# Le conducteur ne valide pas la correction de son propre relevé
+permis_fixture("bm")
+rb = act("X12a", "Contre-expertise", "bm", "Le BM conduit lui-même (mission sur la moto B)", "select public.moto_mission_demarrer(" + lit(charge("bm", M2, 5100, 2)) + ")", True, "OUVERTE")
+relb = q(f"select depart_releve_id from public.moto_missions where id='{rb['id'] if isinstance(rb, dict) else rb}'")
+cb = act("X12b", "Contre-expertise", "abm", "Demande de correction du relevé de départ du BM", "select public.moto_correction_demander(" + lit({"cible_table": "moto_releves_km", "cible_id": relb, "champ": "compteur_km", "nouvelle_valeur": "5101", "motif": "Lecture photo à confirmer"}) + ")", True, "DEMANDEE")
+act("X12", "Contre-expertise", "bm", "Le BM valide la correction de son propre relevé", f"select public.moto_correction_decider('{cb['id'] if isinstance(cb, dict) else cb}', 'APPLIQUEE', 'Auto-validation')", False, "propre relevé")
+act("X12c", "Contre-expertise", "dir", "La Direction valide (quatre yeux respectés)", f"select public.moto_correction_decider('{cb['id'] if isinstance(cb, dict) else cb}', 'APPLIQUEE', 'Photo relue')", True, "APPLIQUEE")
+# Purge réservée au BM, limitée aux photos en fin de conservation
+act("X13", "Contre-expertise", "uh_a", "Un agent purge des photos", "select public.moto_missions_photos_purger(array['x'])", False, "rôle")
+act("X13b", "Contre-expertise", "bm", "Le BM ne peut pas purger une photo récente", f"select public.moto_missions_photos_purger(array(select chemin from public.moto_mission_photos limit 3))", True, "0")
 
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)

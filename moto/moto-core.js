@@ -299,8 +299,12 @@
   function delaiReprise(tentatives) { return Math.min(30 * 60000, 15000 * Math.pow(2, Math.max(0, tentatives - 1))); }
   function operationsEligibles(ops, maintenant, limite) {
     var t = maintenant || Date.now();
+    // Une fin de mission ne part jamais avant que son départ soit reçu par le serveur.
+    var departsNonRecus = {};
+    (ops || []).forEach(function (o) { if (o.type === 'MISSION_DEPART' && o.statut !== 'SYNCHRONISE' && o.payload) departsNonRecus[o.payload.mission_id] = true; });
     return (ops || []).filter(function (o) {
       if (o.statut !== 'EN_ATTENTE') return false;
+      if (o.type === 'MISSION_ARRIVEE' && o.payload && departsNonRecus[o.payload.mission_id]) return false;
       if ((o.tentatives || 0) >= MAX_TENTATIVES) return false;
       return !o.prochaine_tentative || new Date(o.prochaine_tentative).getTime() <= t;
     }).sort(function (a, b) { return String(a.cree_le).localeCompare(String(b.cree_le)); }).slice(0, limite || 20);

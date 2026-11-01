@@ -27,7 +27,8 @@
       ['ADMINISTRATIF', 'Administratif'], ['AUTRE', 'Autre (préciser)']];
     var LIB_OBJET = {}; OBJETS.forEach(function (o) { LIB_OBJET[o[0]] = o[1]; });
     var LIB_ECART = { HORS_MISSION: 'Km hors mission', CONTINUITE: 'Continuité du compteur', VITESSE: 'Vitesse impossible', DISTANCE: 'Distance hors norme',
-      HORLOGE: 'Horloge du téléphone', GPS_ABSENT: 'GPS absent', CLOTURE_TARDIVE: 'Clôture tardive' };
+      HORLOGE: 'Horloge du téléphone', GPS_ABSENT: 'GPS absent', CLOTURE_TARDIVE: 'Clôture tardive',
+      SAISIE_DIFFEREE_DEPART: 'Départ envoyé tardivement', SAISIE_DIFFEREE_ARRIVEE: 'Arrivée envoyée tardivement' };
     var LIB_ORIGINE = { LU_CONFIRME: 'Lu, confirmé', LU_CORRIGE: 'Lu, corrigé', SAISI: 'Saisi' };
     var LIB_STATUT = { OUVERTE: 'En cours', CLOTUREE: 'Clôturée', ANNULEE: 'Annulée' };
     var CIBLE_OCTETS = 60000;

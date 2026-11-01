@@ -11,8 +11,8 @@
 begin;
 
 do $$ begin
-  if to_regclass('public.moto_missions') is not null and exists (select 1 from public.moto_missions) then
-    raise exception 'Retour arrière refusé : des missions existent.';
+  if to_regclass('public.moto_missions') is not null then
+    if exists (select 1 from public.moto_missions) then raise exception 'Retour arrière refusé : des missions existent.'; end if;
   end if;
   if exists (select 1 from public.moto_releves_km where source = 'MISSION') then
     raise exception 'Retour arrière refusé : des relevés de mission existent.';
@@ -31,6 +31,7 @@ drop function if exists public.moto_mission_cloturer(jsonb);
 drop function if exists public.moto_mission_annuler(uuid, text);
 drop function if exists public.moto_mission_anomalie_traiter(uuid, text, text);
 drop function if exists public.moto_missions_photos_a_purger();
+drop function if exists public.moto_missions_photos_purger(text[]);
 
 drop table if exists public.moto_mission_anomalies;
 drop table if exists public.moto_mission_positions;
@@ -59,9 +60,66 @@ alter table public.moto_releves_km add constraint moto_releves_km_source_check
   check (source in ('RELEVE','CONTROLE','CARBURANT','REMISE','INCIDENT','MAINTENANCE','CORRECTION'));
 
 delete from public.moto_parametres where cle in ('mission_seuil_hors_mission_km','mission_seuil_continuite_km','mission_vitesse_max_kmh',
-  'mission_distance_max_km','mission_photo_max_octets','mission_photos_conservation_mois','mission_horloge_ecart_max_min','mission_delai_saisie_jours');
+  'mission_distance_max_km','mission_photo_max_octets','mission_photos_conservation_mois','mission_horloge_ecart_max_min','mission_delai_saisie_jours',
+  'mission_saisie_differee_h');
 
 -- Textes d'origine
+create or replace function private.moto_num(p jsonb, k text)
+returns numeric language plpgsql immutable as $$
+begin
+  if nullif(btrim(coalesce(p ->> k, '')), '') is null then return null; end if;
+  return (replace(btrim(p ->> k), ',', '.'))::numeric;
+exception when others then
+  raise exception 'Valeur numérique invalide pour « % ».', k using errcode = 'P0001';
+end $$;
+
+alter function private.moto_num(jsonb, text) set search_path = public, private, pg_temp;   -- migration 4
+
+create or replace function public.moto_correction_decider(p_correction uuid, p_decision text, p_motif text default null)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare c public.moto_corrections; v_classe text; v_type text; v_actuel text; v_moto uuid;
+begin
+  v_classe := private.moto_exiger_classe(array['BM','DIRECTION','FINANCE']);
+  if v_classe = 'FINANCE' and not private.moto_est_finance_manager() then perform private.moto_refus('Validation réservée au Branch Manager, au General Manager ou au Finance Manager.'); end if;
+  select * into c from public.moto_corrections where id = p_correction for update;
+  if not found or c.statut <> 'DEMANDEE' then perform private.moto_erreur('Correction introuvable ou déjà décidée.'); end if;
+  if c.demande_par = auth.uid() then perform private.moto_refus('Auto-approbation interdite : un autre responsable doit valider.'); end if;
+  if upper(p_decision) not in ('APPLIQUEE','REJETEE') then perform private.moto_erreur('Décision inconnue.'); end if;
+  perform private.moto_motif(coalesce(nullif(btrim(p_motif), ''), c.motif), case when upper(p_decision) = 'REJETEE' then 5 else 0 end);
+  perform set_config('moto.valideur', auth.uid()::text, true);
+  if upper(p_decision) = 'APPLIQUEE' then
+    v_type := private.moto_champ_corrigeable(c.cible_table, c.champ, 'BM');
+    execute format('select %I::text, moto_id from public.%I where id = $1 for update', c.champ, c.cible_table) into v_actuel, v_moto using c.cible_id;
+    if v_actuel is distinct from c.ancienne_valeur then
+      perform private.moto_erreur('CONFLIT : la valeur a changé depuis la demande. Créez une nouvelle demande.');
+    end if;
+    execute format('update public.%I set %I = $1::%s where id = $2', c.cible_table, c.champ, v_type) using c.nouvelle_valeur, c.cible_id;
+    if c.cible_table = 'moto_releves_km' or (c.cible_table = 'moto_carburant' and c.champ = 'compteur_km') then
+      update public.moto_motos set compteur_actuel_km = (select max(compteur_km) from public.moto_releves_km where moto_id = v_moto)
+      where id = v_moto;
+    end if;
+  end if;
+  update public.moto_corrections set statut = upper(p_decision), valide_par = auth.uid(), valide_at = now(),
+         decision_motif = nullif(btrim(p_motif), '') where id = p_correction;
+  return jsonb_build_object('id', p_correction, 'statut', upper(p_decision));
+end $$;
+
+
+alter policy moto_documents_consultation on storage.objects
+  using (bucket_id = 'moto-documents'
+         and ((private.moto_uuid_ou_null((storage.foldername(name))[1]) is not null
+               and private.moto_dans_perimetre(private.moto_uuid_ou_null((storage.foldername(name))[1])))
+              or ((storage.foldername(name))[1] = 'depenses'
+                  and private.moto_lecture_enveloppe(private.moto_uuid_ou_null((storage.foldername(name))[2])))
+              or ((storage.foldername(name))[1] = 'finmaint' and private.moto_lecture_fin_maintenance())
+              or ((storage.foldername(name))[1] = 'permis'
+                  and private.moto_lecture_permis(private.moto_uuid_ou_null((storage.foldername(name))[2])))));
+
+
+drop function if exists private.moto_mission_photo_lecture(text);
+
 create or replace function public.moto_sync_batch(p_operations jsonb)
 returns jsonb language plpgsql security definer
 set search_path to 'public', 'private', 'pg_temp'

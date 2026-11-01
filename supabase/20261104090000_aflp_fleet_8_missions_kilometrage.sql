@@ -37,7 +37,8 @@ insert into public.moto_parametres (cle, valeur, unite, description, provisoire)
   ('mission_photo_max_octets', 200000, 'octets', 'Taille maximale d''une photo de compteur', true),
   ('mission_photos_conservation_mois', 12, 'mois', 'Durée de conservation des photos de compteur avant purge documentée', true),
   ('mission_horloge_ecart_max_min', 10, 'minutes', 'Écart toléré entre l''horloge du téléphone et celle du serveur', true),
-  ('mission_delai_saisie_jours', 7, 'jours', 'Ancienneté maximale d''une capture hors connexion acceptée à la synchronisation', true)
+  ('mission_delai_saisie_jours', 7, 'jours', 'Ancienneté maximale d''une capture hors connexion acceptée à la synchronisation', true),
+  ('mission_saisie_differee_h', 12, 'heures', 'Délai entre la capture et la réception au serveur au-delà duquel le relevé est signalé', true)
 on conflict (cle) do nothing;
 
 -- ---------------------------------------------------------------------
@@ -110,6 +111,7 @@ create table if not exists public.moto_mission_photos (
   chemin text not null unique,
   sha256 text not null unique check (sha256 ~ '^[0-9a-f]{64}$'),
   taille_octets integer check (taille_octets is null or taille_octets > 0),
+  etag text unique,   -- empreinte calculée PAR LE STOCKAGE : un même fichier ne sert qu'une fois
   depose_par uuid not null default auth.uid(),
   created_at timestamptz not null default now(),
   unique (mission_id, moment)
@@ -131,7 +133,8 @@ create table if not exists public.moto_mission_anomalies (
   mission_id uuid not null references public.moto_missions(id),
   moto_id uuid not null references public.moto_motos(id),
   conducteur_id uuid not null,
-  type_anomalie text not null check (type_anomalie in ('HORS_MISSION','CONTINUITE','VITESSE','DISTANCE','HORLOGE','GPS_ABSENT','CLOTURE_TARDIVE')),
+  type_anomalie text not null check (type_anomalie in ('HORS_MISSION','CONTINUITE','VITESSE','DISTANCE','HORLOGE','GPS_ABSENT','CLOTURE_TARDIVE',
+                                                'SAISIE_DIFFEREE_DEPART','SAISIE_DIFFEREE_ARRIVEE')),
   detail text not null,
   valeur numeric,
   seuil numeric,
@@ -154,7 +157,8 @@ returns boolean language sql stable security definer
 set search_path to 'public', 'private', 'pg_temp'
 as $$
   select p_mission.conducteur_id = auth.uid()
-      or (private.moto_classe() in ('ZONE','LOGISTIQUE','ABM','BM','FINANCE','DIRECTION') and private.moto_dans_perimetre(p_mission.moto_id))
+      or (private.moto_classe() in ('LOGISTIQUE','ABM','BM','FINANCE','DIRECTION') and private.moto_dans_perimetre(p_mission.moto_id))
+      or (private.moto_classe() = 'ZONE' and private.moto_peut_operer(p_mission.moto_id))   -- sa zone (ou sa propre moto)
 $$;
 
 create or replace function private.moto_mission_lecture_id(p_mission uuid)
@@ -169,8 +173,17 @@ create or replace function private.moto_mission_lecture_position(p_mission uuid)
 returns boolean language sql stable security definer
 set search_path to 'public', 'private', 'pg_temp'
 as $$
-  select private.moto_classe() in ('ZONE','LOGISTIQUE','ABM','BM')
-     and exists (select 1 from public.moto_missions m where m.id = p_mission and private.moto_dans_perimetre(m.moto_id))
+  select exists (select 1 from public.moto_missions m where m.id = p_mission
+                 and ((private.moto_classe() in ('LOGISTIQUE','ABM','BM') and private.moto_dans_perimetre(m.moto_id))
+                      or (private.moto_classe() = 'ZONE' and private.moto_peut_operer(m.moto_id))))
+$$;
+
+create or replace function private.moto_mission_photo_lecture(p_nom text)
+returns boolean language sql stable security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+  select private.moto_classe() in ('BM','ABM')
+      or exists (select 1 from public.moto_mission_photos ph where ph.chemin = p_nom and private.moto_mission_lecture_id(ph.mission_id))
 $$;
 
 create or replace function private.moto_mission_gps_statut(p jsonb, p_prefixe text)
@@ -209,7 +222,7 @@ as $$
 declare v_chemin text := nullif(btrim(coalesce(p ->> 'photo_path', '')), '');
         v_sha text := lower(nullif(btrim(coalesce(p ->> 'photo_sha256', '')), ''));
         v_attendu text := p_moto::text || '/mission/' || p_client::text || '-photo_path.jpg';
-        o jsonb; v_taille bigint; v_max numeric := coalesce(private.moto_param('mission_photo_max_octets'), 200000);
+        o jsonb; v_taille bigint; v_etag text; v_max numeric := coalesce(private.moto_param('mission_photo_max_octets'), 200000);
 begin
   if v_chemin is null then perform private.moto_erreur('Photo du compteur obligatoire.'); end if;
   if v_chemin <> v_attendu then perform private.moto_erreur('Photo du compteur : chemin inattendu.'); end if;
@@ -222,11 +235,15 @@ begin
   v_taille := nullif(o -> 'metadata' ->> 'size', '')::bigint;
   if v_taille is not null and v_taille > v_max then perform private.moto_erreur(format('Photo trop lourde (%s octets, maximum %s).', v_taille, v_max)); end if;
   if coalesce(o -> 'metadata' ->> 'mimetype', 'image/jpeg') <> 'image/jpeg' then perform private.moto_erreur('Photo du compteur : format JPEG attendu.'); end if;
-  if exists (select 1 from public.moto_mission_photos where sha256 = v_sha) then
+  v_etag := lower(nullif(btrim(coalesce(o -> 'metadata' ->> 'eTag', ''), '" '), ''));
+  if exists (select 1 from public.moto_mission_photos where sha256 = v_sha or (v_etag is not null and etag = v_etag)) then
     perform private.moto_refus('Cette photo a déjà été utilisée pour un autre relevé : reprenez une photo du compteur.');
   end if;
-  insert into public.moto_mission_photos (mission_id, moment, chemin, sha256, taille_octets)
-  values (p_mission, p_moment, v_chemin, v_sha, v_taille);
+  -- L'empreinte SHA-256 est DÉCLARÉE par le téléphone (le serveur SQL ne lit pas le fichier) ;
+  -- l'eTag est calculé par le stockage. Toute personne qui ouvre la photo recalcule le SHA-256
+  -- et voit « empreinte conforme » ou « DIFFÉRENTE ».
+  insert into public.moto_mission_photos (mission_id, moment, chemin, sha256, taille_octets, etag)
+  values (p_mission, p_moment, v_chemin, v_sha, v_taille, v_etag);
 end $$;
 
 create or replace function private.moto_mission_position(p_mission uuid, p_moment text, p jsonb, p_prefixe text)
@@ -261,7 +278,7 @@ begin
   begin v_at := nullif(p ->> 'capture_at', '')::timestamptz;
   exception when others then perform private.moto_erreur('Heure de capture invalide.'); end;
   if v_at is null then perform private.moto_erreur('Heure de capture obligatoire.'); end if;
-  if v_at > now() + interval '15 minutes' then perform private.moto_erreur('Heure de capture dans le futur : vérifiez l''heure du téléphone.'); end if;
+  if v_at > now() + interval '5 minutes' then perform private.moto_erreur('Heure de capture dans le futur : vérifiez l''heure du téléphone.'); end if;
   if v_at < now() - make_interval(days => coalesce(private.moto_param('mission_delai_saisie_jours'), 7)::integer) then
     perform private.moto_erreur('Capture trop ancienne : synchronisez au plus tard dans le délai prévu.');
   end if;
@@ -275,6 +292,12 @@ set search_path to 'public', 'private', 'pg_temp'
 as $$
 begin
   if new.compteur_km is distinct from old.compteur_km then
+    if new.compteur_km < (select max(r.compteur_km) from public.moto_releves_km r where r.moto_id = new.moto_id and r.id <> new.id and r.date_releve <= new.date_releve) then
+      raise exception 'Correction refusée : la valeur serait inférieure à un relevé antérieur de la moto (le compteur ne recule pas).' using errcode = 'P0001';
+    end if;
+    if new.compteur_km > (select min(r.compteur_km) from public.moto_releves_km r where r.moto_id = new.moto_id and r.id <> new.id and r.date_releve > new.date_releve) then
+      raise exception 'Correction refusée : la valeur dépasserait un relevé postérieur de la moto.' using errcode = 'P0001';
+    end if;
     if exists (select 1 from public.moto_missions m where m.depart_releve_id = new.id and m.arrivee_km < new.compteur_km) then
       raise exception 'Correction refusée : le compteur de départ dépasserait celui d''arrivée de la mission.' using errcode = 'P0001';
     end if;
@@ -283,6 +306,11 @@ begin
     end if;
     update public.moto_missions set depart_km = new.compteur_km where depart_releve_id = new.id;
     update public.moto_missions set arrivee_km = new.compteur_km where arrivee_releve_id = new.id;
+    -- Les écarts encore à vérifier de la moto sont des constats à l'heure du relevé : on le signale.
+    update public.moto_mission_anomalies set detail = detail || format(' [compteur corrigé ensuite : %s → %s km ; se fier aux chiffres recalculés du tableau]', old.compteur_km, new.compteur_km)
+    where statut = 'A_VERIFIER' and moto_id = new.moto_id
+      and mission_id in (select id from public.moto_missions where depart_releve_id = new.id or arrivee_releve_id = new.id
+                         or (moto_id = new.moto_id and depart_at >= new.date_releve));
   end if;
   return new;
 end $$;
@@ -293,6 +321,7 @@ create trigger moto_releves_mission_coherence_trg before update of compteur_km o
 create or replace function private.moto_mission_immuable()
 returns trigger language plpgsql as $$
 begin
+  if tg_op = 'DELETE' and tg_table_name = 'moto_mission_photos' and current_setting('moto.purge', true) = 'on' then return old; end if;
   raise exception 'Les photos et positions de mission ne se modifient pas.' using errcode = '42501';
 end $$;
 drop trigger if exists moto_mission_photos_immuable_trg on public.moto_mission_photos;
@@ -313,7 +342,7 @@ declare v_client uuid := private.moto_uuid(p, 'client_op_id'); v_prev jsonb; v_m
         v_id uuid := coalesce(private.moto_uuid(p, 'mission_id'), gen_random_uuid());
         v_km numeric := private.moto_num(p, 'compteur_km'); v_at timestamptz; v_origine text; v_objet text := upper(coalesce(p ->> 'objet', ''));
         m public.moto_motos; v_releve uuid; v_prec_km numeric; v_dern_km numeric; v_ouverte record; v_seuil numeric; v_ecart integer;
-        v_gps text := private.moto_mission_gps_statut(p, ''); v_res jsonb;
+        v_gps text := private.moto_mission_gps_statut(p, ''); v_res jsonb; v_dern_at timestamptz;
 begin
   v_prev := private.moto_op_existant(v_client); if v_prev is not null then return v_prev; end if;
   if v_client is null then perform private.moto_erreur('Identifiant d''opération obligatoire.'); end if;
@@ -324,7 +353,8 @@ begin
     perform private.moto_refus('Moto immobilisée : mission impossible tant que l''immobilisation n''est pas levée.');
   end if;
   v_at := private.moto_mission_capture(p);
-  if private.moto_permis_valide(auth.uid(), v_at::date) is null then
+  -- Permis valide AUJOURD'HUI et à la date déclarée (une capture antidatée ne contourne rien).
+  if private.moto_permis_valide(auth.uid(), current_date) is null or private.moto_permis_valide(auth.uid(), v_at::date) is null then
     perform private.moto_refus('Aucun permis valide et vérifié à votre nom : mission impossible.');
   end if;
   select mi.id, mi.depart_at, private.moto_nom_profil(mi.conducteur_id) as nom into v_ouverte
@@ -341,6 +371,15 @@ begin
   end if;
   if length(btrim(coalesce(p ->> 'destination', ''))) < 2 then perform private.moto_erreur('Destination obligatoire (village ou cluster).'); end if;
   if v_km is null then perform private.moto_erreur('Compteur de départ obligatoire.'); end if;
+  -- Pas de départ antidaté avant ce que le serveur connaît déjà de la moto ou du conducteur.
+  select max(r.date_releve) into v_dern_at from public.moto_releves_km r where r.moto_id = v_moto;
+  if v_dern_at is not null and v_at < v_dern_at then
+    perform private.moto_erreur(format('Heure de départ (%s) antérieure au dernier relevé de la moto (%s) : vérifiez l''heure du téléphone.',
+                                       to_char(v_at, 'DD/MM/YYYY HH24:MI'), to_char(v_dern_at, 'DD/MM/YYYY HH24:MI')));
+  end if;
+  if exists (select 1 from public.moto_missions where conducteur_id = auth.uid() and statut = 'CLOTUREE' and arrivee_at > v_at) then
+    perform private.moto_erreur('Départ antérieur à la fin de votre mission précédente : deux missions ne se chevauchent pas.');
+  end if;
   v_origine := private.moto_mission_origine(p, v_km);
   -- Repères AVANT l'enregistrement du nouveau relevé.
   select max(r.compteur_km) into v_dern_km from public.moto_releves_km r where r.moto_id = v_moto and r.date_releve <= v_at;
@@ -355,10 +394,14 @@ begin
     and not exists (select 1 from public.moto_missions x where x.depart_releve_id = r.id or x.arrivee_releve_id = r.id)
   order by r.created_at desc limit 1;
   v_ecart := private.moto_mission_horloge(p);
-  insert into public.moto_missions (id, moto_id, conducteur_id, objet, objet_detail, destination, depart_releve_id, depart_km, depart_at, depart_origine,
-                                    depart_lu_km, depart_localite, depart_gps_statut, depart_horloge_ecart_s, depart_client_op_id)
-  values (v_id, v_moto, auth.uid(), v_objet, nullif(btrim(coalesce(p ->> 'objet_detail', '')), ''), btrim(p ->> 'destination'), v_releve, v_km, v_at,
-          v_origine, private.moto_num(p, 'lu_km'), nullif(btrim(coalesce(p ->> 'localite', '')), ''), v_gps, v_ecart, v_client);
+  begin
+    insert into public.moto_missions (id, moto_id, conducteur_id, objet, objet_detail, destination, depart_releve_id, depart_km, depart_at, depart_origine,
+                                      depart_lu_km, depart_localite, depart_gps_statut, depart_horloge_ecart_s, depart_client_op_id)
+    values (v_id, v_moto, auth.uid(), v_objet, nullif(btrim(coalesce(p ->> 'objet_detail', '')), ''), btrim(p ->> 'destination'), v_releve, v_km, v_at,
+            v_origine, private.moto_num(p, 'lu_km'), nullif(btrim(coalesce(p ->> 'localite', '')), ''), v_gps, v_ecart, v_client);
+  exception when unique_violation then
+    perform private.moto_erreur('Vous avez déjà une mission ouverte (ou cet identifiant de mission existe) : clôturez-la avant d''en commencer une autre.');
+  end;
   perform private.moto_mission_photo(v_id, v_moto, v_client, 'DEPART', p);
   perform private.moto_mission_position(v_id, 'DEPART', p, '');
   -- Écarts à vérifier (jamais une sanction automatique).
@@ -380,6 +423,10 @@ begin
   if v_gps = 'ABSENT' then
     perform private.moto_mission_signaler(v_id, 'GPS_ABSENT', 'Position non disponible au départ.', null, null);
   end if;
+  v_seuil := coalesce(private.moto_param('mission_saisie_differee_h'), 12);
+  if now() - v_at > make_interval(hours => v_seuil::integer) then
+    perform private.moto_mission_signaler(v_id, 'SAISIE_DIFFEREE_DEPART', format('Départ photographié le %s, reçu %s heure(s) plus tard.', to_char(v_at, 'DD/MM/YYYY HH24:MI'), round(extract(epoch from now() - v_at) / 3600)), round(extract(epoch from now() - v_at) / 3600), v_seuil);
+  end if;
   v_res := jsonb_build_object('id', v_id, 'statut', 'OUVERTE', 'compteur_km', v_km,
                               'anomalies', (select coalesce(jsonb_agg(type_anomalie), '[]'::jsonb) from public.moto_mission_anomalies where mission_id = v_id));
   perform private.moto_op_enregistrer(v_client, 'MISSION_DEPART', 'SYNCHRONISE', v_res);
@@ -399,7 +446,10 @@ begin
   if v_client is null then perform private.moto_erreur('Identifiant d''opération obligatoire.'); end if;
   if v_id is null then perform private.moto_erreur('Mission non précisée.'); end if;
   select * into mi from public.moto_missions where id = v_id;
-  if not found then perform private.moto_erreur('Mission introuvable (le départ a-t-il été synchronisé ?).'); end if;
+  if not found then
+    -- Erreur TEMPORAIRE (code hors liste des refus) : l'arrivée sera renvoyée après la synchronisation du départ.
+    raise exception 'Mission introuvable : le départ n''est pas encore synchronisé.' using errcode = '55000';
+  end if;
   perform private.moto_charger(mi.moto_id, true);   -- même ordre de verrous que le départ : moto, puis mission
   select * into mi from public.moto_missions where id = v_id for update;
   if mi.conducteur_id <> auth.uid() then perform private.moto_refus('Seul le conducteur qui a ouvert la mission peut la clôturer.'); end if;
@@ -407,6 +457,9 @@ begin
   if v_km is null then perform private.moto_erreur('Compteur d''arrivée obligatoire.'); end if;
   v_at := private.moto_mission_capture(p);
   if v_at < mi.depart_at then perform private.moto_erreur('Heure d''arrivée antérieure au départ.'); end if;
+  if v_at < (select max(r.date_releve) from public.moto_releves_km r where r.moto_id = mi.moto_id) then
+    perform private.moto_erreur('Heure d''arrivée antérieure au dernier relevé de la moto : vérifiez l''heure du téléphone.');
+  end if;
   v_dep_km := mi.depart_km;
   if v_km < v_dep_km then
     perform private.moto_erreur(format('Compteur d''arrivée (%s km) inférieur au compteur de départ (%s km).', v_km, v_dep_km));
@@ -448,6 +501,10 @@ begin
   if v_gps = 'ABSENT' then
     perform private.moto_mission_signaler(v_id, 'GPS_ABSENT', 'Position non disponible à l''arrivée.', null, null);
   end if;
+  v_seuil := coalesce(private.moto_param('mission_saisie_differee_h'), 12);
+  if now() - v_at > make_interval(hours => v_seuil::integer) then
+    perform private.moto_mission_signaler(v_id, 'SAISIE_DIFFEREE_ARRIVEE', format('Arrivée photographiée le %s, reçue %s heure(s) plus tard.', to_char(v_at, 'DD/MM/YYYY HH24:MI'), round(extract(epoch from now() - v_at) / 3600)), round(extract(epoch from now() - v_at) / 3600), v_seuil);
+  end if;
   v_res := jsonb_build_object('id', v_id, 'statut', 'CLOTUREE', 'distance_km', v_dist,
                               'anomalies', (select coalesce(jsonb_agg(type_anomalie), '[]'::jsonb) from public.moto_mission_anomalies where mission_id = v_id));
   perform private.moto_op_enregistrer(v_client, 'MISSION_ARRIVEE', 'SYNCHRONISE', v_res);
@@ -467,7 +524,7 @@ begin
   if not found then perform private.moto_erreur('Mission introuvable.'); end if;
   perform private.moto_charger(mi.moto_id, true);
   select * into mi from public.moto_missions where id = p_mission for update;
-  if not private.moto_dans_perimetre(mi.moto_id) then perform private.moto_refus('Mission hors de votre périmètre.'); end if;
+  if not private.moto_peut_operer(mi.moto_id) then perform private.moto_refus('Mission hors de votre périmètre.'); end if;
   if mi.conducteur_id = auth.uid() then perform private.moto_refus('Quatre yeux : le conducteur n''annule pas sa propre mission.'); end if;
   if mi.statut <> 'OUVERTE' then perform private.moto_erreur('Seule une mission ouverte peut être annulée.'); end if;
   perform private.moto_motif(p_motif, 10);
@@ -484,7 +541,7 @@ begin
   perform private.moto_exiger_classe(array['ZONE','LOGISTIQUE','ABM','BM']);
   select * into a from public.moto_mission_anomalies where id = p_anomalie for update;
   if not found then perform private.moto_erreur('Écart introuvable.'); end if;
-  if not private.moto_dans_perimetre(a.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
+  if not private.moto_peut_operer(a.moto_id) then perform private.moto_refus('Hors de votre périmètre.'); end if;
   if a.conducteur_id = auth.uid() then perform private.moto_refus('Quatre yeux : le conducteur ne vérifie pas ses propres écarts.'); end if;
   if a.statut <> 'A_VERIFIER' then perform private.moto_erreur('Écart déjà vérifié.'); end if;
   if v_dec not in ('JUSTIFIEE','NON_JUSTIFIEE') then perform private.moto_erreur('Décision inconnue.'); end if;
@@ -508,6 +565,24 @@ begin
   order by ph.created_at;
 end $$;
 
+-- Purge documentée (BM) : après suppression des fichiers par l'API Storage, retire leurs lignes.
+create or replace function public.moto_missions_photos_purger(p_chemins text[])
+returns integer language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare n integer;
+begin
+  perform private.moto_exiger_classe(array['BM']);
+  perform set_config('moto.purge', 'on', true);
+  perform private.moto_motif('Purge des photos de compteur arrivées en fin de conservation');
+  delete from public.moto_mission_photos ph
+  where ph.chemin = any(coalesce(p_chemins, '{}'))
+    and ph.created_at < now() - make_interval(months => coalesce(private.moto_param('mission_photos_conservation_mois'), 12)::integer);
+  get diagnostics n = row_count;
+  perform set_config('moto.purge', 'off', true);
+  return n;
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 6. Vues (sans aucune coordonnée)
 -- ---------------------------------------------------------------------
@@ -518,10 +593,11 @@ select mi.id, mi.moto_id, mo.code as moto_code, mo.cluster_code, mo.zone_code, m
        mi.arrivee_at, mi.arrivee_km as km_arrivee, mi.arrivee_origine, mi.arrivee_lu_km, mi.arrivee_localite, mi.arrivee_gps_statut,
        mi.arrivee_km - mi.depart_km as distance_km,
        case when mi.arrivee_at is not null then round(extract(epoch from (mi.arrivee_at - mi.depart_at)) / 60) end as duree_min,
+       case when mi.statut <> 'ANNULEE' then   -- une mission annulée ne compte pas : ses km le seront au départ suivant
        (select mi.depart_km - pm.arrivee_km
           from public.moto_missions pm
          where pm.moto_id = mi.moto_id and pm.statut = 'CLOTUREE' and pm.arrivee_at <= mi.depart_at and pm.id <> mi.id
-         order by pm.arrivee_at desc limit 1) as km_hors_mission_avant,
+         order by pm.arrivee_at desc limit 1) end as km_hors_mission_avant,
        (mi.statut = 'OUVERTE' and mi.depart_at::date < current_date) as non_cloturee_a_temps,
        (select ph.chemin from public.moto_mission_photos ph where ph.mission_id = mi.id and ph.moment = 'DEPART') as photo_depart,
        (select ph.chemin from public.moto_mission_photos ph where ph.mission_id = mi.id and ph.moment = 'ARRIVEE') as photo_arrivee,
@@ -584,6 +660,12 @@ select k.mois, k.moto_id, k.moto_code, k.km_mission, k.km_hors_mission,
              coalesce((select sum(f.montant) from public.moto_factures f where f.moto_id = k.moto_id and f.statut = 'VERIFIEE'
                        and date_trunc('month', f.date_facture)::date = k.mois), 0) else 0 end) / k.km_mission, 1) end as fcfa_km_mission,
        private.moto_lecture_fin_maintenance() as entretien_inclus,
+       case when k.km_mission + k.km_hors_mission > 0 then round((
+         coalesce((select sum(c.montant) from public.moto_carburant c where c.moto_id = k.moto_id and c.justificatif_statut = 'VERIFIE'
+                   and date_trunc('month', c.date_achat)::date = k.mois), 0)
+         + case when private.moto_lecture_fin_maintenance() then
+             coalesce((select sum(f.montant) from public.moto_factures f where f.moto_id = k.moto_id and f.statut = 'VERIFIEE'
+                       and date_trunc('month', f.date_facture)::date = k.mois), 0) else 0 end) / (k.km_mission + k.km_hors_mission), 1) end as fcfa_km_total,
        case when k.km_mission > 0 then round(
          coalesce((select sum(c.litres) from public.moto_carburant c where c.moto_id = k.moto_id and c.justificatif_statut = 'VERIFIE'
                    and date_trunc('month', c.date_achat)::date = k.mois), 0) * 100 / k.km_mission, 2) end as litres_100_km_mission
@@ -894,6 +976,82 @@ begin
 end $$;
 
 
+-- ---------------------------------------------------------------------
+-- 11. Corrections issues de la contre-expertise
+--     moto_num : texte de la migration 2, refus de NaN et de l'infini ;
+--     moto_correction_decider : texte de la migration 2, verrou moto d'abord, conducteur exclu ;
+--     photos de mission lisibles seulement par qui peut lire la mission.
+-- ---------------------------------------------------------------------
+create or replace function private.moto_num(p jsonb, k text)
+returns numeric language plpgsql immutable
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare v numeric;
+begin
+  if nullif(btrim(coalesce(p ->> k, '')), '') is null then return null; end if;
+  v := (replace(btrim(p ->> k), ',', '.'))::numeric;
+  -- « NaN » et l'infini sont des nombres pour PostgreSQL : un compteur « NaN » bloquerait la moto.
+  if v = 'NaN'::numeric or v > 1e12 or v < -1e12 then raise exception 'non fini'; end if;
+  return v;
+exception when others then
+  raise exception 'Valeur numérique invalide pour « % ».', k using errcode = 'P0001';
+end $$;
+
+
+create or replace function public.moto_correction_decider(p_correction uuid, p_decision text, p_motif text default null)
+returns jsonb language plpgsql security definer
+set search_path to 'public', 'private', 'pg_temp'
+as $$
+declare c public.moto_corrections; v_classe text; v_type text; v_actuel text; v_moto uuid;
+begin
+  v_classe := private.moto_exiger_classe(array['BM','DIRECTION','FINANCE']);
+  if v_classe = 'FINANCE' and not private.moto_est_finance_manager() then perform private.moto_refus('Validation réservée au Branch Manager, au General Manager ou au Finance Manager.'); end if;
+  select * into c from public.moto_corrections where id = p_correction for update;
+  if not found or c.statut <> 'DEMANDEE' then perform private.moto_erreur('Correction introuvable ou déjà décidée.'); end if;
+  if c.demande_par = auth.uid() then perform private.moto_refus('Auto-approbation interdite : un autre responsable doit valider.'); end if;
+  if upper(p_decision) not in ('APPLIQUEE','REJETEE') then perform private.moto_erreur('Décision inconnue.'); end if;
+  perform private.moto_motif(coalesce(nullif(btrim(p_motif), ''), c.motif), case when upper(p_decision) = 'REJETEE' then 5 else 0 end);
+  perform set_config('moto.valideur', auth.uid()::text, true);
+  if upper(p_decision) = 'APPLIQUEE' then
+    -- Migration 8 : même ordre de verrous que les missions (moto d'abord) ; le conducteur ne valide
+    -- pas la correction de son propre relevé.
+    execute format('select moto_id from public.%I where id = $1', c.cible_table) into v_moto using c.cible_id;
+    if v_moto is not null then perform private.moto_charger(v_moto, true); end if;
+    if c.cible_table = 'moto_releves_km' and exists (
+         select 1 from public.moto_releves_km r where r.id = c.cible_id
+           and (r.saisi_par = auth.uid() or exists (select 1 from public.moto_missions m where (m.depart_releve_id = r.id or m.arrivee_releve_id = r.id) and m.conducteur_id = auth.uid()))) then
+      perform private.moto_refus('Quatre yeux : vous ne validez pas la correction de votre propre relevé.');
+    end if;
+    v_type := private.moto_champ_corrigeable(c.cible_table, c.champ, 'BM');
+    execute format('select %I::text, moto_id from public.%I where id = $1 for update', c.champ, c.cible_table) into v_actuel, v_moto using c.cible_id;
+    if v_actuel is distinct from c.ancienne_valeur then
+      perform private.moto_erreur('CONFLIT : la valeur a changé depuis la demande. Créez une nouvelle demande.');
+    end if;
+    execute format('update public.%I set %I = $1::%s where id = $2', c.cible_table, c.champ, v_type) using c.nouvelle_valeur, c.cible_id;
+    if c.cible_table = 'moto_releves_km' or (c.cible_table = 'moto_carburant' and c.champ = 'compteur_km') then
+      update public.moto_motos set compteur_actuel_km = (select max(compteur_km) from public.moto_releves_km where moto_id = v_moto)
+      where id = v_moto;
+    end if;
+  end if;
+  update public.moto_corrections set statut = upper(p_decision), valide_par = auth.uid(), valide_at = now(),
+         decision_motif = nullif(btrim(p_motif), '') where id = p_correction;
+  return jsonb_build_object('id', p_correction, 'statut', upper(p_decision));
+end $$;
+
+
+alter policy moto_documents_consultation on storage.objects
+  using (bucket_id = 'moto-documents'
+         and ((private.moto_uuid_ou_null((storage.foldername(name))[1]) is not null
+               and private.moto_dans_perimetre(private.moto_uuid_ou_null((storage.foldername(name))[1]))
+               and (coalesce((storage.foldername(name))[2], '') <> 'mission' or private.moto_mission_photo_lecture(name)))
+              or ((storage.foldername(name))[1] = 'depenses'
+                  and private.moto_lecture_enveloppe(private.moto_uuid_ou_null((storage.foldername(name))[2])))
+              or ((storage.foldername(name))[1] = 'finmaint' and private.moto_lecture_fin_maintenance())
+              or ((storage.foldername(name))[1] = 'permis'
+                  and private.moto_lecture_permis(private.moto_uuid_ou_null((storage.foldername(name))[2])))));
+
+
+
 do $$ declare f record; begin
   for f in select p.oid::regprocedure as sig, n.nspname, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname in ('public','private') and p.proname like 'moto\_%'
@@ -902,7 +1060,7 @@ do $$ declare f record; begin
     if f.nspname = 'public' or f.proname in ('moto_classe','moto_classe_de','moto_est_finance_manager','moto_mon_cluster','moto_ma_zone','moto_mon_nom',
         'moto_est_affectataire','moto_dans_perimetre','moto_lecture_finance','moto_lecture_enveloppe','moto_peut_deposer','moto_uuid_ou_null',
         'moto_nom_profil','moto_param','moto_fenetre','moto_lecture_fin_maintenance','moto_lecture_permis',
-        'moto_mission_lecture','moto_mission_lecture_id','moto_mission_lecture_position') then
+        'moto_mission_lecture','moto_mission_lecture_id','moto_mission_lecture_position','moto_mission_photo_lecture') then
       execute format('grant execute on function %s to authenticated', f.sig);
     end if;
   end loop;

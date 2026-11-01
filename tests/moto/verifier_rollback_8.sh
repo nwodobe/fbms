@@ -30,6 +30,7 @@ preparer fbms_rb8_a
 preparer fbms_rb8_b
 appliquer fbms_rb8_b 20261104090000_aflp_fleet_8_missions_kilometrage
 appliquer fbms_rb8_b 20261104090100_aflp_fleet_8_rollback
+appliquer fbms_rb8_b 20261104090100_aflp_fleet_8_rollback   # rejouable
 A=$(empreinte fbms_rb8_a); B=$(empreinte fbms_rb8_b)
 echo "Empreinte A (1-7)                 : $A"
 echo "Empreinte B (1-7, 8, retour 8)    : $B"
