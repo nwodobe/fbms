@@ -1223,18 +1223,60 @@
   }
 
   /* -- D. FORMATION ----------------------------------------------------------- */
+  /* Supports PDF (stockage privé moto-formation, migration 9) : dernière version par module. */
+  async function supportsFormation() {
+    return lireTable('moto_v_formation_supports').catch(function () { return []; });
+  }
+  function tailleMo(o) { var mo = Number(o) / 1048576; return mo < 0.1 ? 'moins de 0,1 Mo' : (Math.round(mo * 10) / 10).toLocaleString('fr-FR') + ' Mo'; }
   async function vueFormation(code) {
     var mod = FORM.filter(function (f) { return f.code === code; })[0];
     if (mod) return vueModule(mod);
-    var hist = await lireTable('moto_v_formation', function (q) { return q.eq('user_id', S.profil.user_id); }).catch(function () { return []; });
-    vue().innerHTML = '<div class="mm-entete"><div><h1>Formation</h1><p>Fiches pratiques et quiz. Les résultats sont enregistrés, même sans réseau.</p></div></div>' +
+    var res = await Promise.all([
+      lireTable('moto_v_formation', function (q) { return q.eq('user_id', S.profil.user_id); }).catch(function () { return []; }),
+      supportsFormation()]);
+    var hist = res[0], sup = res[1];
+    vue().innerHTML = '<div class="mm-entete"><div><h1>Formation</h1><p>Présentation, fiche pratique et quiz. Les résultats sont enregistrés, même sans réseau.</p></div></div>' +
       '<div class="mm-grille-motos">' + FORM.map(function (f) {
         var h = hist.filter(function (x) { return x.module_code === f.code; })[0];
-        return '<a class="mm-carte-moto" href="#/formation/' + f.code + '"><span class="mm-surtitre">' + esc(f.duree) + '</span><h2>' + esc(f.titre) + '</h2><p>' + esc(f.fiche[0]) + '</p>' + (h ? badge(h.reussi ? 'VALIDE' : 'A_VERIFIER', h.reussi ? 'Réussi' : 'À reprendre') : badge('EN_ATTENTE', 'Non commencé')) + '</a>';
+        var s = sup.filter(function (x) { return x.module_code === f.code; })[0];
+        return '<a class="mm-carte-moto" href="#/formation/' + f.code + '"><span class="mm-surtitre">' + esc(f.duree) + '</span><h2>' + esc(f.titre) + '</h2><p>' + esc(f.fiche[0]) + '</p>' +
+          '<span class="mm-badges">' + (h ? badgeFile(h.reussi ? 'VALIDE' : 'A_VERIFIER', h.reussi ? 'Réussi' : 'À reprendre') : badgeFile('EN_ATTENTE', 'Non commencé')) +
+          (s ? ' ' + badgeFile('VALIDE', 'Présentation PDF') : '') + '</span></a>';
       }).join('') + '<div class="mm-carte-moto mm-desactive"><span class="mm-surtitre">Vidéo</span><h2>Module vidéo</h2><p>Aucun contenu vidéo réel n\'est disponible à ce jour. Ce module s\'ouvrira quand une vidéo validée par ANAGROCI sera fournie.</p></div></div>';
+  }
+  async function blocSupport(mod) {
+    var zone = $('#support'); if (!zone) return;
+    var depot = ['BM', 'ABM'].indexOf(S.classe) >= 0;
+    var s = (await supportsFormation()).filter(function (x) { return x.module_code === mod.code; })[0];
+    var lien = '';
+    if (s) {
+      var r = await S.sb.storage.from('moto-formation').createSignedUrl(s.chemin, 3600).catch(function (e) { return { error: e }; });
+      lien = r && !r.error && r.data ? '<a class="mm-btn mm-primaire" href="' + esc(r.data.signedUrl) + '" target="_blank" rel="noopener" data-support-pdf>Ouvrir la présentation (PDF, ' + esc(tailleMo(s.taille_octets)) + ')</a>'
+        : '<p class="mm-note">Présentation disponible, mais son ouverture demande une connexion.</p>';
+    } else {
+      lien = '<p class="mm-note">Aucune présentation n\'est encore jointe à ce module.</p>';
+    }
+    zone.innerHTML = '<h2>Présentation</h2>' + lien + (s ? '<p class="mm-note">Version du ' + esc(C.dateFr(s.depose_at)) + '.</p>' : '') +
+      (depot ? '<p><label class="mm-btn mm-secondaire" data-support-depot tabindex="0">' + (s ? 'Déposer une nouvelle version (PDF)' : 'Déposer la présentation (PDF)') +
+        '<input type="file" accept="application/pdf" hidden></label></p><p class="mm-note">Réservé au Branch Manager et à l\'Assistant Branch Manager. 20 Mo maximum. L\'ancienne version reste dans l\'historique.</p>' : '');
+    var input = $('[data-support-depot] input', zone);
+    if (input) input.parentNode.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
+    if (input) input.onchange = async function () {
+      var f = input.files && input.files[0]; if (!f) return;
+      try {
+        if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) throw new Error('Seul un PDF est accepté.');
+        if (f.size > 20 * 1048576) throw new Error('Fichier trop volumineux (20 Mo maximum).');
+        var chemin = mod.code + '/' + OFF.uuid() + '.pdf';
+        var up = await S.sb.storage.from('moto-formation').upload(chemin, f, { upsert: false, contentType: 'application/pdf' });
+        if (up.error) throw new Error('Dépôt du fichier refusé : ' + messageErreur(up.error));
+        await rpc('moto_formation_support_enregistrer', { p_module: mod.code, p_chemin: chemin, p_nom_fichier: f.name });
+        toast('Présentation enregistrée.', 'ok'); blocSupport(mod);
+      } catch (e) { toast(messageErreur(e), 'ko'); input.value = ''; }
+    };
   }
   function vueModule(mod) {
     vue().innerHTML = '<a class="mm-retour" href="#/formation">← Formation</a><div class="mm-entete"><div><h1>' + esc(mod.titre) + '</h1></div></div>' +
+      '<section class="mm-bloc" id="support"><h2>Présentation</h2><p class="mm-note">Chargement…</p></section>' +
       '<section class="mm-bloc"><h2>Fiche</h2><ul class="mm-fiche">' + mod.fiche.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></section>' +
       '<form class="mm-bloc" id="quiz"><h2>Quiz</h2>' + mod.quiz.map(function (q, i) {
         return '<fieldset class="mm-question"><legend>' + (i + 1) + '. ' + esc(q.q) + '</legend>' + q.r.map(function (r, j) { return '<label><input type="radio" name="q' + i + '" value="' + j + '" required> ' + esc(r) + '</label>'; }).join('') + '</fieldset>';
@@ -1249,6 +1291,7 @@
       try { res.textContent += ' ' + await mettreEnFile('FORMATION', { module_code: mod.code, score: score, total: mod.quiz.length }, 'Quiz ' + mod.titre); }
       catch (ex) { res.textContent += ' ' + messageErreur(ex); }
     };
+    blocSupport(mod).catch(function (e) { var z = $('#support'); if (z) z.innerHTML = '<h2>Présentation</h2><p class="mm-note">' + esc(messageErreur(e)) + '</p>'; });
   }
 
   /* -- E. ADMINISTRATION ----------------------------------------------------- */

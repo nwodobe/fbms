@@ -162,6 +162,15 @@ async function valider(p) {
 }
 async function toutConforme(p) { for (const r of await p.locator('dialog.mm-modale input[type=radio][value=ok]').all()) await r.check(); }
 async function capture(p, nom) { const f = join(CAPTURES, nom + '.png'); await p.screenshot({ path: f, fullPage: true }); return 'tests/moto/resultats/captures/' + nom + '.png'; }
+// Formulaire entier, déplié (supports de formation) : la hauteur de la fenêtre est rétablie ensuite.
+async function captureFormulaire(p, nom) {
+  const vp = p.viewportSize();
+  await p.setViewportSize({ width: vp.width, height: 2000 });
+  await p.evaluate(() => document.querySelectorAll('dialog.mm-modale, dialog.mm-modale *').forEach(c => { c.scrollTop = 0; }));
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: join(CAPTURES, nom + '.png') });
+  await p.setViewportSize(vp);
+}
 async function debordement(p) { return p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); }
 
 const PDF = { name: 'scan-fictif.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% document fictif de test E2E\n%%EOF\n') };
@@ -368,7 +377,14 @@ try {
     return { ok: n === 6 && deb <= 1, obtenu: `tuiles=${n} · débordement=${deb}px`, preuve: await capture(pU, 'operations-mobile') };
   });
   await etape('UI-OP-02', 'Contrôle de sécurité avant départ', 'Chef d\'unité valide le contrôle', 'contrôle APTE synchronisé', async () => {
-    await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' }); await toutConforme(pU); const r = await valider(pU);
+    await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' });
+    await toutConforme(pU); await captureFormulaire(pU, 'controle-avant-depart-mobile');   // support de formation (thème A)
+    const r = await valider(pU);
+    // Support de formation (thème C) : demande d'entretien remplie puis ANNULÉE (rien n'est envoyé).
+    await pU.click('[data-tuile="entretien"]');
+    await remplir(pU, { type_maintenance: 'ENTRETIEN_PREVENTIF', description: 'Chaîne détendue et sèche, bruit au démarrage (test fictif)', compteur_km: '10' });
+    await captureFormulaire(pU, 'demande-entretien-mobile');
+    await pU.locator('dialog.mm-modale').last().locator('button', { hasText: 'Annuler' }).click();
     const c = await attendre(async () => (await q("select resultat from public.moto_controles where moto_id=$1 and type_controle='AVANT_DEPART'", [motoId]))[0]?.resultat);
     return { ok: r === 'ferme' && c === 'APTE', obtenu: `${r} · ${c}` };
   });
@@ -427,6 +443,7 @@ try {
     await pU.goto(BASE + '/moto/index.html#/operations'); await pret(pU);
     await pU.click('[data-tuile="carburant"]');
     await remplir(pU, { compteur_km: '160', litres: '2', montant: '1700', plein_complet: 'true', financement: 'DOTATION', justificatif: PNG });
+    await captureFormulaire(pU, 'achat-carburant-mobile');   // support de formation (thème B)
     await valider(pU);
     await attendre(async () => (await q('select count(*)::int n from public.moto_carburant where moto_id=$1', [motoId]))[0].n === 3, 10000);
     await pU.goto(BASE + '/moto/index.html#/moto/' + motoId + '/carburant'); await pU.waitForSelector('.mm-kpi');
@@ -439,6 +456,7 @@ try {
     await ctxU.setOffline(true);
     await pU.click('[data-tuile="incident"]');
     await remplir(pU, { type_incident: 'PANNE', gravite: 'CRITIQUE', description: 'Perte de freinage simulée (test E2E fictif)', arret_confirme: true });
+    await captureFormulaire(pU, 'declarer-incident-mobile');   // support de formation (thème D)
     const r = await valider(pU);
     await pU.waitForSelector('.mm-bandeau.mm-ko', { timeout: 8000 });
     const bandeau = await pU.locator('.mm-bandeau.mm-ko').first().textContent();
@@ -513,6 +531,29 @@ try {
     const t = await attendre(async () => { const x = await pU.textContent('#quizRes'); return /synchronisé|attente/.test(x) ? x : null; }, 10000);
     const n = (await q("select count(*)::int n from public.moto_formation_resultats where reussi"))[0].n;
     return { ok: /Réussi/.test(t || '') && n === 1, obtenu: `"${(t || '').slice(0, 90)}" · base=${n}` };
+  });
+
+  // 9 bis. Supports de formation (migration 9) : présentation PDF jointe au module, stockage privé.
+  await etape('UI-FOR-02', 'Présentation PDF jointe au module (BM / ABM seulement)', 'BM dépose un PDF fictif sur « Contrôle de sécurité »', 'fichier dans moto-formation/CONTROLE_SECURITE/, support enregistré', async () => {
+    await pB.goto(BASE + '/moto/index.html#/formation/CONTROLE_SECURITE'); await pret(pB);
+    await pB.waitForSelector('[data-support-depot] input', { state: 'attached', timeout: 10000 });
+    await pB.setInputFiles('[data-support-depot] input', { name: 'A_controle_fictif.pdf', mimeType: 'application/pdf', buffer: PDF.buffer });
+    await pB.waitForSelector('[data-support-pdf]', { timeout: 10000 });
+    const r = (await q("select s.module_code, s.chemin, s.nom_fichier, (select count(*) from storage.objects o where o.bucket_id='moto-formation' and o.name=s.chemin)::int f from public.moto_formation_supports s"))[0] || {};
+    return { ok: r.module_code === 'CONTROLE_SECURITE' && /^CONTROLE_SECURITE\/[0-9a-f-]{36}\.pdf$/.test(r.chemin || '') && r.f === 1 && r.nom_fichier === 'A_controle_fictif.pdf', obtenu: `${r.module_code} · ${r.chemin} · fichier=${r.f}`, preuve: await capture(pB, 'formation-support-bm') };
+  });
+  await etape('UI-FOR-03', 'Le Chef d\'unité consulte la présentation, sans pouvoir déposer', 'Chef d\'unité ouvre la Formation puis le module', 'badge « Présentation PDF » sur la carte, lien signé, aucun bouton de dépôt, autres modules sans PDF', async () => {
+    await pU.goto(BASE + '/moto/index.html#/formation'); await pret(pU);
+    await pU.waitForSelector('.mm-carte-moto', { timeout: 10000 });
+    const badges = await pU.evaluate(() => [...document.querySelectorAll('a.mm-carte-moto')].map(a => a.querySelector('h2').textContent + '=' + /Présentation PDF/.test(a.textContent) + '/' + /Non commencé · /.test(a.textContent)));
+    await pU.goto(BASE + '/moto/index.html#/formation/CONTROLE_SECURITE'); await pret(pU);
+    await pU.waitForSelector('[data-support-pdf]', { timeout: 10000 });
+    const href = await pU.getAttribute('[data-support-pdf]', 'href'); const cible = await pU.getAttribute('[data-support-pdf]', 'target');
+    const depot = await pU.locator('[data-support-depot]').count();
+    const lecture = await pU.evaluate(async (u) => { const r = await fetch(u); return r.status + ' ' + (await r.text()).slice(0, 8); }, href);
+    const avecPdf = badges.filter(b => /=true\//.test(b)).length, ancienBadge = badges.filter(b => /\/true$/.test(b)).length;
+    return { ok: avecPdf === 1 && /=true\//.test(badges[0]) && ancienBadge === 0 && /moto-formation\/CONTROLE_SECURITE\//.test(href || '') && cible === '_blank' && depot === 0 && /^200 %PDF/.test(lecture),
+      obtenu: `cartes=${badges.join(' | ')} · lien=${(href || '').replace(/\?.*/, '')} · dépôt=${depot} · lecture=${lecture}`, preuve: await capture(pU, 'formation-support-uh') };
   });
 
   // 10. Accès refusés et périmètres
@@ -853,7 +894,7 @@ try {
 
   // 11. Trois largeurs : écrans principaux
   for (const [l] of Object.entries(LARGEURS)) {
-    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens'], ['uh', '#/missions', 'missions-agent'], ['bm', '#/missions', 'missions-bm'], ['zh', '#/missions', 'missions-zone']]) {
+    for (const [compte, chemin, nom] of [['bm', '#/motos', 'flotte'], ['bm', '#/moto/' + motoId, 'passeport'], ['bm', '#/pilotage', 'pilotage'], ['uh', '#/operations', 'operations'], ['uh', '#/formation', 'formation'], ['uh', '#/formation/CONTROLE_SECURITE', 'formation-module'], ['bm', '#/conducteurs', 'conducteurs'], ['bm', '#/moto/' + motoId + '/carnet', 'carnet'], ['uh', '#/motos', 'mon-permis'], ['abm', '#/admin', 'administration'], ['lc', '#/coordination', 'coordination'], ['bm', '#/moto/' + motoId + '/photos', 'photos'], ['lc', '#/maintenance', 'maintenance'], ['bm', '#/maintenance/decisions', 'decisions-bm'], ['lc', '#/moto/' + motoId + '/entretiens', 'entretiens'], ['uh', '#/missions', 'missions-agent'], ['bm', '#/missions', 'missions-bm'], ['zh', '#/missions', 'missions-zone']]) {
       const c = await contexte(compte, l); const p = await page(c, '/moto/index.html' + chemin); await pret(p);
       await etape(`UI-RWD-${nom}-${l}`, 'Mobile, tablette, ordinateur', `${nom} à ${LARGEURS[l].width}×${LARGEURS[l].height}`, 'rendu sans débordement horizontal', async () => {
         const deb = await debordement(p);

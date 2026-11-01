@@ -63,3 +63,6 @@ pgdata/
 
 # --- AFLP FIELD PROOF : fichiers produits par la recette locale (vidéos, ZIP) --
 tests/fieldproof/resultats/fichiers/
+
+# --- AFLP FLEET : flux de caméra simulée régénérés à chaque test de bout en bout --
+tests/moto/resultats/camera-compteur-*.mjpeg
