@@ -380,6 +380,11 @@ try {
     await pU.click('[data-tuile="controle"]'); await remplir(pU, { compteur_km: '10' });
     await toutConforme(pU); await captureFormulaire(pU, 'controle-avant-depart-mobile');   // support de formation (thème A)
     const r = await valider(pU);
+    // Support de formation (thème C) : demande d'entretien remplie puis ANNULÉE (rien n'est envoyé).
+    await pU.click('[data-tuile="entretien"]');
+    await remplir(pU, { type_maintenance: 'ENTRETIEN_PREVENTIF', description: 'Chaîne détendue et sèche, bruit au démarrage (test fictif)', compteur_km: '10' });
+    await captureFormulaire(pU, 'demande-entretien-mobile');
+    await pU.locator('dialog.mm-modale').last().locator('button', { hasText: 'Annuler' }).click();
     const c = await attendre(async () => (await q("select resultat from public.moto_controles where moto_id=$1 and type_controle='AVANT_DEPART'", [motoId]))[0]?.resultat);
     return { ok: r === 'ferme' && c === 'APTE', obtenu: `${r} · ${c}` };
   });
@@ -438,6 +443,7 @@ try {
     await pU.goto(BASE + '/moto/index.html#/operations'); await pret(pU);
     await pU.click('[data-tuile="carburant"]');
     await remplir(pU, { compteur_km: '160', litres: '2', montant: '1700', plein_complet: 'true', financement: 'DOTATION', justificatif: PNG });
+    await captureFormulaire(pU, 'achat-carburant-mobile');   // support de formation (thème B)
     await valider(pU);
     await attendre(async () => (await q('select count(*)::int n from public.moto_carburant where moto_id=$1', [motoId]))[0].n === 3, 10000);
     await pU.goto(BASE + '/moto/index.html#/moto/' + motoId + '/carburant'); await pU.waitForSelector('.mm-kpi');
@@ -450,6 +456,7 @@ try {
     await ctxU.setOffline(true);
     await pU.click('[data-tuile="incident"]');
     await remplir(pU, { type_incident: 'PANNE', gravite: 'CRITIQUE', description: 'Perte de freinage simulée (test E2E fictif)', arret_confirme: true });
+    await captureFormulaire(pU, 'declarer-incident-mobile');   // support de formation (thème D)
     const r = await valider(pU);
     await pU.waitForSelector('.mm-bandeau.mm-ko', { timeout: 8000 });
     const bandeau = await pU.locator('.mm-bandeau.mm-ko').first().textContent();
