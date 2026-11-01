@@ -1,5 +1,5 @@
 {
- "date": "2026-10-31T20:21:30.265Z",
+ "date": "2026-11-01T08:24:16.216Z",
  "base": "fbms_moto_e2e",
  "resultats": [
   {
@@ -43,7 +43,7 @@
    "exigence": "Photo principale enregistrée à la création (scénario 3)",
    "action": "Photo jointe au formulaire avec aperçu",
    "attendu": "aperçu affiché, photo en stockage privé, visible au passeport",
-   "obtenu": "aperçu=1 chemin=e52af916-5eec-42bb-9ccf-8ed082a0a211/photo/8b94ee3e-317f-44bc-8ef3-1cc42b767726.jpg affichée=true",
+   "obtenu": "aperçu=1 chemin=2aab5ab8-03d0-4764-93e1-b0df4f21a692/photo/74992935-ec23-4e39-84fc-c4230c1dbfd2.jpg affichée=true",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -156,11 +156,38 @@
    "preuve": "tests/moto/resultats/captures/etat-remise-beneficiaire-mobile.png"
   },
   {
+   "id": "UI-PRM-01",
+   "exigence": "Permis scanné par le conducteur lui-même (migration 7)",
+   "action": "Chef d'unité : « Scanner mon permis » (recto + verso), saisie des informations",
+   "attendu": "permis EN_VERIFICATION, scan PDF de 2 pages dans permis/<titulaire>/",
+   "obtenu": "ferme · EN_VERIFICATION · A · PDF valide · 2 page(s) · avant=Aucun permis enregistré",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/permis-saisie-mobile.png"
+  },
+  {
+   "id": "UI-PRM-02",
+   "exigence": "Contrôle sur original par le Branch Manager (migration 7)",
+   "action": "BM ouvre « Conducteurs », ouvre le scan et déclare le permis conforme",
+   "attendu": "permis CONFORME, vérificateur RH enregistré",
+   "obtenu": "menu=1 · ferme · CONFORME · RH E2E FICTIF",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/permis-verification-bureau.png"
+  },
+  {
+   "id": "UI-PRM-03",
+   "exigence": "Chef de zone : aucun accès aux permis des autres",
+   "action": "Chef de zone ouvre l'application puis #/conducteurs",
+   "attendu": "pas de menu Conducteurs, aucune donnée de permis affichée",
+   "obtenu": "menu=0 · numéro visible=false",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
    "id": "UI-REM-03",
    "exigence": "Remise officielle complète",
-   "action": "ABM enregistre la remise",
-   "attendu": "REMISE, pas encore autorisée à circuler",
-   "obtenu": "ferme · REMISE · service=false",
+   "action": "ABM enregistre la remise ; le permis vérifié est repris automatiquement",
+   "attendu": "REMISE, permis repris (A, RH E2E FICTIF), pas encore autorisée à circuler",
+   "obtenu": "ferme · REMISE · service=false · permis repris=A/RH E2E FICTIF",
    "resultat": "RÉUSSI",
    "preuve": ""
   },
@@ -358,7 +385,7 @@
    "exigence": "Chef de zone : liste et inspection du mois (scénarios 10, 12)",
    "action": "ZH inspecte MOTO-001 depuis Opérations, éclairage en défaut",
    "attendu": "inspection ZONE enregistrée, résultat calculé par le serveur, tardive après le 15",
-   "obtenu": "ferme · {\"niveau\":\"ZONE\",\"conformite\":\"RESERVES\",\"periode\":\"2026-10-01T00:00:00.000Z\"} · statut=EFFECTUEE_HORS_DELAI",
+   "obtenu": "ferme · {\"niveau\":\"ZONE\",\"conformite\":\"RESERVES\",\"periode\":\"2026-11-01T00:00:00.000Z\"} · statut=EFFECTUEE",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/zone-inspections-mobile.png"
   },
@@ -439,7 +466,7 @@
    "exigence": "Coordinateur : besoin, devis avec pièce, soumission au BM (§10, scénario 9)",
    "action": "Coordinateur crée le dossier, enregistre un devis de 20 000 et le soumet",
    "attendu": "EN_ATTENTE_BM, pièce dans finmaint/, aucun engagement",
-   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/e52af916-5eec-42bb-9ccf-8ed082a0a211/devis/3a4a02b2-b089-4fe9-8713-959cbb13f0e8.pdf\"}",
+   "obtenu": "ferme/ferme/ferme · {\"statut\":\"EN_ATTENTE_BM\",\"montant_engage\":\"0\",\"devis_path\":\"finmaint/2aab5ab8-03d0-4764-93e1-b0df4f21a692/devis/89096e8f-4520-4709-a4e5-6dd73beb1f48.pdf\"}",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/maintenance-dossier-mobile.png"
   },
@@ -478,6 +505,33 @@
    "obtenu": "bloc=1 · lien=1",
    "resultat": "RÉUSSI",
    "preuve": ""
+  },
+  {
+   "id": "UI-CARNET-01",
+   "exigence": "Carnet de suivi complet (Branch Manager)",
+   "action": "BM ouvre le carnet de MOTO-001, filtre « Décisions et factures », exporte",
+   "attendu": "remise avec permis, entretien, décision BM chiffrée ; filtre ; fichier Excel",
+   "obtenu": "événements=18 · remise+permis=1 · décision chiffrée=1 · filtre=1/0 hors rubrique · Excel Synthèse+Carnet 18 lignes",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carnet-bm-bureau.png"
+  },
+  {
+   "id": "UI-CARNET-02",
+   "exigence": "Carnet vu par le Chef d'unité : historique sans montants d'entretien",
+   "action": "Chef d'unité ouvre le carnet de sa moto",
+   "attendu": "chronologie visible, aucune décision ni facture, coût « Accès réservé »",
+   "obtenu": "événements=17 · financiers=0 · accès réservé=1 · débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carnet-uh-mobile.png"
+  },
+  {
+   "id": "UI-SCAN-01",
+   "exigence": "Documents scannés dès l'enregistrement d'une moto",
+   "action": "Coordinateur enregistre une moto avec la carte grise scannée (2 pages, recadrage, rotation)",
+   "attendu": "moto créée, carte grise EN_VERIFICATION, PDF valide de 2 pages",
+   "obtenu": "ferme · EN_VERIFICATION · 06eba1cc-3fb5-49aa-8ce1-ba9a0a24e1dd/document/fb2129ef-9355-4552-b513-e11a0d9bda6b.pdf · PDF valide · 2 page(s)",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/scanner-mobile.png"
   },
   {
    "id": "UI-RWD-flotte-mobile",
@@ -523,6 +577,33 @@
    "obtenu": "débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/formation-mobile.png"
+  },
+  {
+   "id": "UI-RWD-conducteurs-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "conducteurs à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/conducteurs-mobile.png"
+  },
+  {
+   "id": "UI-RWD-carnet-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "carnet à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carnet-mobile.png"
+  },
+  {
+   "id": "UI-RWD-mon-permis-mobile",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "mon-permis à 390×844",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mon-permis-mobile.png"
   },
   {
    "id": "UI-RWD-administration-mobile",
@@ -624,6 +705,33 @@
    "preuve": "tests/moto/resultats/captures/formation-tablette.png"
   },
   {
+   "id": "UI-RWD-conducteurs-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "conducteurs à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/conducteurs-tablette.png"
+  },
+  {
+   "id": "UI-RWD-carnet-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "carnet à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carnet-tablette.png"
+  },
+  {
+   "id": "UI-RWD-mon-permis-tablette",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "mon-permis à 768×1024",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mon-permis-tablette.png"
+  },
+  {
    "id": "UI-RWD-administration-tablette",
    "exigence": "Mobile, tablette, ordinateur",
    "action": "administration à 768×1024",
@@ -721,6 +829,33 @@
    "obtenu": "débordement=0px",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/formation-bureau.png"
+  },
+  {
+   "id": "UI-RWD-conducteurs-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "conducteurs à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/conducteurs-bureau.png"
+  },
+  {
+   "id": "UI-RWD-carnet-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "carnet à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carnet-bureau.png"
+  },
+  {
+   "id": "UI-RWD-mon-permis-bureau",
+   "exigence": "Mobile, tablette, ordinateur",
+   "action": "mon-permis à 1440×900",
+   "attendu": "rendu sans débordement horizontal",
+   "obtenu": "débordement=0px",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mon-permis-bureau.png"
   },
   {
    "id": "UI-RWD-administration-bureau",

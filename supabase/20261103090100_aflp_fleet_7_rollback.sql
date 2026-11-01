@@ -14,6 +14,7 @@ do $$ begin
 end $$;
 
 drop function if exists public.moto_carnet(uuid);
+drop function if exists private.moto_lib(text);
 drop function if exists public.moto_permis_alertes();
 drop view if exists public.moto_v_permis;
 drop trigger if exists moto_affectations_permis_trg on public.moto_affectations;

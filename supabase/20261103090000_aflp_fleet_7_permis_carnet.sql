@@ -314,6 +314,25 @@ begin
   order by 8 nulls first, 2;
 end $$;
 
+-- Libellés lisibles (accents) des codes repris dans le carnet.
+create or replace function private.moto_lib(p_code text)
+returns text language sql immutable set search_path to 'pg_temp'
+as $$
+  select case upper(coalesce(p_code, ''))
+    when 'VIDANGE' then 'vidange' when 'ENTRETIEN_PREVENTIF' then 'entretien préventif' when 'REVISION' then 'révision'
+    when 'REPARATION' then 'réparation' when 'PANNE' then 'panne' when 'DIAGNOSTIC' then 'diagnostic' when 'PNEUMATIQUE' then 'pneumatique'
+    when 'AUTORISEE' then 'autorisée' when 'REFUSEE' then 'refusée' when 'ANNULEE' then 'annulée' when 'EN_ATTENTE' then 'en attente'
+    when 'CARTE_GRISE' then 'carte grise' when 'PLAQUE' then 'plaque d''immatriculation' when 'ASSURANCE' then 'assurance'
+    when 'RAPPORT_MECANICIEN' then 'rapport du mécanicien' when 'PV_REMISE' then 'procès-verbal de remise' when 'PHOTO' then 'photographie'
+    when 'PERMIS' then 'permis' when 'FACTURE' then 'facture' when 'JUSTIFICATIF' then 'justificatif' when 'AUTRE' then 'autre document'
+    when 'ACCIDENT' then 'accident' when 'CREVAISON' then 'crevaison' when 'ANOMALIE' then 'anomalie'
+    when 'MINEURE' then 'mineure' when 'MAJEURE' then 'majeure' when 'CRITIQUE' then 'critique'
+    when 'RECEPTIONNEE' then 'réceptionnée' when 'PREVUE' then 'acquisition prévue'
+    when 'ZONE' then 'Chef de zone' when 'COORDINATION' then 'coordinateur' when 'INDEPENDANTE' then 'contrôle indépendant'
+    when 'AVANT' then 'avant' when 'ARRIERE' then 'arrière'
+    else lower(replace(coalesce(p_code, ''), '_', ' ')) end
+$$;
+
 -- ---------------------------------------------------------------------
 -- 7. Carnet de suivi d'une moto : chronologie complète.
 --    Montants de maintenance (autorisations, factures, paiements, pneus) :
@@ -339,7 +358,7 @@ begin
            case when m.origine = 'EN_EXPLOITATION' then 'Intégration dans AFLP FLEET' else 'Enregistrement de la moto' end,
            concat_ws(' · ', nullif(btrim(concat_ws(' ', m.marque, m.modele)), ''),
                      case when m.date_reception is not null then 'réception le ' || to_char(m.date_reception, 'DD/MM/YYYY') end,
-                     case when m.situation_parc is not null then lower(replace(m.situation_parc, '_', ' ')) end),
+                     case when m.situation_parc is not null then private.moto_lib(m.situation_parc) end),
            null::text, m.compteur_reception_km, null::numeric, null::text, private.moto_nom_profil(m.created_by), 'moto_motos'::text, m.id
     from public.moto_motos m where m.id = p_moto
     union all
@@ -365,7 +384,7 @@ begin
     -- Contrôles et inspections (les contrôles avant départ n'apparaissent qu'en cas de défaut)
     select c.date_controle, 'CONTROLE',
            case c.type_controle when 'INSPECTION_INITIALE' then 'Inspection mécanique initiale'
-                                when 'INSPECTION_MENSUELLE' then 'Inspection mensuelle (' || lower(coalesce(c.niveau, '')) || ')'
+                                when 'INSPECTION_MENSUELLE' then 'Inspection mensuelle (' || private.moto_lib(c.niveau) || ')'
                                 when 'ETAT_REMISE' then 'État contradictoire avant remise'
                                 when 'REMISE_EN_SERVICE' then 'Contrôle de remise en service'
                                 else 'Contrôle avant départ : défaut' end,
@@ -376,7 +395,7 @@ begin
       and (c.type_controle <> 'AVANT_DEPART' or c.anomalie_critique or c.resultat = 'INAPTE')
     union all
     -- Anomalies et actions correctives
-    select ac.constat_at, 'ANOMALIE', 'Anomalie constatée (' || lower(ac.gravite) || ')', ac.anomalie, ac.statut, null, null, null,
+    select ac.constat_at, 'ANOMALIE', 'Anomalie constatée (' || private.moto_lib(ac.gravite) || ')', ac.anomalie, ac.statut, null, null, null,
            private.moto_nom_profil(ac.signale_par), 'moto_actions_correctives', ac.id
     from public.moto_actions_correctives ac where ac.moto_id = p_moto
     union all
@@ -389,7 +408,7 @@ begin
     from public.moto_actions_correctives ac where ac.moto_id = p_moto and ac.verifie_at is not null
     union all
     -- Maintenance : besoin, travaux réalisés, contrôle, clôture, annulation
-    select mt.demande_at, 'MAINTENANCE', 'Besoin d''entretien ou de réparation (' || lower(replace(mt.type_maintenance, '_', ' ')) || ')',
+    select mt.demande_at, 'MAINTENANCE', 'Besoin d''entretien ou de réparation (' || private.moto_lib(mt.type_maintenance) || ')',
            mt.description, mt.statut, mt.compteur_km, null, null, private.moto_nom_profil(mt.demande_par), 'moto_maintenances', mt.id
     from public.moto_maintenances mt where mt.moto_id = p_moto
     union all
@@ -414,7 +433,7 @@ begin
     from public.moto_maintenances mt where mt.moto_id = p_moto and mt.annule_at is not null
     union all
     -- Décisions du Branch Manager (lecture financière uniquement)
-    select au.decide_at, 'AUTORISATION', 'Décision du Branch Manager : ' || lower(au.statut), au.perimetre, au.statut, null,
+    select au.decide_at, 'AUTORISATION', 'Décision du Branch Manager : ' || private.moto_lib(au.statut), au.perimetre, au.statut, null,
            au.montant_autorise, 'AUTORISE', private.moto_nom_profil(au.decide_par), 'moto_autorisations', au.id
     from public.moto_autorisations au where v_fin and au.moto_id = p_moto and au.decide_at is not null
     union all
@@ -429,11 +448,11 @@ begin
     from public.moto_factures f where v_fin and f.moto_id = p_moto and f.paiement_date is not null and f.montant_paye > 0
     union all
     -- Pneumatiques
-    select po.pose_date::timestamptz, 'PNEU', 'Pneu monté (' || lower(po.position) || ')',
+    select po.pose_date::timestamptz, 'PNEU', 'Pneu monté (' || private.moto_lib(po.position) || ')',
            concat_ws(' ', pn.code, pn.marque, pn.dimensions), null, po.pose_km, null, null, private.moto_nom_profil(po.pose_par), 'moto_pneu_poses', po.id
     from public.moto_pneu_poses po left join public.moto_pneus pn on pn.id = po.pneu_id where po.moto_id = p_moto
     union all
-    select po.depose_date::timestamptz, 'PNEU', 'Pneu déposé (' || lower(po.position) || ')',
+    select po.depose_date::timestamptz, 'PNEU', 'Pneu déposé (' || private.moto_lib(po.position) || ')',
            concat_ws(' · ', concat_ws(' ', pn.code, pn.marque), po.motif_depose,
                      case when po.depose_km is not null and po.pose_km is not null then (po.depose_km - po.pose_km)::text || ' km parcourus' end),
            null, po.depose_km, null, null, private.moto_nom_profil(po.depose_par), 'moto_pneu_poses', po.id
@@ -454,7 +473,7 @@ begin
     group by date_trunc('month', c.date_achat)
     union all
     -- Incidents
-    select i.declare_at, 'INCIDENT', 'Incident : ' || lower(i.type_incident) || ' (' || lower(i.gravite) || ')', i.description, i.etape, i.compteur_km,
+    select i.declare_at, 'INCIDENT', 'Incident : ' || private.moto_lib(i.type_incident) || ' (' || private.moto_lib(i.gravite) || ')', i.description, i.etape, i.compteur_km,
            null, null, private.moto_nom_profil(i.declare_par), 'moto_incidents', i.id
     from public.moto_incidents i where i.moto_id = p_moto
     union all
@@ -471,7 +490,7 @@ begin
     from public.moto_immobilisations im where im.moto_id = p_moto and im.fin is not null
     union all
     -- Documents de la moto
-    select d.depose_at, 'DOCUMENT', 'Document déposé : ' || lower(replace(d.type_document, '_', ' ')),
+    select d.depose_at, 'DOCUMENT', 'Document déposé : ' || private.moto_lib(d.type_document),
            concat_ws(' · ', d.numero_reference, case when d.date_expiration is not null then 'expire le ' || to_char(d.date_expiration, 'DD/MM/YYYY') end),
            d.statut, null, null, null, private.moto_nom_profil(d.depose_par), 'moto_documents', d.id
     from public.moto_documents d where d.moto_id = p_moto

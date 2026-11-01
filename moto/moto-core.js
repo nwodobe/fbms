@@ -48,18 +48,21 @@
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions',
                 // Migration 6 : le BM est le SEUL à autoriser une dépense d'entretien ou de réparation.
                 'maintenance_voir', 'maintenance_finances', 'maintenance_autoriser', 'maintenance_organiser', 'maintenance_controler', 'garages', 'garage_approuver',
-                'regle_proposer', 'regle_approuver', 'modele_definir', 'lever_immobilisation', 'maintenance_demande'],
+                'regle_proposer', 'regle_approuver', 'modele_definir', 'lever_immobilisation', 'maintenance_demande',
+                // Migration 7 : permis des conducteurs (contrôle sur original par le BM ou l'ABM).
+                'permis_voir', 'permis_enregistrer', 'permis_verifier'],
     ABM:       ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
                 'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',
-                'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande'],
+                'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande', 'permis_voir', 'permis_enregistrer', 'permis_verifier', 'mon_permis'],
     LOGISTIQUE: ['lire', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
                 'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes',
-                'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir'],
+                'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir',
+                'permis_voir', 'permis_enregistrer', 'mon_permis'],
     ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'incident_piloter',
-                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande'],
-    UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat'],
+                'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande', 'mon_permis'],
+    UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat', 'mon_permis'],
     FINANCE:   ['lire', 'pilotage', 'rapprochement', 'verifier_justificatifs', 'exports', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'facture_verifier', 'paiement_constater', 'cloture_financiere'],
     DIRECTION: ['lire', 'pilotage', 'rapprochement', 'valider_corrections', 'journal', 'exports', 'maintenance_voir', 'maintenance_finances']
@@ -101,7 +104,8 @@
     CARTE_GRISE: 'Carte grise', PLAQUE: 'Plaque d\'immatriculation', ASSURANCE: 'Assurance', RAPPORT_MECANICIEN: 'Rapport du mécanicien',
     PV_REMISE: 'Procès-verbal de remise', PHOTO: 'Photographie', PERMIS: 'Permis', FACTURE: 'Facture', JUSTIFICATIF: 'Justificatif', AUTRE: 'Autre',
     PREAFFECTATION: 'Préaffectation', TRANSFERT: 'Transfert', ACTIVE: 'Active', CLOTUREE: 'Clôturée',
-    SYNCHRONISE: 'Synchronisé', BLOQUE: 'Bloqué (relance manuelle)'
+    SYNCHRONISE: 'Synchronisé', BLOQUE: 'Bloqué (relance manuelle)',
+    REMPLACE: 'Remplacé', AUCUN_PERMIS_VALIDE: 'Aucun permis valide', LEVEE: 'Levée', EN_COURS_IMMO: 'En cours'
   };
   function libelle(code) { return code == null || code === '' ? ND : (LIBELLES[code] || String(code)); }
 
