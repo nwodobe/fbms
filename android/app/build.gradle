@@ -52,7 +52,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    androidResources { noCompress += ['woff2', 'png'] }
+    androidResources {
+        noCompress += ['woff2', 'png']
+        /* Motif par defaut d'Android SANS la regle <dir>_* : sinon www/_native et www/_vendor
+           (paquet de mise a jour, bibliotheques hors ligne) sont ecartes en silence de l'APK. */
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
 
     applicationVariants.all { variant ->
         variant.outputs.all { outputFileName = "ANAGROCI_FIELD_BUYING_AFLP_2027_v${variant.versionName}_${variant.buildType.name}.apk" }
