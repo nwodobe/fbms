@@ -1,0 +1,1991 @@
+/* ============================================================================
+   RCN TRACE — Moteur métier & magasin local (rcntrace/rcntrace.js)
+   ----------------------------------------------------------------------------
+   Prototype V1 · Modules 1 & 2 (Réception, Qualité, Stock/BIN, Transfert,
+   Calibrage). Fidèle au cahier des charges consolidé v2.0 et à la conception
+   des écrans (16 écrans). Fonctionne hors connexion : toutes les données sont
+   conservées dans localStorage. Aucune quantité ne disparaît, aucune correction
+   n'efface le passé (journal d'audit versionné).
+
+   Principes appliqués (cf. §1.2) :
+     · Le lot officiel (RCN) porte l'identité ; la BIN porte la position.
+     · Après mélange : traçabilité par contributeurs + bilan matière.
+     · Une valeur vide n'est PAS un zéro.
+     · Toute correction crée une version avec motif et auteur.
+   ========================================================================== */
+(function (global) {
+  "use strict";
+
+  /* ------------------------------------------------------------------ */
+  /*  0. Constantes métier                                              */
+  /* ------------------------------------------------------------------ */
+  var KOR_FACTOR = 0.17637;                       // §6.1 formule confirmée
+  var KOR_FORMULA = "(GK + Spotted/2 + Immature/2) × 0.17637";
+  var KOR_FORMULA_VERSION = "v1.0";
+  var KOR_TOLERANCE = 1;                          // écart conforme si strictement < 1
+
+  // Neuf calibres officiels RCN — grille retenue au nombre de noix/kg (§9.3).
+  var CALIBRES = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"];
+  var CALIBRE_LABELS = {
+    C1: "Très gros · ≤ 180 noix/kg", C2: "181–190 noix/kg", C3: "191–200 noix/kg",
+    C4: "201–210 noix/kg", C5: "211–220 noix/kg", C6: "221–230 noix/kg",
+    C7: "231–240 noix/kg", C8: "241–250 noix/kg", C9: "Petit · > 250 noix/kg"
+  };
+
+  // Catégories de sorties non-calibre (§M2-FR-08).
+  // Sorties non-calibre (§8) : ne jamais tout mettre dans « perte ».
+  // La « perte inexpliquée » n'est pas déclarée — c'est l'écart du bilan.
+  var CATEGORIES_PERTE = [
+    { code: "rejet_valorisable", label: "Rejet valorisable" },
+    { code: "rebut", label: "Rebut définitif" },
+    { code: "poussiere", label: "Poussière / corps étrangers" },
+    { code: "hors_calibre", label: "Noix hors calibre" },
+    { code: "recalibrer", label: "Matière à recalibrer" },
+    { code: "renversee", label: "Matière renversée" },
+    { code: "reste_machine", label: "Reste dans la machine" },
+    { code: "a_traiter", label: "Matière restant à traiter" },
+    { code: "perte_expliquee", label: "Perte expliquée" }
+  ];
+
+  // Motifs d'arrêt configurables (§M2-FR-06, étape 7 « Arrêts et maintenance »).
+  var MOTIFS_ARRET = ["Panne", "Bourrage", "Nettoyage", "Coupure électrique", "Manque de matière", "Attente d'une BIN", "Réglage de la machine", "Contrôle qualité", "Changement de calibre", "Maintenance", "Autre motif"];
+
+  // Checklist de contrôle avant démarrage (§écran 4) — toutes obligatoires.
+  var CAL_CHECKLIST = [
+    { code: "seche", label: "Matière suffisamment sèche" },
+    { code: "refs", label: "Sacs et références conformes" },
+    { code: "dispo", label: "Machine disponible" },
+    { code: "propre", label: "Machine nettoyée" },
+    { code: "vide", label: "Aucune matière de l'opération précédente" },
+    { code: "sorties", label: "Sorties de calibre identifiées" },
+    { code: "bins", label: "BIN de destination disponibles" },
+    { code: "balance", label: "Balance vérifiée" },
+    { code: "operateurs", label: "Opérateurs affectés" },
+    { code: "autorisation", label: "Autorisation du responsable obtenue" }
+  ];
+  // Décisions de contrôle qualité des sorties (§écran 10).
+  var QC_DECISIONS = [
+    { code: "conforme", label: "Conforme" }, { code: "reserve", label: "Accepté avec réserve" },
+    { code: "recalibrer", label: "À recalibrer" }, { code: "bloque", label: "Bloqué" }, { code: "rejete", label: "Rejeté" }
+  ];
+  // Rôles (habilitations — §contraintes).
+  var ROLES = ["Opérateur", "Responsable Production", "Qualité", "Maintenance", "Administrateur", "Coordination"];
+
+  // Catégories de sacs constatées sur le terrain (rapports Bouaké/Yakro).
+  var CATEGORIES_SAC = [
+    { code: "bon", label: "Bons sacs" },
+    { code: "humide", label: "Sacs humides" },
+    { code: "dechire", label: "Sacs déchirés" },
+    { code: "recond", label: "Sacs reconditionnés" }
+  ];
+
+  // Sacs de jute — DEUX registres distincts (évite le double comptage) :
+  // A) Dette fournisseur : solde = dotation − retours physiques − pertes approuvées.
+  //    (« retour » = TOUS les sacs physiquement rendus, quelle que soit leur condition.)
+  var TYPES_JUTE = [
+    { code: "dotation", label: "Dotation (sacs remis au fournisseur)", signe: +1, ledger: "fournisseur" },
+    { code: "retour", label: "Retour physique (tous sacs rendus)", signe: -1, ledger: "fournisseur" },
+    { code: "perte_approuvee", label: "Perte approuvée", signe: -1, ledger: "fournisseur" }
+  ];
+  // B) Disposition INTERNE des sacs retournés (n'affecte PAS la dette fournisseur).
+  //    Le rebagging est une consommation interne, pas une réduction de dette.
+  var DISPOSITIONS_JUTE = [
+    { code: "utilisable", label: "Utilisables", ledger: "interne" },
+    { code: "a_reparer", label: "À réparer", ledger: "interne" },
+    { code: "repare", label: "Réparés", ledger: "interne" },
+    { code: "rebaging", label: "Rebagging (consommation interne)", ledger: "interne" },
+    { code: "reforme", label: "Réformés", ledger: "interne" },
+    { code: "dechire", label: "Déchirés", ledger: "interne" }
+  ];
+
+  // Référentiels RÉELS extraits des rapports d'exploitation 2026 (feuille
+  // « LBA VENDOR », base fournisseurs officielle). Code = <PREFIXE>-NNN-XXX :
+  // préfixe (LBA/DIS), numéro séquentiel, abréviation 3 lettres du mot-clé.
+  var FOURNISSEURS = [
+    { nom: "SCOOPADA SCOOPS", lba: "DIS-001-SCO" },
+    { nom: "SCOOPS CORISPORT", lba: "DIS-002-COR" },
+    { nom: "SCOOPS DEMBOL", lba: "DIS-003-DEM" },
+    { nom: "ANAGROCI UT-CCA", lba: "DIS-004-ANA" },
+    { nom: "SOVA SCOOPS", lba: "DIS-005-SOV" },
+    { nom: "SCOOPS DIENE", lba: "DIS-006-DIE" },
+    { nom: "SCOOPASS", lba: "DIS-007-SPA" },
+    { nom: "SCOOPS FOUNDARA", lba: "DIS-008-FOU" },
+    { nom: "YAO OUMIAN LAMBERT", lba: "DIS-009-YAO" },
+    { nom: "SCOOP SAHS", lba: "DIS-010-SAH" },
+    { nom: "SOCOSAM", lba: "DIS-011-SAM" },
+    { nom: "GOLDY AGRI MARKET", lba: "DIS-012-GOL" },
+    { nom: "SCOOPS BAOBAB", lba: "DIS-013-BAB" },
+    { nom: "DCARRE DAVID D JOUMAN", lba: "DIS-014-DAV" },
+    { nom: "ESPI SCOOPS", lba: "DIS-015-ESP" },
+    { nom: "SCOOPS IB", lba: "DIS-016-SIB" },
+    { nom: "SCOOPS MASSATIGUI", lba: "DIS-017-MAS" },
+    { nom: "SCOOPS PAPN", lba: "DIS-018-PAP" },
+    { nom: "DECARRE DAVID &DJOUMAN", lba: "DIS-019-DEC" },
+    { nom: "SCOOPS AC SOURCING", lba: "DIS-020-SOU" },
+    { nom: "SCOOPS KOB S", lba: "DIS-021-KOB" },
+    { nom: "SCOOPS COOPRES", lba: "DIS-022-RES" },
+    { nom: "ICFB", lba: "DIS-023-ICF" },
+    { nom: "CADEPO COOP CA", lba: "DIS-024-CAD" },
+    { nom: "SIMAYAT COOP CA", lba: "DIS-025-SIM" },
+    { nom: "SCOOPS MOAYE BKE", lba: "DIS-026-MOA" },
+    { nom: "SCOOPS BAOBAB", lba: "DIS-027-BAO" },
+    { nom: "ALFCOUL GROUP", lba: "DIS-028-ALF" },
+    { nom: "CPAS SCOOPS", lba: "DIS-029-CPA" },
+    { nom: "SCOOPS JPPAGG", lba: "DIS-030-JPP" },
+    { nom: "ADAM IVOIRE", lba: "DIS-031-ADA" },
+    { nom: "SCMB COOP CA", lba: "DIS-032-SCM" },
+    { nom: "SCOOPS AJCB", lba: "DIS-033-AJC" },
+    { nom: "OCEAN NEGOSE", lba: "DIS-034-OCE" },
+    { nom: "SCOOPS SCNB", lba: "DIS-035-SNC" },
+    { nom: "COOPCA TOE SEYDOU", lba: "DIS-036-SEY" },
+    { nom: "SCOOPS PAP", lba: "DIS-037-PAP" },
+    { nom: "SCOOPS AKF", lba: "DIS-038-AKF" },
+    { nom: "SOCOOP ADD COOP CA", lba: "DIS-039-ADD" },
+    { nom: "SOLANDA-CI", lba: "DIS-040-SOL" },
+    { nom: "BROUMA SARL", lba: "DIS-041-BRO" },
+    { nom: "SCOOPS SOCOSIDJI", lba: "LBA-001-SOC" },
+    { nom: "SCAAMT COOP CA", lba: "LBA-002-SCA" },
+    { nom: "SCOOPS HERE B", lba: "LBA-003-HER" },
+    { nom: "SCOOPS WEBE", lba: "LBA-004-WEB" },
+    { nom: "COP JAVA", lba: "LBA-005-JAV" },
+    { nom: "SCOOP IMANE", lba: "LBA-006-IMA" },
+    { nom: "CASP-S SCOOPS", lba: "LBA-007-CAS" },
+    { nom: "SCOOP-CA/COBAN", lba: "LBA-008-COB" },
+    { nom: "SCOPPAS SCOOPS", lba: "LBA-009-SCO" },
+    { nom: "CAPCD-SCOOPS", lba: "LBA-010-CAP" },
+    { nom: "SCOOPS ASER", lba: "LBA-011-ASR" },
+    { nom: "SCOOPS KPESSO", lba: "LBA-012-KPE" },
+    { nom: "ETABLISSEMENT Dagnogo Karime", lba: "LBA-013-DAG" },
+    { nom: "SCOOPS BAY SCOOPS", lba: "LBA-014-BAY" },
+    { nom: "SCOOPS OUMI", lba: "LBA-015-OUM" },
+    { nom: "SCOOPS AH AL NOUR", lba: "LBA-016-NOU" },
+    { nom: "SCOOPS DPVICA", lba: "LBA-017-DPV" },
+    { nom: "SCOOPS COOPRAKA", lba: "LBA-018-COP" },
+    { nom: "SCOOPS FRA PRO", lba: "LBA-019-FRA" },
+    { nom: "SCOOPS SKS", lba: "LBA-020-SKS" },
+    { nom: "SANOGO SINDOU", lba: "LBA-021-SAN" },
+    { nom: "SCOOPS AGRO NEGOCE", lba: "LBA-022-NEG" },
+    { nom: "AGRICAS IVOIRE", lba: "LBA-023-AGR" }
+  ];
+  // Mots génériques ignorés pour dériver l'abréviation du code LBA.
+  var LBA_GENERIQUES = ["RCN", "SCOOPS", "SCOOP", "COOPS", "COOP", "COP", "ETABLISSEMENT", "ETS", "ETB", "SARL", "EARL", "GIE", "ENTREPRISE", "ENT", "CA", "SCA-CA"];
+  var ORIGINES = ["Dianra", "Mankono", "Niakara", "Bouaké", "Vavoua", "Dabakala", "Kounahiri", "Korhogo", "Séguéla"];
+  // Entrepôts par localité (une localité a plusieurs entrepôts).
+  // Format d'identifiant BIN dérivé : <ENTREPÔT>-BIN-nn (ex. BKE-002-BIN-017).
+  var ENTREPOTS = [
+    { code: "BKE-001", nom: "Bouaké — Entrepôt 1", location: "Bouaké" },
+    { code: "BKE-002", nom: "Bouaké — Entrepôt 2", location: "Bouaké" },
+    { code: "BKE-003", nom: "Bouaké — Entrepôt 3", location: "Bouaké" },
+    { code: "BKE-004", nom: "Bouaké — Entrepôt 4 (tampon)", location: "Bouaké" },
+    { code: "YAKRO-01", nom: "Yamoussoukro — Entrepôt 1", location: "Yamoussoukro" },
+    { code: "YAKRO-02", nom: "Yamoussoukro — Entrepôt 2", location: "Yamoussoukro" },
+    { code: "ANAGROCI-01", nom: "Usine (calibrage)", location: "Yamoussoukro" }
+  ];
+
+  // Statuts (cf. §5).
+  var ETAT_REC = {
+    ARRIVEE: "ARRIVÉE_ENREGISTRÉE",
+    SAMPLING: "SAMPLING_EN_COURS",
+    ATTENTE_GM: "ATTENTE_GM",
+    REFUSEE: "REFUSÉE",
+    AUTORISEE: "AUTORISÉE",
+    DECHARGE: "DÉCHARGÉ_EN_ATTENTE_QUALITÉ",
+    LIBERE: "LIBÉRÉ",
+    BLOQUE: "BLOQUÉ_QUALITÉ",
+    CLOS: "CLOS"
+  };
+  var ETAT_BIN = { OUVERT: "OUVERT", ACTIF: "ACTIF", BLOQUE: "BLOQUÉ", RECONCILIER: "À_RÉCONCILIER", VIDE: "VIDE_À_CONFIRMER", CLOS: "CLOS" };
+  var ETAT_TRF = { BROUILLON: "BROUILLON", PREPARE: "PRÉPARÉ", CONTROLE: "CONTRÔLÉ_QA", EXPEDIE: "EXPÉDIÉ", PARTIEL: "PARTIELLEMENT_REÇU", RECU: "REÇU", ECART: "EN_ÉCART", CLOS: "CLOS", ANNULE: "ANNULÉ" };
+  var ETAT_CAL = { PREPARE: "EN_PRÉPARATION", PRET: "PRÊT", EN_COURS: "EN_COURS", PAUSE: "EN_PAUSE", PARTIEL: "PARTIEL", TERMINE: "TERMINÉ", RAPPROCHER: "À_RAPPROCHER", VALIDER: "À_VALIDER", CLOS: "CLOS", ROUVERT: "ROUVERT_AUTORISÉ" };
+
+  /* ------------------------------------------------------------------ */
+  /*  1. Magasin persistant (localStorage)                              */
+  /* ------------------------------------------------------------------ */
+  var DB_KEY = "rcntrace.db.v4";
+  var _db = null;
+
+  function emptyDb() {
+    return {
+      seq: {},                 // compteurs de séquence par préfixe et par jour
+      receptions: [],          // dossier REC (inclut sampling, analyse finale, décision GM)
+      lots: [],                // lots officiels RCN
+      bins: {},                // état courant par identifiant de BIN physique
+      binCycles: [],           // cycles de BIN
+      movements: [],           // mouvements MOV (entrées/sorties/séchage/triage)
+      dryings: [],             // opérations de séchage / triage SEC (avant/après)
+      jute: [],                // mouvements de sacs de jute JUT (dotation/retour/déchiré/rebaging)
+      procurement: { engagements: [], financements: [], arrivages: [] },
+      transfers: [],           // transferts TRF
+      cals: [],                // opérations de calibrage CAL
+      documents: [],           // pièces jointes DOC (métadonnées)
+      audit: [],               // journal d'audit AUD (non modifiable)
+      referentials: {
+        calibres: CALIBRES.slice(),
+        motifsArret: MOTIFS_ARRET.slice(),
+        fournisseurs: FOURNISSEURS.slice(),
+        origines: ORIGINES.slice(),
+        entrepots: ENTREPOTS.slice(),
+        categoriesSac: CATEGORIES_SAC.slice(),
+        toleranceCalibragePct: null,     // §9 : à définir par Production & Qualité
+        toleranceReceptionCalPct: null   // §écran 3 : à définir par Production & Qualité
+      },
+      user: { nom: "Innocent K.", role: "Coordination" },
+      seeded: false
+    };
+  }
+
+  // Valeurs par défaut manquantes (états anciens ou adoptés d'IndexedDB).
+  function applyDbDefaults(db) {
+    if (!db.procurement) db.procurement = { engagements: [], financements: [], arrivages: [] };
+    if (!db.procurement.engagements) db.procurement.engagements = [];
+    if (!db.procurement.financements) db.procurement.financements = [];
+    if (!db.procurement.arrivages) db.procurement.arrivages = [];
+    return db;
+  }
+  function loadDb() {
+    if (_db) return _db;
+    try {
+      var raw = localStorage.getItem(DB_KEY);
+      _db = raw ? JSON.parse(raw) : emptyDb();
+    } catch (e) { _db = emptyDb(); }
+    if (!_db.seq) _db = emptyDb();
+    applyDbDefaults(_db);
+    return _db;
+  }
+  function saveDb() {
+    // Persistance principale : IndexedDB (write-behind, échec REMONTÉ à l'UI).
+    if (global.RCNStore) {
+      global.RCNStore.save(_db).then(
+        function () { if (typeof global.RCNTRACE_STORAGE_OK === "function") global.RCNTRACE_STORAGE_OK(); },
+        function (e) { if (typeof global.RCNTRACE_STORAGE_FAIL === "function") global.RCNTRACE_STORAGE_FAIL(e); else console.error("RCN TRACE : sauvegarde IndexedDB impossible", e); }
+      );
+    }
+    // Miroir localStorage best-effort (petits états, navigateurs sans IndexedDB).
+    try { localStorage.setItem(DB_KEY, JSON.stringify(_db)); }
+    catch (e) {
+      if (!global.RCNStore && typeof global.RCNTRACE_STORAGE_FAIL === "function") global.RCNTRACE_STORAGE_FAIL(e);
+      else console.warn("RCN TRACE : miroir localStorage saturé (IndexedDB reste la référence)", e && e.name);
+    }
+    if (typeof global.RCNTRACE_ONSAVE === "function") global.RCNTRACE_ONSAVE();
+  }
+  // Adopte l'état lu d'IndexedDB au démarrage (avant l'hydratation réseau).
+  function adoptState(state) {
+    if (!state || !state.seq) return false;
+    _db = applyDbDefaults(state);
+    return true;
+  }
+  function resetDb() { _db = emptyDb(); saveDb(); return _db; }
+
+  /* ------------------------------------------------------------------ */
+  /*  2. Utilitaires                                                    */
+  /* ------------------------------------------------------------------ */
+  function pad(n, w) { n = String(n); while (n.length < w) n = "0" + n; return n; }
+  function today(d) { d = d || new Date(); return "" + d.getFullYear() + pad(d.getMonth() + 1, 2) + pad(d.getDate(), 2); }
+  function nowISO() { return new Date().toISOString(); }
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return pad(d.getDate(), 2) + "/" + pad(d.getMonth() + 1, 2) + "/" + d.getFullYear() + " · " + pad(d.getHours(), 2) + ":" + pad(d.getMinutes(), 2);
+  }
+  function fmtTime(iso) { if (!iso) return "—"; var d = new Date(iso); return pad(d.getHours(), 2) + ":" + pad(d.getMinutes(), 2); }
+  // Une valeur vide n'est PAS un zéro (§1.2). num() distingue null (vide) de 0.
+  function num(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    var n = Number(String(v).replace(",", "."));
+    return isNaN(n) ? null : n;
+  }
+  function kg(v) {
+    if (v === null || v === undefined || v === "") return "—";
+    return Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " kg";
+  }
+  function pct(v) { if (v === null || v === undefined) return "—"; return Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"; }
+  function round2(v) { return Math.round(v * 100) / 100; }
+
+  function nextSeq(prefix, daily) {
+    var db = loadDb();
+    var key = daily ? prefix + ":" + today() : prefix;
+    db.seq[key] = (db.seq[key] || 0) + 1;
+    return db.seq[key];
+  }
+  function genId(prefix, daily, width) {
+    var s = nextSeq(prefix, daily);
+    return daily ? prefix + "-" + today() + "-" + pad(s, width || 3) : prefix + "-" + pad(s, width || 4);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  3. Journal d'audit (§13.1) — jamais d'écrasement silencieux        */
+  /* ------------------------------------------------------------------ */
+  function audit(objet, champ, avant, apres, motif) {
+    var db = loadDb();
+    var user = db.user || { nom: "—", role: "—" };
+    db.audit.unshift({
+      id: genId("AUD"),
+      at: nowISO(),
+      objet: objet, champ: champ,
+      avant: avant === undefined ? null : avant,
+      apres: apres === undefined ? null : apres,
+      motif: motif || null,
+      auteur: user.nom, role: user.role
+    });
+    if (db.audit.length > 500) db.audit.length = 500;
+  }
+
+  // Habilitations par ACTION : masquer un bouton ne suffit pas, le moteur
+  // refuse également l'opération si le profil connecté n'est pas autorisé.
+  var ACTION_ROLES = {
+    reception_create: ["Opérateur", "Procurement Officer", "Warehouse Manager", "Coordination", "Administrateur"],
+    sampling: ["Qualité", "Quality Manager", "Supervisor", "Coordination", "Administrateur"],
+    gm_decision: ["GM", "General Manager", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"],
+    unloading: ["Opérateur", "Warehouse Manager", "Entrepôt", "Supervisor", "Head of Field", "Coordination", "Administrateur"],
+    lot_release: ["Qualité", "Quality Manager", "Supervisor", "Coordination", "Administrateur"],
+    bin_close: ["Warehouse Manager", "Entrepôt", "Supervisor", "Coordination", "Administrateur"],
+    bin_reopen: ["GM", "General Manager", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"],
+    correction: ["Warehouse Manager", "Supervisor", "Branch Manager", "Coordination", "Administrateur"],
+    document: ["Opérateur", "Qualité", "Quality Manager", "Warehouse Manager", "Procurement Officer", "Coordination", "Administrateur"]
+    ,procurement_write: ["Procurement Officer", "Head of Field", "Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"]
+    ,finance_approve: ["Branch Manager", "Assistant Branch Manager", "Coordination", "Administrateur"]
+  };
+  function currentRole() { return String((loadDb().user || {}).role || "").trim(); }
+  function hasPermission(action) {
+    var allowed = ACTION_ROLES[action];
+    return !allowed || allowed.indexOf(currentRole()) >= 0;
+  }
+  function requirePermission(action) {
+    if (!hasPermission(action)) throw new Error("Action non autorisée pour le rôle « " + (currentRole() || "non défini") + " ».");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  4. Calculs qualité (§6.1)                                          */
+  /* ------------------------------------------------------------------ */
+  // KOR = (GK + Spotted/2 + Immature/2) × 0.17637 — valeur EXACTE conservée
+  // (non arrondie). La comparaison d'écart utilise cette valeur exacte (§6.3) ;
+  // seul l'affichage est arrondi à deux décimales.
+  function computeKor(sample) {
+    var gk = num(sample.gk), imm = num(sample.imm), sp = num(sample.spotted);
+    if (gk === null && imm === null && sp === null) return null;
+    var base = (gk || 0) + (sp || 0) / 2 + (imm || 0) / 2;
+    return base * KOR_FACTOR;
+  }
+  function totalDefect(s) {
+    var b = num(s.browns), v = num(s.voids), o = num(s.oil);
+    if (b === null && v === null && o === null) return null;
+    return (b || 0) + (v || 0) + (o || 0);
+  }
+  function totalKernels(s) {
+    var gk = num(s.gk), imm = num(s.imm), sp = num(s.spotted);
+    if (gk === null && imm === null && sp === null) return null;
+    return (gk || 0) + (imm || 0) + (sp || 0);
+  }
+  // Écart KOR = |final − sampling| (valeurs exactes) ; conforme si strictement < 1.
+  function ecartKor(korSampling, korFinal) {
+    if (korSampling === null || korFinal === null) return null;
+    return Math.abs(korFinal - korSampling);
+  }
+  function ecartConforme(ec) { return ec !== null && ec < KOR_TOLERANCE; }
+
+  /* ------------------------------------------------------------------ */
+  /*  5. Accès collections                                              */
+  /* ------------------------------------------------------------------ */
+  function receptions() { return loadDb().receptions; }
+  function lots() { return loadDb().lots; }
+  function transfers() { return loadDb().transfers; }
+  function cals() { return loadDb().cals; }
+  function binCycles() { return loadDb().binCycles; }
+  function auditLog() { return loadDb().audit; }
+  function referentials() { return loadDb().referentials; }
+  function movements() { return loadDb().movements; }
+  function dryings() { return loadDb().dryings || (loadDb().dryings = []); }
+  function documents() { return loadDb().documents || (loadDb().documents = []); }
+
+  function getRec(id) { return receptions().filter(function (r) { return r.id === id; })[0] || null; }
+  function getLot(id) { return lots().filter(function (l) { return l.id === id; })[0] || null; }
+  function getCycle(id) { return binCycles().filter(function (c) { return c.id === id; })[0] || null; }
+  function getTrf(id) { return transfers().filter(function (t) { return t.id === id; })[0] || null; }
+  function getDrying(id) { return dryings().filter(function (d) { return d.id === id; })[0] || null; }
+  // Qualité « portée » d'un lot (pour l'affichage BIN : fournisseur, KOR, sacs, NC, humidité).
+  function lotQuality(lotId) {
+    var lot = getLot(lotId); if (!lot) return {};
+    var rec = getRec(lot.recId) || {};
+    var q = rec.finale || rec.sampling || {};
+    return { fournisseur: lot.fournisseur, kor: lot.korDisplay, sacs: lot.sacs, nc: q.nc, humidity: q.humidity };
+  }
+  function getCal(id) { return cals().filter(function (c) { return c.id === id; })[0] || null; }
+
+  /* ------------------------------------------------------------------ */
+  /* 5bis. PROCUREMENT — engagement → financement → arrivée → réception */
+  /* ------------------------------------------------------------------ */
+  function procurement() { return loadDb().procurement; }
+  function procEngagements() { return procurement().engagements; }
+  function procFinancements() { return procurement().financements; }
+  function procArrivages() { return procurement().arrivages; }
+  function supplierDelivered(lba, nom) {
+    var rs = receptions().filter(function (r) { return (lba && r.lba === lba) || (!lba && r.fournisseur === nom); });
+    var volume = 0, valeur = 0, accepted = 0;
+    rs.forEach(function (r) { var d = r.dechargement || {}, net = num(d.net) || 0, paid = num(d.poidsPaye); volume += net; if (r.etat === ETAT_REC.LIBERE) accepted += net; valeur += (paid == null ? net : paid) * (num(r.prixUnitaire) || num((getLot(r.lotId) || {}).prixUnitaire) || 0); });
+    return { livraisons: rs.length, volumeKg: round2(volume), accepteKg: round2(accepted), valeurFcfa: round2(valeur) };
+  }
+  function createProcEngagement(d) {
+    requirePermission("procurement_write");
+    var qty = num(d.volumeKg); if (qty === null || qty <= 0) throw new Error("Volume promis obligatoire.");
+    var e = { id: genId("ENG"), supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", campagne: d.campagne || "2026", type: d.type || "LBA", volumeKg: qty, prixKg: num(d.prixKg), korMin: num(d.korMin), humiditeMax: num(d.humiditeMax), site: d.site || "BKE-002", debut: d.debut || null, echeance: d.echeance || null, statut: "ACTIF", note: d.note || "", createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procEngagements().unshift(e); audit(e.id, "engagement fournisseur", null, kg(qty), e.supplierNom); saveDb(); return e;
+  }
+  function createProcFinancement(d) {
+    requirePermission("procurement_write");
+    var amount = num(d.montant); if (amount === null || amount <= 0) throw new Error("Montant du financement obligatoire.");
+    var f = { id: genId("FIN"), engagementId: d.engagementId || null, supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", montant: amount, banque: d.banque || "", reference: d.reference || "", decaisseAt: d.decaisseAt || nowISO(), echeance: d.echeance || null, statut: "À_APPROUVER", approuvePar: null, createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procFinancements().unshift(f); audit(f.id, "financement", null, amount + " FCFA", f.supplierNom); saveDb(); return f;
+  }
+  function approveProcFinancement(id, ok, commentaire) {
+    requirePermission("finance_approve");
+    var f = procFinancements().filter(function (x) { return x.id === id; })[0]; if (!f) throw new Error("Financement introuvable.");
+    var before = f.statut; f.statut = ok ? "APPROUVÉ" : "REFUSÉ"; f.approuvePar = (loadDb().user || {}).nom; f.approuveAt = nowISO(); f.commentaire = commentaire || "";
+    audit(f.id, "validation financement", before, f.statut, commentaire || ""); saveDb(); return f;
+  }
+  function createProcArrivage(d) {
+    requirePermission("procurement_write");
+    var qty = num(d.volumeKg); if (qty === null || qty <= 0) throw new Error("Volume annoncé obligatoire.");
+    var a = { id: genId("ARR"), engagementId: d.engagementId || null, supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "", camion: d.camion || "", chauffeur: d.chauffeur || "", telephone: d.telephone || "", volumeKg: qty, sacs: num(d.sacs), site: d.site || "BKE-002", prevuAt: d.prevuAt || null, statut: "ANNONCÉ", recId: null, createdAt: nowISO(), auteur: (loadDb().user || {}).nom };
+    procArrivages().unshift(a); audit(a.id, "arrivée planifiée", null, kg(qty), a.supplierNom); saveDb(); return a;
+  }
+  function receptionFromProcArrivage(id) {
+    requirePermission("procurement_write");
+    var a = procArrivages().filter(function (x) { return x.id === id; })[0]; if (!a) throw new Error("Arrivée planifiée introuvable.");
+    if (a.recId) return getRec(a.recId);
+    var rec = createReception({ camion: a.camion, fournisseur: a.supplierNom, lba: a.supplierLba, site: a.site, warehouse: a.site, poidsAnnonce: a.volumeKg, sacsAnnonce: a.sacs, arriveeAt: nowISO(), refDoc: a.id, typeAchat: (procEngagements().filter(function (e) { return e.id === a.engagementId; })[0] || {}).type || "LBA" });
+    rec.procArrivalId = a.id; rec.procEngagementId = a.engagementId; a.recId = rec.id; a.statut = "ARRIVÉ";
+    audit(a.id, "passage en réception", null, rec.id, "Camion arrivé au site"); saveDb(); return rec;
+  }
+  function procurementSummary() {
+    var promised = procEngagements().filter(function (e) { return e.statut === "ACTIF"; }).reduce(function (t, e) { return t + (e.volumeKg || 0); }, 0);
+    var delivered = receptions().filter(function (r) { return r.source !== "inter-entrepôt"; }).reduce(function (t, r) { return t + (num((r.dechargement || {}).net) || 0); }, 0);
+    var financed = procFinancements().filter(function (f) { return f.statut === "APPROUVÉ"; }).reduce(function (t, f) { return t + f.montant; }, 0);
+    var covered = 0; var seen = {};
+    procFinancements().filter(function (f) { return f.statut === "APPROUVÉ"; }).forEach(function (f) { var k = f.supplierLba || f.supplierNom; if (!seen[k]) { seen[k] = true; covered += supplierDelivered(f.supplierLba, f.supplierNom).valeurFcfa; } });
+    return { promisKg: round2(promised), livreKg: round2(delivered), restantKg: round2(Math.max(0, promised - delivered)), financeFcfa: round2(financed), couvertFcfa: round2(covered), expositionFcfa: round2(Math.max(0, financed - covered)), arrivages7j: procArrivages().filter(function (a) { if (!a.prevuAt || a.statut !== "ANNONCÉ") return false; var x = new Date(a.prevuAt).getTime() - Date.now(); return x >= 0 && x <= 7 * 86400000; }).length };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  6. MODULE 1 — Réception, qualité, lot                              */
+  /* ------------------------------------------------------------------ */
+
+  // M1-FR-02 · Créer la réception temporaire (lot vide et verrouillé).
+  function createReception(data) {
+    requirePermission("reception_create");
+    var db = loadDb();
+    var rec = {
+      id: genId("REC", true),
+      createdAt: nowISO(),
+      camion: data.camion || "", fournisseur: data.fournisseur || "", lba: data.lba || "",
+      origine: data.origine || "", site: data.site || "", warehouse: data.warehouse || data.site || "",
+      arriveeAt: data.arriveeAt || nowISO(),
+      poidsAnnonce: num(data.poidsAnnonce), sacsAnnonce: num(data.sacsAnnonce),
+      prixUnitaire: num(data.prixUnitaire),            // prix d'achat (FCFA/kg) — base des valorisations (§6)
+      refDoc: data.refDoc || "",
+      typeAchat: data.typeAchat || "LBA",
+      commandeRef: data.commandeRef || "",
+      transporteur: data.transporteur || "",
+      chauffeur: data.chauffeur || "",
+      telephoneChauffeur: data.telephoneChauffeur || "",
+      source: data.fromTransfer ? "inter-entrepôt" : "fournisseur",
+      fromTransfer: data.fromTransfer || null,         // transfert d'origine (arrivée inter-entrepôt)
+      parents: data.parents || null,                    // lots contributeurs d'origine (généalogie)
+      binSuggeree: data.binSuggeree || null,
+      etat: ETAT_REC.ARRIVEE,
+      lotId: null,               // reste vide et verrouillé (§M1-FR-02)
+      sampling: null, finale: null, gm: null, dechargement: null,
+      events: []
+    };
+    // Anti-doublon évident (§M1-FR-02) : même camion + même créneau (±30 min).
+    var dup = receptions().filter(function (r) {
+      return r.camion && r.camion === rec.camion &&
+        Math.abs(new Date(r.arriveeAt) - new Date(rec.arriveeAt)) < 30 * 60000;
+    })[0];
+    if (dup) throw new Error("Doublon probable : le camion " + rec.camion + " est déjà enregistré sur ce créneau (" + dup.id + ").");
+    db.receptions.unshift(rec);
+    pushEvent(rec, "REC créé");
+    audit(rec.id, "réception", null, rec.etat, "Création réception temporaire");
+    saveDb();
+    return rec;
+  }
+
+  function pushEvent(rec, label, qty) {
+    var db = loadDb();
+    rec.events.push({ at: nowISO(), label: label, qty: qty === undefined ? null : qty, auteur: (db.user || {}).nom });
+  }
+
+  // M1-FR-04 · Saisir & calculer le sampling (avant déchargement).
+  function saveSampling(recId, s) {
+    requirePermission("sampling");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
+    var kor = computeKor(s);
+    rec.sampling = {
+      id: rec.sampling && rec.sampling.id ? rec.sampling.id : genId("QLT"),
+      type: "sampling",
+      gk: num(s.gk), imm: num(s.imm), spotted: num(s.spotted),
+      nc: num(s.nc), humidity: num(s.humidity),
+      browns: num(s.browns), voids: num(s.voids), oil: num(s.oil),
+      totalDefect: totalDefect(s), totalKernels: totalKernels(s),
+      kor: kor, korDisplay: kor === null ? null : round2(kor),
+      formula: KOR_FORMULA, formulaVersion: KOR_FORMULA_VERSION,
+      analyste: (loadDb().user || {}).nom, at: nowISO()
+    };
+    if (rec.etat === ETAT_REC.ARRIVEE) rec.etat = ETAT_REC.SAMPLING;
+    audit(rec.id, "sampling.kor", null, rec.sampling.korDisplay, "Saisie sampling");
+    pushEvent(rec, "Sampling KOR " + (rec.sampling.korDisplay !== null ? rec.sampling.korDisplay.toFixed(2) : "—"));
+    saveDb();
+    return rec.sampling;
+  }
+
+  // M1-FR-04 (suite) · Soumettre au GM.
+  function submitToGm(recId) {
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
+    if (!rec.sampling || rec.sampling.kor === null) throw new Error("Le sampling doit être saisi avant la décision GM.");
+    rec.etat = ETAT_REC.ATTENTE_GM;
+    audit(rec.id, "réception", ETAT_REC.SAMPLING, ETAT_REC.ATTENTE_GM, "Envoi au GM");
+    pushEvent(rec, "Envoyé au GM");
+    saveDb();
+    return rec;
+  }
+
+  // M1-FR-05 · Décision du GM (autorise/refuse). Le lot est créé seulement après accord.
+  function gmDecision(recId, autorise, commentaire, delegataire) {
+    requirePermission("gm_decision");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
+    if (rec.etat !== ETAT_REC.ATTENTE_GM && rec.etat !== ETAT_REC.SAMPLING)
+      throw new Error("La décision GM n'est possible qu'après le sampling.");
+    if (!autorise && !(commentaire && commentaire.trim()))
+      throw new Error("Un commentaire est obligatoire en cas de refus.");
+    rec.gm = { autorise: !!autorise, commentaire: commentaire || "", delegataire: delegataire || null, at: nowISO(), auteur: (loadDb().user || {}).nom };
+    rec.etat = autorise ? ETAT_REC.AUTORISEE : ETAT_REC.REFUSEE;
+    audit(rec.id, "décision GM", null, autorise ? "AUTORISÉ" : "REFUSÉ", commentaire || "");
+    pushEvent(rec, autorise ? "Déchargement autorisé" : "Déchargement refusé");
+    saveDb();
+    return rec;
+  }
+
+  // M1-FR-07 · Enregistrer le déchargement (le net physique alimente le stock).
+  function saveDechargement(recId, d) {
+    requirePermission("unloading");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
+    if (rec.etat !== ETAT_REC.AUTORISEE && rec.etat !== ETAT_REC.DECHARGE)
+      throw new Error("Le déchargement exige l'autorisation du GM.");
+    var brut = num(d.brut), tare = num(d.tare);
+    var net = num(d.net); if (net === null && brut !== null && tare !== null) net = round2(brut - tare);
+    // Sacs par catégorie (terrain) ; total = somme si non fourni explicitement.
+    var sBon = num(d.sacsBon), sHum = num(d.sacsHumid), sDech = num(d.sacsDechire), sRec = num(d.sacsRecond);
+    var sacsTotal = num(d.sacs);
+    if (sacsTotal === null && (sBon !== null || sHum !== null || sDech !== null || sRec !== null))
+      sacsTotal = (sBon || 0) + (sHum || 0) + (sDech || 0) + (sRec || 0);
+    var refraction = num(d.refraction); if (refraction === null) refraction = 0;
+    if (net === null || net <= 0) throw new Error("Le poids net physique doit être supérieur à zéro.");
+    if (refraction < 0 || refraction > net) throw new Error("La réfaction doit être comprise entre 0 et le poids net physique.");
+    var poidsPaye = num(d.poidsPaye); if (poidsPaye === null) poidsPaye = round2(net - refraction);
+    rec.dechargement = {
+      bordereau: d.bordereau || "", ticket: d.ticket || "",
+      whReceipt: d.whReceipt || "", ficheCca: d.ficheCca || "",   // reçu magasin & fiche CCA
+      binDecharge: d.binDecharge || "", balance: d.balance || "",  // BIN de déchargement, emplacement balance
+      sacs: sacsTotal, sacsBon: sBon, sacsHumid: sHum, sacsDechire: sDech, sacsRecond: sRec,
+      brut: brut, tare: tare, net: net,
+      refraction: refraction, poidsPaye: poidsPaye,
+      poidsMainDoeuvre: num(d.poidsMainDoeuvre),   // conservé séparément (§1.2)
+      prestataire: d.prestataire || "", destination: d.destination || "",
+      debutAt: d.debutAt || null, finAt: d.finAt || null,
+      incident: d.incident || "",
+      at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    rec.etat = ETAT_REC.DECHARGE;
+    audit(rec.id, "déchargement.net", null, net, "Pesée déchargement");
+    pushEvent(rec, "Déchargé — net " + kg(net), net);
+    saveDb();
+    return rec;
+  }
+
+  // M1-FR-08 · Analyse finale (sans écraser le sampling) + M1-FR-09 libération.
+  // M1-FR-06 · Création du lot officiel après analyse finale acceptée.
+  function saveFinaleAndRelease(recId, f, decision, binId) {
+    requirePermission("lot_release");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable");
+    if (!rec.gm || !rec.gm.autorise) throw new Error("Le GM doit avoir autorisé le déchargement.");
+    var korFinal = computeKor(f);
+    var korSampling = rec.sampling ? rec.sampling.kor : null;
+    var ec = ecartKor(korSampling, korFinal);
+    rec.finale = {
+      id: genId("QLT"), type: "final",
+      gk: num(f.gk), imm: num(f.imm), spotted: num(f.spotted),
+      nc: num(f.nc), humidity: num(f.humidity),
+      browns: num(f.browns), voids: num(f.voids), oil: num(f.oil),
+      totalDefect: totalDefect(f), totalKernels: totalKernels(f),
+      kor: korFinal, korDisplay: korFinal === null ? null : round2(korFinal),
+      ecart: ec, ecartDisplay: ec === null ? null : round2(ec), conforme: ecartConforme(ec),
+      formula: KOR_FORMULA, formulaVersion: KOR_FORMULA_VERSION,
+      analyste: (loadDb().user || {}).nom, at: nowISO()
+    };
+    // Écart ≥ 1 → blocage systématique quel que soit le choix (§M1-FR-09).
+    var bloquer = (decision === "bloquer") || !ecartConforme(ec);
+    if (bloquer) {
+      rec.etat = ETAT_REC.BLOQUE;
+      audit(rec.id, "analyse finale", ETAT_REC.DECHARGE, ETAT_REC.BLOQUE,
+        ecartConforme(ec) ? "Blocage manuel" : "Écart KOR ≥ 1 (" + (ec !== null ? ec.toFixed(2) : "—") + ")");
+      pushEvent(rec, "Bloqué qualité — écart " + (ec !== null ? ec.toFixed(2) : "—"));
+      saveDb();
+      return { rec: rec, lot: null, bloque: true };
+    }
+    // Libération → création du lot officiel RCN.
+    var lot = {
+      id: genId("RCN", true), recId: rec.id,
+      fournisseur: rec.fournisseur, origine: rec.origine, site: rec.site || "", warehouse: rec.warehouse || rec.site || "",
+      sacs: rec.dechargement ? rec.dechargement.sacs : null,   // sacs portés (affichage BIN)
+      korSampling: korSampling, korFinal: korFinal, korDisplay: round2(korFinal),
+      prixUnitaire: (num(f.prixUnitaire) != null ? num(f.prixUnitaire) : rec.prixUnitaire),   // prix d'achat FCFA/kg (§6)
+      poidsPaye: rec.dechargement ? rec.dechargement.poidsPaye : null,
+      refraction: rec.dechargement ? rec.dechargement.refraction : null,
+      ecart: ec, netInitial: rec.dechargement ? rec.dechargement.net : null,
+      stock: rec.dechargement ? rec.dechargement.net : 0,   // solde du lot (kg)
+      etat: ETAT_REC.LIBERE, binId: binId || null, createdAt: nowISO(),
+      fromTransfer: rec.fromTransfer || null, parents: rec.parents || null,   // généalogie ascendante
+      children: []   // contributions vers BIN/TRF (généalogie descendante)
+    };
+    // Généalogie : lots d'origine (arrivée inter-entrepôt) → ce lot.
+    if (rec.parents) rec.parents.forEach(function (p) { var src = getLot(p.lotId); if (src) src.children.push({ type: "lot", ref: lot.id, qty: p.qty, via: rec.fromTransfer, at: nowISO() }); });
+    rec.lotId = lot.id;
+    rec.etat = ETAT_REC.LIBERE;
+    loadDb().lots.unshift(lot);
+    audit(rec.id, "lot officiel", null, lot.id, "Création & libération du lot");
+    pushEvent(rec, lot.id + " créé · KOR " + round2(korFinal).toFixed(2));
+    // Si une BIN de destination est choisie, on y ajoute directement le lot.
+    if (binId && lot.stock) {
+      try { addLotToBin(binId, lot.id, lot.stock); } catch (e) { /* laissé au stock lot */ }
+    }
+    saveDb();
+    return { rec: rec, lot: lot, bloque: false };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  7. Stock, BIN collectives (§7)                                    */
+  /* ------------------------------------------------------------------ */
+
+  // Ouvre un cycle de BIN sur un identifiant physique (§7.1).
+  function openBinCycle(binId, qualiteAutorisee, capaciteKg) {
+    var db = loadDb();
+    var existing = binCycles().filter(function (c) { return c.binId === binId && c.etat !== ETAT_BIN.CLOS; })[0];
+    if (existing) return existing;
+    var cycle = {
+      // Format §10.1 : <BIN>/AAAAMMJJ-SEQ (ex. BIN-017/20260716-01)
+      id: binId + "/" + today() + "-" + pad(nextSeq("BINCYCLE:" + binId, false), 2),
+      binId: binId, qualiteAutorisee: qualiteAutorisee || null, capaciteKg: capaciteKg || null,
+      openedAt: nowISO(), closedAt: null, etat: ETAT_BIN.OUVERT,
+      contributors: [],   // {lotId, entree, sorti} — composition théorique
+      residuKg: null
+    };
+    db.binCycles.unshift(cycle);
+    db.bins[binId] = cycle.id;
+    audit(cycle.id, "cycle BIN", null, ETAT_BIN.OUVERT, "Ouverture cycle");
+    saveDb();
+    return cycle;
+  }
+
+  function binStock(cycle) {
+    return round2(cycle.contributors.reduce(function (t, c) { return t + (c.entree - c.sorti); }, 0));
+  }
+  // Entrepôt (code) et localité d'une BIN, dérivés de l'identifiant <WH>-BIN-nn.
+  function warehouseOf(binId) { var i = String(binId).indexOf("-BIN-"); return i > 0 ? binId.slice(0, i) : binId; }
+  function locationOfBin(binId) {
+    var w = warehouseOf(binId);
+    var e = (referentials().entrepots || []).filter(function (x) { return x.code === w; })[0];
+    if (e) return e.location;
+    if (/^BKE/i.test(w)) return "Bouaké";
+    if (/^YAKRO|^ANAGROCI/i.test(w)) return "Yamoussoukro";
+    return null;
+  }
+  // Le calibrage n'a lieu qu'à l'usine (Yamoussoukro) : une BIN de Bouaké ne
+  // peut pas expédier directement vers le calibrage.
+  function calibrageAutorise(binId) { var loc = locationOfBin(binId); return !loc || loc === "Yamoussoukro"; }
+  // Cumuls d'un cycle : total entré, total sorti, stock théorique restant.
+  function binTotals(cycle) {
+    var entree = cycle.contributors.reduce(function (t, c) { return t + c.entree; }, 0);
+    var sorti = cycle.contributors.reduce(function (t, c) { return t + c.sorti; }, 0);
+    return { entree: round2(entree), sorti: round2(sorti), restant: round2(entree - sorti) };
+  }
+  // Durée d'un cycle en heures (ouverture → clôture ou maintenant). now optionnel.
+  function binDurationH(cycle, nowMs) {
+    var start = new Date(cycle.openedAt).getTime();
+    var end = cycle.closedAt ? new Date(cycle.closedAt).getTime() : (nowMs || null);
+    if (!end) return null;
+    return Math.round((end - start) / 3600000 * 10) / 10;
+  }
+  var SEUIL_PERTE_BIN = 1.5;   // objectif de perte BIN (%) — à confirmer (§5).
+  function seuilPerteBin() { var r = referentials(); return (r && r.seuilPerteBinPct != null) ? r.seuilPerteBinPct : SEUIL_PERTE_BIN; }
+  // Niveau d'alerte sur la perte d'une BIN : vert / orange (proche du seuil) / rouge (au-dessus).
+  function binPerteNiveau(pertePct) {
+    if (pertePct == null) return "vert";
+    var s = seuilPerteBin();
+    if (pertePct > s) return "rouge";
+    if (pertePct >= s * 0.8) return "orange";
+    return "vert";
+  }
+  // M1-FR-16 · Fermeture SÉCURISÉE du cycle de BIN. Réunit inventaire (résidu
+  // pesé), justification des pertes et validation (confirmeur = Warehouse
+  // Manager). Perte = restant théorique − résidu. Seuil : alerte orange avant
+  // la limite, BLOCAGE rouge au-dessus sans justification. Verrouille la BIN.
+  function closeBinCycle(cycleId, d) {
+    requirePermission("bin_close");
+    var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+    if (cycle.etat === ETAT_BIN.CLOS) throw new Error("Ce cycle est déjà clos (verrouillé). Une réouverture autorisée est requise.");
+    var totals = binTotals(cycle);
+    if (totals.restant < -0.001) throw new Error("Stock BIN négatif : impossible de clôturer.");
+    var residu = num(d.residuKg); if (residu === null) residu = totals.restant;
+    if (residu < 0) throw new Error("Résidu négatif interdit.");
+    var perte = round2(totals.restant - residu);
+    var pertePct = totals.entree ? round2(perte / totals.entree * 100) : 0;
+    var niveau = binPerteNiveau(pertePct);
+    if (niveau === "rouge" && !(d.justification && d.justification.trim()))
+      throw new Error("Perte " + pertePct + " % supérieure au seuil (" + seuilPerteBin() + " %) : justification obligatoire avant clôture (blocage).");
+    cycle.residuKg = residu; cycle.perteKg = perte; cycle.pertePct = pertePct; cycle.perteNiveau = niveau;
+    cycle.closedAt = nowISO(); cycle.dureeH = binDurationH(cycle);
+    cycle.confirmeur = d.confirmeur || (loadDb().user || {}).nom;
+    cycle.clotureMotif = d.motif || ""; cycle.justification = d.justification || "";
+    cycle.etat = ETAT_BIN.CLOS; cycle.verrou = true;
+    audit(cycle.id, "cycle BIN", ETAT_BIN.ACTIF, ETAT_BIN.CLOS, "Clôture · résidu " + kg(residu) + " · perte " + kg(perte) + " (" + pertePct + "%, " + niveau + ")" + (d.justification ? " · " + d.justification : ""));
+    saveDb();
+    return cycle;
+  }
+  // Réouverture d'une BIN clôturée : exige une autorisation nominative (GM ou
+  // profil désigné) et laisse une trace d'audit.
+  function reopenBinCycle(cycleId, d) {
+    requirePermission("bin_reopen");
+    var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+    if (cycle.etat !== ETAT_BIN.CLOS) throw new Error("Ce cycle n'est pas clos.");
+    if (!d || !(d.autorisePar && d.autorisePar.trim())) throw new Error("Réouverture refusée : autorisation nominative (GM ou profil désigné) requise.");
+    cycle.etat = ETAT_BIN.RECONCILIER; cycle.verrou = false;
+    cycle.closedAt = null;
+    cycle.reouvertures = (cycle.reouvertures || 0) + 1;
+    cycle.reouvertPar = d.autorisePar; cycle.reouvertMotif = d.motif || "";
+    audit(cycle.id, "cycle BIN", ETAT_BIN.CLOS, ETAT_BIN.RECONCILIER, "Réouverture autorisée par " + d.autorisePar + (d.motif ? " · " + d.motif : ""));
+    saveDb();
+    return cycle;
+  }
+
+  /* Pièces justificatives du pilote. Le contenu est conservé avec le dossier
+     pour fonctionner hors connexion ; limite volontaire pour ne pas saturer
+     la tablette. En production, ces mêmes métadonnées pointeront vers Storage. */
+  function documentsFor(objetId) {
+    return documents().filter(function (d) { return d.objetId === objetId; });
+  }
+  function addDocument(data) {
+    requirePermission("document");
+    if (!data || !data.objetId) throw new Error("Dossier de rattachement obligatoire.");
+    if (!data.nom || !data.dataUrl) throw new Error("Choisissez un fichier.");
+    if ((num(data.size) || 0) > 750000) throw new Error("Fichier trop lourd : maximum 750 Ko pour le pilote hors connexion.");
+    if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/i.test(data.mime || "")) throw new Error("Format accepté : photo JPG/PNG/WEBP ou PDF.");
+    var doc = { id: genId("DOC"), objetId: data.objetId, type: data.type || "autre", nom: data.nom, mime: data.mime, size: num(data.size), dataUrl: data.dataUrl, at: nowISO(), auteur: (loadDb().user || {}).nom };
+    documents().unshift(doc);
+    audit(data.objetId, "document", null, doc.nom, "Ajout " + doc.type);
+    saveDb(); return doc;
+  }
+  function deleteDocument(id, motif) {
+    requirePermission("correction");
+    if (!(motif && motif.trim())) throw new Error("Motif obligatoire pour retirer une pièce.");
+    var idx = documents().findIndex(function (d) { return d.id === id; });
+    if (idx < 0) throw new Error("Document introuvable.");
+    var doc = documents()[idx]; documents().splice(idx, 1);
+    audit(doc.objetId, "document", doc.nom, "RETIRÉ", motif); saveDb(); return doc;
+  }
+
+  // Correction encadrée des données d'entrepôt : liste blanche, motif et
+  // approbateur obligatoires, ancienne et nouvelle valeurs conservées.
+  var REC_CORRECTABLE = ["poidsAnnonce", "sacsAnnonce", "transporteur", "chauffeur", "dechargement.net", "dechargement.refraction", "dechargement.poidsPaye", "dechargement.sacs"];
+  function correctReceptionField(recId, path, value, motif, approbateur) {
+    requirePermission("correction");
+    var rec = getRec(recId); if (!rec) throw new Error("Réception introuvable.");
+    if (REC_CORRECTABLE.indexOf(path) < 0) throw new Error("Ce champ ne peut pas être corrigé depuis cet écran.");
+    if (!(motif && motif.trim()) || !(approbateur && approbateur.trim())) throw new Error("Motif et approbateur sont obligatoires.");
+    var parts = path.split("."), target = rec;
+    for (var i = 0; i < parts.length - 1; i++) { if (!target[parts[i]]) throw new Error("Champ indisponible sur ce dossier."); target = target[parts[i]]; }
+    var key = parts[parts.length - 1], before = target[key];
+    var numeric = /poids|sacs|net|refraction/i.test(path); var after = numeric ? num(value) : String(value || "");
+    if (numeric && after === null) throw new Error("La nouvelle valeur doit être un nombre.");
+    target[key] = after;
+    if (rec.dechargement && (path === "dechargement.net" || path === "dechargement.refraction")) rec.dechargement.poidsPaye = round2((rec.dechargement.net || 0) - (rec.dechargement.refraction || 0));
+    rec.corrections = rec.corrections || [];
+    rec.corrections.unshift({ at: nowISO(), champ: path, avant: before, apres: after, motif: motif, approbateur: approbateur, auteur: (loadDb().user || {}).nom });
+    audit(rec.id, path, before, after, motif + " · approuvé par " + approbateur); saveDb(); return rec;
+  }
+
+  // M1-FR-11 · Ajouter un lot dans une BIN (refuse un lot non libéré, §M1-FR-11).
+  function addLotToBin(binId, lotId, poids) {
+    var lot = getLot(lotId); if (!lot) throw new Error("Lot introuvable");
+    if (lot.etat !== ETAT_REC.LIBERE) throw new Error("Lot non libéré : mélange interdit (R-01).");
+    poids = num(poids); if (poids === null || poids <= 0) throw new Error("Poids invalide.");
+    if (poids > lot.stock + 0.001) throw new Error("Quantité (" + kg(poids) + ") supérieure au stock du lot (" + kg(lot.stock) + ").");
+    var cycle = binCycles().filter(function (c) { return c.binId === binId && c.etat !== ETAT_BIN.CLOS; })[0];
+    if (!cycle) cycle = openBinCycle(binId, null, null);
+    if (cycle.capaciteKg && binStock(cycle) + poids > cycle.capaciteKg + 0.001)
+      throw new Error("Capacité de la BIN dépassée (" + kg(cycle.capaciteKg) + ").");
+    var contrib = cycle.contributors.filter(function (c) { return c.lotId === lotId; })[0];
+    if (!contrib) { contrib = { lotId: lotId, entree: 0, sorti: 0, qualite: lot.etat }; cycle.contributors.push(contrib); }
+    contrib.entree = round2(contrib.entree + poids);
+    lot.stock = round2(lot.stock - poids);
+    lot.binId = binId;
+    if (cycle.etat === ETAT_BIN.OUVERT) cycle.etat = ETAT_BIN.ACTIF;
+    var mov = { id: genId("MOV"), type: "entree_bin", cycleId: cycle.id, binId: binId, lotId: lotId, qty: poids, at: nowISO(), auteur: (loadDb().user || {}).nom };
+    loadDb().movements.unshift(mov);
+    lot.children.push({ type: "bin", ref: cycle.id, qty: poids, at: nowISO() });
+    audit(cycle.id, "entrée BIN", null, lotId + " · " + kg(poids), "Ajout lot en BIN");
+    saveDb();
+    return cycle;
+  }
+
+  // M1-FR-13 · Retrait proportionnel d'une BIN mélangée (R-03).
+  function allocateFromCycle(cycle, poids) {
+    var stock = binStock(cycle);
+    if (poids > stock + 0.001) throw new Error("Sortie (" + kg(poids) + ") supérieure au stock BIN (" + kg(stock) + ").");
+    var parts = [];
+    cycle.contributors.forEach(function (c) {
+      var dispo = c.entree - c.sorti;
+      if (dispo <= 0) return;
+      var share = dispo / stock;
+      parts.push({ lotId: c.lotId, share: share, qty: round2(share * poids), dispoAvant: round2(dispo) });
+    });
+    // Ajustement d'arrondi sur la plus grosse part.
+    var somme = parts.reduce(function (t, p) { return t + p.qty; }, 0);
+    if (parts.length && round2(somme) !== round2(poids)) {
+      parts.sort(function (a, b) { return b.qty - a.qty; });
+      parts[0].qty = round2(parts[0].qty + (poids - somme));
+    }
+    return parts;
+  }
+
+  // Crédite un cycle de BIN sans toucher au solde du lot (matière déjà en BIN,
+  // simple déplacement — utilisé par le séchage : BIN source → BIN après séchage).
+  function addContributorRaw(cycle, lotId, qty) {
+    var c = cycle.contributors.filter(function (x) { return x.lotId === lotId; })[0];
+    if (!c) { c = { lotId: lotId, entree: 0, sorti: 0, qualite: (getLot(lotId) || {}).etat }; cycle.contributors.push(c); }
+    c.entree = round2(c.entree + qty);
+    if (cycle.etat === ETAT_BIN.OUVERT) cycle.etat = ETAT_BIN.ACTIF;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  7bis. Séchage / triage (§7.5) — opération intermédiaire sur la BIN */
+  /*  Confirmé par les rapports terrain : humidité/NC/KOR avant & après, */
+  /*  BIN « after drying », et perte de séchage = envoyé − récupéré.     */
+  /* ------------------------------------------------------------------ */
+  // M1-FR-15 · Séchage ou triage : consomme une quantité d'une BIN source
+  // (répartie proportionnellement entre contributeurs), produit une quantité
+  // séchée versée dans une BIN destination, et calcule la perte.
+  function createDrying(sourceCycleId, targetBinId, d) {
+    var src = getCycle(sourceCycleId); if (!src) throw new Error("Cycle BIN source introuvable");
+    var inputKg = num(d.inputKg); if (inputKg === null || inputKg <= 0) throw new Error("Poids envoyé invalide.");
+    var outputKg = num(d.outputKg);
+    if (outputKg === null) throw new Error("Poids récupéré requis.");
+    var lossKg = round2(inputKg - outputKg);
+    if (lossKg < 0) throw new Error("Perte négative interdite : le poids récupéré (" + kg(outputKg) + ") dépasse l'envoyé (" + kg(inputKg) + ").");
+    var typeOp = d.type === "triage" ? "triage" : "sechage";
+    // Débit proportionnel de la BIN source.
+    var parts = allocateFromCycle(src, inputKg);
+    parts.forEach(function (p) {
+      var c = src.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
+      if (c) c.sorti = round2(c.sorti + p.qty);
+    });
+    // BIN destination (après séchage) : crédit des mêmes contributeurs, mis à
+    // l'échelle du récupéré (la perte est répartie proportionnellement).
+    var target = targetBinId ? (binCycles().filter(function (c) { return c.binId === targetBinId && c.etat !== ETAT_BIN.CLOS; })[0] || openBinCycle(targetBinId, src.qualiteAutorisee, src.capaciteKg)) : src;
+    var ratio = inputKg > 0 ? outputKg / inputKg : 0;
+    parts.forEach(function (p) { addContributorRaw(target, p.lotId, round2(p.qty * ratio)); });
+    var op = {
+      id: genId("SEC"), type: typeOp,
+      sourceCycleId: src.id, sourceBinId: src.binId, targetBinId: target.binId, targetCycleId: target.id,
+      inputKg: inputKg, outputKg: outputKg, lossKg: lossKg,
+      lossPct: inputKg ? round2(lossKg / inputKg * 100) : 0,
+      inputSacs: num(d.inputSacs), outputSacs: num(d.outputSacs),
+      inputMoisture: num(d.inputMoisture), outputMoisture: num(d.outputMoisture),
+      inputNc: num(d.inputNc), outputNc: num(d.outputNc),
+      inputKor: num(d.inputKor), outputKor: num(d.outputKor),
+      contributors: parts.map(function (p) { return { lotId: p.lotId, inKg: p.qty, outKg: round2(p.qty * ratio) }; }),
+      at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    dryings().unshift(op);
+    var mov = { id: genId("MOV"), type: typeOp, cycleId: src.id, binId: src.binId, qty: inputKg, perte: lossKg, at: nowISO(), auteur: op.auteur };
+    loadDb().movements.unshift(mov);
+    audit(op.id, typeOp, kg(inputKg) + " → " + kg(outputKg), "perte " + kg(lossKg) + " (" + op.lossPct + "%)", "Opération de " + typeOp);
+    saveDb();
+    return op;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  7ter. Règle de sortie de BIN & valorisation (§4, §6)              */
+  /* ------------------------------------------------------------------ */
+  // §4 · Règle de sortie d'une BIN mélangée : PROPORTIONNEL par défaut
+  // (chaque contributeur cède au prorata de son solde présent dans la BIN,
+  // cf. allocateFromCycle / R-03). Point de configuration pour l'avenir.
+  var REGLE_SORTIE_BIN = "proportionnel";
+  function regleSortieBin() { var r = referentials(); return (r && r.regleSortieBin) ? r.regleSortieBin : REGLE_SORTIE_BIN; }
+
+  // §6 · Tolérance de perte de transit (%). En-deçà : perte tolérée (non
+  // pénalisée) ; au-delà : perte pénalisable valorisée au prix moyen pondéré.
+  var TOLERANCE_TRANSIT = 0.3;
+  function toleranceTransit() { var r = referentials(); return (r && r.toleranceTransitPct != null) ? r.toleranceTransitPct : TOLERANCE_TRANSIT; }
+
+  // Fixe / corrige le prix d'achat d'un lot (FCFA/kg). Tracé au journal.
+  function setLotPrice(lotId, prix, motif) {
+    var lot = getLot(lotId); if (!lot) throw new Error("Lot introuvable");
+    var p = num(prix); if (p === null || p < 0) throw new Error("Prix invalide.");
+    var avant = lot.prixUnitaire == null ? null : lot.prixUnitaire;
+    lot.prixUnitaire = p;
+    audit(lot.id, "prix unitaire", avant, p, motif || "Saisie du prix d'achat");
+    saveDb();
+    return lot;
+  }
+
+  // Prix moyen PONDÉRÉ (FCFA/kg) d'une liste de contributeurs {lotId, qty}.
+  // Ne pondère que les lots dotés d'un prix ; couvertureKg = quantité valorisée.
+  function prixMoyenPondere(contribs) {
+    var pv = 0, pq = 0;
+    (contribs || []).forEach(function (c) {
+      var lot = getLot(c.lotId); var q = num(c.qty);
+      if (!lot || lot.prixUnitaire == null || q == null || q <= 0) return;
+      pv += q * lot.prixUnitaire; pq += q;
+    });
+    return pq > 0 ? { prix: round2(pv / pq), couvertureKg: round2(pq) } : { prix: null, couvertureKg: 0 };
+  }
+  // Prix moyen pondéré courant d'une BIN (sur le stock restant des contributeurs).
+  function binPrixMoyen(cycle) {
+    if (!cycle) return null;
+    var contribs = cycle.contributors.map(function (c) { return { lotId: c.lotId, qty: c.entree - c.sorti }; });
+    return prixMoyenPondere(contribs).prix;
+  }
+  // Finance d'un transfert : valorisation au départ, perte tolérée / pénalisable,
+  // et pénalité = perte pénalisable × prix moyen pondéré (§6).
+  function computeTransferFinance(trf) {
+    var pm = prixMoyenPondere(trf.contributors);
+    var tolPct = toleranceTransit();
+    var toleranceKg = round2(trf.poidsEnvoye * tolPct / 100);
+    var perteKg = (trf.ecart == null) ? null : Math.max(0, trf.ecart);
+    var f = {
+      prixMoyen: pm.prix, couvertureKg: pm.couvertureKg,
+      tolerancePct: tolPct, toleranceKg: toleranceKg,
+      valeurEnvoyee: pm.prix == null ? null : round2(trf.poidsEnvoye * pm.prix),
+      perteTolerable: null, pertePenalisable: null, penalite: null, valeurRecue: null
+    };
+    if (perteKg != null) {
+      f.perteTolerable = round2(Math.min(perteKg, toleranceKg));
+      f.pertePenalisable = round2(Math.max(0, perteKg - toleranceKg));
+      if (pm.prix != null) {
+        f.penalite = round2(f.pertePenalisable * pm.prix);
+        f.valeurRecue = trf.poidsRecu == null ? null : round2(trf.poidsRecu * pm.prix);
+      }
+    }
+    return f;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  8. Transfert (§8)                                                 */
+  /* ------------------------------------------------------------------ */
+
+  // TRF-FR-01 · Préparer le transfert (calcule les lots contributeurs, R-04).
+  function prepareTransfer(cycleId, poids, destination, meta) {
+    var cycle = getCycle(cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+    poids = num(poids); if (poids === null || poids <= 0) throw new Error("Quantité invalide.");
+    meta = meta || {};
+    // Les entrepôts de Bouaké ne font pas de calibrage (usine à Yamoussoukro).
+    if (meta.destinationType === "calibrage" && !calibrageAutorise(cycle.binId))
+      throw new Error("Les entrepôts de " + (locationOfBin(cycle.binId) || "cette localité") + " ne font pas de calibrage. Transférez d'abord vers un entrepôt de Yamoussoukro.");
+    // PREPARE = réservation logique uniquement. Les anciens transferts RCNTRACE
+    // débitaient déjà le BIN ici ; le WMS canonique impose désormais que le
+    // mouvement physique n'intervienne qu'au Dispatch/shipTransfer.
+    var reservedByLot = {};
+    transfers().forEach(function (t) {
+      if (!t || t.cycleId !== cycle.id || [ETAT_TRF.PREPARE, ETAT_TRF.CONTROLE].indexOf(t.etat) < 0) return;
+      if (t.reservationOnly !== true || t.stockDebited === true) return;
+      (t.contributors || []).forEach(function (c) {
+        reservedByLot[c.lotId] = round2((reservedByLot[c.lotId] || 0) + (num(c.qty) || 0));
+      });
+    });
+    var virtualCycle = {
+      contributors: cycle.contributors.map(function (c) {
+        return { lotId: c.lotId, entree: c.entree, sorti: round2(c.sorti + (reservedByLot[c.lotId] || 0)), qualite: c.qualite };
+      })
+    };
+    var parts = allocateFromCycle(virtualCycle, poids);
+    meta = meta || {};
+    var trf = {
+      id: genId("TRF"), createdAt: nowISO(),
+      cycleId: cycle.id, binId: cycle.binId,
+      // Destination typée : 'warehouse' (autre entrepôt) ou 'calibrage' (usine).
+      destinationType: meta.destinationType === "warehouse" ? "warehouse" : "calibrage",
+      destinationSite: meta.destinationSite || "", destination: destination || "Calibrage",
+      transporteur: meta.transporteur || "", voyage: meta.voyage || "", chauffeur: meta.chauffeur || "", camion: meta.camion || "",
+      poidsEnvoye: poids, poidsRecu: null, ecart: null, transitLossPct: null,
+      // Qualité au départ (héritée de la BIN) et à l'arrivée (saisie à la réception).
+      qualiteDepart: { kor: num(meta.korDepart), humidity: num(meta.humDepart), nc: num(meta.ncDepart) },
+      qualiteArrivee: null,
+      contributors: parts.map(function (p) { return { lotId: p.lotId, share: round2(p.share * 100), qty: p.qty, qualite: (getLot(p.lotId) || {}).etat }; }),
+      etat: ETAT_TRF.PREPARE,
+      validations: { entrepot: { ok: true, at: nowISO(), auteur: (loadDb().user || {}).nom }, qa: null, calibrage: null },
+      voyages: [],
+      // Marqueur de compatibilité : les nouveaux transferts ne sont pas débités
+      // au PREPARE. Les objets historiques sans ce marqueur restent inchangés.
+      reservationOnly: true,
+      stockDebited: false
+    };
+    trf.finance = computeTransferFinance(trf);   // valorisation au départ (§6)
+    loadDb().transfers.unshift(trf);
+    audit(trf.id, "transfert", null, ETAT_TRF.PREPARE, "Préparation/réservation transfert depuis " + cycle.id + " — stock physique inchangé");
+    saveDb();
+    return trf;
+  }
+
+  // TRF-FR-02 · Contrôle QA/Lab (bloque les lots non libérés).
+  function qaApproveTransfer(trfId, ok, note) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    var nonLibere = trf.contributors.filter(function (c) { return c.qualite !== ETAT_REC.LIBERE; });
+    if (ok && nonLibere.length) throw new Error("Contributeur(s) non libéré(s) : " + nonLibere.map(function (c) { return c.lotId; }).join(", "));
+    trf.validations.qa = { ok: !!ok, note: note || "", at: nowISO(), auteur: (loadDb().user || {}).nom };
+    trf.etat = ok ? ETAT_TRF.CONTROLE : ETAT_TRF.BROUILLON;
+    audit(trf.id, "QA transfert", null, ok ? "APPROUVÉ" : "REJETÉ", note || "");
+    saveDb();
+    return trf;
+  }
+
+  // TRF-FR-03 · Expédier / recevoir (réception partielle possible, calcule l'écart).
+  function shipTransfer(trfId) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (!trf.validations.qa || !trf.validations.qa.ok) throw new Error("Contrôle QA requis avant expédition.");
+    if (trf.etat === ETAT_TRF.EXPEDIE) return trf;
+    if (trf.etat !== ETAT_TRF.CONTROLE) throw new Error("Expédition possible uniquement après contrôle QA.");
+    // Compatibilité : seuls les transferts créés avec reservationOnly=true
+    // doivent être débités ici. Les objets historiques ont déjà été débités
+    // au PREPARE dans l'ancien moteur et ne doivent jamais l'être deux fois.
+    if (trf.reservationOnly === true && trf.stockDebited !== true) {
+      var cycle = getCycle(trf.cycleId); if (!cycle) throw new Error("Cycle BIN introuvable");
+      (trf.contributors || []).forEach(function (p) {
+        var c = cycle.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
+        var dispo = c ? round2(c.entree - c.sorti) : 0;
+        if (!c || dispo + 0.001 < p.qty) throw new Error("Stock insuffisant au Dispatch pour le lot " + p.lotId + ".");
+      });
+      (trf.contributors || []).forEach(function (p) {
+        var c = cycle.contributors.filter(function (x) { return x.lotId === p.lotId; })[0];
+        c.sorti = round2(c.sorti + p.qty);
+        var lot = getLot(p.lotId); if (lot) lot.children.push({ type: "trf", ref: trf.id, qty: p.qty, at: nowISO() });
+      });
+      loadDb().movements.unshift({ id: genId("MOV"), type: "sortie_bin", cycleId: cycle.id, binId: cycle.binId, trfId: trf.id, qty: trf.poidsEnvoye, at: nowISO() });
+      trf.stockDebited = true;
+    }
+    trf.etat = ETAT_TRF.EXPEDIE;
+    audit(trf.id, "transfert", ETAT_TRF.CONTROLE, ETAT_TRF.EXPEDIE, "Expédition — débit physique confirmé");
+    saveDb();
+    return trf;
+  }
+  function receiveTransfer(trfId, poidsRecu, partiel, arrivee) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    poidsRecu = num(poidsRecu);
+    trf.voyages.push({ recu: poidsRecu, at: nowISO(), auteur: (loadDb().user || {}).nom });
+    var totalRecu = trf.voyages.reduce(function (t, v) { return t + (v.recu || 0); }, 0);
+    trf.poidsRecu = round2(totalRecu);
+    trf.ecart = round2(trf.poidsEnvoye - trf.poidsRecu);   // = perte de transit (kg)
+    trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
+    if (arrivee) trf.qualiteArrivee = { kor: num(arrivee.kor), humidity: num(arrivee.humidity), nc: num(arrivee.nc), at: nowISO() };
+    trf.finance = computeTransferFinance(trf);   // perte tolérée/pénalisable + pénalité (§6)
+    trf.validations.calibrage = { at: nowISO(), auteur: (loadDb().user || {}).nom };
+    if (partiel) { trf.etat = ETAT_TRF.PARTIEL; }
+    else if (Math.abs(trf.ecart) > 0.001) { trf.etat = ETAT_TRF.ECART; }
+    else { trf.etat = ETAT_TRF.RECU; }
+    audit(trf.id, "réception TRF", trf.poidsEnvoye, trf.poidsRecu, partiel ? "Réception partielle" : "Réception");
+    saveDb();
+    return trf;
+  }
+  // TRF-FR-04 · Traiter un écart (justifier & valider).
+  function resolveTransferEcart(trfId, motif) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    trf.ecartMotif = motif || "";
+    trf.etat = ETAT_TRF.RECU;
+    audit(trf.id, "écart TRF", trf.ecart, "justifié", motif || "");
+    saveDb();
+    return trf;
+  }
+
+  // Réception d'un transfert ENTREPÔT→ENTREPÔT (ex. Bouaké → Yakro).
+  // Le stock inter-entrepôt REPASSE par le cycle qualité complet (re-sampling +
+  // décision GM) : on crée donc une RÉCEPTION à destination, reliée au transfert
+  // et portant la généalogie vers les lots d'origine. Le lot officiel naîtra
+  // après sampling → GM → déchargement → analyse finale, comme une réception
+  // fournisseur, mais sa généalogie remonte aux lots d'origine.
+  function receiveTransferToWarehouse(trfId, d) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType !== "warehouse") throw new Error("Ce transfert n'est pas destiné à un entrepôt (destination : " + trf.destinationType + ").");
+    var net = num(d.net); if (net === null || net <= 0) throw new Error("Poids net reçu invalide.");
+    // Voyage + perte de transit cumulée.
+    trf.voyages.push({ recu: net, at: nowISO(), auteur: (loadDb().user || {}).nom });
+    var totalRecu = trf.voyages.reduce(function (t, v) { return t + (v.recu || 0); }, 0);
+    trf.poidsRecu = round2(totalRecu);
+    trf.ecart = round2(trf.poidsEnvoye - trf.poidsRecu);
+    trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
+    if (d.kor || d.humidity || d.nc) trf.qualiteArrivee = { kor: num(d.kor), humidity: num(d.humidity), nc: num(d.nc), at: nowISO() };
+    trf.etat = d.partiel ? ETAT_TRF.PARTIEL : (Math.abs(trf.ecart) > 0.001 ? ETAT_TRF.ECART : ETAT_TRF.RECU);
+    trf.finance = computeTransferFinance(trf);   // perte tolérée/pénalisable + pénalité (§6)
+    // Création de la réception à destination (repasse par sampling + GM).
+    // Le prix moyen pondéré du transfert est hérité par le dossier d'arrivée
+    // (base du prix du lot re-créé à Yamoussoukro), sauf saisie contraire.
+    var ratio = trf.poidsEnvoye ? net / trf.poidsEnvoye : 0;
+    var rec = createReception({
+      camion: trf.camion || trf.voyage || "", fournisseur: "Transfert " + trf.binId,
+      origine: "Inter-entrepôt (" + trf.binId + ")", site: trf.destinationSite || d.site || "",
+      poidsAnnonce: net, sacsAnnonce: num(d.sacs), refDoc: trf.id,
+      prixUnitaire: (trf.finance ? trf.finance.prixMoyen : null),
+      fromTransfer: trf.id, binSuggeree: d.binId,
+      parents: (trf.contributors || []).map(function (c) { return { lotId: c.lotId, qty: round2(c.qty * ratio) }; })
+    });
+    audit(trf.id, "réception entrepôt", trf.destinationSite, rec.id, "Transfert reçu → dossier " + rec.id + " (re-sampling requis)");
+    saveDb();
+    return { trf: trf, rec: rec };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  9. MODULE 2 — Calibrage (§9)                                      */
+  /* ------------------------------------------------------------------ */
+
+  // M2-FR-03 · Créer l'opération CAL à partir d'un TRF reçu (hérite contributeurs).
+  // Tolérance de réception au calibrage (%) — configurable (§écran 3).
+  function toleranceReceptionCal() { var r = referentials(); return (r && r.toleranceReceptionCalPct != null) ? r.toleranceReceptionCalPct : null; }
+  function setToleranceReceptionCal(pct) {
+    var r = referentials(); var p = num(pct);
+    if (p !== null && (p < 0 || p > 100)) throw new Error("Tolérance invalide (0–100 %).");
+    var avant = r.toleranceReceptionCalPct == null ? null : r.toleranceReceptionCalPct;
+    r.toleranceReceptionCalPct = p; audit("CAL-TOL-REC", "tolérance réception calibrage", avant, p, "Réglage tolérance réception"); saveDb(); return p;
+  }
+
+  // §écran 3 · Réception au calibrage : rapproche poids/sacs envoyés vs reçus.
+  // La différence n'est JAMAIS appelée « perte » automatiquement. Au-delà de la
+  // tolérance : motif + responsable + validation obligatoires (bloque la suite).
+  function receiveAtCalibrage(trfId, d) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType === "warehouse") throw new Error("Ce transfert est destiné à un entrepôt, pas au calibrage.");
+    d = d || {};
+    var recu = num(d.poidsRecu); if (recu === null || recu < 0) throw new Error("Poids reçu invalide.");
+    trf.poidsRecu = round2(recu);
+    trf.ecart = round2(trf.poidsEnvoye - recu);       // = différence de réception (kg), pas « perte »
+    trf.transitLossPct = trf.poidsEnvoye ? round2(trf.ecart / trf.poidsEnvoye * 100) : null;
+    var tolPct = toleranceReceptionCal();
+    var horsTol = tolPct != null && Math.abs(trf.transitLossPct || 0) > tolPct;
+    var justifie = !!(d.motif && d.motif.trim() && d.responsable && d.responsable.trim());
+    if (horsTol && !justifie)
+      throw new Error("Différence de réception " + kg(trf.ecart) + " (" + trf.transitLossPct + " %) au-delà de la tolérance de " + tolPct + " % : motif ET responsable obligatoires avant d'ouvrir l'opération.");
+    trf.recCal = {
+      poidsEnvoye: trf.poidsEnvoye, poidsRecu: round2(recu), ecartKg: trf.ecart, ecartPct: trf.transitLossPct,
+      sacsEnvoye: num(d.sacsEnvoye), sacsRecu: num(d.sacsRecu),
+      ecartSacs: (num(d.sacsEnvoye) != null && num(d.sacsRecu) != null) ? (num(d.sacsEnvoye) - num(d.sacsRecu)) : null,
+      etatSacs: d.etatSacs || "", humidity: num(d.humidity), nc: num(d.nc),
+      motif: d.motif || "", responsable: d.responsable || "", commentaire: d.commentaire || "",
+      horsTolerance: horsTol, valide: !horsTol || justifie, at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    trf.recCalOk = trf.recCal.valide;
+    trf.etat = (Math.abs(trf.ecart) > 0.001 && !justifie && horsTol) ? ETAT_TRF.ECART : ETAT_TRF.RECU;
+    trf.validations = trf.validations || {}; trf.validations.calibrage = { at: nowISO(), auteur: (loadDb().user || {}).nom };
+    audit(trf.id, "réception calibrage", trf.poidsEnvoye, trf.poidsRecu, d.motif || (horsTol ? "Écart justifié" : "Réception conforme"));
+    saveDb();
+    return trf;
+  }
+
+  // §écran 5 · Créer une opération CAL (uniquement depuis un transfert REÇU).
+  function createCal(trfId, d) {
+    var trf = getTrf(trfId); if (!trf) throw new Error("Transfert introuvable");
+    if (trf.destinationType === "warehouse")
+      throw new Error("Ce transfert est destiné à un entrepôt, pas au calibrage : il doit y être réceptionné (déchargement → lot → BIN).");
+    // Principe métier : jamais d'opération sans transfert REÇU depuis une BIN de Yamoussoukro.
+    if (trf.etat !== ETAT_TRF.RECU && trf.etat !== ETAT_TRF.PARTIEL)
+      throw new Error("Le transfert doit être RÉCEPTIONNÉ au calibrage avant d'ouvrir une opération (§écran 3).");
+    if (trf.recCal && trf.recCalOk === false)
+      throw new Error("La différence de réception n'est pas traitée (motif/responsable requis) : opération bloquée (§écran 3).");
+    d = d || {};
+    var recu = trf.poidsRecu !== null ? trf.poidsRecu : trf.poidsEnvoye;
+    var cal = {
+      id: "CAL-BATCH-" + today().slice(0, 4) + "-" + pad(nextSeq("CALBATCH", false), 4),
+      trfId: trf.id, binId: trf.binId, createdAt: nowISO(), demo: !!trf.demo,
+      machine: d.machine || "Calibreuse 01", shift: d.shift || "Jour", equipe: d.equipe || "",
+      operateurs: d.operateurs || "", responsable: d.responsable || "",
+      contributors: (trf.contributors || []).slice(),   // hérités, jamais ressaisis
+      recu: recu, prevu: num(d.prevu) != null ? num(d.prevu) : recu, entreeMachine: 0,
+      binsDest: d.binsDest || "", melangeAutorise: !!d.melangeAutorise, melangeMotif: d.melangeMotif || "",
+      etat: ETAT_CAL.PREPARE, checklist: {}, checklistOk: false,
+      startedAt: null, endedAt: null,
+      feeds: [], stops: [], outputs: [], losses: [], corrections: [], events: [], validation: null
+    };
+    loadDb().cals.unshift(cal);
+    audit(cal.id, "calibrage", null, ETAT_CAL.PREPARE, "Création opération depuis " + trf.id + (trf.demo ? " (démo)" : ""));
+    calEvent(cal, "Création de l'opération");
+    saveDb();
+    return cal;
+  }
+  function calEvent(cal, label, qty) {
+    cal.events.unshift({ at: nowISO(), label: label, qty: qty === undefined ? null : qty, auteur: (loadDb().user || {}).nom });
+  }
+
+  // §écran 4 · Checklist de contrôle avant démarrage (toutes obligatoires).
+  function calSetChecklist(calId, obj) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    c.checklist = c.checklist || {};
+    Object.keys(obj || {}).forEach(function (k) { c.checklist[k] = !!obj[k]; });
+    c.checklistOk = CAL_CHECKLIST.every(function (it) { return c.checklist[it.code]; });
+    if (c.checklistOk && c.etat === ETAT_CAL.PREPARE) c.etat = ETAT_CAL.PRET;
+    if (!c.checklistOk && c.etat === ETAT_CAL.PRET) c.etat = ETAT_CAL.PREPARE;
+    saveDb(); return c;
+  }
+
+  // §écran 6 · Démarrer / pause / arrêt / reprise / terminer.
+  function calStart(calId) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (!c.checklistOk) throw new Error("Checklist de contrôle incomplète : impossible de démarrer (§écran 4).");
+    c.etat = ETAT_CAL.EN_COURS; if (!c.startedAt) c.startedAt = nowISO();
+    calEvent(c, "Démarrage"); audit(c.id, "calibrage", ETAT_CAL.PRET, ETAT_CAL.EN_COURS, "Démarrage"); saveDb(); return c;
+  }
+  function calStop(calId, motif, commentaire) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (!motif) throw new Error("Un motif d'arrêt est obligatoire (§écran 6).");
+    if (/autre/i.test(motif) && !(commentaire && commentaire.trim())) throw new Error("Motif « Autre » : commentaire obligatoire.");
+    c.stops.push({ id: genId("MOV"), motif: motif, commentaire: commentaire || "", startAt: nowISO(), endAt: null, dureeMin: null, auteur: (loadDb().user || {}).nom });
+    c.etat = ETAT_CAL.PAUSE;
+    calEvent(c, "Arrêt : " + motif); audit(c.id, "arrêt machine", null, motif, commentaire || ""); saveDb(); return c;
+  }
+  function calPause(calId, motif) { return calStop(calId, motif || "Pause équipe", ""); }
+  function calResume(calId) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    var open = c.stops.filter(function (s) { return !s.endAt; })[0];
+    if (open) { open.endAt = nowISO(); open.dureeMin = Math.round((new Date(open.endAt) - new Date(open.startAt)) / 60000 * 10) / 10; }
+    c.etat = ETAT_CAL.EN_COURS; calEvent(c, "Reprise" + (open ? " (arrêt " + open.dureeMin + " min)" : "")); audit(c.id, "calibrage", ETAT_CAL.PAUSE, ETAT_CAL.EN_COURS, "Reprise"); saveDb(); return c;
+  }
+  function calFeed(calId, poids, binSource) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    poids = num(poids); if (poids === null || poids <= 0) throw new Error("Poids invalide.");
+    if (c.entreeMachine + poids > c.recu + 0.001) throw new Error("Alimentation supérieure au reçu disponible (" + kg(c.recu - c.entreeMachine) + ").");
+    c.feeds.push({ id: genId("MOV"), qty: poids, binSource: binSource || "", at: nowISO() });
+    c.entreeMachine = round2(c.entreeMachine + poids);
+    calEvent(c, "Alimentation", poids); audit(c.id, "alimentation", null, kg(poids), "Entrée machine"); saveDb(); return c;
+  }
+
+  // §écran 7 · Sorties par calibre (nom, poids, sacs, NC, BIN, heures, commentaire).
+  function calOutput(calId, calibre, d) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    d = d || {}; var poids = num(d.poids); if (poids === null || poids < 0) throw new Error("Poids invalide.");
+    var ex = c.outputs.filter(function (x) { return x.calibre === calibre; })[0];
+    var o = ex || { calibre: calibre, qc: null };
+    o.id = c.id + "/" + calibre; o.poids = poids; o.sacs = num(d.sacs); o.nc = num(d.nc);
+    o.binDest = d.binDest || o.binDest || ""; o.debut = d.debut || o.debut || null; o.fin = d.fin || o.fin || null;
+    o.commentaire = d.commentaire != null ? d.commentaire : (o.commentaire || ""); o.at = nowISO();
+    if (!ex) c.outputs.push(o);
+    if (c.etat === ETAT_CAL.EN_COURS) c.etat = ETAT_CAL.PARTIEL;
+    calEvent(c, "Sortie " + calibre, poids); audit(c.id, "sortie " + calibre, null, kg(poids), "Sortie calibre"); saveDb(); return c;
+  }
+  // §écran 10 · Contrôle qualité d'une sortie (décision bloquante).
+  function calOutputQC(calId, calibre, qc) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    var o = c.outputs.filter(function (x) { return x.calibre === calibre; })[0];
+    if (!o) throw new Error("Sortie " + calibre + " non saisie.");
+    qc = qc || {};
+    if (!qc.decision) throw new Error("Une décision qualité est requise.");
+    o.qc = { taille: qc.taille || "", melange: qc.melange || "", impuretes: num(qc.impuretes), humidity: num(qc.humidity), nc: num(qc.nc),
+      decision: qc.decision, commentaire: qc.commentaire || "", controleur: qc.controleur || (loadDb().user || {}).nom, at: nowISO() };
+    calEvent(c, "QC " + calibre + " : " + qc.decision);
+    audit(c.id, "QC " + calibre, null, qc.decision, qc.commentaire || "");
+    saveDb(); return c;
+  }
+
+  // §écran 8 · Rejets, résidus et restes (catégories distinctes, jamais « perte » unique).
+  function calLoss(calId, code, d) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    d = d || {}; var poids = num(d.poids);
+    var l = c.losses.filter(function (x) { return x.code === code; })[0];
+    if (!l) { l = { code: code }; c.losses.push(l); }
+    l.poids = poids; l.destination = d.destination || ""; l.responsable = d.responsable || ""; l.commentaire = d.commentaire || ""; l.at = nowISO();
+    calEvent(c, "Déclaration " + code, poids); audit(c.id, "sortie " + code, null, kg(poids), d.commentaire || ""); saveDb(); return c;
+  }
+
+  // Tolérance de bilan matière (%) — DÉFINIE PAR LA PRODUCTION & LA QUALITÉ,
+  // jamais figée arbitrairement (§9). Non renseignée ⇒ tolérance nulle (exact).
+  function toleranceCalibrage() { var r = referentials(); return (r && r.toleranceCalibragePct != null) ? r.toleranceCalibragePct : null; }
+  function setToleranceCalibrage(pct) {
+    var r = referentials(); var p = num(pct);
+    if (p !== null && (p < 0 || p > 100)) throw new Error("Tolérance invalide (0–100 %).");
+    var avant = r.toleranceCalibragePct == null ? null : r.toleranceCalibragePct;
+    r.toleranceCalibragePct = p; audit("CAL-TOL", "tolérance calibrage", avant, p, "Réglage de la tolérance de bilan"); saveDb(); return p;
+  }
+
+  // §écran 9 · Bilan matière : Reçu = Σ calibres + Σ (rejets/résidus/restes) + écart.
+  // L'écart = perte INEXPLIQUÉE. Taux = écart / reçu. Tolérance configurable.
+  function calBalance(cal) {
+    var sorties = cal.outputs.reduce(function (t, o) { return t + (o.poids || 0); }, 0);
+    var pertes = cal.losses.reduce(function (t, l) { return t + (l.poids || 0); }, 0);   // toutes catégories confondues
+    var recu = cal.recu || 0;
+    var connu = round2(sorties + pertes);                 // total des sorties connues
+    var ecart = round2(recu - connu);                     // écart inexpliqué
+    var taux = recu ? round2(ecart / recu * 100) : null;
+    var tolPct = toleranceCalibrage();
+    var tolKg = tolPct != null ? round2(recu * tolPct / 100) : null;
+    var dansTolerance = tolPct != null ? (Math.abs(ecart) <= tolKg + 0.001) : (Math.abs(ecart) < 0.001);
+    // Heures de marche / arrêt et débit (kg/h).
+    var arretMin = cal.stops.reduce(function (t, s) { return t + (s.dureeMin || (s.endAt ? (new Date(s.endAt) - new Date(s.startAt)) / 60000 : 0)); }, 0);
+    var marcheMin = (cal.startedAt) ? ((cal.endedAt ? new Date(cal.endedAt) : new Date()) - new Date(cal.startedAt)) / 60000 - arretMin : 0;
+    marcheMin = Math.max(0, marcheMin);
+    var kgH = marcheMin > 0 ? round2(sorties / (marcheMin / 60)) : null;
+    var repartition = cal.outputs.filter(function (o) { return (o.poids || 0) > 0; }).map(function (o) {
+      return { calibre: o.calibre, poids: round2(o.poids), sacs: o.sacs || null, binDest: o.binDest || "", qc: o.qc ? o.qc.decision : null,
+        pctRecu: recu ? round2(o.poids / recu * 100) : null, pctSorties: sorties ? round2(o.poids / sorties * 100) : null };
+    }).sort(function (a, b) { return b.poids - a.poids; });
+    return {
+      recu: round2(recu), sorties: round2(sorties), pertes: round2(pertes), connu: connu,
+      ecart: ecart, taux: taux, tolerancePct: tolPct, toleranceKg: tolKg,
+      dansTolerance: dansTolerance, equilibre: Math.abs(ecart) < 0.001, repartition: repartition,
+      pertesDetail: CATEGORIES_PERTE.map(function (cat) { var l = cal.losses.filter(function (x) { return x.code === cat.code; })[0]; return { code: cat.code, label: cat.label, poids: l ? round2(l.poids || 0) : 0 }; }),
+      arretMin: Math.round(arretMin), marcheMin: Math.round(marcheMin), kgH: kgH
+    };
+  }
+
+  // Étape 11 · Affecter chaque calibre à sa BIN de sortie, en conservant la
+  // généalogie : la BIN de calibre porte l'opération CAL comme contributrice
+  // (CAL → TRF → BIN brute → lots → fournisseurs).
+  function calAffectBins(cal) {
+    var db = loadDb();
+    cal.outputs.forEach(function (o) {
+      if (!o.binDest || !(o.poids > 0)) return;
+      var binId = String(o.binDest).toUpperCase();
+      var cyc = binCycles().filter(function (c) { return c.binId === binId && c.etat !== ETAT_BIN.CLOS; })[0];
+      if (!cyc) {
+        cyc = { id: binId + "/" + today() + "-" + pad(nextSeq("BINCYCLE:" + binId, false), 2), binId: binId, qualiteAutorisee: "Calibre " + o.calibre, capaciteKg: null, openedAt: nowISO(), closedAt: null, etat: ETAT_BIN.ACTIF, contributors: [], calibre: o.calibre, residuKg: null };
+        db.binCycles.unshift(cyc); db.bins[binId] = cyc.id;
+      }
+      var key = "CAL:" + cal.id + ":" + o.calibre;
+      var contrib = cyc.contributors.filter(function (x) { return x.calRef === key; })[0];
+      if (!contrib) { contrib = { calRef: key, calId: cal.id, calibre: o.calibre, entree: 0, sorti: 0, qualite: "calibré" }; cyc.contributors.push(contrib); }
+      contrib.entree = round2(o.poids);
+      o.binCycleId = cyc.id;
+    });
+  }
+
+  // Contrôles de cohérence avant clôture (§écran 9). Retourne la liste des
+  // blocages (vide = clôture possible).
+  function calCloseBlockers(cal, motif) {
+    var b = calBalance(cal); var out = [];
+    if (b.sorties <= 0) out.push("Aucune sortie pesée.");
+    cal.outputs.forEach(function (o) {
+      if ((o.poids || 0) > 0 && !o.binDest) out.push("Sortie " + o.calibre + " sans BIN de destination.");
+      if ((o.poids || 0) > 0 && !o.qc) out.push("Sortie " + o.calibre + " sans contrôle qualité.");
+      if (o.binDest && !(o.poids > 0)) out.push("Sortie " + o.calibre + " a une BIN mais aucun poids.");
+    });
+    var resteMachine = cal.losses.filter(function (l) { return l.code === "reste_machine"; })[0];
+    if (!resteMachine) out.push("Reste dans la machine non déclaré (mettre 0 si aucun).");
+    cal.stops.filter(function (s) { return !s.endAt; }).forEach(function () { out.push("Un arrêt n'est pas clôturé."); });
+    if (!b.dansTolerance && !(motif && motif.trim())) out.push("Écart de " + kg(b.ecart) + " (" + (b.taux != null ? b.taux + " %" : "—") + ") au-delà de la tolérance" + (b.tolerancePct != null ? " de " + b.tolerancePct + " %" : "") + " : justification requise.");
+    if (b.sorties < 0 || b.pertes < 0) out.push("Quantité négative interdite.");
+    return out;
+  }
+  // §écran 9/12 · Valider & clôturer (bloque tout bilan incohérent).
+  function calClose(calId, motif, responsable) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    var blockers = calCloseBlockers(c, motif);
+    if (blockers.length) throw new Error("Clôture impossible : " + blockers[0] + (blockers.length > 1 ? " (+" + (blockers.length - 1) + " autre(s))" : ""));
+    var b = calBalance(c);
+    calAffectBins(c);   // BIN de calibre + généalogie (étape 11)
+    c.etat = ETAT_CAL.CLOS; c.endedAt = c.endedAt || nowISO(); c.clotureMotif = motif || "";
+    c.validation = { at: nowISO(), auteur: (loadDb().user || {}).nom, responsable: responsable || "", bilan: b, verrou: true };
+    calEvent(c, "Clôture — bilan " + (b.equilibre ? "équilibré" : "écart " + kg(b.ecart) + (b.taux != null ? " (" + b.taux + " %)" : "")));
+    audit(c.id, "calibrage", ETAT_CAL.PARTIEL, ETAT_CAL.CLOS, motif || "Bilan dans la tolérance");
+    saveDb();
+    return c;
+  }
+  // §écran 14 · Correction APRÈS clôture : trace ancienne/nouvelle valeur,
+  // auteur, motif, approbateur (jamais de remplacement silencieux).
+  function calCorrect(calId, champ, calibre, nouvelleVal, motif, approbateur) {
+    var c = getCal(calId); if (!c) throw new Error("CAL introuvable");
+    if (c.etat !== ETAT_CAL.CLOS) throw new Error("La correction tracée ne s'applique qu'après clôture.");
+    if (!(motif && motif.trim()) || !(approbateur && approbateur.trim())) throw new Error("Motif et approbateur obligatoires pour une correction après clôture.");
+    var ancienne = null;
+    if (champ === "sortie") {
+      var o = c.outputs.filter(function (x) { return x.calibre === calibre; })[0]; if (!o) throw new Error("Sortie introuvable.");
+      ancienne = o.poids; o.poids = num(nouvelleVal);
+    } else throw new Error("Champ non corrigible : " + champ);
+    var corr = { at: nowISO(), champ: champ + (calibre ? " " + calibre : ""), avant: ancienne, apres: num(nouvelleVal), auteur: (loadDb().user || {}).nom, motif: motif, approbateur: approbateur, ref: c.id };
+    c.corrections = c.corrections || []; c.corrections.push(corr);
+    c.validation.bilan = calBalance(c);
+    audit(c.id, "correction " + champ + (calibre ? " " + calibre : ""), ancienne, num(nouvelleVal), "Motif : " + motif + " · approbateur : " + approbateur);
+    saveDb();
+    return c;
+  }
+
+  // §écran 12 · Généalogie inverse : d'une opération CAL vers les lots officiels.
+  function genealogy(calId) {
+    var cal = getCal(calId); if (!cal) return null;
+    var trf = getTrf(cal.trfId);
+    var cycle = trf ? getCycle(trf.cycleId) : null;
+    var contributors = (cal.contributors || []).map(function (c) {
+      var lot = getLot(c.lotId);
+      return { lotId: c.lotId, share: c.share, qty: c.qty, rec: lot ? lot.recId : null, fournisseur: lot ? (getLot(c.lotId) || {}).fournisseur : null, korFinal: lot ? lot.korDisplay : null };
+    });
+    return { cal: cal, trf: trf, cycle: cycle, contributors: contributors };
+  }
+  // §écran 12 · Généalogie d'une BIN de calibre → opérations → transferts →
+  // BIN brutes → lots → fournisseurs (contribution théorique en cas de mélange).
+  function binCalGenealogy(binId) {
+    var cyc = binCycles().filter(function (c) { return c.binId === String(binId).toUpperCase(); })[0];
+    if (!cyc) return null;
+    var ops = (cyc.contributors || []).filter(function (x) { return x.calId; }).map(function (x) {
+      var cal = getCal(x.calId); var g = cal ? genealogy(cal.id) : null;
+      return { calId: x.calId, calibre: x.calibre, entree: x.entree, trf: g ? g.trf : null, binBrute: cal ? cal.binId : null, contributors: g ? g.contributors : [] };
+    });
+    return { bin: cyc, ops: ops };
+  }
+  // §écran 12 · Fournisseur → calibres auxquels sa matière a contribué (théorique).
+  function supplierCalibres(key) {
+    var res = {};
+    cals().forEach(function (cal) {
+      var touche = (cal.contributors || []).some(function (c) { var l = getLot(c.lotId); return l && (l.lba === key || l.fournisseur === key); });
+      if (!touche) return;
+      cal.outputs.forEach(function (o) { if (o.poids > 0) res[o.calibre] = (res[o.calibre] || 0) + o.poids; });
+    });
+    return Object.keys(res).map(function (k) { return { calibre: k, poidsTheorique: round2(res[k]) }; }).sort(function (a, b) { return b.poidsTheorique - a.poidsTheorique; });
+  }
+  // §Données de démonstration · Scénario complet de calibrage (clairement étiqueté).
+  // CAL-TRF-2026-0001 (BIN YAKRO-01-BIN-008, 20 000→19 970) → CAL-BATCH-2026-0042.
+  // Nombres vérifiés : 9 calibres 19 650 + poussière 120 + recalibrer 150 +
+  // reste machine 20 = 19 940 ; écart inexpliqué = 19 970 − 19 940 = 30 kg (0,15 %).
+  // (Le « reste machine » est ramené de 50 à 20 kg : avec 50, la somme égalait
+  //  le reçu et l'écart tombait à 0, incompatible avec l'écart de 30 demandé.)
+  function seedCalibrageDemo() {
+    var db = loadDb();
+    if (db.cals.some(function (c) { return c.id === "CAL-BATCH-2026-0042"; })) return;
+    var cals9 = (referentials().calibres || CALIBRES).slice(0, 9);
+    // Lots contributeurs de démo (BIN source de Yamoussoukro).
+    var fs = (referentials().fournisseurs || FOURNISSEURS);
+    var demoLots = [
+      { id: "RCN-DEMO-Y1", fournisseur: (fs[5] || {}).nom || "SCOOP IMANE", lba: (fs[5] || {}).lba || "LBA-006-IMA", origine: "Korhogo", netInitial: 9000, korDisplay: 47.8 },
+      { id: "RCN-DEMO-Y2", fournisseur: (fs[6] || {}).nom || "CASP-S SCOOPS", lba: (fs[6] || {}).lba || "LBA-007-CAS", origine: "Mankono", netInitial: 6500, korDisplay: 47.2 },
+      { id: "RCN-DEMO-Y3", fournisseur: (fs[2] || {}).nom || "SCOOPS HERE B", lba: (fs[2] || {}).lba || "LBA-003-HER", origine: "Séguéla", netInitial: 4500, korDisplay: 46.9 }
+    ];
+    demoLots.forEach(function (l) { l.recId = "REC-" + l.id; l.warehouse = "YAKRO-01"; l.site = "YAKRO-01"; l.stock = 0; l.etat = ETAT_REC.LIBERE; l.demo = true; l.children = []; db.lots.push(l); });
+    var srcBin = { id: "YAKRO-01-BIN-008/20260717-01", binId: "YAKRO-01-BIN-008", qualiteAutorisee: "RCN standard", capaciteKg: 30000, openedAt: "2026-07-16T08:00:00.000Z", closedAt: null, etat: ETAT_BIN.ACTIF, demo: true,
+      contributors: demoLots.map(function (l) { return { lotId: l.id, entree: l.netInitial, sorti: 20000 * l.netInitial / 20000, qualite: ETAT_REC.LIBERE }; }), residuKg: null };
+    db.binCycles.push(srcBin); db.bins["YAKRO-01-BIN-008"] = srcBin.id;
+    var totalSrc = demoLots.reduce(function (a, l) { return a + l.netInitial; }, 0);
+    var contributors = demoLots.map(function (l) { return { lotId: l.id, share: round2(l.netInitial / totalSrc * 100), qty: round2(20000 * l.netInitial / totalSrc), qualite: ETAT_REC.LIBERE }; });
+    // Transfert reçu au calibrage (20 000 envoyé → 19 970 reçu, écart 30 à expliquer).
+    var trf = {
+      id: "CAL-TRF-2026-0001", createdAt: "2026-07-17T07:30:00.000Z", cycleId: srcBin.id, binId: "YAKRO-01-BIN-008",
+      destinationType: "calibrage", destinationSite: "", destination: "Calibrage · Usine", demo: true,
+      transporteur: "Navette interne", voyage: "CAL-V01", chauffeur: "KONE M.", camion: "INT-01",
+      poidsEnvoye: 20000, poidsRecu: 19970, ecart: 30, transitLossPct: 0.15,
+      qualiteDepart: { kor: 47.4, humidity: 9, nc: 180 }, qualiteArrivee: { kor: 47.4, humidity: 9, nc: 181 },
+      contributors: contributors, etat: ETAT_TRF.RECU,
+      recCal: { poidsEnvoye: 20000, poidsRecu: 19970, ecartKg: 30, ecartPct: 0.15, sacsEnvoye: 250, sacsRecu: 250, ecartSacs: 0, etatSacs: "Bon", humidity: 9, nc: 181, motif: "Différence de pesée à la bascule, contrôlée", responsable: "Responsable Production", commentaire: "", horsTolerance: false, valide: true, at: "2026-07-17T08:10:00.000Z", auteur: "Démo" },
+      recCalOk: true, validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: { at: "2026-07-17T08:10:00.000Z" } }, voyages: [{ recu: 19970, at: "2026-07-17T08:10:00.000Z" }]
+    };
+    trf.finance = computeTransferFinance(trf);
+    db.transfers.push(trf);
+    // Second transfert « attendu » (en route) pour démontrer réception & ouverture.
+    var trf2 = { id: "CAL-TRF-2026-0002", createdAt: "2026-07-17T09:00:00.000Z", cycleId: srcBin.id, binId: "YAKRO-01-BIN-008",
+      destinationType: "calibrage", destination: "Calibrage · Usine", demo: true, transporteur: "Navette interne", voyage: "CAL-V02", camion: "INT-02",
+      poidsEnvoye: 12000, poidsRecu: null, ecart: null, transitLossPct: null, qualiteDepart: { kor: 47.1, humidity: 9.1, nc: 182 }, qualiteArrivee: null,
+      contributors: demoLots.map(function (l) { return { lotId: l.id, share: round2(l.netInitial / totalSrc * 100), qty: round2(12000 * l.netInitial / totalSrc), qualite: ETAT_REC.LIBERE }; }),
+      etat: ETAT_TRF.EXPEDIE, recCalOk: false, validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: null }, voyages: [] };
+    trf2.finance = computeTransferFinance(trf2);
+    db.transfers.push(trf2);
+    // Opération CAL-BATCH-2026-0042 en cours (checklist OK, 9 sorties, rejets, un arrêt).
+    var poids = [2800, 2650, 2500, 2350, 2200, 2000, 1750, 1450, 1950];   // Σ = 19 650
+    var checklist = {}; CAL_CHECKLIST.forEach(function (it) { checklist[it.code] = true; });
+    var outputs = cals9.map(function (cal, i) {
+      var dec = i === 8 ? "reserve" : "conforme";
+      return { id: "CAL-BATCH-2026-0042/" + cal, calibre: cal, poids: poids[i], sacs: Math.round(poids[i] / 80), nc: 180 + i, binDest: "YAK-CAL-BIN-" + pad(i + 1, 3), debut: "2026-07-17T09:00:00.000Z", fin: "2026-07-17T13:00:00.000Z", commentaire: "",
+        qc: { taille: "Conforme", melange: "Faible", impuretes: 0.4, humidity: 8.5, nc: 180 + i, decision: dec, commentaire: dec === "reserve" ? "Léger mélange avec le calibre voisin" : "", controleur: "Qualité", at: "2026-07-17T13:10:00.000Z" } };
+    });
+    var losses = [
+      { code: "poussiere", poids: 120, destination: "Bac corps étrangers", responsable: "Opérateur", commentaire: "Poussière + petits cailloux", at: "2026-07-17T13:00:00.000Z" },
+      { code: "recalibrer", poids: 150, destination: "File de recalibrage", responsable: "Opérateur", commentaire: "", at: "2026-07-17T13:00:00.000Z" },
+      { code: "reste_machine", poids: 20, destination: "Machine", responsable: "Opérateur", commentaire: "Résidu tambour", at: "2026-07-17T13:00:00.000Z" }
+    ];
+    var cal = {
+      id: "CAL-BATCH-2026-0042", trfId: "CAL-TRF-2026-0001", binId: "YAKRO-01-BIN-008", createdAt: "2026-07-17T08:20:00.000Z", demo: true,
+      machine: "Calibreuse 01", shift: "Jour", equipe: "Équipe A", operateurs: "DIALLO A., BAMBA S.", responsable: "Responsable Production",
+      contributors: contributors, recu: 19970, prevu: 19970, entreeMachine: 19970,
+      binsDest: "YAK-CAL-BIN-001…009", melangeAutorise: false, melangeMotif: "",
+      etat: ETAT_CAL.PARTIEL, checklist: checklist, checklistOk: true,
+      startedAt: "2026-07-17T09:00:00.000Z", endedAt: null,
+      feeds: [{ id: "MOV-DEMO1", qty: 19970, binSource: "YAKRO-01-BIN-008", at: "2026-07-17T09:00:00.000Z" }],
+      stops: [{ id: "MOV-DEMO2", motif: "Bourrage", commentaire: "Bourrage tamis 3", startAt: "2026-07-17T10:30:00.000Z", endAt: "2026-07-17T10:48:00.000Z", dureeMin: 18, auteur: "Opérateur" }],
+      outputs: outputs, losses: losses, corrections: [],
+      events: [{ at: "2026-07-17T13:10:00.000Z", label: "Sorties saisies (9 calibres)", qty: null, auteur: "Opérateur" }, { at: "2026-07-17T09:00:00.000Z", label: "Démarrage", qty: null, auteur: "Opérateur" }],
+      validation: null
+    };
+    db.cals.push(cal);
+    // BIN de calibre (généalogie CAL → TRF → BIN brute → lots → fournisseurs).
+    outputs.forEach(function (o, i) {
+      var binId = o.binDest;
+      var cyc = { id: binId + "/20260717-01", binId: binId, qualiteAutorisee: "Calibre " + o.calibre, capaciteKg: 4000, openedAt: "2026-07-17T13:00:00.000Z", closedAt: null, etat: ETAT_BIN.ACTIF, calibre: o.calibre, demo: true,
+        contributors: [{ calRef: "CAL:CAL-BATCH-2026-0042:" + o.calibre, calId: "CAL-BATCH-2026-0042", calibre: o.calibre, entree: o.poids, sorti: 0, qualite: "calibré" }], residuKg: null };
+      db.binCycles.push(cyc); db.bins[binId] = cyc.id; o.binCycleId = cyc.id;
+    });
+    audit("CAL-BATCH-2026-0042", "démonstration", null, "scénario calibrage", "Données de démonstration : transfert, réception, opération, 9 sorties, BIN de calibre");
+  }
+
+  // Référentiel administrable des 9 noms de calibre (§écran 7).
+  function setCalibreNames(arr) {
+    if (!Array.isArray(arr) || arr.length !== 9) throw new Error("Neuf appellations de calibre sont attendues.");
+    var r = referentials(); var avant = (r.calibres || []).join(", ");
+    r.calibres = arr.map(function (s, i) { return (s && String(s).trim()) || ("C" + (i + 1)); });
+    audit("CAL-REF", "appellations calibres", avant, r.calibres.join(", "), "Mise à jour des noms officiels de calibre");
+    saveDb(); return r.calibres;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  9bis. Sacs de jute — dotation, retours, déchirés, rebaging         */
+  /*  Suivi par fournisseur + solde. « Cliquer un fournisseur » ouvre    */
+  /*  sa traçabilité et sa balance.                                      */
+  /* ------------------------------------------------------------------ */
+  function jute() { return loadDb().jute || (loadDb().jute = []); }
+  function juteType(code) { return TYPES_JUTE.filter(function (x) { return x.code === code; })[0] || DISPOSITIONS_JUTE.filter(function (x) { return x.code === code; })[0] || null; }
+
+  // Enregistre un mouvement de sacs. Le registre (fournisseur / interne) est
+  // déterminé par le type. Un mouvement de disposition interne (déchiré,
+  // rebagging…) n'affecte JAMAIS la dette du fournisseur.
+  function juteMovement(d) {
+    var qty = num(d.qty); if (qty === null || qty <= 0) throw new Error("Nombre de sacs invalide.");
+    var t = juteType(d.type); if (!t) throw new Error("Type de mouvement inconnu.");
+    if (t.ledger === "fournisseur" && !d.supplierNom && !d.supplierLba) throw new Error("Fournisseur requis pour un mouvement de dette.");
+    var mv = {
+      id: genId("JUT"), type: d.type, ledger: t.ledger,
+      supplierNom: d.supplierNom || "", supplierLba: d.supplierLba || "",
+      qty: qty, ref: d.ref || "", note: d.note || "",
+      at: nowISO(), auteur: (loadDb().user || {}).nom
+    };
+    jute().unshift(mv);
+    audit(mv.id, "sacs jute", null, t.ledger + " · " + d.type + " · " + qty + " · " + (d.supplierNom || d.supplierLba || "interne"), d.ref || "");
+    saveDb();
+    return mv;
+  }
+
+  // Balance = DETTE du fournisseur : dotation − retours physiques − pertes approuvées.
+  function juteBalance(key) {
+    var b = { dotation: 0, retour: 0, perte_approuvee: 0 };
+    jute().forEach(function (m) {
+      if (m.ledger === "fournisseur" && (m.supplierLba === key || m.supplierNom === key)) b[m.type] = (b[m.type] || 0) + m.qty;
+    });
+    b.solde = b.dotation - b.retour - b.perte_approuvee;   // sacs encore chez le fournisseur
+    return b;
+  }
+  function juteMovementsFor(key) { return jute().filter(function (m) { return m.supplierLba === key || m.supplierNom === key; }); }
+
+  // Stock INTERNE des sacs retournés : disposition par catégorie + « à classer ».
+  function juteInternalStock() {
+    var s = { utilisable: 0, a_reparer: 0, repare: 0, rebaging: 0, reforme: 0, dechire: 0, retourTotal: 0 };
+    jute().forEach(function (m) {
+      if (m.ledger === "interne") s[m.type] = (s[m.type] || 0) + m.qty;
+      if (m.type === "retour") s.retourTotal += m.qty;
+    });
+    var classes = s.utilisable + s.a_reparer + s.repare + s.rebaging + s.reforme + s.dechire;
+    s.aClasser = s.retourTotal - classes;   // sacs retournés pas encore classés
+    return s;
+  }
+
+  // Liste des fournisseurs avec leur balance de sacs (référentiel + observés).
+  function juteSuppliers() {
+    var refs = (referentials().fournisseurs || []).map(function (f) { return { nom: f.nom, lba: f.lba }; });
+    var seen = {}; refs.forEach(function (f) { seen[f.lba || f.nom] = true; });
+    jute().forEach(function (m) { var k = m.supplierLba || m.supplierNom; if (!seen[k]) { seen[k] = true; refs.push({ nom: m.supplierNom, lba: m.supplierLba }); } });
+    return refs.map(function (f) { return Object.assign({}, f, { balance: juteBalance(f.lba || f.nom) }); });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10. Indicateurs / tableau de bord                                  */
+  /* ------------------------------------------------------------------ */
+  function dashboard() {
+    var recs = receptions();
+    return {
+      camionsEnAttente: recs.filter(function (r) { return [ETAT_REC.ARRIVEE, ETAT_REC.SAMPLING, ETAT_REC.ATTENTE_GM].indexOf(r.etat) >= 0; }).length,
+      decisionGm: recs.filter(function (r) { return r.etat === ETAT_REC.ATTENTE_GM; }).length,
+      lotsBloques: recs.filter(function (r) { return r.etat === ETAT_REC.BLOQUE; }).length,
+      transfertsOuverts: transfers().filter(function (t) { return [ETAT_TRF.PREPARE, ETAT_TRF.CONTROLE, ETAT_TRF.EXPEDIE, ETAT_TRF.PARTIEL].indexOf(t.etat) >= 0; }).length,
+      transfertsARecevoir: transfers().filter(function (t) { return [ETAT_TRF.EXPEDIE, ETAT_TRF.CONTROLE].indexOf(t.etat) >= 0; }).length,
+      calEnCours: cals().filter(function (c) { return [ETAT_CAL.EN_COURS, ETAT_CAL.PARTIEL, ETAT_CAL.PAUSE].indexOf(c.etat) >= 0; }).length,
+      calAValider: cals().filter(function (c) { return [ETAT_CAL.RAPPROCHER, ETAT_CAL.VALIDER, ETAT_CAL.PARTIEL].indexOf(c.etat) >= 0; }).length
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10bis. Géographie : localités CI, entrepôts, statistiques par zone */
+  /* ------------------------------------------------------------------ */
+  function geo() { return (typeof RCN_GEO !== "undefined") ? RCN_GEO : (typeof window !== "undefined" ? window.RCN_GEO : null); }
+  // Liste nationale des localités (référentiel géographique CI).
+  function localites() { var g = geo(); return g ? g.localites : (referentials().origines || []).map(function (o) { return { ville: o, region: "—", district: "—", lat: null, lon: null }; }); }
+  function regionsGeo() { var g = geo(); return g ? g.regions : []; }
+  function localiteInfo(ville) { var g = geo(); return g ? g.findLocalite(ville) : null; }
+
+  // Créer un nouvel entrepôt de réception (référentiel partagé, synchronisé).
+  function addEntrepot(d) {
+    d = d || {};
+    var code = (d.code || "").trim().toUpperCase().replace(/\s+/g, "-");
+    var nom = (d.nom || "").trim();
+    var location = (d.location || "").trim();
+    if (!code) throw new Error("Code entrepôt requis (ex. BKE-004).");
+    if (!/^[A-Z0-9\-]+$/.test(code)) throw new Error("Code invalide : lettres, chiffres et tirets uniquement.");
+    if (!location) throw new Error("Localité de l'entrepôt requise.");
+    var refs = referentials();
+    if (!refs.entrepots) refs.entrepots = [];
+    if (refs.entrepots.filter(function (e) { return e.code === code; }).length) throw new Error("Un entrepôt porte déjà le code " + code + ".");
+    if (!nom) nom = location + " — Entrepôt " + code;
+    var ent = { code: code, nom: nom, location: location };
+    refs.entrepots.push(ent);
+    audit(code, "entrepôt", null, location, "Création entrepôt " + code + " (" + location + ")");
+    saveDb();
+    return ent;
+  }
+
+  // ---- Base fournisseurs & génération automatique du code LBA --------
+  // Abréviation 3 lettres dérivée du mot-clé identifiant (hors mots génériques).
+  function lbaAbbrev(nom) {
+    var words = String(nom || "").toUpperCase().replace(/[^A-ZÀ-Ÿ0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
+    var sig = words.filter(function (w) { return w.length >= 3 && LBA_GENERIQUES.indexOf(w) < 0; });
+    var base = sig[0] || words.filter(function (w) { return w.length >= 2; })[0] || words[0] || "XXX";
+    var abbr = base.replace(/[^A-Z]/g, "").slice(0, 3);
+    while (abbr.length < 3) abbr += "X";
+    return abbr;
+  }
+  // Prochain numéro séquentiel pour un préfixe (LBA par défaut).
+  function nextLbaNumber(prefix) {
+    var mx = 0;
+    (referentials().fournisseurs || []).forEach(function (f) {
+      var m = /^([A-Z]+)-(\d+)-/.exec(f.lba || "");
+      if (m && (!prefix || m[1] === prefix)) mx = Math.max(mx, parseInt(m[2], 10));
+    });
+    return mx + 1;
+  }
+  // Prévisualise le code qui serait attribué (sans créer).
+  function nextLbaCode(nom, prefix) {
+    prefix = (prefix || "LBA").toUpperCase();
+    return prefix + "-" + pad(nextLbaNumber(prefix), 3) + "-" + lbaAbbrev(nom);
+  }
+  // Crée un fournisseur (LBA) avec code auto-généré selon la structuration.
+  function addFournisseur(nom, prefix) {
+    nom = (nom || "").trim();
+    if (!nom) throw new Error("Nom du fournisseur requis.");
+    var refs = referentials();
+    if (!refs.fournisseurs) refs.fournisseurs = [];
+    if (refs.fournisseurs.filter(function (f) { return (f.nom || "").toLowerCase() === nom.toLowerCase(); }).length)
+      throw new Error("Ce fournisseur existe déjà : " + nom + ".");
+    var code = nextLbaCode(nom, prefix);
+    var f = { nom: nom, lba: code };
+    refs.fournisseurs.push(f);
+    audit(code, "fournisseur", null, nom, "Création fournisseur " + code);
+    saveDb();
+    return f;
+  }
+  // Base fournisseurs enrichie : nb livraisons & volume net acheté par code.
+  function fournisseursBase() {
+    var byNom = {};
+    lots().forEach(function (l) {
+      if (l.fromTransfer) return;
+      var k = l.fournisseur || "—";
+      var g = byNom[k] || (byNom[k] = { livraisons: 0, volume: 0 });
+      g.livraisons += 1; g.volume += (num(l.netInitial) || 0);
+    });
+    return (referentials().fournisseurs || []).map(function (f) {
+      var g = byNom[f.nom] || { livraisons: 0, volume: 0 };
+      return { nom: f.nom, lba: f.lba, livraisons: g.livraisons, volumeKg: round2(g.volume) };
+    });
+  }
+
+  // Statistiques qualité & volume par localité et par région (aide à la
+  // décision d'achat). Volume = net reçu (kg) ; qualité = KOR moyen pondéré
+  // par le volume ; humidité moyenne si disponible.
+  function geoStats() {
+    var byV = {}, all = lots();
+    all.forEach(function (l) {
+      // Seuls les achats réels comptent (on ignore les ré-réceptions
+      // inter-entrepôts, qui sont des mouvements internes déjà comptés à l'achat).
+      if (l.fromTransfer) return;
+      var ville = l.origine || "—";
+      var net = num(l.netInitial) || 0;
+      var kor = (l.korFinal != null) ? l.korFinal : (l.korDisplay != null ? l.korDisplay : null);
+      var rec = l.recId ? getRec(l.recId) : null;
+      var hum = rec && rec.finale && rec.finale.humidity != null ? rec.finale.humidity : null;
+      var g = byV[ville] || (byV[ville] = { ville: ville, volume: 0, korPond: 0, korW: 0, humPond: 0, humW: 0, nbLots: 0 });
+      g.volume += net; g.nbLots += 1;
+      if (kor != null && net > 0) { g.korPond += kor * net; g.korW += net; }
+      if (hum != null && net > 0) { g.humPond += hum * net; g.humW += net; }
+    });
+    var parLocalite = Object.keys(byV).map(function (v) {
+      var g = byV[v]; var info = localiteInfo(v) || {};
+      return {
+        ville: v, region: info.region || "—", district: info.district || "—",
+        lat: info.lat != null ? info.lat : null, lon: info.lon != null ? info.lon : null,
+        volumeKg: round2(g.volume), nbLots: g.nbLots,
+        korMoyen: g.korW > 0 ? round2(g.korPond / g.korW) : null,
+        humMoyen: g.humW > 0 ? round2(g.humPond / g.humW) : null
+      };
+    }).sort(function (a, b) { return b.volumeKg - a.volumeKg; });
+
+    var byR = {};
+    parLocalite.forEach(function (l) {
+      var r = byR[l.region] || (byR[l.region] = { region: l.region, district: l.district, volume: 0, korPond: 0, korW: 0, nbLots: 0, villes: [] });
+      r.volume += l.volumeKg; r.nbLots += l.nbLots; r.villes.push(l.ville);
+      if (l.korMoyen != null && l.volumeKg > 0) { r.korPond += l.korMoyen * l.volumeKg; r.korW += l.volumeKg; }
+    });
+    var parRegion = Object.keys(byR).map(function (k) {
+      var r = byR[k];
+      return { region: r.region, district: r.district, volumeKg: round2(r.volume), nbLots: r.nbLots, nbLocalites: r.villes.length, villes: r.villes, korMoyen: r.korW > 0 ? round2(r.korPond / r.korW) : null };
+    }).sort(function (a, b) { return b.volumeKg - a.volumeKg; });
+
+    var totalVolume = parLocalite.reduce(function (t, l) { return t + l.volumeKg; }, 0);
+    return { parLocalite: parLocalite, parRegion: parRegion, totalVolume: round2(totalVolume), nbLocalitesActives: parLocalite.length, nbRegionsActives: parRegion.length };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10ter. Simulation : ingestion des données réelles (RCN_SIM)        */
+  /*   OFFLOADINGS → lots (rangés en BIN par entrepôt) ; BOUAKE TRF →    */
+  /*   transferts. Chemin d'import allégé (pas de re-saisie GK/IMM/SP :  */
+  /*   on dispose déjà du KOR final, du prix, du net et de l'origine).   */
+  /* ------------------------------------------------------------------ */
+  function simData() { return (typeof RCN_SIM !== "undefined") ? RCN_SIM : (typeof window !== "undefined" ? window.RCN_SIM : null); }
+  function whFromSim(d) {
+    var loc = (d.loc || "").toUpperCase();
+    if (/YAKRO|YAMOU|FACTORY/.test(loc)) return "YAKRO-01";
+    var w = (d.wh || "").toUpperCase().replace(/\s+/g, "");
+    return /^BKE-\d/.test(w) ? w : "BKE-002";
+  }
+  // Import allégé d'une ligne d'offloading en lot officiel (ou bloqué).
+  function importLot(d) {
+    var db = loadDb();
+    var net = num(d.net) || 0;
+    var kor = (num(d.fkor) != null && num(d.fkor) > 0) ? num(d.fkor) : num(d.kor);
+    var wh = whFromSim(d);
+    var at = d.arr ? (d.arr + "T08:00:00.000Z") : nowISO();
+    var recId = genId("REC", true);
+    var rec = {
+      id: recId, createdAt: at, arriveeAt: at,
+      camion: d.veh || "", fournisseur: d.sup || "", lba: d.lba || "", origine: d.origin || "",
+      site: wh, warehouse: wh, poidsAnnonce: num(d.gross), sacsAnnonce: num(d.sacs),
+      refDoc: d.fiche != null ? String(d.fiche) : "", source: "fournisseur",
+      etat: d.reject ? ETAT_REC.BLOQUE : ETAT_REC.LIBERE, lotId: null,
+      sampling: { kor: num(d.kor), korDisplay: num(d.kor) != null ? round2(num(d.kor)) : null, nc: num(d.nc), humidity: num(d.mois) },
+      finale: { kor: kor, korDisplay: kor != null ? round2(kor) : null, humidity: num(d.mois), nc: num(d.nc), conforme: true },
+      gm: { autorise: !d.reject }, dechargement: { net: net, sacs: num(d.sacs), sacsBon: num(d.bon), sacsHumid: num(d.humid), sacsDechire: num(d.dech) }, events: []
+    };
+    db.receptions.push(rec);
+    if (d.reject || net <= 0) return { rec: rec, lot: null };
+    var lot = {
+      id: genId("RCN", true), recId: recId, fournisseur: d.sup || "", lba: d.lba || "", origine: d.origin || "",
+      site: wh, warehouse: wh, sacs: num(d.sacs), korFinal: kor, korDisplay: kor != null ? round2(kor) : null,
+      prixUnitaire: num(d.price), netInitial: net, stock: net, ecart: null, etat: ETAT_REC.LIBERE,
+      binId: null, createdAt: at, children: []
+    };
+    rec.lotId = lot.id; db.lots.push(lot);
+    return { rec: rec, lot: lot };
+  }
+  // Range un lot dans une BIN de son entrepôt (remplissage par capacité).
+  function stockLotInBin(lot, capacityKg, openBins) {
+    var wh = lot.warehouse || "BKE-002";
+    var cur = openBins[wh];
+    if (!cur || cur.stock + lot.stock > capacityKg) {
+      var db = loadDb();
+      var n = (openBins[wh] ? openBins[wh].n + 1 : 1);
+      var binId = wh + "-BIN-" + pad(n, 3);
+      var cyc = { id: binId + "/" + (lot.createdAt || nowISO()).slice(0, 10).replace(/-/g, "") + "-01", binId: binId, qualiteAutorisee: "RCN standard", capaciteKg: capacityKg, openedAt: lot.createdAt || nowISO(), closedAt: null, etat: ETAT_BIN.ACTIF, contributors: [], residuKg: null };
+      db.binCycles.push(cyc); db.bins[binId] = cyc.id;
+      cur = openBins[wh] = { cyc: cyc, stock: 0, n: n };
+    }
+    cur.cyc.contributors.push({ lotId: lot.id, entree: lot.stock, sorti: 0, qualite: lot.etat });
+    lot.binId = cur.cyc.binId; cur.stock += lot.stock; lot.stock = 0;
+    lot.children.push({ type: "bin", ref: cur.cyc.id, qty: (loadDb().lots.filter(function(x){return x.id===lot.id;})[0]||{}).netInitial || 0, at: lot.createdAt });
+  }
+  // Import allégé d'un transfert (BOUAKE TRF) en enregistrement de transfert.
+  function importTransfer(t, i) {
+    var db = loadDb();
+    var env = num(t.net) || 0, recu = num(t.warr) != null ? num(t.warr) : env;
+    var ecart = round2(env - recu);
+    var at = t.date ? (t.date + "T10:00:00.000Z") : nowISO();
+    var trf = {
+      id: "TRF-" + pad(i + 1, 4), createdAt: at, cycleId: null, binId: (t.bin || "").toUpperCase(),
+      destinationType: "warehouse", destinationSite: "YAKRO-01", destination: "Entrepôt Yamoussoukro",
+      transporteur: t.transporter || "", voyage: "", chauffeur: t.driver || "", camion: t.truck || "",
+      poidsEnvoye: env, poidsRecu: recu, ecart: ecart, transitLossPct: env ? round2(ecart / env * 100) : null,
+      qualiteDepart: { kor: num(t.kor), humidity: num(t.mois), nc: num(t.nc) },
+      qualiteArrivee: { kor: num(t.kor), humidity: num(t.mois), nc: num(t.nc) },
+      contributors: [], etat: ETAT_TRF.RECU,
+      validations: { entrepot: { ok: true }, qa: { ok: true }, calibrage: { at: at } }, voyages: [{ recu: recu, at: at }]
+    };
+    trf.finance = computeTransferFinance(trf);
+    db.transfers.push(trf);
+    return trf;
+  }
+  // Ingestion complète : suppliers manquants, réceptions→lots→BIN, transferts.
+  function importSim() {
+    var sim = simData(); if (!sim) return false;
+    var db = loadDb();
+    // Compléter la base fournisseurs avec tout code présent dans la simulation.
+    var known = {}; (db.referentials.fournisseurs || []).forEach(function (f) { known[f.lba] = 1; });
+    Object.keys(sim.suppliers || {}).forEach(function (code) { if (!known[code]) { db.referentials.fournisseurs.push({ nom: sim.suppliers[code], lba: code }); known[code] = 1; } });
+    // Entrepôts référentiels manquants (BKE-001..003, YAKRO-01 déjà présents).
+    var recs = sim.receptions || [];
+    var openBins = {};
+    recs.forEach(function (d) { var r = importLot(d); if (r.lot) stockLotInBin(r.lot, 90000, openBins); });
+    (sim.transfers || []).forEach(function (t, i) { importTransfer(t, i); });
+    // Séquences (pour que les prochaines créations ne collisionnent pas).
+    db.seq["TRF"] = Math.max(db.seq["TRF"] || 0, (sim.transfers || []).length);
+    audit("SIM", "simulation", null, recs.length + " réceptions · " + (sim.transfers || []).length + " transferts", "Import des données réelles 2026 (OFFLOADINGS + BOUAKE TRF)");
+    seedCalibrageDemo();   // scénario de démonstration du calibrage (étiqueté)
+    db.seeded = true;
+    saveDb();
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11. Données de démonstration (reprennent les exemples du cahier)   */
+  /* ------------------------------------------------------------------ */
+  function seedDemo(force) {
+    var db = loadDb();
+    if (db.seeded && !force) return;
+    if (force) { _db = emptyDb(); db = _db; }
+    // Si les données réelles (RCN_SIM) sont chargées : simulation prioritaire.
+    if (simData()) return importSim();
+
+    // Fournisseurs réels (coopératives + code LBA), site Bouaké, BIN <WH>-BIN-nn.
+    var F = FOURNISSEURS; var SITE = "BKE-002";
+    // Exemple fourni §6.2 : ligne 1 → GK 267, IMM 0, SP 15 → KOR 48.41
+    var rec1 = createReception({ camion: "827KT01", fournisseur: F[0].nom, lba: F[0].lba, origine: "Korhogo", site: SITE, poidsAnnonce: 12000, sacsAnnonce: 150, refDoc: "0401-0007" });
+    saveSampling(rec1.id, { gk: 267, imm: 0, spotted: 15, nc: 210, humidity: 7.2, browns: 4, voids: 3, oil: 1 });
+    submitToGm(rec1.id);
+    gmDecision(rec1.id, true, "Déchargement autorisé", null);
+    saveDechargement(rec1.id, { whReceipt: "72515", ficheCca: "0401-0007", binDecharge: "BKE-002-BIN-017", sacsBon: 143, sacsHumid: 0, sacsDechire: 7, brut: 12100, tare: 100, poidsMainDoeuvre: 45, prestataire: "SONEL TRANS", destination: "BKE-002" });
+    // Analyse finale §7 slide : KOR final 47.80, écart 0.61 → libéré
+    var r1 = saveFinaleAndRelease(rec1.id, { gk: 262, imm: 0, spotted: 18, nc: 208, humidity: 7.0, browns: 5, voids: 3, oil: 2, prixUnitaire: 400 }, "liberer", null);
+
+    // Deux autres lots pour la BIN collective (60/25/15)
+    var rec2 = createReception({ camion: "793LT03", fournisseur: F[1].nom, lba: F[1].lba, origine: "Séguéla", site: SITE, poidsAnnonce: 5000, sacsAnnonce: 62, refDoc: "0429-0040" });
+    saveSampling(rec2.id, { gk: 261, imm: 0, spotted: 11, nc: 199, humidity: 6.8, browns: 6, voids: 2, oil: 1 });
+    submitToGm(rec2.id); gmDecision(rec2.id, true, "OK", null);
+    saveDechargement(rec2.id, { whReceipt: "72533", ficheCca: "0429-0040", binDecharge: "BKE-002-BIN-017", sacsBon: 60, sacsHumid: 0, sacsDechire: 2, brut: 2520, tare: 20, poidsMainDoeuvre: 18, prestataire: "SONEL TRANS", destination: "BKE-002" });
+    var r2 = saveFinaleAndRelease(rec2.id, { gk: 258, imm: 0, spotted: 18, nc: 197, humidity: 6.9, browns: 6, voids: 3, oil: 1, prixUnitaire: 395 }, "liberer", null);
+
+    var rec3 = createReception({ camion: "3334FN01", fournisseur: F[7].nom, lba: F[7].lba, origine: "Mankono", site: SITE, poidsAnnonce: 2000, sacsAnnonce: 25, refDoc: "0525-0068" });
+    saveSampling(rec3.id, { gk: 266, imm: 0, spotted: 12, nc: 205, humidity: 7.1, browns: 3, voids: 2, oil: 1 });
+    submitToGm(rec3.id); gmDecision(rec3.id, true, "OK", null);
+    saveDechargement(rec3.id, { whReceipt: "72534", ficheCca: "0525-0068", binDecharge: "BKE-002-BIN-017", sacsBon: 24, sacsHumid: 0, sacsDechire: 1, brut: 1520, tare: 20, poidsMainDoeuvre: 10, prestataire: "SONEL TRANS", destination: "BKE-002" });
+    // Analyse finale proche du sampling (écart < 1) → lot libéré.
+    var r3 = saveFinaleAndRelease(rec3.id, { gk: 265, imm: 0, spotted: 12, nc: 202, humidity: 7.1, browns: 4, voids: 3, oil: 1, prixUnitaire: 410 }, "liberer", null);
+
+    // BIN BKE-002-BIN-017 : compositions (poids ajustés pour 60/25/15 sur 10 000 kg)
+    var cycle = openBinCycle("BKE-002-BIN-017", "RCN standard Nord", 12000);
+    if (r1.lot) { r1.lot.stock = 6000; addLotToBin("BKE-002-BIN-017", r1.lot.id, 6000); }
+    if (r2.lot) { r2.lot.stock = 2500; addLotToBin("BKE-002-BIN-017", r2.lot.id, 2500); }
+    if (r3.lot) { r3.lot.stock = 1500; addLotToBin("BKE-002-BIN-017", r3.lot.id, 1500); }
+
+    // Un dossier en attente de décision GM (dashboard : 1 décision requise).
+    var rec4 = createReception({ camion: "8287GH03", fournisseur: F[2].nom, lba: F[2].lba, origine: "Niakara", site: SITE, poidsAnnonce: 9000, sacsAnnonce: 112, refDoc: "0426-0187" });
+    saveSampling(rec4.id, { gk: 259, imm: 0, spotted: 14, nc: 201, humidity: 7.3, browns: 5, voids: 3, oil: 2 });
+    submitToGm(rec4.id);
+
+    // Un lot bloqué qualité (écart KOR ≥ 1).
+    var rec5 = createReception({ camion: "4731CR04", fournisseur: F[4].nom, lba: F[4].lba, origine: "Dabakala", site: SITE, poidsAnnonce: 8000, sacsAnnonce: 100, refDoc: "0429-0041" });
+    saveSampling(rec5.id, { gk: 270, imm: 0, spotted: 10, nc: 214, humidity: 6.5, browns: 3, voids: 2, oil: 1 });
+    submitToGm(rec5.id); gmDecision(rec5.id, true, "OK", null);
+    saveDechargement(rec5.id, { whReceipt: "72540", ficheCca: "0429-0041", binDecharge: "BKE-002-BIN-020", sacsBon: 95, sacsHumid: 3, sacsDechire: 2, brut: 8050, tare: 50, poidsMainDoeuvre: 30, prestataire: "CAMARA MAGAH", destination: "BKE-002" });
+    saveFinaleAndRelease(rec5.id, { gk: 250, imm: 0, spotted: 20, nc: 190, humidity: 7.6, browns: 8, voids: 5, oil: 3 }, "liberer", null); // écart ≥ 1 → bloqué
+
+    // TRF-0001 : Bouaké → ENTREPÔT Yakro (pas l'usine), 5 000 kg (60/25/15).
+    var trf = prepareTransfer(cycle.id, 5000, "Entrepôt YAKRO", { destinationType: "warehouse", destinationSite: "YAKRO-01", transporteur: "SONEL TRANS", voyage: "BKT001", chauffeur: "TRAORE BAKARY", camion: "1796GC01", korDepart: 47.6, humDepart: 9.5, ncDepart: 172 });
+    qaApproveTransfer(trf.id, true, "Contrôle OK");
+    shipTransfer(trf.id);
+    // Réception à Yakro : le transfert crée un dossier qui REPASSE par sampling + GM.
+    var yakroCyc = openBinCycle("YAKRO-BIN-01", "RCN standard", 20000);
+    var arr = receiveTransferToWarehouse(trf.id, { net: 4950, sacs: 300, kor: 47.5, humidity: 9.4, nc: 174 });
+    resolveTransferEcart(trf.id, "Perte de transit constatée et validée");
+    // Re-sampling + décision GM + déchargement + analyse finale à Yakro.
+    saveSampling(arr.rec.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.4, browns: 5, voids: 3, oil: 1 });
+    submitToGm(arr.rec.id); gmDecision(arr.rec.id, true, "OK", null);
+    saveDechargement(arr.rec.id, { whReceipt: "82001", ficheCca: trf.id, binDecharge: "YAKRO-BIN-01", sacsBon: 295, sacsHumid: 3, sacsDechire: 2, brut: 5000, tare: 50, net: 4950 });
+    saveFinaleAndRelease(arr.rec.id, { gk: 260, imm: 0, spotted: 15, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 2 }, "liberer", "YAKRO-BIN-01");
+
+    // Livraison DIRECTE d'un fournisseur à Yakro (cycle complet sampling + GM).
+    var recy = createReception({ camion: "5521YK02", fournisseur: F[5].nom, lba: F[5].lba, origine: "Bouaké", site: "YAKRO-01", poidsAnnonce: 6000, sacsAnnonce: 75, refDoc: "YK-0001" });
+    saveSampling(recy.id, { gk: 264, imm: 0, spotted: 13, nc: 176, humidity: 9.2, browns: 5, voids: 3, oil: 1 });
+    submitToGm(recy.id); gmDecision(recy.id, true, "OK", null);
+    saveDechargement(recy.id, { whReceipt: "81001", ficheCca: "YK-0001", binDecharge: "YAKRO-BIN-01", sacsBon: 73, sacsHumid: 0, sacsDechire: 2, brut: 6050, tare: 50, poidsMainDoeuvre: 20, prestataire: "MAGAH TRANS", destination: "YAKRO" });
+    saveFinaleAndRelease(recy.id, { gk: 262, imm: 0, spotted: 14, nc: 174, humidity: 9.0, browns: 5, voids: 3, oil: 2, prixUnitaire: 405 }, "liberer", "YAKRO-BIN-01");
+
+    // Séchage à Bouaké : 2 000 kg de BIN-017 (humidité 11 %→9,5 %), perte ~1,7 %.
+    createDrying(cycle.id, "BKE-002-BIN-003-DRIED", { type: "sechage", inputKg: 2000, outputKg: 1966, inputSacs: 120, outputSacs: 118, inputMoisture: 11, outputMoisture: 9.5, inputNc: 161, outputNc: 176, inputKor: 47.97, outputKor: 47.26 });
+
+    // TRF-0002 : Yakro → CALIBRAGE (usine), 4 000 kg depuis YAKRO-BIN-01.
+    var trf2 = prepareTransfer(yakroCyc.id, 4000, "Calibrage · Usine", { destinationType: "calibrage", transporteur: "USINE LOG", voyage: "YKT001" });
+    qaApproveTransfer(trf2.id, true, "Contrôle OK");
+    shipTransfer(trf2.id);
+
+    // Sacs de jute — dette fournisseur (dotation/retour/perte) + disposition interne.
+    // IMANE : 500 remis, 485 rendus (dont 15 déchirés) → solde 15. Interne : 470 utilisables, 15 déchirés.
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "dotation", qty: 500, ref: "DOT-001" });
+    juteMovement({ supplierNom: F[0].nom, supplierLba: F[0].lba, type: "retour", qty: 485, ref: "RET-001" });
+    juteMovement({ type: "utilisable", qty: 470, ref: "RET-001" });
+    juteMovement({ type: "dechire", qty: 15, ref: "RET-001" });
+    // CASP-S : 300 remis, 280 rendus → solde 20. Interne : 260 utilisables, 20 rebagging (consommation interne).
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "dotation", qty: 300, ref: "DOT-002" });
+    juteMovement({ supplierNom: F[1].nom, supplierLba: F[1].lba, type: "retour", qty: 280, ref: "RET-002" });
+    juteMovement({ type: "utilisable", qty: 260, ref: "RET-002" });
+    juteMovement({ type: "rebaging", qty: 20, ref: "RET-002" });
+    // HERE B : 400 remis, 120 rendus → solde 280.
+    juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "dotation", qty: 400, ref: "DOT-003" });
+    juteMovement({ supplierNom: F[2].nom, supplierLba: F[2].lba, type: "retour", qty: 120, ref: "RET-003" });
+    juteMovement({ type: "utilisable", qty: 120, ref: "RET-003" });
+
+    // BIN planifiées.
+    openBinCycle("BKE-002-BIN-019", "RCN standard", 10000);
+
+    db.seeded = true;
+    saveDb();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 12. Export API                                                     */
+  /* ------------------------------------------------------------------ */
+  global.RCN = {
+    // constantes
+    KOR_FACTOR: KOR_FACTOR, KOR_FORMULA: KOR_FORMULA, KOR_TOLERANCE: KOR_TOLERANCE,
+    CALIBRES: CALIBRES, CALIBRE_LABELS: CALIBRE_LABELS, CATEGORIES_PERTE: CATEGORIES_PERTE, MOTIFS_ARRET: MOTIFS_ARRET, FOURNISSEURS: FOURNISSEURS, ORIGINES: ORIGINES, ENTREPOTS: ENTREPOTS, CATEGORIES_SAC: CATEGORIES_SAC, TYPES_JUTE: TYPES_JUTE, DISPOSITIONS_JUTE: DISPOSITIONS_JUTE,
+    ETAT_REC: ETAT_REC, ETAT_BIN: ETAT_BIN, ETAT_TRF: ETAT_TRF, ETAT_CAL: ETAT_CAL,
+    // magasin
+    db: loadDb, save: saveDb, reset: resetDb, seedDemo: seedDemo, _adoptState: adoptState,
+    // utilitaires exposés à l'UI
+    num: num, kg: kg, pct: pct, round2: round2, fmtDateTime: fmtDateTime, fmtTime: fmtTime, today: today,
+    // qualité
+    computeKor: computeKor, totalDefect: totalDefect, totalKernels: totalKernels, ecartKor: ecartKor, ecartConforme: ecartConforme,
+    // collections
+    receptions: receptions, lots: lots, transfers: transfers, cals: cals, binCycles: binCycles, auditLog: auditLog, referentials: referentials, movements: movements, dryings: dryings, documents: documents,
+    getRec: getRec, getLot: getLot, getCycle: getCycle, getTrf: getTrf, getCal: getCal, getDrying: getDrying, binStock: binStock, lotQuality: lotQuality,
+    // module 1
+    createReception: createReception, saveSampling: saveSampling, submitToGm: submitToGm, gmDecision: gmDecision,
+    saveDechargement: saveDechargement, saveFinaleAndRelease: saveFinaleAndRelease,
+    hasPermission: hasPermission, actionRoles: ACTION_ROLES, addDocument: addDocument, deleteDocument: deleteDocument, documentsFor: documentsFor, correctReceptionField: correctReceptionField,
+    procurement: procurement, procEngagements: procEngagements, procFinancements: procFinancements, procArrivages: procArrivages, supplierDelivered: supplierDelivered,
+    createProcEngagement: createProcEngagement, createProcFinancement: createProcFinancement, approveProcFinancement: approveProcFinancement, createProcArrivage: createProcArrivage, receptionFromProcArrivage: receptionFromProcArrivage, procurementSummary: procurementSummary,
+    // BIN & séchage
+    openBinCycle: openBinCycle, addLotToBin: addLotToBin, allocateFromCycle: allocateFromCycle, createDrying: createDrying,
+    closeBinCycle: closeBinCycle, reopenBinCycle: reopenBinCycle, binTotals: binTotals, binDurationH: binDurationH, binPerteNiveau: binPerteNiveau, seuilPerteBin: seuilPerteBin,
+    warehouseOf: warehouseOf, locationOfBin: locationOfBin, calibrageAutorise: calibrageAutorise,
+    // transfert
+    prepareTransfer: prepareTransfer, qaApproveTransfer: qaApproveTransfer, shipTransfer: shipTransfer, receiveTransfer: receiveTransfer, receiveTransferToWarehouse: receiveTransferToWarehouse, resolveTransferEcart: resolveTransferEcart,
+    // prix & finance (§4 règle de sortie, §6 valorisation/pénalité)
+    regleSortieBin: regleSortieBin, toleranceTransit: toleranceTransit, setLotPrice: setLotPrice, prixMoyenPondere: prixMoyenPondere, binPrixMoyen: binPrixMoyen, computeTransferFinance: computeTransferFinance,
+    // calibrage
+    createCal: createCal, calStart: calStart, calPause: calPause, calResume: calResume, calStop: calStop, calFeed: calFeed, calOutput: calOutput, calLoss: calLoss, calBalance: calBalance, calClose: calClose, genealogy: genealogy,
+    toleranceCalibrage: toleranceCalibrage, setToleranceCalibrage: setToleranceCalibrage,
+    // calibrage enrichi (écrans 3–14)
+    receiveAtCalibrage: receiveAtCalibrage, toleranceReceptionCal: toleranceReceptionCal, setToleranceReceptionCal: setToleranceReceptionCal,
+    calSetChecklist: calSetChecklist, calOutputQC: calOutputQC, calCloseBlockers: calCloseBlockers, calCorrect: calCorrect,
+    binCalGenealogy: binCalGenealogy, supplierCalibres: supplierCalibres, setCalibreNames: setCalibreNames,
+    CAL_CHECKLIST: CAL_CHECKLIST, QC_DECISIONS: QC_DECISIONS, ROLES: ROLES,
+    // sacs jute
+    jute: jute, juteMovement: juteMovement, juteBalance: juteBalance, juteMovementsFor: juteMovementsFor, juteSuppliers: juteSuppliers, juteInternalStock: juteInternalStock,
+    // géographie / entrepôts / statistiques par zone
+    localites: localites, regionsGeo: regionsGeo, localiteInfo: localiteInfo, addEntrepot: addEntrepot, geoStats: geoStats,
+    // base fournisseurs & génération de code LBA
+    addFournisseur: addFournisseur, nextLbaCode: nextLbaCode, lbaAbbrev: lbaAbbrev, fournisseursBase: fournisseursBase,
+    // simulation données réelles
+    importSim: importSim, hasSim: function () { return !!simData(); },
+    // dashboard / audit
+    dashboard: dashboard, audit: audit
+  };
+})(window);
