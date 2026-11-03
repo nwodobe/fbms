@@ -5,10 +5,10 @@
   {
    "app_id": "ci.anagroci.fieldbuying",
    "channel": "test",
-   "sequence": 1793684064,
-   "web_version": "2026.11.03-0534.6933394",
-   "git_commit": "6933394ccf56273ed4a705fb6663c3d6d14c7f22",
-   "published_at": "2026-11-03T05:34:33.966Z",
+   "sequence": 1793684193,
+   "web_version": "2026.11.03-0536.055ef0b",
+   "git_commit": "055ef0b1b4f216b13a2cfc55ccdc3e8be1fa3d63",
+   "published_at": "2026-11-03T05:36:42.638Z",
    "status": "published",
    "update_policy": "recommended",
    "min_native_version_code": 3,
@@ -25,34 +25,34 @@
    "objects_written": 163,
    "steps": [
     {
-     "at": "2026-11-03T05:34:25.764Z",
+     "at": "2026-11-03T05:36:33.991Z",
      "step": "préconditions",
      "detail": "arbre propre, compatibilité native vérifiée"
     },
     {
-     "at": "2026-11-03T05:34:33.140Z",
+     "at": "2026-11-03T05:36:41.864Z",
      "step": "contrôle",
      "detail": "OK · node .github/scripts/verifier-js.mjs"
     },
     {
-     "at": "2026-11-03T05:34:33.417Z",
+     "at": "2026-11-03T05:36:42.055Z",
      "step": "contrôle",
      "detail": "OK · node .github/scripts/verifier-liens.mjs"
     },
     {
-     "at": "2026-11-03T05:34:33.521Z",
+     "at": "2026-11-03T05:36:42.144Z",
      "step": "contrôle",
      "detail": "OK · node tests/offline-field-static.mjs"
     },
     {
-     "at": "2026-11-03T05:34:33.966Z",
+     "at": "2026-11-03T05:36:42.637Z",
      "step": "objets",
      "detail": "163 nouveau(x) fichier(s) dans le magasin"
     },
     {
-     "at": "2026-11-03T05:34:34.049Z",
+     "at": "2026-11-03T05:36:42.700Z",
      "step": "signature",
-     "detail": "manifeste 1793684064 signé et revérifié (164 fichiers)"
+     "detail": "manifeste 1793684193 signé et revérifié (164 fichiers)"
     }
    ]
   }
