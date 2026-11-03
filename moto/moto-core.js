@@ -42,7 +42,7 @@
   /* Ce que l'interface PROPOSE. La décision réelle est prise par le serveur
      (fonctions SECURITY DEFINER + RLS) : masquer un bouton ne protège rien. */
   var DROITS = {
-    BM:        ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
+    BM:        ['lire', 'contre_visite', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
                 'budgets', 'valider_budget', 'dotations', 'rapprochement', 'verifier_justificatifs', 'valider_corrections', 'valider_remboursements',
                 'incident_piloter', 'pneus', 'parametres', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions',
@@ -53,17 +53,17 @@
                 'permis_voir', 'permis_enregistrer', 'permis_verifier',
                 // Migration 8 : journal de mission (photo du compteur au départ et à l'arrivée).
                 'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
-    ABM:       ['lire', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
+    ABM:       ['lire', 'contre_visite', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
                 'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',
                 'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande', 'permis_voir', 'permis_enregistrer', 'permis_verifier', 'mon_permis',
                 'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
-    LOGISTIQUE: ['lire', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
+    LOGISTIQUE: ['lire', 'contre_visite', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
                 'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir',
                 'permis_voir', 'permis_enregistrer', 'mon_permis', 'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
-    ZONE:      ['lire', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'incident_piloter',
+    ZONE:      ['lire', 'contre_visite', 'pilotage', 'inspection', 'documents_zone', 'demander_correction', 'incident_piloter',
                 'pneus', 'terrain', 'exports', 'inspection_mensuelle', 'actions_verifier', 'maintenance_voir', 'maintenance_controler', 'lever_immobilisation', 'maintenance_demande', 'mon_permis',
                 'missions', 'missions_suivi', 'missions_traiter'],
     UNITE:     ['lire', 'terrain', 'mes_dotations', 'confirmer_etat', 'mon_permis', 'missions'],
@@ -78,6 +78,7 @@
     EN_ATTENTE: 'Documents en attente', EN_VERIFICATION: 'En vérification', CONFORME: 'Conforme', NON_CONFORME: 'Non conforme',
     NON_AFFECTEE: 'Non affectée', PREAFFECTEE: 'Préaffectée', REMISE: 'Remise', TRANSFEREE: 'Transférée',
     A_CONTROLER: 'À contrôler', APTE: 'Apte', IMMOBILISEE: 'Immobilisée', EN_REPARATION: 'En réparation',
+    APTE_RESERVES: 'Apte avec réserves', INAPTE: 'Inapte', INAPTE_IMMOBILISEE: 'Inapte, immobilisée',
     REMISE_DECLAREE: 'Remise déclarée', CONFIRMEE: 'Réception confirmée', CONTESTEE: 'Écart signalé', ECHOUEE: 'Échouée', ANNULEE: 'Annulée',
     A_VERIFIER: 'À vérifier', VERIFIE: 'Vérifié', REJETE: 'Rejeté',
     SIGNALE: 'Signalé', DIAGNOSTIC: 'Diagnostic', AUTORISATION_DEPENSE: 'Dépense autorisée', REPARATION: 'Réparation', CONTROLE: 'Contrôle',
@@ -253,6 +254,31 @@
   function resultatControle(items) {
     if (!items || !items.length) return null;
     return items.some(function (i) { return i.ok === false; }) ? 'INAPTE' : 'APTE';
+  }
+  /* Aperçu du résultat d'évaluation d'aptitude : MÊME règle que
+     public.moto_inspection_initiale (migration 10). Le serveur recalcule
+     toujours ; cet aperçu sert seulement à guider la saisie.
+     Point non renseigné -> A_COMPLETER (jamais « conforme » par défaut). */
+  function aptitudeApercu(items, pointsBloquants, avisDefavorable, observationsGenerales) {
+    var bloq = (pointsBloquants || []).map(function (c) { return String(c).toUpperCase(); });
+    var r = { code: 'A_COMPLETER', manquants: 0, critiques: [], bloquants: [], reserves: [], reservesSansJustification: [] };
+    (items || []).forEach(function (i) {
+      if (i.ok !== true && i.ok !== false) { r.manquants++; return; }
+      if (i.ok) return;
+      if (i.critique) r.critiques.push(i.libelle || i.code);
+      else if (bloq.indexOf(String(i.code).toUpperCase()) >= 0) r.bloquants.push(i.libelle || i.code);
+      else {
+        r.reserves.push(i.libelle || i.code);
+        if (!(i.observation && String(i.observation).trim()) && String(observationsGenerales || '').trim().length < 10) r.reservesSansJustification.push(i.libelle || i.code);
+      }
+    });
+    if (!items || !items.length || r.manquants) return r;
+    r.code = r.critiques.length ? 'INAPTE_IMMOBILISEE' : (r.bloquants.length || avisDefavorable) ? 'INAPTE' : r.reserves.length ? 'APTE_RESERVES' : 'APTE';
+    return r;
+  }
+  function niveauRisquePoint(point, pointsBloquants) {
+    if (point.critique) return 'CRITIQUE';
+    return (pointsBloquants || []).map(function (c) { return String(c).toUpperCase(); }).indexOf(String(point.code).toUpperCase()) >= 0 ? 'BLOQUANT' : 'RESERVE';
   }
 
   /* -- 9. Validations de saisie terrain (avant mise en file) --------------- */
@@ -454,7 +480,7 @@
     ND: ND, CLASSES: CLASSES, DROITS: DROITS, classeDepuisRole: classeDepuisRole, peut: peut, libelle: libelle,
     fcfa: fcfa, km: km, l100: l100, pct: pct, dateFr: dateFr, dateHeureFr: dateHeureFr, nombreSaisi: nombreSaisi, estNombre: estNombre,
     consoPleinAPlein: consoPleinAPlein, statutAlerte: statutAlerte, rapprochement: rapprochement, disponibilite: disponibilite, coutKm: coutKm,
-    CONTROLE_DEPART: CONTROLE_DEPART, INSPECTION_INITIALE: INSPECTION_INITIALE, anomalieCritique: anomalieCritique, resultatControle: resultatControle,
+    CONTROLE_DEPART: CONTROLE_DEPART, INSPECTION_INITIALE: INSPECTION_INITIALE, anomalieCritique: anomalieCritique, resultatControle: resultatControle, aptitudeApercu: aptitudeApercu, niveauRisquePoint: niveauRisquePoint,
     validerCarburant: validerCarburant, validerReleve: validerReleve, validerIncident: validerIncident, exigeImmobilisation: exigeImmobilisation,
     MAX_TENTATIVES: MAX_TENTATIVES, TYPES_HORS_LIGNE: TYPES_HORS_LIGNE, delaiReprise: delaiReprise, operationsEligibles: operationsEligibles,
     appliquerResultat: appliquerResultat, resumeFile: resumeFile, avertissementEchantillon: avertissementEchantillon

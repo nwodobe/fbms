@@ -1,0 +1,512 @@
+{
+ "base": "fbms_apt10_t",
+ "date": "2026-11-03T21:02:55",
+ "reussis": 56,
+ "total": 56,
+ "resultats": [
+  {
+   "id": "MIG-01",
+   "exigence": "Migration rejouable",
+   "compte": "postgres",
+   "action": "Application de la migration 10 (passe 1)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MIG-02",
+   "exigence": "Migration rejouable",
+   "compte": "postgres",
+   "action": "Application de la migration 10 (passe 2)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09a",
+   "exigence": "Aucun changement rétroactif",
+   "compte": "postgres (lecture)",
+   "action": "Statuts, contrôles et actions existants identiques après migration",
+   "attendu": "6c0eb9f7d5ad2ccb8a0fd095cc58ce9b",
+   "obtenu": "6c0eb9f7d5ad2ccb8a0fd095cc58ce9b",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09b",
+   "exigence": "Aucun changement rétroactif",
+   "compte": "postgres (lecture)",
+   "action": "Politiques RLS strictement identiques (aucun droit réel modifié)",
+   "attendu": "cd75909daf7efe34a86e807362a47034",
+   "obtenu": "cd75909daf7efe34a86e807362a47034",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09c",
+   "exigence": "Aucun changement rétroactif",
+   "compte": "postgres (lecture)",
+   "action": "Recalcul forcé des motos existantes : aucun statut technique ne change",
+   "attendu": "MOTO-001=APTE,MOTO-002=IMMOBILISEE,MOTO-003=A_CONTROLER",
+   "obtenu": "MOTO-001=APTE,MOTO-002=IMMOBILISEE,MOTO-003=A_CONTROLER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09d",
+   "exigence": "Aucun changement rétroactif",
+   "compte": "postgres (lecture)",
+   "action": "Contrôle historique conservé tel quel (APTE avec éclairage en défaut, garage renseigné)",
+   "attendu": "APTE/GARAGE FICTIF",
+   "obtenu": "APTE/GARAGE FICTIF",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09e",
+   "exigence": "Défaut de sécurité ouvert = circulation suspendue (vue), sans écriture sur la moto",
+   "compte": "postgres (lecture)",
+   "action": "Moto en service avec éclairage non corrigé : autorisée_a_circuler=false, défaut compté, mise_en_service_at conservée",
+   "attendu": "false/1/true",
+   "obtenu": "false/1/true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T01a",
+   "exigence": "T01 Résultat calculé, jamais pré-rempli favorable",
+   "compte": "abm",
+   "action": "Points non renseignés : refus (aucune valeur par défaut « conforme »)",
+   "attendu": "REFUS (non renseignés)",
+   "obtenu": "REFUS : Points obligatoires non renseignés : Klaxon.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T01b",
+   "exigence": "T01 Résultat calculé, jamais pré-rempli favorable",
+   "compte": "abm",
+   "action": "Client envoie « APTE » avec klaxon en défaut : le serveur calcule INAPTE",
+   "attendu": "OK (\"resultat\": \"INAPTE\")",
+   "obtenu": "OK : {\"id\": \"ed895561-b6d6-42e9-95fe-340d4095c623\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Klaxon\"]}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T01c",
+   "exigence": "T01 Résultat calculé, jamais pré-rempli favorable",
+   "compte": "postgres (lecture)",
+   "action": "Statut technique non apte",
+   "attendu": "A_CONTROLER",
+   "obtenu": "A_CONTROLER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T02a",
+   "exigence": "T02 Point critique = immobilisation",
+   "compte": "abm",
+   "action": "Freins arrière en défaut",
+   "attendu": "OK (INAPTE_IMMOBILISEE)",
+   "obtenu": "OK : {\"id\": \"d8b9e93e-acad-4468-a5cd-fa21160484c8\", \"aptitude\": \"INAPTE_IMMOBILISEE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": true, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T02b",
+   "exigence": "T02 Point critique = immobilisation",
+   "compte": "postgres (lecture)",
+   "action": "Moto immobilisée, contrôle INAPTE critique",
+   "attendu": "IMMOBILISEE/INAPTE:true",
+   "obtenu": "IMMOBILISEE/INAPTE:true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T03a",
+   "exigence": "T03 Défaut de sécurité non critique bloque la circulation",
+   "compte": "abm",
+   "action": "Éclairage en défaut : INAPTE, défaut bloquant listé",
+   "attendu": "OK (\"defauts_bloquants\": [\")",
+   "obtenu": "OK : {\"id\": \"5f43dcb0-fd1e-4672-9d21-d8e92a73f1b9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Phare, feu arrière, clignotants\"]}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T03b",
+   "exigence": "T03 Défaut de sécurité non critique bloque la circulation",
+   "compte": "uh_b",
+   "action": "Liste courte des exigences (Chef d'unité du cluster)",
+   "attendu": "OK (CONTRE_VISITE)",
+   "obtenu": "OK : {\"moto_id\": \"0969e46a-52f9-4f9b-b1e7-9356d41ba342\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"documents\": [{\"etat\": \"CONFORME\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"CONFORME\", \"type\": \"PLAQUE\"}, {\"etat\": \"CONFORME\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"CONTRE_VISITE\", \"action\": \"controle_re",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T03c",
+   "exigence": "T03 Défaut de sécurité non critique bloque la circulation",
+   "compte": "postgres (lecture)",
+   "action": "Action corrective ouverte comptée comme bloquante dans la vue",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T04a",
+   "exigence": "T04 Apte avec réserves justifiées",
+   "compte": "abm",
+   "action": "Batterie faible sans justification : refus",
+   "attendu": "REFUS (Réserve non justifiée)",
+   "obtenu": "REFUS : Réserve non justifiée : décrivez le défaut constaté pour Batterie et démarrage.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T04b",
+   "exigence": "T04 Apte avec réserves justifiées",
+   "compte": "abm",
+   "action": "Batterie faible justifiée : APTE avec réserves",
+   "attendu": "OK (APTE_RESERVES)",
+   "obtenu": "OK : {\"id\": \"adbee9d2-f45e-46d7-b25c-4fbf6a306ae3\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [\"Batterie et démarrage\"], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T04c",
+   "exigence": "T04 Apte avec réserves justifiées",
+   "compte": "abm",
+   "action": "Lecture : aptitude APTE_RESERVES et réserve affichée",
+   "attendu": "OK (\"aptitude\": \"APTE_RESERVES\")",
+   "obtenu": "OK : {\"moto_id\": \"3b066793-9fd0-40a7-ac12-2e632a5781b7\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [{\"point\": \"Batterie et démarrage\", \"observation\": \"Démarrage lent, à remplacer sous 30 jours (fictif)\"}], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T04d",
+   "exigence": "T04 Apte avec réserves justifiées",
+   "compte": "postgres (lecture)",
+   "action": "Statut technique APTE (aucun statut nouveau)",
+   "attendu": "APTE",
+   "obtenu": "APTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T05a",
+   "exigence": "T05 Avis défavorable du mécanicien",
+   "compte": "abm",
+   "action": "Avis défavorable sans texte : refus",
+   "attendu": "REFUS (précisez)",
+   "obtenu": "REFUS : Avis défavorable : précisez l'avis du mécanicien.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T05b",
+   "exigence": "T05 Avis défavorable du mécanicien",
+   "compte": "abm",
+   "action": "Avis défavorable motivé : INAPTE malgré tous points conformes",
+   "attendu": "OK (\"resultat\": \"INAPTE\")",
+   "obtenu": "OK : {\"id\": \"63c67184-c244-4bd0-8102-f487c0673ae9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T05c",
+   "exigence": "T05 Avis défavorable du mécanicien",
+   "compte": "abm",
+   "action": "Ancien écran en cache (conclusion INAPTE) toujours respecté",
+   "attendu": "OK (\"resultat\": \"INAPTE\")",
+   "obtenu": "OK : {\"id\": \"df14d85d-1203-4a7d-87c3-8005806833b9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06a",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "abm",
+   "action": "Évaluation sans mécanicien nommé : refus",
+   "attendu": "REFUS (mécanicien)",
+   "obtenu": "REFUS : Nom du mécanicien qualifié obligatoire : il atteste le contrôle physique.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06b",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "bm",
+   "action": "Écriture directe du statut technique : refus",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table moto_motos",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06c",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "bm",
+   "action": "Lecture d'aptitude sans effet de bord",
+   "attendu": "OK (\"aptitude\": \"A_CONTROLER\")",
+   "obtenu": "OK : {\"moto_id\": \"688f25a8-fe77-492a-a905-6044f9620b72\", \"aptitude\": \"A_CONTROLER\", \"reserves\": [], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE\"}, {\"etat\": \"MANQUANT\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"EVALUER\", \"action\": \"aptitude\", \"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06d",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "postgres (lecture)",
+   "action": "Toujours à contrôler, aucun contrôle créé",
+   "attendu": "A_CONTROLER/0",
+   "obtenu": "A_CONTROLER/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06e",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "postgres (lecture)",
+   "action": "Aucune fonction « forcer » exposée",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06f",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "abm",
+   "action": "Garage facultatif, mécanicien suffisant : APTE",
+   "attendu": "OK (\"resultat\": \"APTE\")",
+   "obtenu": "OK : {\"id\": \"ad54efd4-acd5-4e81-a870-a29358473979\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T06g",
+   "exigence": "T06 Pas d'aptitude sans contrôle physique attesté",
+   "compte": "postgres (lecture)",
+   "action": "Garage enregistré vide, mécanicien conservé",
+   "attendu": "(vide)/MECANICIEN QUALIFIE FICTIF",
+   "obtenu": "(vide)/MECANICIEN QUALIFIE FICTIF",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07a",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Contre-visite APTE par un tiers : moto apte sans nouvelle inspection initiale",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"78a4d23c-e498-41a0-8ef2-51d15cc266e6\", \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07b",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Statut technique APTE ; une seule inspection initiale",
+   "attendu": "APTE/1",
+   "obtenu": "APTE/1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07c",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Contre-visite INAPTE ultérieure : la moto n'est plus apte",
+   "attendu": "OK (INAPTE)",
+   "obtenu": "OK : {\"id\": \"1ba6549e-52b7-40aa-a7eb-a749f3d2af1a\", \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07d",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Statut technique repassé à contrôler",
+   "attendu": "A_CONTROLER",
+   "obtenu": "A_CONTROLER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07e",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Contre-visite seule, sans inspection initiale : jamais apte",
+   "attendu": "OK (APTE)",
+   "obtenu": "OK : {\"id\": \"40dbce22-a380-4c5e-bb0e-09c63ce30d9b\", \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07f",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Reste à contrôler (l'inspection initiale reste exigée)",
+   "attendu": "A_CONTROLER",
+   "obtenu": "A_CONTROLER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07g",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Contre-visite avec direction en défaut (critique)",
+   "attendu": "OK (\"anomalie_critique\": true)",
+   "obtenu": "OK : {\"id\": \"34847ba6-9ea4-4040-b865-f88f3329eb6c\", \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07h",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Point critique à la contre-visite : moto immobilisée (auparavant : aucun effet)",
+   "attendu": "IMMOBILISEE",
+   "obtenu": "IMMOBILISEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08a",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "abm",
+   "action": "Inspection : klaxon en défaut (INAPTE)",
+   "attendu": "OK (INAPTE)",
+   "obtenu": "OK : {\"id\": \"edfe6ef0-950e-4ad9-8e7f-0e5437a6b3d7\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Klaxon\"]}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08b",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "bm",
+   "action": "Autorisation de circulation refusée tant que le klaxon n'est pas corrigé ET vérifié",
+   "attendu": "REFUS (sécurité de circulation)",
+   "obtenu": "REFUS : Mise en service bloquée : défaut affectant la sécurité de circulation non corrigé et vérifié (Klaxon).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08c",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "bm",
+   "action": "Après correction vérifiée : autorisation accordée",
+   "attendu": "OK (true)",
+   "obtenu": "OK : {\"id\": \"a9975c3e-104d-4ab9-8fc2-d54dcdd21f41\", \"mise_en_service\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08d",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "postgres (lecture)",
+   "action": "Vue flotte : autorisée à circuler",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08e",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "uh_b",
+   "action": "Nouveau défaut (rétroviseurs) au départ",
+   "attendu": "OK (INAPTE)",
+   "obtenu": "OK : {\"id\": \"4afba27f-b71a-43a2-b43d-849d8649d276\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08f",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "postgres (lecture)",
+   "action": "Circulation suspendue tant que le défaut persiste",
+   "attendu": "false/1",
+   "obtenu": "false/1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08g",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "postgres (lecture)",
+   "action": "Circulation rétablie après correction vérifiée par une autre personne",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08h",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "uh_b",
+   "action": "Défaut non bloquant (gilet oublié) : circulation non suspendue par la vue",
+   "attendu": "OK",
+   "obtenu": "OK : {\"id\": \"f9b4dd8a-5d24-427d-b5e6-356199b560cb\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08i",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "postgres (lecture)",
+   "action": "Gilet hors liste bloquante : autorisée (décision métier paramétrable)",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09f",
+   "exigence": "T09 Exigences réglementaires conservées",
+   "compte": "lc",
+   "action": "État de référence sans compteur : refus",
+   "attendu": "REFUS (compteur)",
+   "obtenu": "REFUS : État de référence : relevé du compteur obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09g",
+   "exigence": "T09 Exigences réglementaires conservées",
+   "compte": "lc",
+   "action": "État de référence avec 2 photos : refus (5 exigées)",
+   "attendu": "REFUS (Photos insuffisantes)",
+   "obtenu": "REFUS : Photos insuffisantes : 5 exigée(s), 2 fournie(s).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T09h",
+   "exigence": "T09 Exigences réglementaires conservées",
+   "compte": "lc",
+   "action": "État de référence complet : APTE",
+   "attendu": "OK (\"etat_reference\": true)",
+   "obtenu": "OK : {\"id\": \"b8264e9d-8ab5-4d4f-903e-60f3e0bb8e62\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": true, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10a",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "anon",
+   "action": "Anonyme : lecture d'aptitude refusée",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function moto_aptitude",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10b",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "uh_c",
+   "action": "Chef d'unité hors cluster : refus",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Moto hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10c",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "uh_a",
+   "action": "Chef d'unité : évaluation interdite (rôle)",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10d",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "bm",
+   "action": "Le refus serveur correspond à une exigence listée",
+   "attendu": "refus + exigences listées",
+   "obtenu": "refus : Mise en service impossible : aucune remise enregistrée. | exigences : AUTORISER, CONTRE_VISITE, DEFAUT, PREAFFECTER",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10e",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "postgres (lecture)",
+   "action": "Nouvelles fonctions : aucun droit pour anon",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10f",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "postgres (lecture)",
+   "action": "Aucune table ni colonne de table nouvelle (seule la vue gagne une colonne)",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10g",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "postgres (lecture)",
+   "action": "Aucun statut technique nouveau (contrainte inchangée)",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}
