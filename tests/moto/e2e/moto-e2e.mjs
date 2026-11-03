@@ -556,6 +556,22 @@ try {
       obtenu: `cartes=${badges.join(' | ')} · lien=${(href || '').replace(/\?.*/, '')} · dépôt=${depot} · lecture=${lecture}`, preuve: await capture(pU, 'formation-support-uh') };
   });
 
+  await etape('UI-FOR-04', 'Changement de module pendant un dépôt : chaque fichier reste dans son module', 'BM dépose sur « Contrôle », change aussitôt de module, puis dépose sur « Carburant »', 'Contrôle : 2 versions ; Carburant : 1 version, chemins cohérents', async () => {
+    await pB.goto(BASE + '/moto/index.html#/formation/CONTROLE_SECURITE'); await pret(pB);
+    await pB.waitForSelector('#support[data-module="CONTROLE_SECURITE"] [data-support-depot] input', { state: 'attached', timeout: 10000 });
+    await pB.setInputFiles('[data-support-depot] input', { name: 'A_v2_fictif.pdf', mimeType: 'application/pdf', buffer: PDF.buffer });
+    await pB.evaluate(() => { location.hash = '#/formation/CARBURANT_JUSTIFICATIFS'; });
+    await pB.waitForSelector('#support[data-module="CARBURANT_JUSTIFICATIFS"]', { timeout: 10000 });
+    await attendre(async () => (await q("select count(*)::int n from public.moto_formation_supports where module_code='CONTROLE_SECURITE'"))[0].n === 2, 10000);
+    await pB.waitForTimeout(2500);   // laisse finir le rafraîchissement tardif de l'ancien module
+    const zone = await pB.getAttribute('#support', 'data-module');
+    await pB.setInputFiles('#support [data-support-depot] input', { name: 'B_fictif.pdf', mimeType: 'application/pdf', buffer: PDF.buffer });
+    await attendre(async () => (await q("select count(*)::int n from public.moto_formation_supports where module_code='CARBURANT_JUSTIFICATIFS'"))[0].n === 1, 10000);
+    const r = await q("select module_code, nom_fichier, split_part(chemin,'/',1) dossier from public.moto_formation_supports order by depose_at");
+    const ok = zone === 'CARBURANT_JUSTIFICATIFS' && r.filter(x => x.module_code === 'CONTROLE_SECURITE').length === 2 && r.some(x => x.module_code === 'CARBURANT_JUSTIFICATIFS' && x.nom_fichier === 'B_fictif.pdf') && r.every(x => x.dossier === x.module_code) && !r.some(x => x.module_code === 'CONTROLE_SECURITE' && x.nom_fichier === 'B_fictif.pdf');
+    return { ok, obtenu: `zone=${zone} · ` + r.map(x => x.module_code + ':' + x.nom_fichier).join(' | ') };
+  });
+
   // 10. Accès refusés et périmètres
   for (const compte of ['agent', 'sup']) {
     const c = await contexte(compte, 'mobile'); const p = await page(c, '/moto/index.html');

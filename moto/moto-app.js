@@ -1244,13 +1244,20 @@
           (s ? ' ' + badgeFile('VALIDE', 'Présentation PDF') : '') + '</span></a>';
       }).join('') + '<div class="mm-carte-moto mm-desactive"><span class="mm-surtitre">Vidéo</span><h2>Module vidéo</h2><p>Aucun contenu vidéo réel n\'est disponible à ce jour. Ce module s\'ouvrira quand une vidéo validée par ANAGROCI sera fournie.</p></div></div>';
   }
-  async function blocSupport(mod) {
-    var zone = $('#support'); if (!zone) return;
+  /* La zone est celle du module affiché : si l'utilisateur a changé de module pendant un chargement
+     (zone retirée du document ou module différent), on n'écrit rien, pour ne jamais rattacher
+     un dépôt au mauvais module. */
+  async function blocSupport(mod, zoneInitiale) {
+    var zone = zoneInitiale || $('#support');
+    var actuelle = function () { return zone && zone.isConnected && zone.dataset.module === mod.code; };
+    if (!actuelle()) return;
     var depot = ['BM', 'ABM'].indexOf(S.classe) >= 0;
     var s = (await supportsFormation()).filter(function (x) { return x.module_code === mod.code; })[0];
+    if (!actuelle()) return;
     var lien = '';
     if (s) {
       var r = await S.sb.storage.from('moto-formation').createSignedUrl(s.chemin, 3600).catch(function (e) { return { error: e }; });
+      if (!actuelle()) return;
       lien = r && !r.error && r.data ? '<a class="mm-btn mm-primaire" href="' + esc(r.data.signedUrl) + '" target="_blank" rel="noopener" data-support-pdf>Ouvrir la présentation (PDF, ' + esc(tailleMo(s.taille_octets)) + ')</a>'
         : '<p class="mm-note">Présentation disponible, mais son ouverture demande une connexion.</p>';
     } else {
@@ -1270,13 +1277,13 @@
         var up = await S.sb.storage.from('moto-formation').upload(chemin, f, { upsert: false, contentType: 'application/pdf' });
         if (up.error) throw new Error('Dépôt du fichier refusé : ' + messageErreur(up.error));
         await rpc('moto_formation_support_enregistrer', { p_module: mod.code, p_chemin: chemin, p_nom_fichier: f.name });
-        toast('Présentation enregistrée.', 'ok'); blocSupport(mod);
+        toast('Présentation enregistrée.', 'ok'); blocSupport(mod, zone);
       } catch (e) { toast(messageErreur(e), 'ko'); input.value = ''; }
     };
   }
   function vueModule(mod) {
     vue().innerHTML = '<a class="mm-retour" href="#/formation">← Formation</a><div class="mm-entete"><div><h1>' + esc(mod.titre) + '</h1></div></div>' +
-      '<section class="mm-bloc" id="support"><h2>Présentation</h2><p class="mm-note">Chargement…</p></section>' +
+      '<section class="mm-bloc" id="support" data-module="' + esc(mod.code) + '"><h2>Présentation</h2><p class="mm-note">Chargement…</p></section>' +
       '<section class="mm-bloc"><h2>Fiche</h2><ul class="mm-fiche">' + mod.fiche.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></section>' +
       '<form class="mm-bloc" id="quiz"><h2>Quiz</h2>' + mod.quiz.map(function (q, i) {
         return '<fieldset class="mm-question"><legend>' + (i + 1) + '. ' + esc(q.q) + '</legend>' + q.r.map(function (r, j) { return '<label><input type="radio" name="q' + i + '" value="' + j + '" required> ' + esc(r) + '</label>'; }).join('') + '</fieldset>';
