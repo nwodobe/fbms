@@ -106,6 +106,35 @@
         '<label><input type="radio" name="' + prefixe + i + '" value="ko"> Défaut</label></div>';
     }).join('') + '</div>';
   }
+  /* Contrôle initial guidé : mêmes exigences serveur, mais points regroupés par priorité. */
+  function itemsHtmlAptitude(liste, prefixe) {
+    function groupe(critique, titre) {
+      var points = liste.map(function (it, i) { return { point: it, index: i }; }).filter(function (x) { return !!x.point.critique === critique; });
+      if (!points.length) return '';
+      return '<fieldset class="mm-champ mm-large"><legend>' + esc(titre) + ' (' + points.length + ')</legend><div class="mm-items">' +
+        points.map(function (x) {
+          var it = x.point, nom = prefixe + x.index;
+          return '<div class="mm-item' + (critique ? ' mm-item-critique' : '') + '"><span>' + esc(it.libelle) +
+            (critique ? ' <b class="mm-critique">sécurité</b>' : '') + '</span>' +
+            '<label><input type="radio" name="' + nom + '" value="ok" required> Conforme</label>' +
+            '<label><input type="radio" name="' + nom + '" value="ko"> Défaut</label></div>';
+        }).join('') + '</div></fieldset>';
+    }
+    return '<p class="mm-note">Vérifiez chaque point sur la moto. Aucun point n\'est présélectionné : choisissez « Conforme » uniquement après un contrôle réel.</p>' +
+      '<p class="mm-note" data-progression-aptitude role="status" aria-live="polite">0 / ' + liste.length + ' points renseignés</p>' +
+      groupe(true, '1. Sécurité prioritaire') + groupe(false, '2. Équipements et entretien');
+  }
+  function brancherProgressionAptitude(dialogue, nb, prefixe) {
+    var suivi = dialogue.querySelector('[data-progression-aptitude]');
+    if (!suivi) return;
+    function actualiser() {
+      var n = dialogue.querySelectorAll('input[name^="' + prefixe + '"]:checked').length;
+      suivi.textContent = n + ' / ' + nb + ' points renseignés' + (n === nb ? ' · Vérifiez les autres champs avant l\'enregistrement.' : '');
+    }
+    dialogue.addEventListener('change', actualiser);
+    actualiser();
+  }
+
   function lireItems(form, liste, prefixe) {
     return liste.map(function (it, i) {
       var c = form.querySelector('input[name="' + prefixe + i + '"]:checked');
@@ -315,6 +344,12 @@
       (liste.length ? '<div class="mm-grille-motos" id="mmGrille">' + liste.map(function (m, i) { return carteMoto(m, immos[i]); }).join('') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto à afficher.</b><p>' + (S.classe === 'UNITE' ? 'Aucune moto ne vous a encore été remise. La remise officielle se fait au bureau ANAGROCI de Bouaké.' : 'Aucune moto enregistrée dans votre périmètre.') + '</p></div>');
     chargerPhotos(vue());
+    $$('[data-inspecter-moto]', vue()).forEach(function (bouton) {
+      bouton.onclick = function () {
+        var m = motoParId(bouton.getAttribute('data-inspecter-moto'));
+        if (m && m.statut_technique === 'A_CONTROLER' && (peut('inspection') || peut('inventaire'))) ACTIONS.inspection({}, m);
+      };
+    });
     $$('[data-modifier-moto]', vue()).forEach(function (bouton) {
       bouton.onclick = function () {
         var m = motoParId(bouton.getAttribute('data-modifier-moto'));
@@ -328,6 +363,11 @@
   }
   function carteMoto(m, immoLocale) {
     var circule = m.autorisee_a_circuler && !immoLocale;
+    var boutons = [];
+    if (m.statut_technique === 'A_CONTROLER' && m.situation_parc !== 'PREVUE' && (peut('inspection') || peut('inventaire'))) {
+      boutons.push('<button type="button" class="mm-btn mm-primaire" data-inspecter-moto="' + esc(m.id) + '">Contrôler l\'aptitude</button>');
+    }
+    if (peut('inventaire')) boutons.push('<button type="button" class="mm-btn mm-secondaire" data-modifier-moto="' + esc(m.id) + '" aria-label="Modifier la fiche de ' + esc(m.code) + '">Modifier la fiche</button>');
     var sit = C.situationMoto(m);
     return '<article class="mm-carte-parc"><a class="mm-carte-moto" href="#/moto/' + esc(m.id) + '">' + imgPhoto(m.photo_path, 'mm-photo mm-photo-carte', 'Photo de ' + m.code) + '<div class="mm-carte-tete"><b class="mm-code">' + esc(m.code) + '</b>' +
       '<span class="mm-circule ' + (circule ? 'mm-ok' : 'mm-ko') + '">' + (m.situation_parc === 'PREVUE' ? 'Pas encore réceptionnée' : circule ? 'Autorisée à circuler' : 'Ne pas circuler') + '</span></div>' +
@@ -338,7 +378,7 @@
       '<div class="mm-badges">' + badge(m.statut_administratif, 'Admin') + badge(m.statut_affectation, 'Affectation') + badge(m.statut_technique, 'Technique') + '</div>' +
       '<dl class="mm-mini"><div><dt>Cluster</dt><dd>' + esc(m.cluster_code || m.zone_code || C.ND) + '</dd></div><div><dt>' + (m.situation_parc === 'PREVUE' ? 'Utilisateur prévu' : 'Affectataire') + '</dt><dd>' + esc((m.situation_parc === 'PREVUE' ? m.beneficiaire_prevu_nom : m.beneficiaire_nom) || C.ND) + '</dd></div>' +
       '<div><dt>Compteur</dt><dd>' + esc(C.km(m.compteur_actuel_km)) + '</dd></div><div><dt>Incidents ouverts</dt><dd>' + esc(m.incidents_ouverts) + '</dd></div></dl></a>' +
-      (peut('inventaire') ? '<div class="mm-carte-actions"><button type="button" class="mm-btn mm-primaire" data-modifier-moto="' + esc(m.id) + '" aria-label="Modifier la fiche de ' + esc(m.code) + '">Modifier la fiche</button></div>' : '') + '</article>';
+      (boutons.length ? '<div class="mm-carte-actions">' + boutons.join('') + '</div>' : '') + '</article>';
   }
 
   /* -- Passeport numérique --------------------------------------------------- */
@@ -394,6 +434,37 @@
       Object.keys(data || {}).map(function (k) { return ' data-' + k + '="' + esc(data[k]) + '"'; }).join('') + '>' + esc(libelle) + '</button>';
   }
 
+  /* Aide de parcours : rend la prochaine action visible sans contourner l'aptitude ni l'autorisation. */
+  function blocAptitudeGuide(m) {
+    if (m.situation_parc === 'PREVUE') return '';
+    var apte = m.statut_technique === 'APTE', documents = m.statut_administratif === 'CONFORME';
+    var remis = ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0;
+    var conseils = '', suivant = '';
+    if (m.statut_technique === 'IMMOBILISEE' || m.statut_technique === 'EN_REPARATION') {
+      conseils = 'Moto immobilisée ou en réparation : traiter les anomalies et enregistrer le contrôle de remise en service. Ne pas circuler.';
+      suivant = '<a class="mm-btn mm-primaire" href="#/moto/' + esc(m.id) + '/anomalies">Voir les anomalies</a>';
+    } else if (!apte) {
+      conseils = 'Étape 1 : faire constater l\'aptitude technique par un intervenant qualifié. Les contrôles sont regroupés par priorité ; aucun résultat n\'est présélectionné.';
+      if (peut('inspection') || peut('inventaire')) suivant = action('inspection', 'Réaliser le contrôle de la moto', { id: m.id }, 'mm-primaire');
+    } else if (!documents) {
+      conseils = 'Aptitude technique enregistrée. Étape 2 : compléter les pièces obligatoires et faire vérifier le dossier administratif par un autre responsable.';
+      suivant = '<a class="mm-btn mm-primaire" href="#/moto/' + esc(m.id) + '/documents">Voir les documents manquants</a>';
+    } else if (!remis) {
+      conseils = 'Technique et documents validés. Étape 3 : établir le procès-verbal, l\'état de remise et enregistrer la remise effective.';
+      if (peut('etat_remise') && m.statut_affectation === 'PREAFFECTEE') suivant = action('etat_remise', 'Préparer la remise', { id: m.id }, 'mm-primaire');
+    } else if (!m.mise_en_service_at) {
+      conseils = 'Les prérequis sont enregistrés. Étape 4 : le Branch Manager autorise séparément la circulation après vérification.';
+      if (peut('mettre_en_service')) suivant = action('mise_en_service', 'Vérifier et autoriser la circulation', { id: m.id }, 'mm-primaire');
+    } else {
+      conseils = 'Moto mise en service. Les contrôles avant départ et les exigences de sécurité restent applicables.';
+    }
+    return '<section class="mm-bloc" aria-label="Parcours simplifié de préparation"><h2>Préparer la moto : prochaine étape</h2>' +
+      '<div class="mm-badges">' + badge(m.statut_technique, 'Technique') + badge(m.statut_administratif, 'Documents') + badge(m.statut_affectation, 'Remise') + '</div>' +
+      '<p class="mm-note">' + esc(conseils) + '</p>' +
+      (suivant ? '<div class="mm-actions">' + suivant + '</div>' : '') +
+      '<p class="mm-note">« Apte » signifie contrôle technique enregistré. Ce statut seul n\'autorise jamais la circulation.</p></section>';
+  }
+
   async function ongletSynthese(m) {
     var r = await Promise.all([
       lireTable('moto_v_conso_moto', function (q) { return q.eq('moto_id', m.id); }).catch(function () { return []; }),
@@ -428,7 +499,7 @@
     if (peut('transferer') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0) actions.push(action('transferer', 'Transférer', { id: m.id }));
     if (peut('incident_piloter')) actions.push(action('controle_remise', 'Contrôle de remise en service', { id: m.id }));
     if (peut('transferer') && m.statut_affectation !== 'NON_AFFECTEE') actions.push(action('retirer', 'Retirer l\'affectation', { id: m.id }, 'mm-danger'));
-    return '<div class="mm-kpis">' +
+    return blocAptitudeGuide(m) + '<div class="mm-kpis">' +
       kpi('Consommation réelle', C.l100(co.l_100km), co.nb_intervalles ? co.nb_intervalles + ' intervalle(s) plein à plein' : 'Pas encore deux pleins complets') +
       kpi('Coût direct', ck.fcfa_km != null ? C.fcfa(ck.fcfa_km) + '/km' : C.ND, ck.km_parcourus ? C.km(ck.km_parcourus) + ' depuis la mise en service' : 'Kilométrage insuffisant') +
       kpi('Disponibilité technique', C.pct(di.taux_disponibilite_pct), di.jours_prevus ? (di.jours_prevus - di.jours_indisponibles) + ' / ' + di.jours_prevus + ' jours prévus' : 'Moto non mise en service') +
@@ -612,11 +683,11 @@
     inspection: function (d, m) {
       var ref = m.origine === 'EN_EXPLOITATION', L = liste('INSPECTION_INITIALE'), cats = ['COMPTEUR', 'AVANT', 'ARRIERE', 'GAUCHE', 'DROITE', 'ANOMALIE'];
       var minRef = Number(S.params.photos_reference_min && S.params.photos_reference_min.valeur) || 5;
-      modale(ref ? 'État technique de référence · ' + m.code : 'Inspection mécanique initiale · ' + m.code,
+      var dialogue = modale(ref ? 'État technique de référence · ' + m.code : 'Inspection mécanique initiale · ' + m.code,
         (ref ? '<p class="mm-bandeau mm-info">Moto déjà en exploitation : cet état de référence, réalisé par un intervenant qualifié, ouvre le suivi fiable. Les anomalies constatées deviennent des actions correctives ; une anomalie critique immobilise la moto.</p>' : '') +
         '<div class="mm-grille-form">' + champ({ n: 'intervenant_nom', l: 'Mécanicien qualifié (inspecteur réel)', req: true }) + champ({ n: 'garage_nom', l: 'Garage désigné par ANAGROCI', req: true }) +
         champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre', req: true }) + champ({ n: 'inspecteur_externe', l: 'Saisie d\'un rapport externe : précisez', ph: 'Ex. rapport papier du garage saisi par le coordinateur' }) +
-        champ({ n: 'avis_mecanicien', l: 'Avis du mécanicien', t: 'textarea' }) + champ({ n: 'observations', l: 'Anomalies existantes constatées', t: 'textarea' }) + '</div>' + itemsHtml(L, 'ins') +
+        champ({ n: 'avis_mecanicien', l: 'Avis du mécanicien', t: 'textarea' }) + champ({ n: 'observations', l: 'Anomalies existantes constatées', t: 'textarea' }) + '</div>' + itemsHtmlAptitude(L, 'ins') +
         champsPhotos('ph_', cats, ref ? ['COMPTEUR'] : []) + (ref ? '<p class="mm-note">Inventaire photographique : au moins ' + minRef + ' photos dont le compteur.</p>' : '') +
         champ({ n: 'resultat', l: 'Conclusion', t: 'select', req: true, o: [['APTE', 'Apte'], ['INAPTE', 'Inapte : contrôle complémentaire au garage']] }) +
         '<p class="mm-note">L\'avis d\'un mécanicien n\'est pas un certificat réglementaire officiel. La gravité de chaque point est fixée par le serveur : une anomalie critique rend la moto inapte, quelle que soit la conclusion saisie.</p>',
@@ -627,6 +698,7 @@
           avis_mecanicien: v.avis_mecanicien, observations: v.observations, inspecteur_externe: v.inspecteur_externe, photos: photos } })
           .then(function (r) { apres(m.id)(); return r.anomalie_critique ? 'Anomalie critique : moto immobilisée.' : (r.etat_reference ? 'État de référence enregistré : ' : 'Inspection enregistrée : ') + C.libelle(r.resultat) + '.'; });
       });
+      brancherProgressionAptitude(dialogue, L.length, 'ins');
     },
     receptionner: function (d, m) {
       modale('Réception physique · ' + m.code, '<div class="mm-grille-form">' + [{ n: 'date_reception', l: 'Date de réception effective', t: 'date', req: true, max: aujourdhui() },
