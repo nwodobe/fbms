@@ -344,13 +344,13 @@
       (liste.length ? '<div class="mm-grille-motos" id="mmGrille">' + liste.map(function (m, i) { return carteMoto(m, immos[i]); }).join('') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto à afficher.</b><p>' + (S.classe === 'UNITE' ? 'Aucune moto ne vous a encore été remise. La remise officielle se fait au bureau ANAGROCI de Bouaké.' : 'Aucune moto enregistrée dans votre périmètre.') + '</p></div>');
     chargerPhotos(vue());
-    $('[data-inspecter-moto]', vue()).forEach(function (bouton) {
+    $$('[data-inspecter-moto]', vue()).forEach(function (bouton) {
       bouton.onclick = function () {
         var m = motoParId(bouton.getAttribute('data-inspecter-moto'));
         if (m && m.statut_technique === 'A_CONTROLER' && (peut('inspection') || peut('inventaire'))) ACTIONS.inspection({}, m);
       };
     });
-    $('[data-modifier-moto]', vue()).forEach(function (bouton) {
+    $$('[data-modifier-moto]', vue()).forEach(function (bouton) {
       bouton.onclick = function () {
         var m = motoParId(bouton.getAttribute('data-modifier-moto'));
         if (m && peut('inventaire')) ACTIONS.identite({}, m);
