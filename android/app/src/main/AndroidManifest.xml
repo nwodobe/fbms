@@ -4,7 +4,8 @@
        INTERNET / ACCESS_NETWORK_STATE : Supabase + détection en ligne / hors ligne
        ACCESS_FINE/COARSE_LOCATION     : GPS des parcelles et check-in (demandé au moment de l'usage)
        WRITE_EXTERNAL_STORAGE (≤ Android 9 seulement) : enregistrer les exports dans Téléchargements
-     Aucune permission CAMERA : la photo passe par l'application Appareil photo du téléphone. -->
+       CAMERA / RECORD_AUDIO           : FIELD PROOF et AFLP FLEET (caméra en direct, vidéo avec son),
+                                         demandées au moment de l'usage, accordées aux seules pages locales -->
 <!-- Identifiant, versions et SDK : définis UNE seule fois dans android/version.properties
      (lu par Gradle et par scripts/build-apk-local.sh). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -13,10 +14,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <queries>
         <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>

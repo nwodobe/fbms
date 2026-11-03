@@ -42,6 +42,8 @@ const VENDOR = [
   { pkg: 'xlsx', version: '0.18.5', files: {
       'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js': 'dist/xlsx.full.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js': 'dist/xlsx.full.min.js' } },
+  { pkg: 'qrcode-generator', version: '1.4.4', files: {
+      'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js': 'qrcode.js' } },
   { pkg: 'chart.js', version: '4.5.1', files: {
       'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js': 'dist/chart.umd.min.js' } },
   { pkg: 'lucide', version: '1.58.0', files: {

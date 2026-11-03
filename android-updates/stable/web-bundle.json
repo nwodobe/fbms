@@ -2,20 +2,20 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1793688333,
- "web_version": "2026.11.03-0645.4db2051",
- "git_commit": "4db20515bf5eabf557171333a3753615b0f4131d",
- "bundle_label": "4db2051",
- "published_at": "2026-11-03T06:47:53.027Z",
- "created_at": "2026-11-03T06:47:53.027Z",
+ "sequence": 1793720944,
+ "web_version": "2026.11.03-1549.ccc5d6d",
+ "git_commit": "ccc5d6dd4eec236e28bc652bea184c32d29f7b18",
+ "bundle_label": "ccc5d6d",
+ "published_at": "2026-11-03T16:13:33.253Z",
+ "created_at": "2026-11-03T16:13:33.253Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Version officielle 1.3.0 : mises Ã  jour automatiques, icÃ´ne PJS FBMS",
+ "release_notes": "Version officielle 1.3.1 : ouverture sur le portail, FIELD PROOF et AFLP FLEET",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 5,
-  "latest_version_name": "1.3.0",
+  "latest_version_code": 6,
+  "latest_version_name": "1.3.1",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
  "supabase_compat": "20261105090100",
@@ -133,6 +133,34 @@
    "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
    "size": 4
   },
+  "fieldproof/fp-app.js": {
+   "sha256": "8eebedda7e62135e3c6bd90874e68e694fa194bbdb29e1c081d9be6f143aee4c",
+   "size": 72183
+  },
+  "fieldproof/fp-capture.js": {
+   "sha256": "e28ff6aa24369551005aa8a0e9cc9256f46cf537f8651c0c8c70c1f9c5bf0b66",
+   "size": 20908
+  },
+  "fieldproof/fp-core.js": {
+   "sha256": "a77c12beb5b3c914bb3847eba5da1453f2f61c4bb24e28474e9ea7a56a090437",
+   "size": 35476
+  },
+  "fieldproof/fp-store.js": {
+   "sha256": "e08df80030b8575ad6df37db54dbe8afe083e32790e3e5c59866a068b0ca4ab5",
+   "size": 11244
+  },
+  "fieldproof/fp.css": {
+   "sha256": "410affa53b9e0d3e08b50bb6badd47013bbd29b065eb1654e734272c8977eb53",
+   "size": 13996
+  },
+  "fieldproof/index.html": {
+   "sha256": "5513b93342742e7014d60468e009a1ee90674864102c50857ffb7bdfae3a0375",
+   "size": 3582
+  },
+  "fieldproof/portal-fieldproof.css": {
+   "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
+   "size": 1123
+  },
   "icon-192.png": {
    "sha256": "8bb6eefb738f88492b8c96b7ae42b58a2715cae2af2fb0d3245891c2ff0966dd",
    "size": 7166
@@ -164,6 +192,58 @@
   "manifest.webmanifest": {
    "sha256": "2f311ee507cceea2ae40fc7e17642d16bdb1075090f75abb3c80b9faa6810b81",
    "size": 601
+  },
+  "moto/index.html": {
+   "sha256": "76e3dd293aae0e9941fb3ac48075b8cc1dd4f35b31658f7ad18a0d5b48016af9",
+   "size": 3532
+  },
+  "moto/moto-app.js": {
+   "sha256": "99464ae8664e6aa50570f036bdd3ae9e3aa3ae4472eb733b5be24623b902f370",
+   "size": 172082
+  },
+  "moto/moto-carnet.js": {
+   "sha256": "dc5d543a4d17817ca0163df7a5bcd3a7c5b002b891b979a6622df6656195e11c",
+   "size": 10786
+  },
+  "moto/moto-core.js": {
+   "sha256": "d0f9af38fcebaab3821858c37b5e113fbb29cd0d03f90b9019ef81f050f7daa8",
+   "size": 35396
+  },
+  "moto/moto-formation.js": {
+   "sha256": "552c115fe1cf0cc1974238c58ec3e562a627360e198f5aa12465cf2e1dcdd2aa",
+   "size": 6423
+  },
+  "moto/moto-maintenance.js": {
+   "sha256": "fbe8c572b6955b99455897a760bb2b744fc0d6512d961b60b2732a4a94c1725b",
+   "size": 63287
+  },
+  "moto/moto-mission.js": {
+   "sha256": "eaea922bd3f286b672ce6bc81d229ead6ec8fc2397197260cfe16110f28eb77c",
+   "size": 38122
+  },
+  "moto/moto-ocr.js": {
+   "sha256": "37855ad070441900a525856eef239bf914c79e76741d09f41e83df821116a625",
+   "size": 12765
+  },
+  "moto/moto-offline.js": {
+   "sha256": "3a340d50c14cc55e97c7aa9457fe28d672b19aba8481defa51ef6d242936430d",
+   "size": 13714
+  },
+  "moto/moto-permis.js": {
+   "sha256": "17448223769536c162b51724ca72dfd59f1fcb117283d3efb8b24c4570aa6192",
+   "size": 19016
+  },
+  "moto/moto-scan.js": {
+   "sha256": "322c8568e7a2050bbbef9234c758d0f7d75e4f99fd7f3b336b73463c5bad1a36",
+   "size": 18484
+  },
+  "moto/moto.css": {
+   "sha256": "af47fb2a5635a51b6b36253437e621e63fa284545d321b68d9ff7daa4726b189",
+   "size": 26970
+  },
+  "moto/portal-moto.css": {
+   "sha256": "44fa29a69dc0af3e54b4888ab308a0c324099fd30b7b96220040ad096a5ade8c",
+   "size": 715
   },
   "operations/activity-report.css": {
    "sha256": "7829fcd20fc256a2e83024f1d1a60a8776f6319640535e766211891c5f6afeca",
