@@ -68,7 +68,7 @@ function unpack(pkg, version) {
   const dest = join(CACHE, `${pkg.replace('/', '__')}@${version}`);
   if (existsSync(join(dest, 'package', 'package.json'))) return join(dest, 'package');
   mkdirSync(dest, { recursive: true });
-  const tgz = execFileSync('npm', ['pack', '--silent', `${pkg}@${version}`, '--pack-destination', dest], { encoding: 'utf8' }).trim().split('\n').pop();
+  const tgz = execFileSync('npm', ['pack', '--silent', `${pkg}@${version}`, '--pack-destination', dest], { encoding: 'utf8', shell: process.platform === 'win32' }).trim().split('\n').pop();
   execFileSync('tar', ['xzf', join(dest, tgz), '-C', dest]);
   const real = JSON.parse(readFileSync(join(dest, 'package', 'package.json'), 'utf8')).version;
   if (real !== version) throw new Error(`${pkg} : version ${real} reçue, ${version} attendue`);
