@@ -315,6 +315,12 @@
       (liste.length ? '<div class="mm-grille-motos" id="mmGrille">' + liste.map(function (m, i) { return carteMoto(m, immos[i]); }).join('') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto à afficher.</b><p>' + (S.classe === 'UNITE' ? 'Aucune moto ne vous a encore été remise. La remise officielle se fait au bureau ANAGROCI de Bouaké.' : 'Aucune moto enregistrée dans votre périmètre.') + '</p></div>');
     chargerPhotos(vue());
+    $$('[data-modifier-moto]', vue()).forEach(function (bouton) {
+      bouton.onclick = function () {
+        var m = motoParId(bouton.getAttribute('data-modifier-moto'));
+        if (m && peut('inventaire')) ACTIONS.identite({}, m);
+      };
+    });
     if (PERMIS && peut('mon_permis')) {
       var html = await PERMIS.blocMonPermis();
       if (html) { var e = document.createElement('div'); e.innerHTML = html; var ent = $('.mm-entete', vue()); ent.parentNode.insertBefore(e.firstChild, ent.nextSibling); PERMIS.brancherMonPermis(vue(), vueMotos); }
@@ -323,7 +329,7 @@
   function carteMoto(m, immoLocale) {
     var circule = m.autorisee_a_circuler && !immoLocale;
     var sit = C.situationMoto(m);
-    return '<a class="mm-carte-moto" href="#/moto/' + esc(m.id) + '">' + imgPhoto(m.photo_path, 'mm-photo mm-photo-carte', 'Photo de ' + m.code) + '<div class="mm-carte-tete"><b class="mm-code">' + esc(m.code) + '</b>' +
+    return '<article class="mm-carte-parc"><a class="mm-carte-moto" href="#/moto/' + esc(m.id) + '">' + imgPhoto(m.photo_path, 'mm-photo mm-photo-carte', 'Photo de ' + m.code) + '<div class="mm-carte-tete"><b class="mm-code">' + esc(m.code) + '</b>' +
       '<span class="mm-circule ' + (circule ? 'mm-ok' : 'mm-ko') + '">' + (m.situation_parc === 'PREVUE' ? 'Pas encore réceptionnée' : circule ? 'Autorisée à circuler' : 'Ne pas circuler') + '</span></div>' +
       '<h2>' + esc(nomMoto(m)) + '</h2><p class="mm-immat">' + esc(m.immatriculation || 'Immatriculation en attente') + '</p>' +
       '<div class="mm-badges">' + badge(sit.code) + (m.dossier_incomplet ? '<span class="mm-badge mm-warn">Dossier à compléter</span>' : '') +
@@ -331,7 +337,8 @@
       (immoLocale ? '<p class="mm-bandeau mm-ko">Immobilisée sur cet appareil depuis ' + esc(C.dateHeureFr(immoLocale.depuis)) + ' (en attente de synchronisation).</p>' : '') +
       '<div class="mm-badges">' + badge(m.statut_administratif, 'Admin') + badge(m.statut_affectation, 'Affectation') + badge(m.statut_technique, 'Technique') + '</div>' +
       '<dl class="mm-mini"><div><dt>Cluster</dt><dd>' + esc(m.cluster_code || m.zone_code || C.ND) + '</dd></div><div><dt>' + (m.situation_parc === 'PREVUE' ? 'Utilisateur prévu' : 'Affectataire') + '</dt><dd>' + esc((m.situation_parc === 'PREVUE' ? m.beneficiaire_prevu_nom : m.beneficiaire_nom) || C.ND) + '</dd></div>' +
-      '<div><dt>Compteur</dt><dd>' + esc(C.km(m.compteur_actuel_km)) + '</dd></div><div><dt>Incidents ouverts</dt><dd>' + esc(m.incidents_ouverts) + '</dd></div></dl></a>';
+      '<div><dt>Compteur</dt><dd>' + esc(C.km(m.compteur_actuel_km)) + '</dd></div><div><dt>Incidents ouverts</dt><dd>' + esc(m.incidents_ouverts) + '</dd></div></dl></a>' +
+      (peut('inventaire') ? '<div class="mm-carte-actions"><button type="button" class="mm-btn mm-primaire" data-modifier-moto="' + esc(m.id) + '" aria-label="Modifier la fiche de ' + esc(m.code) + '">Modifier la fiche</button></div>' : '') + '</article>';
   }
 
   /* -- Passeport numérique --------------------------------------------------- */
@@ -352,10 +359,12 @@
       '<div><dt>Mise en service</dt><dd>' + esc(m.mise_en_service_at ? C.dateFr(m.mise_en_service_at) : 'Non autorisée') + '</dd></div><div><dt>Compteur</dt><dd>' + esc(C.km(m.compteur_actuel_km)) + '</dd></div></dl>' +
       '<div class="mm-badges">' + badge(sit.code) + badge(m.statut_administratif, 'Admin') + badge(m.statut_affectation, 'Affectation') + badge(m.statut_technique, 'Technique') +
       (m.dossier_incomplet ? '<span class="mm-badge mm-warn">Dossier à compléter</span>' : '') + '</div>' +
+      (peut('inventaire') ? '<div class="mm-actions">' + action('identite', 'Modifier la fiche', { id: m.id }, 'mm-primaire') + '</div>' : '') +
       (immo ? '<p class="mm-bandeau mm-ko">Immobilisation de sécurité enregistrée sur cet appareil : ne pas circuler.</p>' : '') + '</div></section>' + bandeauHorsLigne() +
       '<nav class="mm-onglets" aria-label="Sections du passeport">' + ONGLETS.filter(function (o) { return o[0] !== 'journal' || peut('journal'); }).map(function (o) {
         return '<a href="#/moto/' + esc(id) + '/' + o[0] + '"' + (o[0] === onglet ? ' class="mm-actif" aria-current="page"' : '') + '>' + o[1] + '</a>';
       }).join('') + '</nav><div id="mmOnglet" class="mm-onglet"><div class="mm-chargement">Chargement…</div></div>';
+    brancherActions($('.mm-passeport'), m);
     dessinerQr(m);
     var cible = $('#mmOnglet');
     var rendu = { synthese: ongletSynthese, carnet: function (x) { return CARNET ? CARNET.onglet(x) : '<div class="mm-vide mm-ko">Carnet non chargé.</div>'; }, documents: ongletDocuments, affectations: ongletAffectations, kilometrage: ongletKm, controles: ongletControles,
@@ -417,7 +426,6 @@
     if (!prevue && (peut('actions') || peut('inspection_mensuelle') || m.beneficiaire_id === S.profil.user_id)) actions.push(action('signaler', 'Signaler une anomalie', { id: m.id }));
     if (peut('mettre_en_service') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 && !m.mise_en_service_at) actions.push(action('mise_en_service', 'Autoriser la circulation', { id: m.id }, 'mm-primaire'));
     if (peut('transferer') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0) actions.push(action('transferer', 'Transférer', { id: m.id }));
-    if (peut('inventaire')) actions.push(action('identite', 'Modifier l\'identité', { id: m.id }));
     if (peut('incident_piloter')) actions.push(action('controle_remise', 'Contrôle de remise en service', { id: m.id }));
     if (peut('transferer') && m.statut_affectation !== 'NON_AFFECTEE') actions.push(action('retirer', 'Retirer l\'affectation', { id: m.id }, 'mm-danger'));
     return '<div class="mm-kpis">' +
@@ -573,12 +581,16 @@
         champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }), function (v) { return rpc('moto_preaffecter', { p_moto: m.id, p_beneficiaire: v.beneficiaire, p_motif: v.motif }).then(apres(m.id)); });
     },
     identite: function (d, m) {
-      modale('Identité de ' + m.code, '<div class="mm-grille-form">' + [
-        { n: 'marque', l: 'Marque', v: m.marque, req: true }, { n: 'modele', l: 'Modèle', v: m.modele, req: true }, { n: 'annee', l: 'Année', t: 'nombre', pas: 1, v: m.annee },
+      var identiteRequise = m.origine !== 'EN_EXPLOITATION' && m.situation_parc !== 'PREVUE';
+      modale('Modifier la fiche · ' + m.code, '<p class="mm-note">Complétez uniquement les informations connues. Les documents se déposent dans l\'onglet Documents ; le changement de responsable se traite dans les actions d\'affectation.</p><div class="mm-grille-form">' + [
+        { n: 'marque', l: 'Marque', v: m.marque, req: identiteRequise || !!m.marque, aide: !identiteRequise && !m.marque ? 'Facultatif tant que la marque est inconnue.' : '' },
+        { n: 'modele', l: 'Modèle', v: m.modele, req: identiteRequise || !!m.modele, aide: !identiteRequise && !m.modele ? 'Facultatif tant que le modèle est inconnu.' : '' },
+        { n: 'annee', l: 'Année', t: 'nombre', pas: 1, v: m.annee },
         { n: 'couleur', l: 'Couleur', v: m.couleur }, { n: 'numero_chassis', l: 'N° de châssis (carte grise)', v: m.numero_chassis, aide: 'À recopier de la carte grise réelle uniquement.' },
-        { n: 'numero_moteur', l: 'N° moteur', v: m.numero_moteur }, { n: 'immatriculation', l: 'Immatriculation', v: m.immatriculation }, { n: 'date_reception', l: 'Date de réception', t: 'date', v: m.date_reception },
+        { n: 'numero_moteur', l: 'N° moteur', v: m.numero_moteur }, { n: 'immatriculation', l: 'Immatriculation', v: m.immatriculation },
+        { n: 'fournisseur', l: 'Fournisseur', v: m.fournisseur }, { n: 'date_reception', l: 'Date de réception', t: 'date', v: m.date_reception, max: aujourdhui() },
         { n: 'observations', l: 'Observations', t: 'textarea', v: m.observations }, { n: 'motif', l: 'Motif de la modification', t: 'textarea', req: true, min: 5 }].map(champ).join('') + '</div>',
-      function (v) { var motif = v.motif; delete v.motif; v.row_version = m.row_version; return rpc('moto_modifier_identite', { p_moto: m.id, p: v, p_motif: motif }).then(apres(m.id)); });
+      function (v) { var motif = v.motif; delete v.motif; v.row_version = m.row_version; return rpc('moto_modifier_identite', { p_moto: m.id, p: v, p_motif: motif }).then(router); }, 'Enregistrer les modifications');
     },
     document: function (d, m) {
       var types = S.classe === 'ZONE' ? ['RAPPORT_MECANICIEN', 'PHOTO', 'FACTURE'] : ['CARTE_GRISE', 'PLAQUE', 'ASSURANCE', 'PV_REMISE', 'RAPPORT_MECANICIEN', 'FACTURE', 'PHOTO', 'AUTRE'];

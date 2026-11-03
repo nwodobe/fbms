@@ -71,6 +71,9 @@ a{color:var(--emerald-dark)}
 .mm-vide.mm-ko b{color:var(--ko)}
 
 .mm-grille-motos{display:grid;grid-template-columns:1fr;gap:12px}
+.mm-carte-parc{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mm-carte-parc>.mm-carte-moto{flex:1}
+.mm-carte-actions .mm-btn{width:100%}
 .mm-carte-moto{display:block;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink);transition:transform .15s,box-shadow .15s}
 .mm-carte-moto:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(5,59,35,.12)}
 .mm-carte-moto h2{margin:6px 0 2px;font-family:var(--font-display);font-size:18px;color:var(--forest)}
