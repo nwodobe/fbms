@@ -1,0 +1,8 @@
+Clé PUBLIQUE de publication des mises à jour Web de l'APK ANAGROCI FIELD BUYING.
+
+Ce dossier doit contenir UNIQUEMENT web-bundle-public.pem (ECDSA P-256), créé par :
+  node android/scripts/sign-web-bundle.mjs --generate-keys <dossier HORS du dépôt>
+puis copié ici par un responsable. La clé PRIVÉE ne doit jamais entrer dans ce dépôt.
+
+Tant que web-bundle-public.pem est absent, les APK construits ont les mises à jour Web
+désactivées : ils servent toujours la version embarquée, sans rien télécharger.

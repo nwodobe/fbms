@@ -66,3 +66,6 @@ tests/fieldproof/resultats/fichiers/
 
 # --- AFLP FLEET : flux de caméra simulée régénérés à chaque test de bout en bout --
 tests/moto/resultats/camera-compteur-*.mjpeg
+
+# Clé PUBLIQUE de publication des mises à jour Web de l'APK : versionnée volontairement
+!android/update-keys/web-bundle-public.pem

@@ -18,7 +18,7 @@ assert.match(off,/addEventListener\('online'/,'reprise au retour réseau requise
 assert.match(off,/prepareDeviceLease/,'lease appareil RT requis pour la caisse offline');
 assert.match(off,/navigator\.storage\.persist/,'demande stockage persistant requise');
 
-assert.match(html,/offline-field\.js\?v=20261013-offline-1/);
+assert.match(html,/offline-field\.js\?v=20261016-android-1/);
 assert.match(html,/navigator\.serviceWorker\.register\("\.\.\/sw\.js"/,'Service Worker Operations requis');
 assert.match(sw,/offline-field\.js/,'shell terrain doit précacher le moteur offline');
 assert.match(sw,/field-buying\.html/,'shell terrain requis');

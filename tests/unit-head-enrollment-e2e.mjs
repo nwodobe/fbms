@@ -18,12 +18,22 @@
  */
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
 const RACINE = process.cwd();
 const PORT = Number(process.env.PORT_FBMS ?? 4341);
-const LARGEURS = [390, 768, 1440];
+/* Mode APK (facultatif) : sert le PAQUET EMBARQUÉ de l'APK (android/app/src/main/assets/www),
+   injecte le pont natif réel (_native/bridge.js) comme AssetServer.java et simule window.AnagrociNative.
+     FBMS_MODE_APK=1 FBMS_LARGEURS=360,412 node tests/unit-head-enrollment-e2e.mjs */
+const MODE_APK = process.env.FBMS_MODE_APK === '1';
+const WEB = MODE_APK ? resolve(RACINE, 'android/app/src/main/assets/www') : RACINE;
+if (MODE_APK && !existsSync(join(WEB, '_native/bridge.js'))) throw new Error('Paquet APK absent : node android/scripts/prepare-web.mjs');
+const LARGEURS = process.env.FBMS_LARGEURS ? process.env.FBMS_LARGEURS.split(',').map(Number) : [390, 768, 1440];
+const NATIF = `window.AnagrociNative={shellStatus:function(){return JSON.stringify({bundled:true,missing:[],version:'1.1.0 (2)'});},
+  appInfo:function(){return JSON.stringify({app:'ANAGROCI FIELD BUYING',version:'1.1.0 (2)',package:'ci.anagroci.fieldbuying.debug'});},
+  updateStatus:function(){return '{"enabled":false}';},confirmBoot:function(){window.__boot=(window.__boot||0)+1;},reportQueue:function(n){window.__queue=n;},
+  saveFile:function(){return '{"ok":true}';},print:function(){}};`;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
@@ -36,6 +46,7 @@ const doublure = (profil) => m[1].replace(LIGNE_PROFIL, 'profils: ' + JSON.strin
 
 const PROFILS = {
   UH_BOTRO: { nom: 'UH FICTIF BOTRO', role: 'Unit Head', actif: true, cluster: 'BOTRO', zone: null },
+  UH_DJEB: { nom: 'UH FICTIF DJEBONOUA', role: 'Unit Head', actif: true, cluster: 'DJEBONOUA', zone: null },
   UH_SANS: { nom: 'UH FICTIF SANS CLUSTER', role: 'Unit Head', actif: true, cluster: null, zone: null },
   BM: { nom: 'BM FICTIF', role: 'Branch Manager', actif: true, cluster: null, zone: null },
 };
@@ -46,12 +57,17 @@ function verifier(c, libelle) { journal.push((c ? 'PASS ' : 'FAIL ') + libelle);
 function servir() {
   return createServer((req, res) => {
     const chemin = decodeURIComponent((req.url || '/').split('?')[0]);
-    let cible = normalize(join(RACINE, chemin));
-    if (!cible.startsWith(RACINE)) { res.writeHead(403).end(); return; }
+    let cible = normalize(join(WEB, chemin));
+    if (!cible.startsWith(WEB)) { res.writeHead(403).end(); return; }
     if (existsSync(cible) && statSync(cible).isDirectory()) cible = join(cible, 'index.html');
     if (!existsSync(cible)) { res.writeHead(404).end('introuvable'); return; }
     res.writeHead(200, { 'content-type': TYPES[extname(cible)] ?? 'application/octet-stream' });
-    res.end(readFileSync(cible));
+    let corps = readFileSync(cible);
+    if (MODE_APK && extname(cible) === '.html') {
+      const t = corps.toString('utf8'), h = /<head[^>]*>/i.exec(t), tag = '<script src="/_native/bridge.js"></script>';
+      corps = h ? t.slice(0, h.index + h[0].length) + tag + t.slice(h.index + h[0].length) : tag + t;
+    }
+    res.end(corps);
   });
 }
 
@@ -61,6 +77,7 @@ async function ouvrir(navigateur, largeur, profil) {
   const erreurs = [];
   page.on('console', (x) => { if (x.type() === 'error') erreurs.push(x.text()); });
   page.on('pageerror', (e) => erreurs.push('JS: ' + e.message));
+  if (MODE_APK) await page.addInitScript(NATIF);
   await page.addInitScript(doublure(profil));
   /* Règle de prix FICTIVE : la doublure partagée ne répond pas à procurement_active_rule. */
   await page.addInitScript(() => {
@@ -180,7 +197,7 @@ async function main() {
 
       const erreursEnLigne = erreurs.slice();
       /* Hors ligne : paquet préparé lors du chargement en ligne, puis réseau coupé. */
-      if (L === 390) {
+      if (L === LARGEURS[0]) {
         await page.waitForTimeout(1500);
         await contexte.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'onLine', { get: () => false, configurable: true }); });
         await page.reload({ waitUntil: 'domcontentloaded' });
@@ -205,6 +222,19 @@ async function main() {
       await attendreForm(page);
       t = await texteForm(page);
       verifier(/Création non autorisée/.test(t) && /Aucun cluster d’affectation/.test(t), `${L}px · UH sans cluster : écriture bloquée, message explicite`);
+      await contexte.close();
+
+      /* ---------------------------------------------------- Unit Head Djébonoua (code de cluster en majuscules) */
+      ({ contexte, page, erreurs } = await ouvrir(navigateur, L, PROFILS.UH_DJEB));
+      await page.evaluate(() => window.ANAGROCI_FB.openVillageForm());
+      await attendreForm(page);
+      const optsD = await page.evaluate(() => [...document.querySelectorAll('#vf_cluster option')].filter((o) => o.value).map((o) => o.value));
+      verifier(optsD.length === 1 && /^dj[ée]bonoua$/i.test(optsD[0]), `${L}px · UH Djébonoua : seul son cluster est proposé (${JSON.stringify(optsD)})`);
+      await page.evaluate(() => window.ANAGROCI_FB.openVillageForm('v_test_4'));
+      await attendreForm(page);
+      t = await texteForm(page);
+      verifier(/Modification non autorisée/.test(t) && /hors de votre périmètre/.test(t), `${L}px · UH Djébonoua : édition d'un village Botro refusée`);
+      verifier(erreurs.length === 0, `${L}px · UH Djébonoua : aucune erreur console ${erreurs.length ? JSON.stringify(erreurs.slice(0, 3)) : ''}`);
       await contexte.close();
 
       /* ---------------------------------------------------- Branch Manager */

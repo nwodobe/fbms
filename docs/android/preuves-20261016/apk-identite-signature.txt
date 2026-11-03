@@ -1,0 +1,28 @@
+package: name='ci.anagroci.fieldbuying.debug' versionCode='2' versionName='1.1.0'
+sdkVersion:'24'
+targetSdkVersion:'34'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
+uses-permission: name='android.permission.ACCESS_FINE_LOCATION'
+uses-permission: name='android.permission.ACCESS_COARSE_LOCATION'
+uses-permission: name='android.permission.WRITE_EXTERNAL_STORAGE' maxSdkVersion='28'
+application-label:'ANAGROCI FB TEST'
+uses-permission: name='android.permission.READ_EXTERNAL_STORAGE' maxSdkVersion='28'
+package: name='ci.anagroci.fieldbuying' versionCode='2' versionName='1.1.0'
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Signer #1 certificate DN: CN=Android Debug, O=Android, C=US
+Signer #1 certificate SHA-256 digest: 0958690661502614b05eff58cada76734ba0213b7c827046c225cd0a165d7a83
+Signer #1 certificate SHA-1 digest: d188e655c7770f58723ddcfe8f8897b51690eca6
+Signer #1 certificate MD5 digest: 146a6b3c315af2e76a1c54a80f0e4a95
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: 9451b7be87ff233644e48d2218ee2bbea8c250dd8b449b81140a330f14b3993c
+Signer #1 public key SHA-1 digest: 431645a0ddabb3cd888f22e7fab6ddf82f83d3c6
+Signer #1 public key MD5 digest: eb159669fa9de773267265d6bcd7639b
+unsigned: DOES NOT VERIFY
+22a7ee8bf7ed05c4039eed6fc4a1d551b596e6b84cb24719fbd5c192c90e04da  ANAGROCI_FIELD_BUYING_AFLP_2027_v1.1.0_debug.apk
+20b3f2df91e133a0b67d9cbfbcb556232a4eba276248996c2babe9d4c2bd3bcc  ANAGROCI_FIELD_BUYING_AFLP_2027_v1.1.0_unsigned.apk

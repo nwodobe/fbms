@@ -1,0 +1,861 @@
+{
+ "suite": "apk-webview-sim",
+ "run_at": "2026-10-16T21:15:17.849Z",
+ "web_commit": "c2bdc0fa1e8d206b941862c853a42d3e6c720312",
+ "chromium": "Playwright",
+ "data_real_used": false,
+ "pass": 106,
+ "fail": 0,
+ "results": [
+  {
+   "id": "T02",
+   "device": "Android 360×640",
+   "procedure": "Ouverture de l’application sans réseau externe (CDN bloqués)",
+   "expected": "Page chargée depuis l’APK",
+   "observed": "formulaire en 402 ms, requêtes externes bloquées : 0",
+   "status": "PASS"
+  },
+  {
+   "id": "T03",
+   "device": "Android 360×640",
+   "procedure": "Affichage de l’écran de connexion",
+   "expected": "Email (clavier email) + mot de passe",
+   "observed": "types=email/password/username, débordement=0px",
+   "status": "PASS"
+  },
+  {
+   "id": "T31",
+   "device": "Android 360×640",
+   "procedure": "Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour)",
+   "expected": "register() refusé, 0 enregistrement",
+   "observed": "refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0",
+   "status": "PASS"
+  },
+  {
+   "id": "T05",
+   "device": "Android 360×640",
+   "procedure": "Mot de passe incorrect",
+   "expected": "« Email ou mot de passe incorrect. »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T05b",
+   "device": "Android 360×640",
+   "procedure": "Compte inexistant",
+   "expected": "Même message que le mot de passe incorrect (anti-énumération)",
+   "observed": "message identique",
+   "status": "PASS"
+  },
+  {
+   "id": "T06",
+   "device": "Android 360×640",
+   "procedure": "Compte désactivé dans l’authentification (banni)",
+   "expected": "« Compte désactivé »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T20b",
+   "device": "Android 360×640",
+   "procedure": "Réseau coupé au moment de se connecter",
+   "expected": "Message réseau (pas « mot de passe incorrect »)",
+   "observed": "message réseau affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T32",
+   "device": "Android 360×640",
+   "procedure": "Première connexion sans Internet (aucune session)",
+   "expected": "Message : connexion Internet nécessaire",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T04",
+   "device": "Android 360×640",
+   "procedure": "Connexion compte de test valide (Unit Head, serveur simulé)",
+   "expected": "Accès accordé, niveau chef, pas BM",
+   "observed": "{\"role\":\"Unit Head\",\"niveau\":\"chef\",\"estBM\":false}",
+   "status": "PASS"
+  },
+  {
+   "id": "T08",
+   "device": "Android 360×640",
+   "procedure": "Maintien de la session après rechargement",
+   "expected": "Pas de nouvelle saisie du mot de passe",
+   "observed": "session conservée",
+   "status": "PASS"
+  },
+  {
+   "id": "T22a",
+   "device": "Android 360×640",
+   "procedure": "Réouverture hors ligne avec session et profil en cache",
+   "expected": "Application accessible",
+   "observed": "accès accordé depuis le cache",
+   "status": "PASS"
+  },
+  {
+   "id": "T07",
+   "device": "Android 360×640",
+   "procedure": "Unit Head ouvre l’administration (réservée BM)",
+   "expected": "« Accès non autorisé »",
+   "observed": "refusé",
+   "status": "PASS"
+  },
+  {
+   "id": "T33",
+   "device": "Android 360×640",
+   "procedure": "Session expirée",
+   "expected": "Message « Session expirée… opérations conservées »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T06b",
+   "device": "Android 360×640",
+   "procedure": "Profil désactivé dans FBMS (actif = false)",
+   "expected": "« Compte désactivé »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T34",
+   "device": "Android 360×640",
+   "procedure": "Compte sans profil configuré",
+   "expected": "« Profil introuvable »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T41",
+   "device": "Android 360×640",
+   "procedure": "Rôle résolu même si le fichier des rôles arrive en retard (2,5 s)",
+   "expected": "Unit Head = niveau chef",
+   "observed": "niveau=chef",
+   "status": "PASS"
+  },
+  {
+   "id": "T35",
+   "device": "Android 360×640",
+   "procedure": "Erreurs JavaScript pendant les parcours d’authentification",
+   "expected": "Aucune",
+   "observed": "aucune",
+   "status": "PASS"
+  },
+  {
+   "id": "T36",
+   "device": "Android 360×640",
+   "procedure": "Préparer le mode terrain (shell embarqué, sans Service Worker)",
+   "expected": "« Prêt pour le terrain », native_bundle=true",
+   "observed": "prêt · {\"native_bundle\":true,\"missing\":[]}",
+   "status": "PASS"
+  },
+  {
+   "id": "T17",
+   "device": "Android 360×640",
+   "procedure": "Navigation entre les 9 rubriques FIELD BUYING",
+   "expected": "Chaque rubrique s’affiche",
+   "observed": "overview, purchases, census, farmers, cooperatives, rt, bags, cash, sync",
+   "status": "PASS",
+   "errors": []
+  },
+  {
+   "id": "T18",
+   "device": "Android 360×640",
+   "procedure": "Petit écran : débordement horizontal de la page",
+   "expected": "≤ 0 px sur chaque rubrique",
+   "observed": "max 0px (aucun)",
+   "status": "PASS"
+  },
+  {
+   "id": "T09",
+   "device": "Android 360×640",
+   "procedure": "Ouverture du module Producteurs",
+   "expected": "Liste/fiche affichée",
+   "observed": "producteur synthétique listé",
+   "status": "PASS"
+  },
+  {
+   "id": "T11",
+   "device": "Android 360×640",
+   "procedure": "Recherche d’un producteur",
+   "expected": "Trouvé avec « EXISTANT », absent avec un terme inconnu",
+   "observed": "trouvé=true · filtré=true",
+   "status": "PASS"
+  },
+  {
+   "id": "T10",
+   "device": "Android 360×640",
+   "procedure": "Consultation des villages (RT & Villages)",
+   "expected": "Village synthétique affiché",
+   "observed": "affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T13",
+   "device": "Android 360×640",
+   "procedure": "Formulaire de recensement village (création)",
+   "expected": "Fiche à sections s1…s9 avec champs obligatoires",
+   "observed": "{\"sections\":13,\"requis\":2}",
+   "status": "PASS"
+  },
+  {
+   "id": "T14",
+   "device": "Android 360×640",
+   "procedure": "Modification d’une fiche existante (préremplie)",
+   "expected": "Valeurs actuelles chargées dans le formulaire",
+   "observed": "nom du village prérempli",
+   "status": "PASS"
+  },
+  {
+   "id": "T21a",
+   "device": "Android 360×640",
+   "procedure": "Fermeture + réouverture complète sans réseau",
+   "expected": "Application utilisable, état « Hors ligne » visible",
+   "observed": "utilisable, indicateur Hors ligne affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T21",
+   "device": "Android 360×640",
+   "procedure": "Enrôlement producteur hors ligne",
+   "expected": "Opération PENDING avec identifiant et clé d’idempotence",
+   "observed": "PENDING · id=e20c4918… · clé=d477da18…",
+   "status": "PASS"
+  },
+  {
+   "id": "T16b",
+   "device": "Android 360×640",
+   "procedure": "Clavier téléphone pour le numéro",
+   "expected": "inputmode=\"tel\"",
+   "observed": "inputmode=tel",
+   "status": "PASS"
+  },
+  {
+   "id": "T16",
+   "device": "Android 360×640",
+   "procedure": "Listes déroulantes (village, RT, producteur local)",
+   "expected": "Options sélectionnables",
+   "observed": "3 options producteur, producteur local sélectionné",
+   "status": "PASS"
+  },
+  {
+   "id": "T21b",
+   "device": "Android 360×640",
+   "procedure": "Achat hors ligne lié au producteur local",
+   "expected": "PENDING, dépend de l’enrôlement",
+   "observed": "PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true",
+   "status": "PASS"
+  },
+  {
+   "id": "T16c",
+   "device": "Android 360×640",
+   "procedure": "Clavier numérique pour les poids",
+   "expected": "type=\"number\"",
+   "observed": "type=number",
+   "status": "PASS"
+  },
+  {
+   "id": "T22",
+   "device": "Android 360×640",
+   "procedure": "Fermeture et réouverture sans réseau : file conservée",
+   "expected": "Mêmes opérations",
+   "observed": "2/2 opérations",
+   "status": "PASS"
+  },
+  {
+   "id": "T27",
+   "device": "Android 360×640",
+   "procedure": "Synchronisation tentée sans réseau",
+   "expected": "Échec explicite, aucune perte",
+   "observed": "échec explicite · 2 PENDING conservées",
+   "status": "PASS"
+  },
+  {
+   "id": "V01",
+   "device": "Android 360×640",
+   "procedure": "Démarrage de la version Web confirmé à l’application",
+   "expected": "confirmBoot() appelé ≥ 1 fois",
+   "observed": "1 appel(s)",
+   "status": "PASS"
+  },
+  {
+   "id": "V02",
+   "device": "Android 360×640",
+   "procedure": "Nombre d’opérations locales transmis à l’application (hors ligne)",
+   "expected": "2 (opérations PENDING)",
+   "observed": "dernier envoi : 2",
+   "status": "PASS"
+  },
+  {
+   "id": "V03",
+   "device": "Android 360×640",
+   "procedure": "Bouton Version visible, cible tactile ≥ 44 px, libellé accessible",
+   "expected": "≥ 44×44, aria-label",
+   "observed": "79×44 · « v1.1.0 · 2 » · À propos, version et synchronisation",
+   "status": "PASS"
+  },
+  {
+   "id": "V04",
+   "device": "Android 360×640",
+   "procedure": "Écran Version : application, signature, version Web, file locale",
+   "expected": "Version 1.1.0, empreinte, commit, compteurs",
+   "observed": "tout affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V05",
+   "device": "Android 360×640",
+   "procedure": "Opérations non synchronisées : avertissement « Ne désinstallez pas »",
+   "expected": "Avertissement affiché",
+   "observed": "affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V06",
+   "device": "Android 360×640",
+   "procedure": "Mises à jour désactivées dans cet APK : message explicite",
+   "expected": "« désactivées »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V07",
+   "device": "Android 360×640",
+   "procedure": "Hors ligne : bouton « Synchroniser » désactivé",
+   "expected": "désactivé",
+   "observed": "désactivé",
+   "status": "PASS"
+  },
+  {
+   "id": "V08",
+   "device": "Android 360×640",
+   "procedure": "Échap ferme l’écran et rend le focus au bouton",
+   "expected": "fermé, focus sur le bouton",
+   "observed": "ok",
+   "status": "PASS"
+  },
+  {
+   "id": "T28",
+   "device": "Android 360×640",
+   "procedure": "Déconnexion avec opérations en attente",
+   "expected": "Avertissement avant déconnexion, file conservée",
+   "observed": "2 opération(s) ne sont pas encore synchronisée(s). Elles resteront sur cet appareil, mais …",
+   "status": "PASS"
+  },
+  {
+   "id": "T23",
+   "device": "Android 360×640",
+   "procedure": "Retour d’Internet",
+   "expected": "Synchronisation déclenchée",
+   "observed": "2 appel(s) offline_sync_batch",
+   "status": "PASS"
+  },
+  {
+   "id": "T24",
+   "device": "Android 360×640",
+   "procedure": "Synchronisation : producteur puis achat",
+   "expected": "Les deux SYNCED, achat rattaché au Farmer serveur",
+   "observed": "SYNCED · farmer envoyé=farmer-server-0",
+   "status": "PASS"
+  },
+  {
+   "id": "T25",
+   "device": "Android 360×640",
+   "procedure": "Rejeu de la synchronisation (doublons)",
+   "expected": "Aucune opération SYNCED renvoyée",
+   "observed": "0 nouvel appel, 0 clé envoyée deux fois",
+   "status": "PASS"
+  },
+  {
+   "id": "T37",
+   "device": "Android 360×640",
+   "procedure": "Export de fichier (lien download blob:)",
+   "expected": "Fichier transmis au pont Android (Téléchargements/ANAGROCI)",
+   "observed": "export-test-apk.csv · text/csv · 15 o",
+   "status": "PASS"
+  },
+  {
+   "id": "T38",
+   "device": "Android 360×640",
+   "procedure": "Impression",
+   "expected": "window.print() → impression Android",
+   "observed": "1 demande(s)",
+   "status": "PASS"
+  },
+  {
+   "id": "T39",
+   "device": "Android 360×640",
+   "procedure": "GPS (API navigateur, position simulée)",
+   "expected": "Position fournie à la page",
+   "observed": "7.69,-5.03",
+   "status": "PASS"
+  },
+  {
+   "id": "T40",
+   "device": "Android 360×640",
+   "procedure": "Requêtes réseau externes non prévues",
+   "expected": "0 (tout est local, Supabase simulé)",
+   "observed": "0",
+   "status": "PASS"
+  },
+  {
+   "id": "V09",
+   "device": "Android 360×640",
+   "procedure": "Après synchronisation : 0 opération transmise à l’application",
+   "expected": "0",
+   "observed": "dernier envoi : 0",
+   "status": "PASS"
+  },
+  {
+   "id": "V10",
+   "device": "Android 360×640",
+   "procedure": "Version téléchargée et vérifiée : bouton « Redémarrer pour appliquer »",
+   "expected": "bouton présent, source affichée",
+   "observed": "bouton présent · source affichée",
+   "status": "PASS"
+  },
+  {
+   "id": "V11",
+   "device": "Android 360×640",
+   "procedure": "Boutons Appliquer / Vérifier reliés à l’application",
+   "expected": "applyUpdate=1, checkUpdate=1",
+   "observed": "applyUpdate=1, checkUpdate=1",
+   "status": "PASS"
+  },
+  {
+   "id": "V12",
+   "device": "Android 360×640",
+   "procedure": "Activation différée et version refusée : motifs affichés, pas de bouton Appliquer",
+   "expected": "motifs visibles",
+   "observed": "différée affichée · refus affiché · bouton masqué",
+   "status": "PASS"
+  },
+  {
+   "id": "T02",
+   "device": "Android 412×915",
+   "procedure": "Ouverture de l’application sans réseau externe (CDN bloqués)",
+   "expected": "Page chargée depuis l’APK",
+   "observed": "formulaire en 306 ms, requêtes externes bloquées : 0",
+   "status": "PASS"
+  },
+  {
+   "id": "T03",
+   "device": "Android 412×915",
+   "procedure": "Affichage de l’écran de connexion",
+   "expected": "Email (clavier email) + mot de passe",
+   "observed": "types=email/password/username, débordement=0px",
+   "status": "PASS"
+  },
+  {
+   "id": "T31",
+   "device": "Android 412×915",
+   "procedure": "Service Worker désactivé dans l’APK (pas de cache périmé après mise à jour)",
+   "expected": "register() refusé, 0 enregistrement",
+   "observed": "refusé : Service Worker inutile dans l’application Android : fichiers embarqués. · enregistrements=0",
+   "status": "PASS"
+  },
+  {
+   "id": "T05",
+   "device": "Android 412×915",
+   "procedure": "Mot de passe incorrect",
+   "expected": "« Email ou mot de passe incorrect. »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T05b",
+   "device": "Android 412×915",
+   "procedure": "Compte inexistant",
+   "expected": "Même message que le mot de passe incorrect (anti-énumération)",
+   "observed": "message identique",
+   "status": "PASS"
+  },
+  {
+   "id": "T06",
+   "device": "Android 412×915",
+   "procedure": "Compte désactivé dans l’authentification (banni)",
+   "expected": "« Compte désactivé »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T20b",
+   "device": "Android 412×915",
+   "procedure": "Réseau coupé au moment de se connecter",
+   "expected": "Message réseau (pas « mot de passe incorrect »)",
+   "observed": "message réseau affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T32",
+   "device": "Android 412×915",
+   "procedure": "Première connexion sans Internet (aucune session)",
+   "expected": "Message : connexion Internet nécessaire",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T04",
+   "device": "Android 412×915",
+   "procedure": "Connexion compte de test valide (Unit Head, serveur simulé)",
+   "expected": "Accès accordé, niveau chef, pas BM",
+   "observed": "{\"role\":\"Unit Head\",\"niveau\":\"chef\",\"estBM\":false}",
+   "status": "PASS"
+  },
+  {
+   "id": "T08",
+   "device": "Android 412×915",
+   "procedure": "Maintien de la session après rechargement",
+   "expected": "Pas de nouvelle saisie du mot de passe",
+   "observed": "session conservée",
+   "status": "PASS"
+  },
+  {
+   "id": "T22a",
+   "device": "Android 412×915",
+   "procedure": "Réouverture hors ligne avec session et profil en cache",
+   "expected": "Application accessible",
+   "observed": "accès accordé depuis le cache",
+   "status": "PASS"
+  },
+  {
+   "id": "T07",
+   "device": "Android 412×915",
+   "procedure": "Unit Head ouvre l’administration (réservée BM)",
+   "expected": "« Accès non autorisé »",
+   "observed": "refusé",
+   "status": "PASS"
+  },
+  {
+   "id": "T33",
+   "device": "Android 412×915",
+   "procedure": "Session expirée",
+   "expected": "Message « Session expirée… opérations conservées »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T06b",
+   "device": "Android 412×915",
+   "procedure": "Profil désactivé dans FBMS (actif = false)",
+   "expected": "« Compte désactivé »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T34",
+   "device": "Android 412×915",
+   "procedure": "Compte sans profil configuré",
+   "expected": "« Profil introuvable »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T41",
+   "device": "Android 412×915",
+   "procedure": "Rôle résolu même si le fichier des rôles arrive en retard (2,5 s)",
+   "expected": "Unit Head = niveau chef",
+   "observed": "niveau=chef",
+   "status": "PASS"
+  },
+  {
+   "id": "T35",
+   "device": "Android 412×915",
+   "procedure": "Erreurs JavaScript pendant les parcours d’authentification",
+   "expected": "Aucune",
+   "observed": "aucune",
+   "status": "PASS"
+  },
+  {
+   "id": "T36",
+   "device": "Android 412×915",
+   "procedure": "Préparer le mode terrain (shell embarqué, sans Service Worker)",
+   "expected": "« Prêt pour le terrain », native_bundle=true",
+   "observed": "prêt · {\"native_bundle\":true,\"missing\":[]}",
+   "status": "PASS"
+  },
+  {
+   "id": "T17",
+   "device": "Android 412×915",
+   "procedure": "Navigation entre les 9 rubriques FIELD BUYING",
+   "expected": "Chaque rubrique s’affiche",
+   "observed": "overview, purchases, census, farmers, cooperatives, rt, bags, cash, sync",
+   "status": "PASS",
+   "errors": []
+  },
+  {
+   "id": "T18",
+   "device": "Android 412×915",
+   "procedure": "Petit écran : débordement horizontal de la page",
+   "expected": "≤ 0 px sur chaque rubrique",
+   "observed": "max 0px (aucun)",
+   "status": "PASS"
+  },
+  {
+   "id": "T09",
+   "device": "Android 412×915",
+   "procedure": "Ouverture du module Producteurs",
+   "expected": "Liste/fiche affichée",
+   "observed": "producteur synthétique listé",
+   "status": "PASS"
+  },
+  {
+   "id": "T11",
+   "device": "Android 412×915",
+   "procedure": "Recherche d’un producteur",
+   "expected": "Trouvé avec « EXISTANT », absent avec un terme inconnu",
+   "observed": "trouvé=true · filtré=true",
+   "status": "PASS"
+  },
+  {
+   "id": "T10",
+   "device": "Android 412×915",
+   "procedure": "Consultation des villages (RT & Villages)",
+   "expected": "Village synthétique affiché",
+   "observed": "affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T13",
+   "device": "Android 412×915",
+   "procedure": "Formulaire de recensement village (création)",
+   "expected": "Fiche à sections s1…s9 avec champs obligatoires",
+   "observed": "{\"sections\":13,\"requis\":2}",
+   "status": "PASS"
+  },
+  {
+   "id": "T14",
+   "device": "Android 412×915",
+   "procedure": "Modification d’une fiche existante (préremplie)",
+   "expected": "Valeurs actuelles chargées dans le formulaire",
+   "observed": "nom du village prérempli",
+   "status": "PASS"
+  },
+  {
+   "id": "T21a",
+   "device": "Android 412×915",
+   "procedure": "Fermeture + réouverture complète sans réseau",
+   "expected": "Application utilisable, état « Hors ligne » visible",
+   "observed": "utilisable, indicateur Hors ligne affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "T21",
+   "device": "Android 412×915",
+   "procedure": "Enrôlement producteur hors ligne",
+   "expected": "Opération PENDING avec identifiant et clé d’idempotence",
+   "observed": "PENDING · id=c64dc453… · clé=11688b9e…",
+   "status": "PASS"
+  },
+  {
+   "id": "T16b",
+   "device": "Android 412×915",
+   "procedure": "Clavier téléphone pour le numéro",
+   "expected": "inputmode=\"tel\"",
+   "observed": "inputmode=tel",
+   "status": "PASS"
+  },
+  {
+   "id": "T16",
+   "device": "Android 412×915",
+   "procedure": "Listes déroulantes (village, RT, producteur local)",
+   "expected": "Options sélectionnables",
+   "observed": "3 options producteur, producteur local sélectionné",
+   "status": "PASS"
+  },
+  {
+   "id": "T21b",
+   "device": "Android 412×915",
+   "procedure": "Achat hors ligne lié au producteur local",
+   "expected": "PENDING, dépend de l’enrôlement",
+   "observed": "PENDING · dépend de l’enrôlement : true · message « Achat sauvegardé » vu : true",
+   "status": "PASS"
+  },
+  {
+   "id": "T16c",
+   "device": "Android 412×915",
+   "procedure": "Clavier numérique pour les poids",
+   "expected": "type=\"number\"",
+   "observed": "type=number",
+   "status": "PASS"
+  },
+  {
+   "id": "T22",
+   "device": "Android 412×915",
+   "procedure": "Fermeture et réouverture sans réseau : file conservée",
+   "expected": "Mêmes opérations",
+   "observed": "2/2 opérations",
+   "status": "PASS"
+  },
+  {
+   "id": "T27",
+   "device": "Android 412×915",
+   "procedure": "Synchronisation tentée sans réseau",
+   "expected": "Échec explicite, aucune perte",
+   "observed": "échec explicite · 2 PENDING conservées",
+   "status": "PASS"
+  },
+  {
+   "id": "V01",
+   "device": "Android 412×915",
+   "procedure": "Démarrage de la version Web confirmé à l’application",
+   "expected": "confirmBoot() appelé ≥ 1 fois",
+   "observed": "1 appel(s)",
+   "status": "PASS"
+  },
+  {
+   "id": "V02",
+   "device": "Android 412×915",
+   "procedure": "Nombre d’opérations locales transmis à l’application (hors ligne)",
+   "expected": "2 (opérations PENDING)",
+   "observed": "dernier envoi : 2",
+   "status": "PASS"
+  },
+  {
+   "id": "V03",
+   "device": "Android 412×915",
+   "procedure": "Bouton Version visible, cible tactile ≥ 44 px, libellé accessible",
+   "expected": "≥ 44×44, aria-label",
+   "observed": "79×44 · « v1.1.0 · 2 » · À propos, version et synchronisation",
+   "status": "PASS"
+  },
+  {
+   "id": "V04",
+   "device": "Android 412×915",
+   "procedure": "Écran Version : application, signature, version Web, file locale",
+   "expected": "Version 1.1.0, empreinte, commit, compteurs",
+   "observed": "tout affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V05",
+   "device": "Android 412×915",
+   "procedure": "Opérations non synchronisées : avertissement « Ne désinstallez pas »",
+   "expected": "Avertissement affiché",
+   "observed": "affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V06",
+   "device": "Android 412×915",
+   "procedure": "Mises à jour désactivées dans cet APK : message explicite",
+   "expected": "« désactivées »",
+   "observed": "message affiché",
+   "status": "PASS"
+  },
+  {
+   "id": "V07",
+   "device": "Android 412×915",
+   "procedure": "Hors ligne : bouton « Synchroniser » désactivé",
+   "expected": "désactivé",
+   "observed": "désactivé",
+   "status": "PASS"
+  },
+  {
+   "id": "V08",
+   "device": "Android 412×915",
+   "procedure": "Échap ferme l’écran et rend le focus au bouton",
+   "expected": "fermé, focus sur le bouton",
+   "observed": "ok",
+   "status": "PASS"
+  },
+  {
+   "id": "T28",
+   "device": "Android 412×915",
+   "procedure": "Déconnexion avec opérations en attente",
+   "expected": "Avertissement avant déconnexion, file conservée",
+   "observed": "2 opération(s) ne sont pas encore synchronisée(s). Elles resteront sur cet appareil, mais …",
+   "status": "PASS"
+  },
+  {
+   "id": "T23",
+   "device": "Android 412×915",
+   "procedure": "Retour d’Internet",
+   "expected": "Synchronisation déclenchée",
+   "observed": "2 appel(s) offline_sync_batch",
+   "status": "PASS"
+  },
+  {
+   "id": "T24",
+   "device": "Android 412×915",
+   "procedure": "Synchronisation : producteur puis achat",
+   "expected": "Les deux SYNCED, achat rattaché au Farmer serveur",
+   "observed": "SYNCED · farmer envoyé=farmer-server-0",
+   "status": "PASS"
+  },
+  {
+   "id": "T25",
+   "device": "Android 412×915",
+   "procedure": "Rejeu de la synchronisation (doublons)",
+   "expected": "Aucune opération SYNCED renvoyée",
+   "observed": "0 nouvel appel, 0 clé envoyée deux fois",
+   "status": "PASS"
+  },
+  {
+   "id": "T37",
+   "device": "Android 412×915",
+   "procedure": "Export de fichier (lien download blob:)",
+   "expected": "Fichier transmis au pont Android (Téléchargements/ANAGROCI)",
+   "observed": "export-test-apk.csv · text/csv · 15 o",
+   "status": "PASS"
+  },
+  {
+   "id": "T38",
+   "device": "Android 412×915",
+   "procedure": "Impression",
+   "expected": "window.print() → impression Android",
+   "observed": "1 demande(s)",
+   "status": "PASS"
+  },
+  {
+   "id": "T39",
+   "device": "Android 412×915",
+   "procedure": "GPS (API navigateur, position simulée)",
+   "expected": "Position fournie à la page",
+   "observed": "7.69,-5.03",
+   "status": "PASS"
+  },
+  {
+   "id": "T40",
+   "device": "Android 412×915",
+   "procedure": "Requêtes réseau externes non prévues",
+   "expected": "0 (tout est local, Supabase simulé)",
+   "observed": "0",
+   "status": "PASS"
+  },
+  {
+   "id": "V09",
+   "device": "Android 412×915",
+   "procedure": "Après synchronisation : 0 opération transmise à l’application",
+   "expected": "0",
+   "observed": "dernier envoi : 0",
+   "status": "PASS"
+  },
+  {
+   "id": "V10",
+   "device": "Android 412×915",
+   "procedure": "Version téléchargée et vérifiée : bouton « Redémarrer pour appliquer »",
+   "expected": "bouton présent, source affichée",
+   "observed": "bouton présent · source affichée",
+   "status": "PASS"
+  },
+  {
+   "id": "V11",
+   "device": "Android 412×915",
+   "procedure": "Boutons Appliquer / Vérifier reliés à l’application",
+   "expected": "applyUpdate=1, checkUpdate=1",
+   "observed": "applyUpdate=1, checkUpdate=1",
+   "status": "PASS"
+  },
+  {
+   "id": "V12",
+   "device": "Android 412×915",
+   "procedure": "Activation différée et version refusée : motifs affichés, pas de bouton Appliquer",
+   "expected": "motifs visibles",
+   "observed": "différée affichée · refus affiché · bouton masqué",
+   "status": "PASS"
+  }
+ ]
+}

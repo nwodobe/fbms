@@ -1,0 +1,22 @@
+{
+ "app_id": "ci.anagroci.fieldbuying",
+ "channel": "test",
+ "sequence": 1792930531,
+ "web_version": "2026.10.25-1215.8126ff8",
+ "git_commit": "8126ff8be329be5a5c99866c6a55aa9aa3be96f1",
+ "published_at": "2026-10-25T12:16:02.643Z",
+ "status": "published",
+ "update_policy": "recommended",
+ "min_native_version_code": 3,
+ "native": {
+  "latest_version_code": 4,
+  "latest_version_name": "1.2.1",
+  "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+ },
+ "supabase_compat": "20261013204500",
+ "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+ "rollback_of": null,
+ "revoked_sequences": [
+  1792930008
+ ]
+}
