@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1793684824,
- "web_version": "2026.11.03-0547.5a4aa19",
- "git_commit": "5a4aa1941b96a1edf46278687589a2c0b703c284",
- "bundle_label": "5a4aa19",
- "published_at": "2026-11-03T05:47:11.080Z",
- "created_at": "2026-11-03T05:47:11.080Z",
+ "sequence": 1793686204,
+ "web_version": "2026.11.03-0610.fb56a68",
+ "git_commit": "fb56a68ad0aec0bcb17364ec423c4b35f3deb623",
+ "bundle_label": "fb56a68",
+ "published_at": "2026-11-03T06:10:16.131Z",
+ "created_at": "2026-11-03T06:10:16.131Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Preuve OTA 2026-11-03",
+ "release_notes": "Correctif page FIELD BUYING (marques de conflit)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -242,12 +242,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "1a58de5ffcc1526abe5bc98fc402191d6f01c007bb89e7fda53cc352c907db09",
-   "size": 6959
+   "sha256": "dc2676b1497a1c5e67f101dafd07d53bec755748bbd2e1b210fac9d08b2b7676",
+   "size": 3412
   },
   "operations/field-buying.js": {
-   "sha256": "8a0ef4f8ba2e90c6d6ae06b6491efc0a2aeead80dbd48ac5dfdfe7df3f1feab3",
-   "size": 334143
+   "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
+   "size": 334081
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",

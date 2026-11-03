@@ -5135,5 +5135,3 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 })(window);
-
-/* Preuve mise a jour automatique canal test - 2026-11-03 */
