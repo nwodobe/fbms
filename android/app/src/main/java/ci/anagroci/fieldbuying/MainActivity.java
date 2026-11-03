@@ -25,6 +25,7 @@ import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -48,11 +49,13 @@ import java.util.List;
  * restent ceux de Supabase, exactement comme sur la version Web.
  */
 public class MainActivity extends Activity {
-    static final String START = AssetServer.ORIGIN + "/operations/field-buying.html";
+    /** Page d'accueil : le portail ANAGROCI Operations Suite (choix du module). */
+    static final String START = AssetServer.ORIGIN + "/index.html";
 
     private static final int REQ_FILE = 41;
     private static final int REQ_LOCATION = 42;
     private static final int REQ_STORAGE = 43;
+    private static final int REQ_MEDIA = 44;
 
     /** Délai laissé à une mise à jour Web fraîchement activée pour confirmer son démarrage. */
     private static final long BOOT_CONFIRM_MS = 60000;
@@ -68,6 +71,7 @@ public class MainActivity extends Activity {
     private Uri pendingPhoto;
     private String geoOrigin;
     private GeolocationPermissions.Callback geoCallback;
+    private PermissionRequest mediaRequest;
 
     WebView webView() { return web; }
 
@@ -213,7 +217,44 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Accorde à la page les seules ressources (caméra, micro) autorisées par l'utilisateur. */
+    void grantMedia(PermissionRequest req) {
+        List<String> ok = new ArrayList<String>();
+        for (String r : req.getResources()) {
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r) && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) ok.add(r);
+            else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r) && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) ok.add(r);
+        }
+        if (ok.isEmpty()) {
+            req.deny();
+            Toast.makeText(this, "Caméra refusée : autorisez-la dans Paramètres > Applications > ANAGROCI FIELD BUYING.", Toast.LENGTH_LONG).show();
+        } else req.grant(ok.toArray(new String[0]));
+    }
+
     final class Chrome extends WebChromeClient {
+        /* FIELD PROOF et AFLP FLEET : caméra en direct (getUserMedia), micro pour les vidéos.
+           Accordé aux seules pages locales de l'application, demandé au moment de l'usage. */
+        @Override
+        public void onPermissionRequest(final PermissionRequest req) {
+            runOnUiThread(new Runnable() { @Override public void run() {
+                String o = String.valueOf(req.getOrigin());
+                if (!(AssetServer.ORIGIN + "/").equals(o) && !AssetServer.ORIGIN.equals(o)) { req.deny(); return; }
+                List<String> need = new ArrayList<String>();
+                boolean known = false;
+                for (String r : req.getResources()) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) { known = true; if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.CAMERA); }
+                    else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) { known = true; if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) need.add(Manifest.permission.RECORD_AUDIO); }
+                }
+                if (!known) { req.deny(); return; }
+                if (need.isEmpty()) { grantMedia(req); return; }
+                if (mediaRequest != null) mediaRequest.deny();
+                mediaRequest = req;
+                requestPermissions(need.toArray(new String[0]), REQ_MEDIA);
+            }});
+        }
+
+        @Override
+        public void onPermissionRequestCanceled(PermissionRequest req) { if (req == mediaRequest) mediaRequest = null; }
+
         @Override
         public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
             if (!(AssetServer.ORIGIN + "/").equals(origin) && !AssetServer.ORIGIN.equals(origin)) { callback.invoke(origin, false, false); return; }
@@ -302,6 +343,11 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        if (req == REQ_MEDIA && mediaRequest != null) {
+            PermissionRequest r = mediaRequest; mediaRequest = null;
+            grantMedia(r);
+            return;
+        }
         if (req == REQ_LOCATION && geoCallback != null) {
             boolean ok = false;
             for (int r : results) ok |= r == PackageManager.PERMISSION_GRANTED;

@@ -10,7 +10,8 @@ import { join, relative } from 'node:path';
 
 /* Ce qui part dans l'APK et dans une mise à jour : l'application Web servie par GitHub Pages. */
 export const INCLUDE = ['index.html', 'logistique.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
-  'operations', 'shared', 'assets', 'terrain', 'fbms', 'rcntrace', 'logistique', 'suite'];
+  'operations', 'shared', 'assets', 'terrain', 'fbms', 'rcntrace', 'logistique', 'suite',
+  'fieldproof', 'moto'];
 /* Jamais embarqué : documentation, tests, SQL, sauvegardes, Service Worker. */
 export const EXCLUDE = [/\.md$/i, /(^|\/)\.[^/]+$/, /^shared\/admin-create-user/, /\.map$/];
 
