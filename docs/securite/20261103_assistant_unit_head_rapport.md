@@ -1,7 +1,7 @@
 # Rôle Assistant Unit Head (AFLP 2027) — rapport d'audit et de préparation
 
 Date : 03/11/2026 · Branche : `feat/aflp-assistant-unit-head-acces` · Projet Supabase : `jmbdgpdthzpszfnddwzi`
-Statut : **préparé et testé sur banc isolé. Rien n'est appliqué en production.**
+Statut : **appliqué en production le 03/11/2026** sur autorisation du Branch Manager (contrôles post-déploiement : contrainte, 12 politiques, 7 déclencheurs ; non-régression Unit Head et Branch Manager vérifiée ; assistant fictif testé dans une transaction annulée).
 
 ## 1. Diagnostic de l'existant (production relevée en lecture seule le 03/11/2026)
 

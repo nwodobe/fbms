@@ -1,6 +1,6 @@
 -- =============================================================================
 -- FBMS / AFLP 2027 · Rôle « Assistant Unit Head » (Assistant Chef d'Unité)
--- Date : 2026-11-03 · Statut : PRÉPARÉ, TESTÉ SUR BANC ISOLÉ — NON APPLIQUÉ
+-- Date : 2026-11-03 · Statut : APPLIQUÉ EN PRODUCTION le 03/11/2026 (migration aflp_assistant_unit_head_acces), sur autorisation du Branch Manager
 -- Banc : bash tests/sql/assistant-unit-head/lancer-banc.sh
 -- Retour arrière : supabase/20261103120100_aflp_assistant_unit_head_acces_rollback.sql
 --
