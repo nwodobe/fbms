@@ -1,8 +1,8 @@
 {
  "base": "fbms_apt10_t",
- "date": "2026-11-03T21:02:55",
- "reussis": 56,
- "total": 56,
+ "date": "2026-11-03T21:30:59",
+ "reussis": 66,
+ "total": 66,
  "resultats": [
   {
    "id": "MIG-01",
@@ -27,8 +27,8 @@
    "exigence": "Aucun changement rétroactif",
    "compte": "postgres (lecture)",
    "action": "Statuts, contrôles et actions existants identiques après migration",
-   "attendu": "6c0eb9f7d5ad2ccb8a0fd095cc58ce9b",
-   "obtenu": "6c0eb9f7d5ad2ccb8a0fd095cc58ce9b",
+   "attendu": "8f83a61639fe4b659fb49dca3cb49aa6",
+   "obtenu": "8f83a61639fe4b659fb49dca3cb49aa6",
    "resultat": "RÉUSSI"
   },
   {
@@ -82,7 +82,7 @@
    "compte": "abm",
    "action": "Client envoie « APTE » avec klaxon en défaut : le serveur calcule INAPTE",
    "attendu": "OK (\"resultat\": \"INAPTE\")",
-   "obtenu": "OK : {\"id\": \"ed895561-b6d6-42e9-95fe-340d4095c623\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Klaxon\"]}",
+   "obtenu": "OK : {\"id\": \"290584bb-da3c-44bd-b5d3-d54aa86c7605\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Klaxon\"]}",
    "resultat": "RÉUSSI"
   },
   {
@@ -100,7 +100,7 @@
    "compte": "abm",
    "action": "Freins arrière en défaut",
    "attendu": "OK (INAPTE_IMMOBILISEE)",
-   "obtenu": "OK : {\"id\": \"d8b9e93e-acad-4468-a5cd-fa21160484c8\", \"aptitude\": \"INAPTE_IMMOBILISEE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": true, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"2ebefe66-d6c6-4133-ae97-779f6019adcf\", \"aptitude\": \"INAPTE_IMMOBILISEE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": true, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
@@ -118,7 +118,7 @@
    "compte": "abm",
    "action": "Éclairage en défaut : INAPTE, défaut bloquant listé",
    "attendu": "OK (\"defauts_bloquants\": [\")",
-   "obtenu": "OK : {\"id\": \"5f43dcb0-fd1e-4672-9d21-d8e92a73f1b9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Phare, feu arrière, clignotants\"]}",
+   "obtenu": "OK : {\"id\": \"5caf205c-c710-436e-b42b-c3bcf92fac73\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Phare, feu arrière, clignotants\"]}",
    "resultat": "RÉUSSI"
   },
   {
@@ -127,7 +127,7 @@
    "compte": "uh_b",
    "action": "Liste courte des exigences (Chef d'unité du cluster)",
    "attendu": "OK (CONTRE_VISITE)",
-   "obtenu": "OK : {\"moto_id\": \"0969e46a-52f9-4f9b-b1e7-9356d41ba342\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"documents\": [{\"etat\": \"CONFORME\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"CONFORME\", \"type\": \"PLAQUE\"}, {\"etat\": \"CONFORME\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"CONTRE_VISITE\", \"action\": \"controle_re",
+   "obtenu": "OK : {\"moto_id\": \"143c6f0f-7729-47c5-96d8-3ac51a7ad389\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"documents\": [{\"etat\": \"CONFORME\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"CONFORME\", \"type\": \"PLAQUE\"}, {\"etat\": \"CONFORME\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"CONTRE_VISITE\", \"action\": \"controle_re",
    "resultat": "RÉUSSI"
   },
   {
@@ -154,7 +154,7 @@
    "compte": "abm",
    "action": "Batterie faible justifiée : APTE avec réserves",
    "attendu": "OK (APTE_RESERVES)",
-   "obtenu": "OK : {\"id\": \"adbee9d2-f45e-46d7-b25c-4fbf6a306ae3\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [\"Batterie et démarrage\"], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"d4efd679-fc0d-4c13-9c67-41c196a098be\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [\"Batterie et démarrage\"], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
@@ -163,7 +163,7 @@
    "compte": "abm",
    "action": "Lecture : aptitude APTE_RESERVES et réserve affichée",
    "attendu": "OK (\"aptitude\": \"APTE_RESERVES\")",
-   "obtenu": "OK : {\"moto_id\": \"3b066793-9fd0-40a7-ac12-2e632a5781b7\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [{\"point\": \"Batterie et démarrage\", \"observation\": \"Démarrage lent, à remplacer sous 30 jours (fictif)\"}], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE",
+   "obtenu": "OK : {\"moto_id\": \"858c978b-b121-4278-9012-c8f18f0129be\", \"aptitude\": \"APTE_RESERVES\", \"reserves\": [{\"point\": \"Batterie et démarrage\", \"observation\": \"Démarrage lent, à remplacer sous 30 jours (fictif)\"}], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE",
    "resultat": "RÉUSSI"
   },
   {
@@ -190,7 +190,7 @@
    "compte": "abm",
    "action": "Avis défavorable motivé : INAPTE malgré tous points conformes",
    "attendu": "OK (\"resultat\": \"INAPTE\")",
-   "obtenu": "OK : {\"id\": \"63c67184-c244-4bd0-8102-f487c0673ae9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"145e115a-cf2a-4a42-aec6-0f3a4661a415\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
@@ -199,7 +199,7 @@
    "compte": "abm",
    "action": "Ancien écran en cache (conclusion INAPTE) toujours respecté",
    "attendu": "OK (\"resultat\": \"INAPTE\")",
-   "obtenu": "OK : {\"id\": \"df14d85d-1203-4a7d-87c3-8005806833b9\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"3d4df002-c8b6-4ef3-ab3b-ed928b50266c\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": true, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
@@ -226,7 +226,7 @@
    "compte": "bm",
    "action": "Lecture d'aptitude sans effet de bord",
    "attendu": "OK (\"aptitude\": \"A_CONTROLER\")",
-   "obtenu": "OK : {\"moto_id\": \"688f25a8-fe77-492a-a905-6044f9620b72\", \"aptitude\": \"A_CONTROLER\", \"reserves\": [], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE\"}, {\"etat\": \"MANQUANT\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"EVALUER\", \"action\": \"aptitude\", \"",
+   "obtenu": "OK : {\"moto_id\": \"407a6a32-dabd-4f89-ad27-d8ac682a4d69\", \"aptitude\": \"A_CONTROLER\", \"reserves\": [], \"documents\": [{\"etat\": \"MANQUANT\", \"type\": \"CARTE_GRISE\"}, {\"etat\": \"MANQUANT\", \"type\": \"PLAQUE\"}, {\"etat\": \"MANQUANT\", \"type\": \"ASSURANCE\"}], \"exigences\": [{\"code\": \"EVALUER\", \"action\": \"aptitude\", \"",
    "resultat": "RÉUSSI"
   },
   {
@@ -253,7 +253,7 @@
    "compte": "abm",
    "action": "Garage facultatif, mécanicien suffisant : APTE",
    "attendu": "OK (\"resultat\": \"APTE\")",
-   "obtenu": "OK : {\"id\": \"ad54efd4-acd5-4e81-a870-a29358473979\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"bbd419f2-bb66-49c7-8d85-8257d81fa6d9\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
@@ -271,7 +271,7 @@
    "compte": "lc",
    "action": "Contre-visite APTE par un tiers : moto apte sans nouvelle inspection initiale",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"78a4d23c-e498-41a0-8ef2-51d15cc266e6\", \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"279cf721-0e72-4e11-8f87-3649d1d05f6c\", \"resultat\": \"APTE\", \"actions_cloturees\": 0, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -289,7 +289,7 @@
    "compte": "lc",
    "action": "Contre-visite INAPTE ultérieure : la moto n'est plus apte",
    "attendu": "OK (INAPTE)",
-   "obtenu": "OK : {\"id\": \"1ba6549e-52b7-40aa-a7eb-a749f3d2af1a\", \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"5f0f5ad2-9a0b-48fd-a7ec-482794434b84\", \"resultat\": \"INAPTE\", \"actions_cloturees\": 0, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -307,7 +307,7 @@
    "compte": "lc",
    "action": "Contre-visite seule, sans inspection initiale : jamais apte",
    "attendu": "OK (APTE)",
-   "obtenu": "OK : {\"id\": \"40dbce22-a380-4c5e-bb0e-09c63ce30d9b\", \"resultat\": \"APTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"6a521d2f-2e0b-4a9d-b38d-01a361a16fef\", \"resultat\": \"APTE\", \"actions_cloturees\": 0, \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -325,7 +325,7 @@
    "compte": "lc",
    "action": "Contre-visite avec direction en défaut (critique)",
    "attendu": "OK (\"anomalie_critique\": true)",
-   "obtenu": "OK : {\"id\": \"34847ba6-9ea4-4040-b865-f88f3329eb6c\", \"resultat\": \"INAPTE\", \"anomalie_critique\": true}",
+   "obtenu": "OK : {\"id\": \"41c54d25-dd58-4273-89e0-dee850abdf18\", \"resultat\": \"INAPTE\", \"actions_cloturees\": 0, \"anomalie_critique\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -341,18 +341,36 @@
    "id": "T08a",
    "exigence": "T08 Mise en service et circulation",
    "compte": "abm",
-   "action": "Inspection : klaxon en défaut (INAPTE)",
-   "attendu": "OK (INAPTE)",
-   "obtenu": "OK : {\"id\": \"edfe6ef0-950e-4ad9-8e7f-0e5437a6b3d7\", \"aptitude\": \"INAPTE\", \"reserves\": [], \"resultat\": \"INAPTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": [\"Klaxon\"]}",
+   "action": "Évaluation : tous points conformes (APTE)",
+   "attendu": "OK (\"resultat\": \"APTE\")",
+   "obtenu": "OK : {\"id\": \"bf9341e2-f916-4718-acda-ea343451bf3a\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
    "resultat": "RÉUSSI"
   },
   {
    "id": "T08b",
    "exigence": "T08 Mise en service et circulation",
    "compte": "bm",
-   "action": "Autorisation de circulation refusée tant que le klaxon n'est pas corrigé ET vérifié",
+   "action": "Autorisation de circulation refusée tant que l'éclairage reste en défaut",
    "attendu": "REFUS (sécurité de circulation)",
-   "obtenu": "REFUS : Mise en service bloquée : défaut affectant la sécurité de circulation non corrigé et vérifié (Klaxon).",
+   "obtenu": "REFUS : Mise en service bloquée : défaut affectant la sécurité de circulation non corrigé et vérifié (Éclairage et clignotants fonctionnent).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08b2",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "lc",
+   "action": "Contre-visite par un tiers : éclairage réparé, l'action est clôturée par le contrôle",
+   "attendu": "OK (\"actions_cloturees\": 1)",
+   "obtenu": "OK : {\"id\": \"ef40a888-9738-481c-ae04-3faa3505fa2c\", \"resultat\": \"APTE\", \"actions_cloturees\": 1, \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T08b3",
+   "exigence": "T08 Mise en service et circulation",
+   "compte": "postgres (lecture)",
+   "action": "Action clôturée avec la trace du contrôle (vérificateur, note)",
+   "attendu": "CLOTUREE/true/true",
+   "obtenu": "CLOTUREE/true/true",
    "resultat": "RÉUSSI"
   },
   {
@@ -361,7 +379,7 @@
    "compte": "bm",
    "action": "Après correction vérifiée : autorisation accordée",
    "attendu": "OK (true)",
-   "obtenu": "OK : {\"id\": \"a9975c3e-104d-4ab9-8fc2-d54dcdd21f41\", \"mise_en_service\": true}",
+   "obtenu": "OK : {\"id\": \"eff0089b-3d52-4396-841a-1f381f24bcb4\", \"mise_en_service\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -379,7 +397,7 @@
    "compte": "uh_b",
    "action": "Nouveau défaut (rétroviseurs) au départ",
    "attendu": "OK (INAPTE)",
-   "obtenu": "OK : {\"id\": \"4afba27f-b71a-43a2-b43d-849d8649d276\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"6acb53ca-e038-4651-9bf2-cc9b473e58bd\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -406,7 +424,7 @@
    "compte": "uh_b",
    "action": "Défaut non bloquant (gilet oublié) : circulation non suspendue par la vue",
    "attendu": "OK",
-   "obtenu": "OK : {\"id\": \"f9b4dd8a-5d24-427d-b5e6-356199b560cb\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
+   "obtenu": "OK : {\"id\": \"d3c5c544-962d-42b7-93a9-76b94116bd29\", \"incident\": null, \"resultat\": \"INAPTE\", \"anomalie_critique\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -442,7 +460,70 @@
    "compte": "lc",
    "action": "État de référence complet : APTE",
    "attendu": "OK (\"etat_reference\": true)",
-   "obtenu": "OK : {\"id\": \"b8264e9d-8ab5-4d4f-903e-60f3e0bb8e62\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": true, \"avis_defavorable\": false, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "obtenu": "OK : {\"id\": \"dc1aa4a6-eef1-4297-bf69-54ff9a2fce96\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": true, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07i",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Contre-visite tout conforme sur une moto immobilisée : l'action CRITIQUE n'est pas clôturée",
+   "attendu": "OK (\"actions_cloturees\": 0)",
+   "obtenu": "OK : {\"id\": \"3666a855-e023-4e2f-b953-3f70f61f0742\", \"resultat\": \"APTE\", \"actions_cloturees\": 0, \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07j",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Action critique toujours ouverte, moto toujours immobilisée (levée manuelle inchangée)",
+   "attendu": "OUVERTE/IMMOBILISEE",
+   "obtenu": "OUVERTE/IMMOBILISEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07k",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "lc",
+   "action": "Celui qui a déclaré la réparation fait la contre-visite : action non clôturée (séparation des tâches)",
+   "attendu": "OK (\"actions_cloturees\": 0)",
+   "obtenu": "OK : {\"id\": \"1544bf1a-194e-4bb6-a25c-bbce68fc5214\", \"resultat\": \"APTE\", \"actions_cloturees\": 0, \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07l",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "abm",
+   "action": "Contre-visite par une autre personne : action clôturée",
+   "attendu": "OK (\"actions_cloturees\": 1)",
+   "obtenu": "OK : {\"id\": \"855e7637-2597-485a-abe4-317e1299ec8f\", \"resultat\": \"APTE\", \"actions_cloturees\": 1, \"anomalie_critique\": false}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07n",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "zh",
+   "action": "L'utilisateur de la moto refait l'évaluation de SA moto : rien n'est clôturé",
+   "attendu": "OK (\"actions_cloturees\": 0)",
+   "obtenu": "OK : {\"id\": \"67fc6b48-1e0a-4413-b0e1-9dfe15fcb015\", \"aptitude\": \"APTE\", \"reserves\": [], \"resultat\": \"APTE\", \"etat_reference\": false, \"avis_defavorable\": false, \"actions_cloturees\": 0, \"anomalie_critique\": false, \"defauts_bloquants\": []}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07o",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Défaut rétroviseurs toujours ouvert",
+   "attendu": "OUVERTE",
+   "obtenu": "OUVERTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T07m",
+   "exigence": "T07 Contre-visite après réparation",
+   "compte": "postgres (lecture)",
+   "action": "Niveau d'huile bas = réserve (assouplissement), à décrire",
+   "attendu": "f",
+   "obtenu": "f",
    "resultat": "RÉUSSI"
   },
   {
@@ -485,9 +566,18 @@
    "id": "T10e",
    "exigence": "T10 Droits et cohérence des exigences",
    "compte": "postgres (lecture)",
-   "action": "Nouvelles fonctions : aucun droit pour anon",
+   "action": "Aucune fonction moto exécutable par anon (dont le correctif migration 9)",
    "attendu": "0",
    "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T10e2",
+   "exigence": "T10 Droits et cohérence des exigences",
+   "compte": "postgres (lecture)",
+   "action": "Clôture automatique non appelable directement par un utilisateur",
+   "attendu": "f",
+   "obtenu": "f",
    "resultat": "RÉUSSI"
   },
   {

@@ -772,8 +772,10 @@ if datetime.date.today().day == 1:
     check("FL-16", "Mise en service le 1er : aucune inspection exigée pour une période antérieure", "0",
           f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode < date_trunc('month', current_date)::date", "0")
 else:
+    # Une fenêtre qui s'ouvre APRÈS la mise en service (coordination : à partir du 20) reste due : seule
+    # une fenêtre déjà ouverte avant la mise en service serait rétroactive. (L'ancienne assertion échouait du 2 au 19.)
     check("FL-16", "Mise en service en cours de mois : aucune inspection rétroactive exigée", "0",
-          f"select count(*) from public.moto_v_inspections_exigibles where moto_id='{M5}' and periode=date_trunc('month', current_date)::date", "0")
+          f"select count(*) from public.moto_v_inspections_exigibles v join public.moto_motos m on m.id=v.moto_id where v.moto_id='{M5}' and v.periode=date_trunc('month', current_date)::date and v.fenetre_debut < m.mise_en_service_at::date", "0")
 # --- 13, 14. Motos du Chef de zone, de l'ABM, du coordinateur -------------------------------
 r = act("FL-13a", "Moto M9 (ABM)", "lc", "Moto pour l'ABM", "select public.moto_creer(" + lit({"marque": "APSONIC", "modele": "AP150-30", "zone_code": "GBEKE_1", "date_reception": str(today)}) + ")")
 M9 = r["id"]

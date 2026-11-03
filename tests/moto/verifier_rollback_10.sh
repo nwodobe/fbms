@@ -26,14 +26,17 @@ empreinte() { psql -U postgres -d "$1" -At -c "
     union all select 'par:'||cle||':'||coalesce(valeur::text,'')||':'||coalesce(valeur_json::text,'') from public.moto_parametres
     union all select 'con:'||conrelid::regclass::text||'.'||conname||':'||md5(pg_get_constraintdef(oid)) from pg_constraint where conrelid::regclass::text like 'moto\_%'
   ) t"; }
-EA=$(empreinte "$A")
+# Référence : état 1-9 + le correctif de sécurité volontairement conservé par le retour arrière.
+REF="${A}_ref"; psql -U postgres -d postgres -q -c "drop database if exists $REF" -c "create database $REF template $A"
+psql -U postgres -d "$REF" -q -c "revoke all on function private.moto_formation_support_immuable() from public, anon" -c "alter function private.moto_formation_support_immuable() set search_path to 'pg_temp'"
+EA=$(empreinte "$REF")
 appliquer "$B" 20261106090000_aflp_fleet_10_aptitude_mise_en_service
 appliquer "$B" 20261106090000_aflp_fleet_10_aptitude_mise_en_service   # rejouable
 EM=$(empreinte "$B")
 appliquer "$B" 20261106090100_aflp_fleet_10_rollback
 appliquer "$B" 20261106090100_aflp_fleet_10_rollback                  # rejouable
 EB=$(empreinte "$B")
-echo "Empreinte A (1-9, production)          : $EA"
+echo "Empreinte A (1-9 + correctif anon)     : $EA"
 echo "Empreinte avec migration 10            : $EM"
 echo "Empreinte B (1-9, 10, retour arrière)  : $EB"
 [ "$EA" != "$EM" ] || { echo "ANOMALIE : la migration 10 n'a rien changé"; exit 1; }

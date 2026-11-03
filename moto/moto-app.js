@@ -917,9 +917,9 @@
     },
     controle_remise: function (d, m) {
       var L = liste('REMISE_EN_SERVICE');
-      modale('Contrôle de remise en service', champ({ n: 'intervenant_nom', l: 'Intervenant', req: true }) + champ({ n: 'garage_nom', l: 'Garage' }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) +
+      modale('Contre-visite (contrôle de remise en service) · ' + m.code, '<p class="mm-note">Contrôle complet par une personne autre que l\'utilisateur de la moto. Tout conforme : la moto redevient apte et les défauts constatés corrigés sont clôturés (sauf anomalie critique, levée par son propre circuit).</p>' + champ({ n: 'intervenant_nom', l: 'Intervenant', req: true }) + champ({ n: 'garage_nom', l: 'Garage' }) + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre' }) +
         itemsHtml(L, 'rs') + champ({ n: 'avis_mecanicien', l: 'Avis', t: 'textarea' }),
-      function (v, form) { v.items = lireItems(form, L, 'rs'); v.moto_id = m.id; return rpc('moto_controle_remise_en_service', { p: v }).then(function (r) { apres(m.id, 'controles')(); return 'Contrôle enregistré : ' + C.libelle(r.resultat) + '.'; }); });
+      function (v, form) { v.items = lireItems(form, L, 'rs'); v.moto_id = m.id; return rpc('moto_controle_remise_en_service', { p: v }).then(function (r) { apres(m.id, 'synthese')(); return 'Contre-visite enregistrée : ' + C.libelle(r.resultat) + (r.actions_cloturees ? ' · ' + r.actions_cloturees + ' défaut(s) constaté(s) corrigé(s) et clôturé(s)' : '') + (r.anomalie_critique ? ' · anomalie critique : moto immobilisée' : '') + '.'; }); });
     },
     incident_avancer: function (d, m) {
       var suite = { SIGNALE: ['IMMOBILISEE', 'DIAGNOSTIC'].concat(d.gravite !== 'CRITIQUE' ? ['CLOS'] : []), IMMOBILISEE: ['DIAGNOSTIC'], DIAGNOSTIC: ['AUTORISATION_DEPENSE', 'REPARATION', 'CONTROLE'].concat(d.gravite !== 'CRITIQUE' ? ['CLOS'] : []),

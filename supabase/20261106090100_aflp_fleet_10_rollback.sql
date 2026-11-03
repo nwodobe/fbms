@@ -6,8 +6,12 @@
 --   public.moto_inspection_initiale, public.moto_mettre_en_service,
 --   public.moto_controle_remise_en_service,
 --   private.moto_recalculer_statuts, la vue public.moto_v_flotte et ses droits.
--- Supprime : public.moto_aptitude, private.moto_defauts_bloquants,
+-- Supprime : public.moto_aptitude, private.moto_defauts_bloquants, private.moto_cloturer_corrigees,
 --   private.moto_points_bloquants, le paramètre points_circulation_bloquants.
+--
+-- Conservé volontairement : le retrait du droit anon sur
+--   private.moto_formation_support_immuable() (correctif de sécurité, §8).
+-- Les actions clôturées par un contrôle complet restent clôturées.
 --
 -- Effet sur les données : AUCUNE donnée métier supprimée ni modifiée. Les
 -- contrôles enregistrés pendant la période restent tels quels (résultat
@@ -237,6 +241,7 @@ grant select, insert, update, delete, truncate, references, trigger on public.mo
 drop function if exists public.moto_aptitude(uuid);
 drop function if exists private.moto_defauts_bloquants(uuid);
 drop function if exists private.moto_points_bloquants();
+drop function if exists private.moto_cloturer_corrigees(uuid, uuid, jsonb, text);
 select private.moto_motif('Retour arrière AFLP FLEET 10', 5);
 delete from public.moto_parametres where cle = 'points_circulation_bloquants';
 

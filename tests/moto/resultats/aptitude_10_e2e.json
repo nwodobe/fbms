@@ -1,8 +1,8 @@
 {
  "base": "fbms_apt10_e2e",
- "date": "2026-11-03T21:15:07.210Z",
- "reussis": 17,
- "total": 17,
+ "date": "2026-11-03T21:26:00.237Z",
+ "reussis": 18,
+ "total": 18,
  "mesures": {
   "premiere_evaluation": {
    "avant": {
@@ -29,6 +29,10 @@
     "resultat": "ferme",
     "statut": "APTE"
    }
+  },
+  "cloture_manuelle_evitee": {
+   "actions": 10,
+   "ecrans": 5
   }
  },
  "erreurs_console": [],
@@ -182,9 +186,18 @@
    "exigence": "Contre-visite suffit après réparation (fin de la double inspection)",
    "action": "Contre-visite APTE depuis la liste « Ce qu'il reste à faire »",
    "attendu": "moto Apte sans nouvelle inspection initiale",
-   "obtenu": "ferme · statut=APTE · inspections initiales=1 · contre-visite : 2 écrans, 16 actions",
+   "obtenu": "ferme · statut=APTE · inspections initiales=1 · action klaxon=CLOTUREE · contre-visite : 2 écrans, 16 actions",
    "resultat": "RÉUSSI",
    "preuve": "tests/moto/resultats/captures/aptitude-10/contre-visite-apte-mobile.png"
+  },
+  {
+   "id": "MES-03",
+   "exigence": "Mesure : circuit manuel de clôture évité",
+   "action": "Planifier, déclarer réalisé (coordinateur) puis vérifier (ABM)",
+   "attendu": "action clôturée ; écrans et actions comptés",
+   "obtenu": "ferme/ferme/ferme · action=CLOTUREE · 5 écrans, 10 actions, 2 personnes",
+   "resultat": "RÉUSSI",
+   "preuve": ""
   }
  ]
 }

@@ -231,11 +231,34 @@ try {
     await k.saisir(dlg(pC).locator('[name="intervenant_nom"]'), 'MECANICIEN QUALIFIE FICTIF');
     for (const r of await dlg(pC).locator('input[type=radio][value=ok]').all()) await k.cocher(r);
     k.c.actions++; const r = await soumettre(pC);
-    const st = (await q('select statut_technique, (select count(*) from public.moto_controles where moto_id=$1 and type_controle=\'INSPECTION_INITIALE\')::int n from public.moto_motos where id=$1', [mC]))[0];
+    const st = (await q('select statut_technique, (select count(*) from public.moto_controles where moto_id=$1 and type_controle=\'INSPECTION_INITIALE\')::int n, (select statut from public.moto_actions_correctives where moto_id=$1 and point_code=\'KLAXON\') a from public.moto_motos where id=$1', [mC]))[0];
     MESURES.apres_reparation = { nouvel_ecran: k.c, inspection_supplementaire_evitee: avant };
-    return { ok: r === 'ferme' && st.statut_technique === 'APTE' && st.n === 1, obtenu: `${r} · statut=${st.statut_technique} · inspections initiales=${st.n} · contre-visite : ${k.c.ecrans} écrans, ${k.c.actions} actions`, preuve: await capture(pC, 'contre-visite-apte-mobile') };
+    return { ok: r === 'ferme' && st.statut_technique === 'APTE' && st.n === 1 && st.a === 'CLOTUREE', obtenu: `${r} · statut=${st.statut_technique} · inspections initiales=${st.n} · action klaxon=${st.a} · contre-visite : ${k.c.ecrans} écrans, ${k.c.actions} actions`, preuve: await capture(pC, 'contre-visite-apte-mobile') };
   });
   await ctxC.close();
+
+  // Circuit manuel de clôture d'un défaut (planifier, déclarer réalisé, vérifier par un tiers) :
+  // c'est ce que la contre-visite rend désormais inutile pour un défaut non critique.
+  const mD = await motoPrete('SAKASSOU');
+  await rpcEnTantQue('abm', 'moto_inspection_initiale', { p: JSON.stringify({ moto_id: mD, items, intervenant_nom: 'MECANICIEN QUALIFIE FICTIF', compteur_km: 5 }) });
+  await etape('MES-03', 'Mesure : circuit manuel de clôture évité', 'Planifier, déclarer réalisé (coordinateur) puis vérifier (ABM)', 'action clôturée ; écrans et actions comptés', async () => {
+    const k = compteur();
+    const ctxL = await contexte('lc', 'mobile'); const pL = await ouvrir(ctxL, '/moto/index.html#/moto/' + mD + '/anomalies'); k.ecran();
+    await k.clic(pL.locator('[data-action="action_planifier"]').first()); await dlg(pL).waitFor(); k.ecran();
+    await k.saisir(dlg(pL).locator('[name="action_prevue"]'), 'Remplacement du klaxon (fictif)');
+    await k.saisir(dlg(pL).locator('[name="date_cible"]'), new Date().toISOString().slice(0, 10));
+    k.c.actions++; const r1 = await soumettre(pL); await pL.waitForSelector('[data-action="action_realiser"]', { timeout: 15000 });
+    await k.clic(pL.locator('[data-action="action_realiser"]').first()); await dlg(pL).waitFor(); k.ecran();
+    k.c.actions++; const r2 = await soumettre(pL); await ctxL.close();
+    const ctxV = await contexte('abm', 'mobile'); const pV = await ouvrir(ctxV, '/moto/index.html#/moto/' + mD + '/anomalies'); k.ecran();
+    await k.clic(pV.locator('[data-action="action_verifier"]').first()); await dlg(pV).waitFor(); k.ecran();
+    await dlg(pV).locator('[name="decision"]').selectOption('VALIDEE'); k.c.actions++;
+    await k.saisir(dlg(pV).locator('[name="note"]'), 'Klaxon contrôlé sur place (fictif)');
+    k.c.actions++; const r3 = await soumettre(pV); await ctxV.close();
+    const a = (await q("select statut from public.moto_actions_correctives where moto_id=$1 and point_code='KLAXON'", [mD]))[0].statut;
+    MESURES.cloture_manuelle_evitee = k.c;
+    return { ok: [r1, r2, r3].every(x => x === 'ferme') && a === 'CLOTUREE', obtenu: `${r1}/${r2}/${r3} · action=${a} · ${k.c.ecrans} écrans, ${k.c.actions} actions, 2 personnes` };
+  });
 } finally {
   writeFileSync(join(SORTIE, 'aptitude_10_e2e.json'), JSON.stringify({ base: DB, date: new Date().toISOString(), reussis: RESULTATS.filter(r => r.resultat === 'RÉUSSI').length, total: RESULTATS.length, mesures: MESURES, erreurs_console: ERREURS, resultats: RESULTATS }, null, 1));
   await navigateur.close(); serveur.close(); await emu.pool.end();

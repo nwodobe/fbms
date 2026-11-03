@@ -1,8 +1,11 @@
 -- =============================================================================
 -- AFLP FLEET 10 — Aptitude technique et parcours de mise en service
 -- -----------------------------------------------------------------------------
--- STATUT : NON APPLIQUÉ EN PRODUCTION. Revue humaine obligatoire (label
--- human-review). Testé uniquement sur réplique locale (tests/moto/aptitude_10).
+-- STATUT : APPLIQUÉ EN PRODUCTION le 03/11/2026 sur demande du Branch Manager
+-- (« corrige les défauts et adoucis le module »), migrations Supabase
+-- aflp_fleet_10_aptitude_mise_en_service et aflp_fleet_10b_formation_search_path.
+-- Empreintes des 8 fonctions identiques à la réplique testée ; 0 statut changé.
+-- L'écran (moto/*.js) reste à publier par la fusion de la PR #286.
 --
 -- Objet : rendre le parcours « moto apte » plus simple SANS baisser la sécurité.
 --   1. Le résultat de l'évaluation est CALCULÉ par le serveur (plus de
@@ -23,6 +26,9 @@
 --   4. Tout défaut affectant la sécurité de circulation, ouvert et non vérifié,
 --      bloque la mise en service et retire « autorisée à circuler » dans la vue
 --      flotte, même s'il n'est pas « critique » au catalogue.
+--   4b. Un contrôle complet ultérieur (contre-visite ou nouvelle évaluation)
+--      qui constate un point corrigé clôture l'action correspondante, sauf
+--      action critique, utilisateur de la moto ou auteur de la réparation.
 --   5. Nouvelle lecture public.moto_aptitude(moto) : la liste courte des
 --      exigences restantes, calculée par le serveur (fin de l'écart entre les
 --      conditions affichées par l'écran et celles vérifiées par le serveur).
@@ -45,7 +51,7 @@
 --    (modifiable par public.moto_parametre_modifier, journalisé).
 insert into public.moto_parametres (cle, valeur_json, description, provisoire)
 values ('points_circulation_bloquants',
-        '["ECLAIRAGE","KLAXON","RETROVISEURS","CHAINE","NIVEAU_HUILE","NUMEROS","TRANSMISSION"]'::jsonb,
+        '["ECLAIRAGE","KLAXON","RETROVISEURS","CHAINE","NUMEROS","TRANSMISSION"]'::jsonb,
         'Points de contrôle non critiques dont le défaut bloque la circulation tant qu''il n''est pas corrigé et vérifié. Les points critiques du catalogue bloquent toujours.',
         true)
 on conflict (cle) do nothing;
@@ -80,6 +86,39 @@ revoke all on function private.moto_defauts_bloquants(uuid) from public, anon;
 grant execute on function private.moto_defauts_bloquants(uuid) to authenticated;   -- appelée par la vue moto_v_flotte (security_invoker)
 grant execute on function private.moto_points_bloquants() to authenticated;
 
+-- 2b. Clôture des défauts constatés corrigés par un contrôle complet --------
+--     Assouplissement (03/11/2026, demande du Branch Manager) : quand un
+--     contrôle complet ultérieur (contre-visite ou nouvelle évaluation)
+--     constate CONFORME un point qui avait une action corrective ouverte, cette
+--     action est clôturée, la vérification étant ce contrôle physique attesté.
+--     Garde-fous : jamais une action CRITIQUE (circuit de l'immobilisation
+--     inchangé) ; jamais par l'utilisateur de la moto ; jamais par la personne
+--     qui a déclaré la réparation (séparation des tâches) ; uniquement les
+--     défauts constatés avant ce contrôle.
+create or replace function private.moto_cloturer_corrigees(p_moto uuid, p_controle uuid, p_items jsonb, p_libelle text)
+ returns integer
+ language plpgsql
+ security definer
+ set search_path to 'public', 'private', 'pg_temp'
+as $function$
+declare v_n integer := 0; v_ctrl public.moto_controles;
+begin
+  if auth.uid() is null or private.moto_affectataire(p_moto) is not distinct from auth.uid() then return 0; end if;
+  select * into v_ctrl from public.moto_controles where id = p_controle;
+  perform set_config('moto.valideur', auth.uid()::text, true);
+  update public.moto_actions_correctives a
+     set statut = 'CLOTUREE', verifie_par = auth.uid(), verifie_at = now(),
+         realise_at = coalesce(a.realise_at, v_ctrl.date_controle::date),   -- correction constatée au plus tard ce jour-là
+         verification_note = left('Constaté corrigé au contrôle « '||p_libelle||' » du '||to_char(v_ctrl.date_controle, 'DD/MM/YYYY')
+                                  ||coalesce(' par '||v_ctrl.intervenant_nom, '')||'.', 500)
+   where a.moto_id = p_moto and a.statut in ('OUVERTE','PLANIFIEE','REALISEE') and a.gravite <> 'CRITIQUE'
+     and a.realise_par is distinct from auth.uid() and a.constat_at < v_ctrl.created_at
+     and exists (select 1 from jsonb_array_elements(p_items) e where (e ->> 'ok')::boolean and upper(e ->> 'code') = upper(a.point_code));
+  get diagnostics v_n = row_count;
+  return v_n;
+end $function$;
+revoke all on function private.moto_cloturer_corrigees(uuid, uuid, jsonb, text) from public, anon, authenticated;
+
 -- 3. Inspection initiale / état de référence : résultat calculé ---------------
 create or replace function public.moto_inspection_initiale(p jsonb)
  returns jsonb
@@ -90,7 +129,7 @@ as $function$
 declare v_moto uuid := private.moto_uuid(p, 'moto_id'); v_chk jsonb; v_crit boolean; v_res text; v_id uuid;
         v_rapport uuid := private.moto_uuid(p, 'rapport_document_id'); m public.moto_motos; v_ref boolean;
         v_bloq text[] := private.moto_points_bloquants(); v_bloquants text[] := '{}'; v_reserves text[] := '{}';
-        v_sans_justif text[] := '{}'; v_defav boolean; v_obs text := nullif(btrim(coalesce(p ->> 'observations', '')), ''); it jsonb;
+        v_sans_justif text[] := '{}'; v_defav boolean; v_clot integer := 0; v_obs text := nullif(btrim(coalesce(p ->> 'observations', '')), ''); it jsonb;
 begin
   perform private.moto_exiger_classe(array['BM','ABM','ZONE','LOGISTIQUE']);
   m := private.moto_charger(v_moto, true);
@@ -142,6 +181,7 @@ begin
             case when v_ref then array['COMPTEUR'] else '{}'::text[] end);
   perform private.moto_enregistrer_km(v_moto, private.moto_num(p, 'compteur_km'), now(), 'CONTROLE');
   perform private.moto_actions_depuis_items(v_moto, v_id, v_chk -> 'items');
+  v_clot := private.moto_cloturer_corrigees(v_moto, v_id, v_chk -> 'items', case when v_ref then 'état de référence' else 'évaluation d''aptitude' end);
   if v_ref and m.date_debut_suivi is null then
     update public.moto_motos set date_debut_suivi = current_date, updated_at = now() where id = v_moto;
   end if;
@@ -152,7 +192,8 @@ begin
   return jsonb_build_object('id', v_id, 'resultat', v_res, 'anomalie_critique', v_crit, 'etat_reference', v_ref,
            'aptitude', case when v_crit then 'INAPTE_IMMOBILISEE' when v_res = 'INAPTE' then 'INAPTE'
                             when cardinality(v_reserves) > 0 then 'APTE_RESERVES' else 'APTE' end,
-           'defauts_bloquants', to_jsonb(v_bloquants), 'reserves', to_jsonb(v_reserves), 'avis_defavorable', v_defav);
+           'defauts_bloquants', to_jsonb(v_bloquants), 'reserves', to_jsonb(v_reserves), 'avis_defavorable', v_defav,
+           'actions_cloturees', v_clot);
 end $function$;
 
 -- 4. Statut technique : la contre-visite APTE après réparation compte --------
@@ -214,15 +255,17 @@ end $function$;
 -- 4b. Contre-visite (contrôle de remise en service) ---------------------------
 --     Inchangé : intervenant nommé, indépendance vis-à-vis de l'utilisateur,
 --     tous les points du catalogue, APTE seulement sans aucun défaut.
---     Ajouts : le statut technique est recalculé (règle 4 ci-dessus) et un
---     point critique en défaut immobilise la moto, comme à l'inspection.
+--     Ajouts : le statut technique est recalculé (règle 4 ci-dessus), les
+--     défauts deviennent des actions correctives, un point critique en défaut
+--     immobilise la moto, comme à l'inspection, et les points constatés
+--     corrigés clôturent leur action (2b).
 create or replace function public.moto_controle_remise_en_service(p jsonb)
  returns jsonb
  language plpgsql
  security definer
  set search_path to 'public', 'private', 'pg_temp'
 as $function$
-declare v_moto uuid := private.moto_uuid(p, 'moto_id'); v_chk jsonb; v_crit boolean; v_res text; v_id uuid;
+declare v_moto uuid := private.moto_uuid(p, 'moto_id'); v_chk jsonb; v_crit boolean; v_res text; v_id uuid; v_clot integer;
 begin
   perform private.moto_exiger_classe(array['BM','ZONE','ABM','LOGISTIQUE']);
   perform private.moto_charger(v_moto, true);
@@ -238,11 +281,13 @@ begin
           nullif(btrim(p ->> 'garage_nom'), ''), nullif(btrim(p ->> 'avis_mecanicien'), ''), private.moto_uuid(p, 'rapport_document_id'))
   returning id into v_id;
   perform private.moto_photos_enregistrer(v_moto, v_id, p -> 'photos', 0, '{}');
+  perform private.moto_actions_depuis_items(v_moto, v_id, v_chk -> 'items');   -- défauts constatés : suivis comme à l'inspection
+  v_clot := private.moto_cloturer_corrigees(v_moto, v_id, v_chk -> 'items', 'contre-visite');
   if v_crit then
     perform private.moto_immobiliser_si_critique(v_moto, 'Anomalie critique au contrôle de remise en service', v_id);
   end if;
   perform private.moto_recalculer_statuts(v_moto);
-  return jsonb_build_object('id', v_id, 'resultat', v_res, 'anomalie_critique', v_crit);
+  return jsonb_build_object('id', v_id, 'resultat', v_res, 'anomalie_critique', v_crit, 'actions_cloturees', v_clot);
 end $function$;
 
 -- 5. Mise en service : refus si un défaut de sécurité reste ouvert -----------
@@ -426,3 +471,13 @@ end $function$;
 
 revoke all on function public.moto_aptitude(uuid) from public, anon;
 grant execute on function public.moto_aptitude(uuid) to authenticated;
+
+-- 8. Correction d'un défaut préexistant (migration 9) -------------------------
+--    private.moto_formation_support_immuable() est une fonction de déclencheur
+--    exécutable par PUBLIC, donc par anon (constaté en production le
+--    03/11/2026). Le déclencheur continue de fonctionner sans ce droit.
+--    Conservé volontairement par le retour arrière (correctif de sécurité).
+revoke all on function private.moto_formation_support_immuable() from public, anon;
+--    Même fonction : search_path non fixé (alerte de sécurité Supabase). Son
+--    corps ne référence aucun objet : on le fixe à pg_temp.
+alter function private.moto_formation_support_immuable() set search_path to 'pg_temp';

@@ -126,13 +126,13 @@ def permis_pour(benef):
     r = must("abm", "select public.moto_permis_enregistrer(" + lit({"titulaire_id": U[benef], "nom_titulaire": "TITULAIRE FICTIF " + benef.upper(),
              "numero_permis": "M10-" + U[benef][-6:], "categories": ["A"], "date_expiration": str(today + datetime.timedelta(days=700)), "document_path": p}) + ")")
     must("bm", f"select public.moto_permis_verifier('{r['id']}', 'CONFORME', 'RH FICTIF', true)")
-def remise(moto, benef, km=12):
+def remise(moto, benef, km=12, er_ko=()):
     """Préaffectation, PV vérifié, état contradictoire accepté, permis, remise. Renvoie l'identifiant du PV."""
     must("bm", f"select public.moto_preaffecter('{moto}', '{U[benef]}', 'Affectation recette')")
     p = f"{moto}/document/{uuid.uuid4()}.pdf"; put_object(p)
     pv = must("abm", "select public.moto_document_enregistrer(" + lit({"moto_id": moto, "type_document": "PV_REMISE", "storage_path": p}) + ")")["id"]
     must("bm", f"select public.moto_document_verifier('{pv}', 'CONFORME')")
-    et = must("abm", "select public.moto_etat_remise_enregistrer(" + lit({"moto_id": moto, "items": items("ETAT_REMISE"), "compteur_km": km,
+    et = must("abm", "select public.moto_etat_remise_enregistrer(" + lit({"moto_id": moto, "items": items("ETAT_REMISE", er_ko), "compteur_km": km,
               "date_remise_prevue": str(today), "photos": photos(moto, CATS_REMISE)}) + ")")
     must(benef, f"select public.moto_etat_remise_confirmer('{et['id']}', 'ACCEPTEE')")
     permis_pour(benef)
@@ -270,13 +270,14 @@ check("T07h", "T07 Contre-visite après réparation", "Point critique à la cont
 # T08 — Circulation : refus tant que le défaut persiste, autorisation après correction vérifiée
 EX = "T08 Mise en service et circulation"
 M8 = creer("BROBO"); dossier_admin(M8, 8)
-act("T08a", EX, "abm", "Inspection : klaxon en défaut (INAPTE)", insp("abm", M8, ko=("KLAXON",)), True, "INAPTE")
-# Contre-visite APTE alors que l'action corrective n'a pas encore été vérifiée par une autre personne
-must("lc", "select public.moto_controle_remise_en_service(" + lit({"moto_id": M8, "items": items("REMISE_EN_SERVICE"), "compteur_km": 11, **MECA, "motif": "Contre-visite recette"}) + ")")
-remise(M8, "uh_b")
-act("T08b", EX, "bm", "Autorisation de circulation refusée tant que le klaxon n'est pas corrigé ET vérifié",
+act("T08a", EX, "abm", "Évaluation : tous points conformes (APTE)", insp("abm", M8), True, "\"resultat\": \"APTE\"")
+remise(M8, "uh_b", er_ko=("ECLAIRAGE",))   # éclairage HS constaté à l'état contradictoire, moto techniquement apte
+act("T08b", EX, "bm", "Autorisation de circulation refusée tant que l'éclairage reste en défaut",
     f"select public.moto_mettre_en_service('{M8}', 'Autorisation recette')", False, "sécurité de circulation")
-cloturer_actions(M8, ["KLAXON"])
+act("T08b2", EX, "lc", "Contre-visite par un tiers : éclairage réparé, l'action est clôturée par le contrôle",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M8, "items": items("REMISE_EN_SERVICE"), "compteur_km": 13, **MECA, "motif": "Contre-visite éclairage"}) + ")", True, "\"actions_cloturees\": 1")
+check("T08b3", EX, "Action clôturée avec la trace du contrôle (vérificateur, note)",
+      f"select statut||'/'||(verifie_par='{U['lc']}')||'/'||(verification_note like 'Constaté corrigé au contrôle « contre-visite »%') from public.moto_actions_correctives where moto_id='{M8}' and point_code='ECLAIRAGE'", "CLOTUREE/true/true")
 act("T08c", EX, "bm", "Après correction vérifiée : autorisation accordée", f"select public.moto_mettre_en_service('{M8}', 'Autorisation recette')", True, "true")
 check("T08d", EX, "Vue flotte : autorisée à circuler", f"select autorisee_a_circuler::text from public.moto_v_flotte where id='{M8}'", "true")
 act("T08e", EX, "uh_b", "Nouveau défaut (rétroviseurs) au départ", "select public.moto_controle_depart(" + lit({"moto_id": M8, "items": items("AVANT_DEPART", ko=("RETROVISEURS",)), "compteur_km": 15, "client_op_id": str(uuid.uuid4())}) + ")", True, "INAPTE")
@@ -294,6 +295,27 @@ act("T09f", EX, "lc", "État de référence sans compteur : refus", "select publ
 act("T09g", EX, "lc", "État de référence avec 2 photos : refus (5 exigées)", insp("lc", M9, extra={"photos": photos(M9, ["COMPTEUR", "AVANT"])}, km=18000), False, "Photos insuffisantes")
 act("T09h", EX, "lc", "État de référence complet : APTE", insp("lc", M9, extra={"photos": photos(M9, ["COMPTEUR", "AVANT", "ARRIERE", "GAUCHE", "DROITE"])}, km=18000), True, "\"etat_reference\": true")
 
+# T07 (suite) — Garde-fous de la clôture par contrôle complet ---------------------------------
+EX = "T07 Contre-visite après réparation"
+act("T07i", EX, "lc", "Contre-visite tout conforme sur une moto immobilisée : l'action CRITIQUE n'est pas clôturée",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M7c, "items": items("REMISE_EN_SERVICE"), "compteur_km": 7, **MECA, "motif": "Contre-visite direction réparée"}) + ")", True, "\"actions_cloturees\": 0")
+check("T07j", EX, "Action critique toujours ouverte, moto toujours immobilisée (levée manuelle inchangée)",
+      f"select (select statut from public.moto_actions_correctives where moto_id='{M7c}' and point_code='DIRECTION')||'/'||statut_technique from public.moto_motos where id='{M7c}'", "OUVERTE/IMMOBILISEE")
+M7d = creer("BOTRO"); must("abm", insp("abm", M7d, ko=("KLAXON",)))
+aid = q(f"select id from public.moto_actions_correctives where moto_id='{M7d}' and point_code='KLAXON'")
+must("lc", "select public.moto_action_planifier(" + lit({"action_id": aid, "action_prevue": "Remplacement klaxon (fictif)", "date_cible": str(today)}) + ")")
+must("lc", "select public.moto_action_realiser(" + lit({"action_id": aid, "realise_at": str(today)}) + ")")
+act("T07k", EX, "lc", "Celui qui a déclaré la réparation fait la contre-visite : action non clôturée (séparation des tâches)",
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M7d, "items": items("REMISE_EN_SERVICE"), "compteur_km": 8, **MECA, "motif": "Contre-visite klaxon"}) + ")", True, "\"actions_cloturees\": 0")
+act("T07l", EX, "abm", "Contre-visite par une autre personne : action clôturée", 
+    "select public.moto_controle_remise_en_service(" + lit({"moto_id": M7d, "items": items("REMISE_EN_SERVICE"), "compteur_km": 9, **MECA, "motif": "Contre-visite klaxon (tiers)"}) + ")", True, "\"actions_cloturees\": 1")
+M7e = creer("SAKASSOU"); dossier_admin(M7e, 75); must("abm", insp("abm", M7e)); remise(M7e, "zh", er_ko=("RETROVISEURS",))
+act("T07n", EX, "zh", "L'utilisateur de la moto refait l'évaluation de SA moto : rien n'est clôturé",
+    insp("zh", M7e, km=20), True, "\"actions_cloturees\": 0")
+check("T07o", EX, "Défaut rétroviseurs toujours ouvert", f"select statut from public.moto_actions_correctives where moto_id='{M7e}' and point_code='RETROVISEURS'", "OUVERTE")
+check("T07m", EX, "Niveau d'huile bas = réserve (assouplissement), à décrire",
+      "select 'NIVEAU_HUILE' = any(private.moto_points_bloquants())", "f")
+
 # T10 — Droits et cohérence écran / serveur ----------------------------------------------------
 EX = "T10 Droits et cohérence des exigences"
 act("T10a", EX, "anon", "Anonyme : lecture d'aptitude refusée", f"select public.moto_aptitude('{M3}')", False, "permission")
@@ -305,8 +327,10 @@ ok_mes, msg_mes = run_as("bm", f"select public.moto_mettre_en_service('{M3}', 'T
 record("T10d", EX, "bm", "Le refus serveur correspond à une exigence listée", "refus + exigences listées",
        (not ok_mes) and {"CONTRE_VISITE", "DEFAUT", "PREAFFECTER", "AUTORISER"} <= set(codes),
        f"refus : {msg_mes[:120]} | exigences : {', '.join(codes)}")
-check("T10e", EX, "Nouvelles fonctions : aucun droit pour anon",
-      "select count(*) from pg_proc p where p.proname in ('moto_aptitude','moto_defauts_bloquants','moto_points_bloquants') and has_function_privilege('anon', p.oid, 'execute')", "0")
+check("T10e", EX, "Aucune fonction moto exécutable par anon (dont le correctif migration 9)",
+      "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.proname like 'moto%' and has_function_privilege('anon', p.oid, 'execute')", "0")
+check("T10e2", EX, "Clôture automatique non appelable directement par un utilisateur",
+      "select has_function_privilege('authenticated', 'private.moto_cloturer_corrigees(uuid,uuid,jsonb,text)', 'execute')", "f")
 check("T10f", EX, "Aucune table ni colonne de table nouvelle (seule la vue gagne une colonne)",
       "select count(*) from information_schema.columns c join information_schema.tables t using (table_schema, table_name) where c.table_schema='public' and t.table_type='BASE TABLE' and c.column_name in ('defauts_bloquants_ouverts','aptitude')", "0")
 check("T10g", EX, "Aucun statut technique nouveau (contrainte inchangée)",
