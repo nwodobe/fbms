@@ -1,0 +1,82 @@
+/* Campagnes · ANAGROCI Operations — cycle de vie multi-campagnes */
+.camp-hero{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:0;border-radius:var(--radius,14px);overflow:hidden;background:var(--forest,#053B23);color:#fff;box-shadow:var(--shadow);margin:6px 0 22px}
+.camp-hero-media{min-height:220px;background:var(--deep,#0A5531)}
+.camp-hero-media img{width:100%;height:100%;object-fit:cover;display:block}
+.camp-hero-body{padding:22px 24px}
+.camp-hero-body>small{letter-spacing:.12em;font-weight:700;color:var(--sprout,#B6DC8E)}
+.camp-hero-body h2{margin:6px 0 8px;color:#fff;font-family:var(--font-display);font-size:1.45rem}
+.camp-hero-body .notice{margin:10px 0}
+.camp-kpis{margin:14px 0 12px}
+.camp-hero .kpi{background:rgba(255,255,255,.96);color:var(--ink,#26352D)}
+.camp-sec{font-family:var(--font-display);color:var(--forest,#053B23);font-size:1.12rem;margin:24px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--pale,#E0F3DE)}
+.camp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.camp-card{background:#fff;border:1px solid var(--line,#DDE6DF);border-left:5px solid var(--emerald,#008F37);border-radius:var(--radius,14px);padding:16px;display:flex;flex-direction:column;gap:10px}
+.camp-card.is-sim{border-left-color:var(--orange,#EE9E00);background:repeating-linear-gradient(135deg,#fff 0 18px,#FFFBF2 18px 36px)}
+.camp-card-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.camp-card-head b{display:block;font-size:1.15rem;color:var(--forest,#053B23)}
+.camp-card-head span{color:var(--muted,#6E7B73);font-size:.92rem}
+.camp-card p{margin:0}
+.camp-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+.camp-sim-badge{font-weight:800;letter-spacing:.06em;border:2px solid var(--orange,#EE9E00)}
+.camp-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;background:var(--mist,#F3F8F4);border-radius:10px;padding:10px}
+.camp-mini small{display:block;color:var(--muted,#6E7B73);font-size:.75rem}
+.camp-mini b{font-family:var(--font-mono);font-size:.95rem}
+.camp-deletable{align-self:center;font-size:.75rem;font-weight:700;color:var(--danger,#B9382F);background:var(--danger-pale,#FCE9E7);border-radius:999px;padding:3px 10px}
+.camp-ready{display:inline-block;font-weight:800;border-radius:999px;padding:5px 12px;font-size:.85rem}
+.camp-ready.ok{background:var(--pale,#E0F3DE);color:var(--pine,#00712C)}
+.camp-ready.ko{background:var(--danger-pale,#FCE9E7);color:var(--danger,#B9382F)}
+.camp-ready.warn{background:var(--orange-pale,#FDF0D4);color:#8a5a00}
+.camp-checklist{list-style:none;margin:10px 0;padding:0;display:grid;gap:6px}
+.camp-checklist li{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1px solid var(--line,#DDE6DF);border-radius:10px;background:#fff}
+.camp-checklist li .dot{flex:0 0 12px;height:12px;border-radius:50%;margin-top:4px;background:var(--grass,#2DA64F)}
+.camp-checklist li.ko{border-color:#efc2bd;background:#FFF8F7}.camp-checklist li.ko .dot{background:var(--danger,#B9382F)}
+.camp-checklist li.warn{border-color:#f3dca7;background:#FFFCF4}.camp-checklist li.warn .dot{background:var(--orange,#EE9E00)}
+.camp-checklist li small{display:block;color:var(--muted,#6E7B73)}
+.camp-checklist li small.req{display:inline;color:var(--danger,#B9382F);font-weight:700;margin-left:4px}
+.camp-checklist li a{font-weight:600;color:var(--pine,#00712C)}
+.camp-dom{margin:16px 0 4px;color:var(--forest,#053B23);font-family:var(--font-display)}
+.camp-steps{list-style:none;padding:0;margin:0 0 14px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.camp-steps button{width:100%;min-height:44px;border:1px solid var(--line,#DDE6DF);background:#fff;border-radius:10px;padding:6px 8px;font:inherit;font-size:.82rem;text-align:left;cursor:pointer;color:var(--ink,#26352D)}
+.camp-steps b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--pale,#E0F3DE);color:var(--forest,#053B23);margin-right:4px}
+.camp-steps li.done button{border-color:var(--sprout,#B6DC8E)}
+.camp-steps li.done b{background:var(--grass,#2DA64F);color:#fff}
+.camp-steps li.on button{background:var(--forest,#053B23);color:#fff;border-color:var(--forest,#053B23)}
+.camp-steps li.on b{background:var(--lime,#8DC556);color:var(--forest,#053B23)}
+.camp-wizard label{display:block}
+.camp-wiz-nav{justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--line,#DDE6DF)}
+.camp-pick{border:1px solid var(--line,#DDE6DF);border-radius:10px;padding:10px;margin:8px 0 14px;background:var(--mist,#F3F8F4)}
+.camp-filter{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--line,#DDE6DF);border-radius:8px;font:inherit}
+.camp-pick-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.camp-pick-list{max-height:260px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px;background:#fff;border-radius:8px;padding:6px}
+.camp-pick-list label{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;min-height:36px;cursor:pointer}
+.camp-pick-list label:hover{background:var(--pale,#E0F3DE)}
+.camp-pick-list label[hidden]{display:none}
+.camp-target-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:8px 0 14px}
+.camp-target-grid label{display:flex;flex-direction:column;gap:4px;font-size:.88rem}
+.camp-target-grid input{min-height:40px;padding:6px 8px;border:1px solid var(--line,#DDE6DF);border-radius:8px;font:inherit}
+.camp-textarea{width:100%;padding:8px 10px;border:1px solid var(--line,#DDE6DF);border-radius:8px;font:inherit;box-sizing:border-box}
+.camp-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:12px}
+.camp-summary>div{background:var(--mist,#F3F8F4);border-radius:10px;padding:12px}
+.camp-summary h3{margin:0 0 6px;font-size:.95rem;color:var(--forest,#053B23)}
+.camp-summary p{margin:0}
+.camp-scope{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.camp-tags{display:flex;flex-wrap:wrap;gap:6px}
+.camp-tags span,.camp-tags code{background:var(--pale,#E0F3DE);color:var(--forest,#053B23);border-radius:999px;padding:3px 10px;font-size:.82rem}
+.camp-danger{border:2px solid var(--danger,#B9382F);background:#FFF8F7}
+.camp-danger h3{color:var(--danger,#B9382F)}
+.btn.danger{background:var(--danger,#B9382F);border-color:var(--danger,#B9382F);color:#fff}
+.btn.danger:disabled{opacity:.5;cursor:not-allowed}
+.camp-modal{position:fixed;inset:0;z-index:1000;background:rgba(5,59,35,.55);display:grid;place-items:center;padding:16px}
+.camp-modal-box{background:#fff;border-radius:var(--radius,14px);max-width:560px;width:100%;max-height:calc(100vh - 32px);overflow:auto;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.camp-modal-box h3{margin-top:0;color:var(--forest,#053B23)}
+.camp-modal-box input[type=text],.camp-modal-box textarea{width:100%;box-sizing:border-box;min-height:42px;padding:8px 10px;border:1px solid var(--line,#DDE6DF);border-radius:8px;font:inherit;margin:4px 0 10px}
+.camp-modal-box code{font-family:var(--font-mono);background:var(--mist,#F3F8F4);padding:2px 6px;border-radius:4px}
+.camp-check{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
+.camp-modal-msg{color:var(--danger,#B9382F);min-height:1.2em;font-weight:600}
+@media (max-width:1024px){.camp-steps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:768px){.camp-hero{grid-template-columns:1fr}.camp-hero-media{min-height:150px;max-height:180px}.camp-mini{grid-template-columns:repeat(2,minmax(0,1fr))}.camp-grid{grid-template-columns:1fr}}
+@media (max-width:480px){.camp-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.camp-hero-body{padding:16px}.camp-wiz-nav .btn{flex:1}}
+.camp-hero-body h2 .mono,.ops-pagehead h1 .mono{font-size:inherit;color:inherit}
+.camp-hero .camp-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:480px){.camp-hero .camp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.camp-summary .mono,.camp-card .mono{font-size:inherit}

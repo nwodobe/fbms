@@ -1,0 +1,270 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Administration · ANAGROCI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="./auth-gate.js" data-module="admin"></script>
+<style>
+  :root{--forest:#053B23;--emerald:#1F5B3F;--green:#00712C;--lime:#8DC556;--orange:#EE9E00;
+    --mist:#F1F9EF;--pale:#E0F3DE;--cream:#F7F5EF;--ink:#132A22;--muted:#5b6b62;--line:#e6e2d6;--danger:#C0392B;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--cream);color:var(--ink)}
+  .top{background:var(--forest);color:#eafff2;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .top b{font-size:18px}
+  .top small{color:#a9e5bf}
+  .btn{border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:800;padding:10px 14px;cursor:pointer;text-decoration:none;font-size:13px}
+  .btn.ghost{background:#fff;color:var(--forest);border:1px solid var(--line)}
+  .btn.sm{padding:7px 10px;font-size:12px}
+  .btn.danger{background:var(--danger)}
+  .wrap{max-width:1050px;margin:auto;padding:20px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 34px rgba(5,59,35,.07);margin-bottom:18px}
+  .card h2{margin:0;padding:15px 18px;border-bottom:1px solid var(--line);color:var(--forest);font-size:16px}
+  .body{padding:16px 18px}
+  label{display:block;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+  input,select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:11px;font-size:14px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--forest);color:#d8ead3;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:9px;text-align:left}
+  td{padding:9px;border-top:1px solid #f0ede4;font-size:13px;vertical-align:middle}
+  td select{padding:7px}
+  .badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800}
+  .on{background:var(--pale);color:var(--forest)} .off{background:#fdeceb;color:var(--danger)}
+  .alert{border-radius:10px;padding:11px 13px;margin-top:12px;font-size:13px;display:none}
+  .alert.show{display:block}
+  .ok{background:var(--mist);border:1px solid #bfe3b6;color:#1c4b30}
+  .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
+  .warn{background:#fff8e8;border:1px solid #ead9a6;color:#8a6a12}
+  .muted{color:var(--muted);font-size:12.5px;line-height:1.55}
+  @media(max-width:720px){.row{grid-template-columns:1fr}}
+</style></head><body>
+
+<div class="top">
+  <div><b>Administration ANAGROCI</b><br><small>Gestion des accès — réservé au Branch Manager</small></div>
+  <a class="btn ghost" href="../index.html">← Portail</a>
+</div>
+
+<main class="wrap">
+
+  <section class="card">
+    <h2>Créer un accès</h2>
+    <div class="body">
+      <p class="muted">Le compte d'authentification est créé côté serveur, puis le profil (rôle, affectation, statut) est enregistré <b>avec vos droits de Branch Manager</b> : les règles serveur (rôles reconnus, cluster valide, journal des habilitations) s'appliquent à la création comme à la modification.</p>
+      <div class="row">
+        <div><label for="nNom">Nom complet</label><input id="nNom" maxlength="200" placeholder="Ex. Awa Koné"></div>
+        <div><label for="nEmail">Email</label><input id="nEmail" type="email" maxlength="254" autocomplete="email" placeholder="awa@anagroci.ci"></div>
+      </div>
+      <div class="row">
+        <div><label for="nPass">Mot de passe provisoire</label><input id="nPass" type="password" autocomplete="new-password" maxlength="1024" placeholder="min. 8 caractères"><button type="button" id="togglePass" class="btn ghost sm" style="margin-top:6px" aria-controls="nPass" aria-pressed="false" onclick="afficherMotDePasse()">Afficher</button></div>
+        <div><label for="nRole">Rôle</label><select id="nRole"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="nCluster">Cluster d'affectation</label><select id="nCluster"></select></div>
+        <div><p class="muted" id="nRoleNote" style="margin-top:30px"></p></div>
+      </div>
+      <p><button class="btn" id="btnCreate" onclick="createUser()">Créer l'accès</button></p>
+      <div id="cMsg" class="alert" role="status"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Comptes et rôles</h2>
+    <div class="body">
+      <p class="muted">Les rôles proposés sont ceux que le serveur reconnaît <b>et</b> que vous pouvez attribuer. La valeur enregistrée est la valeur canonique du serveur ; le libellé n'est qu'un affichage. Un poste limité à un cluster (Chef d'Unité, Magasinier) ne peut rien mouvementer tant que son cluster n'est pas renseigné.</p>
+      <div id="uMsg" class="alert" role="status"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Affectation</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px"><button class="btn ghost sm" onclick="loadProfils()">Actualiser</button></p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const SUPABASE_URL="https://jmbdgpdthzpszfnddwzi.supabase.co";
+const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
+/* Référentiel des rôles : fourni par le SERVEUR (public.fbms_roles_attribuables,
+   dérivé de la contrainte profils_role_check). Plus aucune liste locale : un
+   libellé affiché ne peut plus diverger de la valeur acceptée par la base. */
+let ROLES=[], CLUSTERS=[];
+const $=i=>document.getElementById(i);
+let SB, ME=null;
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function hide(el){el.className="alert";el.textContent="";}
+/* Message compréhensible + détail technique conservé (l'échec n'est jamais masqué). */
+function msg(el,t,k,tech){
+  el.className="alert show "+(k||"ok");
+  el.innerHTML=esc(t)+(tech?'<details style="margin-top:6px"><summary>Détail technique</summary><code>'+esc(tech)+'</code></details>':'');
+}
+function humain(err){
+  const code=err&&err.code, m=(err&&err.message)||String(err||"");
+  if(code==="23514"||/check constraint/i.test(m)){
+    if(/profils_role_check/.test(m)) return "Rôle refusé par le serveur : cette valeur n'est pas un rôle reconnu.";
+    if(/Cluster/.test(m)) return m;
+    return "Valeur refusée par le serveur (contrôle d'intégrité).";
+  }
+  if(code==="42501"||/permission denied|row-level security/i.test(m)){
+    return /[éèàù]/.test(m)&&!/permission denied/i.test(m) ? m : "Action non autorisée pour votre compte.";
+  }
+  if(/Failed to fetch|NetworkError|network/i.test(m)) return "Serveur injoignable : vérifiez la connexion puis réessayez.";
+  return "L'opération a échoué côté serveur.";
+}
+function roleDe(v){return ROLES.find(r=>r.valeur===v)||null;}
+function optionsRoles(courant){
+  let h=ROLES.filter(r=>r.attribuable||r.valeur===courant).map(r=>
+    '<option value="'+esc(r.valeur)+'"'+(r.valeur===courant?' selected':'')+(r.attribuable?'':' disabled')+'>'+esc(r.libelle)+(r.attribuable?'':' (non attribuable ici)')+'</option>').join("");
+  if(courant&&!roleDe(courant)) h='<option selected disabled>'+esc(courant)+' (inconnu du serveur)</option>'+h;
+  return h;
+}
+function optionsClusters(courant){
+  const norm=x=>String(x||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const c=CLUSTERS.find(k=>norm(k.code)===norm(courant)||norm(k.label)===norm(courant));
+  return '<option value="">— aucun —</option>'+CLUSTERS.map(k=>'<option value="'+esc(k.code)+'"'+(c&&c.code===k.code?' selected':'')+'>'+esc(k.label)+'</option>').join("")
+    +(courant&&!c?'<option selected value="'+esc(courant)+'">'+esc(courant)+' (inconnu)</option>':'');
+}
+function noteRole(v){const r=roleDe(v);return r?(r.note||"")+(r.cluster_requis?" Cluster obligatoire.":""):"";}
+
+document.addEventListener("anagroci:authenticated",async function(e){
+  ME=e.detail.profile;
+  SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  const [r,c]=await Promise.all([SB.rpc("fbms_roles_attribuables"),SB.from("aflp_clusters").select("code,label,active").order("label")]);
+  if(r.error){msg($("uMsg"),"Référentiel des rôles indisponible : "+humain(r.error)+" (migration serveur 20260918b non appliquée ?)","err",r.error.message);ROLES=[];}
+  else ROLES=r.data||[];
+  CLUSTERS=(c.data||[]).filter(k=>k.active!==false);
+  $("nRole").innerHTML=optionsRoles(null);
+  const defaut=ROLES.find(x=>x.valeur==="Consultation uniquement")||ROLES.find(x=>x.attribuable);
+  if(defaut)$("nRole").value=defaut.valeur;
+  $("nCluster").innerHTML=optionsClusters(null);
+  const sync=()=>{$("nRoleNote").textContent=noteRole($("nRole").value);};
+  $("nRole").addEventListener("change",sync); sync();
+  loadProfils();
+});
+
+async function loadProfils(){
+  const box=$("rows");
+  const r=await SB.from("profils").select("user_id,nom,email,role,actif,cluster,authority_level").order("nom");
+  if(r.error){box.innerHTML='<tr><td colspan="6" class="muted">'+esc(humain(r.error))+'</td></tr>';return;}
+  const rows=r.data||[];
+  if(!rows.length){box.innerHTML='<tr><td colspan="6" class="muted">Aucun compte.</td></tr>';return;}
+  box.innerHTML=rows.map(p=>{
+    const uid=p.user_id, self=ME&&p.user_id===ME.user_id, ro=roleDe(p.role);
+    const dis=self?' disabled title="Vos propres habilitations ne se modifient pas depuis votre compte"':'';
+    const roleSel='<select id="r_'+uid+'" aria-label="Rôle de '+esc(p.nom)+'"'+dis+'>'+optionsRoles(p.role)+'</select>';
+    const clSel='<select id="c_'+uid+'" aria-label="Cluster de '+esc(p.nom)+'"'+dis+'>'+optionsClusters(p.cluster)+'</select>';
+    const manque=ro&&ro.cluster_requis&&!p.cluster&&p.authority_level!=="GLOBAL"
+      ?'<div class="badge off" style="margin-top:4px">Affectation manquante : aucune action physique possible</div>':'';
+    const glob=p.authority_level==="GLOBAL"&&ro&&ro.cluster_requis?'<div class="badge on" style="margin-top:4px">Portée globale explicite</div>':'';
+    const stat=p.actif?'<span class="badge on">Actif</span>':'<span class="badge off">Désactivé</span>';
+    const actions=self?'<span class="muted">— vous —</span>':
+      '<button class="btn sm" onclick="enregistrer(\''+uid+'\')">Enregistrer</button> '+
+      '<button class="btn sm '+(p.actif?'danger':'')+'" onclick="setActif(\''+uid+'\','+(!p.actif)+')">'+(p.actif?'Désactiver':'Activer')+'</button>';
+    return '<tr><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+'</td><td>'+clSel+manque+glob+'</td><td>'+stat+'</td><td>'+actions+'</td></tr>';
+  }).join("");
+}
+
+/* Écriture directe sur profils avec la session du BM : RLS (BM seulement),
+   garde serveur trg_profils_garde_habilitations et journal
+   trg_profils_journal s'appliquent. .select() rend visible un refus
+   silencieux (0 ligne modifiée). */
+async function ecrire(uid,patch,ok){
+  hide($("uMsg"));
+  const r=await SB.from("profils").update(patch).eq("user_id",uid).select("user_id");
+  if(r.error) return msg($("uMsg"),humain(r.error),"err",r.error.message);
+  if(!r.data||!r.data.length) return msg($("uMsg"),"Aucune modification enregistrée : seul un Branch Manager actif peut modifier ce compte.","err");
+  msg($("uMsg"),ok,"ok"); loadProfils();
+}
+function enregistrer(uid){
+  const role=$("r_"+uid).value, cluster=$("c_"+uid).value||null, ro=roleDe(role);
+  if(ro&&ro.cluster_requis&&!cluster){
+    if(!confirm("Ce rôle exige un cluster. Sans cluster, le compte ne pourra réaliser aucune action physique. Enregistrer quand même ?")) return;
+  }
+  ecrire(uid,{role,cluster},"Rôle et affectation enregistrés (changement journalisé).");
+}
+function setActif(uid,actif){ ecrire(uid,{actif},actif?"Compte activé.":"Compte désactivé : toutes ses actions sont refusées par le serveur."); }
+
+// Protection ergonomique contre les doubles clics. Le serveur reste l'arbitre.
+let creationEnCours=false;
+const MESSAGES_CREATION={
+  CONFIGURATION_INCOMPLETE:"Le service de cr\u00e9ation des comptes est mal configur\u00e9.",
+  SESSION_INVALIDE:"Votre session a expir\u00e9 ou est invalide. Reconnectez-vous.",
+  ACCES_REFUSE:"Vous n'\u00eates pas autoris\u00e9 \u00e0 cr\u00e9er cet acc\u00e8s.",
+  DONNEES_INVALIDES:"V\u00e9rifiez les informations saisies et le mot de passe.",
+  CORPS_TROP_VOLUMINEUX:"La demande est trop volumineuse.",
+  REFERENTIEL_INDISPONIBLE:"Le r\u00e9f\u00e9rentiel des r\u00f4les est momentan\u00e9ment indisponible.",
+  ROLE_NON_ATTRIBUABLE:"Ce r\u00f4le ne peut pas \u00eatre attribu\u00e9 depuis votre compte.",
+  CLUSTER_REQUIS:"S\u00e9lectionnez un cluster pour ce poste.",
+  CLUSTER_INVALIDE:"Le cluster choisi est inconnu ou inactif.",
+  EMAIL_EXISTANT:"Un compte existe d\u00e9j\u00e0 avec cette adresse email. Aucun compte existant n'a \u00e9t\u00e9 modifi\u00e9.",
+  MOT_DE_PASSE_REFUSE:"Le mot de passe ne respecte pas les exigences du serveur.",
+  AUTH_REFUSE:"Le service d'authentification a refus\u00e9 la cr\u00e9ation.",
+  PROFIL_REFUSE_COMPENSE:"Le profil a \u00e9t\u00e9 refus\u00e9. Le compte de connexion cr\u00e9\u00e9 par cette tentative a \u00e9t\u00e9 supprim\u00e9.",
+  COHERENCE_A_VERIFIER:"Cr\u00e9ation incompl\u00e8te : une v\u00e9rification administrateur est n\u00e9cessaire. Ne recr\u00e9ez pas ce compte.",
+  CREATION_INCERTAINE:"Le r\u00e9sultat de la cr\u00e9ation n'a pas pu \u00eatre confirm\u00e9. V\u00e9rifiez le compte avant une nouvelle tentative.",
+  SERVICE_INDISPONIBLE:"Le service de cr\u00e9ation est momentan\u00e9ment indisponible.",
+  ORIGINE_REFUSEE:"Cette origine n'est pas autoris\u00e9e \u00e0 appeler le service."
+};
+function afficherMotDePasse(){
+  const champ=$("nPass"),bouton=$("togglePass"),visible=champ.type==="password";
+  champ.type=visible?"text":"password";bouton.textContent=visible?"Masquer":"Afficher";
+  bouton.setAttribute("aria-pressed",String(visible));
+}
+async function createUser(){
+  if(creationEnCours)return;
+  const btn=$("btnCreate"),m=$("cMsg");hide(m);
+  const nom=$("nNom").value.trim(),email=$("nEmail").value.trim().toLowerCase(),
+    pass=$("nPass").value,role=$("nRole").value,cluster=$("nCluster").value||null,ro=roleDe(role);
+  if(!nom||!email||!$("nEmail").checkValidity()||pass.length<8)return msg(m,"Nom, email valide et mot de passe (8+ caract\u00e8res) requis.","err");
+  if(!SB||!ME||ME.actif!==true||ME.role!=="Branch Manager")return msg(m,MESSAGES_CREATION.ACCES_REFUSE,"err");
+  if(!ro||ro.attribuable!==true)return msg(m,MESSAGES_CREATION.ROLE_NON_ATTRIBUABLE,"err");
+  if(ro.cluster_requis&&!cluster)return msg(m,MESSAGES_CREATION.CLUSTER_REQUIS,"err");
+  if(cluster&&!CLUSTERS.some(c=>c.code===cluster))return msg(m,MESSAGES_CREATION.CLUSTER_INVALIDE,"err");
+  creationEnCours=true;btn.disabled=true;btn.textContent="Cr\u00e9ation de l'acc\u00e8s\u2026";
+  let delai,postLance=false;
+  try{
+    let r=await SB.auth.getSession(),session=r.data&&r.data.session;
+    if(r.error||!session||!session.access_token)return msg(m,MESSAGES_CREATION.SESSION_INVALIDE,"err","SESSION_ABSENTE");
+    if(session.expires_at&&session.expires_at<=Math.floor(Date.now()/1000)+60){
+      r=await SB.auth.refreshSession();session=r.data&&r.data.session;
+      if(r.error||!session||!session.access_token)return msg(m,MESSAGES_CREATION.SESSION_INVALIDE,"err","SESSION_EXPIREE");
+    }
+    const abort=new AbortController();delai=setTimeout(()=>abort.abort(),30000);
+    postLance=true;
+    const resp=await fetch(SUPABASE_URL+"/functions/v1/admin-create-user",{
+      method:"POST",signal:abort.signal,
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":SUPABASE_ANON},
+      body:JSON.stringify({nom,email,password:pass,role,cluster})
+    });
+    const out=await resp.json().catch(()=>null);
+    const code=out&&Object.prototype.hasOwnProperty.call(MESSAGES_CREATION,out.code)?out.code:null;
+    const reference=out&&typeof out.request_id==="string"&&/^[0-9a-f-]{36}$/i.test(out.request_id)?out.request_id:null;
+    const technique="HTTP "+resp.status+(code?" / "+code:"")+(reference?" / R\u00e9f. "+reference:"");
+    if(!resp.ok){
+      let message=code?MESSAGES_CREATION[code]:"La cr\u00e9ation a \u00e9t\u00e9 refus\u00e9e par le serveur.";
+      if(!code&&resp.status===404)message="Le service de cr\u00e9ation des comptes n'est pas disponible.";
+      else if(!code&&resp.status===401)message=MESSAGES_CREATION.SESSION_INVALIDE;
+      else if(!code&&resp.status===403)message=MESSAGES_CREATION.ACCES_REFUSE;
+      else if(!code&&resp.status>=500)message=MESSAGES_CREATION.CREATION_INCERTAINE;
+      // Jamais out.error en clair : une erreur distante peut contenir des donnees sensibles.
+      return msg(m,message,"err",technique);
+    }
+    if(!out||out.ok!==true||out.profile_verified!==true||
+       typeof out.user_id!=="string"||!/^[0-9a-f-]{36}$/i.test(out.user_id)||
+       out.email!==email||out.role!==role||(out.cluster||null)!==cluster){
+      return msg(m,MESSAGES_CREATION.CREATION_INCERTAINE,"err",technique+" / REPONSE_INCOMPLETE");
+    }
+    msg(m,"Acc\u00e8s cr\u00e9\u00e9 pour "+nom+". Profil enregistr\u00e9. R\u00f4le : "+ro.libelle+". Affectation : "+(cluster||"aucun cluster requis")+".","ok",reference?"R\u00e9f. "+reference:null);
+    $("nNom").value="";$("nEmail").value="";$("nPass").value="";$("nPass").type="password";
+    $("togglePass").textContent="Afficher";$("togglePass").setAttribute("aria-pressed","false");
+    // Un echec du rafraichissement de liste ne transforme pas une creation reussie en echec.
+    loadProfils().catch(()=>msg($("uMsg"),"L'acc\u00e8s est cr\u00e9\u00e9, mais la liste n'a pas pu \u00eatre actualis\u00e9e.","warn"));
+  }catch(e){
+    msg(m,postLance?"Impossible de contacter le service ou de lire sa r\u00e9ponse. Le r\u00e9sultat reste inconnu : v\u00e9rifiez le compte avant de r\u00e9essayer.":"Impossible de v\u00e9rifier votre session. Reconnectez-vous.","err",
+      postLance?(e&&e.name==="AbortError"?"DELAI_DEPASSE":"RESEAU_OU_CORS"):"SESSION_NON_VERIFIEE");
+  }finally{clearTimeout(delai);creationEnCours=false;btn.disabled=false;btn.textContent="Cr\u00e9er l'acc\u00e8s";}
+}
+</script>
+</body></html>
