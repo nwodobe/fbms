@@ -198,3 +198,24 @@ test('AFLP FLEET : catalogue serveur prioritaire, secours hors connexion', () =>
   assert.equal(C.exigeImmobilisation({ type: 'INSPECTION_MENSUELLE', payload: { items: [{ critique: true, ok: false }] } }), true);
   assert.equal(C.exigeImmobilisation({ type: 'ACTION_SIGNALER', payload: { gravite: 'CRITIQUE' } }), true);
 });
+
+test('Aptitude (migration 10) : aperçu calculé comme le serveur, jamais favorable par défaut', () => {
+  const B = ['ECLAIRAGE', 'KLAXON', 'RETROVISEURS', 'CHAINE', 'NIVEAU_HUILE', 'NUMEROS', 'TRANSMISSION'];
+  const L = C.INSPECTION_INITIALE.map(p => ({ ...p, ok: true }));
+  assert.equal(C.aptitudeApercu(L.map(p => ({ ...p, ok: null })), B).code, 'A_COMPLETER', 'aucun point pré-rempli');
+  assert.equal(C.aptitudeApercu(L.map((p, i) => i === 0 ? { ...p, ok: undefined } : p), B).manquants, 1);
+  assert.equal(C.aptitudeApercu(L, B).code, 'APTE');
+  assert.equal(C.aptitudeApercu(L, B, true).code, 'INAPTE', 'avis défavorable du mécanicien');
+  const avec = (code, extra) => L.map(p => p.code === code ? { ...p, ok: false, ...(extra || {}) } : p);
+  assert.equal(C.aptitudeApercu(avec('FREIN_AVANT'), B).code, 'INAPTE_IMMOBILISEE');
+  assert.equal(C.aptitudeApercu(avec('ECLAIRAGE'), B).code, 'INAPTE', 'défaut bloquant non critique');
+  const r = C.aptitudeApercu(avec('BATTERIE'), B);
+  assert.equal(r.code, 'APTE_RESERVES'); assert.deepEqual(r.reservesSansJustification, ['Batterie et démarrage']);
+  assert.equal(C.aptitudeApercu(avec('BATTERIE', { observation: 'Démarrage lent' }), B).reservesSansJustification.length, 0);
+  assert.equal(C.niveauRisquePoint({ code: 'FREIN_AVANT', critique: true }, B), 'CRITIQUE');
+  assert.equal(C.niveauRisquePoint({ code: 'KLAXON', critique: false }, B), 'BLOQUANT');
+  assert.equal(C.niveauRisquePoint({ code: 'BATTERIE', critique: false }, B), 'RESERVE');
+  // Contre-visite : mêmes classes que public.moto_controle_remise_en_service (BM, ABM, ZONE, LOGISTIQUE).
+  for (const k of ['BM', 'ABM', 'ZONE', 'LOGISTIQUE']) assert.equal(C.peut(k, 'contre_visite'), true, k);
+  for (const k of ['UNITE', 'FINANCE', 'DIRECTION']) assert.equal(C.peut(k, 'contre_visite'), false, k);
+});

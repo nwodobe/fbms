@@ -1,0 +1,203 @@
+{
+ "base": "fbms_apt10_e2e",
+ "date": "2026-11-03T21:26:00.237Z",
+ "reussis": 18,
+ "total": 18,
+ "mesures": {
+  "premiere_evaluation": {
+   "avant": {
+    "actions": 24,
+    "ecrans": 2,
+    "resultat": "ferme",
+    "statut": "APTE"
+   },
+   "apres": {
+    "actions": 22,
+    "ecrans": 2,
+    "resultat": "ferme",
+    "statut": "APTE"
+   }
+  },
+  "apres_reparation": {
+   "nouvel_ecran": {
+    "actions": 16,
+    "ecrans": 2
+   },
+   "inspection_supplementaire_evitee": {
+    "actions": 24,
+    "ecrans": 2,
+    "resultat": "ferme",
+    "statut": "APTE"
+   }
+  },
+  "cloture_manuelle_evitee": {
+   "actions": 10,
+   "ecrans": 5
+  }
+ },
+ "erreurs_console": [],
+ "resultats": [
+  {
+   "id": "E2E-01-mobile",
+   "exigence": "Section « Aptitude et mise en service » : aptitude et circulation séparées, exigences restantes, bouton principal",
+   "action": "Synthèse à 390×844",
+   "attendu": "2 cartes, 4 étapes, exigences, bouton « Évaluer l'aptitude », aucun débordement",
+   "obtenu": "cartes=2 étapes=4 exigences=3 bouton=true débordement=0px · Aptitude techniqueÀ contrôlerAucun contrôle physiqueAutorisation de circulerNon autoriséeDocuments : Conforme · Non affe",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/synthese-mobile.png"
+  },
+  {
+   "id": "E2E-02-mobile",
+   "exigence": "Résultat jamais pré-rempli ; formulaire unique en 4 étapes",
+   "action": "Ouvrir « Évaluer l'aptitude »",
+   "attendu": "4 étapes, 13 points, 0 coché, aperçu « À compléter »",
+   "obtenu": "étapes=4 points=13 cochés=0 conclusion manuelle=0 · A_COMPLETER À compléter : 13 point(s) non renseigné(s).",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/formulaire-mobile.png"
+  },
+  {
+   "id": "E2E-03-mobile",
+   "exigence": "Enregistrement progressif (brouillon local, sans photo)",
+   "action": "Saisie partielle, fermeture, réouverture",
+   "attendu": "brouillon restauré : mécanicien et 5 réponses",
+   "obtenu": "bannière=1 mécanicien=MECANICIEN QUALIFIE FICTIF réponses=5",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "E2E-04-mobile",
+   "exigence": "Réserve acceptée seulement si justifiée",
+   "action": "Batterie en défaut sans description, puis décrite",
+   "attendu": "refus explicite, puis « Apte avec réserves »",
+   "obtenu": "Apte avec réserves Apte avec réserves (réserves : Batterie et démarrag | erreur:Décrivez le défaut constaté pour : Batterie et démarrage. | ferme | Aptitude techniqueApte avec réservesDernier contrôle : Inspection mécanique init",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/apte-reserves-mobile.png"
+  },
+  {
+   "id": "E2E-05-mobile",
+   "exigence": "Défaut de sécurité non critique : inapte, contre-visite proposée, circulation bloquée",
+   "action": "Klaxon en défaut sur une autre moto",
+   "attendu": "Inapte ; exigences : contre-visite + défaut à corriger",
+   "obtenu": "Inapte Inapte (bloque la circulation : Klaxon) | ferme | contre-visite=1 bandeau=1 | TechniqueFaire réparer, puis passer la contre-visite (contrôle de remise en service)Contre-visiteTechniqueCorr",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/inapte-exigences-mobile.png"
+  },
+  {
+   "id": "E2E-01-tablette",
+   "exigence": "Section « Aptitude et mise en service » : aptitude et circulation séparées, exigences restantes, bouton principal",
+   "action": "Synthèse à 768×1024",
+   "attendu": "2 cartes, 4 étapes, exigences, bouton « Évaluer l'aptitude », aucun débordement",
+   "obtenu": "cartes=2 étapes=4 exigences=3 bouton=true débordement=0px · Aptitude techniqueÀ contrôlerAucun contrôle physiqueAutorisation de circulerNon autoriséeDocuments : Conforme · Non affe",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/synthese-tablette.png"
+  },
+  {
+   "id": "E2E-02-tablette",
+   "exigence": "Résultat jamais pré-rempli ; formulaire unique en 4 étapes",
+   "action": "Ouvrir « Évaluer l'aptitude »",
+   "attendu": "4 étapes, 13 points, 0 coché, aperçu « À compléter »",
+   "obtenu": "étapes=4 points=13 cochés=0 conclusion manuelle=0 · A_COMPLETER À compléter : 13 point(s) non renseigné(s).",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/formulaire-tablette.png"
+  },
+  {
+   "id": "E2E-03-tablette",
+   "exigence": "Enregistrement progressif (brouillon local, sans photo)",
+   "action": "Saisie partielle, fermeture, réouverture",
+   "attendu": "brouillon restauré : mécanicien et 5 réponses",
+   "obtenu": "bannière=1 mécanicien=MECANICIEN QUALIFIE FICTIF réponses=5",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "E2E-04-tablette",
+   "exigence": "Réserve acceptée seulement si justifiée",
+   "action": "Batterie en défaut sans description, puis décrite",
+   "attendu": "refus explicite, puis « Apte avec réserves »",
+   "obtenu": "Apte avec réserves Apte avec réserves (réserves : Batterie et démarrag | erreur:Décrivez le défaut constaté pour : Batterie et démarrage. | ferme | Aptitude techniqueApte avec réservesDernier contrôle : Inspection mécanique init",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/apte-reserves-tablette.png"
+  },
+  {
+   "id": "E2E-05-tablette",
+   "exigence": "Défaut de sécurité non critique : inapte, contre-visite proposée, circulation bloquée",
+   "action": "Klaxon en défaut sur une autre moto",
+   "attendu": "Inapte ; exigences : contre-visite + défaut à corriger",
+   "obtenu": "Inapte Inapte (bloque la circulation : Klaxon) | ferme | contre-visite=1 bandeau=1 | TechniqueFaire réparer, puis passer la contre-visite (contrôle de remise en service)Contre-visiteTechniqueCorr",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/inapte-exigences-tablette.png"
+  },
+  {
+   "id": "E2E-01-bureau",
+   "exigence": "Section « Aptitude et mise en service » : aptitude et circulation séparées, exigences restantes, bouton principal",
+   "action": "Synthèse à 1440×900",
+   "attendu": "2 cartes, 4 étapes, exigences, bouton « Évaluer l'aptitude », aucun débordement",
+   "obtenu": "cartes=2 étapes=4 exigences=3 bouton=true débordement=0px · Aptitude techniqueÀ contrôlerAucun contrôle physiqueAutorisation de circulerNon autoriséeDocuments : Conforme · Non affe",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/synthese-bureau.png"
+  },
+  {
+   "id": "E2E-02-bureau",
+   "exigence": "Résultat jamais pré-rempli ; formulaire unique en 4 étapes",
+   "action": "Ouvrir « Évaluer l'aptitude »",
+   "attendu": "4 étapes, 13 points, 0 coché, aperçu « À compléter »",
+   "obtenu": "étapes=4 points=13 cochés=0 conclusion manuelle=0 · A_COMPLETER À compléter : 13 point(s) non renseigné(s).",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/formulaire-bureau.png"
+  },
+  {
+   "id": "E2E-03-bureau",
+   "exigence": "Enregistrement progressif (brouillon local, sans photo)",
+   "action": "Saisie partielle, fermeture, réouverture",
+   "attendu": "brouillon restauré : mécanicien et 5 réponses",
+   "obtenu": "bannière=1 mécanicien=MECANICIEN QUALIFIE FICTIF réponses=5",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "E2E-04-bureau",
+   "exigence": "Réserve acceptée seulement si justifiée",
+   "action": "Batterie en défaut sans description, puis décrite",
+   "attendu": "refus explicite, puis « Apte avec réserves »",
+   "obtenu": "Apte avec réserves Apte avec réserves (réserves : Batterie et démarrag | erreur:Décrivez le défaut constaté pour : Batterie et démarrage. | ferme | Aptitude techniqueApte avec réservesDernier contrôle : Inspection mécanique init",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/apte-reserves-bureau.png"
+  },
+  {
+   "id": "E2E-05-bureau",
+   "exigence": "Défaut de sécurité non critique : inapte, contre-visite proposée, circulation bloquée",
+   "action": "Klaxon en défaut sur une autre moto",
+   "attendu": "Inapte ; exigences : contre-visite + défaut à corriger",
+   "obtenu": "Inapte Inapte (bloque la circulation : Klaxon) | ferme | contre-visite=1 bandeau=1 | TechniqueFaire réparer, puis passer la contre-visite (contrôle de remise en service)Contre-visiteTechniqueCorr",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/inapte-exigences-bureau.png"
+  },
+  {
+   "id": "MES-01",
+   "exigence": "Mesure réelle : première évaluation (moto en exploitation)",
+   "action": "Même parcours, écran actuel puis nouvel écran",
+   "attendu": "les deux aboutissent à APTE ; actions comptées",
+   "obtenu": "avant : 2 écrans, 24 actions (APTE) · après : 2 écrans, 22 actions (APTE)",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  },
+  {
+   "id": "MES-02",
+   "exigence": "Contre-visite suffit après réparation (fin de la double inspection)",
+   "action": "Contre-visite APTE depuis la liste « Ce qu'il reste à faire »",
+   "attendu": "moto Apte sans nouvelle inspection initiale",
+   "obtenu": "ferme · statut=APTE · inspections initiales=1 · action klaxon=CLOTUREE · contre-visite : 2 écrans, 16 actions",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/aptitude-10/contre-visite-apte-mobile.png"
+  },
+  {
+   "id": "MES-03",
+   "exigence": "Mesure : circuit manuel de clôture évité",
+   "action": "Planifier, déclarer réalisé (coordinateur) puis vérifier (ABM)",
+   "attendu": "action clôturée ; écrans et actions comptés",
+   "obtenu": "ferme/ferme/ferme · action=CLOTUREE · 5 écrans, 10 actions, 2 personnes",
+   "resultat": "RÉUSSI",
+   "preuve": ""
+  }
+ ]
+}

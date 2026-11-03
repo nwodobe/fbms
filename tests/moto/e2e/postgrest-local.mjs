@@ -15,7 +15,7 @@ import pg from 'pg';
 
 export function creerEmulateur({ host, port, database }) {
   if (/supabase/i.test(String(host))) throw new Error('REFUS : base Supabase détectée');
-  const pool = new pg.Pool({ host, port, database, user: 'postgres', max: 4 });
+  const pool = new pg.Pool({ host, port, database, user: 'postgres', max: 12 });   // 12 : la synthèse du passeport lance désormais 6 lectures en parallèle
   const fichiers = new Map();
   const IDENT = /^[a-z_][a-z0-9_]*$/;
   const cacheSignatures = new Map();
