@@ -1,0 +1,166 @@
+Banc Assistant Unit Head — exécution du 2026-11-03T19:17Z — PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+Fidélité production (03/11/2026) : 40 fonctions, empreintes md5 identiques
+
+== Synthèse par phase
+  phase   | statut  | count 
+----------+---------+-------
+ APRES    | PASS    |   117
+ AVANT    | CONSTAT |     4
+ REJEU    | PASS    |   116
+ ROLLBACK | PASS    |     8
+(4 rows)
+
+== Détail (phase APRES, REJEU en regard)
+  id   |      compte      |                          fonction                          | attendu | apres | rejeu |                                 obtenu                                 
+-------+------------------+------------------------------------------------------------+---------+-------+-------+------------------------------------------------------------------------
+ S1-01 | AUH Botro A      | Lire un village de son cluster                             | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-02 | AUH Botro A      | Créer un village (Brouillon)                               | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-03 | AUH Botro A      | Modifier une fiche village                                 | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-04 | AUH Botro A      | Validation terrain : Brouillon → Soumis                    | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-05 | AUH Botro A      | Correction demandée : À corriger → Soumis                  | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-06 | AUH Botro A      | Enregistrer un producteur                                  | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-07 | AUH Botro A      | Corriger un producteur                                     | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-08 | AUH Botro A      | Validation terrain producteur : Identifié → Enrôlé         | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-09 | AUH Botro A      | Enregistrer une parcelle et sa superficie                  | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-10 | AUH Botro A      | Consulter la parcelle                                      | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-11 | AUH Botro A      | Enregistrer un RT                                          | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-12 | AUH Botro A      | Modifier un RT                                             | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-13 | AUH Botro A      | Validation terrain RT (créé par le UH) : Pressenti → Confi | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-14 | AUH Botro A      | Saisir un achat RCN (statut À valider)                     | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-15 | AUH Botro A      | Signaler une anomalie (RPC)                                | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-16 | AUH Botro A      | Anomalie sans localisation rattachée à son cluster         | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-17 | AUH Botro A      | Sacherie : lecture de son cluster, sans mouvement physique | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-18 | AUH Botro A      | Renseigner un mouvement de sacs (historique) de son cluste | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-19 | AUH Botro A      | Créer une réconciliation de son cluster                    | OK      | PASS  | PASS  | OK (1 ligne)
+ S1-20 | AUH Botro A      | Tableau de bord : compteurs limités à son cluster          | OK      | PASS  | PASS  | OK (1 ligne)
+ S2-01 | AUH Botro A      | Lire un village de Brobo                                   | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-02 | AUH Botro A      | Modifier un village de Brobo                               | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-03 | AUH Botro A      | Déplacer son village vers Brobo                            | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy "villages_cl
+ S2-04 | AUH Botro A      | Créer un village à Brobo                                   | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy "villages_cl
+ S2-05 | AUH Botro A      | Lire un RT de Brobo                                        | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-06 | AUH Botro A      | Modifier un RT de Brobo                                    | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-07 | AUH Botro A      | Créer un RT dans un village de Brobo                       | REFUS   | PASS  | PASS  | REFUS (P0001 : RT actif invalide: village_id zzauh-APRES-vbr introuvab
+ S2-08 | AUH Botro A      | Lire un producteur de Brobo                                | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-09 | AUH Botro A      | Modifier un producteur de Brobo                            | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-10 | AUH Botro A      | Enregistrer un producteur à Brobo                          | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy "farmer_regi
+ S2-11 | AUH Botro A      | Lire un achat de Brobo                                     | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-12 | AUH Botro A      | Saisir un achat à Brobo                                    | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : achat hors de votre cluster (BROB
+ S2-13 | AUH Botro A      | Achat déclaré Botro mais village de Brobo                  | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : achat hors de votre cluster (BOTR
+ S2-14 | AUH Botro A      | Lire une avance de Brobo                                   | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-15 | AUH Botro A      | Lire une anomalie de Brobo                                 | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-16 | AUH Botro A      | Déclarer une anomalie à Brobo (RPC privilégiée)            | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : anomalie hors de votre cluster.)
+ S2-17 | AUH Botro A      | Lire les sacs de Brobo                                     | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-18 | AUH Botro A      | Lire les réconciliations de Brobo                          | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-19 | AUH Botro A      | Lire les dépenses de mission de Brobo                      | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-20 | AUH Botro A      | Recherche par nom : aucun autre cluster ne remonte         | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-21 | AUH Botro A      | Hors ligne : enrôler un producteur à Brobo                 | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-22 | AUH Botro A      | Hors ligne : GPS d'un producteur de Brobo                  | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-23 | AUH Botro A      | Hors ligne : achat Brobo avec bail d'appareil Botro        | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S2-24 | AUH Botro A      | Sacherie : agir sur l'emplacement de Brobo                 | REFUS   | PASS  | PASS  | REFUS (42501 : Localisation hors périmètre cluster : BROBO n'est pas v
+ S3-01 | AUH Botro A      | Confirmer un RT qu'il a lui-même enregistré                | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : vous ne pouvez pas confirmer un R
+ S3-02 | AUH Botro A      | Créer directement un RT « Confirmé »                       | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : vous ne pouvez pas confirmer un R
+ S3-03 | AUH Botro B      | Un autre assistant confirme ce RT (quatre yeux)            | OK      | PASS  | PASS  | OK (1 ligne)
+ S3-04 | AUH Botro A      | Approuver un village (Approuvé BM)                         | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : statut « Approuvé BM » réservé à 
+ S3-05 | AUH Botro A      | Créer un village directement approuvé                      | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : une fiche village se crée en Brou
+ S3-06 | AUH Botro A      | Renvoyer une fiche approuvée en Brouillon                  | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : la fiche est au statut « Approuvé
+ S3-07 | AUH Botro A      | Rejeter une fiche (décision hiérarchique)                  | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : statut « Rejeté » réservé à la va
+ S3-08 | AUH Botro A      | Passer un RT en « Actif »                                  | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : statut RT « Actif » réservé à la 
+ S3-09 | AUH Botro A      | Écarter un RT actif                                        | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : RT au statut « Actif » (décision 
+ S3-10 | AUH Botro A      | Passer un producteur en « Actif »                          | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : statut producteur « Actif » hors 
+ S3-11 | AUH Botro A      | Désactiver un producteur actif                             | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : producteur au statut « Actif » ; 
+ S3-12 | AUH Botro A      | Auto-validation d'un achat à la saisie : neutralisée       | OK      | PASS  | PASS  | OK (1 ligne)
+ S3-13 | AUH Botro A      | Valider un achat existant                                  | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-01 | AUH Botro A      | Engager une avance                                         | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : l'engagement ou la modification d
+ S4-02 | AUH Botro A      | Modifier une avance de son cluster                         | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-03 | AUH Botro A      | Saisir une dépense de mission                              | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy for table "d
+ S4-04 | AUH Botro A      | Approuver une dépense                                      | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-05 | AUH Botro A      | Créer un compte utilisateur                                | REFUS   | PASS  | PASS  | REFUS (42501 : Seul le Branch Manager actif peut modifier les comptes 
+ S4-06 | AUH Botro A      | Modifier son propre rôle                                   | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-07 | AUH Botro A      | Modifier son propre cluster                                | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-08 | AUH Botro A      | Lire le référentiel des rôles attribuables                 | REFUS   | PASS  | PASS  | REFUS (42501 : Réservé au Branch Manager actif)
+ S4-09 | AUH Botro A      | Lire les profils des autres comptes                        | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-10 | AUH Botro A      | Supprimer un village                                       | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-11 | AUH Botro A      | Supprimer logiquement un village (deleted)                 | REFUS   | PASS  | PASS  | REFUS (P0001 : Seul le Branch Manager peut supprimer des fiches.)
+ S4-12 | AUH Botro A      | Supprimer un producteur                                    | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-13 | AUH Botro A      | Supprimer logiquement un producteur                        | REFUS   | PASS  | PASS  | REFUS (P0001 : Seul le Branch Manager peut supprimer des fiches.)
+ S4-14 | AUH Botro A      | Supprimer un RT                                            | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S4-15 | AUH Botro A      | Supprimer logiquement un RT                                | REFUS   | PASS  | PASS  | REFUS (P0001 : Seul le Branch Manager peut supprimer des fiches.)
+ S4-16 | AUH Botro A      | Aucune classe AFLP FLEET (aucun droit moto ajouté)         | OK      | PASS  | PASS  | OK (1 ligne)
+ S4-17 | AUH Botro A      | Mouvementer physiquement un emplacement de son cluster     | REFUS   | PASS  | PASS  | REFUS (42501 : Accès refusé : le rôle « Assistant Unit Head » ne perme
+ S5-01 | BM               | Visibilité sur plusieurs clusters                          | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-02 | BM               | Approuver une fiche soumise par l'assistant                | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-03 | BM               | Valider un achat saisi par l'assistant                     | OK      | PASS  | PASS  | OK (2 ligne)
+ S5-04 | BM               | Le rôle est attribuable, cluster obligatoire               | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-05 | BM               | Créer un assistant : zone déduite du cluster               | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-06 | BM               | Créer un assistant sans cluster                            | REFUS   | PASS  | PASS  | REFUS (23514 : Assistant Unit Head : un cluster AFLP actif est obligat
+ S5-07 | BM               | Créer un assistant à portée globale                        | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : portée « GLOBAL » refusée, seule 
+ S5-08 | BM               | Créer un assistant multi-zones (permissions)               | REFUS   | PASS  | PASS  | REFUS (42501 : Assistant Unit Head : aucune permission additionnelle n
+ S5-09 | BM               | Créer un assistant sur un cluster inconnu                  | REFUS   | PASS  | PASS  | REFUS (23514 : Cluster « KATIOLA » inconnu du référentiel AFLP)
+ S5-10 | BM               | Changer l'affectation d'un assistant (Botro → Diabo)       | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-11 | BM               | Historique du changement d'affectation conservé            | OK      | PASS  | PASS  | OK (1 ligne)
+ S5-12 | AUH B (Diabo)    | Après réaffectation : ancien cluster invisible             | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S5-13 | AUH B (Diabo)    | Après réaffectation : nouveau cluster visible              | OK      | PASS  | PASS  | OK (1 ligne)
+ S6-01 | BM               | Le BM désactive l'assistant X                              | OK      | PASS  | PASS  | OK (1 ligne)
+ S6-02 | AUH X désactivé  | Session ouverte : lecture des villages                     | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S6-03 | AUH X désactivé  | Session ouverte : création de village                      | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy for table "v
+ S6-04 | AUH X désactivé  | Session ouverte : saisie d'achat                           | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy for table "a
+ S6-05 | AUH X désactivé  | Session ouverte : modification de producteur               | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S6-06 | AUH X désactivé  | Session ouverte : synchronisation hors ligne               | REFUS   | PASS  | PASS  | REFUS (42501 : Profil actif requis.)
+ S6-07 | AUH X désactivé  | Session ouverte : contexte Sacherie                        | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S6-08 | sans sub         | Appel sans identité (jeton expiré ou absent)               | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S7-01 | AUH Botro A      | Enrôlement hors ligne dans son cluster                     | OK      | PASS  | PASS  | OK (1 ligne)
+ S7-02 | AUH Botro A      | Achat hors ligne « Validé » : synchronisé, ramené à À vali | OK      | PASS  | PASS  | OK (1 ligne)
+ S7-03 | AUH Botro A      | Rejeu du même lot : idempotent, aucun doublon              | OK      | PASS  | PASS  | OK (1 ligne)
+ S7-04 | AUH Botro A      | GPS hors ligne d'un producteur de son cluster              | OK      | PASS  | PASS  | OK (1 ligne)
+ S7-05 | AUH Botro A      | Refus hors ligne motivé (message rendu au terminal)        | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-01 | Zonal Head       | Zonal Head : lecture Brobo et Botro                        | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-02 | Zonal Head       | Zonal Head : modifier un village de Brobo                  | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-03 | UH Botro         | Unit Head Botro : créer un village Botro                   | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-04 | UH Botro         | Unit Head Botro : approuver une fiche (comportement inchan | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-05 | UH Botro         | Unit Head Botro : confirmer un RT qu'il a créé (inchangé)  | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-06 | UH Botro         | Unit Head Botro : engager une avance (inchangé)            | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-07 | UH Botro         | Unit Head Botro : lecture Brobo (inchangé, non cloisonnée) | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-08 | UH Botro         | Unit Head Botro : création à Brobo toujours refusée        | REFUS   | PASS  | PASS  | REFUS (42501 : new row violates row-level security policy "villages_cl
+ S8-09 | UH Botro         | Unit Head : contexte Sacherie inchangé (CLUSTER/CLUSTER)   | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-10 | UH Botro         | Unit Head : classe AFLP FLEET inchangée (UNITE)            | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-11 | ABM              | Assistant Branch Manager : lecture et modification globale | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-12 | BM               | Branch Manager : suppression d'une fiche (inchangé)        | OK      | PASS  | PASS  | OK (1 ligne)
+ S8-13 | AUH Brobo        | Assistant Brobo : symétrie, Botro invisible                | REFUS   | PASS  | PASS  | REFUS (0 ligne visible/modifiée)
+ S8-14 | AUH Brobo        | Assistant Brobo : son cluster visible                      | OK      | PASS  | PASS  | OK (1 ligne)
+ S9-01 | AUH Botro A      | Producteur en double (même nom, prénoms, village)          | REFUS   | PASS  | PASS  | REFUS (23505 : DOUBLON_FORT: un producteur de même nom et prénoms exis
+ S9-02 | AUH Botro A      | Village en double dans son cluster                         | REFUS   | PASS  | PASS  | REFUS (23505 : Le village « ZZAUH APRES A1 » existe déjà dans ce clust
+ S9-03 | AUH Botro A + BM | Approbation BM concurrente : l'assistant attend le verrou  | REFUS   | PASS  |       | refus=1, statut final=Approuvé BM
+(117 rows)
+
+== Constats AVANT et contrôles ROLLBACK
+  phase   |  id  |                       fonction                        |  attendu  | statut  |                                      obtenu                                      
+----------+------+-------------------------------------------------------+-----------+---------+----------------------------------------------------------------------------------
+ AVANT    | A-01 | Le BM crée un compte Assistant Unit Head              | CONSTAT   | CONSTAT | REFUS (23514 : new row for relation "profils" violates check constraint "profils
+ AVANT    | A-02 | Rôle proposé par fbms_roles_attribuables()            | CONSTAT   | CONSTAT | 0 ligne
+ AVANT    | A-03 | Politiques RESTRICTIVES de lecture sur villages et rt | CONSTAT   | CONSTAT | 0 politique
+ AVANT    | A-04 | Cloisonnement géographique de la création de RT       | CONSTAT   | CONSTAT | 0 politique
+ ROLLBACK | R-01 | Comptes assistants actifs après retour arrière        | 0         | PASS    | 0
+ ROLLBACK | R-02 | Comptes assistants conservés (aucune suppression)     | >0        | PASS    | 5
+ ROLLBACK | R-03 | Politiques AUH restantes                              | 0         | PASS    | 0
+ ROLLBACK | R-04 | Déclencheurs AUH restants                             | 0         | PASS    | 0
+ ROLLBACK | R-05 | Fiches créées pendant la phase APRES conservées       | >0        | PASS    | 8
+ ROLLBACK | R-06 | Nouvelle attribution du rôle impossible               | REFUS     | PASS    | REFUS (23514)
+ ROLLBACK | R-07 | sacherie_contexte() identique à la production         | db963564… | PASS    | db963564faf99ee917e467f23255ba21
+ ROLLBACK | R-08 | fbms_roles_attribuables() identique à la production   | 2c84274a… | PASS    | 2c84274ad94547ee24380b3ee6937dcd
+(12 rows)
+
+== Non-régression Unit Head (banc 16/10 rejoué) : scénarios dont le résultat change entre AVANT, APRÈS et ROLLBACK
+ id | role | avant | apres | rollback 
+----+------+-------+-------+----------
+(0 rows)
+
+ phase  | statut | count 
+--------+--------+-------
+ XAVANT | FAIL   |     1
+ XAVANT | PASS   |    58
+ YAPRES | FAIL   |     1
+ YAPRES | PASS   |    58
+ ZROLLB | FAIL   |     1
+ ZROLLB | PASS   |    58
+(6 rows)
+

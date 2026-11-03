@@ -25,7 +25,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
 
   /* == 1. NIVEAUX D'AUTORITÉ ================================================ */
   /* Un niveau contient tous les niveaux inférieurs. TRANSVERSE = périmètre
@@ -145,16 +145,19 @@
       "objectifs:read", "reporting:read", "exports:create",
     ],
 
-    /* Assistant : le Unit Head moins TOUTES les validations et moins
-       l'engagement d'avances. Les actions retirées passent par une demande de
-       validation au Unit Head (voir demandeValidationRequise). */
+    /* Assistant Unit Head (AFLP 2027, 03/11/2026) — miroir de la migration
+       supabase/20261103120000_aflp_assistant_unit_head_acces.sql, qui fait foi.
+       Aucune validation hiérarchique ni financière : la « validation terrain »
+       se fait par les statuts listés dans STATUTS_TERRAIN (§4 bis). Achats :
+       saisie seulement (statut toujours « À valider »). Sacherie : lecture et
+       demandes, pas de mouvement physique. Aucune suppression. */
     ASSISTANT_UNIT_HEAD: [
       "villages:read", "villages:create", "villages:update",
       "producteurs:read", "producteurs:create", "producteurs:update",
       "rt:read", "rt:create", "rt:update",
-      "achats:read", "achats:create", "achats:update",
+      "achats:read", "achats:create",
       "avances:read", "caisse:read",
-      "stock:read", "stock:update", "sacs:read", "sacs:update",
+      "stock:read", "sacs:read", "sacs:create",
       "evacuations:read", "reconciliation:read", "reconciliation:create",
       "qualite:read", "qualite:update", "anomalies:read", "anomalies:create",
       "objectifs:read", "reporting:read",
@@ -201,6 +204,28 @@
     ],
   };
 
+  /* == 4 bis. VALIDATION TERRAIN ===========================================
+     Statuts qu'un rôle à validation terrain peut POSER, et statuts de départ
+     qu'il peut quitter. Hors de ces listes : validation hiérarchique (Unit
+     Head et au-dessus). Le serveur applique la même règle (déclencheurs
+     trg_zzzz_aflp_auh_garde_*) : cette table ne sert qu'à l'affichage. */
+  var STATUTS_TERRAIN = {
+    ASSISTANT_UNIT_HEAD: {
+      villages:    { poser: ["Brouillon", "Soumis"], quitter: ["Brouillon", "Soumis", "À corriger"] },
+      rt:          { poser: ["Pressenti", "Confirmé"], quitter: ["Pressenti", "Confirmé"] },
+      producteurs: { poser: ["Identifié", "Enrôlé"], quitter: ["Identifié", "Enrôlé"] },
+    },
+  };
+  /* Statuts proposables pour une fiche. null = aucune restriction propre au
+     rôle (règles existantes inchangées). [] = statut figé pour ce rôle. */
+  function statutsAutorises(user, resource, statutActuel) {
+    var u = user && user.authorityLevel ? user : normalizeUser(user);
+    var r = STATUTS_TERRAIN[u.role] && STATUTS_TERRAIN[u.role][resource];
+    if (!r) return null;
+    if (statutActuel && r.quitter.indexOf(statutActuel) < 0) return [statutActuel];
+    return r.poser.slice();
+  }
+
   /* == 5. CATALOGUE DES RÔLES ==============================================
      `scope` = champs de périmètre exigés à la création du compte.
      `legacy: true` = rôle historique conservé tant que des comptes en
@@ -228,8 +253,8 @@
 
     { code: "ASSISTANT_UNIT_HEAD", label: "Assistant Unit Head",
       authority: "CLUSTER", scope: ["zone", "cluster"], effectif: 6,
-      resume: "Support opérationnel du cluster",
-      detail: "Mêmes données que le Unit Head, sans les validations ni l'engagement d'avances : ces actions partent en demande de validation." },
+      resume: "Appui opérationnel · validation terrain de son seul cluster",
+      detail: "Saisit, corrige et valide sur le terrain villages (→ Soumis), producteurs (→ Enrôlé) et RT (→ Confirmé, jamais un RT qu'il a créé) de son cluster. Aucune validation hiérarchique ou financière, aucune suppression, aucune donnée d'un autre cluster." },
 
     { code: "WAREHOUSE_KEEPER", label: "Warehouse Keeper",
       authority: "CLUSTER", scope: ["zone", "cluster"], effectif: null,
@@ -549,6 +574,7 @@
     normalizeUser: normalizeUser, scopeOf: scopeOf, targetOf: targetOf,
     inScope: inScope, can: can, refus: refus, scopeIncomplet: scopeIncomplet,
     demandeValidationRequise: demandeValidationRequise, filterByScope: filterByScope,
+    STATUTS_TERRAIN: STATUTS_TERRAIN, statutsAutorises: statutsAutorises,
     migrationSuggestion: migrationSuggestion,
     audit: audit, auditUser: auditUser, niveauPortail: niveauPortail,
   };
