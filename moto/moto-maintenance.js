@@ -66,10 +66,13 @@
         q('moto_v_echeances'), q('moto_v_maintenance_dossiers', function (x) { return x.order('demande_at', { ascending: false }); }),
         fin() ? q('moto_v_decisions_bm', function (x) { return x.order('soumis_at', { ascending: false }).limit(200); }) : Promise.resolve([]),
         q('moto_v_garages', function (x) { return x.order('nom'); }), q('moto_regles_versions', function (x) { return x.order('regle_code').order('version', { ascending: false }); }),
-        q('moto_modeles_techniques'), q('moto_v_cout_km'), fin() ? q('moto_v_exceptions_bm') : Promise.resolve([]), q('moto_regles_maintenance'), q('moto_v_couts')]);
+        q('moto_modeles_techniques'), q('moto_v_cout_km'), fin() ? q('moto_v_exceptions_bm') : Promise.resolve([]), q('moto_regles_maintenance'), q('moto_v_couts'),
+        /* La vue flotte ne porte pas le modèle technique : lecture directe (droits RLS de la table). */
+        q('moto_motos')]);
       // moto_v_cout_km donne les kilomètres suivis ; moto_v_couts les montants engagés, non vérifiés et payés.
       var couts = r[6].map(function (c) { var x = r[9].filter(function (y) { return y.moto_id === c.moto_id; })[0] || {}; return Object.assign({}, x, c); });
-      return { ech: r[0], dossiers: r[1], decisions: r[2], garages: r[3], versions: r[4], modeles: r[5], couts: couts, exceptions: r[7], regles: r[8] };
+      var tech = {}; (r[10] || []).forEach(function (m) { tech[m.id] = m; });
+      return { ech: r[0], dossiers: r[1], decisions: r[2], garages: r[3], versions: r[4], modeles: r[5], couts: couts, exceptions: r[7], regles: r[8], tech: tech };
     }
     function garageEnvisage(D, m) {
       if (!m) return null;
@@ -206,8 +209,10 @@
       var exc = D.versions.filter(function (v) { return v.moto_id; });
       html += '<h3>Exceptions documentées par moto</h3>' + tableauVersions(exc, D, true);
       if (peut('regle_proposer')) html += '<div class="mm-actions"><button type="button" class="mm-btn mm-secondaire mm-petit" data-mnt="version">Proposer une version de règle</button></div>';
-      html += '</section><section class="mm-bloc"><h2>Modèle technique de chaque moto</h2>' + tableau(['Moto', 'Marque / modèle enregistrés', 'Modèle technique', 'Origine', ''], I.S.flotte.map(function (m) {
-        return [esc(m.code), esc([m.marque, m.modele].filter(Boolean).join(' ') || ND), esc(m.modele_technique_code || 'Non associé'), esc(C.libelle(m.origine || 'NEUVE')),
+      html += '</section><section class="mm-bloc"><h2>Modèle technique de chaque moto</h2>' + tableau(['Moto', 'Marque / modèle enregistrés', 'Modèle technique', 'Origine', ''], I.S.flotte.map(function (m0) {
+        var m = Object.assign({}, m0, D.tech && D.tech[m0.id] ? { modele_technique_code: D.tech[m0.id].modele_technique_code, origine: D.tech[m0.id].origine || m0.origine } : {});
+        var lib = (D.modeles.filter(function (x) { return x.code === m.modele_technique_code; })[0] || {}).libelle;
+        return [esc(m.code), esc([m.marque, m.modele].filter(Boolean).join(' ') || ND), esc(m.modele_technique_code ? (lib || m.modele_technique_code) : 'Non associé'), esc(C.libelle(m.origine || 'NEUVE')),
           peut('modele_definir') ? action('mnt_modele', 'Définir', { moto: m.id, code: m.modele_technique_code || '' }) : ''];
       }), 'Aucune moto.') + '<p class="mm-note">L\'association est explicite et contrôlée par le serveur : les règles APSONIC ne s\'appliquent jamais à une moto d\'une autre marque ou d\'un autre modèle.</p></section>';
       return html;
