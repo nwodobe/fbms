@@ -1,0 +1,61 @@
+{
+ "base": "fbms_m11_e2e",
+ "date": "2026-11-04T03:37:43.641Z",
+ "resultats": [
+  {
+   "id": "AV-01-mobile",
+   "exigence": "Le déposant BM/ABM voit « Valider »",
+   "action": "Onglet Documents à 390 px",
+   "attendu": "bouton Valider (auto) présent, aucune mention « autre responsable »",
+   "obtenu": "bouton=1 ancienne mention=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/documents-mobile.png"
+  },
+  {
+   "id": "AV-02-mobile",
+   "exigence": "Auto-validation enregistrée et tracée",
+   "action": "Valider → Conforme",
+   "attendu": "statut CONFORME, vérificateur = déposant, mention auto-validation",
+   "obtenu": "ferme · Valider votre document · CONFORME · auto=true · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/valide-mobile.png"
+  },
+  {
+   "id": "AV-01-tablette",
+   "exigence": "Le déposant BM/ABM voit « Valider »",
+   "action": "Onglet Documents à 768 px",
+   "attendu": "bouton Valider (auto) présent, aucune mention « autre responsable »",
+   "obtenu": "bouton=1 ancienne mention=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/documents-tablette.png"
+  },
+  {
+   "id": "AV-02-tablette",
+   "exigence": "Auto-validation enregistrée et tracée",
+   "action": "Valider → Conforme",
+   "attendu": "statut CONFORME, vérificateur = déposant, mention auto-validation",
+   "obtenu": "ferme · Valider votre document · CONFORME · auto=true · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/valide-tablette.png"
+  },
+  {
+   "id": "AV-01-bureau",
+   "exigence": "Le déposant BM/ABM voit « Valider »",
+   "action": "Onglet Documents à 1440 px",
+   "attendu": "bouton Valider (auto) présent, aucune mention « autre responsable »",
+   "obtenu": "bouton=1 ancienne mention=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/documents-bureau.png"
+  },
+  {
+   "id": "AV-02-bureau",
+   "exigence": "Auto-validation enregistrée et tracée",
+   "action": "Valider → Conforme",
+   "attendu": "statut CONFORME, vérificateur = déposant, mention auto-validation",
+   "obtenu": "ferme · Valider votre document · CONFORME · auto=true · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/auto-validation-11/valide-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}
