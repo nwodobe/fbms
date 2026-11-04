@@ -206,6 +206,7 @@
   }
   /* Liste des points d'un contrôle : catalogue SERVEUR (la gravité affichée est celle du serveur). */
   function liste(type) { return C.listeControle(type, S.catalogue); }
+  function nomBeneficiaire(id) { var b = (S.beneficiaires || []).filter(function (x) { return x.user_id === id; })[0]; return b ? b.nom : 'Bénéficiaire'; }
   function nomMoto(m) { return [m.marque, m.modele].filter(Boolean).join(' ') || 'Marque et modèle non disponibles'; }
   function nd(v, f) { return v == null || v === '' ? C.ND : (f ? f(v) : v); }
   /* Photos : URL signée de courte durée, jamais d'URL publique. */
@@ -966,6 +967,10 @@
     var immo = m ? await OFF.immobilisationLocale(m.id) : null;
     var dot = await mesDotations();
     var etats = await rpc('moto_mes_etats_a_confirmer').catch(function () { return []; });
+    /* AFLP FLEET 14 : le BM ou l'ABM confirme pour le compte du bénéficiaire les états restés en attente. */
+    var etatsPourCompte = peut('autoriser_circulation') ? await lireTable('moto_controles', function (q) { return q.eq('type_controle', 'ETAT_REMISE').eq('confirmation_statut', 'EN_ATTENTE').order('date_controle', { ascending: false }).limit(50); }).catch(function () { return []; }) : [];
+    etatsPourCompte = etatsPourCompte.filter(function (x) { return x.beneficiaire_id !== S.profil.user_id; });
+    if (etatsPourCompte.length) await beneficiaires().catch(function () { return []; });
     var blocMission = MISSION && m ? await MISSION.blocOperations(m).catch(function () { return ''; }) : '';
     var aInspecter = [];
     if (S.classe === 'ZONE') {
@@ -989,6 +994,10 @@
         return [esc(codeMoto(x.moto_id)), esc(C.dateHeureFr(x.date_controle)), esc(C.km(x.compteur_km)), esc(x.observations || 'Aucune') + ' · ' + esc((x.items || []).filter(function (i) { return !i.ok; }).map(function (i) { return i.libelle; }).join(', ') || 'aucun défaut'),
           '<button type="button" class="mm-btn mm-primaire mm-petit" data-etat="' + esc(x.id) + '" data-moto="' + esc(x.moto_id) + '">Examiner et répondre</button>'];
       })) + '<p class="mm-note">Vérifiez la moto et les photos avec la personne qui vous la remet. Votre réponse est enregistrée à votre nom.</p></section>' : '') +
+      (etatsPourCompte.length ? '<section class="mm-bloc"><h2>États contradictoires en attente du bénéficiaire</h2>' + tableau(['Moto', 'Bénéficiaire', 'Établi le', 'Compteur', 'Action'], etatsPourCompte.map(function (x) {
+        return [esc(codeMoto(x.moto_id)), esc(nomBeneficiaire(x.beneficiaire_id)), esc(C.dateHeureFr(x.date_controle)), esc(C.km(x.compteur_km)),
+          '<button type="button" class="mm-btn mm-secondaire mm-petit" data-etat-compte="' + esc(x.id) + '">Confirmer pour le bénéficiaire</button>'];
+      })) + '<p class="mm-note">À utiliser quand le bénéficiaire est présent mais ne peut pas répondre depuis son téléphone. Votre nom et votre commentaire sont enregistrés avec la confirmation.</p></section>' : '') +
       (S.classe === 'ZONE' ? '<section class="mm-bloc"><h2>Mes inspections du mois (du 1er au ' + esc((S.params.inspection_zone_jour_fin && S.params.inspection_zone_jour_fin.valeur) || 15) + ')</h2>' +
         tableau(['Moto', 'Chef d\'unité', 'Échéance', 'Statut', 'Action'], aInspecter.map(function (x) {
           return [esc(x.code), esc(x.beneficiaire_nom || '—'), esc(C.dateFr(x.fenetre_fin)), badge(x.statut) + (x.conformite ? ' ' + badge(x.conformite) : ''),
@@ -1000,6 +1009,7 @@
     $$('[data-tuile]').forEach(function (b) { b.onclick = function () { FORMULAIRES_TERRAIN[b.dataset.tuile](m); }; });
     $$('[data-confirmer]').forEach(function (b) { b.onclick = function () { confirmerDotation(b.dataset.confirmer, b.dataset.montant); }; });
     $$('[data-etat]').forEach(function (b) { b.onclick = function () { confirmerEtat(etats.filter(function (x) { return x.id === b.dataset.etat; })[0]); }; });
+    $$('[data-etat-compte]').forEach(function (b) { b.onclick = function () { confirmerEtat(etatsPourCompte.filter(function (x) { return x.id === b.dataset.etatCompte; })[0], true); }; });
     $$('[data-inspecter]').forEach(function (b) { b.onclick = function () { var mm = motoParId(b.dataset.inspecter); if (mm) ACTIONS.inspection_mensuelle({ niveau: 'ZONE' }, mm); }; });
     if (MISSION && m) MISSION.brancherOperations(vue(), m, vueOperations);
     afficherFile();
@@ -1086,15 +1096,16 @@
         async function (v) { v.moto_id = m.id; var msg = await mettreEnFile('MAINTENANCE_DEMANDE', v, 'Entretien ' + m.code); apresTerrain(); return msg; }, 'Demander');
     }
   };
-  async function confirmerEtat(x) {
+  async function confirmerEtat(x, pourCompte) {
     if (!x) return;
     var ph = await lireTable('moto_photos', function (q) { return q.eq('controle_id', x.id); }).catch(function () { return []; });
     var d = modale('État contradictoire · ' + codeMoto(x.moto_id), '<div class="mm-galerie">' + ph.map(function (p) { return '<figure>' + imgPhoto(p.storage_path, 'mm-photo mm-photo-galerie', libPhoto(p.categorie)) + '<figcaption>' + esc(libPhoto(p.categorie)) + '</figcaption></figure>'; }).join('') + '</div>' +
       tableau(['Point', 'Constat'], (x.items || []).map(function (i) { return [esc(i.libelle), i.ok ? '✓ Conforme' : '<b class="mm-critique">Défaut</b>']; })) +
       '<p>Compteur : <b>' + esc(C.km(x.compteur_km)) + '</b> · Remise prévue le ' + esc(C.dateFr(x.date_remise_prevue)) + '</p>' + (x.observations ? '<p class="mm-note">Réserves de l\'agent : ' + esc(x.observations) + '</p>' : '') +
-      champ({ n: 'decision', l: 'Ma réponse', t: 'select', req: true, o: [['ACCEPTEE', 'J\'accepte cet état'], ['ACCEPTEE_AVEC_RESERVES', 'J\'accepte avec réserves'], ['CONTESTEE', 'Je conteste cet état']] }) +
-      champ({ n: 'commentaire', l: 'Commentaire (obligatoire pour réserves ou contestation)', t: 'textarea' }),
-    function (v) { return rpc('moto_etat_remise_confirmer', { p_controle: x.id, p_decision: v.decision, p_commentaire: v.commentaire }).then(function (r) { vueOperations(); return 'Réponse enregistrée : ' + C.libelle(r.confirmation_statut) + '.'; }); }, 'Envoyer ma réponse');
+      (pourCompte ? '<p class="mm-bandeau">Confirmation pour le compte de ' + esc(nomBeneficiaire(x.beneficiaire_id)) + ' : enregistrée à votre nom.</p>' : '') +
+      champ({ n: 'decision', l: pourCompte ? 'Réponse du bénéficiaire' : 'Ma réponse', t: 'select', req: true, o: [['ACCEPTEE', pourCompte ? 'Le bénéficiaire accepte cet état' : 'J\'accepte cet état'], ['ACCEPTEE_AVEC_RESERVES', pourCompte ? 'Il accepte avec réserves' : 'J\'accepte avec réserves'], ['CONTESTEE', pourCompte ? 'Il conteste cet état' : 'Je conteste cet état']] }) +
+      champ(pourCompte ? { n: 'commentaire', l: 'Commentaire (obligatoire, 15 caractères minimum)', t: 'textarea', req: true, min: 15, aide: 'Ex. : bénéficiaire présent, moto vérifiée ensemble au bureau.' } : { n: 'commentaire', l: 'Commentaire (obligatoire pour réserves ou contestation)', t: 'textarea' }),
+    function (v) { return rpc('moto_etat_remise_confirmer', { p_controle: x.id, p_decision: v.decision, p_commentaire: v.commentaire }).then(function (r) { vueOperations(); return (r.pour_compte ? 'Confirmation pour le compte enregistrée : ' : 'Réponse enregistrée : ') + C.libelle(r.confirmation_statut) + '.'; }); }, pourCompte ? 'Enregistrer la confirmation' : 'Envoyer ma réponse');
     chargerPhotos(d);
   }
   function confirmerDotation(id, montant) {

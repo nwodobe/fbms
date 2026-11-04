@@ -1,0 +1,88 @@
+{
+ "base": "fbms_m14_e2e",
+ "date": "2026-11-04T04:55:18.807Z",
+ "resultats": [
+  {
+   "id": "BA-01-mobile",
+   "exigence": "Le BM vérifie le permis qu'il a déposé",
+   "action": "Conducteurs → Vérifier (390 px)",
+   "attendu": "bouton Vérifier visible, permis CONFORME, trace auto-validation",
+   "obtenu": "ferme · CONFORME · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/permis-mobile.png"
+  },
+  {
+   "id": "BA-02-mobile",
+   "exigence": "Le BM confirme l'état pour le compte du bénéficiaire",
+   "action": "Opérations → Confirmer pour le bénéficiaire",
+   "attendu": "état ACCEPTEE, commentaire tracé à son nom",
+   "obtenu": "ferme · ACCEPTEE · Confirmé par BM APT FICTIF pour le compte du bénéficiaire : Bénéficiaire présent, moto vérifiée ensemble au bureau",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/etat-mobile.png"
+  },
+  {
+   "id": "BA-03-mobile",
+   "exigence": "Le BM enregistre la remise puis autorise la circulation",
+   "action": "Remise (compteur + équipements) → Autoriser",
+   "attendu": "moto remise et autorisée à circuler, tout depuis le compte BM",
+   "obtenu": "remise=ferme autorisation=ferme autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/autorisee-mobile.png"
+  },
+  {
+   "id": "BA-01-tablette",
+   "exigence": "Le BM vérifie le permis qu'il a déposé",
+   "action": "Conducteurs → Vérifier (768 px)",
+   "attendu": "bouton Vérifier visible, permis CONFORME, trace auto-validation",
+   "obtenu": "ferme · CONFORME · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/permis-tablette.png"
+  },
+  {
+   "id": "BA-02-tablette",
+   "exigence": "Le BM confirme l'état pour le compte du bénéficiaire",
+   "action": "Opérations → Confirmer pour le bénéficiaire",
+   "attendu": "état ACCEPTEE, commentaire tracé à son nom",
+   "obtenu": "ferme · ACCEPTEE · Confirmé par BM APT FICTIF pour le compte du bénéficiaire : Bénéficiaire présent, moto vérifiée ensemble au bureau",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/etat-tablette.png"
+  },
+  {
+   "id": "BA-03-tablette",
+   "exigence": "Le BM enregistre la remise puis autorise la circulation",
+   "action": "Remise (compteur + équipements) → Autoriser",
+   "attendu": "moto remise et autorisée à circuler, tout depuis le compte BM",
+   "obtenu": "remise=ferme autorisation=ferme autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/autorisee-tablette.png"
+  },
+  {
+   "id": "BA-01-bureau",
+   "exigence": "Le BM vérifie le permis qu'il a déposé",
+   "action": "Conducteurs → Vérifier (1440 px)",
+   "attendu": "bouton Vérifier visible, permis CONFORME, trace auto-validation",
+   "obtenu": "ferme · CONFORME · Auto-validation par le déposant",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/permis-bureau.png"
+  },
+  {
+   "id": "BA-02-bureau",
+   "exigence": "Le BM confirme l'état pour le compte du bénéficiaire",
+   "action": "Opérations → Confirmer pour le bénéficiaire",
+   "attendu": "état ACCEPTEE, commentaire tracé à son nom",
+   "obtenu": "ferme · ACCEPTEE · Confirmé par BM APT FICTIF pour le compte du bénéficiaire : Bénéficiaire présent, moto vérifiée ensemble au bureau",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/etat-bureau.png"
+  },
+  {
+   "id": "BA-03-bureau",
+   "exigence": "Le BM enregistre la remise puis autorise la circulation",
+   "action": "Remise (compteur + équipements) → Autoriser",
+   "attendu": "moto remise et autorisée à circuler, tout depuis le compte BM",
+   "obtenu": "remise=ferme autorisation=ferme autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/bm-autonome-14/autorisee-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}
