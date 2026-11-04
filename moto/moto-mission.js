@@ -188,7 +188,11 @@
         I.champ({ n: 'compteur_km', l: 'Compteur (km)', t: 'nombre', req: true, v: lu.valeur != null ? lu.valeur : '', pas: '0.1', aide: 'Dernier relevé connu : ' + km(dernier) + (mission ? ' · départ de la mission : ' + km(mission.km_depart) : '') }) +
         (moment === 'DEPART' ? I.champ({ n: 'objet', l: 'Objet de la mission', t: 'select', req: true, o: OBJETS, v: prec.objet || '' }) +
           '<div class="mm-champ mm-large" data-detail hidden><label for="f_objet_detail">Précisez l\'objet *</label><input id="f_objet_detail" name="objet_detail" minlength="5"></div>' +
-          '<div class="mm-champ mm-large"><label for="f_destination">Destination (village ou cluster) *</label><input id="f_destination" name="destination" required minlength="2" list="mmVillages" value="' + esc(prec.destination || '') + '" autocomplete="off"><datalist id="mmVillages">' + listeVillages + '</datalist></div>' : '');
+          '<div class="mm-champ mm-large" data-dest-liste><label for="f_destination">Destination (village ou cluster) *</label><input id="f_destination" name="destination" required minlength="2" list="mmVillages" value="' + esc(prec.destination || '') + '" autocomplete="off"><datalist id="mmVillages">' + listeVillages + '</datalist>' +
+            '<small class="mm-aide">Choisissez dans la liste, ou cochez la case ci-dessous si le lieu n\'y figure pas.</small></div>' +
+          '<label class="mm-case mm-large"><input type="checkbox" name="destination_hors_liste" data-dest-coche> Le lieu n\'est pas dans la liste</label>' +
+          '<div class="mm-champ mm-large" data-dest-libre hidden><label for="f_destination_libre">Lieu de la mission (à écrire) *</label><input id="f_destination_libre" name="destination_libre" minlength="2" maxlength="120" autocomplete="off" placeholder="Ex. : campement Kouassikro, marché de Botro">' +
+            '<small class="mm-aide">Écrivez le nom du lieu tel qu\'on le dit sur place (village, campement, marché, magasin…).</small></div>' : '');
       I.modale(moment === 'DEPART' ? 'Départ de mission · ' + m.code : 'Fin de mission · ' + m.code, corps, async function (v) {
         var compteur = C.nombreSaisi ? C.nombreSaisi(v.compteur_km) : Number(String(v.compteur_km).replace(',', '.'));
         if (!(compteur >= 0)) throw new Error('Compteur invalide.');
@@ -201,10 +205,11 @@
         var fichiers = [{ champ: 'photo_path', blob: blob, moto_id: m.id, categorie: 'mission', extension: 'jpg' }];
         if (moment === 'DEPART') {
           if (v.objet === 'AUTRE' && (!v.objet_detail || v.objet_detail.length < 5)) throw new Error('Précisez l\'objet de la mission (5 caractères au moins).');
-          p.mission_id = OFF.uuid(); p.objet = v.objet; p.objet_detail = v.objet_detail || null; p.destination = v.destination;
+          p.mission_id = OFF.uuid(); p.objet = v.objet; p.objet_detail = v.objet_detail || null; p.destination = v.destination_hors_liste ? String(v.destination_libre || '').trim() : v.destination;
+          if (v.destination_hors_liste && p.destination.length < 2) throw new Error('Écrivez le lieu de la mission (2 caractères au moins).');
           var op = await OFF.ajouter('MISSION_DEPART', p, { libelle: 'Départ de mission ' + m.code, fichiers: fichiers });
-          await memoriserMission({ id: p.mission_id, moto_id: m.id, moto_code: m.code, depart_at: cap.at, km_depart: compteur, objet: v.objet, destination: v.destination, depart_client_op_id: op.client_op_id });
-          OFF.memoriser('mission_preferences', { objet: v.objet, destination: v.destination });
+          await memoriserMission({ id: p.mission_id, moto_id: m.id, moto_code: m.code, depart_at: cap.at, km_depart: compteur, objet: v.objet, destination: p.destination, depart_client_op_id: op.client_op_id });
+          OFF.memoriser('mission_preferences', { objet: v.objet, destination: p.destination });
         } else {
           p.mission_id = mission.id;
           await OFF.ajouter('MISSION_ARRIVEE', p, { libelle: 'Fin de mission ' + m.code, fichiers: fichiers });
@@ -218,6 +223,14 @@
       }, moment === 'DEPART' ? 'Valider le départ' : 'Valider l\'arrivée');
       var sel = document.querySelector('dialog.mm-modale select[name="objet"]');
       if (sel) { var maj = function () { var dz = document.querySelector('dialog.mm-modale [data-detail]'); if (dz) dz.hidden = sel.value !== 'AUTRE'; }; sel.onchange = maj; maj(); }
+      /* Lieu hors liste : la case remplace la liste par un champ libre (le serveur accepte tout lieu de 2 caractères ou plus). */
+      var coche = document.querySelector('dialog.mm-modale [data-dest-coche]');
+      if (coche) { var bascule = function () {
+        var dl = document.querySelector('dialog.mm-modale [data-dest-liste]'), dlib = document.querySelector('dialog.mm-modale [data-dest-libre]');
+        var inL = dl && dl.querySelector('input'), inLib = dlib && dlib.querySelector('input');
+        if (dl) dl.hidden = coche.checked; if (dlib) dlib.hidden = !coche.checked;
+        if (inL) inL.required = !coche.checked; if (inLib) { inLib.required = coche.checked; if (coche.checked) inLib.focus(); }
+      }; coche.onchange = bascule; bascule(); }
       var champKm = document.querySelector('dialog.mm-modale input[name="compteur_km"]'); if (champKm) champKm.focus();
     }
 
