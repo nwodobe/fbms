@@ -178,7 +178,15 @@
         return '<p class="mm-bandeau mm-ok">Permis du bénéficiaire : conforme (contrôlé par ' + esc(p.verification_rh_nom || ND) + '), catégories ' + esc((p.categories || []).join(', ')) +
           ', ' + esc(p.sans_expiration ? 'sans date d\'expiration' : 'valable jusqu\'au ' + C.dateFr(p.date_expiration)) + '. Repris automatiquement dans la remise.</p>';
       }
-      return '<p class="mm-bandeau mm-ko">Aucun permis conforme et valide pour ce bénéficiaire : la remise sera refusée. Faites scanner et vérifier son permis (espace Conducteurs).</p>';
+      /* AFLP FLEET 16 : un permis enregistré (en vérification, non expiré) suffit tant que permis_verification_obligatoire vaut 0. */
+      var pv = S.params && S.params.permis_verification_obligatoire, exige = pv && pv.valeur != null && Number(pv.valeur) >= 1;
+      var e = l.filter(function (x) { return x.statut === 'EN_VERIFICATION' && x.statut_validite !== 'EXPIRE'; })[0];
+      if (e && !exige) {
+        return '<p class="mm-bandeau mm-ok">Permis du bénéficiaire enregistré (n° ' + esc(e.numero_permis) + ', catégories ' + esc((e.categories || []).join(', ')) +
+          ') : la remise est acceptée. Il reste à vérifier sur l\'original dans l\'espace Conducteurs, sans bloquer la remise.</p>';
+      }
+      if (e) return '<p class="mm-bandeau mm-ko">Permis enregistré mais pas encore vérifié : la vérification est exigée avant la remise (espace Conducteurs → Vérifier).</p>';
+      return '<p class="mm-bandeau mm-ko">Aucun permis enregistré pour ce bénéficiaire : la remise sera refusée. Scannez son permis dans l\'espace Conducteurs.</p>';
     }
 
     return { vue: vue, blocMonPermis: blocMonPermis, brancherMonPermis: brancherMonPermis, infoRemise: infoRemise, enregistrer: enregistrer };
