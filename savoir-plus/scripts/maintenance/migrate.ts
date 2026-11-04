@@ -7,10 +7,13 @@
  *
  * Usage : npm run db:migrate
  */
+import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { migrate } from 'drizzle-orm/neon-serverless/migrator';
-import { Pool } from '@neondatabase/serverless';
-import { assertDirectConnection, assertNotProductionBranch } from '../../src/server/db/connection-guard';
+import {
+  assertDirectConnection,
+  assertNotProductionBranch,
+} from '../../src/server/db/connection-guard';
 
 async function main(): Promise<void> {
   const connectionString = assertDirectConnection(process.env['DATABASE_URL_UNPOOLED']);
