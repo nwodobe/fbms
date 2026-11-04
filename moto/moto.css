@@ -132,6 +132,8 @@ a{color:var(--emerald-dark)}
 .mm-file-resume{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
 
 .mm-champ{display:flex;flex-direction:column;gap:4px;min-width:0;margin-bottom:10px;border:0;padding:0}
+/* L'attribut hidden doit masquer un champ même quand .mm-champ impose display:flex (précision d'objet, lieu hors liste). */
+.mm-champ[hidden],.mm-case[hidden]{display:none}
 .mm-champ label,.mm-champ legend{font-size:12px;font-weight:800;letter-spacing:.03em;color:var(--forest)}
 .mm-champ input,.mm-champ select,.mm-champ textarea{width:100%;min-height:44px;border:1px solid #C9D6CD;border-radius:10px;padding:10px 11px;font:15px var(--font-body);color:var(--ink);background:#fff}
 .mm-champ textarea{min-height:84px;resize:vertical}
