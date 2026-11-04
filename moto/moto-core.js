@@ -42,7 +42,7 @@
   /* Ce que l'interface PROPOSE. La décision réelle est prise par le serveur
      (fonctions SECURITY DEFINER + RLS) : masquer un bouton ne protège rien. */
   var DROITS = {
-    BM:        ['lire', 'contre_visite', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
+    BM:        ['lire', 'contre_visite', 'autoriser_circulation', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'preaffecter', 'remettre', 'mettre_en_service', 'transferer',
                 'budgets', 'valider_budget', 'dotations', 'rapprochement', 'verifier_justificatifs', 'valider_corrections', 'valider_remboursements',
                 'incident_piloter', 'pneus', 'parametres', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'valider_enveloppe', 'verifier_depense', 'exceptions',
@@ -53,7 +53,7 @@
                 'permis_voir', 'permis_enregistrer', 'permis_verifier',
                 // Migration 8 : journal de mission (photo du compteur au départ et à l'arrivée).
                 'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
-    ABM:       ['lire', 'contre_visite', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
+    ABM:       ['lire', 'contre_visite', 'autoriser_circulation', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
                 'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',

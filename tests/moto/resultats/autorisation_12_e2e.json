@@ -1,0 +1,61 @@
+{
+ "base": "fbms_m12_e2e",
+ "date": "2026-11-04T03:52:15.999Z",
+ "resultats": [
+  {
+   "id": "AC-01-mobile",
+   "exigence": "L'ABM voit « Autoriser » sur une moto remise",
+   "action": "Synthèse à 390 px",
+   "attendu": "bouton Autoriser la circulation présent",
+   "obtenu": "boutons=2",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/synthese-mobile.png"
+  },
+  {
+   "id": "AC-02-mobile",
+   "exigence": "Autorisation par l'ABM, auteur de la remise, tracée",
+   "action": "Autoriser → motif → valider",
+   "attendu": "moto autorisée à circuler, motif « Auto-autorisation »",
+   "obtenu": "ferme · autorisée=true · Auto-autorisation : auteur de la remise. Autorisation recette navigateur · Autorisation de circulerAutoriséeDocuments : Conforme · Remi",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/autorisee-mobile.png"
+  },
+  {
+   "id": "AC-01-tablette",
+   "exigence": "L'ABM voit « Autoriser » sur une moto remise",
+   "action": "Synthèse à 768 px",
+   "attendu": "bouton Autoriser la circulation présent",
+   "obtenu": "boutons=2",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/synthese-tablette.png"
+  },
+  {
+   "id": "AC-02-tablette",
+   "exigence": "Autorisation par l'ABM, auteur de la remise, tracée",
+   "action": "Autoriser → motif → valider",
+   "attendu": "moto autorisée à circuler, motif « Auto-autorisation »",
+   "obtenu": "ferme · autorisée=true · Auto-autorisation : auteur de la remise. Autorisation recette navigateur · Autorisation de circulerAutoriséeDocuments : Conforme · Remi",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/autorisee-tablette.png"
+  },
+  {
+   "id": "AC-01-bureau",
+   "exigence": "L'ABM voit « Autoriser » sur une moto remise",
+   "action": "Synthèse à 1440 px",
+   "attendu": "bouton Autoriser la circulation présent",
+   "obtenu": "boutons=2",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/synthese-bureau.png"
+  },
+  {
+   "id": "AC-02-bureau",
+   "exigence": "Autorisation par l'ABM, auteur de la remise, tracée",
+   "action": "Autoriser → motif → valider",
+   "attendu": "moto autorisée à circuler, motif « Auto-autorisation »",
+   "obtenu": "ferme · autorisée=true · Auto-autorisation : auteur de la remise. Autorisation recette navigateur · Autorisation de circulerAutoriséeDocuments : Conforme · Remi",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/autorisation-12/autorisee-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}

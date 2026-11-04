@@ -435,7 +435,7 @@
     if (peut('inspection_mensuelle') && m.mise_en_service_at && m.beneficiaire_id !== S.profil.user_id) actions.push(action('inspection_mensuelle', 'Inspection mensuelle', { id: m.id }, 'mm-primaire'));
     if (!prevue && m.beneficiaire_id !== S.profil.user_id && peut('inspection_independante') && m.beneficiaire_classe === 'LOGISTIQUE' && m.mise_en_service_at) actions.push(action('inspection_mensuelle', 'Contrôle indépendant', { id: m.id, niveau: 'INDEPENDANTE' }));
     if (!prevue && (peut('actions') || peut('inspection_mensuelle') || m.beneficiaire_id === S.profil.user_id)) actions.push(action('signaler', 'Signaler une anomalie', { id: m.id }));
-    if (peut('mettre_en_service') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 && !m.mise_en_service_at) actions.push(action('mise_en_service', 'Autoriser la circulation', { id: m.id }, 'mm-primaire'));
+    if (peut('autoriser_circulation') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 && !m.mise_en_service_at) actions.push(action('mise_en_service', 'Autoriser la circulation', { id: m.id }, 'mm-primaire'));
     if (peut('transferer') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0) actions.push(action('transferer', 'Transférer', { id: m.id }));
     // Contre-visite : proposée seulement quand elle sert (moto non apte, immobilisée ou incident ouvert).
     if ((peut('incident_piloter') || (r[5] && peut('contre_visite'))) && (!r[5] || m.statut_technique !== 'APTE' || Number(m.incidents_ouverts) > 0)) actions.push(action('controle_remise', r[5] ? 'Contre-visite (remise en service)' : 'Contrôle de remise en service', { id: m.id }));
@@ -469,7 +469,7 @@
     identite: function () { return peut('inventaire') ? ['identite', 'Compléter'] : null; },
     preaffecter: function (m) { return peut('preaffecter') && m.statut_affectation === 'NON_AFFECTEE' ? ['preaffecter', 'Préaffecter'] : null; },
     etat_remise: function (m) { return peut('etat_remise') && m.statut_affectation === 'PREAFFECTEE' ? ['etat_remise', 'État contradictoire'] : null; },
-    mise_en_service: function (m) { return peut('mettre_en_service') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 ? ['mise_en_service', 'Autoriser'] : null; }
+    mise_en_service: function (m) { return peut('autoriser_circulation') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 ? ['mise_en_service', 'Autoriser'] : null; }
   };
   var DOMAINES = { TECHNIQUE: 'Technique', ADMINISTRATIF: 'Documents', AFFECTATION: 'Affectation', CIRCULATION: 'Circulation' };
   function sectionAptitude(m, a) {
@@ -893,7 +893,7 @@
       }, 'Enregistrer la remise');
     },
     mise_en_service: function (d, m) {
-      modale('Autoriser la circulation de ' + m.code, '<p>Décision distincte de la remise et du passage en production du logiciel. Le serveur vérifie documents, état technique, remise et séparation des tâches.</p>' +
+      modale('Autoriser la circulation de ' + m.code, '<p>Décision du Branch Manager ou de l\'Assistant Branch Manager, distincte de la remise. Le serveur vérifie documents, état technique, remise et défauts de sécurité. Si vous avez vous-même enregistré la remise, l\'autorisation est tracée comme « auto-autorisation ».</p>' +
         champ({ n: 'motif', l: 'Motif de la décision', t: 'textarea', req: true, min: 5 }), function (v) { return rpc('moto_mettre_en_service', { p_moto: m.id, p_motif: v.motif }).then(apres(m.id)); }, 'Autoriser');
     },
     transferer: async function (d, m) {

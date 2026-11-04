@@ -21,7 +21,9 @@ test('Classes métier : correspondance stricte avec private.moto_classe()', () =
   assert.equal(C.classeDepuisRole('Supervisor'), null);
   assert.equal(C.classeDepuisRole('Agent Recenseur'), null);
   assert.equal(C.peut('UNITE', 'admin'), false);
-  assert.equal(C.peut('ABM', 'mettre_en_service'), false, 'la mise en service reste au BM');
+  assert.equal(C.peut('ABM', 'autoriser_circulation'), true, 'migration 12 : l\'ABM autorise aussi la circulation');
+  assert.equal(C.peut('ABM', 'mettre_en_service'), false, 'les actions de permis restent au BM');
+  assert.equal(C.peut('UNITE', 'autoriser_circulation'), false);
   assert.equal(C.peut('ABM', 'valider_corrections'), false, 'l\'ABM ne valide pas ses corrections');
 });
 
