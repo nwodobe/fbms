@@ -83,6 +83,7 @@
         '<div><dt>Délivré le</dt><dd>' + esc(C.dateFr(p.date_delivrance)) + '</dd></div><div><dt>Expire le</dt><dd>' + esc(p.sans_expiration ? 'Aucune date sur le document' : C.dateFr(p.date_expiration)) + '</dd></div>' +
         '<div><dt>Déposé par</dt><dd>' + esc(p.depose_par_nom || ND) + ' · ' + esc(C.dateHeureFr(p.depose_at)) + '</dd></div></dl>' +
         '<p>' + action('voir_fichier', 'Ouvrir le scan', { chemin: p.document_path }, 'mm-primaire') + '</p>' +
+        (p.depose_par === S.profil.user_id ? '<p class="mm-note">Vous avez déposé ce permis : votre décision sera enregistrée comme auto-validation par le déposant.</p>' : '') +
         '<p class="mm-note">Comparez le scan ET les informations saisies avec l\'original présenté. Un permis douteux, illisible ou dont la catégorie ne convient pas à la moto doit être déclaré non conforme.</p>' +
         '<div class="mm-grille-form">' + champ({ n: 'statut', l: 'Décision', t: 'select', req: true, o: [['CONFORME', 'Conforme à l\'original'], ['NON_CONFORME', 'Non conforme']] }) +
         champ({ n: 'rh', l: 'Original contrôlé par (nom, RH)', aide: 'Obligatoire si conforme.' }) +
@@ -113,7 +114,8 @@
         champ({ n: 'motif', l: 'Motif de la levée (10 caractères minimum)', t: 'textarea', req: true, min: 10 }),
         function (v) { return rpc('moto_permis_lever_retrait', { p_permis: p.id, p_motif: v.motif }).then(function (r) { if (apres) apres(); return r.note; }); }, 'Lever le retrait');
     }
-    function peutVerifier(p) { return peut('permis_verifier') && p && p.statut === 'EN_VERIFICATION' && p.depose_par !== S.profil.user_id && p.titulaire_id !== S.profil.user_id; }
+    /* AFLP FLEET 14 : le BM ou l'ABM qui a déposé le permis peut le vérifier (trace « auto-validation » côté serveur). */
+    function peutVerifier(p) { return peut('permis_verifier') && p && p.statut === 'EN_VERIFICATION' && p.titulaire_id !== S.profil.user_id; }
 
     /* -- Espace « Conducteurs » ------------------------------------------------ */
     async function vue() {
