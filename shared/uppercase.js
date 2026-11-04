@@ -60,7 +60,7 @@
       var s = document.createElement("script");
       s.id = "fbms-field-hardening-script";
       s.defer = true;
-      s.src = "../shared/fbms-field-hardening.js?v=20260721-hardening";
+      s.src = "../shared/fbms-field-hardening.js?v=20260816-village-validation-context";
       document.head.appendChild(s);
     } catch (e) { /* ignorer */ }
   }
