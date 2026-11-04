@@ -557,7 +557,9 @@
       '<section class="mm-bloc"><h2>Achats</h2>' + tableau(['Date', 'Compteur', 'Litres', 'Montant', 'Plein', 'Financement', 'Justificatif', 'Action'], achats.map(function (a) {
         return [esc(C.dateHeureFr(a.date_achat)), esc(C.km(a.compteur_km)), esc(String(a.litres).replace('.', ',')), esc(C.fcfa(a.montant)), a.plein_complet ? 'Complet' : 'Partiel', esc(C.libelle(a.financement)),
           badge(a.justificatif_statut) + (a.justificatif_path ? ' ' + action('voir_fichier', 'Photo', { chemin: a.justificatif_path }) : ''),
-          (peut('verifier_justificatifs') && a.justificatif_statut === 'A_VERIFIER' && a.saisi_par !== S.profil.user_id && a.agent_id !== S.profil.user_id) ? action('verifier_justificatif', 'Vérifier', { id: a.id }, 'mm-primaire') : ''];
+          ((peut('verifier_justificatifs') && a.justificatif_statut === 'A_VERIFIER' && a.saisi_par !== S.profil.user_id && a.agent_id !== S.profil.user_id) ? action('verifier_justificatif', 'Vérifier', { id: a.id }, 'mm-primaire') : '') +
+          /* AFLP FLEET 20 : suppression réservée au Branch Manager (non remboursé, justificatif non vérifié). */
+          ((S.classe === 'BM' && !a.remboursement_id && a.justificatif_statut !== 'VERIFIE') ? ' ' + action('supprimer_carburant', 'Supprimer', { id: a.id, libelle: C.dateHeureFr(a.date_achat) + ' · ' + String(a.litres).replace('.', ',') + ' L · ' + C.fcfa(a.montant) }, 'mm-danger') : '')];
       }), 'Aucun achat déclaré.') + '</section>';
   }
   async function ongletEntretiens(m) {
@@ -917,6 +919,11 @@
     retirer: function (d, m) {
       modale('Retirer l\'affectation de ' + m.code, '<p class="mm-bandeau mm-warn">La moto redevient non affectée et perd son autorisation de circulation.</p>' + champ({ n: 'motif', l: 'Motif (10 caractères minimum)', t: 'textarea', req: true, min: 10 }),
         function (v) { return rpc('moto_retirer', { p_moto: m.id, p_motif: v.motif }).then(apres(m.id)); }, 'Retirer');
+    },
+    supprimer_carburant: function (d, m) {
+      modale('Supprimer un achat de carburant', '<p class="mm-bandeau mm-warn">Achat du ' + esc(d.libelle || '') + '. Il disparaît des consommations, coûts et soldes. La ligne complète, votre nom et le motif restent dans le journal d\'audit.</p>' +
+        champ({ n: 'motif', l: 'Motif (10 caractères minimum)', t: 'textarea', req: true, min: 10, aide: 'Ex. : saisie de test, doublon, erreur de moto.' }),
+        function (v) { return rpc('moto_carburant_supprimer', { p_carburant: d.id, p_motif: v.motif }).then(function (r) { if (m) apres(m.id, 'carburant')(); else router(); return r.note; }); }, 'Supprimer');
     },
     verifier_justificatif: function (d, m) {
       modale('Vérifier le justificatif', champ({ n: 'statut', l: 'Décision', t: 'select', req: true, o: [['VERIFIE', 'Vérifié : reçu lisible et cohérent'], ['REJETE', 'Rejeté']] }) + champ({ n: 'motif', l: 'Motif (obligatoire si rejet)', t: 'textarea' }),

@@ -1,0 +1,61 @@
+{
+ "base": "fbms_m20_e2e",
+ "date": "2026-11-04T15:13:03.433Z",
+ "resultats": [
+  {
+   "id": "CB-01-mobile",
+   "exigence": "L'ABM ne voit pas « Supprimer »",
+   "action": "Carburant ABM (390 px)",
+   "attendu": "aucun bouton Supprimer",
+   "obtenu": "boutons=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/abm-mobile.png"
+  },
+  {
+   "id": "CB-02-mobile",
+   "exigence": "Le BM supprime avec motif, trace dans le journal",
+   "action": "Carburant BM (390 px)",
+   "attendu": "achat supprimé, journal DELETE avec motif",
+   "obtenu": "ferme · lignes=0 · journal=Saisie de test du Branch Manager",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/bm-mobile.png"
+  },
+  {
+   "id": "CB-01-tablette",
+   "exigence": "L'ABM ne voit pas « Supprimer »",
+   "action": "Carburant ABM (768 px)",
+   "attendu": "aucun bouton Supprimer",
+   "obtenu": "boutons=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/abm-tablette.png"
+  },
+  {
+   "id": "CB-02-tablette",
+   "exigence": "Le BM supprime avec motif, trace dans le journal",
+   "action": "Carburant BM (768 px)",
+   "attendu": "achat supprimé, journal DELETE avec motif",
+   "obtenu": "ferme · lignes=0 · journal=Saisie de test du Branch Manager",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/bm-tablette.png"
+  },
+  {
+   "id": "CB-01-bureau",
+   "exigence": "L'ABM ne voit pas « Supprimer »",
+   "action": "Carburant ABM (1440 px)",
+   "attendu": "aucun bouton Supprimer",
+   "obtenu": "boutons=0",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/abm-bureau.png"
+  },
+  {
+   "id": "CB-02-bureau",
+   "exigence": "Le BM supprime avec motif, trace dans le journal",
+   "action": "Carburant BM (1440 px)",
+   "attendu": "achat supprimé, journal DELETE avec motif",
+   "obtenu": "ferme · lignes=0 · journal=Saisie de test du Branch Manager",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/carburant-20/bm-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}
