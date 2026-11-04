@@ -500,6 +500,8 @@
       '<h3>Ce qu\'il reste à faire</h3>' + (reste ? '<ul class="mm-exigences">' + reste + '</ul>' : '<p class="mm-vide">Rien : la moto est autorisée à circuler.</p>') +
       '<p class="mm-note">Une aptitude technique n\'autorise jamais à elle seule la circulation. Aucun bouton ne rend une moto apte sans contrôle physique attesté par un mécanicien nommé. <a href="#/moto/' + esc(m.id) + '/controles">Historique des contrôles</a></p></section>';
   }
+  /* Migration 13 : le PV de remise n'est exigé que si le paramètre le demande (décision du BM). */
+  function pvExige() { var p = S.params.pv_remise_obligatoire; return !p || p.valeur == null ? false : Number(p.valeur) >= 1; }
   function pointsBloquants() { return (S.params.points_circulation_bloquants && S.params.points_circulation_bloquants.valeur_json) || []; }
   function kpi(t, v, s) { return '<div class="mm-kpi"><small>' + esc(t) + '</small><b>' + esc(v) + '</b><span>' + esc(s || '') + '</span></div>'; }
 
@@ -883,13 +885,13 @@
       var docs = await lireTable('moto_documents', function (q) { return q.eq('moto_id', m.id).eq('type_document', 'PV_REMISE').eq('statut', 'CONFORME'); });
       var eq = (S.params.equipements_obligatoires && S.params.equipements_obligatoires.valeur_json) || [];
       modale('Remise officielle de ' + m.code, '<div class="mm-grille-form">' +
-        champ({ n: 'pv_document_id', l: 'Procès-verbal signé, numérisé et vérifié', t: 'select', req: true, large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at) + (x.numero_reference ? ' · ' + x.numero_reference : '')]; }),
-               aide: docs.length ? '' : 'Aucun PV vérifié : déposez le PV numérisé (onglet Documents) et faites-le vérifier par un autre responsable.' }) +
+        champ({ n: 'pv_document_id', l: 'Procès-verbal signé' + (pvExige() ? ', numérisé et vérifié' : ' (facultatif)'), t: 'select', req: pvExige(), large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at) + (x.numero_reference ? ' · ' + x.numero_reference : '')]; }),
+               aide: docs.length ? '' : (pvExige() ? 'Aucun PV vérifié : déposez le PV numérisé (onglet Documents), puis validez-le.' : 'Facultatif : la remise peut être enregistrée sans PV.') }) +
         champ({ n: 'compteur_km', l: 'Compteur à la remise', t: 'nombre', req: true }) + '</div>' + (PERMIS ? await PERMIS.infoRemise(m.beneficiaire_id) : '') +
         '<fieldset class="mm-champ mm-large"><legend>Équipements de sécurité remis</legend>' + eq.map(function (k) { return '<label class="mm-case"><input type="checkbox" name="eq_' + esc(k) + '"> ' + esc(k.replace(/_/g, ' ').toLowerCase()) + '</label>'; }).join('') + '</fieldset>',
       function (v) {
         var equip = {}; eq.forEach(function (k) { equip[k] = !!v['eq_' + k]; });
-        return rpc('moto_remettre', { p: { moto_id: m.id, pv_document_id: v.pv_document_id, compteur_km: v.compteur_km, equipements: equip } }).then(function (r) { apres(m.id)(); return r.note; });
+        return rpc('moto_remettre', { p: { moto_id: m.id, pv_document_id: v.pv_document_id || null, compteur_km: v.compteur_km, equipements: equip } }).then(function (r) { apres(m.id)(); return r.note; });
       }, 'Enregistrer la remise');
     },
     mise_en_service: function (d, m) {
@@ -901,7 +903,7 @@
       var docs = await lireTable('moto_documents', function (q) { return q.eq('moto_id', m.id).eq('type_document', 'PV_REMISE').eq('statut', 'CONFORME'); });
       var eq = (S.params.equipements_obligatoires && S.params.equipements_obligatoires.valeur_json) || [];
       modale('Transférer ' + m.code, '<div class="mm-grille-form">' + champ({ n: 'beneficiaire_id', l: 'Nouveau bénéficiaire', t: 'select', req: true, large: true, o: b.map(function (x) { return [x.user_id, x.nom + ' · ' + (x.cluster_code || x.role)]; }) }) +
-        champ({ n: 'pv_document_id', l: 'PV de transfert vérifié', t: 'select', req: true, large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at)]; }) }) +
+        champ({ n: 'pv_document_id', l: 'PV de transfert' + (pvExige() ? ' vérifié' : ' (facultatif)'), t: 'select', req: pvExige(), large: true, o: docs.map(function (x) { return [x.id, 'PV du ' + C.dateFr(x.depose_at)]; }) }) +
         champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre', req: true }) + '</div><div data-info-permis>' + (PERMIS ? await PERMIS.infoRemise(null) : '') + '</div><fieldset class="mm-champ mm-large"><legend>Équipements</legend>' +
         eq.map(function (k) { return '<label class="mm-case"><input type="checkbox" name="eq_' + esc(k) + '"> ' + esc(k.replace(/_/g, ' ').toLowerCase()) + '</label>'; }).join('') + '</fieldset>' + champ({ n: 'motif', l: 'Motif', t: 'textarea', req: true, min: 5 }),
       function (v) { var equip = {}; eq.forEach(function (k) { equip[k] = !!v['eq_' + k]; }); v.equipements = equip; v.moto_id = m.id; return rpc('moto_transferer', { p: v }).then(apres(m.id)); }, 'Transférer');

@@ -1,0 +1,61 @@
+{
+ "base": "fbms_m13_e2e",
+ "date": "2026-11-04T04:13:09.005Z",
+ "resultats": [
+  {
+   "id": "RS-01-mobile",
+   "exigence": "Formulaire de remise : PV facultatif",
+   "action": "Remise à 390 px",
+   "attendu": "champ PV « (facultatif) », non obligatoire",
+   "obtenu": "Procès-verbal signé (facultatif) · obligatoire=false",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/formulaire-mobile.png"
+  },
+  {
+   "id": "RS-02-mobile",
+   "exigence": "Remise enregistrée sans PV puis autorisation",
+   "action": "Compteur + équipements → Enregistrer, puis Autoriser",
+   "attendu": "remise enregistrée sans PV, moto autorisée à circuler",
+   "obtenu": "remise=ferme autorisation=ferme sans_pv=true autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/autorisee-mobile.png"
+  },
+  {
+   "id": "RS-01-tablette",
+   "exigence": "Formulaire de remise : PV facultatif",
+   "action": "Remise à 768 px",
+   "attendu": "champ PV « (facultatif) », non obligatoire",
+   "obtenu": "Procès-verbal signé (facultatif) · obligatoire=false",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/formulaire-tablette.png"
+  },
+  {
+   "id": "RS-02-tablette",
+   "exigence": "Remise enregistrée sans PV puis autorisation",
+   "action": "Compteur + équipements → Enregistrer, puis Autoriser",
+   "attendu": "remise enregistrée sans PV, moto autorisée à circuler",
+   "obtenu": "remise=ferme autorisation=ferme sans_pv=true autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/autorisee-tablette.png"
+  },
+  {
+   "id": "RS-01-bureau",
+   "exigence": "Formulaire de remise : PV facultatif",
+   "action": "Remise à 1440 px",
+   "attendu": "champ PV « (facultatif) », non obligatoire",
+   "obtenu": "Procès-verbal signé (facultatif) · obligatoire=false",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/formulaire-bureau.png"
+  },
+  {
+   "id": "RS-02-bureau",
+   "exigence": "Remise enregistrée sans PV puis autorisation",
+   "action": "Compteur + équipements → Enregistrer, puis Autoriser",
+   "attendu": "remise enregistrée sans PV, moto autorisée à circuler",
+   "obtenu": "remise=ferme autorisation=ferme sans_pv=true autorisée=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/remise-13/autorisee-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}
