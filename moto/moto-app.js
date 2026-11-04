@@ -417,7 +417,7 @@
     var co = r[0][0] || {}, ck = r[1][0] || {}, di = r[2][0] || {};
     var conditions = [
       ['Documents administratifs conformes', m.statut_administratif === 'CONFORME'], ['Contrôle technique apte', m.statut_technique === 'APTE'],
-      ['Remise enregistrée (PV vérifié + état contradictoire accepté)', ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0], ['Autorisation de circulation du Branch Manager', !!m.mise_en_service_at],
+      [etatExige() ? 'Remise enregistrée (état contradictoire accepté)' : 'Remise enregistrée (compteur, casque et gilet)', ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0], ['Autorisation de circulation du Branch Manager', !!m.mise_en_service_at],
       ['Aucune anomalie critique ouverte', !Number(m.actions_critiques_ouvertes)]
     ];
     var dates = '<section class="mm-bloc"><h2>Dates et historique</h2><dl class="mm-mini">' +
@@ -431,7 +431,7 @@
     if (peut('photo_principale') && !prevue) actions.push(action('photo', m.photo_path ? 'Changer la photo' : 'Ajouter la photo', { id: m.id }));
     if (peut('preaffecter') && m.statut_affectation === 'NON_AFFECTEE' && !prevue) actions.push(action('preaffecter', 'Préaffecter', { id: m.id }, 'mm-primaire'));
     if (!r[5] && (peut('inspection') || peut('inventaire')) && !prevue) actions.push(action('inspection', ref ? 'État technique de référence' : 'Inspection mécanique initiale', { id: m.id }));
-    if (peut('etat_remise') && m.statut_affectation === 'PREAFFECTEE') actions.push(action('etat_remise', 'État contradictoire avant remise', { id: m.id }, 'mm-primaire'));
+    if (peut('etat_remise') && m.statut_affectation === 'PREAFFECTEE') actions.push(action('etat_remise', etatExige() ? 'État contradictoire avant remise' : 'État contradictoire (facultatif)', { id: m.id }, etatExige() ? 'mm-primaire' : 'mm-secondaire'));
     if (peut('remettre') && m.statut_affectation === 'PREAFFECTEE') actions.push(action('remettre', 'Enregistrer la remise', { id: m.id }, 'mm-primaire'));
     if (peut('inspection_mensuelle') && m.mise_en_service_at && m.beneficiaire_id !== S.profil.user_id) actions.push(action('inspection_mensuelle', 'Inspection mensuelle', { id: m.id }, 'mm-primaire'));
     if (!prevue && m.beneficiaire_id !== S.profil.user_id && peut('inspection_independante') && m.beneficiaire_classe === 'LOGISTIQUE' && m.mise_en_service_at) actions.push(action('inspection_mensuelle', 'Contrôle indépendant', { id: m.id, niveau: 'INDEPENDANTE' }));
@@ -470,6 +470,7 @@
     identite: function () { return peut('inventaire') ? ['identite', 'Compléter'] : null; },
     preaffecter: function (m) { return peut('preaffecter') && m.statut_affectation === 'NON_AFFECTEE' ? ['preaffecter', 'Préaffecter'] : null; },
     etat_remise: function (m) { return peut('etat_remise') && m.statut_affectation === 'PREAFFECTEE' ? ['etat_remise', 'État contradictoire'] : null; },
+    remettre: function (m) { return peut('remettre') && m.statut_affectation === 'PREAFFECTEE' ? ['remettre', 'Remettre'] : null; },
     mise_en_service: function (m) { return peut('autoriser_circulation') && ['REMISE', 'TRANSFEREE'].indexOf(m.statut_affectation) >= 0 ? ['mise_en_service', 'Autoriser'] : null; }
   };
   var DOMAINES = { TECHNIQUE: 'Technique', ADMINISTRATIF: 'Documents', AFFECTATION: 'Affectation', CIRCULATION: 'Circulation' };
@@ -502,6 +503,8 @@
       '<p class="mm-note">Une aptitude technique n\'autorise jamais à elle seule la circulation. Aucun bouton ne rend une moto apte sans contrôle physique attesté par un mécanicien nommé. <a href="#/moto/' + esc(m.id) + '/controles">Historique des contrôles</a></p></section>';
   }
   /* Migration 13 : le PV de remise n'est exigé que si le paramètre le demande (décision du BM). */
+  /* AFLP FLEET 15 : état contradictoire facultatif tant que le paramètre etat_remise_obligatoire vaut 0. */
+  function etatExige() { var p = S.params.etat_remise_obligatoire; return !p || p.valeur == null ? false : Number(p.valeur) >= 1; }
   function pvExige() { var p = S.params.pv_remise_obligatoire; return !p || p.valeur == null ? false : Number(p.valeur) >= 1; }
   function pointsBloquants() { return (S.params.points_circulation_bloquants && S.params.points_circulation_bloquants.valeur_json) || []; }
   function kpi(t, v, s) { return '<div class="mm-kpi"><small>' + esc(t) + '</small><b>' + esc(v) + '</b><span>' + esc(s || '') + '</span></div>'; }
@@ -804,7 +807,7 @@
     etat_remise: async function (d, m) {
       var L = liste('ETAT_REMISE'), req = (S.params.photos_etat_remise_categories && S.params.photos_etat_remise_categories.valeur_json) || ['AVANT', 'ARRIERE', 'GAUCHE', 'DROITE', 'COMPTEUR'];
       var eq = (S.params.equipements_obligatoires && S.params.equipements_obligatoires.valeur_json) || [];
-      modale('État contradictoire avant remise · ' + m.code, '<p class="mm-bandeau mm-info">Distinct de l\'inspection mécanique. Le bénéficiaire (' + esc(m.beneficiaire_nom || 'préaffecté') + ') devra l\'accepter depuis son propre compte avant la remise. Le PV papier signé reste obligatoire.</p>' +
+      modale('État contradictoire avant remise · ' + m.code, '<p class="mm-bandeau mm-info">Distinct de l\'inspection mécanique. Le bénéficiaire (' + esc(m.beneficiaire_nom || 'préaffecté') + ') ' + (etatExige() ? 'devra l\'accepter avant la remise.' : 'pourra l\'accepter : étape facultative, la remise peut être enregistrée sans elle. Si le bénéficiaire conteste, la remise reste bloquée.') + '</p>' +
         '<div class="mm-grille-form">' + champ({ n: 'compteur_km', l: 'Compteur', t: 'nombre', req: true }) + champ({ n: 'date_remise_prevue', l: 'Date réelle de remise', t: 'date', req: true, v: aujourdhui() }) + '</div>' +
         itemsHtml(L, 'er') + '<fieldset class="mm-champ mm-large"><legend>Équipements et accessoires remis</legend>' + eq.concat(['CLES', 'TROUSSE_OUTILS']).map(function (k) { return '<label class="mm-case"><input type="checkbox" name="eq_' + esc(k) + '"> ' + esc(k.replace(/_/g, ' ').toLowerCase()) + '</label>'; }).join('') + '</fieldset>' +
         '<fieldset class="mm-champ mm-large"><legend>Documents disponibles remis (copies)</legend>' + ['CARTE_GRISE', 'ASSURANCE', 'PLAQUE'].map(function (k) { return '<label class="mm-case"><input type="checkbox" name="doc_' + k + '"> ' + esc(C.libelle(k)) + '</label>'; }).join('') + '</fieldset>' +
