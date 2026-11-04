@@ -242,10 +242,10 @@ try {
       return { ok: r === 'ferme' && d[0]?.statut === 'EN_VERIFICATION' && d[0]?.f === 1, obtenu: `${r} · ${JSON.stringify(d[0])}` };
     });
   }
-  await etape('UI-DOC-AUTO', 'Auto-validation interdite (interface)', 'ABM consulte ses propres dépôts', 'aucun bouton Vérifier, mention d\'un autre responsable', async () => {
+  await etape('UI-DOC-AUTO', 'Auto-validation autorisée au BM/ABM (migration 11)', 'ABM consulte ses propres dépôts', 'un bouton « Valider » marqué auto-validation par dépôt en attente', async () => {
     await pA.reload(); await pA.waitForSelector('.mm-table');
-    const n = await pA.locator('[data-action="verifier_document"]').count(); const t = await pA.locator('text=Vérification par un autre responsable').count();
-    return { ok: n === 0 && t >= 3, obtenu: `boutons vérifier=${n} · mentions=${t}`, preuve: await capture(pA, 'documents-abm-bureau') };
+    const n = await pA.locator('[data-action="verifier_document"][data-auto="1"]').count(); const t = await pA.locator('text=Valider').count();
+    return { ok: n >= 3 && t >= 3, obtenu: `boutons valider (auto)=${n}`, preuve: await capture(pA, 'documents-abm-bureau') };
   });
 
   // 3. BM : vérification des documents, préaffectation

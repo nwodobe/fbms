@@ -509,8 +509,9 @@
     return bouton + tableau(['Type', 'Référence', 'Expiration', 'Statut', 'Déposé le', 'Fichier', 'Action'], docs.map(function (d) {
       return [esc(C.libelle(d.type_document)), esc(d.numero_reference || '—'), esc(C.dateFr(d.date_expiration)), badge(d.statut) + (d.motif_verification ? '<small class="mm-aide">' + esc(d.motif_verification) + '</small>' : ''),
         esc(C.dateFr(d.depose_at)), d.storage_path ? action('voir_fichier', 'Ouvrir', { chemin: d.storage_path }) : '—',
-        (peut('verifier_documents') && d.statut === 'EN_VERIFICATION' && d.depose_par !== S.profil.user_id) ? action('verifier_document', 'Vérifier', { doc: d.id }, 'mm-primaire') :
-          (d.statut === 'EN_VERIFICATION' && d.depose_par === S.profil.user_id ? '<small class="mm-aide">Vérification par un autre responsable</small>' : '')];
+        // Migration 11 : le BM ou l'ABM peut valider lui-même un document qu'il a déposé (tracé « auto-validation »).
+        (peut('verifier_documents') && d.statut === 'EN_VERIFICATION') ? action('verifier_document', d.depose_par === S.profil.user_id ? 'Valider' : 'Vérifier', { doc: d.id, auto: d.depose_par === S.profil.user_id ? '1' : '' }, 'mm-primaire') :
+          (d.statut === 'EN_VERIFICATION' ? '<small class="mm-aide">À valider par le Branch Manager ou l\'ABM</small>' : '')];
     }), 'Aucun document. Les cartes grises, plaques et assurances sont annoncées par le fournisseur : rien n\'est saisi avant réception réelle.');
   }
   async function ongletAffectations(m) {
@@ -657,7 +658,7 @@
       modale('Déposer un document', '<div class="mm-grille-form">' + champ({ n: 'type_document', l: 'Type', t: 'select', req: true, o: types.map(function (t) { return [t, C.libelle(t)]; }) }) +
         champ({ n: 'numero_reference', l: 'Numéro / référence' }) + champ({ n: 'date_emission', l: 'Date d\'émission', t: 'date' }) + champ({ n: 'date_expiration', l: 'Date d\'expiration', t: 'date', aide: 'Assurance : obligatoire pour l\'alerte d\'expiration.' }) +
         champ({ n: 'fichier', l: 'Document numérisé', t: 'scan', req: true, aide: 'Recto et verso dans un seul PDF. Saisissez les champs ci-dessus en lisant le document : rien n\'est rempli automatiquement.' }) + '</div>' +
-        '<p class="mm-note">Le procès-verbal de remise est signé sur papier puis numérisé ici. Le document sera vérifié par un autre responsable. Le permis de conduire se rattache désormais au conducteur : espace « Conducteurs ».</p>',
+        '<p class="mm-note">Le procès-verbal de remise est signé sur papier puis numérisé ici. Le document est ensuite validé par le Branch Manager ou l\'ABM (il peut s\'agir de vous). Le permis de conduire se rattache désormais au conducteur : espace « Conducteurs ».</p>',
       async function (v) {
         var cat = { RAPPORT_MECANICIEN: 'controle', FACTURE: 'maintenance', PHOTO: 'photo' }[v.type_document] || 'document';
         var f = await deposer(m.id, cat, v.fichier);
@@ -666,7 +667,7 @@
       }, 'Déposer');
     },
     verifier_document: function (d, m) {
-      modale('Vérifier le document', champ({ n: 'statut', l: 'Décision', t: 'select', req: true, o: [['CONFORME', 'Conforme'], ['NON_CONFORME', 'Non conforme']] }) + champ({ n: 'motif', l: 'Motif (obligatoire si non conforme)', t: 'textarea' }),
+      modale(d.auto ? 'Valider votre document' : 'Vérifier le document', (d.auto ? '<p class="mm-note">Vous avez déposé ce document : la validation sera tracée comme « auto-validation ». Comparez le fichier à l\'original avant de valider.</p>' : '') + champ({ n: 'statut', l: 'Décision', t: 'select', req: true, o: [['CONFORME', 'Conforme'], ['NON_CONFORME', 'Non conforme']] }) + champ({ n: 'motif', l: 'Motif (obligatoire si non conforme)', t: 'textarea' }),
         function (v) { return rpc('moto_document_verifier', { p_document: d.doc, p_statut: v.statut, p_motif: v.motif }).then(apres(m.id, 'documents')); });
     },
     aller_onglet: function (d, m) { location.hash = '#/moto/' + m.id + '/' + (d.onglet || 'synthese'); },
@@ -1295,7 +1296,7 @@
     var avert = C.avertissementEchantillon(enService.length, nbInter);
     var mine = S.profil.user_id;
     var valid = [];
-    if (peut('verifier_documents')) d[7].filter(function (x) { return x.depose_par !== mine; }).forEach(function (x) { valid.push(['Document à vérifier', C.libelle(x.type_document) + ' · ' + codeMoto(x.moto_id), '<a class="mm-btn mm-secondaire mm-petit" href="#/moto/' + esc(x.moto_id) + '/documents">Ouvrir</a>']); });
+    if (peut('verifier_documents')) d[7].forEach(function (x) { valid.push(['Document à vérifier', C.libelle(x.type_document) + ' · ' + codeMoto(x.moto_id), '<a class="mm-btn mm-secondaire mm-petit" href="#/moto/' + esc(x.moto_id) + '/documents">Ouvrir</a>']); });
     if (peut('verifier_justificatifs')) d[8].filter(function (x) { return x.saisi_par !== mine && x.agent_id !== mine; }).forEach(function (x) { valid.push(['Justificatif carburant', codeMoto(x.moto_id) + ' · ' + C.fcfa(x.montant) + ' · ' + C.dateFr(x.date_achat), action('verifier_justificatif', 'Vérifier', { id: x.id }, 'mm-primaire') + (x.justificatif_path ? ' ' + action('voir_fichier', 'Photo', { chemin: x.justificatif_path }) : '')]); });
     if (peut('valider_budget')) d[9].filter(function (x) { return x.propose_par !== mine; }).forEach(function (x) { valid.push(['Budget proposé', C.fcfa(x.montant_autorise) + ' · ' + C.dateFr(x.periode_debut) + ' → ' + C.dateFr(x.periode_fin), action('budget_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
     if (peut('valider_corrections') || (S.profil.role === 'Finance Manager')) d[10].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Correction', x.cible_table.replace('moto_', '') + ' · ' + x.champ + ' : ' + (x.ancienne_valeur || '∅') + ' → ' + x.nouvelle_valeur + ' · ' + x.motif, action('correction_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
