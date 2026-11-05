@@ -4,8 +4,10 @@
    ----------------------------------------------------------------------------
    Terrain (moins de 30 secondes, hors connexion) :
      ouvrir → viser le compteur → photographier → confirmer le chiffre → valider.
-     · caméra d'AFLP FIELD PROOF ouverte DANS l'application (getUserMedia) :
-       aucune image ne peut venir de la galerie ;
+     · caméra d'AFLP FIELD PROOF ouverte DANS l'application (getUserMedia) ;
+       si elle exige un réglage ou refuse de s'ouvrir, l'appareil photo du téléphone
+       prend le relais sans réglage : photo acceptée, mission signalée PHOTO_IMPORTEE
+       (elle peut venir de la galerie), à vérifier par les responsables ;
      · LA MACHINE PROPOSE, L'AGENT CONFIRME : lecture gratuite sur le téléphone
        (moto-ocr.js), origine conservée (LU_CONFIRME, LU_CORRIGE, SAISI) ;
      · photo partagée compressée (≤ 60 Ko visés) : bande du compteur nette +
@@ -29,7 +31,8 @@
     var LIB_ECART = { HORS_MISSION: 'Km hors mission', CONTINUITE: 'Continuité du compteur', VITESSE: 'Vitesse impossible', DISTANCE: 'Distance hors norme',
       HORLOGE: 'Horloge du téléphone', GPS_ABSENT: 'GPS absent', CLOTURE_TARDIVE: 'Clôture tardive',
       SAISIE_DIFFEREE_DEPART: 'Départ envoyé tardivement', SAISIE_DIFFEREE_ARRIVEE: 'Arrivée envoyée tardivement',
-      ORDRE_RELEVES: 'Relevés reçus dans le désordre', EMPREINTE_DIFFERENTE: 'Photo modifiée ou remplacée', PHOTO_ATYPIQUE: 'Photo de taille inhabituelle', CHEVAUCHEMENT: 'Missions qui se chevauchent' };
+      ORDRE_RELEVES: 'Relevés reçus dans le désordre', EMPREINTE_DIFFERENTE: 'Photo modifiée ou remplacée', PHOTO_ATYPIQUE: 'Photo de taille inhabituelle', CHEVAUCHEMENT: 'Missions qui se chevauchent',
+      PHOTO_IMPORTEE: 'Photo prise hors caméra de l\'application' };
     var LIB_ORIGINE = { LU_CONFIRME: 'Lu, confirmé', LU_CORRIGE: 'Lu, corrigé', SAISI: 'Saisi' };
     var LIB_STATUT = { OUVERTE: 'En cours', CLOTUREE: 'Clôturée', ANNULEE: 'Annulée' };
     var CIBLE_OCTETS = 60000;
@@ -83,38 +86,107 @@
     }
 
     /* -- Caméra : capture + lecture + composition ------------------------------ */
+    /* Deux voies, même suite (lecture, composition, empreinte) :
+       · caméra intégrée (getUserMedia) : exige l'autorisation caméra du navigateur ;
+       · appareil photo du téléphone (<input capture>) : AUCUN réglage à faire. L'image peut
+         venir de la galerie sur certains téléphones : elle est acceptée et la mission reçoit
+         l'écart « Photo prise hors caméra de l'application » (AFLP FLEET 21), jamais une sanction. */
     function capturer(opts) {
       return new Promise(function (ok) {
         var d = document.createElement('dialog'); d.className = 'mm-camera';
-        d.innerHTML = '<div class="mm-camera-scene"><video playsinline muted autoplay></video><div class="mm-visee" aria-hidden="true"><span>Alignez les chiffres du compteur dans ce cadre</span></div></div>' +
+        d.innerHTML = '<div class="mm-camera-scene"><video playsinline muted autoplay></video><img class="mm-camera-image" alt="Photo du compteur choisie" hidden><div class="mm-visee" aria-hidden="true"><span>Alignez les chiffres du compteur dans ce cadre</span></div></div>' +
           '<div class="mm-camera-barre"><p class="mm-camera-gps" role="status">Localisation en cours…</p>' +
           '<div class="mm-camera-actions"><button type="button" class="mm-btn mm-secondaire" data-annuler>Annuler</button><button type="button" class="mm-btn mm-primaire mm-declencheur" data-photo disabled>Photographier le compteur</button></div>' +
+          '<button type="button" class="mm-btn mm-secondaire mm-camera-appareil" data-appareil>Utiliser l\'appareil photo du téléphone</button>' +
+          '<input type="file" accept="image/*" capture="environment" data-fichier hidden>' +
           '<p class="mm-erreur" role="alert" hidden></p></div>';
         document.body.appendChild(d); try { d.showModal(); } catch (e) { d.setAttribute('open', ''); }
-        var video = $('video', d), btn = $('[data-photo]', d), err = $('.mm-erreur', d), gpsEl = $('.mm-camera-gps', d), flux = null, loc = null, fini = false;
-        function fermer(res) { if (fini) return; fini = true; if (loc) loc.arreter(); if (flux) FPC.fermerCamera(flux); try { d.close(); } catch (e) {} d.remove(); ok(res); }
+        var video = $('video', d), img = $('.mm-camera-image', d), visee = $('.mm-visee', d), btn = $('[data-photo]', d), err = $('.mm-erreur', d), gpsEl = $('.mm-camera-gps', d);
+        var btnApp = $('[data-appareil]', d), fichier = $('[data-fichier]', d), flux = null, loc = null, fini = false, choisi = null;
+        function fermer(res) { if (fini) return; fini = true; if (loc) loc.arreter(); arreterCamera(); if (choisi && choisi.url) URL.revokeObjectURL(choisi.url); try { d.close(); } catch (e) {} d.remove(); ok(res); }
+        function arreterCamera() { if (flux && FPC) FPC.fermerCamera(flux); flux = null; }
+        function erreur(t) { err.hidden = false; err.textContent = t; }
+        function positionner(res) { res.position = loc ? loc.position() : null; res.gps = FPK.statutGps(res.position); return res; }
         $('[data-annuler]', d).onclick = function () { fermer(null); };
         d.addEventListener('cancel', function (e) { e.preventDefault(); fermer(null); });
-        if (!FPC || !FPC.cameraDisponible()) { err.hidden = false; err.textContent = 'Caméra indisponible sur ce navigateur : utilisez Chrome (Android) ou Safari (iPhone) à jour, via l\'adresse https de FBMS.'; return; }
-        loc = new FPC.Localisateur(); loc.abonner(function (l) {
-          var st = FPK.statutGps(l.position());
-          gpsEl.textContent = l.erreur && st.code === 'ABSENT' ? l.erreur : 'Localisation : ' + st.court + (l.position() ? ' (' + FPK.precisionTexte(l.position()) + ')' : '');
-          gpsEl.className = 'mm-camera-gps ' + (st.code === 'OK' ? 'mm-ok' : 'mm-warn');
-        }); loc.demarrer();
-        FPC.ouvrirCamera({ mode: 'PHOTO', face: 'environment' }).then(function (r) {
+        if (FPC && FPC.Localisateur) {
+          loc = new FPC.Localisateur(); loc.abonner(function (l) {
+            var st = FPK.statutGps(l.position());
+            gpsEl.textContent = l.erreur && st.code === 'ABSENT' ? 'Localisation indisponible : la mission reste possible.' : 'Localisation : ' + st.court + (l.position() ? ' (' + FPK.precisionTexte(l.position()) + ')' : '');
+            gpsEl.className = 'mm-camera-gps ' + (st.code === 'OK' ? 'mm-ok' : 'mm-warn');
+          }); loc.demarrer();
+        } else { gpsEl.textContent = 'Localisation indisponible : la mission reste possible.'; gpsEl.className = 'mm-camera-gps mm-warn'; }
+        if (OCR) setTimeout(function () { try { OCR.preparerModeles(); } catch (e) {} }, 0);
+        function secours(t) { erreur(t + ' Touchez « Utiliser l\'appareil photo du téléphone » : aucun réglage n\'est nécessaire.'); btnApp.classList.add('mm-primaire'); btnApp.classList.remove('mm-secondaire'); }
+        if (!FPC || !FPC.cameraDisponible()) secours('Caméra intégrée indisponible sur ce téléphone.');
+        else FPC.ouvrirCamera({ mode: 'PHOTO', face: 'environment' }).then(function (r) {
+          if (fini || choisi) { FPC.fermerCamera(r.flux); return; }
           flux = r.flux; video.srcObject = flux;
-          video.onloadedmetadata = function () { btn.disabled = false; };
-          if (OCR) setTimeout(function () { try { OCR.preparerModeles(); } catch (e) {} }, 0);
-        }, function (e) { err.hidden = false; err.textContent = e.message; });
+          video.onloadedmetadata = function () { if (!choisi) btn.disabled = false; };
+        }, function () { secours('La caméra intégrée n\'a pas pu s\'ouvrir (autorisation refusée ou bloquée).'); });
+
+        /* Appareil photo du téléphone : on libère la caméra intégrée (Android refuse deux ouvertures). */
+        btnApp.onclick = function () { arreterCamera(); video.srcObject = null; btn.disabled = true; fichier.value = ''; fichier.click(); };
+        fichier.onchange = function () {
+          var f = fichier.files && fichier.files[0]; if (!f) return;
+          if (!/^image\//.test(f.type || 'image/')) { erreur('Ce fichier n\'est pas une photo.'); return; }
+          err.hidden = true; btn.disabled = true; btn.textContent = 'Préparation…';
+          imageDepuisFichier(f).then(function (cv) {
+            if (choisi && choisi.url) URL.revokeObjectURL(choisi.url);
+            choisi = { image: cv, fichierAt: f.lastModified ? new Date(f.lastModified).toISOString() : null, url: null };
+            cv.toBlob(function (b) {
+              choisi.url = URL.createObjectURL(b); img.src = choisi.url; img.hidden = false; video.hidden = true;
+              $('span', visee).textContent = 'Touchez la photo pour placer le cadre';
+              btn.textContent = 'Utiliser cette photo'; btn.disabled = false;
+              btnApp.textContent = 'Reprendre la photo'; btnApp.classList.add('mm-secondaire'); btnApp.classList.remove('mm-primaire');
+            }, 'image/jpeg', 0.85);
+          }, function (e) { erreur('Photo illisible : ' + (e && e.message || e) + '. Reprenez la photo.'); btn.textContent = 'Utiliser cette photo'; });
+        };
+        /* Un doigt sur la photo place le cadre de lecture (hauteur seulement, comme pour la caméra). */
+        $('.mm-camera-scene', d).addEventListener('click', function (e) {
+          if (!choisi) return;
+          var r = this.getBoundingClientRect(), h = visee.getBoundingClientRect().height;
+          var top = Math.max(0, Math.min(r.height - h, e.clientY - r.top - h / 2));
+          visee.style.top = (top / r.height * 100) + '%';
+        });
         btn.onclick = function () {
-          if (!video.videoWidth) return;
-          btn.disabled = true; btn.textContent = 'Lecture…';
           try {
-            var res = figer(video, $('.mm-visee', d)); res.position = loc.position(); res.gps = FPK.statutGps(res.position);
-            fermer(res);
-          } catch (e) { err.hidden = false; err.textContent = 'Capture impossible : ' + (e && e.message || e); btn.disabled = false; btn.textContent = 'Photographier le compteur'; }
+            if (choisi) {
+              var res = figerImage(choisi.image, img, visee); res.source = 'APPAREIL'; res.fichierAt = choisi.fichierAt;
+              fermer(positionner(res)); return;
+            }
+            if (!video.videoWidth) return;
+            btn.disabled = true; btn.textContent = 'Lecture…';
+            var rv = figer(video, visee); rv.source = 'APPLICATION';
+            fermer(positionner(rv));
+          } catch (e) { erreur('Capture impossible : ' + (e && e.message || e)); btn.disabled = false; btn.textContent = choisi ? 'Utiliser cette photo' : 'Photographier le compteur'; }
         };
       });
+    }
+    /* Photo du téléphone → toile réduite (1600 px au plus : mémoire des petits téléphones).
+       L'orientation EXIF est appliquée par le navigateur (image-orientation: from-image). */
+    function imageDepuisFichier(f) {
+      return new Promise(function (ok, ko) {
+        var u = URL.createObjectURL(f), im = new Image();
+        im.onload = function () {
+          try {
+            var w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, 1600 / Math.max(w, h));
+            var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+            cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u); ok(cv);
+          } catch (e) { URL.revokeObjectURL(u); ko(e); }
+        };
+        im.onerror = function () { URL.revokeObjectURL(u); ko(new Error('format non reconnu')); };
+        im.src = u;
+      });
+    }
+    /* Même résultat que figer(), pour une image affichée en entier (object-fit: contain). */
+    function figerImage(cv, img, visee) {
+      var vw = cv.width, vh = cv.height, rv = img.getBoundingClientRect(), rb = visee.getBoundingClientRect();
+      var e = Math.min(rv.width / vw, rv.height / vh), dx = (rv.width - vw * e) / 2, dy = (rv.height - vh * e) / 2;
+      var bx = Math.max(0, Math.round((rb.left - rv.left - dx) / e)), by = Math.max(0, Math.round((rb.top - rv.top - dy) / e));
+      var bw = Math.max(1, Math.min(vw - bx, Math.round(rb.width / e))), bh = Math.max(1, Math.min(vh - by, Math.round(rb.height / e)));
+      if (by >= vh || bx >= vw) { bx = 0; by = Math.round(vh * 0.4); bw = vw; bh = Math.max(1, Math.round(vh * 0.2)); }
+      return { image: cv, bande: { x: bx, y: by, w: bw, h: bh }, at: new Date().toISOString() };
     }
     /* Fige l'image ; renvoie l'image entière et la bande de visée (coordonnées vidéo). */
     function figer(video, visee) {
@@ -183,12 +255,17 @@
       var listeVillages = vill.slice(0, 400).map(function (v) { return '<option value="' + esc(v.nom) + '">'; }).join('');
       var corps = '<figure class="mm-photo-compteur"><img src="' + url + '" alt="Photo du compteur qui sera partagée (sans coordonnées)"><figcaption>' +
           esc(Math.round(blob.size / 1024) + ' Ko · ' + (cap.gps.code === 'OK' ? 'position obtenue' : 'position : ' + cap.gps.court.toLowerCase())) + ' · cette image sera visible par vos responsables</figcaption></figure>' +
+        (cap.source === 'APPAREIL' ? '<p class="mm-bandeau mm-warn" role="status">Photo prise avec l\'appareil du téléphone : elle est acceptée et vos responsables la vérifieront.</p>' : '') +
         (lu.valeur != null ? '<p class="mm-bandeau mm-ok" role="status">Lecture proposée : <b>' + esc(C.km(lu.valeur)) + '</b>. Vérifiez sur le compteur, corrigez si besoin.</p>'
           : '<p class="mm-bandeau mm-warn" role="status">Lecture automatique impossible (' + esc({ CHIFFRE_INCERTAIN: 'chiffres incertains', INVRAISEMBLABLE: 'valeur invraisemblable', AUCUN_CHIFFRE: 'aucun chiffre trouvé' }[lu.raison] || 'indisponible') + ') : saisissez le chiffre en lisant le compteur.</p>') +
         I.champ({ n: 'compteur_km', l: 'Compteur (km)', t: 'nombre', req: true, v: lu.valeur != null ? lu.valeur : '', pas: '0.1', aide: 'Dernier relevé connu : ' + km(dernier) + (mission ? ' · départ de la mission : ' + km(mission.km_depart) : '') }) +
         (moment === 'DEPART' ? I.champ({ n: 'objet', l: 'Objet de la mission', t: 'select', req: true, o: OBJETS, v: prec.objet || '' }) +
           '<div class="mm-champ mm-large" data-detail hidden><label for="f_objet_detail">Précisez l\'objet *</label><input id="f_objet_detail" name="objet_detail" minlength="5"></div>' +
-          '<div class="mm-champ mm-large"><label for="f_destination">Destination (village ou cluster) *</label><input id="f_destination" name="destination" required minlength="2" list="mmVillages" value="' + esc(prec.destination || '') + '" autocomplete="off"><datalist id="mmVillages">' + listeVillages + '</datalist></div>' : '');
+          '<div class="mm-champ mm-large" data-dest-liste><label for="f_destination">Destination (village ou cluster) *</label><input id="f_destination" name="destination" required minlength="2" list="mmVillages" value="' + esc(prec.destination || '') + '" autocomplete="off"><datalist id="mmVillages">' + listeVillages + '</datalist>' +
+            '<small class="mm-aide">Choisissez dans la liste, ou cochez la case ci-dessous si le lieu n\'y figure pas.</small></div>' +
+          '<label class="mm-case mm-large"><input type="checkbox" name="destination_hors_liste" data-dest-coche> Le lieu n\'est pas dans la liste</label>' +
+          '<div class="mm-champ mm-large" data-dest-libre hidden><label for="f_destination_libre">Lieu de la mission (à écrire) *</label><input id="f_destination_libre" name="destination_libre" minlength="2" maxlength="120" autocomplete="off" placeholder="Ex. : campement Kouassikro, marché de Botro">' +
+            '<small class="mm-aide">Écrivez le nom du lieu tel qu\'on le dit sur place (village, campement, marché, magasin…).</small></div>' : '');
       I.modale(moment === 'DEPART' ? 'Départ de mission · ' + m.code : 'Fin de mission · ' + m.code, corps, async function (v) {
         var compteur = C.nombreSaisi ? C.nombreSaisi(v.compteur_km) : Number(String(v.compteur_km).replace(',', '.'));
         if (!(compteur >= 0)) throw new Error('Compteur invalide.');
@@ -196,15 +273,17 @@
         if (moment === 'DEPART' && compteur < dernier) throw new Error('Le compteur ne recule pas : le dernier relevé connu de cette moto est ' + km(dernier) + '. Vérifiez le chiffre ou demandez une correction au Chef de zone.');
         var origine = lu.valeur == null ? 'SAISI' : (Math.abs(compteur - lu.valeur) < 1e-9 ? 'LU_CONFIRME' : 'LU_CORRIGE');
         var p = { moto_id: m.id, compteur_km: compteur, capture_at: cap.at, origine: origine, localite: localite, photo_sha256: sha, gps_statut: cap.gps.code };
+        if (cap.source === 'APPAREIL') { p.photo_source = 'APPAREIL'; p.photo_fichier_at = cap.fichierAt; }   // AFLP FLEET 21 : écart « photo importée »
         if (origine !== 'SAISI') p.lu_km = lu.valeur;
         if (cap.position) { p.latitude = Math.round(cap.position.lat * 1e6) / 1e6; p.longitude = Math.round(cap.position.lon * 1e6) / 1e6; p.precision_m = cap.position.precision; p.gps_at = cap.position.horodatage; }
         var fichiers = [{ champ: 'photo_path', blob: blob, moto_id: m.id, categorie: 'mission', extension: 'jpg' }];
         if (moment === 'DEPART') {
           if (v.objet === 'AUTRE' && (!v.objet_detail || v.objet_detail.length < 5)) throw new Error('Précisez l\'objet de la mission (5 caractères au moins).');
-          p.mission_id = OFF.uuid(); p.objet = v.objet; p.objet_detail = v.objet_detail || null; p.destination = v.destination;
+          p.mission_id = OFF.uuid(); p.objet = v.objet; p.objet_detail = v.objet_detail || null; p.destination = v.destination_hors_liste ? String(v.destination_libre || '').trim() : v.destination;
+          if (v.destination_hors_liste && p.destination.length < 2) throw new Error('Écrivez le lieu de la mission (2 caractères au moins).');
           var op = await OFF.ajouter('MISSION_DEPART', p, { libelle: 'Départ de mission ' + m.code, fichiers: fichiers });
-          await memoriserMission({ id: p.mission_id, moto_id: m.id, moto_code: m.code, depart_at: cap.at, km_depart: compteur, objet: v.objet, destination: v.destination, depart_client_op_id: op.client_op_id });
-          OFF.memoriser('mission_preferences', { objet: v.objet, destination: v.destination });
+          await memoriserMission({ id: p.mission_id, moto_id: m.id, moto_code: m.code, depart_at: cap.at, km_depart: compteur, objet: v.objet, destination: p.destination, depart_client_op_id: op.client_op_id });
+          OFF.memoriser('mission_preferences', { objet: v.objet, destination: p.destination });
         } else {
           p.mission_id = mission.id;
           await OFF.ajouter('MISSION_ARRIVEE', p, { libelle: 'Fin de mission ' + m.code, fichiers: fichiers });
@@ -218,6 +297,14 @@
       }, moment === 'DEPART' ? 'Valider le départ' : 'Valider l\'arrivée');
       var sel = document.querySelector('dialog.mm-modale select[name="objet"]');
       if (sel) { var maj = function () { var dz = document.querySelector('dialog.mm-modale [data-detail]'); if (dz) dz.hidden = sel.value !== 'AUTRE'; }; sel.onchange = maj; maj(); }
+      /* Lieu hors liste : la case remplace la liste par un champ libre (le serveur accepte tout lieu de 2 caractères ou plus). */
+      var coche = document.querySelector('dialog.mm-modale [data-dest-coche]');
+      if (coche) { var bascule = function () {
+        var dl = document.querySelector('dialog.mm-modale [data-dest-liste]'), dlib = document.querySelector('dialog.mm-modale [data-dest-libre]');
+        var inL = dl && dl.querySelector('input'), inLib = dlib && dlib.querySelector('input');
+        if (dl) dl.hidden = coche.checked; if (dlib) dlib.hidden = !coche.checked;
+        if (inL) inL.required = !coche.checked; if (inLib) { inLib.required = coche.checked; if (coche.checked) inLib.focus(); }
+      }; coche.onchange = bascule; bascule(); }
       var champKm = document.querySelector('dialog.mm-modale input[name="compteur_km"]'); if (champKm) champKm.focus();
     }
 

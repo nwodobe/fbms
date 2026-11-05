@@ -1,0 +1,88 @@
+{
+ "base": "fbms_m21_e2e",
+ "date": "2026-11-05T15:26:35.114Z",
+ "resultats": [
+  {
+   "id": "PA-01-mobile",
+   "exigence": "Caméra intégrée bloquée",
+   "action": "Démarrer une mission sans autorisation caméra (390 px)",
+   "attendu": "message clair + bouton appareil photo mis en avant",
+   "obtenu": "message=« La caméra intégrée n'a pas pu s'ouvrir (autorisation refusée ou bloquée). Touchez « Utiliser l'appareil photo du télépho » bouton visible=true mis en avant=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/camera-bloquee-mobile.png"
+  },
+  {
+   "id": "PA-02-mobile",
+   "exigence": "Appareil photo du téléphone, sans réglage",
+   "action": "Toucher le bouton → photo du téléphone → placer le cadre → Utiliser cette photo",
+   "attendu": "photo affichée, cadre déplacé, retour au formulaire",
+   "obtenu": "input capture|accept=environment|image/* bouton=« Utiliser cette photo » cadre défaut → 37.9312%",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/photo-choisie-mobile.png"
+  },
+  {
+   "id": "PA-03-mobile",
+   "exigence": "Mission acceptée, signalée",
+   "action": "Valider le départ",
+   "attendu": "mission OUVERTE + écart PHOTO_IMPORTEE à vérifier",
+   "obtenu": "bandeau=true lecture auto=12 fenêtre=ferme mission=OUVERTE (LU_CONFIRME) écart=A_VERIFIER : Photo du compteur (depart) prise avec l'appareil photo du téléphone, hors caméra de l'appl",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/formulaire-mobile.png"
+  },
+  {
+   "id": "PA-01-tablette",
+   "exigence": "Caméra intégrée bloquée",
+   "action": "Démarrer une mission sans autorisation caméra (768 px)",
+   "attendu": "message clair + bouton appareil photo mis en avant",
+   "obtenu": "message=« La caméra intégrée n'a pas pu s'ouvrir (autorisation refusée ou bloquée). Touchez « Utiliser l'appareil photo du télépho » bouton visible=true mis en avant=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/camera-bloquee-tablette.png"
+  },
+  {
+   "id": "PA-02-tablette",
+   "exigence": "Appareil photo du téléphone, sans réglage",
+   "action": "Toucher le bouton → photo du téléphone → placer le cadre → Utiliser cette photo",
+   "attendu": "photo affichée, cadre déplacé, retour au formulaire",
+   "obtenu": "input capture|accept=environment|image/* bouton=« Utiliser cette photo » cadre défaut → 37.8994%",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/photo-choisie-tablette.png"
+  },
+  {
+   "id": "PA-03-tablette",
+   "exigence": "Mission acceptée, signalée",
+   "action": "Valider le départ",
+   "attendu": "mission OUVERTE + écart PHOTO_IMPORTEE à vérifier",
+   "obtenu": "bandeau=true lecture auto=12 fenêtre=ferme mission=OUVERTE (LU_CONFIRME) écart=A_VERIFIER : Photo du compteur (depart) prise avec l'appareil photo du téléphone, hors caméra de l'appl",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/formulaire-tablette.png"
+  },
+  {
+   "id": "PA-01-bureau",
+   "exigence": "Caméra intégrée bloquée",
+   "action": "Démarrer une mission sans autorisation caméra (1440 px)",
+   "attendu": "message clair + bouton appareil photo mis en avant",
+   "obtenu": "message=« La caméra intégrée n'a pas pu s'ouvrir (autorisation refusée ou bloquée). Touchez « Utiliser l'appareil photo du télépho » bouton visible=true mis en avant=true",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/camera-bloquee-bureau.png"
+  },
+  {
+   "id": "PA-02-bureau",
+   "exigence": "Appareil photo du téléphone, sans réglage",
+   "action": "Toucher le bouton → photo du téléphone → placer le cadre → Utiliser cette photo",
+   "attendu": "photo affichée, cadre déplacé, retour au formulaire",
+   "obtenu": "input capture|accept=environment|image/* bouton=« Utiliser cette photo » cadre défaut → 37.9523%",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/photo-choisie-bureau.png"
+  },
+  {
+   "id": "PA-03-bureau",
+   "exigence": "Mission acceptée, signalée",
+   "action": "Valider le départ",
+   "attendu": "mission OUVERTE + écart PHOTO_IMPORTEE à vérifier",
+   "obtenu": "bandeau=true lecture auto=12 fenêtre=ferme mission=OUVERTE (LU_CONFIRME) écart=A_VERIFIER : Photo du compteur (depart) prise avec l'appareil photo du téléphone, hors caméra de l'appl",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/photo-appareil/formulaire-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}

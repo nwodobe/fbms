@@ -1,0 +1,34 @@
+{
+ "base": "fbms_ml_e2e",
+ "date": "2026-11-04T18:18:22.058Z",
+ "resultats": [
+  {
+   "id": "LL-01-mobile",
+   "exigence": "Départ de mission vers un lieu hors liste",
+   "action": "Démarrer → photo → case « pas dans la liste » → lieu écrit (390 px)",
+   "attendu": "mission OUVERTE avec la destination écrite",
+   "obtenu": "champ libre caché au départ=true liste masquée=true fenêtre=ferme mission=OUVERTE → Campement fictif hors liste mobile",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-lieu-libre/formulaire-mobile.png"
+  },
+  {
+   "id": "LL-01-tablette",
+   "exigence": "Départ de mission vers un lieu hors liste",
+   "action": "Démarrer → photo → case « pas dans la liste » → lieu écrit (768 px)",
+   "attendu": "mission OUVERTE avec la destination écrite",
+   "obtenu": "champ libre caché au départ=true liste masquée=true fenêtre=ferme mission=OUVERTE → Campement fictif hors liste tablette",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-lieu-libre/formulaire-tablette.png"
+  },
+  {
+   "id": "LL-01-bureau",
+   "exigence": "Départ de mission vers un lieu hors liste",
+   "action": "Démarrer → photo → case « pas dans la liste » → lieu écrit (1440 px)",
+   "attendu": "mission OUVERTE avec la destination écrite",
+   "obtenu": "champ libre caché au départ=true liste masquée=true fenêtre=ferme mission=OUVERTE → Campement fictif hors liste bureau",
+   "resultat": "RÉUSSI",
+   "preuve": "tests/moto/resultats/captures/mission-lieu-libre/formulaire-bureau.png"
+  }
+ ],
+ "erreurs_console": []
+}
