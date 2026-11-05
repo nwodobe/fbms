@@ -393,3 +393,8 @@ dialog.mm-camera::backdrop{background:#000}
 @media (max-width:719px){
   .mm-item-guide{grid-template-columns:1fr 1fr}
 }
+/* AFLP FLEET 21 : appareil photo du téléphone (aucun réglage) */
+.mm-camera-scene img.mm-camera-image{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.mm-camera-scene video[hidden],.mm-camera-scene img[hidden]{display:none}
+.mm-camera-appareil{display:block;width:100%;margin-top:8px}
+.mm-camera .mm-erreur{margin:8px 0 0;color:var(--ko)}
