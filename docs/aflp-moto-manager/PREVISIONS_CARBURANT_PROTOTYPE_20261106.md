@@ -68,3 +68,24 @@ node tests/moto/carburant-previsionnel.test.cjs
 Ces observations sont datées du 6/11/2026 et ne prouvent pas une consommation réelle ni une rupture de carburant.
 
 **État : prototype de calcul testé; intégration produit, schéma de stockage, notifications et validation de production non réalisés.**
+
+
+## Complément du Branch Manager, 6 novembre 2026 : hypothèse 15 litres
+
+**Directive métier confirmée :** utiliser 15 L comme capacité totale de référence de chaque réservoir. Les achats du 4 novembre sont décrits comme des **compléments qui ont porté chaque moto au plein**. Il serait incorrect de calculer 15 L + litres achetés.
+
+Le module de prototype comporte maintenant `simulerPleinsCompletes`, qui construit une **hypothèse de plein à 15 L au kilométrage du dernier achat indiqué plein complet**, puis retranche les consommations au taux prudent de 4,4 L/100 km. Cette fonction ne requalifie **jamais** le justificatif comme vérifié et marque les résultats `HYPOTHESE_BM_NON_VERIFIEE`.
+
+| Moto | Compteur au plein (km) | Compteur observé le 6/11 (km) | Km depuis le plein | Reste estimé (L) | Autonomie estimée (km) |
+|---|---:|---:|---:|---:|---:|
+| MOTO-003 Sakassou | 2 | 231 | 229 | 4,924 | 111,9 |
+| MOTO-004 Botro | 5 | 150 | 145 | 8,620 | 195,9 |
+| MOTO-005 Brobo | 2 | 57 | 55 | 12,580 | 285,9 |
+| MOTO-006 N'Djébonoua | 2 | 84 | 82 | 11,392 | 258,9 |
+
+La MOTO-003 serait sous le seuil **illustratif** de 5,28 L si deux journées de 60 km étaient prévues. Le planning futur de chaque moto, distinct du planning des visites villageoises, reste à relier au système avant d'attribuer définitivement les statuts d'alerte.
+
+**Vérifications indispensables :** la capacité de 15 L repose sur une directive de simulation, pas sur la documentation constructeur; le plein complet est déclaré mais le justificatif est encore en attente de vérification; aucun calcul de réserve réelle n'est garanti.
+
+Cinq nouveaux tests du scénario 15 L ont été ajoutés, portant le nombre de tests déterministes à 26.
+
