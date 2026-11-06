@@ -29,4 +29,37 @@ test('aucune dotation exacte sans stock',()=>assert.equal(F.prevoir({...base,mot
 test('suggestion 1,28 L à 905 FCFA',()=>{let r=F.prevoir({...base,moto:{...moto,stock_initial_l:4}});assert.equal(r.ravitaillement_conseille_l,1.28);assert.equal(r.cout_fcfa,1158);});
 test('compteur décroissant',()=>assert.equal(F.stockEstime({...moto,compteur_actuel_km:5},[]).litres,null));
 test('valeur négative interdite',()=>assert.throws(()=>F.parametres({base_l100:-1})));
+
+test('scénario BM 15 L, plein complété sans additionner les litres achetés',()=>{
+  const x=F.simulerPleinsCompletes({maintenant:now,planning_complet:false,missions:[],
+    moto:{compteur_actuel_km:231},achats:[{id:'plein',compteur_km:2,litres:9.95,plein_complet:true,date_achat:'2026-11-04T17:15:19Z',justificatif_statut:'A_VERIFIER'}]});
+  assert.equal(x.stock_estime_l,4.924);
+  assert.equal(x.autonomie_km,111.9);
+  assert.equal(x.fiabilite,'HYPOTHESE_BM_NON_VERIFIEE');
+  assert.equal(x.stock_physiquement_verifie,false);
+});
+test('scénario de plein manquant reste inconnu',()=>{
+  const x=F.simulerPleinsCompletes({maintenant:now,moto:{compteur_actuel_km:50},achats:[]});
+  assert.equal(x.stock_estime_l,null);
+});
+test('plein déclaré rejeté ne sert pas de référence',()=>{
+  const x=F.simulerPleinsCompletes({maintenant:now,moto:{compteur_actuel_km:50},
+    achats:[{id:'x',date_achat:'2026-11-05T12:00:00Z',compteur_km:2,litres:10,plein_complet:true,justificatif_statut:'REJETE'}]});
+  assert.equal(x.stock_estime_l,null);
+});
+test('plein de 15 L à l’origine = 15 L, pas 15 L + achat',()=>{
+  const x=F.simulerPleinsCompletes({maintenant:now,moto:{compteur_actuel_km:2},
+    achats:[{id:'x',date_achat:'2026-11-05T12:00:00Z',compteur_km:2,litres:12,plein_complet:true,justificatif_statut:'A_VERIFIER'}]});
+  assert.equal(x.stock_estime_l,15);
+});
+test('4 motos du 6 novembre reconstituées sur hypothèse 15 L',()=>{
+  const rows=[[231,2,9.95,4.924],[150,5,12.16,8.62],[57,2,11.05,12.58],[84,2,9.95,11.392]];
+  for (let i=0;i<rows.length;i++){
+    const [courant,k,litres,reste]=rows[i];
+    const x=F.simulerPleinsCompletes({maintenant:now,moto:{compteur_actuel_km:courant},
+      achats:[{id:'f'+i,date_achat:'2026-11-04T17:15:19Z',compteur_km:k,litres,plein_complet:true,justificatif_statut:'A_VERIFIER'}]});
+    assert.equal(x.stock_estime_l,reste);
+  }
+});
+
 console.log('VALIDÉ : '+n+' tests déterministes.');
