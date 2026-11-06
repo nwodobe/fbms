@@ -398,3 +398,20 @@ dialog.mm-camera::backdrop{background:#000}
 .mm-camera-scene video[hidden],.mm-camera-scene img[hidden]{display:none}
 .mm-camera-appareil{display:block;width:100%;margin-top:8px}
 .mm-camera .mm-erreur{margin:8px 0 0;color:var(--ko)}
+
+/* -- Carburant & autonomie (Pilotage) ------------------------------------- */
+.mm-nav-alerte{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:11.5px;font-weight:800;color:#fff;background:var(--muted)}
+.mm-nav-alerte.mm-ko{background:var(--ko)}.mm-nav-alerte.mm-warn{background:var(--warn)}
+.mm-carb-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:720px){.mm-carb-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.mm-carb .mm-table td{white-space:normal}
+.mm-carb .mm-table td small.mm-aide{display:block}
+.mm-carb-etat{font-size:12px}
+.mm-carb-alerte{color:var(--ko);font-weight:700}
+.mm-carb-discret{color:var(--muted);font-size:12.5px}
+.mm-carb-fiab{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;border:1px solid var(--line);background:#fff}
+.mm-carb-fiab-bonne{color:var(--ok)}.mm-carb-fiab-moyenne{color:var(--forest)}.mm-carb-fiab-faible{color:var(--warn)}.mm-carb-fiab-insuffisante{color:var(--muted)}
+.mm-carb-liste{margin:6px 0 12px;padding-left:20px;line-height:1.5}
+a.mm-carb-lien{display:block;text-decoration:none;font-weight:700}
+.mm-carb .mm-table td:first-child a{white-space:nowrap}
+@media (min-width:720px){.mm-carb .mm-table td:first-child{min-width:96px}.mm-carb .mm-table td:nth-child(3){min-width:150px}}

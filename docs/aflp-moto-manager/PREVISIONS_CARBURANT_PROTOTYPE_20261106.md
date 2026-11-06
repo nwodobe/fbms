@@ -89,3 +89,8 @@ La MOTO-003 serait sous le seuil **illustratif** de 5,28 L si deux journées de 
 
 Cinq nouveaux tests du scénario 15 L ont été ajoutés, portant le nombre de tests déterministes à 26.
 
+
+
+## Suite (7 novembre 2026)
+
+Intégration en production de branche, revue de ce prototype et tests : voir `CARBURANT_AUTONOMIE_LIVRAISON_20261107.md`.

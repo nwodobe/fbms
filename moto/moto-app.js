@@ -42,6 +42,7 @@
     if (!S.sb) throw new Error('Connexion aux données indisponible.');
     var r = await S.sb.rpc(nom, args || {});
     if (r.error) throw new Error(messageErreur(r.error));
+    if (/mission|carburant|releve|kilom|compteur|correction/.test(nom)) S.carbLe = 0;   // recalcul carburant au prochain affichage
     return r.data;
   }
   async function lireTable(table, construire) {
@@ -321,7 +322,7 @@
     var immos = await Promise.all(liste.map(function (m) { return OFF.immobilisationLocale(m.id); }));
     var titre = S.classe === 'UNITE' ? 'Ma moto' : 'Parc AFLP FLEET';
     vue().innerHTML = '<div class="mm-entete"><div><h1>' + titre + '</h1><p>' + (S.classe === 'UNITE' ? 'Passeport numérique de la moto qui vous est remise.' : liste.length + ' moto(s) dans votre périmètre.') + '</p></div>' +
-      (peut('inventaire') ? '<a class="mm-btn mm-primaire" href="#/admin">Ajouter ou administrer</a>' : (peut('inventaire_logistique') ? '<a class="mm-btn mm-primaire" href="#/coordination">Enregistrer une moto</a>' : '')) + '</div>' + bandeauHorsLigne() +
+      (peut('inventaire') ? '<a class="mm-btn mm-primaire" href="#/admin">Ajouter ou administrer</a>' : (peut('inventaire_logistique') ? '<a class="mm-btn mm-primaire" href="#/coordination">Enregistrer une moto</a>' : '')) + '</div>' + bandeauHorsLigne() + bandeauCarburantAccueil() +
       (liste.length ? '<div class="mm-grille-motos" id="mmGrille">' + liste.map(function (m, i) { return carteMoto(m, immos[i]); }).join('') + '</div>'
         : '<div class="mm-vide"><b>Aucune moto à afficher.</b><p>' + (S.classe === 'UNITE' ? 'Aucune moto ne vous a encore été remise. La remise officielle se fait au bureau ANAGROCI de Bouaké.' : 'Aucune moto enregistrée dans votre périmètre.') + '</p></div>');
     chargerPhotos(vue());
@@ -1324,10 +1325,13 @@
     if (peut('valider_budget')) d[9].filter(function (x) { return x.propose_par !== mine; }).forEach(function (x) { valid.push(['Budget proposé', C.fcfa(x.montant_autorise) + ' · ' + C.dateFr(x.periode_debut) + ' → ' + C.dateFr(x.periode_fin), action('budget_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
     if (peut('valider_corrections') || (S.profil.role === 'Finance Manager')) d[10].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Correction', x.cible_table.replace('moto_', '') + ' · ' + x.champ + ' : ' + (x.ancienne_valeur || '∅') + ' → ' + x.nouvelle_valeur + ' · ' + x.motif, action('correction_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
     if (peut('valider_corrections') || S.profil.role === 'Finance Manager') d[11].filter(function (x) { return x.demande_par !== mine; }).forEach(function (x) { valid.push(['Remboursement d\'avance', C.fcfa(x.montant), action('remboursement_decider', 'Décider', { id: x.id }, 'mm-primaire')]); });
+    var carbRes = null, carbErr = null;
+    try { carbRes = await chargerCarburant(); } catch (e) { carbErr = messageErreur(e); }
+    majIndicateurCarburant();
     var decisionsBm = peut('maintenance_autoriser') ? await lireTable('moto_v_decisions_bm', function (x) { return x.eq('statut', 'EN_ATTENTE'); }).catch(function () { return []; }) : [];
     vue().innerHTML = '<div class="mm-entete"><div><h1>Pilotage de la flotte</h1><p>Indicateurs calculés côté serveur sur les données réelles saisies.</p></div>' +
       (peut('exports') ? '<button type="button" class="mm-btn mm-primaire" id="pilExport">Exporter Excel</button>' : '') + '</div>' + bandeauHorsLigne() +
-      (avert ? '<div class="mm-bandeau mm-info">' + esc(avert) + '</div>' : '') +
+      (avert ? '<div class="mm-bandeau mm-info">' + esc(avert) + '</div>' : '') + sectionCarburant(carbRes, carbErr) +
       (peut('maintenance_autoriser') ? '<section class="mm-bloc' + (decisionsBm.length ? ' mm-bloc-alerte' : '') + '"><h2>Décisions de dépense à prendre (' + decisionsBm.length + ')</h2>' +
         (decisionsBm.length ? '<p>' + esc(decisionsBm.length) + ' demande(s) de dépense d\'entretien ou de réparation attendent votre autorisation individuelle.</p>' : '<p>Aucune demande de dépense en attente.</p>') +
         '<a class="mm-btn mm-primaire mm-petit" href="#/maintenance/decisions">Ouvrir « Décisions à prendre »</a></section>' : '') +
@@ -1375,6 +1379,7 @@
     if (VALIDATIONS[d.action]) return VALIDATIONS[d.action](d);
   }
   var VALIDATIONS = {
+    carb_fiche: function (d) { ficheCarburant(d.id); },
     budget_decider: function (d) { modale('Budget proposé', champ({ n: 'decision', l: 'Décision', t: 'select', req: true, o: [['VALIDE', 'Valider'], ['REJETE', 'Rejeter']] }) + champ({ n: 'motif', l: 'Motif', t: 'textarea' }), function (v) { return rpc('moto_budget_decider', { p_budget: d.id, p_decision: v.decision, p_motif: v.motif }).then(router); }); },
     correction_decider: function (d) { modale('Correction demandée', champ({ n: 'decision', l: 'Décision', t: 'select', req: true, o: [['APPLIQUEE', 'Appliquer'], ['REJETEE', 'Rejeter']] }) + champ({ n: 'motif', l: 'Motif', t: 'textarea' }), function (v) { return rpc('moto_correction_decider', { p_correction: d.id, p_decision: v.decision, p_motif: v.motif }).then(router); }); },
     remboursement_decider: function (d) { modale('Remboursement d\'avance personnelle', champ({ n: 'decision', l: 'Décision', t: 'select', req: true, o: [['VALIDE', 'Valider'], ['REJETE', 'Rejeter']] }) + champ({ n: 'motif', l: 'Motif', t: 'textarea' }) + '<p class="mm-note">AFLP FLEET n\'exécute aucun paiement : Finance paie selon ses procédures puis déclare le paiement.</p>', function (v) { return rpc('moto_remboursement_decider', { p_remboursement: d.id, p_decision: v.decision, p_motif: v.motif }).then(router); }); }
@@ -1391,6 +1396,7 @@
       feuille('Couts', d[1].map(function (c) { return { Moto: c.code, 'Km parcourus': c.km_parcourus, 'Carburant verifie': c.cout_carburant_verifie, 'Carburant a verifier': c.cout_carburant_a_verifier, Maintenance: c.cout_maintenance, Pneus: c.cout_pneus, Incidents: c.cout_incidents, 'FCFA/km': c.fcfa_km == null ? C.ND : c.fcfa_km }; }));
       feuille('Disponibilite', d[2].map(function (x) { return { Moto: codeMoto(x.moto_id), 'Jours prevus': x.jours_prevus, 'Jours indisponibles': x.jours_indisponibles, 'Taux %': x.taux_disponibilite_pct }; }));
       if (peut('rapprochement')) feuille('Rapprochement dotations', d[5].map(function (r) { return { Beneficiaire: r.beneficiaire_nom, Autorise: r.budget_autorise, Remis: r.dotations_remises, 'Frais MM': r.frais_mobile_money, 'Non confirme': r.remises_non_confirmees, 'Recu confirme': r.dotations_recues, 'Ecarts': r.ecarts_contestes, 'Achats declares': r.achats_declares, 'Justifies verifies': r.justifies_verifies, Restitutions: r.restitutions, 'Avance a apurer': r.avance_a_apurer, 'Avances perso verifiees': r.avances_personnelles_verifiees, 'Remboursements valides': r.remboursements_valides, 'Reste a rembourser': r.reste_a_rembourser }; }));
+      if (S.carb) feuille('Carburant autonomie', S.carb.lignes.map(function (l) { return { Moto: l.code, Agent: l.agent || '', Statut: l.statut_libelle, 'Km depuis plein': l.km_depuis_plein, 'Stock estime L': l.stock_l, 'Autonomie km': l.autonomie_km, 'Km prevus 24h': l.km_24h, 'Source km': l.source_km, 'Stock securite L': l.stock_securite_l, 'Seuil alerte L': l.seuil_alerte_l, 'Plein conseille L': l.plein_conseille_l, 'Cout plein FCFA': l.cout_plein_fcfa, Fiabilite: l.fiabilite_libelle, 'Dernier plein': l.dernier_plein ? l.dernier_plein.date : '', 'Dernier releve': l.dernier_releve_at || '', Justification: l.justification.join(' ; '), 'Points a verifier': l.anomalies.concat(l.points_a_verifier).join(' ; ') }; }));
       feuille('Echeances', d[3].map(function (e) { return { Moto: e.code, Regle: e.libelle, Source: e.source, 'Prochaine km': e.prochaine_km, 'Prochaine date': e.prochaine_date, Statut: C.libelle(e.statut) }; }));
       feuille('Alertes documents', d[4].map(function (a) { return { Moto: a.code, Document: C.libelle(a.type_document), Alerte: C.libelle(a.alerte), Expiration: a.date_expiration || '' }; }));
       feuille('Pneus', d[13].map(function (p) { return { Code: p.code, Marque: p.marque, Dimensions: p.dimensions, Statut: C.libelle(p.statut), 'Km parcourus': p.km_parcourus, Reparations: p.cout_reparations, 'FCFA/km': p.fcfa_km_vie_complete == null ? C.ND : p.fcfa_km_vie_complete }; }));
@@ -1399,6 +1405,124 @@
       g.XLSX.writeFile(wb, 'ANAGROCI_AFLP_FLEET_' + aujourdhui() + '.xlsx', { compression: true });
       toast('Classeur Excel généré.', 'ok');
     } catch (e) { toast('Export impossible : ' + messageErreur(e), 'ko'); }
+  }
+
+  /* -- C bis. CARBURANT & AUTONOMIE ---------------------------------------------
+     Moteur : moto-carburant-previsionnel.js (lecture seule). Données lues :
+     moto_v_flotte, moto_carburant, moto_v_missions (15 derniers jours).
+     Recalcul : à l'ouverture de Pilotage ; après tout relevé, mission, achat ou
+     correction enregistré (invalidation dans la fonction d’appel serveur) ; après synchronisation hors
+     ligne ; toutes les 10 minutes tant que l'application est ouverte.
+     Aucune proposition ne crée de dotation, de paiement ni de remboursement. */
+  var CARB = g.MOTO_CARBURANT_PREVISIONNEL || null;
+  var CARB_TTL = 5 * 60000, CARB_JOURNAL = 'aflp_fleet_carburant_alertes_v1';
+  function carbNb(v, d) { return v == null ? C.ND : Number(v).toLocaleString('fr-FR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }).replace(/ | /g, ' '); }
+  function carbL(v) { return v == null ? C.ND : carbNb(v, 2) + ' L'; }
+  function carbBadge(l) { return '<span class="mm-badge mm-' + l.ton + ' mm-carb-etat">' + esc(l.statut_libelle) + '</span>'; }
+  function carbFiab(l) { return '<span class="mm-carb-fiab mm-carb-fiab-' + l.fiabilite.toLowerCase() + '">' + esc(l.fiabilite_libelle) + '</span>'; }
+  function carbSource(l) {
+    return { PLANNING: 'planning', PLANNING_PARTIEL: 'planning partiel + historique', HISTORIQUE: 'historique compteur', REFERENTIEL: 'référentiel 70 km/j' }[l.source_km] || l.source_km;
+  }
+  function carbInvalider() { S.carbLe = 0; }
+  async function chargerCarburant(forcer) {
+    if (!CARB) return null;
+    if (!forcer && S.carb && S.carbLe && Date.now() - S.carbLe < CARB_TTL) return S.carb;
+    if (!S.flotte.length) await chargerFlotte();
+    var depuis = new Date(Date.now() - 15 * 86400000).toISOString(), achats, missions, horsLigne = false;
+    try {
+      var d = await Promise.all([lireTable('moto_carburant', function (q) { return q.order('date_achat', { ascending: true }); }),
+        lireTable('moto_v_missions', function (q) { return q.gte('depart_at', depuis); })]);
+      achats = d[0]; missions = d[1].map(function (m) { return { id: m.id, moto_id: m.moto_id, statut: m.statut, depart_at: m.depart_at, km_depart: m.km_depart, arrivee_at: m.arrivee_at, km_arrivee: m.km_arrivee, destination: m.destination }; });
+      OFF.memoriser('carburant_previsionnel', { achats: achats, missions: missions });
+    } catch (e) {
+      var c = await OFF.relire('carburant_previsionnel');
+      if (!c) throw e;
+      achats = c.valeur.achats || []; missions = c.valeur.missions || []; horsLigne = true;
+    }
+    var res = CARB.evaluerFlotte({ flotte: S.flotte, carburant: achats, missions: missions, planning: [], maintenant: new Date().toISOString() });
+    res.horsLigne = horsLigne; res.missions = missions;
+    S.carb = res; S.carbLe = Date.now();
+    carbHistoriser(res);
+    return res;
+  }
+  /* Historique local anti-doublon (une notification par moto, statut et jour). */
+  function carbHistoriser(res) {
+    var journal = {};
+    try { journal = JSON.parse(g.localStorage.getItem(CARB_JOURNAL) || '{}'); } catch (e) { journal = {}; }
+    var h = CARB.historiserAlertes(journal, res.lignes, new Date().toISOString(), 14);
+    try { g.localStorage.setItem(CARB_JOURNAL, JSON.stringify(h.journal)); } catch (e) {}
+    res.nouvelles = h.nouvelles.length;
+    if (h.nouvelles.length) toast(h.nouvelles.length + ' nouvelle(s) alerte(s) carburant : voir Pilotage.', 'info');
+  }
+  async function majIndicateurCarburant(forcer) {
+    if (!CARB || !peut('pilotage')) return;
+    try {
+      var res = await chargerCarburant(forcer);
+      var lien = $('#motoNav a[data-route="pilotage"]'); if (!lien || !res) return;
+      var pastille = $('.mm-nav-alerte', lien);
+      var n = res.synthese.critique + res.synthese.a_planifier;
+      if (!n && !res.synthese.donnees) { if (pastille) pastille.remove(); return; }
+      if (!pastille) { pastille = document.createElement('span'); lien.appendChild(pastille); }
+      pastille.className = 'mm-nav-alerte ' + (res.synthese.critique ? 'mm-ko' : n ? 'mm-warn' : 'mm-neutre');
+      pastille.textContent = String(n || res.synthese.donnees);
+      pastille.setAttribute('aria-label', res.synthese.critique + ' critique(s), ' + res.synthese.a_planifier + ' ravitaillement(s) à planifier, ' + res.synthese.donnees + ' donnée(s) à vérifier');
+    } catch (e) { /* indicateur silencieux : la section Pilotage affiche l'erreur */ }
+  }
+  function bandeauCarburantAccueil() {
+    if (!S.carb || !peut('pilotage')) return '';
+    var s = S.carb.synthese, n = s.critique + s.a_planifier;
+    if (!n) return '';
+    return '<a class="mm-bandeau mm-' + (s.critique ? 'ko' : 'warn') + ' mm-carb-lien" href="#/pilotage">Carburant : ' + (s.critique ? s.critique + ' moto(s) en situation critique' : '') +
+      (s.critique && s.a_planifier ? ' · ' : '') + (s.a_planifier ? s.a_planifier + ' ravitaillement(s) à planifier' : '') + '. Ouvrir Pilotage →</a>';
+  }
+  function sectionCarburant(res, erreur) {
+    var titre = '<h2 id="carbTitre">Carburant &amp; autonomie</h2>';
+    if (!CARB) return '<section class="mm-bloc">' + titre + '<div class="mm-vide">Module de calcul carburant non chargé.</div></section>';
+    if (erreur || !res) return '<section class="mm-bloc">' + titre + '<div class="mm-vide mm-ko"><b>Calcul impossible.</b><p>' + esc(erreur || 'Données indisponibles.') + '</p></div></section>';
+    var s = res.synthese;
+    var lignes = res.lignes.map(function (l) {
+      var prop = l.ravitaillement_propose && l.plein_conseille_l != null ? '<b>' + esc(carbL(l.plein_conseille_l)) + '</b><small class="mm-aide">' + esc(C.fcfa(l.cout_plein_fcfa)) + ' pour le plein</small>' : (l.plein_conseille_l != null ? '<span class="mm-carb-discret">Aucune · plein possible ' + esc(carbL(l.plein_conseille_l)) + '</span>' : esc(C.ND));
+      var reste = l.stock_l == null ? esc(C.ND) : '<b>' + esc(carbL(l.stock_l)) + '</b>' + (l.km_en_cours_estimes ? '<small class="mm-aide">' + esc(carbL(l.stock_au_releve_l)) + ' au relevé, mission en cours</small>' : '');
+      return ['<a class="mm-lien" href="#/moto/' + esc(l.moto_id) + '">' + esc(l.code) + '</a>' + (l.cluster ? '<small class="mm-aide">' + esc(l.cluster) + '</small>' : ''),
+        esc(l.agent || C.ND), carbBadge(l) + (l.statut === 'NORMAL' && l.heures_avant_seuil != null && l.heures_avant_seuil < 24 ? '<small class="mm-aide">Seuil dans ~' + esc(carbNb(l.heures_avant_seuil)) + ' h</small>' : '') + (l.depasse_reservoir ? '<small class="mm-aide mm-carb-alerte">Besoin &gt; réservoir 15 L</small>' : '') + (l.anomalies.length ? '<small class="mm-aide mm-carb-alerte">Anomalie à vérifier</small>' : ''),
+        esc(l.km_depuis_plein == null ? C.ND : carbNb(l.km_depuis_plein) + ' km'), reste, esc(l.autonomie_km == null ? C.ND : carbNb(l.autonomie_km) + ' km'),
+        esc(carbNb(l.km_24h) + ' km') + '<small class="mm-aide">' + esc(carbSource(l)) + (l.calcul_provisoire ? ' · provisoire' : '') + '</small>',
+        esc(carbL(l.stock_securite_l)), esc(carbL(l.seuil_alerte_l)), prop,
+        esc(l.dernier_plein ? C.dateHeureFr(l.dernier_plein.date) : C.ND), esc(C.dateHeureFr(l.dernier_releve_at)), carbFiab(l),
+        action('carb_fiche', 'Fiche', { id: l.moto_id })];
+    });
+    return '<section class="mm-bloc mm-carb" aria-labelledby="carbTitre">' + titre +
+      '<p class="mm-note">Estimation recalculée le ' + esc(C.dateHeureFr(S.carbLe)) + (res.horsLigne ? ' à partir des dernières données conservées hors connexion' : '') +
+      '. Hypothèses du Branch Manager : réservoir de 15 L ramené au plein à chaque plein complet, 4,4 L/100 km (4 L + 10 %), délai de ravitaillement 24 h, 905 FCFA/L.</p>' +
+      '<div class="mm-kpis mm-carb-kpis">' + kpi('Motos suivies', String(s.suivies), 'en service ou avec achat') + kpi('Normales', String(s.normal), 'stock suffisant') +
+      kpi('À ravitailler', String(s.a_planifier), 'ravitaillement à planifier') + kpi('Critiques', String(s.critique), 'réserve de sécurité atteinte') + kpi('Données insuffisantes', String(s.donnees), 'à vérifier') + '</div>' +
+      tableau(['Moto', 'Agent affectataire', 'Statut', 'Km depuis le plein', 'Carburant restant', 'Autonomie estimée', 'Km prévus 24 h', 'Stock de sécurité', 'Seuil d\'alerte', 'Quantité conseillée', 'Dernier plein', 'Dernier relevé', 'Fiabilité', ''], lignes, 'Aucune moto suivie : aucune moto mise en service ni achat de carburant enregistré.') +
+      '<p class="mm-note">Classement : critique, à planifier, données à vérifier, puis normal ; à statut égal, la plus faible autonomie d\'abord. Aucun planning de missions n\'est encore relié à AFLP FLEET : les km prévus reposent sur le rythme du compteur depuis le début du suivi, signalé « provisoire » sous 3 jours d\'historique. Une anomalie déclenche une vérification, jamais une accusation. Les quantités proposées ne déclenchent ni dotation, ni paiement, ni remboursement.</p></section>';
+  }
+  function ficheCarburant(id) {
+    var l = S.carb && S.carb.lignes.filter(function (x) { return x.moto_id === id; })[0];
+    if (!l) return toast('Fiche indisponible : recalcul en cours.', 'ko');
+    var ms = (S.carb.missions || []).filter(function (m) { return m.moto_id === id; }).sort(function (a, b) { return String(b.depart_at).localeCompare(String(a.depart_at)); }).slice(0, 8);
+    var ev = l.evenements.map(function (e) { return [esc(C.dateHeureFr(e.date)), esc(carbNb(e.km) + ' km'), esc(e.type === 'PLEIN' ? 'Plein complet (réservoir ramené à 15 L)' : 'Complément'), esc(carbL(e.litres)), esc(carbL(e.stock_l))]; });
+    ev.push([esc(C.dateHeureFr(l.dernier_releve_at)), esc(l.compteur_km == null ? C.ND : carbNb(l.compteur_km) + ' km'), 'Dernier relevé du compteur', '—', esc(carbL(l.stock_au_releve_l))]);
+    var corps = '<div class="mm-badges">' + carbBadge(l) + carbFiab(l) + '</div>' +
+      '<h3>Justification</h3><ul class="mm-carb-liste">' + l.justification.map(function (j) { return '<li>' + esc(j) + '</li>'; }).join('') + '</ul>' +
+      '<div class="mm-kpis">' + kpi('Carburant restant', carbL(l.stock_l), l.km_en_cours_estimes ? carbNb(l.km_en_cours_estimes) + ' km estimés en mission' : 'au dernier relevé') +
+      kpi('Autonomie', l.autonomie_km == null ? C.ND : carbNb(l.autonomie_km) + ' km', 'à 4,4 L/100 km') +
+      kpi('Consommation théorique', carbL(l.consommation_theorique_l), (l.km_depuis_plein == null ? C.ND : carbNb(l.km_depuis_plein) + ' km') + ' depuis le plein') +
+      kpi('Seuil d\'alerte', carbL(l.seuil_alerte_l), 'besoin 24 h ' + carbL(l.besoin_24h_l) + ' + sécurité ' + carbL(l.stock_securite_l)) + '</div>' +
+      '<h3>Proposition de ravitaillement</h3>' + (l.stock_l == null ? '<p>Non calculable tant que les données ne sont pas vérifiées.</p>' :
+        '<ol class="mm-carb-liste"><li>Quantité théorique restante : <b>' + esc(carbL(l.stock_l)) + '</b></li><li>Seuil d\'alerte : <b>' + esc(carbL(l.seuil_alerte_l)) + '</b>' + (l.heures_avant_seuil > 0 ? ' (atteint dans ~' + esc(carbNb(l.heures_avant_seuil)) + ' h au rythme prévu)' : ' (atteint)') + '</li>' +
+        '<li>Km prévus avant le prochain ravitaillement : <b>' + esc(carbNb(l.km_24h) + ' km') + '</b> (' + esc(carbSource(l)) + ')</li><li>Quantité pour refaire le plein : <b>' + esc(carbL(l.plein_conseille_l)) + '</b> · minimum pour repasser au-dessus du seuil : ' + esc(carbL(l.minimum_pour_seuil_l)) + '</li>' +
+        '<li>Montant prévisionnel du plein : <b>' + esc(C.fcfa(l.cout_plein_fcfa)) + '</b></li><li>Confiance du calcul : <b>' + esc(l.fiabilite_libelle) + '</b></li></ol>' +
+        (l.depasse_reservoir ? '<div class="mm-bandeau mm-warn">Les besoins des 24 prochaines heures et du stock de sécurité dépassent le réservoir de 15 L : prévoir un ravitaillement intermédiaire en cours de route.</div>' : '')) +
+      '<h3>Dernier plein et évolution du compteur</h3>' + tableau(['Date', 'Compteur', 'Événement', 'Litres', 'Stock estimé après'], ev, 'Aucun plein complet enregistré.') +
+      '<h3>Missions récentes et prévues</h3><p class="mm-note">Aucun planning de missions n\'est relié à AFLP FLEET : le besoin est estimé sur ' + esc(carbNb(l.km_jour_historique == null ? l.km_24h : l.km_jour_historique) + ' km/jour') + ' (' + esc(carbSource(l)) + (l.historique_jours != null ? ', ' + carbNb(l.historique_jours, 1) + ' jour(s) observés' : '') + ').</p>' +
+      tableau(['Départ', 'Destination', 'Statut', 'Km départ', 'Km arrivée'], ms.map(function (m) { return [esc(C.dateHeureFr(m.depart_at)), esc(m.destination || '—'), badge(m.statut), esc(C.km(m.km_depart)), esc(m.km_arrivee == null ? '—' : C.km(m.km_arrivee))]; }), 'Aucune mission sur les 15 derniers jours.') +
+      (l.points_a_verifier.length || l.anomalies.length ? '<h3>Points à vérifier</h3><ul class="mm-carb-liste">' + l.anomalies.concat(l.points_a_verifier).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      '<p class="mm-note">' + esc(l.hypotheses) + '. Calcul indicatif : aucune dotation, aucun paiement, aucun remboursement n\'est déclenché.</p>';
+    modale('Carburant · ' + l.code + (l.agent ? ' · ' + l.agent : ''), corps, null);
+    var fermer = $('dialog.mm-modale:last-of-type .mm-annuler'); if (fermer) fermer.textContent = 'Fermer';
   }
 
   /* -- D. FORMATION ----------------------------------------------------------- */
@@ -1668,14 +1792,18 @@
     coquille(); etatReseau();
     await chargerParametres(); await chargerCatalogue();
     OFF.abonner(function (r) { var el = $('#motoFile'); if (el) { el.textContent = r.EN_ATTENTE + r.BLOQUE ? (r.EN_ATTENTE + r.BLOQUE) + ' en attente' : 'À jour'; el.className = 'mm-file ' + (r.EN_ATTENTE + r.BLOQUE ? 'mm-warn' : 'mm-ok'); } });
-    g.addEventListener('online', function () { etatReseau(); OFF.synchroniser(S.sb).then(function (x) { if (x.envoyees) { toast(x.envoyees + ' opération(s) synchronisée(s).', 'ok'); router(); } }); });
+    g.addEventListener('online', function () { etatReseau(); OFF.synchroniser(S.sb).then(function (x) { if (x.envoyees) { carbInvalider(); toast(x.envoyees + ' opération(s) synchronisée(s).', 'ok'); router(); } }); });
     g.addEventListener('offline', etatReseau);
     g.addEventListener('hashchange', router);
     vue().addEventListener('click', function (e) { if (routeActive().espace === 'pilotage') clicPilotage(e); });
-    setInterval(function () { OFF.synchroniser(S.sb); }, 60000);
+    setInterval(function () { OFF.synchroniser(S.sb).then(function (x) { if (x && x.envoyees) carbInvalider(); }).catch(function () {}); }, 60000);
     OFF.synchroniser(S.sb).catch(function () {});
     if (!location.hash) location.hash = S.classe === 'UNITE' ? '#/operations' : '#/motos';
     router();
+    if (peut('pilotage')) {
+      majIndicateurCarburant(true).then(function () { if (routeActive().espace === 'motos' && bandeauCarburantAccueil()) router(); });
+      setInterval(function () { majIndicateurCarburant(true); }, 10 * 60000);
+    }
   }
   if (g.ANAGROCI_AUTH && g.ANAGROCI_AUTH.profile) demarrer(g.ANAGROCI_AUTH);
   else document.addEventListener('anagroci:authenticated', function (e) { demarrer(e.detail); });
