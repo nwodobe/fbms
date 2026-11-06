@@ -395,15 +395,47 @@
   /* Historisation anti-doublon : une alerte (moto, statut, jour) n'est notifiée
      qu'une fois ; une aggravation (à planifier → critique) est une nouvelle alerte.
      Le journal est purgé au-delà de `garder_jours`. Fonction pure. */
+  /* Une notification persistante n'est dédoublonnée que tant que le même
+     état reste actif. Si le statut redevient NORMAL puis se dégrade le même
+     jour, une NOUVELLE notification doit être produite. Les entrées anciennes
+     restent conservées pour la traçabilité pendant la durée choisie. */
   function historiserAlertes(journal, lignes, maintenant, garderJours) {
-    var t = date(maintenant) || Date.now(), jour = jourIso(t), limite = t - (garderJours || 14) * J;
-    var j = {}; Object.keys(journal || {}).forEach(function (k) { var v = journal[k]; if (v && date(v.premiere) !== null && date(v.premiere) >= limite) j[k] = v; });
+    var t = date(maintenant) || Date.now(), instant = new Date(t).toISOString();
+    var jour = jourIso(t), limite = t - (garderJours || 14) * J, j = {};
+    Object.keys(journal || {}).forEach(function (k) {
+      var v = journal[k];
+      if (v && date(v.premiere) !== null && date(v.premiere) >= limite) j[k] = Object.assign({}, v);
+    });
     var nouvelles = [];
     (lignes || []).forEach(function (l) {
-      if (!l || l.statut === 'NORMAL') return;
-      var cle = [l.moto_id || l.code, l.statut, jour].join('|');
-      if (j[cle]) { j[cle].derniere = new Date(t).toISOString(); j[cle].occurrences++; return; }
-      j[cle] = { moto: l.code, statut: l.statut, premiere: new Date(t).toISOString(), derniere: new Date(t).toISOString(), occurrences: 1 };
+      if (!l || (!l.moto_id && !l.code)) return;
+      var identite = String(l.moto_id || l.code);
+      /* Résoudre les anciennes alertes lorsque la moto repasse à NORMAL ou
+         change d'état : réapparition du même niveau = nouvel épisode. */
+      Object.keys(j).forEach(function (k) {
+        var v = j[k];
+        if (k.indexOf(identite + '|') !== 0 || v.actif === false) return;
+        if (l.statut === 'NORMAL' || v.statut !== l.statut) {
+          v.actif = false;
+          v.resolue = instant;
+        }
+      });
+      if (l.statut === 'NORMAL') return;
+      var cle = [identite, l.statut, jour].join('|');
+      if (j[cle]) {
+        var enCours = j[cle].actif !== false;
+        j[cle].derniere = instant;
+        j[cle].occurrences = (j[cle].occurrences || 0) + 1;
+        if (!enCours) {
+          j[cle].actif = true;
+          j[cle].resolue = null;
+          j[cle].reprises = (j[cle].reprises || 0) + 1;
+          nouvelles.push(cle);
+        }
+        return;
+      }
+      j[cle] = { moto: l.code, statut: l.statut, premiere: instant,
+        derniere: instant, occurrences: 1, actif: true, resolue: null, reprises: 0 };
       nouvelles.push(cle);
     });
     return { journal: j, nouvelles: nouvelles };
