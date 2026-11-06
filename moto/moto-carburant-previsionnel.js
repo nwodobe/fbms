@@ -90,5 +90,68 @@
     var ajout=st.litres!==null && cible!==null ? Math.max(0,cible-st.litres) : null;
     return { statut:statut, consommation_l100:ronde(p.conso_prudente,2), besoin_24h_l:ronde(besoinDelai,3), stock_securite_l:ronde(sec,3), seuil_alerte_l:ronde(alert,3), stock_estime_l:st.litres, autonomie_km:st.autonomie_km, ravitaillement_conseille_l:ronde(ajout,2), cout_fcfa:ajout===null?null:Math.round(ajout*p.prix_fcfa_l), fiabilite:st.fiable && !manque && m24.complet && m48.complet?'VERIFIABLE':'A_VERIFIER', actions:actions, erreurs:erreurs, mise_a_jour: new Date(maintenant).toISOString() };
   }
-  return { REGLAGES:REGLAGES, parametres:parametres, litresPourKm:litresPourKm, missionsIntervalle:missionsIntervalle, stockEstime:stockEstime, prevoir:prevoir };
+
+  /* -- Simulation autorisée par le BM, 06/11/2026 ---------------------------
+     Une mention « plein complet » + une capacité de travail de 15 L permet
+     de calculer un stock HYPOTHÉTIQUE. Ne marque jamais la capacité et le
+     justificatif comme physiquement vérifiés. Ce scénario ne réécrit aucune
+     opération ni aucun paramètre de la base de production. */
+  function simulerPleinsCompletes(input, p) {
+    input=input||{};
+    var config=parametres(p), cap=15;
+    if (p && p.capacite_hypothese_l!==undefined) {
+      cap=num(p.capacite_hypothese_l);
+      if (cap===null || cap<=0) throw new Error('Capacité de scénario invalide');
+    }
+    var achats=Array.isArray(input.achats)?input.achats:[], moto=input.moto||{}, compteur=num(moto.compteur_actuel_km);
+    var pleins=achats.filter(function(a) {
+      return a && a.plein_complet===true && a.justificatif_statut!=='REJETE' &&
+        num(a.compteur_km)!==null && num(a.compteur_km)>=0 &&
+        date(a.date_achat)!==null;
+    }).sort(function(a,b){
+      return date(b.date_achat)-date(a.date_achat) || Number(b.compteur_km)-Number(a.compteur_km);
+    });
+    if (!pleins.length || compteur===null) return {
+      statut:'DONNEES_INSUFFISANTES',stock_estime_l:null,autonomie_km:null,
+      scenario:'HYPOTHESE_PLEIN_15_L',capacite_hypothese_l:cap,
+      fiabilite:'HYPOTHESE_NON_CALCULABLE',motif:'Plein complet daté ou compteur absent'
+    };
+    var dernier=pleins[0], kmPlein=num(dernier.compteur_km), instant=date(dernier.date_achat);
+    if (compteur<kmPlein || num(dernier.litres)===null || num(dernier.litres)<=0 || num(dernier.litres)>cap) return {
+      statut:'ANOMALIE_A_VERIFIER',stock_estime_l:null,autonomie_km:null,
+      scenario:'HYPOTHESE_PLEIN_15_L',capacite_hypothese_l:cap,
+      fiabilite:'HYPOTHESE_NON_CALCULABLE',motif:'Compteur ou achat du plein incohérent'
+    };
+    var vus=new Set(), suivants=[], anomalies=[];
+    achats.forEach(function(a) {
+      if (!a || a===dernier || a.id && String(a.id)===String(dernier.id) || a.justificatif_statut==='REJETE') return;
+      var km=num(a.compteur_km), quand=date(a.date_achat);
+      if (quand===null || quand<=instant) return;
+      if (a.id && vus.has(String(a.id))) return;
+      if (a.id) vus.add(String(a.id));
+      if (km===null || km<kmPlein || km>compteur) { anomalies.push('Achat postérieur au plein, kilométrage incohérent ou absent'); return; }
+      suivants.push(a);
+    });
+    if (anomalies.length) return {
+      statut:'ANOMALIE_A_VERIFIER',stock_estime_l:null,autonomie_km:null,
+      scenario:'HYPOTHESE_PLEIN_15_L',capacite_hypothese_l:cap,
+      fiabilite:'HYPOTHESE_NON_CALCULABLE',motif:anomalies.join('; ')
+    };
+    var hypothese=Object.assign({}, moto, {
+      capacite_l:cap,capacite_verifiee:true,
+      stock_initial_l:cap,stock_initial_verifie:true,
+      compteur_initial_km:kmPlein
+    });
+    var resultat=prevoir(Object.assign({},input,{moto:hypothese,achats:suivants}),config);
+    resultat.scenario='HYPOTHESE_PLEIN_15_L';
+    resultat.capacite_hypothese_l=cap;
+    resultat.fiabilite='HYPOTHESE_BM_NON_VERIFIEE';
+    resultat.stock_physiquement_verifie=false;
+    resultat.plein_ancre={id:dernier.id||null,date_achat:dernier.date_achat,compteur_km:kmPlein,
+      statut_justificatif:dernier.justificatif_statut||null};
+    if (dernier.justificatif_statut!=='VERIFIE') resultat.erreurs.push('Justificatif du plein à vérifier');
+    resultat.erreurs.push('Capacité de 15 L et plein complet postulés par le Branch Manager, non mesurés');
+    return resultat;
+  }
+  return { REGLAGES:REGLAGES, parametres:parametres, litresPourKm:litresPourKm, missionsIntervalle:missionsIntervalle, stockEstime:stockEstime, prevoir:prevoir, simulerPleinsCompletes:simulerPleinsCompletes };
 });
