@@ -777,6 +777,13 @@ function bindCompleteness(formId) {
   refresh();
   return refresh;
 }
+/* Précision (m) et horodatage de la dernière capture GPS du bouton, ou null si saisie manuelle. */
+function gpsMeta(latId) {
+  var la = document.getElementById(latId);
+  if (!la) return { acc: null, at: null };
+  var acc = Number(la.getAttribute('data-gps-acc'));
+  return { acc: isFinite(acc) && acc > 0 ? acc : null, at: la.getAttribute('data-gps-at') || null };
+}
 /* Bouton « Utiliser ma position » — facultatif, jamais bloquant. */
 function geoButton(latId, lngId) {
   return '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.fillGps(\'' + latId + '\',\'' + lngId + '\')">📍 Utiliser ma position</button>';
@@ -787,6 +794,15 @@ function fillGps(latId, lngId) {
     var la = document.getElementById(latId), lo = document.getElementById(lngId);
     if (la) la.value = p.coords.latitude.toFixed(6);
     if (lo) lo.value = p.coords.longitude.toFixed(6);
+    /* Régularisation AFLP 25/10/2026 : la précision GPS était perdue. Elle est conservée
+       sur le champ latitude et effacée dès qu'une coordonnée est retouchée à la main. */
+    if (la && p.coords && isFinite(p.coords.accuracy) && p.coords.accuracy > 0) {
+      la.setAttribute('data-gps-acc', String(Math.round(p.coords.accuracy * 10) / 10));
+      la.setAttribute('data-gps-at', new Date().toISOString());
+      var clear = function () { la.removeAttribute('data-gps-acc'); la.removeAttribute('data-gps-at'); };
+      la.addEventListener('input', clear, { once: true });
+      if (lo) lo.addEventListener('input', clear, { once: true });
+    }
     var f = la && la.closest('form');
     if (f) f.dispatchEvent(new Event('input'));
   }, function () {}, { enableHighAccuracy: true, timeout: 8000 });
@@ -1531,7 +1547,9 @@ function openFarmerForm(prefill, editId) {
         };
         var plot = {
           local_name: val('ff_plot_nom') || null, declared_area: numVal('ff_plot_ha'),
-          latitude: numVal('ff_plot_lat'), longitude: numVal('ff_plot_lng')
+          latitude: numVal('ff_plot_lat'), longitude: numVal('ff_plot_lng'),
+          /* Transmis pour traçabilité ; la fonction serveur hors ligne actuelle ne l'exploite pas encore (voir anomalie D-3). */
+          gps_accuracy_m: gpsMeta('ff_plot_lat').acc, gps_captured_at: gpsMeta('ff_plot_lat').at
         };
         btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Enregistrement sur cet appareil…';
         off.queue('FARMER_ENROLL', { local_id: localId, row: serverRow, plot: plot }, {
@@ -1623,14 +1641,27 @@ function openFarmerForm(prefill, editId) {
             var plotNom = val('ff_plot_nom'), plotHa = numVal('ff_plot_ha');
             var plotLat = numVal('ff_plot_lat'), plotLng = numVal('ff_plot_lng');
             if (!plotNom && plotHa == null && plotLat == null) return { id: id, pct: pct, plot: false };
+            /* Correctif 25/10/2026 : 'DEFERRED' n'existe pas dans farmer_plots_gps_status_chk ;
+               toute parcelle sans GPS était rejetée par la base (reproduit : test T1).
+               Une saisie manuelle de coordonnées sans précision reste NOT_MAPPED : le serveur
+               exige une précision pour POINT_CAPTURED (farmer_plots_gps_metadata_chk). */
+            var plotGps = gpsMeta('ff_plot_lat');
+            var hasPoint = plotLat != null && plotLng != null && plotGps.acc != null;
+            var plotNotes = null;
+            if (plotLat != null && plotLng != null && !hasPoint) {
+              /* Coordonnées tapées à la main, sans précision : conservées en note, jamais présentées comme point GPS. */
+              plotNotes = 'Coordonnées saisies manuellement, sans précision GPS : ' + plotLat + ', ' + plotLng + '. À relever au GPS.';
+              plotLat = null; plotLng = null;
+            }
             return cl.from('farmer_plots').insert({
               id: uid(), producteur_id: id, village_id: vid,
               local_name: plotNom || 'PARCELLE PRINCIPALE',
               declared_area: plotHa, area_unit: 'HA',
               latitude: plotLat, longitude: plotLng,
-              gps_status: (plotLat != null && plotLng != null) ? 'POINT_CAPTURED' : 'DEFERRED',
-              gps_captured_at: (plotLat != null && plotLng != null) ? new Date().toISOString() : null,
-              area_source: 'DECLARED', evidence_level: 'DECLARED', status: 'ACTIVE'
+              gps_accuracy_m: hasPoint ? plotGps.acc : null,
+              gps_status: hasPoint ? 'POINT_CAPTURED' : 'NOT_MAPPED',
+              gps_captured_at: hasPoint ? (plotGps.at || new Date().toISOString()) : null,
+              area_source: 'DECLARED', evidence_level: 'DECLARED', status: 'ACTIVE', notes: plotNotes
             }).then(function (pr) {
               if (pr.error) return { id: id, pct: pct, plot: false, plotError: pr.error.message };
               return { id: id, pct: pct, plot: true };
@@ -1941,13 +1972,21 @@ function renderFarmerPassport(id, tab) {
         body = '<div class="notice ok"><b>' + TT('Règle de campagne :', 'Campaign rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
           '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur.', 'Each plot stays a separate entity from the farmer.') + '</p></div>' +
           '<div class="ops-route-actions">' + editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()') + '</div></div>' +
-          table([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
+          table([TT('Parcelle', 'Plot'), TT('Statut', 'Status'), TT('Superficie déclarée', 'Declared area'), TT('Superficie GPS vérifiée', 'GPS-verified area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
           p.plots.map(function (x) {
+            /* Régularisation 25/10/2026 : le statut de la parcelle est affiché. Une parcelle
+               REVIEW_REQUIRED (ex. superficie historique migrée) n'est ni comptée au Passport ni additionnée. */
+            var st = String(x.status || 'ACTIVE').toUpperCase();
+            var stLabel = st === 'REVIEW_REQUIRED' ? '<span class="badge warn">' + TT('À vérifier', 'To verify') + '</span>'
+              : st === 'INACTIVE' ? '<span class="badge info">' + TT('Inactive', 'Inactive') + '</span>'
+              : '<span class="badge ok">' + TT('Active', 'Active') + '</span>';
             return '<tr><td><b>' + esc(x.local_name || '—') + '</b></td>' +
+              '<td>' + stLabel + '</td>' +
               '<td>' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
+              '<td>' + (x.gps_verified_area != null ? num(x.gps_verified_area, 2) + ' ha' : TT('Non mesurée', 'Not measured')) + '</td>' +
               '<td>' + (x.tree_count != null ? num(x.tree_count) : '—') + '</td>' +
               '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
-              '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
+              '<td>' + badge(x.gps_status || 'NOT_MAPPED') + '</td>' +
               '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td>' +
               '<td>' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';

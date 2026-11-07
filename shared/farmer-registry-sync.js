@@ -225,10 +225,31 @@
     return Object.values(map);
   }
 
+  /* Correctif 25/10/2026 (anomalie D-4) : chaque opération porte l'identifiant du compte
+     qui l'a saisie. Sur un téléphone partagé, la synchronisation n'envoie que les
+     opérations du compte connecté ; les autres restent conservées localement. */
+  function currentUserId() {
+    try {
+      var p = global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile;
+      if (p && (p.user_id || p.userId)) return p.user_id || p.userId;
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof AUTH !== 'undefined' && AUTH) {
+        if (AUTH.user && AUTH.user.id) return AUTH.user.id;
+        if (AUTH.profile && (AUTH.profile.user_id || AUTH.profile.userId)) return AUTH.profile.user_id || AUTH.profile.userId;
+      }
+    } catch (e2) { /* ignore */ }
+    return null;
+  }
+  function otherAccount(operation, uid) {
+    return !!(operation && operation.user_id && uid && String(operation.user_id) !== String(uid));
+  }
+
   async function enqueue(type, table, payload, options) {
     options = options || {};
     var operation = {
       operation_id: options.operation_id || uuid(),
+      user_id: options.user_id || currentUserId(),
       type: type,
       table: table || 'rpc',
       payload: payload || {},
@@ -390,6 +411,9 @@
       var blockedProducers = {};
       for (var i = 0; i < rows.length; i += 1) {
         if (rows[i].status === 'SYNCED') continue;
+        /* Session relue avant CHAQUE envoi : un changement de compte en cours de synchronisation
+           ne peut pas imputer une saisie au mauvais agent. Saisie d'un autre compte : conservée. */
+        if (otherAccount(rows[i], await sessionUserId())) continue;
         if (rows[i].producteur_id && blockedProducers[rows[i].producteur_id]) continue;
         var ok = await processOperation(rows[i]);
         if (!ok && rows[i].producteur_id) blockedProducers[rows[i].producteur_id] = true;
