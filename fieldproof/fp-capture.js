@@ -22,7 +22,10 @@
   /* -- 1. Messages d'erreur caméra / micro compréhensibles ----------------- */
   function messageMedia(e, quoi) {
     var n = e && e.name;
-    if (n === 'NotAllowedError' || n === 'SecurityError') return 'Accès ' + quoi + ' refusé. Autorisez-le dans les réglages du navigateur (icône à gauche de l\'adresse, ou Réglages > Safari > Appareil photo / Micro sur iPhone), puis réessayez.';
+    /* Plus de renvoi vers les réglages (07/11/2026) : l'écran de capture
+       propose aussitôt l'appareil photo du téléphone, sans paramétrage. */
+    if (n === 'NotAllowedError' || n === 'SecurityError') return quoi === 'au micro' ? 'Micro non autorisé sur ce téléphone.' : 'La caméra intégrée n\'est pas autorisée sur ce téléphone.';
+    if (n === 'DELAI') return 'La caméra intégrée ne répond pas sur ce téléphone.';
     if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'Aucun ' + (quoi === 'à la caméra' ? 'appareil photo' : 'micro') + ' disponible sur ce téléphone.';
     if (n === 'NotReadableError' || n === 'AbortError') return 'La caméra est utilisée par une autre application. Fermez-la puis réessayez.';
     return 'Ouverture ' + quoi + ' impossible : ' + (e && e.message ? e.message : 'erreur inconnue') + '.';
@@ -32,23 +35,35 @@
   /* Ouvre la caméra. mode PHOTO : image seule. mode VIDEO : image + son ;
      si le micro est refusé, la caméra s'ouvre quand même et la vidéo sera
      muette — l'appelant l'affiche clairement. */
+  /* Erreur caméra portant son code (NotAllowedError, DELAI…) pour l'écran. */
+  function erreurCamera(e, quoi) { var x = new Error(messageMedia(e, quoi)); x.code = (e && e.name) || 'INCONNU'; return x; }
+  /* Certaines WebView ne répondent jamais quand la demande d'autorisation
+     est fermée sans choix : sans délai, l'agent resterait sur « Ouverture… ». */
+  function avecDelai(p, ms) {
+    return new Promise(function (ok, ko) {
+      var fini = false, t = setTimeout(function () { if (!fini) { fini = true; ko({ name: 'DELAI' }); } }, ms);
+      p.then(function (s) { if (fini) { fermerCamera(s); return; } fini = true; clearTimeout(t); ok(s); },
+             function (e) { if (!fini) { fini = true; clearTimeout(t); ko(e); } });
+    });
+  }
+  var DELAI_CAMERA_MS = 15000;
   function ouvrirCamera(opts) {
     opts = opts || {};
-    if (!cameraDisponible()) return Promise.reject(new Error('Ce navigateur ne donne pas accès à la caméra. Utilisez Chrome (Android) ou Safari (iPhone) à jour, via l\'adresse https de FBMS.'));
+    if (!cameraDisponible()) { var x = new Error('La caméra intégrée n\'est pas disponible dans ce navigateur.'); x.code = 'INDISPONIBLE'; return Promise.reject(x); }
     var q = C.QUALITES[opts.qualite] || C.QUALITES.STANDARD;
     var video = { facingMode: { ideal: opts.face || 'environment' }, width: { ideal: opts.mode === 'PHOTO' ? 1920 : q.largeur }, height: { ideal: opts.mode === 'PHOTO' ? 1080 : q.hauteur }, frameRate: { ideal: 30, max: 30 } };
     if (opts.mode !== 'VIDEO') {
-      return nav.mediaDevices.getUserMedia({ video: video, audio: false })
+      return avecDelai(nav.mediaDevices.getUserMedia({ video: video, audio: false }), DELAI_CAMERA_MS)
         .then(function (s) { return { flux: s, micro: false, alerteMicro: null }; })
-        .catch(function (e) { throw new Error(messageMedia(e, 'à la caméra')); });
+        .catch(function (e) { throw erreurCamera(e, 'à la caméra'); });
     }
-    return nav.mediaDevices.getUserMedia({ video: video, audio: { echoCancellation: true, noiseSuppression: true } })
+    return avecDelai(nav.mediaDevices.getUserMedia({ video: video, audio: { echoCancellation: true, noiseSuppression: true } }), DELAI_CAMERA_MS)
       .then(function (s) { return { flux: s, micro: s.getAudioTracks().length > 0, alerteMicro: null }; })
       .catch(function (e) {
         /* Échec global : on retente sans micro pour distinguer les deux refus. */
-        return nav.mediaDevices.getUserMedia({ video: video, audio: false })
+        return avecDelai(nav.mediaDevices.getUserMedia({ video: video, audio: false }), DELAI_CAMERA_MS)
           .then(function (s) { return { flux: s, micro: false, alerteMicro: 'Micro indisponible (' + messageMedia(e, 'au micro') + ') — la vidéo sera MUETTE.' }; })
-          .catch(function (e2) { throw new Error(messageMedia(e2, 'à la caméra')); });
+          .catch(function (e2) { throw erreurCamera(e2, 'à la caméra'); });
       });
   }
   function fermerCamera(flux) { if (flux) flux.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); }
@@ -151,6 +166,68 @@
         cv.width = cv.height = 0; // libère la mémoire du canvas (important sur iOS)
         return { blob: new Blob([avec], { type: 'image/jpeg' }), largeur: sw, hauteur: sh + hb };
       });
+    });
+  }
+
+  /* -- 4 bis. Photo de l'appareil photo du téléphone (repli) ---------------
+     Lecture minimale de l'EXIF d'un JPEG : date de prise de vue originale
+     (0x9003), décalage horaire (0x9011), date du fichier (0x0132), modèle.
+     Aucune bibliothèque externe ; renvoie null si l'en-tête est absent. */
+  function lireExif(buf) {
+    try {
+      var v = new DataView(buf), n = v.byteLength;
+      if (n < 4 || v.getUint16(0) !== 0xFFD8) return null;
+      var o = 2;
+      while (o + 4 <= n) {
+        if (v.getUint8(o) !== 0xFF) return null;
+        var mk = v.getUint8(o + 1), lg = v.getUint16(o + 2);
+        if (mk === 0xDA || mk === 0xD9) return null;            // début de l'image : plus d'en-tête
+        if (mk === 0xE1 && o + 10 <= n && v.getUint32(o + 4) === 0x45786966) return tiff(v, o + 10, Math.min(n, o + 2 + lg));
+        o += 2 + lg;
+      }
+    } catch (e) {}
+    return null;
+  }
+  function tiff(v, t, fin) {
+    var le = v.getUint16(t) === 0x4949, u16 = function (p) { return v.getUint16(p, le); }, u32 = function (p) { return v.getUint32(p, le); };
+    var texte = function (e) {
+      var nb = u32(e + 4), p = nb > 4 ? t + u32(e + 8) : e + 8, s = '';
+      for (var i = 0; i < nb && p + i < fin; i++) { var c = v.getUint8(p + i); if (!c) break; s += String.fromCharCode(c); }
+      return s;
+    };
+    var r = { dateOriginale: null, decalage: null, dateFichier: null, modele: null }, exifIfd = null;
+    var ifd = function (p, f) { if (p + 2 > fin) return; var k = u16(p); for (var i = 0; i < k; i++) { var e = p + 2 + i * 12; if (e + 12 > fin) return; f(u16(e), e); } };
+    ifd(t + u32(t + 4), function (tag, e) {
+      if (tag === 0x8769) exifIfd = t + u32(e + 8);
+      else if (tag === 0x0132) r.dateFichier = texte(e);
+      else if (tag === 0x0110) r.modele = texte(e);
+    });
+    if (exifIfd) ifd(exifIfd, function (tag, e) {
+      if (tag === 0x9003) r.dateOriginale = texte(e);
+      else if (tag === 0x9011) r.decalage = texte(e);
+    });
+    return r;
+  }
+  /* Image d'un fichier, orientation EXIF appliquée, réduite à maxLargeur
+     (mémoire des téléphones d'entrée de gamme : une photo de 12 Mpx décodée
+     pèse ~48 Mo). Renvoie un ImageBitmap ou un <img>. */
+  function chargerImageFichier(fichier, maxLargeur) {
+    var max = maxLargeur || 1920;
+    if (global.createImageBitmap) {
+      return createImageBitmap(fichier, { imageOrientation: 'from-image' }).then(function (b) {
+        if (b.width <= max) return b;
+        return createImageBitmap(b, { resizeWidth: max, resizeHeight: Math.round(b.height * max / b.width), resizeQuality: 'high' })
+          .then(function (r) { try { b.close(); } catch (e) {} return r; });
+      }).catch(function () { return parImage(fichier); });
+    }
+    return parImage(fichier);
+  }
+  function parImage(fichier) {
+    return new Promise(function (ok, ko) {
+      var u = URL.createObjectURL(fichier), i = new Image();
+      i.onload = function () { ok(i); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); };
+      i.onerror = function () { URL.revokeObjectURL(u); ko(new Error('Ce fichier n\'est pas une photo lisible.')); };
+      i.src = u;
     });
   }
 
@@ -307,6 +384,7 @@
     ouvrirCamera: ouvrirCamera, fermerCamera: fermerCamera,
     Localisateur: Localisateur, positionPonctuelle: positionPonctuelle,
     hauteurBandeau: hauteurBandeau, dessinerBandeau: dessinerBandeau, composerPhoto: composerPhoto,
-    Enregistreur: Enregistreur, RAISONS: RAISONS
+    Enregistreur: Enregistreur, RAISONS: RAISONS,
+    lireExif: lireExif, chargerImageFichier: chargerImageFichier
   };
 })(window);

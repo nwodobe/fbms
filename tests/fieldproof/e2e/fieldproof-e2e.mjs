@@ -109,6 +109,8 @@ async function creerMission(page, village = 'Village Fictif Alpha', activite = '
   return page.url().split('#mission/')[1];
 }
 async function photo(page, mid) {
+  // Parcours « vérifier puis valider » : rafale désactivée (la rafale a sa propre recette).
+  await page.evaluate(() => localStorage.setItem('fp_rafale', '0'));
   await page.goto(BASE + `/fieldproof/index.html#capture/${mid}/PHOTO`);
   await page.waitForSelector('#fpDeclencheur:not([disabled])', { timeout: 20000 });
   await page.waitForFunction(() => /±|Sans GPS/.test(document.querySelector('#fpGps').textContent), null, { timeout: 15000 });
@@ -373,16 +375,16 @@ await etape('T16', 'Micro refusé : la vidéo est enregistrée MUETTE et le sign
   await c.close();
   return { ok: /MUETTE/.test(al) && /muette/.test(rev) && x.micro === false && !audio, obtenu: `alerte « ${al.trim().slice(0, 90)} » · registre micro=${x.micro} · piste audio dans le fichier : ${audio}` };
 });
-await etape('T17', 'Caméra refusée : message clair, aucune capture possible, aucun recours à la galerie', async () => {
+await etape('T17', 'Caméra refusée : message clair sans renvoi aux réglages, déclencheur bloqué, repli « appareil photo du téléphone » proposé (règle du BM du 07/11/2026 ; contrôle de fraîcheur : recette rafale-repli R07)', async () => {
   const c = await contexte({ init: () => { navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('refus simulé', 'NotAllowedError')); } });
   const p = await nouvellePage(c); await p.goto(BASE + '/fieldproof/index.html'); await p.waitForSelector('text=Préparation du téléphone');
   const mid = await creerMission(p);
   await p.goto(BASE + `/fieldproof/index.html#capture/${mid}/PHOTO`);
-  await p.waitForFunction(() => /refusé/.test((document.querySelector('#fpAlerte') || {}).textContent || ''), null, { timeout: 15000 });
+  await p.waitForSelector('#fpRepli:not([hidden])', { timeout: 15000 });
   const t = await p.textContent('#fpAlerte'); const desactive = await p.$eval('#fpDeclencheur', b => b.disabled);
-  const input = await p.$$eval('input[type=file]', l => l.length);
+  const repli = await p.isVisible('#fpRepliImport');
   await c.close();
-  return { ok: desactive && input === 0, obtenu: `déclencheur désactivé : ${desactive} · champ d'import de fichier : ${input} · « ${t.trim().slice(0, 120)}… »` };
+  return { ok: desactive && repli && /pas autorisée/.test(t) && !/réglages|Paramètres/.test(t), obtenu: `déclencheur désactivé : ${desactive} · repli proposé : ${repli} · « ${t.trim().slice(0, 120)}… »` };
 });
 await etape('T18', 'Stockage presque plein pendant une vidéo : arrêt EXPLICITE, séquence conservée et validable', async () => {
   const c = await contexte({ init: () => {

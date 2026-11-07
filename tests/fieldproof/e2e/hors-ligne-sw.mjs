@@ -32,6 +32,7 @@ try {
   detail = 'réseau affiché : ' + (await p.textContent('#fpReseau'));
   await p.goto(U + '#nouvelle'); await p.waitForSelector('#fpCluster'); await p.selectOption('#fpCluster', 'Botro'); await p.selectOption('#fpVillage', { index: 1 }); await p.selectOption('#fpActivite', { index: 1 }); await p.click('button[type=submit]'); await p.waitForURL(/#mission\//);
   const mid = p.url().split('#mission/')[1];
+  await p.evaluate(() => localStorage.setItem('fp_rafale', '0'));   // parcours « vérifier puis valider »
   await p.goto(U + `#capture/${mid}/PHOTO`); await p.waitForSelector('#fpDeclencheur:not([disabled])', { timeout: 20000 }); await p.click('#fpDeclencheur'); await p.waitForSelector('[data-valider]'); await p.click('[data-valider]'); await p.waitForSelector('.fp-revue-ok', { timeout: 20000 });
   detail += ' · mission ' + mid + ' créée et photo validée, serveur arrêté'; ok = ctrl;
 } catch (e) { detail = 'ÉCHEC : ' + e.message.split('\n')[0]; }

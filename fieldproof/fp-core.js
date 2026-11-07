@@ -21,7 +21,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
 
   /* -- 1. Référentiels fonctionnels --------------------------------------- */
   /* Activités proposées à l'agent. Aucune n'est présélectionnée : l'agent
@@ -72,6 +72,37 @@
   function idMission(quand, rnd) { var t = d(quand || Date.now()); return 'FP-' + compactAbj(t).slice(0, 8) + '-' + aleatoire(6, rnd); }
   /* Numéro d'ordre par type : P01, P02… / V01, V02… */
   function idMedia(idMis, type, rang) { return idMis + '-' + (type === 'VIDEO' ? 'V' : 'P') + p2(rang); }
+  /* Rang d'un média d'après son identifiant (…-P07 → 7, …-P123 → 123).
+     Sans limite : l'ancienne lecture des 2 derniers caractères redonnait
+     « P00 » après P99 et pouvait écraser une photo existante. */
+  function rangMedia(id) { var m = /-[PV](\d+)$/.exec(String(id || '')); return m ? parseInt(m[1], 10) : 0; }
+
+  /* -- 3 bis. Photo prise avec l'appareil photo du téléphone ------------------
+     Solution de repli quand la caméra intégrée ne s'ouvre pas (autorisation
+     refusée dans l'APK, WebView ancienne…). Garde-fou anti-fraude validé par
+     le Branch Manager (07/11/2026) : la date de prise de vue inscrite par
+     l'appareil photo (EXIF DateTimeOriginal) est OBLIGATOIRE et doit dater de
+     moins de FRAICHEUR_IMPORT_MIN minutes. Une capture d'écran ou une image
+     reçue par WhatsApp n'a pas cette date : refusée. Limite assumée : une
+     photo récente de la galerie, prise ailleurs dans le délai, passe. */
+  var FRAICHEUR_IMPORT_MIN = 30;
+  /* « AAAA:MM:JJ HH:MM:SS » (heure locale du téléphone) [+ décalage « +00:00 »]. */
+  function dateExif(texte, decalage) {
+    var m = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(String(texte || '').trim());
+    if (!m || m[1] === '0000') return null;
+    var d = /^([+-])(\d{2}):?(\d{2})$/.exec(String(decalage || '').trim());
+    var t = d ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) - (d[1] === '-' ? -1 : 1) * (+d[2] * 60 + +d[3]) * 60000
+              : new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+    return isNaN(t) ? null : new Date(t);
+  }
+  function controleFraicheur(datePrise, maintenant, limiteMin) {
+    var lim = limiteMin || FRAICHEUR_IMPORT_MIN, n = maintenant ? new Date(maintenant).getTime() : Date.now();
+    if (!datePrise || isNaN(new Date(datePrise).getTime())) return { ok: false, code: 'SANS_DATE', motif: 'Photo sans date de prise de vue (capture d\'écran, image reçue par WhatsApp ou retouchée) : refusée. Prenez la photo avec l\'appareil photo maintenant.' };
+    var age = (n - new Date(datePrise).getTime()) / 60000;
+    if (age < -5) return { ok: false, code: 'FUTUR', ageMin: Math.round(age), motif: 'Date de prise de vue dans le futur : l\'horloge du téléphone est déréglée. Photo refusée.' };
+    if (age > lim) return { ok: false, code: 'ANCIENNE', ageMin: Math.round(age), motif: 'Photo prise il y a ' + (age >= 120 ? Math.round(age / 60) + ' h' : Math.round(age) + ' min') + ' : seules les photos de moins de ' + lim + ' min sont acceptées.' };
+    return { ok: true, code: 'RECENTE', ageMin: Math.max(0, Math.round(age)) };
+  }
 
   /* -- 4. Localisation ------------------------------------------------------ */
   function arrondi(x, n) { var f = Math.pow(10, n); return Math.round(x * f) / f; }
@@ -181,7 +212,7 @@
     var st = statutGps(m.gpsDebut, video ? m.debut : (maintenant || m.debut));
     var l1 = 'AFLP · ANAGROCI  |  FIELD PROOF  |  ' + (m.idMedia || '');
     var l2 = 'Agent : ' + (m.agent || 'Non identifié') + '   ·   Cluster : ' + (m.cluster || '—') + '   ·   Village : ' + (m.village || '—');
-    var l3 = 'Activité : ' + (m.activite || '—');
+    var l3 = 'Activité : ' + (m.activite || '—') + (m.source === 'APPAREIL_TELEPHONE' ? '   ·   Appareil photo du téléphone, importée à ' + heureAbj(m.importeLe || m.debut) : '');
     var l4, l5;
     if (!video) {
       l4 = dateAbj(m.debut) + '   ' + heureAbj(m.debut) + ' GMT (Abidjan)';
@@ -219,7 +250,7 @@
     'debut_gmt', 'fin_gmt', 'duree_s', 'gps_debut_lat', 'gps_debut_lon', 'gps_debut_precision_m', 'gps_debut_statut',
     'gps_fin_lat', 'gps_fin_lon', 'gps_fin_precision_m', 'gps_fin_statut', 'micro', 'mime', 'largeur', 'hauteur',
     'localite_osm', 'localite_gps', 'localite_sous_prefecture', 'localite_distance_km', 'distance_village_mission_km', 'localite_statut',
-    'taille_octets', 'sha256', 'galerie_statut', 'commentaire'];
+    'taille_octets', 'sha256', 'galerie_statut', 'commentaire', 'capture_source', 'importe_le_gmt'];
   function csvCellule(v) {
     if (v == null) return '';
     var s = String(v);
@@ -246,7 +277,8 @@
       distance_village_mission_km: m.localite && m.localite.distanceMissionKm != null ? m.localite.distanceMissionKm : '',
       localite_statut: m.localite ? (m.localite.code + (m.localite.conformite ? '/' + m.localite.conformite : '')) : '',
       mime: m.mime, largeur: m.largeur, hauteur: m.hauteur, taille_octets: m.taille, sha256: m.sha256,
-      galerie_statut: m.galerie || 'NON_ENREGISTRE', commentaire: m.commentaire || ''
+      galerie_statut: m.galerie || 'NON_ENREGISTRE', commentaire: m.commentaire || '',
+      capture_source: m.source === 'APPAREIL_TELEPHONE' ? 'APPAREIL_TELEPHONE' : 'CAMERA_INTEGREE', importe_le_gmt: m.importeLe || ''
     };
   }
   function manifesteCsv(mission, medias) {
@@ -573,7 +605,8 @@
     VERSION: VERSION, ACTIVITES: ACTIVITES, QUALITES: QUALITES, DUREE_RECOMMANDEE_S: DUREE_RECOMMANDEE_S,
     SEUIL_PRECISION_M: SEUIL_PRECISION_M, AGE_MAX_POSITION_MS: AGE_MAX_POSITION_MS,
     dateAbj: dateAbj, heureAbj: heureAbj, dateHeureAbj: dateHeureAbj, compactAbj: compactAbj, duree: duree,
-    idMission: idMission, idMedia: idMedia,
+    idMission: idMission, idMedia: idMedia, rangMedia: rangMedia,
+    FRAICHEUR_IMPORT_MIN: FRAICHEUR_IMPORT_MIN, dateExif: dateExif, controleFraicheur: controleFraicheur,
     statutGps: statutGps, coordonnees: coordonnees, precisionTexte: precisionTexte, lienCarte: lienCarte,
     lignesBandeau: lignesBandeau, distanceKm: distanceKm, localiteGps: localiteGps, lieuOsm: lieuOsm, localiteAlerte: localiteAlerte,
     RAYON_LOCALITE_KM: RAYON_LOCALITE_KM, HORS_KM: HORS_KM, ECART_KM: ECART_KM, slug: slug, extension: extension, nomFichier: nomFichier,
