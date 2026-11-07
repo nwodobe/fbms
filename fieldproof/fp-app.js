@@ -461,12 +461,113 @@
     if (app.loc) { app.loc.arreter(); app.loc = null; }
     clearInterval(app.ticBandeau); app.capture = null; doc.body.classList.remove('fp-mode-capture');
   }
+  /* -- Rafale et appareil photo du téléphone (07/11/2026) -------------------
+     Rafale : chaque appui compose et enregistre la photo sans écran de revue ;
+     les enregistrements partent en file (jamais deux en même temps) et les
+     numéros sont réservés à l'appui : aucun doublon, aucune limite de nombre.
+     Repli : quand la caméra intégrée ne s'ouvre pas, l'agent prend la photo
+     avec l'appareil photo du téléphone ; aucune autorisation à régler. */
+  function rafaleActive() { return pref('rafale', '1') === '1'; }
+  function estApk() { return !!(global.ANAGROCI_NATIVE && global.ANAGROCI_NATIVE.platform === 'android'); }
+  /* APK ≥ 1.4.0 : l'appareil photo natif reste utilisable même si l'autorisation
+     caméra de l'application a été refusée (correctif Java). Avant : risque
+     d'arrêt de l'application, le bouton direct est donc masqué dans ce cas. */
+  function apkCameraNativeSure() {
+    var v = /(\d+)\.(\d+)/.exec(String((global.ANAGROCI_NATIVE || {}).version || ''));
+    return !!v && (+v[1] > 1 || (+v[1] === 1 && +v[2] >= 4));
+  }
+  function blocRepli() {
+    return '<div class="fp-repli" id="fpRepli" hidden><h2>Prendre les photos avec l\'appareil photo du téléphone</h2>' +
+      '<p class="fp-note">Aucun réglage à faire. Le bandeau AFLP (mission, heure, GPS, localité) est ajouté par l\'application, comme d\'habitude. La photo porte la mention « Appareil photo du téléphone ».</p>' +
+      '<div class="fp-actions">' +
+      '<label class="fp-btn fp-btn-principal" id="fpRepliDirect">📷 Prendre une photo<input type="file" accept="image/*" capture="environment" id="fpFichierCamera" class="fp-invisible"></label>' +
+      '<label class="fp-btn" id="fpRepliImport">🖼 Ajouter les photos qui viennent d\'être prises<input type="file" accept="image/*" multiple id="fpFichierImport" class="fp-invisible"></label></div>' +
+      '<p class="fp-note"><b>Plusieurs photos :</b> ouvrez l\'application Appareil photo, prenez toutes vos photos, revenez ici, appuyez sur « Ajouter les photos qui viennent d\'être prises » et cochez-les toutes. ' +
+      'Seules les photos prises il y a moins de ' + C.FRAICHEUR_IMPORT_MIN + ' min, avec leur date d\'origine, sont acceptées : captures d\'écran et images reçues par WhatsApp sont refusées.</p></div>';
+  }
+  function montrerRepli(raison) {
+    var r = $('#fpRepli'); if (!r) return;
+    r.hidden = false;
+    var direct = $('#fpRepliDirect');
+    if (direct) direct.hidden = estApk() && raison === 'REFUS' && !apkCameraNativeSure();
+    r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function majSerie(x) {
+    var c = app.capture, z = $('#fpSerie'); if (!c || !z) return;
+    z.hidden = false;
+    $('#fpSerieNb').textContent = String(c.serie.length);
+    $('#fpSerieEtat').textContent = c.enCours ? '· ' + c.enCours + ' en cours d\'enregistrement…' : '';
+    if (x && x.vignette) {
+      var v = $('#fpSerieVig'), im = doc.createElement('img');
+      im.src = x.vignette; im.alt = x.id; im.title = x.id + (x.source === 'APPAREIL_TELEPHONE' ? ' · appareil photo du téléphone' : '');
+      v.insertBefore(im, v.firstChild);
+      while (v.children.length > 12) v.removeChild(v.lastChild);
+    }
+  }
+  /* Réserve le numéro suivant au moment de l'appui (file sans doublon). */
+  function reserverId() { var c = app.capture; c.rang = (c.rang || 0) + 1; c.prochainId = C.idMedia(c.mission.id, c.mode, c.rang + 1); return C.idMedia(c.mission.id, c.mode, c.rang); }
+  function enFile(a, galerie) {
+    var c = app.capture, m = c.mission;
+    c.enCours = (c.enCours || 0) + 1; majSerie();
+    c.file = (c.file || Promise.resolve()).then(function () {
+      return conserverMedia(a, m, '', galerie ? galerieImmediate(a, m) : null);
+    }).then(function (r) {
+      c.enCours--; if (app.capture !== c) return;
+      c.serie.push(r.x.id); majSerie(r.x);
+    }, function (e) {
+      c.enCours--; if (app.capture === c) majSerie();
+      alerte((S.estQuota(e) ? 'Stockage du téléphone plein : libérez de l\'espace. ' : 'Enregistrement impossible : ' + (e && e.message || e) + '. ') + a.meta.idMedia + ' n\'est PAS enregistrée.');
+    });
+    return c.file;
+  }
+  function galerieEnRafale() { return galerieAuto() && !estIOS(); }   // iPhone : une fenêtre « Enregistrer » par photo, on la regroupe plus tard
+  function lireOctets(f) {
+    if (f.arrayBuffer) return f.arrayBuffer();
+    return new Promise(function (ok, ko) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { ko(r.error); }; r.readAsArrayBuffer(f); });
+  }
+  /* Photos de l'appareil photo du téléphone : contrôle de fraîcheur EXIF,
+     doublons refusés, bandeau ajouté, enregistrement en file. */
+  function importerFichiers(liste, viaCamera) {
+    var c = app.capture; if (!c || !liste || !liste.length) return;
+    var fichiers = Array.prototype.slice.call(liste), refus = [], acceptes = 0;
+    var deja = {};
+    return S.medias(c.mission.id).then(function (l) { l.forEach(function (x) { if (x.origineCle) deja[x.origineCle] = x.id; }); })
+      .then(function suivant() {
+        var f = fichiers.shift(); if (!f) return;
+        if (!/^image\//.test(f.type || 'image/')) { refus.push(f.name + ' : ce n\'est pas une photo'); return suivant(); }
+        return lireOctets(f).then(function (buf) {
+          var ex = K.lireExif(buf) || {}, maintenant = new Date();
+          var prise = C.dateExif(ex.dateOriginale, ex.decalage);
+          /* Appareil photo ouvert depuis l'application : fichier neuf par construction ;
+             s'il n'écrit pas d'EXIF (rare), on retient l'heure du fichier si elle a moins de 3 min. */
+          if (!prise && viaCamera && f.lastModified && Math.abs(maintenant - f.lastModified) < 3 * 60000) prise = new Date(f.lastModified);
+          var ctl = C.controleFraicheur(prise, maintenant);
+          if (!ctl.ok) { refus.push(f.name + ' : ' + ctl.motif); return; }
+          var cle = [f.size, prise.toISOString(), ex.modele || ''].join('|');
+          if (deja[cle]) { refus.push(f.name + ' : déjà ajoutée (' + deja[cle] + ')'); return; }
+          return K.chargerImageFichier(f, 1920).then(function (img) {
+            var meta = metaCapture();
+            meta.idMedia = reserverId(); meta.debut = prise.toISOString(); meta.source = 'APPAREIL_TELEPHONE'; meta.importeLe = maintenant.toISOString();
+            return K.composerPhoto(img, meta).then(function (r) {
+              var vig = vignette(img); try { if (img.close) img.close(); } catch (e) {}
+              deja[cle] = meta.idMedia; acceptes++;
+              enFile({ meta: meta, blob: r.blob, largeur: r.largeur, hauteur: r.hauteur, mime: 'image/jpeg', vignette: vig, source: 'APPAREIL_TELEPHONE', importeLe: meta.importeLe, origineCle: cle }, galerieEnRafale());
+            });
+          });
+        }).catch(function (e) { refus.push(f.name + ' : ' + (e && e.message || e)); }).then(suivant);
+      })
+      .then(function () {
+        if (acceptes) avis(acceptes + ' photo(s) ajoutée(s) avec le bandeau AFLP.', 'ok');
+        if (refus.length) alerte(refus.length + ' photo(s) refusée(s) — ' + refus.slice(0, 4).join(' ; ') + (refus.length > 4 ? ' ; …' : ''));
+      });
+  }
+
   function vueCapture(idMission, mode) {
     liberer(); var actuel = jeton();
     S.mission(idMission).then(function (m) {
       if (!actuel()) return;
       if (!m) return aller('#accueil');
-      app.capture = { mission: m, mode: mode };
+      app.capture = { mission: m, mode: mode, serie: [], rang: 0, enCours: 0 };
       doc.body.classList.add('fp-mode-capture');
       var video = mode === 'VIDEO';
       var h = '<div class="fp-capture">' +
@@ -480,6 +581,10 @@
           '<label>Durée recommandée <select id="fpDureeReco"><option value="60">1 min</option><option value="120">2 min</option><option value="180">3 min</option><option value="300">5 min</option></select></label><span id="fpEstimation" class="fp-note"></span></div>' : '') +
         '<div class="fp-commandes">' + (video ? '<button class="fp-declencheur fp-rec" id="fpDeclencheur" aria-label="Démarrer l\'enregistrement" disabled><span></span></button>' : '<button class="fp-declencheur" id="fpDeclencheur" aria-label="Prendre la photo" disabled><span></span></button>') +
         '<button class="fp-btn fp-btn-petit" id="fpRetourner" disabled>⟲ Caméra avant / arrière</button></div>' +
+        (video ? '' : '<label class="fp-rafale-choix"><input type="checkbox" id="fpRafale"' + (rafaleActive() ? ' checked' : '') + '> <span><b>Rafale</b> : chaque appui enregistre la photo, sans écran de validation</span></label>' +
+          '<div class="fp-serie" id="fpSerie" hidden aria-live="polite"><p><b id="fpSerieNb">0</b> photo(s) enregistrée(s) dans cette série <span id="fpSerieEtat" class="fp-note"></span></p><div class="fp-serie-vig" id="fpSerieVig"></div></div>' +
+          '<p class="fp-centre"><button type="button" class="fp-lien" id="fpAutreMoyen">La caméra ne s\'affiche pas ? Prendre les photos autrement, sans réglage</button></p>' +
+          blocRepli()) +
         '<p class="fp-note fp-centre">Informez les personnes filmées ou photographiées et respectez leur refus. ' + (video ? 'Le bandeau est incrusté dans la vidéo, avec la position relevée au début.' : 'Le bandeau est ajouté sous la photo, sans masquer la scène.') + '</p>' +
         '<div id="fpRevue"></div></div>';
       vue().innerHTML = h;
@@ -524,8 +629,9 @@
   function prochainId() {
     var c = app.capture;
     return S.medias(c.mission.id).then(function (l) {
-      var n = l.filter(function (x) { return x.type === c.mode; }).reduce(function (mx, x) { return Math.max(mx, parseInt(x.id.slice(-2), 10) || 0); }, 0);
-      c.prochainId = C.idMedia(c.mission.id, c.mode, n + 1); return c.prochainId;
+      var n = l.filter(function (x) { return x.type === c.mode; }).reduce(function (mx, x) { return Math.max(mx, C.rangMedia(x.id)); }, 0);
+      c.rang = Math.max(c.rang || 0, n);
+      c.prochainId = C.idMedia(c.mission.id, c.mode, c.rang + 1); return c.prochainId;
     });
   }
   function demarrerCamera() {
@@ -546,13 +652,24 @@
     }).catch(function (e) {
       if (!doc.body.contains(msg)) return;
       msg.hidden = false; msg.textContent = e.message;
-      alerte(e.message + ' Aucune photo de la galerie ne peut remplacer une capture : la preuve doit être prise maintenant.');
+      if (c.mode === 'PHOTO') {
+        prochainId();
+        montrerRepli(e.code === 'NotAllowedError' || e.code === 'SecurityError' ? 'REFUS' : 'AUTRE');
+        alerte(e.message + ' Utilisez l\'appareil photo du téléphone ci-dessous : aucun réglage n\'est nécessaire.', true);
+      } else alerte(e.message + ' La vidéo exige la caméra intégrée ; pour des photos, passez en mode PHOTO : l\'appareil photo du téléphone y est proposé.');
     });
   }
 
   /* Photo : capture → revue → reprendre ou valider. */
   function prendrePhoto() {
     var c = app.capture, cam = $('#fpCam'), meta = metaCapture();
+    if (rafaleActive()) {
+      meta.idMedia = reserverId();
+      var dec = $('#fpDeclencheur'); dec.classList.add('fp-flash'); setTimeout(function () { dec.classList.remove('fp-flash'); }, 180);
+      return K.composerPhoto(cam, meta).then(function (r) {
+        enFile({ meta: meta, blob: r.blob, largeur: r.largeur, hauteur: r.hauteur, mime: 'image/jpeg', vignette: vignette(cam) }, galerieEnRafale());
+      }).catch(function (e) { alerte(e.message); });
+    }
     meta.idMedia = c.prochainId;
     $('#fpDeclencheur').disabled = true;
     K.composerPhoto(cam, meta).then(function (r) {
@@ -579,11 +696,35 @@
   /* Vignette légère (≈ 320 px) gardée dans le registre pour la galerie. */
   function vignette(source) {
     try {
-      var w = source.videoWidth || source.naturalWidth, h = source.videoHeight || source.naturalHeight; if (!w || !h) return null;
+      var w = source.videoWidth || source.naturalWidth || source.width, h = source.videoHeight || source.naturalHeight || source.height; if (!w || !h) return null;
       var k = 320 / w, cv = doc.createElement('canvas'); cv.width = 320; cv.height = Math.round(h * k);
       cv.getContext('2d').drawImage(source, 0, 0, cv.width, cv.height);
       return cv.toDataURL('image/jpeg', 0.7);
     } catch (e) { return null; }
+  }
+  /* Conservation d'un média : 1) fichier écrit et relu, 2) registre,
+     3) morceaux supprimés. Les morceaux (l'« original » de la vidéo) ne sont
+     jamais effacés avant que le fichier final soit conservé et contrôlé.
+     Partagé par la validation classique et la rafale. */
+  function conserverMedia(a, m, commentaire, galerie) {
+    var c = app.capture || {};
+    return S.empreinte(a.blob).then(function (sha) {
+      var x = {
+        id: a.meta.idMedia, missionId: m.id, type: a.meta.type, statut: a.statut || 'FINAL', agent: m.agent, cluster: m.cluster, village: m.village,
+        debut: a.meta.debut, fin: a.fin || null, dureeMs: a.dureeMs != null ? a.dureeMs : null, gpsDebut: a.meta.gpsDebut, gpsFin: a.gpsFin || null, localite: a.meta.localite || null,
+        micro: a.meta.type === 'VIDEO' ? !!c.micro : null, mime: a.mime, largeur: a.largeur, hauteur: a.hauteur, taille: a.blob.size, sha256: sha,
+        qualite: a.qualite || null, raisonArret: a.raison || null, galerie: 'NON_ENREGISTRE', local: 'NON', vignette: a.vignette || null,
+        commentaire: commentaire || '', appareil: nav.userAgent.slice(0, 160), application: 'AFLP FIELD PROOF ' + C.VERSION,
+        source: a.source || 'CAMERA_INTEGREE', importeLe: a.importeLe || null, origineCle: a.origineCle || null
+      };
+      return S.deposerFichier(x.id, a.blob, sha).then(function () { x.local = 'VERIFIE'; return S.enregistrerMedia(x); })
+        .then(function () { return a.meta.type === 'VIDEO' ? S.effacerMorceaux(x.id) : null; })
+        .then(function () { return S.mission(m.id); })
+        .then(function (mm) { var k = a.meta.type === 'VIDEO' ? 'nbVideos' : 'nbPhotos'; mm = mm || m; mm[k] = (mm[k] || 0) + 1; m[k] = mm[k]; return S.enregistrerMission(mm); })
+        .then(function () { return S.persister(); })
+        .then(function () { return galerie ? galerie.then(function (r) { if (r.ok) { x.galerie = 'ENVOI_LANCE'; x.galerieLe = new Date().toISOString(); return S.enregistrerMedia(x).then(function () { return r; }); } return r; }) : { ok: false, manuel: true }; })
+        .then(function (g) { return { x: x, g: g }; });
+    });
   }
   function valider() {
     var c = app.capture, a = c.enAttente, m = c.mission; if (!a) return;
@@ -592,24 +733,9 @@
        « Valider »), sinon iPhone refuse d'ouvrir la fenêtre d'enregistrement. */
     var galerie = galerieAuto() ? galerieImmediate(a, m) : null;
     var img = $('#fpRevue .fp-lecteur');
-    var vig = a.vignette || vignette(img);
-    S.empreinte(a.blob).then(function (sha) {
-      var x = {
-        id: a.meta.idMedia, missionId: m.id, type: a.meta.type, statut: a.statut || 'FINAL', agent: m.agent, cluster: m.cluster, village: m.village,
-        debut: a.meta.debut, fin: a.fin || null, dureeMs: a.dureeMs != null ? a.dureeMs : null, gpsDebut: a.meta.gpsDebut, gpsFin: a.gpsFin || null, localite: a.meta.localite || null,
-        micro: a.meta.type === 'VIDEO' ? !!c.micro : null, mime: a.mime, largeur: a.largeur, hauteur: a.hauteur, taille: a.blob.size, sha256: sha,
-        qualite: a.qualite || null, raisonArret: a.raison || null, galerie: 'NON_ENREGISTRE', local: 'NON', vignette: vig,
-        commentaire: ($('#fpComMedia').value || '').trim(), appareil: nav.userAgent.slice(0, 160), application: 'AFLP FIELD PROOF ' + C.VERSION
-      };
-      /* Ordre : 1) fichier écrit et relu, 2) registre, 3) morceaux supprimés.
-         Les morceaux (l'« original » de la vidéo) ne sont jamais effacés avant
-         que le fichier final soit conservé et contrôlé. */
-      return S.deposerFichier(x.id, a.blob, sha).then(function () { x.local = 'VERIFIE'; return S.enregistrerMedia(x); })
-        .then(function () { return a.meta.type === 'VIDEO' ? S.effacerMorceaux(x.id) : null; })
-        .then(function () { m[a.meta.type === 'VIDEO' ? 'nbVideos' : 'nbPhotos'] = (m[a.meta.type === 'VIDEO' ? 'nbVideos' : 'nbPhotos'] || 0) + 1; return S.enregistrerMission(m); })
-        .then(function () { return S.persister(); })
-        .then(function () { return galerie ? galerie.then(function (r) { if (r.ok) { x.galerie = 'ENVOI_LANCE'; x.galerieLe = new Date().toISOString(); return S.enregistrerMedia(x).then(function () { return r; }); } return r; }) : { ok: false, manuel: true }; })
-        .then(function (g) {
+    a.vignette = a.vignette || vignette(img);
+    conserverMedia(a, m, ($('#fpComMedia').value || '').trim(), galerie).then(function (r) {
+          var x = r.x, g = r.g;
           c.enAttente = null;
           var gal = g.ok
             ? '<p class="fp-note">' + (g.voie === 'PARTAGE' ? 'Envoyé vers <b>Photos</b>.' : 'Enregistré dans <b>Téléchargements</b> : visible dans <b>Galerie / Google Photos</b>, album « Download ».') + ' Vérifiez-le dans la galerie, puis confirmez.</p><div class="fp-actions"><button class="fp-btn fp-btn-principal" data-confirmer-galerie="' + esc(x.id) + '">Oui, c\'est dans ma galerie</button>'
@@ -617,7 +743,6 @@
           $('#fpRevue').innerHTML = '<div class="fp-revue fp-revue-ok"><p><b>' + esc(x.id) + '</b> conservé dans l\'application (relu et contrôlé).</p>' + gal + '<button class="fp-btn" data-continuer>Continuer la capture</button></div></div>';
           $('#fpDeclencheur').disabled = false; $('#fpChrono').hidden = true;
           return prochainId();
-        });
     }).catch(function (e) {
       bouton.disabled = false; bouton.textContent = 'Valider et enregistrer';
       alerte(S.estQuota(e) ? 'Stockage du téléphone plein : libérez de l\'espace (anciennes vidéos déjà exportées, applications) puis validez à nouveau. Le fichier n\'est PAS enregistré.' : 'Enregistrement impossible : ' + (e.message || e) + '. Le fichier n\'est PAS enregistré.');
@@ -757,13 +882,14 @@
   }
   function selection() { return $$('.fp-coche:checked').map(function (c) { return c.value; }); }
   function clic(ev) {
-    var t = ev.target.closest('[data-aller],[data-preparer],[data-recuperer],[data-ouvrir],[data-details],[data-galerie],[data-partager],[data-partager-selection],[data-galerie-selection],[data-exporter],[data-com-mission],[data-supprimer-mission],[data-supprimer-media],[data-confirmer-galerie],[data-fermer],[data-telecharger],[data-partage-go],[data-zip-dl],[data-zip-share],[data-reprendre],[data-valider],[data-continuer],#fpDeclencheur,#fpRetourner,#fpTout,#fpDialogueFermer');
+    var t = ev.target.closest('[data-aller],[data-preparer],[data-recuperer],[data-ouvrir],[data-details],[data-galerie],[data-partager],[data-partager-selection],[data-galerie-selection],[data-exporter],[data-com-mission],[data-supprimer-mission],[data-supprimer-media],[data-confirmer-galerie],[data-fermer],[data-telecharger],[data-partage-go],[data-zip-dl],[data-zip-share],[data-reprendre],[data-valider],[data-continuer],#fpDeclencheur,#fpAutreMoyen,#fpRetourner,#fpTout,#fpDialogueFermer');
     if (!t) return;
     var d = t.dataset;
     if (t.id === 'fpTout') { $$('.fp-coche').forEach(function (c) { c.checked = t.checked; }); return; }
     if (t.id === 'fpDialogueFermer' || 'fermer' in d) return fermerDialogue();
     if (t.id === 'fpDeclencheur') { if (t.disabled) return; return app.capture.mode === 'VIDEO' ? basculerVideo() : prendrePhoto(); }
     if (t.id === 'fpRetourner') { app.face = app.face === 'user' ? 'environment' : 'user'; return demarrerCamera(); }
+    if (t.id === 'fpAutreMoyen') return montrerRepli('DEMANDE');
     if ('aller' in d) return aller(d.aller);
     if ('preparer' in d) { if (!enLigne()) return avis('Hors ligne : la mise à jour des villages se fera au retour du réseau.', 'warn'); return preparerReferentiel(true).then(function () { avis(app.villages.length + ' village(s) préparés pour le mode hors ligne.', 'ok'); vueAccueil(); }); }
     if ('recuperer' in d) return recuperer(d.recuperer);
@@ -794,6 +920,8 @@
     $('#fpQui').textContent = 'Connecté : ' + (app.profil.nom || app.profil.email || '') + ' · ' + (app.profil.role || '') + ' — identité reprise de FBMS.';
     doc.addEventListener('click', clic);
     doc.addEventListener('change', function (ev) { if (ev.target && ev.target.id === 'fpOsm') { setPref('osm', ev.target.checked ? '1' : '0'); if (!ev.target.checked) app.osm = null; avis(ev.target.checked ? 'Recherche du nom du lieu en ligne activée.' : 'Recherche en ligne désactivée : nom tiré des villages FBMS uniquement.', 'info'); }
+      if (ev.target && ev.target.id === 'fpRafale') { setPref('rafale', ev.target.checked ? '1' : '0'); avis(ev.target.checked ? 'Rafale activée : chaque appui enregistre la photo.' : 'Rafale désactivée : chaque photo est vérifiée avant enregistrement.', 'info'); }
+      if (ev.target && (ev.target.id === 'fpFichierCamera' || ev.target.id === 'fpFichierImport')) { var fl = ev.target.files; importerFichiers(fl, ev.target.id === 'fpFichierCamera'); ev.target.value = ''; }
       if (ev.target && ev.target.id === 'fpGalerieAuto') { setPref('galerieAuto', ev.target.checked ? '1' : '0'); avis(ev.target.checked ? 'Enregistrement automatique dans la galerie activé.' : 'Enregistrement automatique désactivé : utilisez « Galerie » sur chaque média.', 'info'); } });
     global.addEventListener('hashchange', router);
     global.addEventListener('online', function () { majReseau(); preparerReferentiel(false); });

@@ -226,7 +226,7 @@ public class MainActivity extends Activity {
         }
         if (ok.isEmpty()) {
             req.deny();
-            Toast.makeText(this, "Caméra refusée : autorisez-la dans Paramètres > Applications > ANAGROCI FIELD BUYING.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Caméra intégrée non autorisée : FIELD PROOF propose l'appareil photo du téléphone.", Toast.LENGTH_LONG).show();
         } else req.grant(ok.toArray(new String[0]));
     }
 
@@ -287,7 +287,12 @@ public class MainActivity extends Activity {
 
             List<Intent> extra = new ArrayList<>();
             pendingPhoto = null;
-            if (image) {
+            /* Android : une application qui DÉCLARE la permission CAMERA sans l'avoir
+               obtenue reçoit une SecurityException en lançant ACTION_IMAGE_CAPTURE.
+               Caméra refusée : le sélecteur ne propose que les photos du téléphone
+               (contrôle de fraîcheur EXIF côté FIELD PROOF), sans plantage. */
+            boolean cameraOk = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            if (image && cameraOk) {
                 Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                 if (cam.resolveActivity(getPackageManager()) != null) {
                     pendingPhoto = CaptureProvider.newPhotoUri(MainActivity.this);
@@ -305,10 +310,11 @@ public class MainActivity extends Activity {
                     if (!extra.isEmpty()) chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, extra.toArray(new Intent[0]));
                     startActivityForResult(chooser, REQ_FILE);
                 }
-            } catch (ActivityNotFoundException e) {
-                fileCallback = null;
-                Toast.makeText(MainActivity.this, "Aucune application disponible pour choisir un fichier.", Toast.LENGTH_LONG).show();
-                return false;
+            } catch (ActivityNotFoundException | SecurityException e) {
+                fileCallback = null; pendingPhoto = null;
+                Toast.makeText(MainActivity.this, "Appareil photo indisponible : utilisez « Ajouter les photos qui viennent d'être prises ».", Toast.LENGTH_LONG).show();
+                cb.onReceiveValue(null);
+                return true;
             }
             return true;
         }
