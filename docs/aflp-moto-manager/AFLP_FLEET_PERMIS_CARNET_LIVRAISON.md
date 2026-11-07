@@ -5,7 +5,10 @@
 - faire de même pour le permis du conducteur, avec ses informations ;
 - vérifier l'existence d'un carnet de suivi qui retrace l'historique et le coût des interventions de chaque moto.
 
-**Statut : développé, testé, contre-expertisé (verdict GO) ; migration 7 NON appliquée en production, NON fusionné.**
+**Statut (1er novembre 2026, 11:30 UTC) : déployé en production.**
+- La migration 7 est appliquée et vérifiée identique à la version testée sur 10 empreintes : 142 fonctions, 20 vues, 37 politiques, droits, 285 contraintes, 34 déclencheurs, 88 index, 0 fonction exécutable par anon.
+- La PR #274 est fusionnée (commit `d5eb6f7`) et GitHub Pages est publié.
+- Contrôle visuel : espace Conducteurs ouvert dans Chrome par le Branch Manager connecté, 6 conducteurs listés, 0 erreur console.
 
 ## A. Constat initial
 
