@@ -1354,7 +1354,7 @@ function openFarmerForm(prefill, editId) {
         field('Nom *', '<input id="ff_nom" data-c required maxlength="120">') +
         field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
         field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
-        field('RT référent', '<select id="ff_rt" data-c><option value="">Aucun / à rattacher</option></select>') +
+        field('RT référent *', '<select id="ff_rt" data-c><option value="">— Choisir le RT —</option></select><small class="muted" id="ff_rt_hint"></small>') +
         field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">M · Homme</option><option value="F">F · Femme</option></select>') +
         field('Année de naissance', '<input id="ff_annee" data-c type="number" min="1930" max="' + anneeMax + '" placeholder="1930 – ' + anneeMax + '">') +
         field('Téléphone', '<input id="ff_tel" data-c inputmode="tel" placeholder="10 chiffres">') +
@@ -1416,12 +1416,18 @@ function openFarmerForm(prefill, editId) {
       if (prefill.telephone) tel.value = prefill.telephone;
       if (prefill.activite) document.getElementById('ff_notes').value = 'Enrôlement initié depuis la fiche RT' + (prefill.id_rt ? ' ' + prefill.id_rt : '') + '.';
     }
+    /* RT obligatoire (08/11/2026) : tout producteur en canal direct est rattaché à un RT de son village.
+       Un seul RT dans le village : il est présélectionné. Plusieurs : l'agent choisit. Aucun : on le dit. */
+    function villageRts(vid) { return c.rts.filter(function (r) { return r.village_id === vid; }); }
     function syncRt() {
-      var vid = villageSel.value;
-      rtSel.innerHTML = '<option value="">Aucun / à rattacher</option>' + selOptions(
-        c.rts.filter(function (r) { return r.village_id === vid; }).map(function (r) { return [r.id, r.nom]; }),
-        prefill && prefill.rt_id || '');
+      var vid = villageSel.value, list = villageRts(vid), hint = document.getElementById('ff_rt_hint');
+      var pre = prefill && prefill.rt_id || (list.length === 1 ? list[0].id : '');
+      rtSel.innerHTML = '<option value="">' + (vid && !list.length ? 'Aucun RT enregistré dans ce village' : '— Choisir le RT —') + '</option>' +
+        selOptions(list.map(function (r) { return [r.id, (r.id_rt ? r.id_rt + ' · ' : '') + r.nom]; }), pre);
+      if (hint) hint.textContent = !vid ? '' : (!list.length ? 'Créez d’abord le RT du village dans FBMS.' : (list.length === 1 ? 'RT unique du village, présélectionné.' : list.length + ' RT dans ce village : choisissez celui qui suit le producteur.'));
     }
+    /* Exemption : un producteur enrôlé par une coopérative est suivi par sa coopérative, pas par un RT. */
+    function rtRequis() { return !(editRow && (ED.source === 'AFLP_COOPERATIVE' || String(ED.source || '').indexOf('COOP') >= 0)); }
     villageSel.addEventListener('change', syncRt);
     if (editRow) {
       var setV = function (id, v) { var e = document.getElementById(id); if (e && v != null && v !== '') e.value = v; };
@@ -1471,6 +1477,13 @@ function openFarmerForm(prefill, editId) {
       var msg = document.getElementById('ff_msg'), btn = document.getElementById('ff_submit');
       var name = val('ff_nom'), vid = villageSel.value;
       if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont le minimum opérationnel.'; return; }
+      if (!rtSel.value && rtRequis()) {
+        msg.className = 'ops-danger-text';
+        msg.textContent = villageRts(vid).length
+          ? 'Choisissez le RT référent : un producteur ne peut pas être enregistré sans RT.'
+          : 'Ce village n’a encore aucun RT dans FBMS. Créez d’abord le RT, puis enrôlez le producteur.';
+        rtSel.focus(); return;
+      }
       /* Le village choisi ET, en édition, le village d'origine doivent être dans le cluster. */
       if (!villageInScope(c.vm[vid]) || (editRow && !villageInScope(c.vm[editRow.village_id]))) {
         msg.className = 'ops-danger-text';
@@ -1729,13 +1742,19 @@ function renderFarmers(id, tab) {
     function opt(v, l, cur) { return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(l) + '</option>'; }
     var nCoop = c.farmers.filter(function (f) { var x = X.ch[f.producteur_id]; return x && x.primary_cooperative_id; }).length;
     var nLow = c.farmers.filter(function (f) { var x = X.ql[f.producteur_id]; return x && n(x.completeness_pct) < 50; }).length;
+    /* Indicateur qualité : producteurs sans RT, hors membres de coopérative (suivis par leur coopérative). */
+    function sansRt(f) { var x = X.ch[f.producteur_id]; return !f.rt_id && !(x && x.primary_cooperative_id); }
+    var noRt = c.farmers.filter(sansRt), noRtCl = {};
+    noRt.forEach(function (f) { var k = f.cluster_label || f.cluster_code || 'Sans cluster'; noRtCl[k] = (noRtCl[k] || 0) + 1; });
+    var noRtDetail = noRt.length ? Object.keys(noRtCl).sort().map(function (k) { return k + ' ' + noRtCl[k]; }).join(' · ') : 'tous rattachés';
     paint(head('Producteurs', 'Farmer Registry : identité, canal, coopérative, complétude et consentement de chaque producteur.', cta) +
       createHost() +
       kpis([
         ['Producteurs', String(c.farmers.length), 'au référentiel'],
         ['Membres de coopérative', String(nCoop), 'canal Coopérative ' + campCode()],
         ['Complétude < 50 %', String(nLow), 'dossiers à compléter'],
-        ['À vérifier', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'doublon possible / identité']
+        ['À vérifier', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'doublon possible / identité'],
+        ['Sans RT', String(noRt.length), noRtDetail, noRt.length ? 'attn' : '']
       ]) +
       '<section class="card"><div class="card-head"><div><h2>Recherche et filtres</h2></div><div class="ops-route-actions"><button class="btn secondary" type="button" id="pfReset">Réinitialiser</button></div></div><div class="ops-form-grid pf-filters">' +
       field('Nom, Farmer ID, Member ID ou téléphone', '<input id="pfQ" value="' + esc(F.q) + '" placeholder="Rechercher…">') +
@@ -1745,7 +1764,7 @@ function renderFarmers(id, tab) {
       field('Cluster', '<select id="pfCluster">' + opt('', 'Tous', F.cluster) + c.clusters.map(function (k) { return opt(k.code, k.label || k.code, F.cluster); }).join('') + '</select>') +
       field('RT', '<select id="pfRt">' + opt('', 'Tous', F.rt) + c.rts.filter(function (r) { return rtsUsed[r.id]; }).map(function (r) { return opt(r.id, (r.id_rt || r.id) + ' · ' + r.nom, F.rt); }).join('') + '</select>') +
       field('Complétude', '<select id="pfCompl">' + opt('', 'Toutes', F.compl) + opt('LT50', 'Moins de 50 %', F.compl) + opt('INCOMPLETE', 'Incomplet (< 100 %)', F.compl) + opt('FULL', 'Complet (100 %)', F.compl) + '</select>') +
-      field('Point à traiter', '<select id="pfFlag">' + opt('', 'Aucun filtre', F.flag) + opt('NO_PHONE', 'Sans téléphone', F.flag) + opt('NO_GPS', 'Sans GPS', F.flag) + opt('NO_CONSENT', 'Consentement non recueilli', F.flag) + opt('REVIEW', 'À vérifier (doublon / identité)', F.flag) + '</select>') +
+      field('Point à traiter', '<select id="pfFlag">' + opt('', 'Aucun filtre', F.flag) + opt('NO_RT', 'Sans RT (hors coopérative)', F.flag) + opt('NO_PHONE', 'Sans téléphone', F.flag) + opt('NO_GPS', 'Sans GPS', F.flag) + opt('NO_CONSENT', 'Consentement non recueilli', F.flag) + opt('REVIEW', 'À vérifier (doublon / identité)', F.flag) + '</select>') +
       '</div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Producteurs <span class="muted" id="pfCount"></span></h2>' +
       '<p>Cliquez sur une ligne pour ouvrir le Farmer Passport.</p></div></div><div id="farmerTable"></div></section>');
@@ -1765,6 +1784,7 @@ function renderFarmers(id, tab) {
         if (F.compl === 'LT50' && !(cp != null && cp < 50)) return false;
         if (F.compl === 'INCOMPLETE' && !(cp != null && cp < 100)) return false;
         if (F.compl === 'FULL' && cp !== 100) return false;
+        if (F.flag === 'NO_RT' && !sansRt(f)) return false;
         if (F.flag === 'NO_PHONE' && f.telephone) return false;
         if (F.flag === 'NO_GPS' && n(f.gps_mapped_count) > 0) return false;
         if (F.flag === 'NO_CONSENT' && (ql.consent_status || f.consent_status) === 'GRANTED') return false;
