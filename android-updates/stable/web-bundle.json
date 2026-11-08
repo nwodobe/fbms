@@ -2,23 +2,23 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1793720944,
- "web_version": "2026.11.03-1549.ccc5d6d",
- "git_commit": "ccc5d6dd4eec236e28bc652bea184c32d29f7b18",
- "bundle_label": "ccc5d6d",
- "published_at": "2026-11-03T16:13:33.253Z",
- "created_at": "2026-11-03T16:13:33.253Z",
+ "sequence": 1794137264,
+ "web_version": "2026.11.08-1127.65c80b5",
+ "git_commit": "65c80b5032fe1488cf887454aefebae6e90ca375",
+ "bundle_label": "65c80b5",
+ "published_at": "2026-11-08T11:39:15.373Z",
+ "created_at": "2026-11-08T11:39:15.373Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Version officielle 1.3.1 : ouverture sur le portail, FIELD PROOF et AFLP FLEET",
+ "release_notes": "RT obligatoire a l'enrolement, indicateur Sans RT, export cooperative corrige (PR #305)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 6,
-  "latest_version_name": "1.3.1",
+  "latest_version_code": 7,
+  "latest_version_name": "1.4.0",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261105090100",
+ "supabase_compat": "20261116090100",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
@@ -134,28 +134,28 @@
    "size": 4
   },
   "fieldproof/fp-app.js": {
-   "sha256": "8eebedda7e62135e3c6bd90874e68e694fa194bbdb29e1c081d9be6f143aee4c",
-   "size": 72183
+   "sha256": "3e12defdc4dc01d1f5ab105417547bc21f205171b3c38af257302682c2947498",
+   "size": 82036
   },
   "fieldproof/fp-capture.js": {
-   "sha256": "e28ff6aa24369551005aa8a0e9cc9256f46cf537f8651c0c8c70c1f9c5bf0b66",
-   "size": 20908
+   "sha256": "04e91d7d6e943d598896b2148eedf9d5728f0f775f913b491fced71bc0fcf180",
+   "size": 25163
   },
   "fieldproof/fp-core.js": {
-   "sha256": "a77c12beb5b3c914bb3847eba5da1453f2f61c4bb24e28474e9ea7a56a090437",
-   "size": 35476
+   "sha256": "b6d6b366eaff72b64c1da01c21a44a2a1172aeb62df0014677b16d70a4f39381",
+   "size": 38547
   },
   "fieldproof/fp-store.js": {
    "sha256": "e08df80030b8575ad6df37db54dbe8afe083e32790e3e5c59866a068b0ca4ab5",
    "size": 11244
   },
   "fieldproof/fp.css": {
-   "sha256": "410affa53b9e0d3e08b50bb6badd47013bbd29b065eb1654e734272c8977eb53",
-   "size": 13996
+   "sha256": "6bf0ca845823a98616c91bd9baf69db1c271159e3e714d2d0b088986e911a689",
+   "size": 15445
   },
   "fieldproof/index.html": {
-   "sha256": "5513b93342742e7014d60468e009a1ee90674864102c50857ffb7bdfae3a0375",
-   "size": 3582
+   "sha256": "5a0607c63459bd52cc3507f86de76dc1b4c33af4e10c359faec4a6595a56e69b",
+   "size": 3602
   },
   "fieldproof/portal-fieldproof.css": {
    "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
@@ -194,32 +194,36 @@
    "size": 601
   },
   "moto/index.html": {
-   "sha256": "76e3dd293aae0e9941fb3ac48075b8cc1dd4f35b31658f7ad18a0d5b48016af9",
-   "size": 3532
+   "sha256": "7888bfd769518d2a089b7cc76bcf5ff16bd1e385554caf02b072de699d70a48a",
+   "size": 3663
   },
   "moto/moto-app.js": {
-   "sha256": "99464ae8664e6aa50570f036bdd3ae9e3aa3ae4472eb733b5be24623b902f370",
-   "size": 172082
+   "sha256": "9620eea93fe8a55266c73c4e17fb9c007914268afa18f858dd222939b2dbe3cd",
+   "size": 209782
+  },
+  "moto/moto-carburant-previsionnel.js": {
+   "sha256": "f27fcc7f3a0cde6b616b96269077101eebf3fddaa027b7b78cb177cadc2c838e",
+   "size": 31502
   },
   "moto/moto-carnet.js": {
    "sha256": "dc5d543a4d17817ca0163df7a5bcd3a7c5b002b891b979a6622df6656195e11c",
    "size": 10786
   },
   "moto/moto-core.js": {
-   "sha256": "d0f9af38fcebaab3821858c37b5e113fbb29cd0d03f90b9019ef81f050f7daa8",
-   "size": 35396
+   "sha256": "5c4853793d00c00743ba9ad147b56938f86cf25e594045f19d969e70763a783a",
+   "size": 37334
   },
   "moto/moto-formation.js": {
    "sha256": "552c115fe1cf0cc1974238c58ec3e562a627360e198f5aa12465cf2e1dcdd2aa",
    "size": 6423
   },
   "moto/moto-maintenance.js": {
-   "sha256": "fbe8c572b6955b99455897a760bb2b744fc0d6512d961b60b2732a4a94c1725b",
-   "size": 63287
+   "sha256": "fc8681bcdf01f260b56f76fd4f8d157f60c0a1486113fd010ee91af7312bd7a0",
+   "size": 63839
   },
   "moto/moto-mission.js": {
-   "sha256": "eaea922bd3f286b672ce6bc81d229ead6ec8fc2397197260cfe16110f28eb77c",
-   "size": 38122
+   "sha256": "793a92ca5039b8e23fd704f61f8e577f2495a462e9fb57c184f752d8c6ea2b86",
+   "size": 46067
   },
   "moto/moto-ocr.js": {
    "sha256": "37855ad070441900a525856eef239bf914c79e76741d09f41e83df821116a625",
@@ -230,16 +234,16 @@
    "size": 13714
   },
   "moto/moto-permis.js": {
-   "sha256": "17448223769536c162b51724ca72dfd59f1fcb117283d3efb8b24c4570aa6192",
-   "size": 19016
+   "sha256": "680df7059070fbdcc56e6cf3424c3933b1a5cd9392dca9d18a8c676a9e7ff104",
+   "size": 20178
   },
   "moto/moto-scan.js": {
    "sha256": "322c8568e7a2050bbbef9234c758d0f7d75e4f99fd7f3b336b73463c5bad1a36",
    "size": 18484
   },
   "moto/moto.css": {
-   "sha256": "af47fb2a5635a51b6b36253437e621e63fa284545d321b68d9ff7daa4726b189",
-   "size": 26970
+   "sha256": "7de8ee932c5767b3a5002c6c68114c84dbb0352f08afb3000205923781a40242",
+   "size": 31863
   },
   "moto/portal-moto.css": {
    "sha256": "44fa29a69dc0af3e54b4888ab308a0c324099fd30b7b96220040ad096a5ade8c",
@@ -326,8 +330,8 @@
    "size": 3414
   },
   "operations/field-buying.js": {
-   "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
-   "size": 334081
+   "sha256": "34739fb6e5bb7ec2e9a402b6b2c8d6f7c4fdc264a94c6df5b33c0ae08c7220f0",
+   "size": 336261
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
