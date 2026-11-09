@@ -1,0 +1,303 @@
+{
+ "suite": "correction_compteur_22",
+ "date": "2026-11-09T11:28:03.255039",
+ "resultats": [
+  {
+   "id": "AVANT-01",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Compteur actuel bloqué à 2602 après la faute de frappe",
+   "attendu": "2602",
+   "obtenu": "2602",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AVANT-02",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "uh_a",
+   "action": "Avant : l'agent ne peut plus relever 290 km (bloqué par 2602)",
+   "attendu": "REFUS (CONFLIT_COMPTEUR)",
+   "obtenu": "REFUS : CONFLIT_COMPTEUR : 290 km est inférieur au relevé antérieur (2602.0 km). Demandez une correction.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "AVANT-03",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Avant migration : fonction absente",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : function public.moto_releve_corriger(unknown, integer, unknown) does not exist",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MIG-01",
+   "exigence": "Migration rejouable",
+   "compte": "postgres",
+   "action": "Migration 22 (passe 1)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "MIG-02",
+   "exigence": "Migration rejouable",
+   "compte": "postgres",
+   "action": "Migration 22 (passe 2)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-01",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "uh_a",
+   "action": "Le conducteur ne corrige pas directement",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-02",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "zh",
+   "action": "Le chef de zone ne corrige pas directement",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-03",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "lc",
+   "action": "Le coordinateur logistique ne corrige pas directement",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-04",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "fin",
+   "action": "La Finance ne corrige pas directement",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Votre rôle ne permet pas cette opération Moto Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-05",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "anon",
+   "action": "Anonyme refusé",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : permission denied for function moto_releve_corriger",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-06",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "Motif trop court refusé",
+   "attendu": "REFUS (otif)",
+   "obtenu": "REFUS : Motif obligatoire (10 caractères minimum).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-07",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "Valeur identique refusée",
+   "attendu": "REFUS (identique)",
+   "obtenu": "REFUS : La nouvelle valeur est identique à la valeur enregistrée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-08",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "Valeur négative refusée",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Nouvelle valeur du compteur invalide.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-09",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "Recul sous un relevé antérieur refusé (le compteur ne recule pas)",
+   "attendu": "REFUS (ne recule pas)",
+   "obtenu": "REFUS : Correction refusée : la valeur serait inférieure à un relevé antérieur de la moto (le compteur ne recule pas).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-01",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "L'ABM corrige 2602 → 260 directement",
+   "attendu": "OK (\"nouveau_km\": 260)",
+   "obtenu": "OK : {\"source\": \"CONTROLE\", \"moto_id\": \"f6dd7d26-a486-45a3-be6a-9ef0792c977e\", \"ancien_km\": 2602.0, \"releve_id\": \"6997e356-931e-4837-bf5b-59c27ac86e07\", \"nouveau_km\": 260.0, \"correction_id\": \"51080773-0c1e-4d4d-953a-23ea71daa9bf\", \"achats_alignes\": 0, \"controles_alignes\": 1, \"missions_alignees\": 0, ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-02",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Relevé corrigé à 260",
+   "attendu": "260",
+   "obtenu": "260",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-03",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Contrôle avant départ d'origine aligné à 260",
+   "attendu": "260",
+   "obtenu": "260",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-04",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Compteur actuel de la moto recalculé à 260",
+   "attendu": "260",
+   "obtenu": "260",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-05",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Trace : correction APPLIQUEE, auteur ABM, 2602 → 260, motif conservé",
+   "attendu": "APPLIQUEE/true/2602→260/Erreur de saisie : un chiffre en trop",
+   "obtenu": "APPLIQUEE/true/2602→260/Erreur de saisie : un chiffre en trop",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-06",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Demande en attente close (REJETEE, remplacée)",
+   "attendu": "REJETEE/Remplacée par une correction directe du ABM",
+   "obtenu": "REJETEE/Remplacée par une correction directe du ABM",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-07",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Journal : modification du relevé avec auteur ABM et motif",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-08",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "uh_a",
+   "action": "Après correction : l'agent relève à nouveau 290 km",
+   "attendu": "OK (290)",
+   "obtenu": "OK : {\"moto_id\": \"f6dd7d26-a486-45a3-be6a-9ef0792c977e\", \"compteur_km\": 290}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-09",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Le BM corrige le départ de mission 260 → 258 : la mission suit",
+   "attendu": "OK (\"missions_alignees\": 1)",
+   "obtenu": "OK : {\"source\": \"RELEVE\", \"moto_id\": \"f6dd7d26-a486-45a3-be6a-9ef0792c977e\", \"ancien_km\": 260.0, \"releve_id\": \"a4a88709-0f1a-4224-a651-ef817de5fb79\", \"nouveau_km\": 258.0, \"correction_id\": \"b3af1f1b-e221-4d5d-b68b-12c4745e1d77\", \"achats_alignes\": 0, \"controles_alignes\": 0, \"missions_alignees\": 1, \"co",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-10",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Départ de la mission aligné à 258",
+   "attendu": "258",
+   "obtenu": "258",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-10",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Dépassement d'un relevé postérieur refusé",
+   "attendu": "REFUS (postérieur)",
+   "obtenu": "REFUS : Correction refusée : la valeur dépasserait un relevé postérieur de la moto.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-11",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Le BM corrige le compteur d'un achat de carburant 2950 → 295",
+   "attendu": "OK (\"achats_alignes\": 1)",
+   "obtenu": "OK : {\"source\": \"CARBURANT\", \"moto_id\": \"f6dd7d26-a486-45a3-be6a-9ef0792c977e\", \"ancien_km\": 2950.0, \"releve_id\": \"2ab622f8-9c46-46ba-91e1-1d8a06f3e48a\", \"nouveau_km\": 295.0, \"correction_id\": \"9d334bf1-d37d-422f-9c60-7cbd6ee54217\", \"achats_alignes\": 1, \"controles_alignes\": 0, \"missions_alignees\": 0,",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-12",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Achat de carburant aligné à 295, compteur actuel 295",
+   "attendu": "295/295",
+   "obtenu": "295/295",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-11",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "abm",
+   "action": "Relevé inexistant",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Relevé introuvable.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "T-13",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Circuit classique inchangé : demande du chef de zone validée par le BM",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"id\": \"b32c2aa8-4331-44aa-8486-6064338c7093\", \"statut\": \"APPLIQUEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RB-01",
+   "exigence": "Retour arrière rejouable",
+   "compte": "postgres",
+   "action": "Retour arrière 22 (passe 1)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RB-02",
+   "exigence": "Retour arrière rejouable",
+   "compte": "postgres",
+   "action": "Retour arrière 22 (passe 2)",
+   "attendu": "OK",
+   "obtenu": "OK",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RB-03",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "bm",
+   "action": "Après retour arrière : correction directe impossible",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : function public.moto_releve_corriger(unknown, integer, unknown) does not exist",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "RB-04",
+   "exigence": "Correction compteur BM/ABM",
+   "compte": "postgres (lecture)",
+   "action": "Traces des corrections conservées",
+   "attendu": "3",
+   "obtenu": "3",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}

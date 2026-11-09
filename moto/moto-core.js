@@ -52,13 +52,15 @@
                 // Migration 7 : permis des conducteurs (contrôle sur original par le BM ou l'ABM).
                 'permis_voir', 'permis_enregistrer', 'permis_verifier',
                 // Migration 8 : journal de mission (photo du compteur au départ et à l'arrivée).
-                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
+                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts',
+                // Migration 22 : correction directe d'un relevé de compteur (décision du BM du 09/11/2026).
+                'corriger_compteur'],
     ABM:       ['lire', 'contre_visite', 'autoriser_circulation', 'pilotage', 'admin', 'inventaire', 'documents', 'verifier_documents', 'remettre', 'budgets', 'dotations', 'rapprochement',
                 'verifier_justificatifs', 'demander_correction', 'incident_piloter', 'pneus', 'journal', 'terrain', 'exports',
                 'coordination', 'etat_remise', 'photo_principale', 'actions', 'actions_verifier', 'inspection_independante', 'verifier_depense',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'facture_verifier', 'cloture_financiere',
                 'garages', 'regle_proposer', 'modele_definir', 'maintenance_demande', 'permis_voir', 'permis_enregistrer', 'permis_verifier', 'mon_permis',
-                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts'],
+                'missions', 'missions_suivi', 'missions_traiter', 'missions_couts', 'corriger_compteur'],
     LOGISTIQUE: ['lire', 'contre_visite', 'pilotage', 'coordination', 'inventaire_logistique', 'photo_principale', 'etat_remise', 'remettre', 'inspection',
                 'inspection_mensuelle', 'actions', 'actions_verifier', 'pneus', 'documents_logistique', 'maintenance_demande', 'terrain', 'exports', 'enveloppes',
                 'maintenance_voir', 'maintenance_finances', 'maintenance_preparer', 'maintenance_organiser', 'maintenance_controler', 'garages', 'regle_proposer', 'modele_definir',
