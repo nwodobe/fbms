@@ -531,8 +531,22 @@
   }
   async function ongletKm(m) {
     var r = await lireTable('moto_releves_km', function (q) { return q.eq('moto_id', m.id).order('date_releve', { ascending: false }).limit(200); });
-    return tableau(['Date', 'Compteur', 'Source'], r.map(function (x) { return [esc(C.dateHeureFr(x.date_releve)), esc(C.km(x.compteur_km)), esc(x.source)]; }), 'Aucun relevé.') +
-      (peut('demander_correction') ? '<p class="mm-note">Un compteur erroné se corrige par une demande validée par un autre responsable (Pilotage → Validations).</p>' : '');
+    var corr = peut('corriger_compteur');
+    /* Saut suspect : relevé plus de 5 fois supérieur au précédent et +500 km (ex. 260 saisi 2602).
+       Simple repère visuel : seule une personne habilitée décide de corriger. */
+    var suspect = function (i) {
+      var x = r[i], prec = r[i + 1]; if (!prec) return false;
+      var a = Number(x.compteur_km), b = Number(prec.compteur_km);
+      return a - b > 500 && b > 0 && a > 5 * b;
+    };
+    var entetes = ['Date', 'Compteur', 'Source'].concat(corr ? [''] : []);
+    return tableau(entetes, r.map(function (x, i) {
+      var l = [esc(C.dateHeureFr(x.date_releve)), esc(C.km(x.compteur_km)) + (suspect(i) ? ' <span class="mm-badge mm-ko">Saut suspect</span>' : ''), esc(C.libelle(x.source))];
+      if (corr) l.push(action('corriger_compteur', 'Corriger', { id: x.id, km: x.compteur_km, date: x.date_releve, source: x.source }, suspect(i) ? 'mm-primaire' : null));
+      return l;
+    }), 'Aucun relevé.') +
+      (corr ? '<p class="mm-note">Branch Manager et Assistant Branch Manager : « Corriger » applique immédiatement la nouvelle valeur. La mission, le contrôle ou l\'achat d\'origine et le compteur actuel suivent ; l\'ancienne valeur, votre nom et le motif restent dans le journal.</p>'
+        : (peut('demander_correction') ? '<p class="mm-note">Un compteur erroné se corrige par une demande validée par un autre responsable (Pilotage → Validations).</p>' : ''));
   }
   async function ongletControles(m) {
     var r = await lireTable('moto_controles', function (q) { return q.eq('moto_id', m.id).order('date_controle', { ascending: false }).limit(100); });
@@ -920,6 +934,21 @@
     retirer: function (d, m) {
       modale('Retirer l\'affectation de ' + m.code, '<p class="mm-bandeau mm-warn">La moto redevient non affectée et perd son autorisation de circulation.</p>' + champ({ n: 'motif', l: 'Motif (10 caractères minimum)', t: 'textarea', req: true, min: 10 }),
         function (v) { return rpc('moto_retirer', { p_moto: m.id, p_motif: v.motif }).then(apres(m.id)); }, 'Retirer');
+    },
+    corriger_compteur: function (d, m) {
+      var src = { MISSION: 'départ ou arrivée de mission', CONTROLE: 'contrôle avant départ', CARBURANT: 'achat de carburant', RELEVE: 'relevé simple', REMISE: 'remise de la moto' }[d.source] || C.libelle(d.source);
+      modale('Corriger le compteur · ' + m.code,
+        '<p class="mm-bandeau mm-info">Relevé du <b>' + esc(C.dateHeureFr(d.date)) + '</b> (' + esc(src) + ') : <b>' + esc(C.km(d.km)) + '</b> enregistrés.</p>' +
+        '<div class="mm-grille-form">' + champ({ n: 'km', l: 'Valeur exacte du compteur (km)', t: 'nombre', req: true, pas: '0.1', aide: 'Lisez la photo du compteur si elle existe.' }) +
+        champ({ n: 'motif', l: 'Motif (10 caractères minimum)', t: 'textarea', req: true, min: 10, aide: 'Ex. : faute de frappe, un chiffre en trop (2602 au lieu de 260).' }) + '</div>' +
+        '<p class="mm-note">Le compteur ne peut ni reculer sous un relevé antérieur ni dépasser un relevé postérieur : sinon, corrigez d\'abord l\'autre relevé. La correction est appliquée tout de suite et reste tracée (ancienne valeur, auteur, motif).</p>',
+        function (v) {
+          return rpc('moto_releve_corriger', { p_releve: d.id, p_nouveau_km: Number(String(v.km).replace(',', '.')), p_motif: v.motif }).then(function (r) {
+            apres(m.id, 'kilometrage')();
+            var suite = [r.missions_alignees ? 'mission mise à jour' : '', r.controles_alignes ? 'contrôle mis à jour' : '', r.achats_alignes ? 'achat de carburant mis à jour' : ''].filter(Boolean).join(', ');
+            return 'Compteur corrigé : ' + C.km(r.ancien_km) + ' → ' + C.km(r.nouveau_km) + (suite ? ' (' + suite + ')' : '') + '. Compteur actuel : ' + C.km(r.compteur_actuel_km) + '.';
+          });
+        }, 'Corriger');
     },
     supprimer_carburant: function (d, m) {
       modale('Supprimer un achat de carburant', '<p class="mm-bandeau mm-warn">Achat du ' + esc(d.libelle || '') + '. Il disparaît des consommations, coûts et soldes. La ligne complète, votre nom et le motif restent dans le journal d\'audit.</p>' +
