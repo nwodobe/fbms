@@ -1,5 +1,6 @@
 -- =============================================================================
 -- AFLP FLEET 22 : correction directe d'un relevé de compteur par le Branch Manager ou l'ABM
+-- APPLIQUÉ EN PRODUCTION le 09/11/2026 sur autorisation du Branch Manager (empreinte md5(prosrc) 29f5304ec1e2089d4588f1f59123dd81, identique à la réplique testée).
 -- Décision du Branch Manager du 09/11/2026 : l'agent de MOTO-003 a fait une erreur de saisie du
 -- compteur ; le Branch Manager et son assistant doivent pouvoir la corriger eux-mêmes.
 --
