@@ -108,7 +108,7 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   injectAcces(); injectI18n(); injectAudit(); injectModuleGuards();
   function chipHTML(prof){ return '<span class="ag-name">'+esc(prof.nom||prof.role)+' · <span class="ag-role">'+esc(prof.role)+'</span></span>'+(estBM(prof.role)?'<a class="ag-cog" href="'+adminHref()+'" title="Administration">⚙</a>':'')+'<button class="ag-out" id="ag-logout" title="Déconnexion">⏻</button>'; }
   function wireLogout(){ var b=document.getElementById("ag-logout"); b&&b.addEventListener("click",function(){
-    function go(){ if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout",{module:MODULE}); } SB.auth.signOut().then(function(){ location.reload(); }); }
+    function go(){ if(window.ANAGROCI_AUDIT){ window.ANAGROCI_AUDIT.log("logout",{module:MODULE}); } SB.auth.signOut(isOfflineNow()?{scope:"local"}:undefined).then(function(){ location.reload(); },function(){ location.reload(); }); }
     if(window.ANAGROCI_OFFLINE&&window.ANAGROCI_OFFLINE.summary){
       window.ANAGROCI_OFFLINE.summary().then(function(s){
         var n=Number(s.pending||0)+Number(s.failed||0)+Number(s.review||0)+Number(s.conflicts||0);
@@ -120,22 +120,86 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
   function injectChip(prof){ var slot=document.getElementById("anagroci-userslot"); if(slot){ slot.innerHTML=chipHTML(prof); return wireLogout(); } var chip=document.createElement("div"); chip.id="anagroci-userslot"; chip.className="ag-floating"; chip.innerHTML=chipHTML(prof); document.body.appendChild(chip); wireLogout(); }
   function injectAchatsCard(){ if(MODULE!=="portail") return; if(document.querySelector('a[href="terrain/achats.html"]')) return; var grid=document.querySelector("main .grid")||document.querySelector(".grid"); if(!grid) return; var card=document.createElement("a"); card.className="card hot"; card.href="terrain/achats.html"; card.innerHTML='<div class="card-top"><span class="ic">ACH</span><span class="badge b-prio">Transaction</span></div><div><h2>Achats Terrain</h2><p>Saisie journalière Producteur → RT : poids net, montant payé, reçu, sacs, qualité, commission RT et file hors-ligne.</p></div><span class="open">Ouvrir le module <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>'; grid.insertBefore(card,grid.children[1]||null); }
   function injectAchatsDropdownPatch(){ if(!/\/terrain\/achats\.html(?:$|[?#])/.test(location.pathname+location.search)) return; if(document.getElementById("achats-dropdown-patch")) return; var s=document.createElement("script"); s.id="achats-dropdown-patch"; s.src="achats_dropdown_patch.js?v=8efe9be"; document.body.appendChild(s); }
-  function reveal(prof){ try{ injectChip(prof); }catch(e){} window.ANAGROCI_AUTH={profile:prof,niveau:niveau(prof.role),estBM:estBM(prof.role),module:MODULE,signOut:function(){return SB.auth.signOut().then(function(){location.reload();});}}; document.dispatchEvent(new CustomEvent("anagroci:authenticated",{detail:window.ANAGROCI_AUTH})); overlay.parentNode&&overlay.parentNode.removeChild(overlay); setTimeout(injectAchatsCard,0); setTimeout(injectAchatsDropdownPatch,0); setTimeout(injectModuleGuards,0); setTimeout(function(){ window.ANAGROCI_I18N&&window.ANAGROCI_I18N.apply(); },0); setTimeout(function(){ window.ANAGROCI_AUDIT&&window.ANAGROCI_AUDIT.log("module_access",{module:MODULE,role:prof.role}); },250); }
-  function cacheProfile(uid,prof){ try{ localStorage.setItem("anagroci_profile_"+uid,JSON.stringify(prof)); }catch(e){} }
+  function reveal(prof){ try{ injectChip(prof); }catch(e){} window.ANAGROCI_AUTH={profile:prof,niveau:niveau(prof.role),estBM:estBM(prof.role),module:MODULE,offline:offlineMode,signOut:function(){return SB.auth.signOut().then(function(){location.reload();});}}; document.dispatchEvent(new CustomEvent("anagroci:authenticated",{detail:window.ANAGROCI_AUTH})); overlay.parentNode&&overlay.parentNode.removeChild(overlay); if(offlineMode){ try{ offlineBanner(); }catch(e){} } setTimeout(injectAchatsCard,0); setTimeout(injectAchatsDropdownPatch,0); setTimeout(injectModuleGuards,0); setTimeout(function(){ window.ANAGROCI_I18N&&window.ANAGROCI_I18N.apply(); },0); setTimeout(function(){ window.ANAGROCI_AUDIT&&window.ANAGROCI_AUDIT.log("module_access",{module:MODULE,role:prof.role}); },250); }
+  function cacheProfile(uid,prof){ try{ localStorage.setItem("anagroci_profile_"+uid,JSON.stringify(prof)); localStorage.setItem("anagroci_profile_verified_"+uid,String(Date.now())); }catch(e){} }
+  /* ACCÈS LOCAL AVEC LA SESSION GARDÉE (mode terrain sans réseau, nov. 2026).
+     Le jeton d'accès Supabase expire vite (environ 1 h). Hors réseau, supabase-js
+     ne peut pas le renouveler et getSession() répond « aucune session », alors
+     que la session reste enregistrée sur le téléphone. Sans ce repli, un agent
+     qui rouvre l'application en zone blanche était renvoyé vers l'écran de
+     connexion, qu'il ne peut pas franchir sans réseau.
+     Règle : hors réseau UNIQUEMENT, une session gardée + un profil actif en cache
+     ouvrent le mode terrain local. Rien n'est envoyé au serveur sans jeton
+     valide : la synchronisation attend le retour du réseau, qui renouvelle le
+     jeton. Les RLS Supabase restent la seule vraie serrure.
+     Garde-fou : le profil doit avoir été confirmé en ligne depuis moins de
+     OFFLINE_MAX_JOURS, pour qu'un compte désactivé ne reste pas ouvert
+     indéfiniment sur un téléphone qui ne revoit jamais le réseau. */
+  var OFFLINE_MAX_JOURS = 7;
+  var SB_STORAGE_KEY = "sb-" + SUPABASE_URL.replace(/^https:\/\//,"").split(".")[0] + "-auth-token";
+  function isOfflineNow(){ return typeof navigator!=="undefined"&&navigator.onLine===false; }
+  function isNetworkError(err){ if(!err) return false; var msg=String(err.message||err), name=String(err.name||""); return /AuthRetryableFetchError/.test(name)||/fetch|network|load failed|timeout|offline/i.test(msg); }
+  function storedSession(){
+    try{
+      var raw=localStorage.getItem(SB_STORAGE_KEY); if(!raw) return null;
+      var s=JSON.parse(raw); s=(s&&s.currentSession)||s;
+      return (s&&s.user&&s.user.id&&s.refresh_token)?s:null;
+    }catch(e){ return null; }
+  }
+  function profileFresh(uid){
+    try{ var t=Number(localStorage.getItem("anagroci_profile_verified_"+uid)||0);
+      if(!t) return true; /* profil mis en cache avant cette version : accepté une fois, daté à la prochaine connexion en ligne */
+      return (Date.now()-t) < OFFLINE_MAX_JOURS*86400000;
+    }catch(e){ return true; }
+  }
+  var offlineMode=false;
+  function offlineBanner(){
+    if(document.getElementById("ag-offline-banner")) return;
+    var b=document.createElement("div"); b.id="ag-offline-banner";
+    b.setAttribute("style","position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:2147483000;background:#7a4b00;color:#fff;font:600 12.5px 'Segoe UI',system-ui,Arial,sans-serif;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:92vw;text-align:center");
+    b.textContent="Hors ligne · saisies gardées sur ce téléphone";
+    b.title="Vos saisies partiront à la reconnexion. Touchez pour masquer.";
+    b.addEventListener("click",function(){ b.style.display="none"; });
+    document.body.appendChild(b);
+    window.addEventListener("online",function(){ SB.auth.getSession().then(function(r){ if(r&&r.data&&r.data.session){ offlineMode=false; if(window.ANAGROCI_AUTH) window.ANAGROCI_AUTH.offline=false; b.parentNode&&b.parentNode.removeChild(b); } }).catch(function(){}); });
+  }
+  /* Accès local refusé hors réseau : message immédiat, adapté à la cause. */
+  function refuseOffline(){
+    var st=storedSession();
+    if(st&&readCachedProfile(st.user.id)&&!profileFresh(st.user.id)) return showLogin("Hors ligne : ce téléphone n'a pas été confirmé en ligne depuis plus de "+OFFLINE_MAX_JOURS+" jours. Une connexion Internet est nécessaire. Vos opérations enregistrées restent sur ce téléphone.","err");
+    if(st) return showLogin("Une première connexion Internet est nécessaire pour préparer ce téléphone au mode terrain.","err");
+    showLogin("Hors ligne : une connexion Internet est nécessaire pour vous identifier sur ce téléphone.","err");
+  }
+  /* Tente l'accès local. Renvoie true si le mode terrain a été ouvert. */
+  function tryLocalAccess(){
+    var st=storedSession(); if(!st) return false;
+    var cached=readCachedProfile(st.user.id);
+    if(!cached||cached.actif===false||!profileFresh(st.user.id)) return false;
+    offlineMode=true; decide(cached); return true;
+  }
   function readCachedProfile(uid){ try{ var s=localStorage.getItem("anagroci_profile_"+uid); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function decide(prof){ whenAcces(function(){ var allowed=ACCESS[MODULE]||[]; if(allowed.indexOf(niveau(prof.role))<0) return showDenied(prof); reveal(prof); }); }
   var SB;
   function run(){
     SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+    /* Hors réseau, supabase-js réessaie le renouvellement du jeton pendant
+       environ 30 s avant de répondre (mesuré). On n'attend pas : accès local
+       immédiat. Réseau faible (téléphone « en ligne » mais rien ne passe) :
+       on attend au plus SESSION_TIMEOUT_MS, puis accès local. */
+    if(isOfflineNow()){ if(!tryLocalAccess()) refuseOffline(); return; }
+    var settled=false, SESSION_TIMEOUT_MS=6000;
+    var timer=setTimeout(function(){ if(settled) return; settled=true; if(!tryLocalAccess()) refuseOffline(); },SESSION_TIMEOUT_MS);
     SB.auth.getSession().then(function(res){
+      if(settled) return; settled=true; clearTimeout(timer);
       var session=res.data&&res.data.session;
       if(!session){
-        if(typeof navigator!=="undefined"&&navigator.onLine===false) return showLogin("Hors ligne : une connexion Internet est nécessaire pour vous identifier sur ce téléphone.","err");
+        /* Jeton expiré et renouvellement impossible faute de réseau : accès local. */
+        if(isOfflineNow()||isNetworkError(res.error)){ if(!tryLocalAccess()) refuseOffline(); return; }
         return hadPreviousSession() ? showLogin("Session expirée ou fermée : reconnectez-vous. Les opérations non synchronisées restent sur ce téléphone.","ok") : showLogin();
       }
       var cached=readCachedProfile(session.user.id);
-      if(typeof navigator!=="undefined"&&navigator.onLine===false){
-        if(cached&&cached.actif!==false) return decide(cached);
+      if(isOfflineNow()){
+        if(cached&&cached.actif!==false&&profileFresh(session.user.id)){ offlineMode=true; return decide(cached); }
         return showLogin("Une première connexion Internet est nécessaire pour préparer ce téléphone au mode terrain.");
       }
       SB.from("profils").select("*").eq("user_id",session.user.id).single().then(function(r){
@@ -144,7 +208,7 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
              Un profil serveur réellement absent/inactif reste traité strictement. */
           var msg=String(r.error.message||"");
           if(/fetch|network|load failed|timeout|offline/i.test(msg)){
-            if(cached&&cached.actif!==false) return decide(cached);
+            if(cached&&cached.actif!==false){ offlineMode=true; return decide(cached); }
             return showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne).");
           }
           return SB.auth.signOut().then(function(){ showLogin("Profil introuvable. Contactez le Branch Manager."); });
@@ -153,10 +217,12 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
         if(!r.data.actif) return SB.auth.signOut().then(function(){ showLogin("Compte désactivé. Contactez le Branch Manager."); });
         cacheProfile(session.user.id,r.data); decide(r.data);
       },function(){
-        if(cached&&cached.actif!==false) return decide(cached);
+        if(cached&&cached.actif!==false){ offlineMode=true; return decide(cached); }
         showLogin("Connexion requise (aucun profil en cache pour le mode hors-ligne).");
       });
     }).catch(function(){
+      if(settled) return; settled=true; clearTimeout(timer);
+      if(tryLocalAccess()) return;
       showLogin("Session locale indisponible. Reconnectez-vous lorsque le réseau revient.");
     });
   }
