@@ -186,8 +186,10 @@ var SITE_ROOT = (function(){ try { return new URL("..", SCRIPT.src).href; } catc
        environ 30 s avant de répondre (mesuré). On n'attend pas : accès local
        immédiat. Réseau faible (téléphone « en ligne » mais rien ne passe) :
        on attend au plus SESSION_TIMEOUT_MS, puis accès local. */
-    if(isOfflineNow()){ if(!tryLocalAccess()) refuseOffline(); return; }
-    var settled=false, SESSION_TIMEOUT_MS=6000;
+    if(isOfflineNow()&&tryLocalAccess()) return;
+    /* Sinon on interroge quand même la session (elle peut être valide et
+       disponible sans réseau), avec un délai court hors ligne. */
+    var settled=false, SESSION_TIMEOUT_MS=isOfflineNow()?2500:6000;
     var timer=setTimeout(function(){ if(settled) return; settled=true; if(!tryLocalAccess()) refuseOffline(); },SESSION_TIMEOUT_MS);
     SB.auth.getSession().then(function(res){
       if(settled) return; settled=true; clearTimeout(timer);
