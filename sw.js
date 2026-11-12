@@ -100,7 +100,15 @@ function cacheFirst(req) {
         return resp;
       }).catch(function () { return null; });
       return hit || update.then(function (resp) {
-        return resp || new Response('', { status: 504, statusText: 'Offline' });
+        if (resp) return resp;
+        /* Correctif 25/10/2026 (anomalie D-1) : les pages appellent leurs scripts avec
+           ?v=… alors que le précache les enregistre sans paramètre. Hors ligne, la
+           recherche exacte échouait (504) et la page restait bloquée sur « Chargement… »
+           juste après « Préparer le terrain ». Repli sans paramètre UNIQUEMENT quand le
+           réseau est indisponible : en ligne, le cache-busting ?v= reste intact. */
+        return caches.match(req, { ignoreSearch: true }).then(function (loose) {
+          return loose || new Response('', { status: 504, statusText: 'Offline' });
+        });
       });
     });
   });
