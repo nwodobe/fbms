@@ -1,0 +1,12 @@
+global.window={}; require(require('path').join(__dirname,'..','shared','aflp-access.js')); const A=window.AFLP_ACCESS, assert=require('assert');
+const auh={role:'Assistant Unit Head',cluster:'Botro',actif:true}, uh={role:'Unit Head',cluster:'BOTRO',actif:true};
+assert.deepStrictEqual(A.statutsAutorises(auh,'rt','Pressenti'),['Pressenti','Confirmé']);
+assert.deepStrictEqual(A.statutsAutorises(auh,'rt','Actif'),['Actif']);
+assert.deepStrictEqual(A.statutsAutorises(auh,'villages','À corriger'),['Brouillon','Soumis']);
+assert.strictEqual(A.statutsAutorises(uh,'rt','Pressenti'),null);
+assert.ok(!A.can(auh,'validate','achats','BOTRO')); assert.ok(A.can(auh,'create','achats','BOTRO'));
+assert.ok(!A.can(auh,'create','achats','BROBO')); assert.ok(!A.can(auh,'read','villages','BROBO'));
+assert.ok(!A.can(auh,'delete','villages','BOTRO')); assert.ok(!A.can(auh,'create','avances','BOTRO'));
+assert.ok(!A.can(auh,'admin','utilisateurs')); assert.strictEqual(A.niveauPortail('Assistant Unit Head'),'chef');
+assert.ok(A.can(uh,'validate','achats','BOTRO'));
+console.log('aflp-access : 13 assertions OK');

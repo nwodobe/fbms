@@ -1279,6 +1279,13 @@ const RemoteRT = {
 };
 
 /* Statuts RT — alignés avec RT_STATUTS_VALIDES du backend v1.6. */
+/** Statuts RT proposés : restreints à la validation terrain pour les rôles
+ *  concernés (Assistant Unit Head). Le serveur revérifie (déclencheur). */
+function rtStatutsProposes(r){
+  const liste = (window.AFLP_ACCESS && AFLP_ACCESS.statutsAutorises)
+    ? AFLP_ACCESS.statutsAutorises(ME(), "rt", r && r.statut || "Pressenti") : null;
+  return liste ? RT_STATUTS.filter(s=>liste.includes(s.key)) : RT_STATUTS;
+}
 const RT_STATUTS = [
   { key:"Pressenti", color:"#7A7878" },
   { key:"Confirmé",  color:"#8DC556" },
@@ -3284,7 +3291,7 @@ function renderRTModal(){
     + '<select id="rtVillage" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'">'+villageOpts+'</select></label>'
     + '<label class="block"><span class="ff-body text-[11px] font-medium block mb-0.5" style="color:'+T.inkSoft+'">'+t('Statut RT')+'</span>'
     + '<select id="rtStatut" class="w-full px-2.5 py-1.5 rounded-lg text-xs outline-none ff-body" style="'+inputStyleAttr()+'">'
-    + RT_STATUTS.map(s=>'<option value="'+s.key+'" '+((r.statut||"Pressenti")===s.key?'selected':'')+'>'+t(s.key)+'</option>').join('') + '</select></label>'
+    + rtStatutsProposes(r).map(s=>'<option value="'+s.key+'" '+((r.statut||"Pressenti")===s.key?'selected':'')+'>'+t(s.key)+'</option>').join('') + '</select></label>'
     + inp("rtScore","Score /100", r.score, "number")
     + inp("rtNbProd","Producteurs rattachés", r.nbProducteurs, "number")
     + '</div>'
