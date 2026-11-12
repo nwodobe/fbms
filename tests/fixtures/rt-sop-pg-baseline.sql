@@ -11,7 +11,7 @@ end $$;
 create or replace function auth.uid() returns uuid language sql stable
  as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 create table auth.users(id uuid primary key);
-create table public.profils(user_id uuid primary key references auth.users(id), nom text, role text, actif boolean);
+create table public.profils(user_id uuid primary key references auth.users(id), nom text, role text, actif boolean, cluster text);
 create table public.rt(id text primary key,nom text,cluster text,village_id text,village_nom text,deleted boolean not null default false);
 create table public.campaigns(id uuid primary key,code text,year integer,campaign_type text,status text);
 create table public.avances(
@@ -52,7 +52,7 @@ insert into auth.users(id) values
  ('22222222-2222-4222-8222-222222222222'),
  ('33333333-3333-4333-8333-333333333333'),
  ('44444444-4444-4444-8444-444444444444');
-insert into public.profils values
+insert into public.profils(user_id,nom,role,actif) values
  ('11111111-1111-4111-8111-111111111111','BM TEST','Branch Manager',true),
  ('22222222-2222-4222-8222-222222222222','FINANCE TEST','Finance',true),
  ('33333333-3333-4333-8333-333333333333','UH TEST','Unit Head',true),
