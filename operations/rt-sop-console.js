@@ -208,6 +208,13 @@
         if(!roleMatch('Finance','Finance Officer','Finance Manager','Accountant','Comptable'))throw Error('Inscription réservée à Finance.');
         const funding=requireFunding(form,'RT_ACK');
         r=await rpc('rt_sop_post_funding',{p_id:funding.id});
+      }else if(which==='refundForm'){
+        if(!roleMatch('Finance','Finance Officer','Finance Manager','Accountant','Comptable'))
+          throw Error('Restitution réservée à Finance.');
+        const proof=await uploadEvidence(file(form,'proof'));
+        r=await rpc('rt_sop_refund',{p_campaign_id:CID(),p_rt_id:RT().id,
+          p_amount:Number(val(form,'amount')),p_payment_ref:val(form,'reference'),
+          p_evidence_path:proof,p_key:crypto.randomUUID()});
       }else if(which==='purchaseForm'){
         if(!roleMatch('Unit Head'))throw Error('Validation réservée au Chef d’Unité.');
         const id=val(form,'achat'),dec=val(form,'decision');
@@ -243,10 +250,20 @@
         const source=$('proofMode').value;
         const blob=source==='canvas'?await signBlob(snap,dec,res):file(form,'paper');
         const proof=await uploadEvidence(blob);
+        // An existing period cannot be overwritten: new signatures create a linked version.
+        const previous=await app.sb.from('rt_sop_weekly_signoffs').select('id')
+          .eq('rt_id',RT().id).eq('campaign_id',CID()).eq('period_start',val(form,'start'))
+          .order('signed_at',{ascending:false}).limit(1);
+        if(previous.error)throw Error('Impossible de vérifier les anciens bilans : '+previous.error.message);
+        const latest=previous.data?.[0]?.id||null;
+        if(latest&&!form.elements.namedItem('replacement').checked)
+          throw Error('Cette semaine possède déjà un bilan signé. Cochez « Corriger un bilan » pour créer une nouvelle version signée.');
+        if(!latest&&form.elements.namedItem('replacement').checked)
+          throw Error('Il n’existe pas de bilan à corriger pour cette semaine.');
         r=await rpc('rt_sop_weekly_sign',{p_campaign_id:CID(),p_rt_id:RT().id,
           p_period_start:val(form,'start'),p_period_end:val(form,'end'),
           p_snapshot:snap,p_rt_decision:dec,p_rt_reservations:res,
-          p_signed_proof_path:proof,p_supersedes_id:null,p_key:crypto.randomUUID()});
+          p_signed_proof_path:proof,p_supersedes_id:latest,p_key:crypto.randomUUID()});
       }else throw Error('Formulaire inconnu.');
       log('Opération acceptée par le serveur : '+JSON.stringify(r));
       form.reset();
