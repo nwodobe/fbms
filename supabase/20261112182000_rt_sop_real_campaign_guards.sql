@@ -43,7 +43,7 @@ begin
  where campaign_id=new.campaign_id and rt_id=new.rt_id and status='POSTED';
  select coalesce(sum(montant),0) into v_spend
  from public.achats where campaign_id=new.campaign_id and rt_id=new.rt_id
- and coalesce(rejet,false)=false and id<>new.id;
+ and coalesce(rejet,false)=false and id is distinct from new.id;
  select coalesce(sum(amount_fcfa),0) into v_refunds
  from public.rt_sop_refunds where campaign_id=new.campaign_id and rt_id=new.rt_id;
  if v_spend+new.montant+v_refunds>v_credit then
