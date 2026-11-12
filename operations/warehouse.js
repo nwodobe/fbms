@@ -66,7 +66,9 @@ async function loadBase(){
   var w0=await Promise.all([rpc('wms_my_permissions'),q('wms_warehouses','*',function(x){return x.order('site_code').order('code');})]);
   state.permissions=w0[0]||{};
   var first=[w0[1],await loadProfileScope()];
-  state.warehouses=first[0];
+  /* AFLP 2027 : ce module ne gère plus que les entrepôts relais des clusters (codes WH-…), tenus par le magasinier.
+     Bouaké et l'usine sont suivis dans PJS AgileMorph : ils restent en base mais ne sont plus proposés ici. */
+  state.warehouses=(first[0]||[]).filter(function(w){return /^WH-/i.test(String(w.code||''));});
   if(state.scope&&state.scope.warehouse_code){var sw=state.warehouses.filter(function(w){return w.code===state.scope.warehouse_code;})[0];state.scope.warehouse_id=sw?sw.id:null;}
   try{state.whFilter=sessionStorage.getItem('wms-wh-filter')||'';}catch(e){state.whFilter='';}
   var wf=whFilterId();

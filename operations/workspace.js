@@ -122,7 +122,7 @@
       ]
     },
     procurement: {
-      title: 'PROCUREMENT', subtitle: 'Achat Bord Champ, LBA, fournisseurs et évacuations',
+      title: 'LOTS & EXPÉDITIONS', subtitle: 'Lots terrain, expéditions village vers relais et rapprochement',
       nav: [
         ['overview','Overview','../operations/procurement.html#overview'],
         ['field','Achat Bord Champ','../operations/procurement.html#field'],
@@ -150,7 +150,7 @@
       ]
     },
     warehouse: {
-      title: 'OPÉRATIONS ENTREPÔT', subtitle: 'Entrepôts externes · réception, lots, BIN et stock',
+      title: 'ENTREPÔTS RELAIS AFLP', subtitle: 'Relais des clusters · réception, qualité, séchage et stock',
       nav: [
         ['overview','Vue d’ensemble','../operations/warehouse.html#overview'],
         ['inbound','Réceptions','../operations/warehouse.html#inbound'],
@@ -164,7 +164,7 @@
       ]
     },
     transfer: {
-      title: 'STOCK TRANSFER', subtitle: 'Mouvements inter-sites et réconciliation',
+      title: 'TRANSFERTS RELAIS', subtitle: 'Relais vers usine · chargement, transit et réconciliation',
       nav: [
         ['overview','Overview','../operations/stock-transfer.html'],
         ['requests','Requests','../rcntrace/index.html'],

@@ -177,12 +177,14 @@
     if (!can('transfer_request')) { root.innerHTML = head('New Transfer Request','') + notice('danger','Permission transfer_request requise.'); return; }
     await loadStock();
     var whOpts = [['','Selectionner...']].concat(state.warehouses.map(function (w) { return [w.id, w.code + ' - ' + w.name + (w.is_factory ? ' [Factory]' : '')]; }));
+    /* AFLP 2027 : un transfert part d'un relais de cluster (WH-…) ; la destination reste libre (usine, Bouaké). */
+    var originOpts = [['','Selectionner...']].concat(state.warehouses.filter(function (w) { return /^WH-/i.test(String(w.code || '')); }).map(function (w) { return [w.id, w.code + ' - ' + w.name]; }));
     var stockOpts = state.stock.map(function (s) { return [s.bin_id + '||' + s.lot_id, s.warehouse_code + ' / ' + s.bin_id + ' / ' + s.lot_id + ' / available ' + kg(s.available_kg)]; });
     var prefill=null; try { prefill=JSON.parse(sessionStorage.getItem('wms_transfer_prefill')||'null'); } catch(e) {}
     root.innerHTML = head('New Transfer Request','Selectionner une origine, une destination et les lignes BIN/Lot. Aucun stock ne bouge a cette etape.', '<a class="btn secondary" href="#requests">Retour</a>') +
       (prefill ? notice('ok','<b>Préparé depuis Warehouse.</b>&nbsp; Origine / BIN / LOT sont préremplis; choisissez la destination puis confirmez la quantité.') : '') +
       '<form id="trfCreate" class="ops-form-card" data-action="create-request"><div class="ops-form-grid">' +
-      selectField('Origin Warehouse','origin_warehouse_id',whOpts,prefill&&prefill.origin_warehouse_id||'','required') + selectField('Destination Warehouse','dest_warehouse_id',whOpts,'','required') +
+      selectField('Relais d’origine','origin_warehouse_id',originOpts,prefill&&prefill.origin_warehouse_id||'','required') + selectField('Destination Warehouse','dest_warehouse_id',whOpts,'','required') +
       field('Purpose','purpose','text','','required') + selectField('Priority','priority',[['NORMAL','Normal'],['LOW','Low'],['HIGH','High'],['URGENT','Urgent']],'NORMAL') +
       field('Planned Dispatch','planned_dispatch_at','datetime-local','') + field('Request Document','request_doc_ref','text','') +
       field('Request Note','request_note','text','') + '</div>' +

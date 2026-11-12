@@ -4,9 +4,12 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
-for (const label of ['FIELD BUYING','PROCUREMENT','LBA PURCHASE','WAREHOUSE OPERATIONS','STOCK TRANSFER','FACTORY','TRACEABILITY 360','REPORTS & EXPORT']) {
+/* Portail AFLP 2027 (décision BM du 12/11/2026) : 6 workspaces AFLP ; Factory, LBA et fournisseurs ne sont plus
+   exposés au portail (pages conservées et testées ci-dessous). */
+for (const label of ['FIELD BUYING','LOTS &amp; EXPÉDITIONS','ENTREPÔTS RELAIS','TRANSFERTS RELAIS','AFLP FLEET','AFLP FIELD PROOF','TRACEABILITY 360','REPORTS & EXPORT']) {
   assert.ok(portal.includes(label), `portal missing ${label}`);
 }
+assert.ok(!portal.includes('href="operations/factory.html"'), 'Factory ne doit plus être exposé au portail AFLP');
 assert.ok(portal.includes('ACHAT BORD CHAMP'), 'portal must use Achat Bord Champ');
 assert.ok(!portal.includes('ACHATS DIRECTS'), 'legacy Achats Directs wording still visible on portal');
 for (const file of workspaces) {
@@ -260,7 +263,7 @@ for (const forbidden of ['Inbound dossier','Place on Hold','Release Hold','Prepa
   assert.ok(!wh.includes(forbidden), `Warehouse French UI still exposes English wording: ${forbidden}`);
 }
 const whWorkspace = read('operations/workspace.js');
-for (const label of ['OPÉRATIONS ENTREPÔT','Vue d’ensemble','Réceptions','Qualité','Lots RCN','Séchage / Tri','Sacherie','Inventaire']) {
+for (const label of ['ENTREPÔTS RELAIS AFLP','Vue d’ensemble','Réceptions','Qualité','Lots RCN','Séchage / Tri','Sacherie','Inventaire']) {
   assert.ok(whWorkspace.includes(label), `Warehouse French navigation missing: ${label}`);
 }
 const transfer = read('operations/stock-transfer.html');
