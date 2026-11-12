@@ -180,6 +180,11 @@ function queueOperation(type, payload, opts) {
     return deviceId();
   }).then(function (did) {
     var p = profile();
+    /* AFLP 2027 · téléphone partagé : une opération sans propriétaire serait envoyée
+       sous le nom du prochain agent connecté. On refuse de l'enregistrer. */
+    if (!(p.user_id || p.userId)) {
+      throw new Error('Agent non identifié sur ce téléphone : reconnectez-vous avant d\'enregistrer. Rien n\'a été enregistré.');
+    }
     var op = {
       id: opts.id || uuid(),
       idempotency_key: opts.idempotency_key || uuid(),

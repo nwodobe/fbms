@@ -16,7 +16,7 @@
   const CID=()=>$('campaign').value;
   const roleMatch=(...roles)=>roles.includes(app.role);
   const money=x=>x==null?'Non vérifié':Number(x).toLocaleString('fr-FR')+' FCFA';
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const online=()=>typeof navigator!=='undefined' && navigator.onLine!==false;
   async function rpc(name,args) {
     if (!online()) throw Error('Connexion requise pour confirmer une opération ou une signature.');
@@ -99,7 +99,7 @@
     });
     setupPad($('rtSignature'));setupPad($('uhSignature'));
     await reload();
-    if(!['Finance','Finance Officer','Finance Manager','Accountant','Comptable'].some(x=>x===app.role))
+    if(!['Finance','Finance Manager'].some(x=>x===app.role))
       log('Compte '+app.role+' connecté. Confirmation des versements réservée à Finance; les autres actions exigent les droits du SOP.');
   }
   async function reload(){
@@ -145,7 +145,51 @@
         +app.evidences.map((x,i)=>'<tr><td>'+esc(x.label)+'</td><td><button type="button" data-proof="'+i+'">Voir la preuve</button></td></tr>').join('')
         +'</tbody></table>'
       : 'Aucune pièce signée ou confirmée disponible pour ce RT.';
+    await loadSituation();
     log('Données relues. Les montants Wave ne sont jamais présumés reçus sans confirmation Finance et RT.');
+  }
+  const kg=x=>x==null?'Non vérifié':Number(x).toLocaleString('fr-FR')+' kg';
+  const nb=x=>x==null?'Non vérifié':Number(x).toLocaleString('fr-FR');
+  const line=(label,value,source)=>'<tr><td>'+esc(label)+'</td><td><strong>'+esc(value)+'</strong></td><td class="muted">'+esc(source)+'</td></tr>';
+  async function loadSituation(){
+    const q=(t,c)=>app.sb.from(t).select(c).eq('rt_id',RT().id).eq('campaign_id',CID());
+    const [d,cash,al,jh,inc,bev,lots]=await Promise.all([
+      q('rt_sop_rt_dashboard_v','*').maybeSingle(),
+      q('rt_sop_cash_balance_v','*').maybeSingle(),
+      q('rt_sop_alerts_v','alerte,objet,valeur,age_heures').limit(50),
+      q('rt_sop_jute_history_v','movement_at,movement_type,categorie_rt,qty,delta_vides,delta_pleins,reference').order('movement_at',{ascending:false}).limit(30),
+      q('rt_sop_incident_links','incident_id,domain,decided_at').is('decided_at',null).limit(50),
+      q('rt_sop_bev','id,bev_code,completed_at').is('completed_at',null).limit(50),
+      app.sb.from('field_lots').select('id,lot_code,status').eq('campaign_id',CID()).eq('scope_id',RT().village_id||'').limit(100)
+    ]);
+    const err=[d,cash,al,jh,inc,bev,lots].find(x=>x.error);
+    if(err){$('situation').textContent='Situation non disponible : '+err.error.message+'. La migration de conformité est peut-être absente.';return;}
+    const x=d.data||{}, c=cash.data||{};
+    $('situation').innerHTML='<table><thead><tr><th>Question</th><th>Réponse</th><th>D\'où vient le chiffre</th></tr></thead><tbody>'+
+      line('1. Argent Wave vraiment reçu',money(x.avances_confirmees_fcfa),'Versements Finance + signature RT')+
+      line('2a. Achats payés, à vérifier',money(x.achats_en_attente_fcfa)+' · '+nb(x.achats_en_attente_nb)+' achat(s)','Achats sans décision UH')+
+      line('2b. Achats validés par l\'UH',money(x.achats_uh_fcfa),'Décisions UH avec reçu et preuve')+
+      line('3. Reste à justifier',money(x.reste_a_justifier_fcfa),'Reçu − validé UH − rendu ± ajustement Finance')+
+      line('   Argent encore libre',money(x.disponible_theorique_fcfa),'Reçu − tous les achats − rendu')+
+      line('   Espèces en main (calcul)',money(x.especes_theoriques_fcfa),'Retraits − dépôts − achats en espèces')+
+      line('   Écart de caisse au dernier comptage',c.dernier_comptage_especes_fcfa==null?'Pas de comptage':money(x.ecart_caisse_fcfa),'Comptage UH/ZH')+
+      line('4. Noix sous la garde du RT',kg(x.stock_sous_garde_rt_kg),'Achats − BEV signés')+
+      line('5–6. Noix en transport',kg(x.en_transport_kg),'BEV signés sans GRN')+
+      line('6. Noix reçues avec GRN',kg(x.recu_grn_kg),'GRN émis'+(x.bev_ecart_a_examiner?' · '+x.bev_ecart_a_examiner+' écart(s) à examiner':''))+
+      line('7. Sacs vides / pleins chez le RT',nb(x.sacs_vides_theoriques)+' / '+nb(x.sacs_pleins_theoriques),'Registre sacherie')+
+      line('8. Dernier bilan de la semaine',x.dernier_bilan_semaine?x.dernier_bilan_semaine+' · '+x.statut_dernier_bilan:'Aucun bilan signé','Bilans signés RT + UH')+
+      line('9. Bilan signé à jour ?',x.bilan_hebdo_en_retard===false?'Oui':'Non','Signature de moins de 14 jours')+
+      line('10. Écarts ouverts',nb(x.anomalies_ouvertes)+(x.suspensions_actives?' · '+x.suspensions_actives+' arrêt(s) en cours':''),'Anomalies SOP')+
+      line('Dernier contrôle du ZH',x.dernier_controle_zh?String(x.dernier_controle_zh).slice(0,10):'Aucun',x.controle_zh_en_retard?'En retard (plus de 14 jours)':'À jour')+
+      '</tbody></table>'+(x.source_financiere==='NON_VERIFIE'?'<p class="warning">Aucun mouvement prouvé pour ce RT dans cette campagne : rien n\'est encore vérifié.</p>':'');
+    const a=al.data||[];
+    $('alerts').innerHTML=a.length?'<ul>'+a.map(r=>'<li>'+esc(r.alerte.replace(/_/g,' ').toLowerCase())+(r.valeur!=null?' · '+esc(money(r.valeur)):'')+(r.age_heures!=null?' · '+esc(r.age_heures)+' h':'')+'</li>').join('')+'</ul>':'Aucune alerte.';
+    const h=jh.data||[];
+    $('juteHistory').innerHTML=h.length?'<table><thead><tr><th>Date</th><th>Mouvement</th><th>Sacs</th><th>Vides</th><th>Pleins</th></tr></thead><tbody>'+
+      h.map(r=>'<tr><td>'+esc(String(r.movement_at||'').slice(0,10))+'</td><td>'+esc(r.categorie_rt)+' · '+esc(r.movement_type)+'</td><td>'+esc(r.qty)+'</td><td>'+esc(r.delta_vides)+'</td><td>'+esc(r.delta_pleins)+'</td></tr>').join('')+'</tbody></table>':'Aucun mouvement de sacs.';
+    opts('incidentSelect',(inc.data||[]).map(r=>({id:r.incident_id,domain:r.domain})),r=>r.id+' · '+r.domain);
+    opts('bevSelect',bev.data||[],r=>r.bev_code);
+    const ls=$('lotSelect');ls.replaceChildren();(lots.data||[]).forEach(l=>option(ls,l.lot_code+' · '+l.status,l.id));
   }
   function show(which){
     document.querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===which));
@@ -230,7 +274,7 @@
           p_amount_fcfa:Number(val(form,'amount')),p_plan:val(form,'plan'),
           p_wave_account_ref:val(form,'waveAccount'),p_key:crypto.randomUUID()});
       }else if(which==='financeForm'){
-        if(!roleMatch('Finance','Finance Officer','Finance Manager','Accountant','Comptable'))
+        if(!roleMatch('Finance','Finance Manager'))
           throw Error('Seule Finance peut confirmer le versement.');
         const funding=requireFunding(form,'REQUESTED');
         const proof=await uploadEvidence(file(form,'proof'));
@@ -241,11 +285,11 @@
         const proof=await uploadEvidence(file(form,'proof'));
         r=await rpc('rt_sop_rt_acknowledge',{p_id:funding.id,p_rt_signed_path:proof});
       }else if(which==='postForm'){
-        if(!roleMatch('Finance','Finance Officer','Finance Manager','Accountant','Comptable'))throw Error('Inscription réservée à Finance.');
+        if(!roleMatch('Finance','Finance Manager'))throw Error('Inscription réservée à Finance.');
         const funding=requireFunding(form,'RT_ACK');
         r=await rpc('rt_sop_post_funding',{p_id:funding.id});
       }else if(which==='refundForm'){
-        if(!roleMatch('Finance','Finance Officer','Finance Manager','Accountant','Comptable'))
+        if(!roleMatch('Finance','Finance Manager'))
           throw Error('Restitution réservée à Finance.');
         const proof=await uploadEvidence(file(form,'proof'));
         r=await rpc('rt_sop_refund',{p_campaign_id:CID(),p_rt_id:RT().id,
@@ -300,6 +344,39 @@
           p_period_start:val(form,'start'),p_period_end:val(form,'end'),
           p_snapshot:snap,p_rt_decision:dec,p_rt_reservations:res,
           p_signed_proof_path:proof,p_supersedes_id:latest,p_key:crypto.randomUUID()});
+      }else if(which==='rejectForm'){
+        if(!roleMatch('Finance','Finance Manager'))throw Error('Refus réservé à Finance.');
+        const f=requireFunding(form,'REQUESTED');
+        r=await rpc('rt_sop_finance_reject',{p_id:f.id,p_reason:val(form,'reason')});
+      }else if(which==='cashForm'){
+        const type=val(form,'type');
+        if(type==='ADJUSTMENT'&&!roleMatch('Finance','Finance Manager'))throw Error('Ajustement réservé à Finance.');
+        if(type==='ADJUSTMENT'&&val(form,'reason').length<10)throw Error('Motif de l\'ajustement obligatoire (10 caractères).');
+        const proof=await uploadEvidence(file(form,'proof'));
+        r=await rpc('rt_sop_record_cash_event',{p_campaign_id:CID(),p_rt_id:RT().id,p_event_type:type,
+          p_amount:Number(val(form,'amount')),p_reference:val(form,'reference')||null,p_evidence_path:proof,
+          p_reason:val(form,'reason')||null,p_key:crypto.randomUUID()});
+      }else if(which==='bevCompleteForm'){
+        if(!roleMatch('Unit Head'))throw Error('Complément du BEV réservé au Chef d\'Unité.');
+        const lots=[...form.elements.namedItem('lots').selectedOptions].map(o=>o.value);
+        r=await rpc('rt_sop_bev_complete',{p_bev_id:val(form,'bev'),p_lot_ids:lots,
+          p_handed_over_by:val(form,'handedBy'),p_received_by:val(form,'receivedBy'),p_reserves:val(form,'reserves')||null});
+      }else if(which==='zhForm'){
+        if(!roleMatch('Zonal Head'))throw Error('Contrôle réservé au Chef de Zone.');
+        const proof=await uploadEvidence(file(form,'proof'));
+        r=await rpc('rt_sop_record_zh_control',{p_campaign_id:CID(),p_rt_id:RT().id,p_control_type:val(form,'type'),
+          p_result:val(form,'result'),p_observations:val(form,'obs'),p_evidence_path:proof,p_key:crypto.randomUUID()});
+      }else if(which==='incidentForm'){
+        const stops=[['stopAchats','ACHATS'],['stopBev','BEV'],['stopFin','FINANCEMENT']].filter(([k])=>form.elements.namedItem(k).checked).map(([,v])=>v);
+        if(stops.length&&!roleMatch('Zonal Head','Branch Manager'))throw Error('Seuls le Chef de Zone et le Branch Manager arrêtent des mouvements.');
+        const pf=file(form,'proof');const proof=pf?await uploadEvidence(pf):null;
+        r=await rpc('rt_sop_open_incident',{p_campaign_id:CID(),p_rt_id:RT().id,p_domain:val(form,'domain'),
+          p_severity:val(form,'severity'),p_description:val(form,'description'),p_responsible:val(form,'responsible'),
+          p_immediate_action:val(form,'action')||null,p_evidence_path:proof,p_suspend_scopes:stops,p_key:crypto.randomUUID()});
+      }else if(which==='closeForm'){
+        const proof=await uploadEvidence(file(form,'proof'));
+        r=await rpc('rt_sop_close_incident',{p_incident_id:val(form,'incident'),p_decision:val(form,'decision'),
+          p_closing_note:val(form,'note'),p_evidence_path:proof});
       }else throw Error('Formulaire inconnu.');
       log('Opération acceptée par le serveur : '+JSON.stringify(r));
       form.reset();
