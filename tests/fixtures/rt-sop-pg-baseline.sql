@@ -46,7 +46,7 @@ create or replace function storage.foldername(p_name text) returns text[]
  select string_to_array(substring(p_name from 1 for greatest(length(p_name)-length(split_part(reverse(p_name),'/',1))-1,0)),'/')
 $$;
 create or replace function storage.extension(p_name text) returns text
- language sql stable as $$select lower(split_part(reverse(split_part(p_name,'/',3)),'.',1))$$;
+ language sql stable as $$select lower(reverse(split_part(reverse(split_part(p_name,'/',3)),'.',1)))$$;
 insert into auth.users(id) values
  ('11111111-1111-4111-8111-111111111111'),
  ('22222222-2222-4222-8222-222222222222'),
