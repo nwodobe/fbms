@@ -4102,7 +4102,7 @@ function renderCash() {
       '<section class="card"><div class="card-head"><div><h2>Contrôle SOP RT : situation documentaire</h2>' +
       '<p>Les avances historiques sont des saisies, pas des versements Wave confirmés. Aucun solde définitivement justifié ne peut être certifié sans preuve Finance, confirmation RT et validation UH.</p></div></div>' +
       (sop ? kpis([
-        ['Achats vérifiés par UH', money(sop.purchasesValidated), 'preuve du contrôle UH requise'],
+        ['Achats avec contrôle UH prouvé', money(sop.purchasesValidated), 'rôle UH vérifié requis'],
         ['Achats en attente', money(sop.purchasesPending), 'non déchargés du compte RT'],
         ['Avances sans preuve Wave complète', money(sop.advancesUnverified), 'non confirmées comme reçues']
       ]) : '<p class="ops-danger-text">Moteur de contrôle SOP indisponible : aucun solde officiel calculable.</p>') +
