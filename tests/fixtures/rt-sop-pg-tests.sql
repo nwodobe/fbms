@@ -2,7 +2,7 @@
 -- Isolated PostgreSQL service; all people, RT codes and sums are fictitious.
 grant usage on schema public,auth,storage,private,extensions to authenticated;
 grant select on public.rt,public.profils,public.campaigns,public.achats,public.avances, public.field_shipments,public.wms_receptions,public.wms_grns to authenticated;
-grant insert on public.achats,public.field_shipments to authenticated;
+grant insert on public.achats,public.avances,public.field_shipments to authenticated;
 grant update on public.field_shipments to authenticated;
 
 insert into storage.objects(bucket_id,name,owner_id,metadata) values
