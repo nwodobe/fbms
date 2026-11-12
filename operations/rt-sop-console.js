@@ -9,7 +9,7 @@
     const el = $('status'); el.textContent = message;
     el.className = 'panel status ' + (failure ? 'error' : 'good');
   };
-  const app = { sb:null, user:null,role:null,rts:[],campaigns:[],funding:[],purchases:[] };
+  const app = { sb:null, user:null,role:null,rts:[],campaigns:[],funding:[],purchases:[],evidences:[] };
   const val=(form,key)=>String(form.elements.namedItem(key)?.value??'').trim();
   const file=(form,key)=>form.elements.namedItem(key)?.files?.[0]??null;
   const RT=()=>app.rts.find(x=>x.id===$('rt').value);
@@ -77,6 +77,22 @@
       const cv=$(b.dataset.clear);cv.getContext('2d').clearRect(0,0,cv.width,cv.height);cv.dataset.ink='';
     }));
     $('refreshBtn').addEventListener('click',reload);
+    $('proofHistory').addEventListener('click',async function(ev){
+      const button=ev.target.closest('button[data-proof]');
+      if(!button)return;
+      const entry=app.evidences[Number(button.dataset.proof)];
+      if(!entry)return;
+      button.disabled=true;
+      try{
+        const {data,error}=await app.sb.storage.from('rt-sop-evidence').createSignedUrl(entry.path,60);
+        if(error||!data?.signedUrl)throw Error(error?.message||'Preuve inaccessible');
+        const a=document.createElement('a');
+        a.href=data.signedUrl;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Voir la pièce';
+        a.click();
+        log('Lien privé ouvert pour 60 secondes : '+entry.label);
+      }catch(e){log('Impossible d’ouvrir la preuve : '+e.message,true)}
+      finally{button.disabled=false}
+    });
     $('proofMode').addEventListener('change',()=>{
       $('canvasProof').hidden=$('proofMode').value!=='canvas';
       $('paperProof').hidden=$('proofMode').value==='canvas';
@@ -88,16 +104,20 @@
   }
   async function reload(){
     if(!app.sb||!RT()||!CID())return;
-    const [fs,ps,bs]=await Promise.all([
-      app.sb.from('rt_sop_funding_requests').select('id,status,amount_fcfa,wave_reference,created_at')
+    const [fs,ps,bs,ss,rr]=await Promise.all([
+      app.sb.from('rt_sop_funding_requests').select('id,status,amount_fcfa,wave_reference,finance_proof_path,rt_ack_proof_path,created_at')
         .eq('rt_id',RT().id).eq('campaign_id',CID()).order('created_at',{ascending:false}).limit(100),
       app.sb.from('achats').select('id,date,producteur_nom,montant,numero_recu,statut_validation')
         .eq('rt_id',RT().id).eq('campaign_id',CID()).order('date',{ascending:false}).limit(100),
-      app.sb.from('rt_sop_bev_grn_v').select('bev_code,signed_bev_kg,shipment_code,audit_status,physical_net_received_kg,grn_id,delta_bev_vs_received_kg')
+      app.sb.from('rt_sop_bev_grn_v').select('bev_code,signed_bev_kg,shipment_code,audit_status,physical_net_received_kg,grn_id,delta_bev_vs_received_kg,signed_rt_and_transporter_proof')
+        .eq('rt_id',RT().id).eq('campaign_id',CID()).limit(100),
+      app.sb.from('rt_sop_weekly_signoffs').select('id,period_start,period_end,rt_decision,signed_proof_path,snapshot_sha256')
+        .eq('rt_id',RT().id).eq('campaign_id',CID()).order('signed_at',{ascending:false}).limit(100),
+      app.sb.from('rt_sop_refunds').select('id,amount_fcfa,payment_reference,evidence_path')
         .eq('rt_id',RT().id).eq('campaign_id',CID()).limit(100)
     ]);
-    if (fs.error||ps.error||bs.error){
-      log('Module non prêt : migration Supabase ou autorisation manquante. '+(fs.error||ps.error||bs.error).message,true);
+    if (fs.error||ps.error||bs.error||ss.error||rr.error){
+      log('Module non prêt : migration Supabase ou autorisation manquante. '+(fs.error||ps.error||bs.error||ss.error||rr.error).message,true);
       return;
     }
     app.funding=fs.data||[];app.purchases=ps.data||[];
@@ -109,6 +129,22 @@
     const rows=bs.data||[];
     $('bevHistory').innerHTML=rows.length?'<table><thead><tr><th>BEV</th><th>Poids</th><th>État</th><th>GRN</th></tr></thead><tbody>'+
       rows.map(x=>'<tr><td>'+esc(x.bev_code)+'</td><td>'+esc(x.signed_bev_kg)+' kg</td><td>'+esc(x.audit_status)+(x.delta_bev_vs_received_kg!=null?' · écart '+esc(x.delta_bev_vs_received_kg)+' kg':'')+'</td><td>'+esc(x.grn_id||'En attente')+'</td></tr>').join('')+'</tbody></table>':'Aucun BEV pour le RT sélectionné.';
+    app.evidences=[];
+    function add(label,path){
+      if(path)app.evidences.push({label,path});
+    }
+    (fs.data||[]).forEach(x=>{
+      add('Wave Finance · '+(x.wave_reference||x.id),x.finance_proof_path);
+      add('Réception signée du RT · '+x.id.slice(0,8),x.rt_ack_proof_path);
+    });
+    (ss.data||[]).forEach(x=>add('Bilan signé · '+x.period_start+' · '+x.rt_decision,x.signed_proof_path));
+    (rr.data||[]).forEach(x=>add('Restitution · '+x.payment_reference,x.evidence_path));
+    rows.forEach(x=>add('BEV signé · '+x.bev_code,x.signed_rt_and_transporter_proof));
+    $('proofHistory').innerHTML=app.evidences.length
+      ? '<table><thead><tr><th>Document</th><th>Accès privé</th></tr></thead><tbody>'
+        +app.evidences.map((x,i)=>'<tr><td>'+esc(x.label)+'</td><td><button type="button" data-proof="'+i+'">Voir la preuve</button></td></tr>').join('')
+        +'</tbody></table>'
+      : 'Aucune pièce signée ou confirmée disponible pour ce RT.';
     log('Données relues. Les montants Wave ne sont jamais présumés reçus sans confirmation Finance et RT.');
   }
   function show(which){
