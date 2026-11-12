@@ -13,11 +13,11 @@
   function purchaseState(p) {
     if (!p || p.rejet === true || /^(REJETE|ANNULE|VOID)$/.test(status(p.statut_validation))) return 'REJECTED';
     var s = status(p.statut_validation);
-    if (p.validated_by && p.validated_at && /^(VALIDE|VALIDEE|APPROUVE|APPROUVEE|ACCEPTE|ACCEPTEE|CONFIRME|CONFIRMEE)$/.test(s)) return 'VALIDATED';
+    if (p.validated_by && p.validated_at && status(p.validated_by_role) === 'UNIT HEAD' && /^(VALIDE|VALIDEE|APPROUVE|APPROUVEE|ACCEPTE|ACCEPTEE|CONFIRME|CONFIRMEE)$/.test(s)) return 'VALIDATED';
     return 'PENDING';
   }
   function fundingConfirmed(a) {
-    return !!(a && a.wave_transaction_ref && a.finance_confirmed_at && a.rt_ack_at && !/ANNULE/.test(status(a.statut)));
+    return !!(a && a.wave_transaction_ref && a.finance_confirmed_at && a.finance_confirmed_by && a.rt_ack_at && a.rt_ack_document_ref && !/ANNULE/.test(status(a.statut)));
   }
   function summarizeCash(advances, purchases, refunds) {
     var out = { advancesRecorded: 0, advancesConfirmed: 0, advancesUnverified: 0,
