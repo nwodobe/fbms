@@ -1,0 +1,56 @@
+name: AFLP RT SOP SQL staging tests
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/2026111218*_rt_sop_*.sql'
+      - 'tests/fixtures/rt-sop-pg-*.sql'
+      - 'tests/rt-sop-workflows-static.mjs'
+      - '.github/workflows/rt-sop-sql.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sql-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: rt_sop_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: sop_fictif_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rt_sop_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer le client PostgreSQL si absent
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+      - name: Migrations et simulations sur des données fictives isolées
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: sop_fictif_ci_only
+          PGDATABASE: rt_sop_test
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/rt-sop-pg-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/20261112180000_rt_sop_wave_finance.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/20261112181000_rt_sop_signed_bev_grn.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/20261112182000_rt_sop_real_campaign_guards.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/rt-sop-pg-tests.sql
+      - name: Validation syntaxe JavaScript et contrat SOP
+        run: |
+          node --check operations/rt-sop-console.js
+          node tests/rt-sop-workflows-static.mjs

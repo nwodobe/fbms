@@ -1,0 +1,65 @@
+# Recette réplique isolée · APRÈS corrections · 2026-11-12T17:03:45Z
+== tests/replica-prod/00_supabase_stubs.sql
+== tests/replica-prod/01_schema_production_extrait.sql
+== tests/replica-prod/02_donnees_fictives.sql
+== supabase/20261112180000_rt_sop_wave_finance.sql
+== supabase/20261112181000_rt_sop_signed_bev_grn.sql
+== supabase/20261112182000_rt_sop_real_campaign_guards.sql
+== supabase/20261112190000_rt_sop_conformite_corrections.sql
+== tests/replica-prod/10_simulations_sop.sql
+ id  | statut |                   titre                   |                                                                                                                               obtenu                                                                                                                               
+-----+--------+-------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ S1  | PASS   | Financement Wave                          | reste 100000.00 ; achats UH 200000 ; attente 40000
+ S2  | PASS   | Restitution                               | reste 90000.00 ; restitution 60 000 : Restitution supérieure aux fonds non engagés (achats en attente inclus)
+ S3  | PASS   | Retrait espèces                           | reste 90000.00→90000.00 ; achats UH 200000→200000 ; espèces retirées 100000.00
+ S4  | PASS   | Achat sans preuve                         | état EN_ATTENTE ; alerte 1 ; validation : Reçu et preuve du paiement exigés pour valider un achat
+ S5  | PASS   | Stock RCN / BEV                           | RT 100.000 kg ; transport 200.000 kg ; BEV 150 kg : BEV supérieur au stock sous garde du RT : 100.000 kg disponibles ; DRAFT : créé ; DRAFT→DISPATCHED : AFLP 2027: BEV signe obligatoire avant sortie du village
+ S6  | PASS   | Écart BEV/GRN                             | GRN annulé → OFFLOADED_WAITING_GRN ; GRN émis → GRN_VARIANCE_REVIEW, écart -5.000 kg ; ajustements RT 0
+ S7  | PASS   | Sacherie                                  | reçus 100, utilisés 25, pleins expédiés 15 → vides 75, pleins 10, garde 85 ; carte existante 75/10
+ S8  | PASS   | Désaccord RT                              | statut DESACCORD_NON_CLOTURE ; anomalie INC-20261112-D05086 (OUVERT)
+ S9  | PASS   | Correction après signature                | UPDATE direct : permission denied for table rt_sop_weekly_signoffs ; nouvelle version sans lien : Reprise ou version du bilan incorrecte ; versions 2 ; originale intacte 1
+ S10 | PASS   | Permissions serveur                       | AUH RPC : Droit SOP RT insuffisant pour ce mouvement | AUH direct : 0 ligne/accepté | UH-B : RT hors du périmètre autorisé | BM Finance : Droit SOP RT insuffisant pour ce mouveme | ZH clôture : Droit SOP RT insuffisant pour ce mouveme | état achat EN_ATTENTE
+ S11 | PASS   | Double synchronisation                    | demande rejouée : replay=true, lignes 1 ; achat local_id dupliqué : duplicate key value violates unique constraint "ac, lignes 1
+ S12 | PASS   | Téléphone partagé (serveur)               | insert created_by=A sous session B : new row violates row-level security policy for table "achats"
+ S13 | PASS   | Campagnes séparées                        | réelle 90000.00→90000.00 ; simulation 50000.00
+ S14 | PASS   | Avance sans preuve Wave                   | confirmées A2 150000.00 (150 000 attendu) ; comptabilisation : Versement et réception RT non prouvés ; saisie directe : AFLP 2027: Finance doit confirmer Wave e ; modif avance SOP par ABM : Avance SOP : montant, RT, campagne et statut non m
+ S16 | PASS   | Séparation des tâches / suspension ciblée | BM atteste : Séparation des tâches : le demandeur ou le pa | BEV suspendu : Mouvement BEV suspendu pour ce RT par l'anoma | clôture BM : OK | BEV après : OK
+ S17 | PASS   | Tableau BM par RT                         | A1 reste 90000.00, attente 50000, sacs 75/10, bilan CONFORME_SIGNE, anomalies 1 ; B1 non vérifié 1
+ S18 | PASS   | Achat validé non modifiable               | modification : Achat déjà examiné par l'UH : montant, poids, RT, paiement e ; montant 200000
+(17 rows)
+
+S15-REELLE PASS : 1 achat(s), 60000 FCFA ; ERROR:  Avance RT insuffisante pour la campagne en cours. Disponible: 40000.00, achat: 60000
+S15-SIMULATION PASS : 1 achat(s), 60000 FCFA ; ERROR:  Avance RT insuffisante pour la campagne en cours. Disponible: 40000.00, achat: 60000
+ statut | count 
+--------+-------
+ PASS   |    19
+(1 row)
+
+       id       | statut |                                             attendu                                              |                                                                                                                               obtenu                                                                                                                               
+----------------+--------+--------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ S1             | PASS   | reste 100 000 ; attente 40 000 ; attente non déchargée                                           | reste 100000.00 ; achats UH 200000 ; attente 40000
+ S2             | PASS   | reste 90 000 ; restitution > fonds non engagés refusée                                           | reste 90000.00 ; restitution 60 000 : Restitution supérieure aux fonds non engagés (achats en attente inclus)
+ S3             | PASS   | transfert interne : reste et achats UH inchangés ; espèces +100 000                              | reste 90000.00→90000.00 ; achats UH 200000→200000 ; espèces retirées 100000.00
+ S4             | PASS   | en attente + alerte ; validation refusée                                                         | état EN_ATTENTE ; alerte 1 ; validation : Reçu et preuve du paiement exigés pour valider un achat
+ S5             | PASS   | RT 100 kg ; transport 200 kg ; BEV excédentaire refusé ; contournement DRAFT→DISPATCHED refusé   | RT 100.000 kg ; transport 200.000 kg ; BEV 150 kg : BEV supérieur au stock sous garde du RT : 100.000 kg disponibles ; DRAFT : créé ; DRAFT→DISPATCHED : AFLP 2027: BEV signe obligatoire avant sortie du village
+ S6             | PASS   | écart −5 kg à examiner ; GRN annulé non officiel ; aucune imputation automatique                 | GRN annulé → OFFLOADED_WAITING_GRN ; GRN émis → GRN_VARIANCE_REVIEW, écart -5.000 kg ; ajustements RT 0
+ S7             | PASS   | 75 vides ; 10 pleins ; 85 sous garde ; cohérent avec sacherie_ct_rt_stock                        | reçus 100, utilisés 25, pleins expédiés 15 → vides 75, pleins 10, garde 85 ; carte existante 75/10
+ S8             | PASS   | non clôturé conforme ; motif conservé ; anomalie ouverte                                         | statut DESACCORD_NON_CLOTURE ; anomalie INC-20261112-D05086 (OUVERT)
+ S9             | PASS   | version initiale conservée ; correction = nouvelle version signée ; modification directe refusée | UPDATE direct : permission denied for table rt_sop_weekly_signoffs ; nouvelle version sans lien : Reprise ou version du bilan incorrecte ; versions 2 ; originale intacte 1
+ S10            | PASS   | AUH ne valide pas ; UH autre cluster refusé ; BM ≠ Finance ; ZH ne clôt pas                      | AUH RPC : Droit SOP RT insuffisant pour ce mouvement | AUH direct : 0 ligne/accepté | UH-B : RT hors du périmètre autorisé | BM Finance : Droit SOP RT insuffisant pour ce mouveme | ZH clôture : Droit SOP RT insuffisant pour ce mouveme | état achat EN_ATTENTE
+ S11            | PASS   | une seule transaction métier                                                                     | demande rejouée : replay=true, lignes 1 ; achat local_id dupliqué : duplicate key value violates unique constraint "ac, lignes 1
+ S12            | PASS   | une opération de A envoyée par B est refusée                                                     | insert created_by=A sous session B : new row violates row-level security policy for table "achats"
+ S13            | PASS   | aucune contamination de la campagne réelle                                                       | réelle 90000.00→90000.00 ; simulation 50000.00
+ S14            | PASS   | non comptée comme reçue ; saisie directe refusée ; avance SOP non modifiable                     | confirmées A2 150000.00 (150 000 attendu) ; comptabilisation : Versement et réception RT non prouvés ; saisie directe : AFLP 2027: Finance doit confirmer Wave e ; modif avance SOP par ABM : Avance SOP : montant, RT, campagne et statut non m
+ S16            | PASS   | BM demandeur ne peut attester ; BEV suspendu puis rétabli après décision BM                      | BM atteste : Séparation des tâches : le demandeur ou le pa | BEV suspendu : Mouvement BEV suspendu pour ce RT par l'anoma | clôture BM : OK | BEV après : OK
+ S17            | PASS   | chiffres = registres ; RT sans donnée « non vérifié » (pas 0)                                    | A1 reste 90000.00, attente 50000, sacs 75/10, bilan CONFORME_SIGNE, anomalies 1 ; B1 non vérifié 1
+ S18            | PASS   | modification BM après validation UH refusée                                                      | modification : Achat déjà examiné par l'UH : montant, poids, RT, paiement e ; montant 200000
+ S15-REELLE     | PASS   | au plus 100 000 FCFA consommés                                                                   | achats acceptés 1, total 60000 ; refus : ERROR:  Avance RT insuffisante pour la campagne en cours. Disponible: 40000.00, achat: 60000
+ S15-SIMULATION | PASS   | au plus 100 000 FCFA consommés                                                                   | achats acceptés 1, total 60000 ; refus : ERROR:  Avance RT insuffisante pour la campagne en cours. Disponible: 40000.00, achat: 60000
+(19 rows)
+
+## Mêmes sondes ciblées APRÈS
+D1 · expédition village sans BEV, statut final = DRAFT ; erreur = AFLP 2027: BEV signe obligatoire avant sortie du village
+D2 · GRN au statut ANNULE, audit_status = OFFLOADED_WAITING_GRN
+D2 · clôture RECEIVED avec GRN annulé : Reception finale impossible: GRN officiel (EMIS) manquant
+D14 · achat validé modifié par le BM : Achat déjà examiné par l'UH : montant, poids, RT, paiement et reçu figés (rejet UH puis nouvel achat) ; reste à justifier 90000.00 → 90000.00

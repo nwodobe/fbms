@@ -356,3 +356,6 @@ console.log('AFLP DATA static assertions: PASS');
 // SOP RT 2027: read-only ledger evidence and UI regression checks.
 await import('./rt-sop-ledger.mjs');
 await import('./rt-sop-integration-static.mjs');
+
+// RT SOP Finance/Wave + signatures + BEV/GRN workflow regressions.
+await import('./rt-sop-workflows-static.mjs');

@@ -1,0 +1,42 @@
+# Même recette sur la PR #311 seule (AVANT)
+== tests/replica-prod/00_supabase_stubs.sql
+== tests/replica-prod/01_schema_production_extrait.sql
+== tests/replica-prod/02_donnees_fictives.sql
+== supabase/20261112180000_rt_sop_wave_finance.sql
+== supabase/20261112181000_rt_sop_signed_bev_grn.sql
+== supabase/20261112182000_rt_sop_real_campaign_guards.sql
+== tests/replica-prod/10_simulations_sop.sql
+ id  | statut |               titre                |                                                                                            obtenu                                                                                             
+-----+--------+------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ S1  | FAIL   | Financement Wave                   | reste 100000.00 ; achats UH 200000 ; attente 
+ S2  | FAIL   | Restitution                        | reste 30000.00 ; restitution 60 000 : ACCEPTÉE
+ S3  | FAIL   | Retrait espèces                    | ERREUR : function rt_sop_record_cash_event(unknown, unknown, unknown, integer, unknown, unknown, unknown, unknown) does not exist
+ S4  | FAIL   | Achat sans preuve                  | ERREUR : AFLP 2027: achats et restitutions > fonds Wave reellement confirmes
+ S5  | FAIL   | Stock RCN / BEV                    | ERREUR : relation "rt_sop_rcn_custody_v" does not exist
+ S6  | FAIL   | Écart BEV/GRN                      | ERREUR : relation "rt_sop_cash_events" does not exist
+ S7  | FAIL   | Sacherie                           | ERREUR : relation "rt_sop_jute_card_v" does not exist
+ S8  | FAIL   | Désaccord RT                       | ERREUR : relation "rt_sop_weekly_status_v" does not exist
+ S9  | FAIL   | Correction après signature         | ERREUR : Reprise ou version du bilan incorrecte
+ S10 | FAIL   | Permissions serveur                | ERREUR : relation "rt_sop_purchase_state_v" does not exist
+ S11 | PASS   | Double synchronisation             | demande rejouée : replay=true, lignes 1 ; achat local_id dupliqué : AFLP 2027: achats et restitutions > fonds Wave ree, lignes 1
+ S12 | FAIL   | Téléphone partagé (serveur)        | insert created_by=A sous session B : AFLP 2027: achats et restitutions > fonds Wave reellement confirmes
+ S13 | PASS   | Campagnes séparées                 | réelle 30000.00→30000.00 ; simulation 50000.00
+ S14 | FAIL   | Avance sans preuve Wave            | confirmées A2  (150 000 attendu) ; comptabilisation : Versement et réception RT non prouvés ; saisie directe : AFLP 2027: Finance doit confirmer Wave e ; modif avance SOP par ABM : ACCEPTÉE
+ S16 | FAIL   | Séparation des tâches / suspension | ERREUR : function rt_sop_open_incident(unknown, unknown, unknown, unknown, unknown, unknown, unknown, unknown, text[], unknown) does not exist
+ S17 | FAIL   | Tableau BM par RT                  | ERREUR : relation "rt_sop_rt_dashboard_v" does not exist
+ S18 | FAIL   | Achat validé non modifiable        | ERREUR : relation "rt_sop_purchase_state_v" does not exist
+(17 rows)
+
+S15-REELLE PASS : 1 achat(s), 60000 FCFA ; ERROR:  AFLP 2027: achats et restitutions > fonds Wave reellement confirmes
+S15-SIMULATION FAIL : 2 achat(s), 120000 FCFA ; 
+ statut | count 
+--------+-------
+ FAIL   |    16
+ PASS   |     3
+(2 rows)
+
+## Sondes ciblées sur la PR seule
+D1 · expédition village sans BEV, statut final = DISPATCHED ; erreur = aucune
+D2 · GRN au statut ANNULE, audit_status = GRN_MATCHED
+D2 · clôture RECEIVED avec GRN annulé : ACCEPTÉE
+D14 · achat validé modifié par le BM : ACCEPTÉ ; reste à justifier 30000.00 → 130000.000000000000

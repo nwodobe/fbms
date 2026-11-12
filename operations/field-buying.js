@@ -4068,8 +4068,23 @@ function openBagAllocation() {
 
 function renderCash() {
   paint(head('Caisse & Avances', 'Avances RT, cycles de financement terrain et contrôle des fonds.') + skeletonPage(5));
-  return Promise.all([base(), cashData()]).then(function (rs) {
+  return Promise.all([base(), cashData(),
+    campId() ? client().then(function (cl) {
+      return cl.from('rt_sop_cash_balance_v')
+        .select('rt_id,avances_confirmees_fcfa,achats_uh_fcfa,restitutions_fcfa,reste_a_justifier_fcfa')
+        .eq('campaign_id', campId());
+    }).catch(function (e) { return { data: [], error: e }; })
+      : Promise.resolve({ data: [], error: { message: 'Campagne active absente' } })
+  ]).then(function (rs) {
     var c = rs[0], av = rs[1].avances, recons = rs[1].recons;
+    var verified = rs[2] && !rs[2].error ? (rs[2].data || []) : null;
+    var verifiedTot = verified ? verified.reduce(function (a, v) {
+      a.credit += n(v.avances_confirmees_fcfa);
+      a.approved += n(v.achats_uh_fcfa);
+      a.refunds += n(v.restitutions_fcfa);
+      a.remaining += n(v.reste_a_justifier_fcfa);
+      return a;
+    }, {credit:0, approved:0, refunds:0, remaining:0}) : null;
     var lastRecon = lastReconByRt(recons);
     var active = av.filter(function (a) { return a.statut !== 'Annulee'; });
     var total = active.reduce(function (t, a) { return t + n(a.montant); }, 0);
@@ -4101,13 +4116,19 @@ function renderCash() {
       ]) +
       '<section class="card"><div class="card-head"><div><h2>Contrôle SOP RT : situation documentaire</h2>' +
       '<p>Les avances historiques sont des saisies, pas des versements Wave confirmés. Aucun solde définitivement justifié ne peut être certifié sans preuve Finance, confirmation RT et validation UH.</p></div></div>' +
+      (verifiedTot ? kpis([
+        ['Avances Wave confirmées', money(verifiedTot.credit), 'Finance et RT ont signé'],
+        ['Achats acceptés UH', money(verifiedTot.approved), 'justificatifs contrôlés'],
+        ['Restitutions Finance', money(verifiedTot.refunds), 'confirmées'],
+        ['Reste à justifier', money(verifiedTot.remaining), 'calcul SOP / campagne']
+      ]) : '<p class="ops-danger-text">Registre SOP non disponible : vérifiez la migration et les droits. Aucun solde officiel calculable.</p>') +
       (sop ? kpis([
-        ['Achats avec contrôle UH prouvé', money(sop.purchasesValidated), 'rôle UH vérifié requis'],
-        ['Achats en attente', money(sop.purchasesPending), 'non déchargés du compte RT'],
-        ['Avances sans preuve Wave complète', money(sop.advancesUnverified), 'non confirmées comme reçues']
-      ]) : '<p class="ops-danger-text">Moteur de contrôle SOP indisponible : aucun solde officiel calculable.</p>') +
+        ['Achats historiques en attente', money(sop.purchasesPending), 'enregistrés, sans déchargement SOP'],
+        ['Avances historiques non confirmées', money(sop.advancesUnverified), 'pas une preuve Wave']
+      ]) : '') +
       '<p class="muted">Le solde SOP reste indéterminé tant que les justificatifs Wave et les restitutions ne sont pas rapprochés. Cette vue ne valide aucune dépense.</p>' +
-      '<div class="ops-actions"><a class="btn secondary" href="./rt-sop-weekly-print.html" target="_blank" rel="noopener">Fiche hebdomadaire RT à imprimer</a></div></section>' +
+      '<div class="ops-actions"><a class="btn primary" href="./rt-sop-console.html" target="_blank" rel="noopener">Gérer Wave, signatures et BEV</a> ' +
+      '<a class="btn secondary" href="./rt-sop-weekly-print.html" target="_blank" rel="noopener">Fiche RT à imprimer</a></div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Balance opérationnelle indicative par RT</h2>' +
       '<p>Avances saisies moins achats enregistrés, sans validation finale UH / Finance. Ne pas utiliser comme solde comptable ou montant disponible confirmé.</p></div></div>' +
       table(['RT', 'Cluster', 'Avance saisie', 'Achats saisis', 'Solde indicatif', 'Caisse', 'Cycle', 'Statut'], 
