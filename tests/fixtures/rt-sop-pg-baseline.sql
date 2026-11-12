@@ -57,6 +57,7 @@ insert into public.profils(user_id,nom,role,actif) values
  ('22222222-2222-4222-8222-222222222222','FINANCE TEST','Finance',true),
  ('33333333-3333-4333-8333-333333333333','UH TEST','Unit Head',true),
  ('44444444-4444-4444-8444-444444444444','ASSISTANT TEST','Assistant Unit Head',true);
+update public.profils set cluster='BROBO' where role='Unit Head';
 insert into public.rt values ('RT-FICTIF-01','RT FICTIF','BROBO','V-FICTIF','VILLAGE FICTIF',false);
 insert into public.campaigns values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','0002',2027,'REAL','OPEN'),
