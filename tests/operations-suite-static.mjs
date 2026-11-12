@@ -352,3 +352,7 @@ for (const k of ["name: 'campaign'", "'zone'", "'cluster'", "'village'", "'rt'",
 }
 assert.ok((nav.match(/'aflp-data','AFLP DATA','aflp-data\.html'/g) || []).length >= 2, 'AFLP DATA must be reachable from Field Buying and Reports navigation');
 console.log('AFLP DATA static assertions: PASS');
+
+// SOP RT 2027: read-only ledger evidence and UI regression checks.
+await import('./rt-sop-ledger.mjs');
+await import('./rt-sop-integration-static.mjs');
