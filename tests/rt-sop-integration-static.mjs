@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const fb = fs.readFileSync(new URL('../operations/field-buying.js', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../operations/field-buying.html', import.meta.url), 'utf8');
+const helper = fs.readFileSync(new URL('../shared/rt-sop-ledger.js', import.meta.url), 'utf8');
+assert.ok(html.includes('rt-sop-ledger.js'), 'SOP module must be loaded');
+assert.ok(html.indexOf('rt-sop-ledger.js') < html.indexOf('field-buying.js'), 'SOP module must load before Field Buying');
+assert.ok(fb.includes('ANAGROCI_RT_SOP.summarizeCash'), 'SOP helper must be used in Caisse display');
+assert.ok(fb.includes('validated_by,validated_at'), 'UH validation evidence must be selected');
+assert.ok(fb.includes('Avances enregistrées') && fb.includes('non vérifiée'), 'Recorded advances must not be labelled confirmed');
+assert.ok(fb.includes('Achats en attente'), 'Unverified purchases must be visible');
+assert.ok(fb.includes('Balance opérationnelle indicative par RT'), 'Historical balance must be clearly provisional');
+assert.ok(!/\.insert\(|\.upsert\(|\.update\(/.test(helper), 'SOP read-only helper must not write to database');
+console.log('RT-SOP integration: static checks passed');

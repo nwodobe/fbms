@@ -333,7 +333,7 @@ function base() {
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
       q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
       /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
-      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
+      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,validated_by,validated_at,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
       q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
       campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
@@ -4074,6 +4074,10 @@ function renderCash() {
     var active = av.filter(function (a) { return a.statut !== 'Annulee'; });
     var total = active.reduce(function (t, a) { return t + n(a.montant); }, 0);
     var d = derive(c);
+    // SOP 2027: read-only audit balances. Historical "avances" do not contain
+    // Finance confirmation, Wave reference or RT acknowledgement fields yet.
+    var sop = global.ANAGROCI_RT_SOP && global.ANAGROCI_RT_SOP.summarizeCash
+      ? global.ANAGROCI_RT_SOP.summarizeCash(active, c.achats, []) : null;
     var usedByRt = {};
     c.achats.forEach(function (a) { if (a.rt_id) usedByRt[a.rt_id] = (usedByRt[a.rt_id] || 0) + n(a.montant); });
     var byRt = {};
@@ -4085,8 +4089,8 @@ function renderCash() {
 
     paint(head('Caisse & Avances', 'Avances RT, cycles de financement terrain et contrôle des fonds.') +
       kpis([
-        ['Avances actives', money(total), active.length + ' avance(s)'],
-        ['Utilisé en achats', money(c.achats.reduce(function (t, a) { return t + n(a.montant); }, 0)), 'campagne'],
+        ['Avances enregistrées', money(total), active.length + ' avance(s) · réception Wave non vérifiée'], 
+        ['Achats saisis', money(c.achats.reduce(function (t, a) { return t + n(a.montant); }, 0)), 'ne signifie pas validé UH'], 
         ['RT financés', String(Object.keys(byRt).length), 'avec avance active'],
         ['Cycles en cours', String(active.filter(function (a) { return a.cycle_id && a.cycle_statut !== 'Clôturé'; }).length), 'financement terrain'],
         ['RT en écart caisse', String(Object.keys(byRt).filter(function (k) {
@@ -4095,9 +4099,18 @@ function renderCash() {
         }).length), 'réconciliation attendue avant nouvelle avance', 'warn'],
         ['Garde-fou', 'Achat ≤ avance', 'contrôle appliqué à l’enregistrement de l’achat']
       ]) +
-      '<section class="card"><div class="card-head"><div><h2>Balance par RT</h2>' +
-      '<p>Avance versée, achats réalisés et disponible restant.</p></div></div>' +
-      table(['RT', 'Cluster', 'Avance', 'Achats', 'Disponible', 'Caisse', 'Cycle', 'Statut'],
+      '<section class="card"><div class="card-head"><div><h2>Contrôle SOP RT : situation documentaire</h2>' +
+      '<p>Les avances historiques sont des saisies, pas des versements Wave confirmés. Aucun solde définitivement justifié ne peut être certifié sans preuve Finance, confirmation RT et validation UH.</p></div></div>' +
+      (sop ? kpis([
+        ['Achats avec contrôle UH prouvé', money(sop.purchasesValidated), 'rôle UH vérifié requis'],
+        ['Achats en attente', money(sop.purchasesPending), 'non déchargés du compte RT'],
+        ['Avances sans preuve Wave complète', money(sop.advancesUnverified), 'non confirmées comme reçues']
+      ]) : '<p class="ops-danger-text">Moteur de contrôle SOP indisponible : aucun solde officiel calculable.</p>') +
+      '<p class="muted">Le solde SOP reste indéterminé tant que les justificatifs Wave et les restitutions ne sont pas rapprochés. Cette vue ne valide aucune dépense.</p>' +
+      '<div class="ops-actions"><a class="btn secondary" href="./rt-sop-weekly-print.html" target="_blank" rel="noopener">Fiche hebdomadaire RT à imprimer</a></div></section>' +
+      '<section class="card"><div class="card-head"><div><h2>Balance opérationnelle indicative par RT</h2>' +
+      '<p>Avances saisies moins achats enregistrés, sans validation finale UH / Finance. Ne pas utiliser comme solde comptable ou montant disponible confirmé.</p></div></div>' +
+      table(['RT', 'Cluster', 'Avance saisie', 'Achats saisis', 'Solde indicatif', 'Caisse', 'Cycle', 'Statut'], 
         Object.keys(byRt).map(function (k) {
           var s = byRt[k];
           var used = usedByRt[k] || 0;
@@ -4110,7 +4123,7 @@ function renderCash() {
             '<td>' + badge(caisse) + '</td>' +
             '<td class="mono">' + esc(s.cycle || '—') + '</td><td>' + badge(s.statut) + '</td></tr>';
         })) + '</section>' +
-      '<section class="card"><div class="card-head"><div><h2>Avances</h2></div></div>' +
+      '<section class="card"><div class="card-head"><div><h2>Avances enregistrées (preuve Wave à vérifier)</h2></div></div>' +
       table(['Date', 'RT', 'Cluster', 'Montant', 'Source', 'Motif', 'Cycle', 'Statut'],
         av.slice(0, 100).map(function (a) {
           return '<tr><td>' + date(a.date) + '</td><td><b>' + esc(a.rt_nom || '—') + '</b></td>' +
