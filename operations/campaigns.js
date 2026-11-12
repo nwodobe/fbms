@@ -535,7 +535,9 @@
     box.innerHTML = '<section class="card"><div class="card-head"><div><h3>' + T('Exporter l’archive', 'Export the archive') + '</h3><p>' + T('Fichier JSON complet de la campagne : opérations, périmètre, objectifs, instantanés et journal.', 'Full campaign JSON file: operations, scope, targets, snapshots and log.') + '</p></div><button class="btn secondary" type="button" id="btnExport">' + T('Exporter l’archive', 'Export archive') + '</button></div><p id="expMsg" class="muted"></p></section>' +
       '<section class="card"><div class="card-head"><div><h3>' + T('Analyser la suppression', 'Analyse deletion') + '</h3><p>' + T('Compte tout ce qui serait supprimé et tout ce qui serait conservé. Ne supprime rien.', 'Counts everything that would be deleted and kept. Deletes nothing.') + '</p></div><button class="btn secondary" type="button" id="btnPreview">' + T('Analyser', 'Analyse') + '</button></div><div id="prevBox"></div></section>' +
       (sim ? '<section class="card camp-danger"><div class="card-head"><div><h3>' + T('Supprimer définitivement la simulation', 'Permanently delete the simulation') + '</h3><p>' + T('Supprime uniquement les données de cette campagne. Les producteurs, Farmer ID, villages, RT, coopératives réelles, fournisseurs, warehouses et utilisateurs ne sont jamais supprimés.', 'Deletes this campaign data only. Farmers, Farmer IDs, villages, RT, real cooperatives, suppliers, warehouses and users are never deleted.') + '</p></div>' +
-        (can(ADMIN) ? '<button class="btn danger" type="button" id="btnPurge">' + T('Supprimer définitivement', 'Delete permanently') + '</button>' : '') + '</div><p id="purgeMsg" class="muted"></p></section>'
+        (can(ADMIN) ? '<button class="btn danger" type="button" id="btnPurge">' + T('Supprimer définitivement', 'Delete permanently') + '</button>' : '') + '</div><p id="purgeMsg" class="muted"></p></section>' +
+        (role() === 'Branch Manager' ? '<section class="card camp-danger"><div class="card-head"><div><h3>' + T('Remettre à zéro la sacherie et la caisse', 'Reset bags and cash') + '</h3><p>' + T('Efface uniquement les mouvements de sacs, les sacs jute, les avances RT et les achats de cette simulation. La campagne, les missions, les producteurs, les villages et les RT sont conservés. Une copie des lignes effacées est gardée côté serveur.', 'Erases only bag movements, jute bags, RT advances and purchases of this simulation. The campaign, missions, farmers, villages and RT are kept. A copy of erased rows is kept server-side.') + '</p></div>' +
+          '<button class="btn danger" type="button" id="btnResetSacCaisse">' + T('Remettre à zéro', 'Reset') + '</button></div><p id="resetMsg" class="muted"></p></section>' : '')
         : notice('info', T('Campagne réelle : jamais supprimée. Clôturée, elle s’archive ; l’archive exportée accompagne la clôture.', 'Real campaign: never deleted. Once closed it is archived; the exported archive accompanies the closing.')));
     document.getElementById('btnExport').onclick = function () {
       var m = document.getElementById('expMsg'); m.textContent = T('Préparation…', 'Preparing…');
@@ -550,6 +552,31 @@
         pb.innerHTML = '<div class="table-wrap"><table><thead><tr><th>' + T('Objet', 'Object') + '</th><th>' + T('Table', 'Table') + '</th><th>' + T('Nombre', 'Count') + '</th><th>Action</th></tr></thead><tbody>' +
           rows.map(function (x) { var cls = /CONSERVER/.test(x.action) ? 'ok' : /INTERDIT/.test(x.action) ? 'info' : /OPTION/.test(x.action) ? 'warn' : 'danger'; return '<tr><td>' + esc(x.object) + '</td><td class="mono">' + esc(x.table_name) + '</td><td>' + num(x.n) + '</td><td><span class="badge ' + cls + '">' + esc(x.action) + '</span></td></tr>'; }).join('') + '</tbody></table></div>';
       }).catch(function (e) { pb.innerHTML = errBox(e); });
+    };
+    var br = document.getElementById('btnResetSacCaisse');
+    if (br) br.onclick = function () {
+      var m = document.getElementById('resetMsg'); m.className = 'muted'; m.textContent = T('Analyse…', 'Analysing…');
+      rpc('campaign_reset_sacherie_caisse_preview', { p_id: c.id }).then(function (rows) {
+        if (!rows || !rows.length) { m.textContent = T('Aucune donnée de sacherie ou de caisse dans cette campagne : rien à effacer.', 'No bag or cash data in this campaign: nothing to erase.'); return null; }
+        m.textContent = '';
+        var expected = 'REMETTRE A ZERO ' + c.code;
+        return confirmBox({ title: T('Remettre à zéro sacherie et caisse · ', 'Reset bags and cash · ') + c.code, danger: true,
+          body: '<p>' + T('Seront effacés : ', 'Will be erased: ') + rows.map(function (x) { return num(x.n) + ' ' + esc(String(x.object).toLowerCase()); }).join(', ') + '.</p>',
+          reasonMin: 10, typed: expected, ok: T('Remettre à zéro', 'Reset') });
+      }).then(function (r) {
+        if (!r) return;
+        m.className = 'muted'; m.textContent = T('Remise à zéro…', 'Resetting…');
+        return rpc('campaign_reset_sacherie_caisse', { p_id: c.id, p_confirm: r.typed, p_reason: r.reason }).then(function (res) {
+          var d = res && res.deleted ? res.deleted : {}, keys = Object.keys(d);
+          m.className = 'muted';
+          m.textContent = keys.length ? T('Remise à zéro effectuée : ', 'Reset done: ') + keys.map(function (k) { return k + ' : ' + d[k]; }).join(' · ') : T('Rien à effacer.', 'Nothing to erase.');
+        });
+      }).catch(function (e) {
+        m.className = 'ops-danger-text';
+        m.textContent = /campaign_reset_sacherie_caisse|could not find|PGRST202|schema cache/i.test(e.message + ' ' + (e.code || ''))
+          ? T('La remise à zéro attend l’activation de la migration 5 par le Branch Manager.', 'Reset awaits Branch Manager approval of migration 5.')
+          : e.message;
+      });
     };
     var bp = document.getElementById('btnPurge');
     if (bp) bp.onclick = function () {
