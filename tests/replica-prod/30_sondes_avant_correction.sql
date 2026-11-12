@@ -24,3 +24,11 @@ do $$ declare e text; st text; lot uuid; p text; s uuid; begin
  begin update field_shipments set status='RECEIVED', arrived_at=now(), reception_id='REC-SONDE' where id=s; exception when others then e:=sqlerrm; end;
  raise notice 'D2 · clôture RECEIVED avec GRN annulé : %', coalesce(e,'ACCEPTÉE');
 end $$;
+-- D14 : modification par le BM d'un achat déjà validé par l'UH.
+do $$ declare a uuid; e text; r0 numeric; r1 numeric; begin
+ select achat_id into a from rt_sop_purchase_reviews where decision='APPROVED' limit 1;
+ select reste_a_justifier_fcfa into r0 from rt_sop_cash_balance_v v join achats x on x.rt_id=v.rt_id and x.campaign_id=v.campaign_id where x.id=a;
+ e := t.err(t.u('BM'), format('update achats set montant=montant/2, poids_net=poids_net/2 where id=%L', a));
+ select reste_a_justifier_fcfa into r1 from rt_sop_cash_balance_v v join achats x on x.rt_id=v.rt_id and x.campaign_id=v.campaign_id where x.id=a;
+ raise notice 'D14 · achat validé modifié par le BM : % ; reste à justifier % → %', coalesce(e,'ACCEPTÉ'), r0, r1;
+end $$;

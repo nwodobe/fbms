@@ -17,6 +17,8 @@ drop view if exists public.rt_sop_rt_dashboard_v, public.rt_sop_jute_card_v, pub
 drop trigger if exists trg_fa_rt_sop_lock_cash on public.achats;
 drop trigger if exists trg_fa_rt_sop_lock_cash on public.avances;
 drop trigger if exists trg_051_rt_sop_protect_advance on public.avances;
+drop trigger if exists trg_052_rt_sop_freeze_reviewed on public.achats;
+drop function if exists private.rt_sop_freeze_reviewed_purchase();
 drop function if exists private.rt_sop_lock_rt_cash(), private.rt_sop_protect_posted_advance();
 drop function if exists public.rt_sop_open_incident(uuid,text,text,text,text,text,text,text,text[],uuid),
   public.rt_sop_close_incident(text,text,text,text), public.rt_sop_record_zh_control(uuid,text,text,text,text,text,uuid),

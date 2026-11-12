@@ -295,4 +295,13 @@ do $$ declare d record; n_nv int; begin
    d.reste_a_justifier_fcfa=90000 and d.sacs_vides_theoriques=75 and d.anomalies_ouvertes>=1 and n_nv=1, 'rt_sop_rt_dashboard_v');
 exception when others then perform t.fail('S17','Tableau BM par RT','indicateurs fiables',sqlerrm); end $$;
 
+-- ===================== Complément · achat figé après décision UH =====================
+do $$ declare a uuid; e text; m numeric; begin
+ select achat_id into a from rt_sop_purchase_state_v where rt_id='RT-A1' and etat_sop='VALIDE_UH' limit 1;
+ e := t.err(t.u('BM'), format('update achats set montant=montant/2, poids_net=poids_net/2 where id=%L', a));
+ select montant into m from achats where id=a;
+ perform t.rec('S18','Achat validé non modifiable','modification BM après validation UH refusée',
+   format('modification : %s ; montant %s', coalesce(left(e,60),'ACCEPTÉE'), m), e is not null and m=200000, 'trg_052_rt_sop_freeze_reviewed');
+exception when others then perform t.fail('S18','Achat validé non modifiable','refus',sqlerrm); end $$;
+
 select id, statut, titre, obtenu from t.results order by length(id), id;

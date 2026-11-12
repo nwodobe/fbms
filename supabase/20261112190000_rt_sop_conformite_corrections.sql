@@ -874,6 +874,28 @@ create trigger trg_fa_rt_sop_lock_cash before insert or update of montant, rt_id
 for each row execute function private.rt_sop_lock_rt_cash();
 
 -- ---------------------------------------------------------------------------
+-- 13 ter. D14 · un achat ayant reçu une décision UH ne change plus (achats_upd autorise le BM)
+-- Le registre relit achats.montant : une modification après décision changerait le solde sans trace.
+-- Correction : rejet UH puis nouvel achat.
+-- ---------------------------------------------------------------------------
+create or replace function private.rt_sop_freeze_reviewed_purchase()
+returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+ if exists (select 1 from public.rt_sop_purchase_reviews r where r.achat_id=old.id) and (
+      new.montant is distinct from old.montant or new.poids_net is distinct from old.poids_net
+   or new.prix_kg is distinct from old.prix_kg or new.rt_id is distinct from old.rt_id
+   or new.campaign_id is distinct from old.campaign_id or new.rejet is distinct from old.rejet
+   or new.mode_paiement is distinct from old.mode_paiement or new.numero_recu is distinct from old.numero_recu) then
+   raise exception 'Achat déjà examiné par l''UH : montant, poids, RT, paiement et reçu figés (rejet UH puis nouvel achat)' using errcode='42501';
+ end if;
+ return new;
+end $$;
+revoke all on function private.rt_sop_freeze_reviewed_purchase() from public,anon,authenticated;
+drop trigger if exists trg_052_rt_sop_freeze_reviewed on public.achats;
+create trigger trg_052_rt_sop_freeze_reviewed before update on public.achats
+for each row execute function private.rt_sop_freeze_reviewed_purchase();
+
+-- ---------------------------------------------------------------------------
 -- 13. Droits d'exécution
 -- ---------------------------------------------------------------------------
 revoke all on function public.rt_sop_open_incident(uuid,text,text,text,text,text,text,text,text[],uuid) from public,anon;
