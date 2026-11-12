@@ -30,7 +30,15 @@ async function q(name,cols,build){var x=sb.from(name).select(cols||'*');if(build
 async function one(name,cols,build){var a=await q(name,cols,build);return a[0]||null;}
 async function rpc(name,args){var r=await sb.rpc(name,args||{});if(r.error)throw new Error(r.error.message);return r.data;}
 async function paged(name,build,page,size){var x=sb.from(name).select('*',{count:'exact'});if(build)x=build(x);x=x.range(page*size,page*size+size-1);var r=await x;if(r.error)throw new Error(r.error.message);return{rows:r.data||[],count:r.count||0};}
+/* Campagne choisie dans la barre du haut : le Control Tower ne doit jamais mélanger une simulation aux chiffres réels. */
+async function campaignId(){var c=global.ANAGROCI_CAMPAIGN;if(!c)return null;try{if(c.ready)await Promise.race([c.ready,new Promise(function(r){setTimeout(r,8000);})]);}catch(e){}return c.id?c.id():null;}
+async function campaignKpis(cid){
+ if(!cid)return q('procurement_v_purchase_kpis','*');
+ try{var r=await rpc('procurement_purchase_kpis_campagne',{p_campaign_id:cid});return Array.isArray(r)?r:(r?[r]:[]);}
+ catch(e){if(/procurement_purchase_kpis_campagne|PGRST202|schema cache|could not find/i.test(e.message))return q('procurement_v_purchase_kpis','*');throw e;}
+}
 async function load(){
+ var cid=await campaignId();
  var rs=await Promise.all([
   q('procurement_v_purchase_feed','*',function(x){return x.eq('procurement_channel','FIELD_BUYING').order('purchase_at',{ascending:false}).limit(500);}),
   q('rcn_fournisseurs','supplier_id,code,nom,categorie,statut,origines,sites,volume_livre_kg,kor_moyen,humidite_moyenne',function(x){return x.order('code').limit(1000);}),
@@ -43,8 +51,8 @@ async function load(){
   q('procurement_purchase_types','*',function(x){return x.eq('active',true).order('code');}),
   q('wms_warehouses','id,code,name,status',function(x){return x.eq('status','ACTIVE').order('code');}),
   q('rcn_proc_prix','id,supplier_code,campagne,prix_propose,prix_bm,prix_approuve,kor_min,humidite_max,site,valide_du,valide_au,statut',function(x){return x.order('created_at',{ascending:false}).limit(300);}),
-  q('procurement_v_purchase_action_queue','*',function(x){return x.order('event_at',{ascending:false}).limit(100);}),
-  q('procurement_v_purchase_kpis','*')
+  q('procurement_v_purchase_action_queue','*',function(x){if(cid)x=x.eq('campaign_id',cid);return x.order('event_at',{ascending:false}).limit(100);}),
+  campaignKpis(cid)
  ]);
  state.fieldPurchases=rs[0];state.suppliers=rs[1];state.lots=rs[2];state.contributors=rs[3];state.shipments=rs[4];state.pending=rs[5];state.recon=rs[6];state.rules=rs[7];state.types=rs[8];state.warehouses=rs[9];state.priceRules=rs[10];state.actionQueue=rs[11];state.kpi=rs[12][0]||{};
 }
