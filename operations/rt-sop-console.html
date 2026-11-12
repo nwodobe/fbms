@@ -1,0 +1,78 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AFLP · Contrôle RT · ANAGROCI</title>
+<link rel="icon" href="../assets/logo-pjs-mark.png"><link rel="stylesheet" href="./operations.css"><link rel="stylesheet" href="./operations-v2.css">
+<style>
+:root{--forest:#053B23;--emerald:#008F37;--pale:#E0F3DE;--text:#323131;--alert:#EE9E00}
+body{font:15px/1.45 Arial,sans-serif;background:#f1f9ef;color:var(--text);margin:0}header{background:var(--forest);color:white;padding:16px 6vw}header h1{margin:0;font-size:23px;color:white}header p{margin:4px 0 0;color:#def4e1}
+main{max-width:1020px;margin:0 auto;padding:20px 18px 55px}.panel{background:white;padding:20px;margin:12px 0;border:1px solid #d6e7d7;border-radius:12px}.panel h2{font-size:18px;color:var(--forest);margin:0 0 12px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:10px 0}
+label{display:block;font-size:13px;font-weight:700;color:var(--forest)}input,select,textarea{display:block;box-sizing:border-box;width:100%;min-height:43px;padding:9px;border:1px solid #b2c2b5;border-radius:6px;margin:5px 0 0;background:white;font:15px Arial;color:var(--text)}
+textarea{min-height:88px}button{padding:11px 17px;font-size:14px;background:var(--emerald);color:white;border:0;border-radius:6px;cursor:pointer;min-height:43px}button:disabled{opacity:.5;cursor:not-allowed}
+nav{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0}nav button{background:white;color:var(--forest);border:1px solid #bbd5bf}nav button.active{background:var(--forest);color:white}
+[data-page]{display:none}[data-page].active{display:block}
+.warning{border-left:4px solid var(--alert);padding:11px;background:#fff8e3;margin:10px 0}.ok{border-left:4px solid var(--emerald);background:#e7f8e5;padding:11px}.muted{font-size:13px;color:#667169}.status{font-weight:700;margin-top:10px;white-space:pre-wrap}.status.error{color:#a33}.status.good{color:#053B23}
+.sig{border:1px solid #afc5b4;border-radius:6px;width:100%;height:130px;touch-action:none;background:#fff}.sigwrap{max-width:500px}
+details{margin-top:10px}summary{cursor:pointer}.badge{padding:4px 8px;background:var(--pale);border-radius:10px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left}
+.check{display:flex;align-items:flex-start;gap:8px;font-weight:400}.check input{width:19px;height:19px;min-height:0;margin:2px 0}
+footer{font-size:12px;text-align:center;padding:22px;color:#667169}@media(max-width:600px){main{padding:10px}.panel{padding:14px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="../shared/auth-gate.js?v=20261111-offline-session-1" data-module="portail"></script>
+<script defer src="./rt-sop-console.js?v=20261112-dev-1"></script></head>
+<body>
+<header><h1>ANAGROCI · Comptes et contrôles RT</h1><p>AFLP 2027 · Wave, signatures et BEV/GRN · Known for Quality</p></header>
+<main>
+<div class="warning"><strong>Les fonds et les signatures ne se devinent pas.</strong> Chaque mouvement officiel exige un compte habilité, une connexion et une preuve réelle. En mode hors connexion, utilisez les fiches papier.</div>
+<div class="panel row">
+<label>Campagne<select id="campaign" aria-label="Campagne"></select></label>
+<label>RT<select id="rt" aria-label="RT"></select></label>
+<div><strong>Compte connecté</strong><p id="account" class="muted">Vérification...</p><a href="./field-buying.html#cash">Retour à la Caisse existante</a></div>
+</div>
+<nav aria-label="Choisir un contrôle"><button type="button" data-go="wave" class="active">1. Versements Wave</button><button type="button" data-go="achats">2. Achats UH</button><button type="button" data-go="sign">3. Bilan signé</button><button type="button" data-go="bev">4. BEV / GRN</button></nav>
+<section data-page="wave" class="active">
+<div class="panel"><h2>Demander une avance (Branch Manager)</h2><p class="muted">La demande ne prouve pas encore un versement.</p><form id="requestForm">
+<div class="row"><label>Montant demandé · FCFA<input name="amount" type="number" min="1" step="1" required></label><label>Compte Wave réservé aux achats AFLP<input name="waveAccount" autocomplete="off" required minlength="4"></label></div>
+<label>Achats prévus et raison de la demande<textarea name="plan" minlength="8" required></textarea></label>
+<button type="submit">Envoyer la demande à Finance</button></form></div>
+<div class="panel"><h2>Confirmer le versement (Finance)</h2><p class="muted">Seule Finance peut confirmer un transfert réel. Aucun appel à l'API Wave n'est effectué.</p>
+<form id="financeForm"><div class="row"><label>Demande<select name="funding" data-funding></select></label><label>Référence de transaction Wave<input name="reference" required minlength="5"></label><label>Preuve du versement Finance<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label></div>
+<button type="submit">Confirmer le versement effectué</button></form></div>
+<div class="panel"><h2>Faire confirmer la réception par le RT (UH)</h2><p class="muted">Le RT signe une preuve papier. L'UH vérifie le montant reçu et dépose la photo. Aucun accusé de réception n'est inventé.</p>
+<form id="ackForm"><div class="row"><label>Versement Finance<select name="funding" data-funding></select></label><label>Preuve signée du RT<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label></div><button type="submit">Enregistrer la signature du RT</button></form></div>
+<div class="panel"><h2>Valider le crédit dans la caisse (Finance)</h2><p class="muted">Inscription officielle une seule fois, après la preuve Finance et la signature RT.</p><form id="postForm"><label>Demande confirmée<select name="funding" data-funding></select></label><button type="submit">Inscrire l'avance confirmée</button></form></div>
+</section>
+<section data-page="achats"><div class="panel"><h2>Vérifier un achat (Chef d'Unité)</h2><p class="muted">Un achat saisi n'est pas encore un achat validé. L'UH vérifie reçu et paiement.</p>
+<form id="purchaseForm"><label>Achat du RT<select name="achat" id="purchases"></select></label>
+<div class="row"><label>Décision<select name="decision"><option value="APPROVED">Accepter l'achat</option><option value="REJECTED">Refuser / laisser à corriger</option></select></label><label>Numéro du reçu<input name="receipt"></label><label>Référence du paiement<input name="payment"></label></div>
+<label>Photo du reçu et du paiement<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label>
+<label>Motif (obligatoire en cas de refus)<textarea name="reason"></textarea></label>
+<button type="submit">Enregistrer le contrôle UH</button></form></div></section>
+<section data-page="sign"><div class="panel"><h2>Signer le bilan des trois cartes</h2><p class="muted">La signature du RT peut être tracée avec son accord en sa présence, ou prise en photo sur la fiche papier. Dans les deux cas, l'UH contresigne.</p>
+<form id="signForm"><div class="row"><label>Début de semaine<input type="date" name="start" required></label><label>Fin de semaine<input type="date" name="end" required></label></div>
+<div class="row"><label>RCN réellement compté (kg)<input type="number" name="rcn" step=".001" min="0" required></label>
+<label>Sacs vides réellement comptés<input type="number" name="empty" min="0" step="1" required></label>
+<label>Sacs pleins réellement comptés<input type="number" name="full" min="0" step="1" required></label></div>
+<label>Références des reçus, BEV, photos et bons de sacs<textarea name="pieces" required></textarea></label>
+<label>Avis du RT<select name="decision"><option value="AGREED">D'accord</option><option value="RESERVED">D'accord avec réserve</option><option value="DISAGREED">Pas d'accord</option></select></label>
+<label>Explication des réserves ou du désaccord<textarea name="reservations"></textarea></label>
+<label>Mode de preuve<select name="proofMode" id="proofMode"><option value="paper">Photo / PDF du bilan signé sur papier</option><option value="canvas">Signatures tracées en présence du RT</option></select></label>
+<div id="paperProof"><label>Fiche signée RT et UH<input name="paper" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label></div>
+<div id="canvasProof" hidden>
+<div class="row"><div class="sigwrap"><label>Signature du RT (en sa présence)</label><canvas id="rtSignature" class="sig" width="620" height="160"></canvas><button type="button" data-clear="rtSignature">Effacer RT</button></div>
+<div class="sigwrap"><label>Signature personnelle du Chef d'Unité</label><canvas id="uhSignature" class="sig" width="620" height="160"></canvas><button type="button" data-clear="uhSignature">Effacer UH</button></div></div>
+</div>
+<label class="check"><input name="attest" type="checkbox" required>J'atteste que le RT a vu les soldes et a signé librement, ou que le document papier joint a réellement été signé par le RT et moi-même.</label>
+<button type="submit">Enregistrer le bilan signé</button></form></div></section>
+<section data-page="bev"><div class="panel"><h2>BEV signé avant départ (Chef d'Unité)</h2><p class="muted">Les noix restent sous la garde du RT avant la remise au prestataire. Le BEV doit porter les signatures RT, transporteur et UH.</p><form id="bevForm">
+<div class="row"><label>Code BEV unique<input name="bevCode" required minlength="5"></label><label>Poids remis (kg)<input name="kg" type="number" min=".001" step=".001" required></label><label>Nombre de sacs<input name="bags" type="number" min="1" step="1" required></label></div>
+<div class="row"><label>Transporteur prestataire<input name="transporter" required minlength="3"></label><label>Chauffeur<input name="driver" required></label><label>Immatriculation du camion<input name="plate" required minlength="4"></label></div>
+<div class="row"><label>Destination<select name="destinationType"><option value="FACTORY">Usine</option><option value="WAREHOUSE">Magasin</option></select></label><label>Identifiant destination (si magasin)<input name="destinationId"></label><label>Nom de destination<input name="destinationLabel" required></label></div>
+<label>Date et heure de signature<input name="signedAt" type="datetime-local" required></label>
+<label>Preuve BEV signé RT + prestataire + UH<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label>
+<label class="check"><input name="attest" type="checkbox" required>J'ai vérifié le chargement, les signatures, les sacs et la quantité.</label>
+<button type="submit">Enregistrer le BEV signé</button></form>
+<p class="warning">Pour créer l'expédition, utiliser ensuite le module existant avec exactement le même code BEV, poids, véhicule, origine et destination. La base refusera la sortie sans ce BEV.</p>
+<a href="./procurement.html">Ouvrir Procurement / Évacuations</a></div>
+<div class="panel"><h2>Suivi de la réception GRN</h2><button type="button" id="refreshBtn">Actualiser les BEV et GRN</button><div id="bevHistory">Aucun mouvement affiché.</div></div></section>
+<div id="status" class="panel status" role="status" aria-live="polite">Lecture uniquement tant que votre session n'est pas vérifiée.</div></main>
+<footer>ANAGROCI · PJS Global · SOP-AFLP-RT-001 · Les signatures et les preuves restent archivées, même en cas de désaccord.</footer></body></html>
