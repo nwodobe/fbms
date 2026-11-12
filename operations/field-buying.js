@@ -2545,6 +2545,20 @@ function villageDistance(v, hubPos) {
   if (pos && hubPos) return { km: haversine(pos, hubPos), src: 'estimée' };
   return null;
 }
+function villageReferenceDistance(v, hubPos) {
+  var s1 = (v.data && v.data.s1) || {};
+  var cluster = normName(v.cluster || v.cluster_code || '');
+  var isDjebonoua = cluster === 'N DJEBONOUA' || cluster === 'DJEBONOUA';
+  if (isDjebonoua) {
+    if (n(s1.distanceBaseRoutiere)) return { km: n(s1.distanceBaseRoutiere), src: 'routière', ref: 'Bouaké' };
+    var pos = villageCoords(v);
+    if (pos) return { km: haversine(pos, [BOUAKE.lat, BOUAKE.lng]), src: 'estimée', ref: 'Bouaké' };
+    return null;
+  }
+  var d = villageDistance(v, hubPos);
+  if (d) d.ref = 'hub';
+  return d;
+}
 /* Couleur du village sur la carte : vert = normal, orange = attention, rouge = problème. */
 function villageColor(v, d) {
   var hasRt = (d.rtByVillage[v.id] || []).length > 0;
@@ -2742,7 +2756,7 @@ function drawMap(c, d, hubPos, usine, hubRow) {
       if (!pos) return;
       var k = normName(v.cluster || '');
       var hub = hubPos[k] || null;
-      var dist = villageDistance(v, hub);
+      var dist = villageReferenceDistance(v, hub);
       var s5 = (v.data && v.data.s5) || {};
       var s3 = (v.data && v.data.s3) || {};
       var rts = (d.rtByVillage[v.id] || []);
@@ -2758,11 +2772,12 @@ function drawMap(c, d, hubPos, usine, hubRow) {
         'Acheté : ' + mt(d.byVillageBuy[v.id] || 0) + '<br>' +
         'Route : ' + esc(s5.typeAcces || '—') +
         ' · Camion : ' + (s5.camion30T ? '30T' : s5.camion10T ? '10T' : '—') + '<br>' +
-        (dist ? 'Distance hub : ' + num(dist.km, 1) + ' km (' + dist.src + ')' : 'Distance hub : —'));
+        (dist ? 'Distance ' + esc(dist.ref || 'hub') + ' : ' + num(dist.km, 1) + ' km (' + dist.src + ')' : 'Distance : —'));
 
       var nom = String(v.village == null ? '' : v.village).trim();
       if (nom) {
-        m.bindTooltip(esc(nom), {
+        var libelleCarte = esc(nom) + (dist ? ' · ' + num(dist.km, 1) + ' km' : '');
+        m.bindTooltip(libelleCarte, {
           permanent: true, direction: 'right', offset: [9, 0],
           className: 'fb-map-label fb-village-label', interactive: false
         });
@@ -2789,8 +2804,9 @@ function drawMap(c, d, hubPos, usine, hubRow) {
         });
       }
 
-      if (hub) {
-        L.polyline([pos, hub], dist && dist.src === 'validée'
+      var refPos = dist && dist.ref === 'Bouaké' ? [BOUAKE.lat, BOUAKE.lng] : hub;
+      if (refPos) {
+        L.polyline([pos, refPos], dist && (dist.src === 'validée' || dist.src === 'routière')
           ? { color: '#1F9D6E', weight: 3, opacity: 0.8 }
           : { color: '#1d6fa5', weight: 2, dashArray: '7 6', opacity: 0.7 }).addTo(map);
       }
@@ -2815,7 +2831,7 @@ function drawMap(c, d, hubPos, usine, hubRow) {
     var ctl = L.control({ position: 'topright' });
     ctl.onAdd = function () {
       var box = L.DomUtil.create('div', 'fb-labels-ctl');
-      box.innerHTML = '<label><input type="checkbox" checked> Noms des villages</label>';
+      box.innerHTML = '<label><input type="checkbox" checked> Villages + distances</label>';
       L.DomEvent.disableClickPropagation(box);
       L.DomEvent.disableScrollPropagation(box);
       box.querySelector('input').addEventListener('change', function (ev) {
