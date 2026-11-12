@@ -4106,7 +4106,8 @@ function renderCash() {
         ['Achats en attente', money(sop.purchasesPending), 'non déchargés du compte RT'],
         ['Avances sans preuve Wave complète', money(sop.advancesUnverified), 'non confirmées comme reçues']
       ]) : '<p class="ops-danger-text">Moteur de contrôle SOP indisponible : aucun solde officiel calculable.</p>') +
-      '<p class="muted">Le solde SOP reste indéterminé tant que les justificatifs Wave et les restitutions ne sont pas rapprochés. Cette vue ne valide aucune dépense.</p></section>' +
+      '<p class="muted">Le solde SOP reste indéterminé tant que les justificatifs Wave et les restitutions ne sont pas rapprochés. Cette vue ne valide aucune dépense.</p>' +
+      '<div class="ops-actions"><a class="btn secondary" href="./rt-sop-weekly-print.html" target="_blank" rel="noopener">Fiche hebdomadaire RT à imprimer</a></div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Balance opérationnelle indicative par RT</h2>' +
       '<p>Avances saisies moins achats enregistrés, sans validation finale UH / Finance. Ne pas utiliser comme solde comptable ou montant disponible confirmé.</p></div></div>' +
       table(['RT', 'Cluster', 'Avance saisie', 'Achats saisis', 'Solde indicatif', 'Caisse', 'Cycle', 'Statut'], 
