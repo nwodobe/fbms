@@ -40,6 +40,10 @@ footer{font-size:12px;text-align:center;padding:22px;color:#667169}@media(max-wi
 <div class="panel"><h2>Faire confirmer la réception par le RT (UH)</h2><p class="muted">Le RT signe une preuve papier. L'UH vérifie le montant reçu et dépose la photo. Aucun accusé de réception n'est inventé.</p>
 <form id="ackForm"><div class="row"><label>Versement Finance<select name="funding" data-funding></select></label><label>Preuve signée du RT<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label></div><button type="submit">Enregistrer la signature du RT</button></form></div>
 <div class="panel"><h2>Valider le crédit dans la caisse (Finance)</h2><p class="muted">Inscription officielle une seule fois, après la preuve Finance et la signature RT.</p><form id="postForm"><label>Demande confirmée<select name="funding" data-funding></select></label><button type="submit">Inscrire l'avance confirmée</button></form></div>
+<div class="panel"><h2>Enregistrer un remboursement au compte du RT (Finance)</h2><p class="muted">Une somme rendue n'est déchargée qu'avec la preuve du retour et sa confirmation par Finance.</p>
+<form id="refundForm"><div class="row"><label>Somme rendue · FCFA<input name="amount" type="number" min="1" step="1" required></label>
+<label>Référence unique du retour<input name="reference" minlength="5" required></label>
+<label>Preuve du retour validée Finance<input name="proof" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label></div><button type="submit">Confirmer la restitution</button></form></div>
 </section>
 <section data-page="achats"><div class="panel"><h2>Vérifier un achat (Chef d'Unité)</h2><p class="muted">Un achat saisi n'est pas encore un achat validé. L'UH vérifie reçu et paiement.</p>
 <form id="purchaseForm"><label>Achat du RT<select name="achat" id="purchases"></select></label>
@@ -61,6 +65,7 @@ footer{font-size:12px;text-align:center;padding:22px;color:#667169}@media(max-wi
 <div class="row"><div class="sigwrap"><label>Signature du RT (en sa présence)</label><canvas id="rtSignature" class="sig" width="620" height="160"></canvas><button type="button" data-clear="rtSignature">Effacer RT</button></div>
 <div class="sigwrap"><label>Signature personnelle du Chef d'Unité</label><canvas id="uhSignature" class="sig" width="620" height="160"></canvas><button type="button" data-clear="uhSignature">Effacer UH</button></div></div>
 </div>
+<label class="check"><input name="replacement" type="checkbox">Corriger un bilan déjà signé pour cette semaine. L'ancienne version sera conservée et une nouvelle signature sera requise.</label>
 <label class="check"><input name="attest" type="checkbox" required>J'atteste que le RT a vu les soldes et a signé librement, ou que le document papier joint a réellement été signé par le RT et moi-même.</label>
 <button type="submit">Enregistrer le bilan signé</button></form></div></section>
 <section data-page="bev"><div class="panel"><h2>BEV signé avant départ (Chef d'Unité)</h2><p class="muted">Les noix restent sous la garde du RT avant la remise au prestataire. Le BEV doit porter les signatures RT, transporteur et UH.</p><form id="bevForm">
