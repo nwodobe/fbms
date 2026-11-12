@@ -1,8 +1,9 @@
 \set ON_ERROR_STOP on
 -- Isolated PostgreSQL service; all people, RT codes and sums are fictitious.
 grant usage on schema public,auth,storage,private,extensions to authenticated;
-grant select on public.rt,public.profils,public.campaigns,public.achats to authenticated;
-grant insert on public.achats to authenticated;
+grant select on public.rt,public.profils,public.campaigns,public.achats,public.avances, public.field_shipments,public.wms_receptions,public.wms_grns to authenticated;
+grant insert on public.achats,public.field_shipments to authenticated;
+grant update on public.field_shipments to authenticated;
 
 insert into storage.objects(bucket_id,name,owner_id,metadata) values
  ('rt-sop-evidence','22222222-2222-4222-8222-222222222222/RT-FICTIF-01/finance.pdf','22222222-2222-4222-8222-222222222222','{"size":900}'),
