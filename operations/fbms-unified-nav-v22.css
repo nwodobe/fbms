@@ -31,3 +31,6 @@
  .fbms-v22 .ops-main{min-height:75vh}
 }
 @media(prefers-reduced-motion:reduce){.fbms-v22-side{transition:none}}
+
+/* No legacy workspace switcher beside the unified main menu. */
+.fbms-v22 .ops-ws{display:none!important}
