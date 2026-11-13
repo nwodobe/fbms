@@ -16,7 +16,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="shared/aflp-access.js?v=20261113-espaces-1"></script>
 <script defer src="shared/auth-gate.js?v=20261111-offline-session-1" data-module="portail"></script>
-<script defer src="operations/fbms-unified-nav-v22.js?v=20261113-2"></script>
+<script defer src="operations/fbms-unified-nav-v22.js?v=20261113-homefix-1"></script>
+
+<!-- Safety net for older cached navigation JS: remove the Ma journée submenu on this landing page only. -->
+<style id="fbms-home-clean-navigation">
+body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context { display: none !important; }
+</style>
 </head>
 <body data-workspace="aflp-day" class="fbms-v22 fbms-v23">
 <header class="ops-topbar">
@@ -69,6 +74,7 @@
     <a class="fbms-v23-shortcut" data-space="E3" href="operations/field-buying.html#cash">Comptes RT <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E4" href="operations/procurement.html#evacuations">Lots &amp; expéditions <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E0" href="moto/index.html">Missions &amp; carburant <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E2" href="fieldproof/index.html">Preuves terrain <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E0" href="operations/field-buying.html#sync">Synchronisation <span aria-hidden="true">↗</span></a>
    </div>
   </section>
@@ -89,6 +95,22 @@
  document.addEventListener('anagroci:authenticated',filterVisibleActions);
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',filterVisibleActions);
  else filterVisibleActions();
+})();
+</script>
+
+<!-- This idempotent guard removes legacy sublinks even if an older JS bundle restores them. -->
+<script id="fbms-home-prune-submenu">
+(function(){
+  'use strict';
+  var sidebar=document.getElementById('opsSidebar');
+  if(!sidebar) return;
+  function removeLegacyHomeSubmenu(){
+    sidebar.querySelectorAll('.fbms-v22-context').forEach(function(item){item.remove();});
+  }
+  removeLegacyHomeSubmenu();
+  if(typeof MutationObserver==='function'){
+    new MutationObserver(removeLegacyHomeSubmenu).observe(sidebar,{childList:true});
+  }
 })();
 </script>
 </body></html>
