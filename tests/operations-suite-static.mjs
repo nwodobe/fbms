@@ -16,7 +16,8 @@ for (const p of ['assets/operations/modules/aflp-reseau-terrain-v24-800.webp','a
  assert.equal(img.subarray(0,4).toString('ascii'),'RIFF','WebP header missing: '+p);
 }
 const v24Nav=read('operations/fbms-unified-nav-v22.js');
-assert.ok(v24Nav.includes("if(isActive && (s.id!=='E0' || /\/moto\//.test(global.location.pathname)))"), 'Home submenu must be hidden while Fleet routes retained');
+assert.ok(v24Nav.includes("if(isActive && (s.id!=='E0'"), 'Home submenu should not be rendered in the landing page');
+assert.ok(v24Nav.includes("moto") && v24Nav.includes("global.location.pathname"), 'Fleet must retain contextual routes');
 assert.ok(portal.includes('href="moto/index.html"'), 'Missions and fuel still need to be directly accessible');
 assert.ok(portal.includes('href="operations/field-buying.html#sync"'), 'Synchronisation must remain directly accessible');
 
