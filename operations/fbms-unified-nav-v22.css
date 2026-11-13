@@ -34,3 +34,15 @@
 
 /* No legacy workspace switcher beside the unified main menu. */
 .fbms-v22 .ops-ws{display:none!important}
+
+/* Integrated specialized field apps: keep their existing controller and route anchors,
+   but display exactly one app-level navigation (FBMS sidebar/drawer). */
+.fbms-v22-specialized .ops-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:calc(100vh - 90px)}
+.fbms-v22-specialized .mm-main,.fbms-v22-specialized .fp-main{min-width:0;max-width:none;width:auto;box-sizing:border-box}
+.fbms-v22-specialized #motoNav,.fbms-v22-specialized nav.fp-nav{display:none!important}
+.fbms-v22-specialized .fbms-v22-side{position:relative;top:auto;align-self:stretch;min-height:100%}
+@media(max-width:820px){
+ .fbms-v22-specialized .ops-shell{display:block}
+ .fbms-v22-specialized .fbms-v22-side{position:fixed!important;top:0;min-height:100vh}
+ .fbms-v22-specialized .mm-main,.fbms-v22-specialized .fp-main{padding-left:12px;padding-right:12px}
+}
