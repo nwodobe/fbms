@@ -8,10 +8,8 @@
 (function(global){
 'use strict';
 var MENU=[
- {id:'E0',fr:'Ma journée',en:'My day',icon:'⌂',items:[
-  ['Accueil','Home','../index.html'],
-  ['Missions & carburant','Missions & fuel','../moto/index.html','external'],
-  ['Preuves terrain','Field evidence','../fieldproof/index.html','external']]},
+ {id:'E0',fr:'AFLP FLEET',en:'AFLP FLEET',icon:'▤',items:[
+  ['Parc motos & carburant','Motorcycles & fuel','../moto/index.html','external']]},
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
   ['Producteurs','Farmers','field-buying.html#farmers'],
   ['Représentants RT','RT representatives','field-buying.html#rt'],
@@ -67,7 +65,7 @@ function pathId(){
  var file=global.location.pathname.split('/').pop(),hash=(global.location.hash||'').toLowerCase();
  if(/\/fieldproof\//.test(global.location.pathname))return 'E2';
  if(/\/moto\//.test(global.location.pathname))return 'E0';
- if(file==='espaces.html'||file==='index.html')return 'E0';
+ if(file==='espaces.html'||file==='index.html')return 'HOME';
  if(file==='procurement.html')return 'E4';
  if(file==='reports.html'||file==='aflp-data.html'||file==='campaigns.html'||file==='traceability.html')return 'E5';
  if(file==='field-buying.html'){
@@ -106,20 +104,18 @@ function render(){
  var host=ensureShell();
  if(!host)return;
  var r=role(),en=language()==='en',active=pathId(),file=global.location.pathname.split('/').pop();
- if(!ROLE[r].includes(active))active='E0';
+ if(active!=='HOME' && !ROLE[r].includes(active))active='E0';
  var header='<div class="fbms-v22-logo"><span class="fbms-v22-mark" aria-hidden="true">P</span><span><strong>FBMS</strong><small>ANAGROCI · AFLP 2027</small></span></div>';
  var links=MENU.filter(function(s){return ROLE[r].includes(s.id)}).map(function(s){
   var isActive=s.id===active;
   var target=s.items[0][2];
-  var top=s.id==='E0'?'../index.html':target;
+  var top=target;
   var topLabel=(en?s.en:s.fr);
   var block='<a class="fbms-v22-main'+(isActive?' active':'')+'" href="'+esc(hrefInApp(top))+'"'+(isActive?' aria-current="page"':'')+'>'+
     '<span aria-hidden="true" class="fbms-v22-icon">'+s.icon+'</span>'+esc(topLabel)+'</a>';
-  // The landing page is the workspace: do not show the subordinate
-  // Accueil / Missions & carburant / Preuves terrain bar beneath Ma journée.
-  // Fleet retains its own contextual *routes* inside this same menu so
-  // riders can still reach their tools; only the home E0 block is removed.
-  if(isActive && (s.id!=='E0' || /\/moto\//.test(global.location.pathname))){
+  // AFLP FLEET replaces the former Ma journée module. Contextual Fleet routes
+  // appear only while using Fleet, inside the same unified navigation.
+  if(isActive){
    block+='<div class="fbms-v22-context">';
    s.items.forEach(function(x){
     if(x[3]==='document'&&r==='RO')return;
@@ -158,7 +154,7 @@ function render(){
  var old=document.getElementById('opsPortalLink');
  if(old)old.remove();
  var bc=document.getElementById('opsBreadcrumbs');
- if(bc){var item=MENU.filter(function(s){return s.id===active})[0];
+ if(bc){var item=MENU.filter(function(s){return s.id===active})[0]||{fr:'Accueil FBMS',en:'FBMS Home'};
   bc.innerHTML='<span>FBMS</span><span class="sep">›</span><strong>'+esc(en?item.en:item.fr)+'</strong>';}
  ensureMobileToggle();
 }
