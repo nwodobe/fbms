@@ -148,6 +148,10 @@ function render(){
   return block;
  }).join('');
  host.classList.add('fbms-v22-side');
+ // Closed-by-default menu: avoid off-screen links remaining keyboard-focusable.
+ var menuOpen=document.body.classList.contains('fbms-v22-open');
+ host.setAttribute('aria-hidden',menuOpen?'false':'true');
+ if(menuOpen)host.removeAttribute('inert');else host.setAttribute('inert','');
  host.innerHTML=header+'<nav class="fbms-v22-navigation" aria-label="'+(en?'FBMS navigation':'Navigation unique FBMS')+'">'+links+'</nav>'+
   '<div class="fbms-v22-bottom">AFLP · '+esc(ROLE_NAME[r])+'</div>';
  document.body.classList.add('fbms-v22');
@@ -159,23 +163,57 @@ function render(){
  ensureMobileToggle();
 }
 function ensureMobileToggle(){
- if(document.getElementById('fbmsMenuToggle'))return;
- var host=document.querySelector('.ops-main,.esp-main,.mm-main,.fp-main');
+ var btn=document.getElementById('fbmsMenuToggle');
+ var side=document.getElementById('opsSidebar');
+ if(!side)return;
+ if(btn)return;
+ // The former 245px left column is no longer rendered persistently.
+ // On all viewport sizes, a single Modules control opens the same six spaces.
+ var host=document.querySelector('.ops-top-actions,.mm-etats,.fp-etats')||
+          document.querySelector('.ops-main,.esp-main,.mm-main,.fp-main');
  if(!host)return;
- var btn=document.createElement('button');
- btn.id='fbmsMenuToggle';btn.type='button';btn.className='fbms-v22-toggle';
- btn.setAttribute('aria-label','Ouvrir le menu FBMS');btn.setAttribute('aria-expanded','false');
- btn.setAttribute('aria-controls','opsSidebar');btn.textContent='☰  Menu';
- var overlay=document.createElement('div');overlay.id='fbmsMenuVeil';overlay.className='fbms-v22-veil';
- host.insertBefore(btn,host.firstChild);document.body.appendChild(overlay);
- function close(){document.body.classList.remove('fbms-v22-open');btn.setAttribute('aria-expanded','false');}
+ btn=document.createElement('button');
+ btn.id='fbmsMenuToggle';
+ btn.type='button';
+ btn.className='fbms-v22-toggle';
+ btn.textContent='☰  Modules';
+ btn.setAttribute('aria-label','Ouvrir la navigation des modules FBMS');
+ btn.setAttribute('aria-expanded','false');
+ btn.setAttribute('aria-controls','opsSidebar');
+ host.insertBefore(btn,host.firstChild);
+ var overlay=document.getElementById('fbmsMenuVeil')||document.createElement('div');
+ overlay.id='fbmsMenuVeil';
+ overlay.className='fbms-v22-veil';
+ overlay.setAttribute('aria-hidden','true');
+ if(!overlay.parentNode)document.body.appendChild(overlay);
+ function setOpen(open,returnFocus){
+  document.body.classList.toggle('fbms-v22-open',open);
+  btn.setAttribute('aria-expanded',String(open));
+  btn.setAttribute('aria-label',open?'Fermer la navigation des modules FBMS':'Ouvrir la navigation des modules FBMS');
+  side.setAttribute('aria-hidden',open?'false':'true');
+  if(open){
+    side.removeAttribute('inert');
+    var first=side.querySelector('a[href]');
+    if(first)first.focus();
+  }else{
+    side.setAttribute('inert','');
+    if(returnFocus)btn.focus();
+  }
+ }
+ setOpen(false,false);
  btn.addEventListener('click',function(){
-  var open=!document.body.classList.contains('fbms-v22-open');
-  document.body.classList.toggle('fbms-v22-open',open);btn.setAttribute('aria-expanded',String(open));});
- overlay.addEventListener('click',close);
- var sidebar=document.getElementById('opsSidebar');
- if(sidebar)sidebar.addEventListener('click',function(e){if(e.target.closest('a'))close()});
- document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+   setOpen(!document.body.classList.contains('fbms-v22-open'),true);
+ });
+ overlay.addEventListener('click',function(){setOpen(false,true)});
+ side.addEventListener('click',function(e){
+  if(e.target.closest('a[href]'))setOpen(false,false);
+ });
+ document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&document.body.classList.contains('fbms-v22-open')){
+    e.preventDefault();
+    setOpen(false,true);
+  }
+ });
 }
 function init(){
  render();

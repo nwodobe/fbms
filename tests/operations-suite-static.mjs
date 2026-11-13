@@ -4,6 +4,36 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 
+/* V2.6 : the uploaded screenshot shows an unwanted full-height green sidebar.
+ * It must never occupy layout width, on desktop or mobile. The six-space navigation
+ * remains available only from the single Modules toggle.
+ */
+const noSidebarStyle=read('operations/fbms-unified-nav-v22.css');
+const noSidebarScript=read('operations/fbms-unified-nav-v22.js');
+assert.ok(noSidebarStyle.includes('FBMS V2.6'), 'No-sidebar design rules missing');
+assert.ok(noSidebarStyle.includes('display:block!important'), 'Full-width shell required');
+assert.ok(noSidebarStyle.includes('transform:translateX(-110%)!important'), 'Closed sidebar must be fully offscreen');
+assert.ok(noSidebarStyle.includes('visibility:hidden!important'), 'Invisible sidebar must not be focusable or clickable');
+assert.ok(noSidebarStyle.includes('body.fbms-v22-open #opsSidebar.fbms-v22-side'), 'Temporary Modules panel must open on demand');
+assert.ok(noSidebarScript.includes("btn.textContent='☰  Modules'"), 'A single Modules button must replace the left band');
+assert.ok(noSidebarScript.includes("side.setAttribute('inert','')"), 'Closed Modules drawer must be inert');
+assert.ok(noSidebarScript.includes("side.removeAttribute('inert')"), 'Open Modules drawer must be accessible');
+assert.ok(noSidebarScript.includes("btn.setAttribute('aria-controls','opsSidebar')"), 'Modules toggle must control the single menu');
+const menuItemCount=(noSidebarScript.match(/id:'E[0-5]'/g)||[]).length;
+assert.equal(menuItemCount,6,'Six spaces must remain');
+const swV26=read('sw.js');
+assert.ok(swV26.includes('ops-offline-v26-no-persistent-sidebar'), 'Service worker must invalidate stale offline shell');
+for(const file of ['index.html','operations/field-buying.html','operations/procurement.html',
+                   'operations/reports.html','operations/aflp-data.html','operations/campaigns.html',
+                   'operations/traceability.html','moto/index.html','fieldproof/index.html']){
+ const html=read(file);
+ assert.ok(html.includes('fbms-unified-nav-v22.css?v=20261113-no-sidebar-1'), file+' must reload new menu style');
+ assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'), file+' must reload new menu controller');
+}
+
+
+
+
 /* AFLP FLEET is the first of exactly six spaces; the homepage is a neutral landing screen. */
 const fleetNav=read('operations/fbms-unified-nav-v22.js');
 assert.ok(fleetNav.includes("{id:'E0',fr:'AFLP FLEET'"), 'AFLP FLEET must replace Ma journée as first space');
@@ -17,7 +47,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-obs-3'),'Home must bust stale cached navigation JS');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'),'Home must load the refreshed navigation JS');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
