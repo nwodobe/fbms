@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
+
+/* Ma journée: hard guarantee of no legacy sublinks even with cached JS. */
+assert.ok(portal.includes('id="fbms-home-clean-navigation"'),'Home must have CSS backup hiding subordinate sidebar links');
+assert.ok(portal.includes('body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context'),'Only homepage should suppress submenu with scoped selector');
+assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cached-js legacy submenu nodes');
+assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
+assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
+assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-homefix-1'),'Home must bust stale cached navigation JS');
+
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
 /* FBMS V2.4 – photo provenance and single clean sidebar. */
