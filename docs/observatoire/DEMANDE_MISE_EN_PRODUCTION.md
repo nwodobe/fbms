@@ -78,3 +78,16 @@ Ajouts depuis la contre-expertise : 6 attaques logiques de synchronisation (clé
 ## 7. Ce que je n'ai pas fait
 
 Aucune migration en production, aucune fusion, aucun déploiement, aucune donnée réelle copiée, aucun contournement du refus d'écriture GitHub ou du refus de téléchargement d'exécutables externes (qui aurait permis une recette HTTP locale).
+
+## 8. Décisions du Branch Manager (13/11/2026, 17 h 58) et exécution
+
+Monsieur KOUASSI a accordé D1, D2, D3 et D4.
+
+| Décision | Exécution | Résultat |
+|---|---|---|
+| D1 Publication | Nouvelle demande d'accès en écriture à GitHub pour l'agent | **Refusée** par le contrôle d'accès (3e refus). Non contournée. À faire par le BM avec `PROCEDURE_TRANSFERT_GITHUB.md`. |
+| D2 Projet Supabase de test | `create_project` « fbms-recette-observatoire », organisation PJS ANAGROCI, eu-central-1 | **Refusé par Supabase** : limite de 2 projets gratuits actifs atteinte pour le compte administrateur. Il faut passer l'organisation au plan payant ou mettre en pause un projet. La production ne doit pas être mise en pause. |
+| D3 Correctif photos | Étape 1 (front) développée sur la branche séparée `fix/photos-urls-signees` (base `3686cb1`) : URL signées à l'affichage avec repli ; 11 tests ; 0 nouvel écart au dépôt | **Prête, non publiée** (même blocage que D1). La migration (étape 2) ne doit être appliquée qu'après la mise en ligne de ce front, sinon 42 fiches perdent leurs photos. Non appliquée. |
+| D4 Mise en production conditionnelle | Condition : D2 réussie à 100 % | **Condition non remplie** : aucune migration appliquée, aucune fusion. |
+
+Ce chapitre est clos côté développement et preuves. Il reste trois gestes, tous de votre ressort : (1) publier les deux branches ; (2) débloquer un projet Supabase de test (plan payant de l'organisation) ; (3) une fois la recette HTTP passée, me redonner la main pour exécuter la séquence du § 4 et l'étape 2 du correctif photos.
