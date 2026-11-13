@@ -50,3 +50,14 @@
 }
 @media(max-width:365px){.fbms-v23-card-media{flex-basis:32%;width:32%}.fbms-v23-card-text{padding:10px}.fbms-v23-card-title{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.fbms-v23-card,.fbms-v23-card-media img{transition:none!important}.fbms-v23-card:hover{transform:none}.fbms-v23-card:hover img{transform:none}}
+
+/* V2.4: keep the original AFLP group visible, avoiding the cramped phone crop.
+ * Important: no upscaling from 320px, file is now 800x360 WebP.
+ */
+.fbms-v23-card[data-space="E1"] .fbms-v23-card-media img{object-position:50% 45%;filter:saturate(1.04) contrast(1.045)}
+.fbms-v23-card[data-space="E3"] .fbms-v23-card-media img{object-position:50% 47%;filter:saturate(.96) contrast(1.035)}
+@media(max-width:650px){
+  .fbms-v23-card[data-space="E1"]{flex-direction:column}
+  .fbms-v23-card[data-space="E1"] .fbms-v23-card-media{width:100%;flex:0 0 auto;aspect-ratio:2.6/1;min-height:0}
+  .fbms-v23-card[data-space="E1"] .fbms-v23-card-text{padding:12px 14px}
+}
