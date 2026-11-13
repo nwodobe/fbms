@@ -173,7 +173,7 @@ async function main() {
   try {
     /* ----- A. Assistant Unit Head, en ligne : menu, préparation ----- */
     await ouvrir('observatoire', 'auh_bro');
-    await verifier('E2E-01', F, 'Entrée « Observatoire agronomique » dans le menu FIELD BUYING', async () => (await page.locator('#opsSidebar a[href="#observatoire"]').count()) === 1);
+    await verifier('E2E-01', F, 'Entrée « Observatoire agronomique » dans la navigation unique V2.2 (menu Terrain)', async () => (await page.locator('a[href$="#observatoire"]').count()) >= 1 && /Observatoire agronomique/.test(await page.locator('body').innerText()));
     await verifier('E2E-02', F, 'Bandeau pilote : aucun indicateur officiel', async () => /Collecte pilote/.test(await texte()) && /aucun indicateur officiel/.test(await texte()));
     await verifier('E2E-03', F, 'Onglets de l’Assistant Unit Head : collecte seulement (ni Validation ni Affectations)', async () => egal(await page.locator('.obs-onglets a').allInnerTexts(), ['Mes champs', 'Envois']));
     await clic('[data-act="preparer"]'); await attendre('Appareil prêt');

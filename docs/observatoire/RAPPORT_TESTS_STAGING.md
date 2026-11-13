@@ -1,6 +1,6 @@
 # Observatoire AFLP 2027 — tests rejoués sur le staging fidèle
 
-Exécution serveur : 2026-11-13 17:43 UTC ; navigateur : 2026-11-13T17:44 UTC. Base : PostgreSQL 16 local `fbms_pheno_staging`, construite par `tests/observatoire/staging/construire_staging.sh` à partir du catalogue de PRODUCTION extrait en lecture seule (projet jmbdgpdthzpszfnddwzi, PostgreSQL 17.6). Données 100 % fictives ; aucune donnée personnelle recopiée.
+Exécution serveur : 2026-11-13 18:25 UTC ; navigateur : 2026-11-13T18:26 UTC. Base : PostgreSQL 16 local `fbms_pheno_staging`, construite par `tests/observatoire/staging/construire_staging.sh` à partir du catalogue de PRODUCTION extrait en lecture seule (projet jmbdgpdthzpszfnddwzi, PostgreSQL 17.6). Données 100 % fictives ; aucune donnée personnelle recopiée.
 
 ## Fidélité du staging
 
