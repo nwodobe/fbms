@@ -172,6 +172,8 @@ function ensureMobileToggle(){
   var open=!document.body.classList.contains('fbms-v22-open');
   document.body.classList.toggle('fbms-v22-open',open);btn.setAttribute('aria-expanded',String(open));});
  overlay.addEventListener('click',close);
+ var sidebar=document.getElementById('opsSidebar');
+ if(sidebar)sidebar.addEventListener('click',function(e){if(e.target.closest('a'))close()});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
 }
 function init(){
