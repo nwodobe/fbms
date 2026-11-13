@@ -19,6 +19,15 @@ const v22Nav = read('operations/fbms-unified-nav-v22.js');
 for (const space of ['Ma journée','Réseau','Terrain','Achats & comptes RT','Expédition','Pilotage & administration']) {
   assert.ok(v22Nav.includes(space), 'Six-space navigation missing '+space);
 }
+for(const specialized of ['moto/index.html','fieldproof/index.html']) {
+  const html=read(specialized);
+  assert.ok(html.includes('fbms-unified-nav-v22.js'), specialized+' must share the FBMS navigation');
+  assert.ok(html.includes('fbms-unified-nav-v22.css'), specialized+' must share the FBMS design system');
+}
+const v22CSS=read('operations/fbms-unified-nav-v22.css');
+assert.ok(v22CSS.includes('.fbms-v22-specialized #motoNav'), 'Fleet second navigation must be hidden');
+assert.ok(v22CSS.includes('nav.fp-nav'), 'Field Proof second navigation must be hidden');
+assert.ok(v22Nav.includes('querySelectorAll(\'a[href^="#"]\')'), 'Specialized internal routes must remain reachable');
 const v22Legacy = read('operations/espaces.html');
 assert.ok(v22Legacy.includes('location.replace'), 'Old six-space bookmarks must redirect without a second navigation');
 assert.ok(!v22Legacy.includes('id="espView"'), 'Old intermediate gallery still visible');
