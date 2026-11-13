@@ -115,7 +115,11 @@ function render(){
   var topLabel=(en?s.en:s.fr);
   var block='<a class="fbms-v22-main'+(isActive?' active':'')+'" href="'+esc(hrefInApp(top))+'"'+(isActive?' aria-current="page"':'')+'>'+
     '<span aria-hidden="true" class="fbms-v22-icon">'+s.icon+'</span>'+esc(topLabel)+'</a>';
-  if(isActive){
+  // The landing page is the workspace: do not show the subordinate
+  // Accueil / Missions & carburant / Preuves terrain bar beneath Ma journée.
+  // Fleet retains its own contextual *routes* inside this same menu so
+  // riders can still reach their tools; only the home E0 block is removed.
+  if(isActive && (s.id!=='E0' || /\/moto\//.test(global.location.pathname))){
    block+='<div class="fbms-v22-context">';
    s.items.forEach(function(x){
     if(x[3]==='document'&&r==='RO')return;

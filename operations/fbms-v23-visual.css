@@ -1,0 +1,63 @@
+/* FBMS V2.3 – photographic task shortcuts inside a SINGLE V2.2 app shell.
+ * Cards are destinations, not a second application navigation layer.
+ * Genuine user-supplied Réseau image: /assets/operations/modules/aflp-reseau-terrain-20261113.webp.
+ */
+:root{--v23-forest:#053B23;--v23-green:#008F37;--v23-mist:#E0F3DE;--v23-ink:#323131}
+.fbms-v23 .ops-main{background:linear-gradient(180deg,#F5FAF5 0%,#F8FBF8 35%,#fff 100%);padding:28px clamp(14px,2.8vw,36px)}
+.fbms-v23 .fbms-day-header{padding:0 0 19px;border-bottom:1px solid #DCE9DF;margin:0 0 18px}
+.fbms-v23 .fbms-day-header small{display:inline-flex;gap:8px;align-items:center;color:var(--v23-green);font:800 11px 'IBM Plex Sans',Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase}
+.fbms-v23 .fbms-day-header small::before{content:'';height:7px;width:7px;border-radius:50%;background:var(--v23-green)}
+.fbms-v23 .fbms-day-header h1{color:var(--v23-forest);font:800 clamp(26px,2.8vw,38px)/1.18 Archivo,Arial,sans-serif;letter-spacing:-.02em;margin:8px 0 7px}
+.fbms-v23 .fbms-day-header p{color:#546B5C;line-height:1.6;font-size:14px;max-width:760px;margin:0}
+.fbms-v23-section-title{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 14px}
+.fbms-v23-section-title h2{font:800 19px Archivo,Arial,sans-serif;color:var(--v23-forest);margin:0}
+.fbms-v23-section-title p{font-size:12px;color:#6B7B6F;margin:4px 0 0}
+.fbms-v23-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
+.fbms-v23-card{background:#fff;border:1px solid #D7E7D9;border-radius:17px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none!important;box-shadow:0 10px 27px rgba(4,40,23,.07);color:var(--v23-forest)!important;min-width:0;transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease}
+.fbms-v23-card:hover{box-shadow:0 15px 35px rgba(4,40,23,.15);border-color:#93C9A5;transform:translateY(-2px)}
+.fbms-v23-card:focus-visible,.fbms-v23-shortcut:focus-visible{outline:3px solid #D59737;outline-offset:3px}
+.fbms-v23-card-media{aspect-ratio:16/8.6;display:block;position:relative;overflow:hidden;background:linear-gradient(120deg,#D4E9D4,#E8F1E8)}
+.fbms-v23-card-media img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 45%;filter:saturate(.95) contrast(1.03);transition:transform .25s ease}
+.fbms-v23-card:hover .fbms-v23-card-media img{transform:scale(1.03)}
+.fbms-v23-card[data-space="E1"] .fbms-v23-card-media img{object-position:center 50%}
+.fbms-v23-card-media::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 75%,rgba(5,59,35,.12))}
+.fbms-v23-card-text{padding:17px 18px 18px;display:flex;flex-direction:column;flex:1;gap:7px}
+.fbms-v23-card-overline{font:800 10px 'IBM Plex Sans',Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--v23-green)}
+.fbms-v23-card-title{font:800 18px/1.2 Archivo,Arial,sans-serif;color:var(--v23-forest)}
+.fbms-v23-card-desc{font:500 12px/1.5 'IBM Plex Sans',Arial,sans-serif;color:#62776A;min-height:36px}
+.fbms-v23-card-go{margin-top:auto;padding-top:10px;font:800 11px/1.4 'IBM Plex Sans',Arial,sans-serif;color:var(--v23-green);display:flex;justify-content:space-between;align-items:center}
+.fbms-v23-card-go span{font-size:17px}
+.fbms-v23-card[hidden],.fbms-v23-shortcut[hidden]{display:none!important}
+.fbms-v23-quick{margin-top:25px;padding:19px 21px 20px;border:1px solid #D8E7DA;background:#fff;border-radius:16px}
+.fbms-v23-actions{display:flex;gap:9px;flex-wrap:wrap}
+.fbms-v23-shortcut{border:1px solid #CDE5D3;border-radius:10px;background:#F4FAF5;color:#07472A!important;font:700 12px 'IBM Plex Sans',Arial,sans-serif;text-decoration:none!important;padding:12px 14px;min-height:45px;display:inline-flex;align-items:center;gap:7px}
+.fbms-v23-shortcut:hover{border-color:#008F37;background:#E8F8E9}
+.fbms-v23-quick .fbms-v23-section-title{margin-bottom:14px}
+.fbms-v23 .fbms-day-footer{color:#607468;font-size:11px;margin:22px 0}
+.fbms-v23 .fbms-day-notice{font-size:12px;background:#F0F6F2;border-left:3px solid #008F37;border-radius:6px;color:#435F4C;padding:12px;margin:17px 0 0}
+@media(max-width:1099px){.fbms-v23-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){
+ .fbms-v23 .ops-main{padding:16px 12px 25px}
+ .fbms-v23-grid{grid-template-columns:minmax(0,1fr);gap:11px}
+ .fbms-v23-card{flex-direction:row;min-height:122px;border-radius:13px}
+ .fbms-v23-card-media{flex:0 0 37%;width:37%;aspect-ratio:auto;min-height:122px}
+ .fbms-v23-card-text{padding:12px 12px 11px;gap:5px}
+ .fbms-v23-card-title{font-size:16px}
+ .fbms-v23-card-desc{font-size:11px;min-height:0}
+ .fbms-v23-card-go{padding-top:5px;font-size:10.5px}
+ .fbms-v23-quick{padding:15px 13px}
+ .fbms-v23-shortcut{flex:1 1 45%;justify-content:center;font-size:11px;padding:10px}
+}
+@media(max-width:365px){.fbms-v23-card-media{flex-basis:32%;width:32%}.fbms-v23-card-text{padding:10px}.fbms-v23-card-title{font-size:15px}}
+@media(prefers-reduced-motion:reduce){.fbms-v23-card,.fbms-v23-card-media img{transition:none!important}.fbms-v23-card:hover{transform:none}.fbms-v23-card:hover img{transform:none}}
+
+/* V2.4: keep the original AFLP group visible, avoiding the cramped phone crop.
+ * Important: no upscaling from 320px, file is now 800x360 WebP.
+ */
+.fbms-v23-card[data-space="E1"] .fbms-v23-card-media img{object-position:50% 45%;filter:saturate(1.04) contrast(1.045)}
+.fbms-v23-card[data-space="E3"] .fbms-v23-card-media img{object-position:50% 47%;filter:saturate(.96) contrast(1.035)}
+@media(max-width:650px){
+  .fbms-v23-card[data-space="E1"]{flex-direction:column}
+  .fbms-v23-card[data-space="E1"] .fbms-v23-card-media{width:100%;flex:0 0 auto;aspect-ratio:2.6/1;min-height:0}
+  .fbms-v23-card[data-space="E1"] .fbms-v23-card-text{padding:12px 14px}
+}

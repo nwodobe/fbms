@@ -4,6 +4,48 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
+
+/* FBMS V2.4 – photo provenance and single clean sidebar. */
+assert.ok(portal.includes('aflp-reseau-terrain-v24-800.webp'), 'Réseau must use the higher-resolution original field photograph');
+assert.ok(portal.includes('width="800" height="360"'), 'Réseau dimensions must describe the actual image');
+assert.ok(portal.includes('aflp-achats-rt-adultes-v24.webp'), 'RCN purchasing photo must be replaced with adult-only professional illustration');
+assert.ok(!portal.includes('src="assets/operations/modules/field-buying.webp"'), 'Unsuitable historical buying illustration must not be used on the home page');
+for (const p of ['assets/operations/modules/aflp-reseau-terrain-v24-800.webp','assets/operations/modules/aflp-achats-rt-adultes-v24.webp']) {
+ const img=fs.readFileSync(new URL('../'+p,import.meta.url));
+ assert.ok(img.length>40000&&img.length<160000,'Image size not optimized: '+p);
+ assert.equal(img.subarray(0,4).toString('ascii'),'RIFF','WebP header missing: '+p);
+}
+const v24Nav=read('operations/fbms-unified-nav-v22.js');
+assert.ok(v24Nav.includes("if(isActive && (s.id!=='E0'"), 'Home submenu should not be rendered in the landing page');
+assert.ok(v24Nav.includes("moto") && v24Nav.includes("global.location.pathname"), 'Fleet must retain contextual routes');
+assert.ok(portal.includes('href="moto/index.html"'), 'Missions and fuel still need to be directly accessible');
+assert.ok(portal.includes('href="operations/field-buying.html#sync"'), 'Synchronisation must remain directly accessible');
+
+/* FBMS V2.3 – visual shortcuts without a second shell or a portal gallery. */
+assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missing');
+assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
+for (const id of ['E0','E1','E2','E3','E4','E5']) {
+ assert.ok(portal.includes('class="fbms-v23-card" data-space="'+id+'"'), 'illustrated space missing: '+id);
+}
+const v23Cards=(portal.match(/class="fbms-v23-card" data-space=/g)||[]).length;
+assert.equal(v23Cards,6,'exactly six illustrated spaces expected, no second portal');
+assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-v24-800.webp'), 'user supplied Réseau photo is required');
+const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-v24-800.webp',import.meta.url));
+assert.ok(reseauImage.length>40000&&reseauImage.length<160000,'Réseau photo should be present and compressed');
+assert.equal(reseauImage.subarray(0,4).toString('ascii'),'RIFF','Réseau image must be a RIFF WebP');
+for (const href of [
+ 'operations/field-buying.html#farmers',
+ 'operations/field-buying.html#sustainability',
+ 'operations/field-buying.html#purchases',
+ 'operations/procurement.html#evacuations',
+ 'operations/field-buying.html#overview'
+]) assert.ok(portal.includes('href="'+href+'"'), 'space must directly open an existing function: '+href);
+assert.ok(portal.includes('fbms-unified-nav-v22.js'),'V2.3 must preserve the one menu shared with operations');
+assert.ok(!portal.includes('operations/espaces.html#'),'V2.3 must not recreate an intermediate portal');
+for(const visual of ['moto-manager.webp','field-proof.webp','field-buying.webp','stock-transfer.webp','reports.webp']) {
+ assert.ok(fs.existsSync(new URL('../assets/operations/modules/'+visual,import.meta.url)),'image missing: '+visual);
+}
+
 /* FBMS V2.2 – single navigation: Ma journée is the root, not a card gallery.
    All existing routes remain reachable through a canonical shared sidebar. */
 assert.ok(portal.includes('Ma journée'), 'FBMS entry must open Ma journée');
