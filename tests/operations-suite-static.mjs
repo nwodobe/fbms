@@ -45,7 +45,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-fleet-first-1'),'Home must bust stale cached navigation JS');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'),'Home must load current no-sidebar JS instead of stale cached navigation');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
