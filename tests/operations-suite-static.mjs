@@ -4,10 +4,16 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
-/* Portail AFLP 2027 (décision BM du 12/11/2026) : 6 workspaces AFLP ; Factory, LBA et fournisseurs ne sont plus
-   exposés au portail (pages conservées et testées ci-dessous). */
-for (const label of ['FIELD BUYING','LOTS &amp; EXPÉDITIONS','ENTREPÔTS RELAIS','TRANSFERTS RELAIS','AFLP FLEET','AFLP FIELD PROOF','TRACEABILITY 360','REPORTS & EXPORT']) {
+/* Portail AFLP 2027 V2.1 (13/11/2026) : six espaces (operations/espaces.html), deux services
+   transversaux, et accès direct conservé aux espaces actuels (rien n'est masqué avant bascule PJS). */
+for (const label of ['MA JOURNÉE','RÉSEAU','TERRAIN','ACHATS &amp; COMPTES RT','EXPÉDITION','PILOTAGE &amp; ADMINISTRATION','AFLP FLEET','AFLP FIELD PROOF']) {
   assert.ok(portal.includes(label), `portal missing ${label}`);
+}
+for (const id of ['E0','E1','E2','E3','E4','E5']) {
+  assert.ok(portal.includes(`href="operations/espaces.html#${id}"`), `portal missing espace ${id}`);
+}
+for (const href of ['operations/field-buying.html','operations/procurement.html','operations/warehouse.html','operations/stock-transfer.html','operations/traceability.html','operations/reports.html']) {
+  assert.ok(portal.includes(`href="${href}"`), `portal missing direct access ${href}`);
 }
 assert.ok(!portal.includes('href="operations/factory.html"'), 'Factory ne doit plus être exposé au portail AFLP');
 assert.ok(portal.includes('ACHAT BORD CHAMP'), 'portal must use Achat Bord Champ');
