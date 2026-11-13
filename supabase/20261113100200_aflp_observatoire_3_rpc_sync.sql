@@ -8,9 +8,10 @@
 --     qui contrôlent le rôle, le périmètre et l'état avant d'écrire.
 --   * Tirage reproductible : ordre croissant de sha256('<graine>:<numéro>').
 --     Graines NON CHOISIES par l'agent (audit du 13/11/2026) :
---       blocs  = '<campaign_id>:<plot_id>:BLOCS'
---       arbres = '<campaign_id>:<plot_id>:B<numéro du bloc>:ARBRES'
---     Réinstaller un champ ne change donc pas le tirage. Le navigateur applique
+--       blocs  = '<graine de campagne>:<plot_id>:BLOCS'
+--       arbres = '<graine de campagne>:<plot_id>:B<numéro du bloc>:ARBRES'
+--     La graine de campagne est aléatoire, tirée par le serveur, créée par le BM
+--     avant toute installation et immuable. Réinstaller ne change pas le tirage. Le navigateur applique
 --     le même calcul hors ligne ; le serveur fait foi et recalcule.
 --   * b (blocs tirés) est transmis AVANT le tirage et verrouillé avec lui.
 --     Un tirage verrouillé ne peut être ni rejoué ni modifié.
@@ -55,6 +56,26 @@ language sql stable security definer set search_path to 'public', 'pg_temp' as $
   select exists (select 1 from public.campaigns where id = p_campaign and status = 'OPEN')
 $$;
 
+create or replace function private.pheno_graine(p_campaign uuid) returns text
+language sql stable security definer set search_path to 'public', 'pg_temp' as $$
+  select graine from public.pheno_graines where campaign_id = p_campaign
+$$;
+
+-- Création unique de la graine de campagne par le Branch Manager (aléa serveur).
+create or replace function public.pheno_graine_creer(p_campaign uuid) returns jsonb
+language plpgsql security definer set search_path to 'public', 'private', 'pg_temp' as $$
+declare v_g text;
+begin
+  if private.pheno_classe() is distinct from 'BM' then raise exception 'Réservé au Branch Manager.' using errcode = 'PH001'; end if;
+  if not exists (select 1 from public.campaigns where id = p_campaign) then raise exception 'Campagne inconnue.' using errcode = 'PH002'; end if;
+  select graine into v_g from public.pheno_graines where campaign_id = p_campaign;
+  if v_g is not null then return jsonb_build_object('campaign_id', p_campaign, 'graine', v_g, 'deja_creee', true); end if;
+  v_g := private.pheno_hex(gen_random_uuid()::text || gen_random_uuid()::text || clock_timestamp()::text);
+  insert into public.pheno_graines (campaign_id, graine, cree_par) values (p_campaign, v_g, auth.uid());
+  perform private.pheno_journaliser(null, 'GRAINE', p_campaign, 'GRAINE_CREEE', null, jsonb_build_object('graine', v_g), null);
+  return jsonb_build_object('campaign_id', p_campaign, 'graine', v_g, 'deja_creee', false);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Tirage des arbres, quand tous les blocs tirés sont inventoriés
 -- ---------------------------------------------------------------------
@@ -86,7 +107,7 @@ begin
   end if;
 
   for v_b in select * from public.pheno_blocs where panel_id = p_panel and tire order by rang_tirage loop
-    v_ordre := private.pheno_tirage(v_panel.campaign_id::text || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES', v_b.nb_arbres_inventories,
+    v_ordre := private.pheno_tirage(private.pheno_graine(v_panel.campaign_id) || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES', v_b.nb_arbres_inventories,
       least(v_b.nb_arbres_inventories, v_b.nb_titulaires_prevus + v_b.nb_reserves_prevues));
     v_proba := coalesce(v_panel.pi_village, 1) * coalesce(v_panel.pi_champ, 1)
       * (v_panel.nb_blocs_tires::numeric / v_panel.nb_blocs_total)
@@ -105,7 +126,7 @@ begin
       end if;
     end loop;
     v_manque := v_manque + greatest(0, v_b.nb_titulaires_prevus + v_b.nb_reserves_prevues - v_b.nb_arbres_inventories);
-    v_detail := v_detail || jsonb_build_object('bloc', v_b.numero, 'graine', v_panel.campaign_id::text || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES',
+    v_detail := v_detail || jsonb_build_object('bloc', v_b.numero, 'graine', private.pheno_graine(v_panel.campaign_id) || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES',
       'N', v_b.nb_arbres_inventories, 'm', v_b.nb_titulaires_prevus, 'ordre', to_jsonb(v_ordre), 'proba', v_proba);
   end loop;
 
@@ -153,6 +174,8 @@ begin
   end if;
   if not private.pheno_campagne_ouverte(v_campaign) then
     raise exception 'La campagne n''est pas ouverte.' using errcode = 'PH002'; end if;
+  if private.pheno_graine(v_campaign) is null then
+    raise exception 'Graine de tirage de la campagne absente : le Branch Manager doit la créer avant toute installation.' using errcode = 'PH002'; end if;
 
   select * into v_proto from public.pheno_protocoles where actif order by created_at desc limit 1;
   if not found then raise exception 'Aucun protocole actif.' using errcode = 'PH002'; end if;
@@ -172,11 +195,11 @@ begin
     nb_blocs_total, nb_blocs_tires, tirage_graine, tirage_par, device_id, created_by,
     pi_village, pi_champ)
   values (v_id, v_campaign, v_proto.id, v_plot.id, v_plot.producteur_id, v_plot.village_id, v_cluster,
-    v_total, v_tires, v_campaign::text || ':' || v_plot.id::text || ':BLOCS', auth.uid(), p->>'device_id', auth.uid(),
+    v_total, v_tires, private.pheno_graine(v_campaign) || ':' || v_plot.id::text || ':BLOCS', auth.uid(), p->>'device_id', auth.uid(),
     case when private.pheno_classe() = 'BM' then (p->>'pi_village')::numeric end,
     case when private.pheno_classe() = 'BM' then (p->>'pi_champ')::numeric end);
 
-  v_ordre := private.pheno_tirage(v_campaign::text || ':' || v_plot.id::text || ':BLOCS', v_total, v_tires);
+  v_ordre := private.pheno_tirage(private.pheno_graine(v_campaign) || ':' || v_plot.id::text || ':BLOCS', v_total, v_tires);
   for v_bloc in select * from jsonb_array_elements(p->'blocs') loop
     v_rang := array_position(v_ordre, (v_bloc->>'numero')::integer);
     v_m := 0; v_r := 0;
@@ -190,7 +213,7 @@ begin
   end loop;
 
   perform private.pheno_journaliser(v_cluster, 'PANEL', v_id, 'TIRAGE_BLOCS', null, jsonb_build_object(
-    'protocole', v_proto.code || ' ' || v_proto.version, 'graine', v_campaign::text || ':' || v_plot.id::text || ':BLOCS',
+    'protocole', v_proto.code || ' ' || v_proto.version, 'graine', private.pheno_graine(v_campaign) || ':' || v_plot.id::text || ':BLOCS',
     'algorithme', 'sha256(graine:numero) croissant', 'B', v_total, 'b', v_tires, 'blocs_tires', to_jsonb(v_ordre),
     'b_fixe_avant_tirage', true, 'appareil', p->>'device_id', 'saisi_le_client', p->>'created_at_client'), null);
 
@@ -488,7 +511,7 @@ begin
       raise exception 'L''arbre % n''est pas observé (réserve non activée ou arbre remplacé).', v_arbre.code using errcode = 'PH002'; end if;
     v_dem := private.pheno_obs_demande(v_o);
     v_photo := v_dem->>'photo_ref';
-    if v_photo is not null and v_photo not like v_panel.campaign_id::text || '/' || v_panel.id::text || '/%' then
+    if v_photo is not null and v_photo not like v_panel.campaign_id::text || '/' || v_panel.id::text || '/' || v_uid::text || '/%' then
       raise exception 'Référence de preuve invalide.' using errcode = 'PH002'; end if;
     select * into v_old from public.pheno_observations where visite_id = v_id and arbre_id = v_arbre.id;
     if found then
@@ -529,7 +552,7 @@ end $$;
 create or replace function public.pheno_sync_batch(p_operations jsonb) returns jsonb
 language plpgsql security definer set search_path to 'public', 'private', 'pg_temp' as $$
 declare
-  v_op jsonb; v_cle text; v_hash text; v_recu private.pheno_sync_recus; v_res jsonb; v_out jsonb := '[]'::jsonb; v_payload jsonb;
+  v_op jsonb; v_cle text; v_hash text; v_recu private.pheno_sync_recus; v_res jsonb; v_out jsonb := '[]'::jsonb; v_payload jsonb; v_diag text;
 begin
   if auth.uid() is null or private.pheno_classe() is null then
     raise exception 'Accès à l''Observatoire refusé.' using errcode = 'PH001'; end if;
@@ -543,7 +566,10 @@ begin
       continue;
     end if;
     -- Empreinte sur la forme canonique jsonb (clés triées par PostgreSQL), en SHA-256.
-    v_hash := private.pheno_hex(coalesce(v_op->>'type', '') || '|' || coalesce((v_op->'payload')::text, ''));
+    -- Empreinte sur toute l'enveloppe qui fait foi (type, charge, appareil, date client) : un renvoi
+    -- d'un autre appareil avec la même clé est refusé (audit T1). L'utilisateur vient de la session.
+    v_hash := private.pheno_hex(jsonb_build_object('type', v_op->'type', 'payload', coalesce(v_op->'payload', '{}'::jsonb),
+      'device_id', v_op->'device_id', 'created_at_client', v_op->'created_at_client')::text);
     -- Deux envois simultanés de la même opération : le second attend la fin du premier,
     -- puis trouve son accusé (écriture métier et accusé sont dans la même transaction).
     perform pg_advisory_xact_lock(hashtextextended('pheno_sync:' || v_cle, 0));
@@ -571,7 +597,13 @@ begin
       when sqlstate 'PH409' then v_res := jsonb_build_object('statut', 'CONFLIT', 'code', 'PH409', 'message', sqlerrm);
       when sqlstate 'PH001' then v_res := jsonb_build_object('statut', 'REJETEE', 'code', 'PH001', 'message', sqlerrm);
       when sqlstate 'PH002' then v_res := jsonb_build_object('statut', 'REJETEE', 'code', 'PH002', 'message', sqlerrm);
-      when others then v_res := jsonb_build_object('statut', 'REJETEE', 'code', sqlstate, 'message', 'Opération refusée par le serveur : ' || sqlerrm);
+      when others then
+        -- Aucun détail technique vers le téléphone (audit T3) : code de diagnostic, détail au journal (invisible des écrans).
+        v_diag := substr(private.pheno_hex(gen_random_uuid()::text), 1, 10);
+        insert into public.pheno_journal (acteur, cluster_code, entite, entite_id, action, nouvelle)
+        values (auth.uid(), null, 'SYNCHRO', null, 'ERREUR_TECHNIQUE', jsonb_build_object('diagnostic', v_diag, 'sqlstate', sqlstate, 'detail', sqlerrm, 'type', v_op->>'type'));
+        v_res := jsonb_build_object('statut', 'REJETEE', 'code', 'TECHNIQUE', 'diagnostic', v_diag,
+          'message', 'Opération refusée par le serveur (erreur technique). Communiquez le code ' || v_diag || ' à votre Unit Head.');
     end;
     v_res := v_res || jsonb_build_object('idempotency_key', v_cle, 'recu_serveur_le', coalesce(v_res->'recu_serveur_le', to_jsonb(now())));
     -- Un refus n'est pas mémorisé : il peut être rejoué après correction (droit, campagne…).
@@ -756,18 +788,18 @@ revoke all on function private.pheno_hex(text), private.pheno_tirage(text, integ
   private.pheno_journaliser(text, text, uuid, text, jsonb, jsonb, text), private.pheno_campagne_ouverte(uuid),
   private.pheno_tirer_arbres(uuid), private.pheno_obs_valeurs(public.pheno_observations), private.pheno_obs_demande(jsonb),
   private.pheno_visite_controler(uuid), private.pheno_visite_enregistrer(jsonb), private.pheno_recalculer_evenements(uuid),
-  private.pheno_visite_pour_decision(uuid, integer) from public, anon, authenticated;
+  private.pheno_visite_pour_decision(uuid, integer), private.pheno_graine(uuid) from public, anon, authenticated;
 revoke all on function public.pheno_panel_installer(jsonb), public.pheno_bloc_inventorier(jsonb), public.pheno_arbre_marquer(jsonb),
   public.pheno_reserve_activer(uuid, text), public.pheno_panel_definir_probabilites(uuid, numeric, numeric, text),
   public.pheno_affectation_accorder(jsonb), public.pheno_affectation_revoquer(uuid, text), public.pheno_sync_batch(jsonb),
   public.pheno_visite_verifier(uuid, integer), public.pheno_visite_demander_correction(uuid, text, integer),
   public.pheno_visite_valider(uuid, integer), public.pheno_correction_decider(uuid, text, text),
-  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid) from public, anon;
+  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid), public.pheno_graine_creer(uuid) from public, anon;
 grant execute on function public.pheno_panel_installer(jsonb), public.pheno_bloc_inventorier(jsonb), public.pheno_arbre_marquer(jsonb),
   public.pheno_reserve_activer(uuid, text), public.pheno_panel_definir_probabilites(uuid, numeric, numeric, text),
   public.pheno_affectation_accorder(jsonb), public.pheno_affectation_revoquer(uuid, text), public.pheno_sync_batch(jsonb),
   public.pheno_visite_verifier(uuid, integer), public.pheno_visite_demander_correction(uuid, text, integer),
   public.pheno_visite_valider(uuid, integer), public.pheno_correction_decider(uuid, text, text),
-  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid) to authenticated;
+  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid), public.pheno_graine_creer(uuid) to authenticated;
 
 commit;

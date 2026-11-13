@@ -3,8 +3,9 @@
    Mêmes règles que le serveur (supabase/20261113100200_aflp_observatoire_3_rpc_sync.sql) :
    le serveur fait foi et recalcule ; ce module permet de travailler HORS LIGNE.
      · tirage reproductible : ordre croissant de sha256('<graine>:<numéro>') ;
-     · graines non choisies par l'agent : blocs = '<campagne>:<parcelle>:BLOCS',
-       arbres = '<campagne>:<parcelle>:B<numéro du bloc>:ARBRES' ;
+     · graines non choisies par l'agent : blocs = '<graine de campagne>:<parcelle>:BLOCS',
+       arbres = '<graine de campagne>:<parcelle>:B<numéro du bloc>:ARBRES' ; la graine de
+       campagne est aléatoire, créée par le serveur et téléchargée à la préparation hors ligne ;
      · identifiant d'arbre déterministe = 32 premiers hexadécimaux de sha256('<bloc_id>:ARBRE:<numéro>') ;
      · aucune réponse n'est préremplie : une réponse absente vaut null, jamais « Non ».
    Utilisable dans le navigateur (window.ANAGROCI_OBS_COEUR) et sous Node (tests). */
@@ -96,7 +97,8 @@
     blocs.forEach(function (x, i) { if (!String(x.repere || '').trim()) erreurs.push('Bloc ' + (i + 1) + ' : repère physique obligatoire.'); });
     if (erreurs.length) return { erreurs: erreurs };
     if (!p.campaign_id || !p.plot_id) return { erreurs: ['Campagne ou parcelle manquante.'] };
-    var graine = p.campaign_id + ':' + p.plot_id + ':BLOCS', ordre = tirage(graine, B, b), rep = repartition(T, R, b);
+    if (!/^[0-9a-f]{64}$/.test(String(p.graine_campagne || ''))) return { erreurs: ['Graine de tirage de la campagne absente sur cet appareil : préparez le hors-ligne avec du réseau. Si le message persiste, le Branch Manager doit créer la graine de la campagne.'] };
+    var graine = p.graine_campagne + ':' + p.plot_id + ':BLOCS', ordre = tirage(graine, B, b), rep = repartition(T, R, b);
     return {
       erreurs: [], blocs_tires: ordre, graine: graine,
       blocs: blocs.map(function (x, i) {
@@ -110,6 +112,7 @@
   /* Tirage des arbres quand tous les blocs tirés sont inventoriés.
      Bloc trop petit : incompatibilité signalée, on ne gonfle jamais N et on ne change pas de bloc. */
   function tirerArbres(panel) {
+    if (!/^[0-9a-f]{64}$/.test(String(panel.graine_campagne || ''))) return { statut: 'TIRAGE_VERROUILLE', arbres: [], erreur: 'Graine de campagne absente.' };
     var tires = panel.blocs.filter(function (x) { return x.tire; }).sort(function (x, y) { return x.rang_tirage - y.rang_tirage; });
     if (tires.some(function (x) { return x.nb_arbres_inventories == null; })) return { statut: 'TIRAGE_VERROUILLE', arbres: [] };
     var petits = tires.filter(function (x) { return x.nb_arbres_inventories < x.nb_titulaires_prevus; });
@@ -119,7 +122,7 @@
     }
     var arbres = [], rt = 0, rr = 0, manque = 0;
     tires.forEach(function (bl) {
-      var N = bl.nb_arbres_inventories, ordre = tirage(panel.campaign_id + ':' + panel.plot_id + ':B' + bl.numero + ':ARBRES', N, Math.min(N, bl.nb_titulaires_prevus + bl.nb_reserves_prevues));
+      var N = bl.nb_arbres_inventories, ordre = tirage(panel.graine_campagne + ':' + panel.plot_id + ':B' + bl.numero + ':ARBRES', N, Math.min(N, bl.nb_titulaires_prevus + bl.nb_reserves_prevues));
       var proba = (panel.nb_blocs_tires / panel.nb_blocs_total) * (bl.nb_titulaires_prevus / N);
       ordre.forEach(function (numero, i) {
         var tit = i < bl.nb_titulaires_prevus;

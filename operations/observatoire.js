@@ -176,8 +176,11 @@ function soumettreInstallation(form) {
   var camp = campagne(), err = document.getElementById('obsInstallErr');
   var B = parseInt(form.querySelector('#obsB').value, 10), b = parseInt(form.querySelector('#obsb').value, 10), plot = form.querySelector('#obsPlot').value;
   var blocs = []; for (var i = 1; i <= B; i++) blocs.push({ id: C.uuid(), repere: (form.querySelector('#obsRep' + i) || {}).value });
-  var id = C.uuid(), res = C.installer({ id: id, campaign_id: camp && camp.id, plot_id: plot, nb_blocs_total: B, nb_blocs_tires: b, blocs: blocs });
-  if (!camp) res.erreurs = (res.erreurs || []).concat('Aucune campagne sélectionnée.');
+  if (!camp) { err.innerHTML = note('Aucune campagne sélectionnée.', 'danger'); return; }
+  L.graine(camp.id).then(function (graine) { installerAvecGraine(form, err, camp, plot, B, b, blocs, graine); }).catch(echec);
+}
+function installerAvecGraine(form, err, camp, plot, B, b, blocs, graineCampagne) {
+  var id = C.uuid(), res = C.installer({ id: id, campaign_id: camp.id, plot_id: plot, graine_campagne: graineCampagne, nb_blocs_total: B, nb_blocs_tires: b, blocs: blocs });
   if (!plot) res.erreurs = (res.erreurs || []).concat('Choisissez la parcelle.');
   if (res.erreurs && res.erreurs.length) { err.innerHTML = note(res.erreurs.map(esc).join('<br>'), 'danger'); return; }
   confirmer('Verrouiller le tirage ?', 'Vous avez décrit <b>' + B + ' blocs</b> et vous en tirez <b>' + b + '</b>. Après confirmation, le tirage est définitif : ni B, ni b, ni les blocs tirés ne pourront être changés.', 'Tirer et verrouiller').then(function (oui) {
@@ -185,7 +188,7 @@ function soumettreInstallation(form) {
     return L.referentiel().then(function (ref) {
       var pl = (ref.plots || []).filter(function (x) { return x.id === plot; })[0] || {}, n = nomParcelle(ref, { plot_id: plot });
       var panel = { id: id, campaign_id: camp.id, plot_id: plot, producteur_id: pl.producteur_id, village_id: pl.village_id, producteur_nom: n.producteur, parcelle_nom: n.parcelle, village_nom: n.village,
-        nb_blocs_total: B, nb_blocs_tires: b, statut: 'TIRAGE_VERROUILLE', tirage_graine: res.graine, tirage_le: new Date().toISOString(), blocs: res.blocs, arbres: [], local: true, created_at: new Date().toISOString() };
+        nb_blocs_total: B, nb_blocs_tires: b, statut: 'TIRAGE_VERROUILLE', tirage_graine: res.graine, graine_campagne: graineCampagne, tirage_le: new Date().toISOString(), blocs: res.blocs, arbres: [], local: true, created_at: new Date().toISOString() };
       return L.enregistrerPanel(panel).then(function () {
         return L.mettreEnFile('PANEL_INSTALLER', { id: id, campaign_id: camp.id, plot_id: plot, nb_blocs_total: B, nb_blocs_tires: b,
           blocs: res.blocs.map(function (x) { return { id: x.id, numero: x.numero, repere: x.repere }; }) }, { entite: 'PANEL', entite_id: id, libelle: 'Installation : ' + n.producteur + ' — ' + n.parcelle });
@@ -477,12 +480,15 @@ function vueAffectations() {
   return Promise.all([
     lireTable('pheno_affectations', '*', function (q) { return q.eq('campaign_id', camp.id).order('created_at', { ascending: false }); }),
     lireTable('profils', 'user_id,nom,role', function (q) { return q.eq('actif', true).in('role', ['Zonal Head', 'Unit Head', 'Assistant Branch Manager']).order('nom'); }),
-    lireTable('aflp_clusters', 'code,label', function (q) { return q.order('code'); })
+    lireTable('aflp_clusters', 'code,label', function (q) { return q.order('code'); }),
+    lireTable('pheno_graines', 'campaign_id,graine,cree_le', function (q) { return q.eq('campaign_id', camp.id); }).then(function (l) { return l[0] || null; })
   ]).then(function (r) {
     var noms = {}; r[1].forEach(function (x) { noms[x.user_id] = x.nom + ' (' + x.role + ')'; });
     var lignes = r[0].map(function (a) { var exp = a.valide_au && a.valide_au < C.aujourdhui();
       return '<tr><td data-l="Personne">' + esc(noms[a.user_id] || a.user_id) + '</td><td data-l="Droit">' + (a.droit === 'VALIDATION' ? 'Validation finale' : 'Vérification') + '</td><td data-l="Clusters">' + esc((a.cluster_codes || []).join(', ')) + '</td><td data-l="Période">' + dateFr(a.valide_du) + ' → ' + (a.valide_au ? dateFr(a.valide_au) : 'sans fin') + '</td><td data-l="État">' + (!a.actif ? badge('Révoquée') : exp ? badge('Expirée', 'warn') : badge('Active', 'ok')) + '</td><td>' + (a.actif ? '<button type="button" class="btn secondary" data-act="revoquer" data-id="' + esc(a.id) + '">Révoquer</button>' : '') + '</td></tr>'; }).join('');
     peindre(entete('Qui peut vérifier et valider, sur quels clusters, pour quelle période.', 'affectations') + message() +
+      '<section class="card"><div class="card-head"><h2>Graine de tirage de la campagne</h2></div>' + (r[3] ? '<p>Créée le ' + esc(heureFr(r[3].cree_le)) + '. Immuable. Empreinte : <code>' + esc(r[3].graine.slice(0, 12)) + '…</code></p>'
+        : '<p>Aucune graine : aucune installation de champ n’est possible. Créez-la <b>une seule fois, avant toute installation</b>. Elle est tirée au hasard par le serveur et ne pourra plus être changée.</p><div class="obs-actions"><button type="button" class="btn primary" data-act="graine">Créer la graine de la campagne</button></div>') + '</section>' +
       note('Ces droits sont propres à l’Observatoire : ils ne donnent aucun autre accès dans FBMS. Un Assistant Unit Head ou un RT ne peut pas recevoir de droit de validation.', 'info') +
       '<form id="obsAff" class="card obs-form"><div class="card-head"><h2>Nouvelle affectation</h2></div><div class="obs-duo"><div class="field"><label for="affUser">Personne</label><select id="affUser" required><option value="">— Choisir —</option>' + r[1].map(function (x) { return '<option value="' + esc(x.user_id) + '">' + esc(x.nom) + ' (' + esc(x.role) + ')</option>'; }).join('') + '</select></div>' +
       '<div class="field"><label for="affDroit">Droit</label><select id="affDroit"><option value="VALIDATION">Validation finale</option><option value="VERIFICATION">Vérification</option></select></div></div>' +
@@ -522,7 +528,8 @@ function surClic(e) {
   else if (act === 'preparer') {
     var camp = campagne(); if (!camp) return; b.disabled = true; b.textContent = 'Préparation…';
     client().then(function (c) { if (!c || !enLigne()) throw new Error('Pas de réseau : la préparation hors-ligne se fait avec une connexion.'); return L.synchroniser(c).then(function () { return L.preparer(c, camp.id); }); })
-      .then(function (r) { etat.message = ['ok', 'Appareil prêt : ' + r.champs + ' champ(s)' + (r.parcelles == null ? '' : ', ' + r.parcelles + ' parcelle(s) du registre') + ' chargés.']; })
+      .then(function (r) { etat.message = r.graine ? ['ok', 'Appareil prêt : ' + r.champs + ' champ(s)' + (r.parcelles == null ? '' : ', ' + r.parcelles + ' parcelle(s) du registre') + ' chargés.']
+        : ['warn', 'Appareil prêt : ' + r.champs + ' champ(s) chargés, mais la graine de tirage de la campagne n’existe pas encore : aucune installation possible avant que le Branch Manager la crée (écran Affectations).']; })
       .catch(function (e2) { etat.message = ['danger', e2.message]; }).then(rendre);
   }
   else if (act === 'inventaire') enregistrerInventaire(b.getAttribute('data-bloc'), b.getAttribute('data-num'));
@@ -539,6 +546,7 @@ function surClic(e) {
   else if (act === 'reessayer') L.reessayer(b.getAttribute('data-cle')).then(function () { return synchroniser(true); });
   else if (act === 'dec') decider(b.getAttribute('data-dec'), b.getAttribute('data-id'), +b.getAttribute('data-v'));
   else if (act === 'corr') deciderCorrection(b.getAttribute('data-id'), b.getAttribute('data-dec'));
+  else if (act === 'graine') confirmer('Créer la graine de tirage ?', 'La graine est tirée au hasard par le serveur, une seule fois pour toute la campagne. Elle ne pourra plus être changée.', 'Créer').then(function (oui) { if (!oui) return; return rpc('pheno_graine_creer', { p_campaign: campagne().id }).then(function () { etat.message = ['ok', 'Graine de campagne créée. Les agents doivent préparer le hors-ligne avant d’installer.']; }).catch(function (e4) { etat.message = ['danger', e4.message]; }).then(rendre); });
   else if (act === 'revoquer') demanderMotif('Révoquer l’affectation', 'Le droit est retiré immédiatement.').then(function (m) { if (!m) return; return rpc('pheno_affectation_revoquer', { p_id: b.getAttribute('data-id'), p_motif: m }).then(function () { etat.message = ['ok', 'Affectation révoquée.']; }).catch(function (e3) { etat.message = ['danger', e3.message]; }).then(rendre); });
 }
 function surSaisie(e) {

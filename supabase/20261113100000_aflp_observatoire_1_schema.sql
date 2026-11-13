@@ -213,6 +213,43 @@ create table if not exists public.pheno_evenements_maturite (
   primary key (arbre_id, campaign_id, stade)
 );
 
+-- 9 bis. Graine aléatoire de campagne (audit du 13/11/2026, E1) : tirée par le SERVEUR
+-- (gen_random_uuid, source aléatoire du système), créée une seule fois par le Branch Manager
+-- AVANT toute installation, immuable, journalisée, téléchargée sur les appareils pour le
+-- tirage hors ligne. L'agent ne peut ni la choisir ni la changer.
+create table if not exists public.pheno_graines (
+  campaign_id uuid primary key references public.campaigns(id),
+  graine text not null check (graine ~ '^[0-9a-f]{64}$'),
+  cree_le timestamptz not null default now(),
+  cree_par uuid not null
+);
+create or replace function private.pheno_graine_immuable() returns trigger
+language plpgsql set search_path to 'public', 'pg_temp' as $$
+begin
+  raise exception 'La graine de campagne est immuable.' using errcode = 'PH001';
+end $$;
+revoke all on function private.pheno_graine_immuable() from public, anon, authenticated;
+drop trigger if exists pheno_graine_immuable on public.pheno_graines;
+create trigger pheno_graine_immuable before update or delete on public.pheno_graines
+  for each row execute function private.pheno_graine_immuable();
+
+-- Cohérence imposée par la base (audit S2) : une visite porte TOUJOURS le cluster et la
+-- campagne de son champ, quelle que soit la fonction qui écrit.
+create or replace function private.pheno_visite_coherente() returns trigger
+language plpgsql set search_path to 'public', 'pg_temp' as $$
+declare v_cluster text; v_campaign uuid;
+begin
+  select cluster_code, campaign_id into v_cluster, v_campaign from public.pheno_panels where id = new.panel_id;
+  if v_cluster is distinct from new.cluster_code or v_campaign is distinct from new.campaign_id then
+    raise exception 'Visite incohérente avec son champ (cluster ou campagne).' using errcode = 'PH002';
+  end if;
+  return new;
+end $$;
+revoke all on function private.pheno_visite_coherente() from public, anon, authenticated;
+drop trigger if exists pheno_visite_coherente on public.pheno_visites;
+create trigger pheno_visite_coherente before insert or update on public.pheno_visites
+  for each row execute function private.pheno_visite_coherente();
+
 -- 10. Journal immuable ------------------------------------------------------
 create table if not exists public.pheno_journal (
   id bigint generated always as identity primary key,
@@ -256,7 +293,7 @@ on conflict (id) do nothing;
 do $$
 declare t text;
 begin
-  foreach t in array array['pheno_protocoles','pheno_panels','pheno_blocs','pheno_arbres','pheno_affectations',
+  foreach t in array array['pheno_protocoles','pheno_graines','pheno_panels','pheno_blocs','pheno_arbres','pheno_affectations',
     'pheno_visites','pheno_observations','pheno_corrections','pheno_evenements_maturite','pheno_journal'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from anon, authenticated', t);

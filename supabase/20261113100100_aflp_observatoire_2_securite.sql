@@ -159,6 +159,10 @@ drop policy if exists pheno_protocoles_lecture on public.pheno_protocoles;
 create policy pheno_protocoles_lecture on public.pheno_protocoles for select to authenticated
   using (private.pheno_classe() is not null);
 
+drop policy if exists pheno_graines_lecture on public.pheno_graines;
+create policy pheno_graines_lecture on public.pheno_graines for select to authenticated
+  using (private.pheno_classe() is not null);
+
 drop policy if exists pheno_panels_lecture on public.pheno_panels;
 create policy pheno_panels_lecture on public.pheno_panels for select to authenticated
   using (private.pheno_peut_lire_cluster(cluster_code));

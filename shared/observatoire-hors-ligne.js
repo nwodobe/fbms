@@ -181,7 +181,10 @@
   function preparer(sb, campaignId) {
     if (!sb || !campaignId) return Promise.reject(new Error('Connexion ou campagne indisponible.'));
     var res = {};
-    return pages(function () { return sb.from('pheno_panels').select('*').eq('campaign_id', campaignId).order('id'); }).then(function (p) {
+    return sb.from('pheno_graines').select('campaign_id,graine').eq('campaign_id', campaignId).then(function (g) {
+      res.graine = g && !g.error && g.data && g.data[0] ? g.data[0].graine : null;
+      return ecrire('meta', res.graine, 'graine:' + campaignId);
+    }).then(function () { return pages(function () { return sb.from('pheno_panels').select('*').eq('campaign_id', campaignId).order('id'); }); }).then(function (p) {
       res.panels = p; var ids = p.map(function (x) { return x.id; });
       if (!ids.length) { res.blocs = []; res.arbres = []; res.visites = []; res.obs = []; return; }
       return Promise.all([
@@ -217,7 +220,7 @@
           var local = loc[0].filter(function (x) { return x.id === p.id; })[0];
           if (local) p.blocs.forEach(function (b) { var lb = (local.blocs || []).filter(function (x) { return x.id === b.id; })[0]; if (lb && b.nb_arbres_inventories == null && lb.nb_arbres_inventories != null && enFile[b.id]) b.nb_arbres_inventories = lb.nb_arbres_inventories; });
           if (local && !p.arbres.length && (local.arbres || []).length && p.statut === 'TIRAGE_VERROUILLE') { p.arbres = local.arbres; p.statut_local = local.statut_local; }
-          p.local = false; ecritures.push(ecrire('panels', p));
+          p.local = false; p.graine_campagne = res.graine; ecritures.push(ecrire('panels', p));
         });
         res.visites.forEach(function (v) {
           if (enFile[v.id]) return;
@@ -234,10 +237,11 @@
         ecritures.push(ecrire('meta', { le: new Date().toISOString(), campaign_id: campaignId, champs: res.panels.length }, 'preparation'));
         return Promise.all(ecritures);
       });
-    }).then(function () { emettre(); return { champs: res.panels.length, parcelles: res.plots ? res.plots.length : null }; });
+    }).then(function () { emettre(); return { champs: res.panels.length, parcelles: res.plots ? res.plots.length : null, graine: !!res.graine }; });
   }
   function referentiel() { return lire('ref', 'parcelles').then(function (x) { return x || { plots: [], villages: [], producteurs: [] }; }); }
   function derniereePreparation() { return lire('meta', 'preparation'); }
+  function graine(campaignId) { return lire('meta', 'graine:' + campaignId); }
 
   /* Au démarrage : un envoi interrompu redevient « à renvoyer » (même clé, donc sans doublon). */
   function reprendre() {
@@ -248,7 +252,7 @@
     mettreEnFile: mettreEnFile, file: file, enAttente: enAttente, synchroniser: synchroniser, reessayer: reessayer,
     panels: panels, panel: panel, enregistrerPanel: enregistrerPanel, visites: visites, visite: visite, enregistrerVisite: enregistrerVisite,
     envoyerVisite: envoyerVisite, ajouterFichier: ajouterFichier, preparer: preparer, referentiel: referentiel, dernierePreparation: derniereePreparation,
-    reprendre: reprendre, utilisateur: utilisateur, appareil: appareil, surChangement: function (f) { ecouteurs.push(f); }, BUCKET: BUCKET
+    reprendre: reprendre, graine: graine, utilisateur: utilisateur, appareil: appareil, surChangement: function (f) { ecouteurs.push(f); }, BUCKET: BUCKET
   };
   reprendre();
 })(window);

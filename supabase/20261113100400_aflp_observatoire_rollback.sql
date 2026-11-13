@@ -21,6 +21,7 @@ drop view if exists public.pheno_v_champ_semaine;
 drop policy if exists pheno_preuves_depot on storage.objects;
 drop policy if exists pheno_preuves_lecture on storage.objects;
 
+drop function if exists public.pheno_graine_creer(uuid);
 drop function if exists public.pheno_parcelles_disponibles(uuid);
 drop function if exists public.pheno_observateurs_du_cluster();
 drop function if exists public.pheno_correction_decider(uuid, text, text);
@@ -46,6 +47,7 @@ drop function if exists private.pheno_campagne_ouverte(uuid);
 drop function if exists private.pheno_journaliser(text, text, uuid, text, jsonb, jsonb, text);
 drop function if exists private.pheno_arbre_id(uuid, integer);
 drop function if exists private.pheno_tirage(text, integer, integer);
+drop function if exists private.pheno_graine(uuid);
 drop function if exists private.pheno_hex(text);
 
 drop table if exists private.pheno_sync_recus;
@@ -59,8 +61,11 @@ drop table if exists public.pheno_arbres;
 drop table if exists public.pheno_blocs;
 drop table if exists public.pheno_panels;
 drop table if exists public.pheno_protocoles;
+drop table if exists public.pheno_graines;
 
 drop function if exists private.pheno_journal_immuable();
+drop function if exists private.pheno_graine_immuable();
+drop function if exists private.pheno_visite_coherente();
 drop function if exists private.pheno_preuve_autorisee(text, text);
 drop function if exists private.pheno_uuid_ou_null(text);
 drop function if exists private.pheno_peut_lire_visite(uuid);
