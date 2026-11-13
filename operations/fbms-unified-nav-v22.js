@@ -150,6 +150,16 @@ function render(){
   }
   return block;
  }).join('');
+ // AFLP FLEET is a full transverse module, not a hidden Ma journée submenu.
+ // Display one prominent direct entry in the existing shared navigation.
+ var fleetUsers=['BM','ABM','ZH','UH','AUH','LOG'];
+ if(fleetUsers.includes(r)){
+   var fleetActive=/\/moto\//.test(global.location.pathname);
+   links+='<a class="fbms-v22-main fbms-v22-fleet'+(fleetActive?' active':'')+
+     '" href="'+esc(hrefInApp('../moto/index.html'))+'"'+
+     (fleetActive?' aria-current="page"':'')+
+     '><span class="fbms-v22-icon" aria-hidden="true">▤</span>AFLP FLEET</a>';
+ }
  host.classList.add('fbms-v22-side');
  host.innerHTML=header+'<nav class="fbms-v22-navigation" aria-label="'+(en?'FBMS navigation':'Navigation unique FBMS')+'">'+links+'</nav>'+
   '<div class="fbms-v22-bottom">AFLP · '+esc(ROLE_NAME[r])+'</div>';
