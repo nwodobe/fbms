@@ -94,11 +94,11 @@
       if (!visible(s).length) return;
       h += '<a href="#' + s.id + '" class="esp-navlink' + (s.id === state.space ? ' active' : '') + '"><span>' + s.id.replace('E', '') + '</span>' + esc(s.name) + '</a>';
     });
-    h += '<div class="esp-navsep">Accès direct aux espaces actuels</div>' +
+    h += '<div class="esp-navsep">Espaces actuels (accès direct)</div>' +
       '<a class="esp-navlink sub" href="' + FB + '">Field Buying</a>' +
       '<a class="esp-navlink sub" href="procurement.html">Lots & Expéditions</a>' +
-      '<a class="esp-navlink sub" href="warehouse.html">Entrepôts relais</a>' +
-      '<a class="esp-navlink sub" href="stock-transfer.html">Transferts relais</a>' +
+      '<a class="esp-navlink sub" href="warehouse.html">Entrepôts relais (avant bascule PJS)</a>' +
+      '<a class="esp-navlink sub" href="stock-transfer.html">Transferts relais (avant bascule PJS)</a>' +
       '<a class="esp-navlink sub" href="../moto/index.html">AFLP Fleet</a>' +
       '<a class="esp-navlink sub" href="../fieldproof/index.html">AFLP Field Proof</a>';
     document.getElementById('espNav').innerHTML = h;
