@@ -1,6 +1,6 @@
 # Observatoire agronomique AFLP 2027 — rapport de tests
 
-Dernière exécution serveur : 2026-11-13 16:53 ; navigateur : 2026-11-13T16:54 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
+Dernière exécution serveur : 2026-11-13 16:55 ; navigateur : 2026-11-13T16:56 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
 
 Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/executer_tests_observatoire.sh` puis `python3 tests/observatoire/generer_rapport.py`.
 
@@ -14,9 +14,9 @@ Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/execute
 | Navigateur de bout en bout (vrai Service Worker, mode avion) | 60 | 60 | 0 | 0 |
 | **Total module** | **299** | **299** | **0** | 0 |
 
-Contrôles du dépôt : `verifier-html` 0 nouvel écart (3 historiques) ; `verifier-js` 0 nouvelle erreur (1 historique) ; `verifier-liens` 0 nouveau lien cassé (4 historiques) ; `verifier-pages` (36 pages × 3 largeurs) 0 nouveau problème (16 historiques).
+Contrôles du dépôt : `verifier-html` 0 nouvel écart (3 historiques) ; `verifier-js` 0 nouvelle erreur (1 historique) ; `verifier-liens` 0 nouveau lien cassé (4 historiques) ; `verifier-pages` (toutes les pages × 3 largeurs) 0 nouveau problème (16 historiques).
 
-Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `field-buying-performance-static`, `field-buying-profiles-static`, `field-buying-prefilled-edit-static`, `rt-sop-integration-static`, `offline-field-multi-user-e2e`, `campagnes-e2e` : **réussis**. `offline-field-e2e` et `field-buying-e2e` : **échouent de façon identique sur `main` sans la branche** (attente de `#offPrepare` / `#villageForm`) : défaut antérieur, non causé par l'Observatoire.
+Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `field-buying-performance-static`, `field-buying-profiles-static`, `field-buying-prefilled-edit-static`, `rt-sop-integration-static`, `offline-field-multi-user-e2e`, `campagnes-e2e`, `espaces-roles-static` : **réussis**. `offline-field-e2e` et `field-buying-e2e` : **échouent de façon identique sur `main` sans la branche** (attente de `#offPrepare` / `#villageForm`) : défaut antérieur, non causé par l'Observatoire.
 
 **Non exécuté** : aucun test sur un staging Supabase (il n'en existe pas) ; aucun test sur un vrai téléphone Android ; aucun test de charge au-delà du pilote.
 
@@ -29,10 +29,10 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-40 | auh_bro | Installation avant création de la graine de campagne : refusée | REFUS (Graine) | RÉUSSI |
 | ECH-41 | uh_bro | Graine de campagne créée par un Unit Head : refusé | REFUS (Branch Manager) | RÉUSSI |
 | ECH-42 | bm | Le Branch Manager crée la graine aléatoire de la campagne | OK ("deja_creee": false) | RÉUSSI |
-| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (c5d25766c2e5534ff08cdd1aba6971d08a73893ad50ddc4d478c0a7de77f62d7) | RÉUSSI |
+| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (da340d8c742f3fb54a25c1db971f2d8f0a3bd261aaae64ae15f4b4962092b8a7) | RÉUSSI |
 | ECH-44 | postgres (superutilisateur) | Graine immuable, même pour le superutilisateur | REFUS | RÉUSSI |
 | ECH-01 | auh_bro | AUH installe le champ A (B=4, b=2) | OK | RÉUSSI |
-| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [3, 4] | RÉUSSI |
+| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [4, 2] | RÉUSSI |
 | ECH-03 | postgres (lecture) | Tirage verrouillé, b fixé avant tirage | true/TIRAGE_VERROUILLE/true | RÉUSSI |
 | ECH-04 | auh_bro | Réinstallation identique : idempotente | OK (deja_installe) | RÉUSSI |
 | ECH-05 | auh_bro | Rejouer le tirage avec un autre b : refusé | REFUS (verrouillé) | RÉUSSI |
@@ -42,14 +42,14 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-09 | auh_bro | Liste de blocs incomplète : refusé | REFUS (exactement) | RÉUSSI |
 | ECH-10 | auh_bro | Campagne fermée : refusé | REFUS (ouverte) | RÉUSSI |
 | ECH-11 | bm | Village sans cluster AFLP : refusé | REFUS (cluster) | RÉUSSI |
-| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | c5d25766c2e5534ff08cdd1aba6971d08a73893ad50ddc4d478c0a7de77f62d7:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
+| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | da340d8c742f3fb54a25c1db971f2d8f0a3bd261aaae64ae15f4b4962092b8a7:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
 | ECH-13 | auh_bro | Inventaire d'un bloc non tiré : refusé | REFUS (pas été tiré) | RÉUSSI |
 | ECH-14 | auh_bro | Inventaire bloc tiré 1 (N=7) | OK (TIRAGE_VERROUILLE) | RÉUSSI |
 | ECH-15 | postgres (lecture) | Aucun arbre tiré tant qu'un bloc tiré n'est pas inventorié | 0 | RÉUSSI |
 | ECH-16 | uh_bro | Inventaire bloc tiré 2 (N=9) : le champ devient actif | OK (ACTIF) | RÉUSSI |
 | ECH-17 | postgres (lecture) | 10 titulaires et 2 réserves | 10/2/12 | RÉUSSI |
-| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 6,2,4,7,5,1 | RÉUSSI |
-| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | 28bca7ef-b6bf-9902-0b44-ba8726489888 | RÉUSSI |
+| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 4,5,6,2,3,1 | RÉUSSI |
+| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | 00ab01a2-e3cc-dd01-acb0-949e282109be | RÉUSSI |
 | ECH-20 | postgres (lecture) | Probabilité d'inclusion (2/4)×(5/7) = 0,357 | 0.357 | RÉUSSI |
 | ECH-21 | postgres (lecture) | Réserve : en attente, sans probabilité | RESERVE_EN_ATTENTE/null | RÉUSSI |
 | ECH-22 | auh_bro | Modifier un inventaire enregistré : refusé | REFUS (ne peut plus être modifié) | RÉUSSI |
