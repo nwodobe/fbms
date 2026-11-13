@@ -1,0 +1,3 @@
+select k||'='||v from (
+select 'F:'||p.proname||'/'||pg_get_function_identity_arguments(p.oid) k, left(md5(p.prosrc),6)||left(md5(p.prosecdef::text||coalesce(array_to_string(p.proconfig,','),'')),4) v from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prokind='f' and not exists (select 1 from pg_depend d where d.objid=p.oid and d.deptype='e')
+union all select 'P:'||tablename||'/'||policyname, left(md5(permissive||cmd||array_to_string(roles,',')||coalesce(qual,'')||'|'||coalesce(with_check,'')),6) from pg_policies where schemaname in ('storage','public')) z order by 1

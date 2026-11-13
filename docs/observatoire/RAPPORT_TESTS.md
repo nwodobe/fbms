@@ -1,6 +1,6 @@
 # Observatoire agronomique AFLP 2027 — rapport de tests
 
-Dernière exécution serveur : 2026-11-13 16:55 ; navigateur : 2026-11-13T16:56 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
+Dernière exécution serveur : 2026-11-13 17:29 ; navigateur : 2026-11-13T17:29 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
 
 Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/executer_tests_observatoire.sh` puis `python3 tests/observatoire/generer_rapport.py`.
 
@@ -8,11 +8,11 @@ Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/execute
 
 | Suite | Exécutés | Réussis | Échoués | Non exécutés |
 |---|---|---|---|---|
-| Serveur (RLS + RPC, rôle `authenticated`, JWT fictifs) | 210 | 210 | 0 | 0 |
+| Serveur (RLS + RPC, rôle `authenticated`, JWT fictifs) | 223 | 223 | 0 | 0 |
 | Non-régression SQL (empreinte de l'existant, retour arrière) | 8 | 8 | 0 | 0 |
 | Cœur métier JavaScript | 21 | 21 | 0 | 0 |
 | Navigateur de bout en bout (vrai Service Worker, mode avion) | 60 | 60 | 0 | 0 |
-| **Total module** | **299** | **299** | **0** | 0 |
+| **Total module** | **312** | **312** | **0** | 0 |
 
 Contrôles du dépôt : `verifier-html` 0 nouvel écart (3 historiques) ; `verifier-js` 0 nouvelle erreur (1 historique) ; `verifier-liens` 0 nouveau lien cassé (4 historiques) ; `verifier-pages` (toutes les pages × 3 largeurs) 0 nouveau problème (16 historiques).
 
@@ -29,10 +29,10 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-40 | auh_bro | Installation avant création de la graine de campagne : refusée | REFUS (Graine) | RÉUSSI |
 | ECH-41 | uh_bro | Graine de campagne créée par un Unit Head : refusé | REFUS (Branch Manager) | RÉUSSI |
 | ECH-42 | bm | Le Branch Manager crée la graine aléatoire de la campagne | OK ("deja_creee": false) | RÉUSSI |
-| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (da340d8c742f3fb54a25c1db971f2d8f0a3bd261aaae64ae15f4b4962092b8a7) | RÉUSSI |
+| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (5dd787a473f0c17ae19fa765d021f3d8cbeed25b688ce3c8907ad9a67e7994f6) | RÉUSSI |
 | ECH-44 | postgres (superutilisateur) | Graine immuable, même pour le superutilisateur | REFUS | RÉUSSI |
 | ECH-01 | auh_bro | AUH installe le champ A (B=4, b=2) | OK | RÉUSSI |
-| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [4, 2] | RÉUSSI |
+| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [4, 1] | RÉUSSI |
 | ECH-03 | postgres (lecture) | Tirage verrouillé, b fixé avant tirage | true/TIRAGE_VERROUILLE/true | RÉUSSI |
 | ECH-04 | auh_bro | Réinstallation identique : idempotente | OK (deja_installe) | RÉUSSI |
 | ECH-05 | auh_bro | Rejouer le tirage avec un autre b : refusé | REFUS (verrouillé) | RÉUSSI |
@@ -42,14 +42,14 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-09 | auh_bro | Liste de blocs incomplète : refusé | REFUS (exactement) | RÉUSSI |
 | ECH-10 | auh_bro | Campagne fermée : refusé | REFUS (ouverte) | RÉUSSI |
 | ECH-11 | bm | Village sans cluster AFLP : refusé | REFUS (cluster) | RÉUSSI |
-| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | da340d8c742f3fb54a25c1db971f2d8f0a3bd261aaae64ae15f4b4962092b8a7:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
+| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | 5dd787a473f0c17ae19fa765d021f3d8cbeed25b688ce3c8907ad9a67e7994f6:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
 | ECH-13 | auh_bro | Inventaire d'un bloc non tiré : refusé | REFUS (pas été tiré) | RÉUSSI |
 | ECH-14 | auh_bro | Inventaire bloc tiré 1 (N=7) | OK (TIRAGE_VERROUILLE) | RÉUSSI |
 | ECH-15 | postgres (lecture) | Aucun arbre tiré tant qu'un bloc tiré n'est pas inventorié | 0 | RÉUSSI |
 | ECH-16 | uh_bro | Inventaire bloc tiré 2 (N=9) : le champ devient actif | OK (ACTIF) | RÉUSSI |
 | ECH-17 | postgres (lecture) | 10 titulaires et 2 réserves | 10/2/12 | RÉUSSI |
-| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 4,5,6,2,3,1 | RÉUSSI |
-| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | 00ab01a2-e3cc-dd01-acb0-949e282109be | RÉUSSI |
+| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 2,4,1,5,7,3 | RÉUSSI |
+| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | 74db2b85-116c-bec9-8fec-684c84a6ea49 | RÉUSSI |
 | ECH-20 | postgres (lecture) | Probabilité d'inclusion (2/4)×(5/7) = 0,357 | 0.357 | RÉUSSI |
 | ECH-21 | postgres (lecture) | Réserve : en attente, sans probabilité | RESERVE_EN_ATTENTE/null | RÉUSSI |
 | ECH-22 | auh_bro | Modifier un inventaire enregistré : refusé | REFUS (ne peut plus être modifié) | RÉUSSI |
@@ -181,7 +181,7 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | IND-16 | postgres (lecture) | Non-réponse pondérée publiée (semaine 1 : « Pas vu » et non retrouvé) | true | RÉUSSI |
 | IND-13 | postgres (lecture) | Qualité : transcription papier comptée | 1 | RÉUSSI |
 
-### Sécurité (76/76)
+### Sécurité (89/89)
 
 | Id | Compte | Action | Attendu | Résultat |
 |---|---|---|---|---|
@@ -258,6 +258,19 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | SEC-73 | auh_bro | Photo référencée dans le dossier d'un autre agent : refusée | REJETEE (preuve) | RÉUSSI |
 | SEC-74 | uh_bro | Erreur technique : aucun détail SQL renvoyé au téléphone, code de diagnostic | TECHNIQUE sans texte SQL | RÉUSSI |
 | SEC-75 | postgres (lecture) | Détail technique conservé au journal, invisible des écrans (cluster nul) | 1 | RÉUSSI |
+| CMP-01 | bm | Graine de la seconde campagne (distincte de la première) | OK ("deja_creee": false) | RÉUSSI |
+| CMP-02 | postgres (lecture) | Chaque campagne a sa propre graine | 2 | RÉUSSI |
+| CMP-03 | uh_bro | Même parcelle installée dans une autre campagne : autorisé (panel par campagne) | OK | RÉUSSI |
+| CMP-04 | uh_bro | Inventaire du bloc tiré (campagne 2) | OK (ACTIF) | RÉUSSI |
+| CMP-05 | postgres (lecture) | Tirage de la campagne 2 indépendant de la campagne 1 (graine différente) | t | RÉUSSI |
+| CMP-06 | auh_bro | Visite soumise dans la campagne 2 | ACCEPTEE (SOUMIS) | RÉUSSI |
+| CMP-07 | postgres (lecture) | Le Zonal Head 1 a des affectations sur la campagne 1 et aucune sur la campagne 2 | true/0 | RÉUSSI |
+| CMP-08 | zh1 | Validation dans la campagne 2 avec une affectation de la campagne 1 : refusée | REFUS (affectation) | RÉUSSI |
+| CMP-09 | bm | Affectation de validation sur la campagne 2 | OK | RÉUSSI |
+| CMP-10 | zh1 | Validation dans la campagne 2 avec l'affectation de la campagne 2 : acceptée | OK (VALIDE) | RÉUSSI |
+| CMP-11 | postgres (lecture) | Vues pilotes cloisonnées par campagne (aucune visite de la campagne 2 dans la campagne 1) | 0 | RÉUSSI |
+| CMP-12 | auh_bro | Campagne 2 fermée : nouvelle visite refusée | REJETEE (campagne) | RÉUSSI |
+| CMP-13 | uh_bro | Campagne fermée : parcelles installables toujours filtrées par cluster | OK (t) | RÉUSSI |
 | SEC-58 | auh_bro | Collègues de collecte : seulement ceux de son cluster, sans soi-même | AUH BROBO 2 FICTIF,UH BROBO FICTIF | RÉUSSI |
 | SEC-59 | rt | Collègues de collecte : rien pour un RT | 0 | RÉUSSI |
 | SEC-60 | zh1 | Collègues de collecte : rien hors rôles de collecte | 0 | RÉUSSI |

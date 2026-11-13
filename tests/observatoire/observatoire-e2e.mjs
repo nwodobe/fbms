@@ -333,7 +333,7 @@ async function main() {
   await browser.close(); srv.close();
   mkdirSync(join(ICI, 'resultats'), { recursive: true });
   const ok = R.filter(r => r.resultat === 'RÉUSSI').length;
-  writeFileSync(join(ICI, 'resultats', 'navigateur.json'), JSON.stringify({ date: new Date().toISOString(), base: DB, total: R.length, reussis: ok, echoues: R.length - ok, tests: R }, null, 1));
+  writeFileSync(join(ICI, 'resultats', 'navigateur' + (process.env.OBS_SUFFIXE || '') + '.json'), JSON.stringify({ date: new Date().toISOString(), base: DB, total: R.length, reussis: ok, echoues: R.length - ok, tests: R }, null, 1));
   console.log(`Navigateur : ${R.length} tests, ${ok} réussis, ${R.length - ok} échoués.`);
   process.exit(ok === R.length ? 0 : 1);
 }

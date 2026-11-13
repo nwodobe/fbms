@@ -119,16 +119,23 @@ for k, nom, role, cluster, zone, actif in PROFILS:
                  f"('{U[k]}', '{k}@example.invalid', '{nom}', '{role}', {('$c$'+cluster+'$c$') if cluster else 'null'}, "
                  f"{('$z$'+zone+'$z$') if zone else 'null'}, {str(actif).lower()}) on conflict do nothing;")
 CAMP = str(uuid.uuid5(uuid.NAMESPACE_DNS, "campagne-fictive-ouverte")); CAMP_FERMEE = str(uuid.uuid5(uuid.NAMESPACE_DNS, "campagne-fictive-fermee"))
-setup.append(f"insert into public.campaigns (id, code, name, year, status, is_current) values ('{CAMP}', 'TEST-OBS', 'CAMPAGNE FICTIVE', 2027, 'OPEN', true), "
-             f"('{CAMP_FERMEE}', 'TEST-FERMEE', 'CAMPAGNE FICTIVE FERMÉE', 2026, 'CLOSED', false) on conflict do nothing;")
+# Sur le staging fidèle, les gardes de production s'appliquent : les écritures du jeu fictif se font
+# sous l'identité du Branch Manager fictif (comme une saisie réelle), avec RT et codes à 4 chiffres.
+setup.append(f"select set_config('request.jwt.claim.sub', '{U['bm']}', false);")
+setup.append(f"insert into public.campaigns (id, code, name, year, status, is_current) values ('{CAMP}', '2097', 'CAMPAGNE FICTIVE', 2097, 'OPEN', true), "
+             f"('{CAMP_FERMEE}', '2096', 'CAMPAGNE FICTIVE FERMÉE', 2096, 'CLOSED', false) on conflict do nothing;")
 setup.append("insert into public.villages (id, data, village, cluster, cluster_code) values "
              "('V-FICTIF-BRO', '{}', 'VILLAGE FICTIF BROBO', 'Brobo', 'BROBO'), ('V-FICTIF-BOT', '{}', 'VILLAGE FICTIF BOTRO', 'Botro', 'BOTRO'), "
              "('V-FICTIF-SANS', '{}', 'VILLAGE FICTIF SANS CLUSTER', null, null) on conflict do nothing;")
+setup.append("insert into public.rt (id, data, nom, village_id) values ('RT-FICTIF-BRO', '{}', 'RT FICTIF BROBO', 'V-FICTIF-BRO'), "
+             "('RT-FICTIF-BOT', '{}', 'RT FICTIF BOTRO', 'V-FICTIF-BOT') on conflict do nothing;")
+RT_DE = {"V-FICTIF-BRO": "'RT-FICTIF-BRO'", "V-FICTIF-BOT": "'RT-FICTIF-BOT'", "V-FICTIF-SANS": "null"}
 PLOTS = {}
 for i, (v, nom) in enumerate([("V-FICTIF-BRO", "A"), ("V-FICTIF-BRO", "B"), ("V-FICTIF-BRO", "C"), ("V-FICTIF-BRO", "D"),
                               ("V-FICTIF-BOT", "E"), ("V-FICTIF-SANS", "F"), ("V-FICTIF-BRO", "G")], start=1):
     pid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"parcelle-fictive-{nom}")); PLOTS[nom] = pid
-    setup.append(f"insert into public.producteurs (id, data, nom, village_id) values ('P-FICTIF-{nom}', '{{}}', 'PRODUCTEUR FICTIF {nom}', '{v}') on conflict do nothing;")
+    donnees = '{"source": "COOP_FICTIF"}' if v == "V-FICTIF-SANS" else '{}'   # sans RT : canal coopérative fictif
+    setup.append(f"insert into public.producteurs (id, data, nom, village_id, rt_id) values ('P-FICTIF-{nom}', '{donnees}', 'PRODUCTEUR FICTIF {nom}', '{v}', {RT_DE[v]}) on conflict do nothing;")
     setup.append(f"insert into public.farmer_plots (id, producteur_id, village_id, local_name) values ('{pid}', 'P-FICTIF-{nom}', '{v}', 'PARCELLE FICTIVE {nom}') on conflict do nothing;")
 q("\n".join(setup))
 
@@ -443,6 +450,29 @@ r74 = sync("uh_bro", [{"idempotency_key": str(uuid.uuid4()), "type": "VISITE_ENR
 record("SEC-74", X, "uh_bro", "Erreur technique : aucun détail SQL renvoyé au téléphone, code de diagnostic", "TECHNIQUE sans texte SQL",
        r74.get("code") == "TECHNIQUE" and "uuid" not in r74.get("message", "").lower() and bool(r74.get("diagnostic")), json.dumps(r74, ensure_ascii=False))
 check("SEC-75", X, "Détail technique conservé au journal, invisible des écrans (cluster nul)", f"select count(*) from pheno_journal where action='ERREUR_TECHNIQUE' and nouvelle->>'diagnostic'='{r74.get('diagnostic')}' and cluster_code is null", "1")
+# --- Droits par campagne : une affectation ne vaut que pour SA campagne -----------------------
+CAMP2 = str(uuid.uuid5(uuid.NAMESPACE_DNS, "campagne-fictive-simulation"))
+q(f"select set_config('request.jwt.claim.sub', '{U['bm']}', false); insert into public.campaigns (id, code, name, year, status, is_current, campaign_type) values ('{CAMP2}', '2098', 'CAMPAGNE FICTIVE SIMULATION', 2098, 'OPEN', false, 'SIMULATION') on conflict do nothing;")
+act("CMP-01", X, "bm", "Graine de la seconde campagne (distincte de la première)", f"select public.pheno_graine_creer('{CAMP2}')", True, '"deja_creee": false')
+check("CMP-02", X, "Chaque campagne a sa propre graine", f"select count(distinct graine) from pheno_graines where campaign_id in ('{CAMP}','{CAMP2}')", "2")
+pK = panel("A", 2, 1, camp=CAMP2)
+act("CMP-03", X, "uh_bro", "Même parcelle installée dans une autre campagne : autorisé (panel par campagne)", f"select public.pheno_panel_installer({lit(pK)})")
+G2 = q(f"select graine from pheno_graines where campaign_id='{CAMP2}'")
+blK = {b["numero"]: b["id"] for b in pK["blocs"]}; tK = tirage(f"{G2}:{PLOTS['A']}:BLOCS", 2, 1)
+act("CMP-04", X, "uh_bro", "Inventaire du bloc tiré (campagne 2)", f"select public.pheno_bloc_inventorier({lit({'bloc_id': blK[tK[0]], 'nb_arbres': 15})})", True, "ACTIF")
+check("CMP-05", X, "Tirage de la campagne 2 indépendant de la campagne 1 (graine différente)", f"select (select string_agg(numero::text, ',' order by rang_tirage) from pheno_blocs where panel_id='{pK['id']}' and tire) = '{tK[0]}'", "t")
+ARBK = json.loads(q(f"select json_agg(json_build_object('id', id)) from pheno_arbres where panel_id='{pK['id']}' and role='TITULAIRE'"))
+VK = str(uuid.uuid4())
+sync1("CMP-06", X, "auh_bro", "Visite soumise dans la campagne 2", "VISITE_ENREGISTRER", {**visite(VK, 1, [obs(a) for a in ARBK]), "panel_id": pK["id"]}, "ACCEPTEE", "SOUMIS")
+check("CMP-07", X, "Le Zonal Head 1 a des affectations sur la campagne 1 et aucune sur la campagne 2", f"select (count(*) filter (where campaign_id='{CAMP}') > 0)::text || '/' || count(*) filter (where campaign_id='{CAMP2}') from pheno_affectations where user_id='{U['zh1']}' and actif", "true/0")
+act("CMP-08", X, "zh1", "Validation dans la campagne 2 avec une affectation de la campagne 1 : refusée", f"select public.pheno_visite_valider('{VK}')", False, "affectation")
+act("CMP-09", X, "bm", "Affectation de validation sur la campagne 2", f"select public.pheno_affectation_accorder({lit({**aff, 'campaign_id': CAMP2})})")
+act("CMP-10", X, "zh1", "Validation dans la campagne 2 avec l'affectation de la campagne 2 : acceptée", f"select public.pheno_visite_valider('{VK}')", True, "VALIDE")
+check("CMP-11", X, "Vues pilotes cloisonnées par campagne (aucune visite de la campagne 2 dans la campagne 1)", f"select count(*) from pheno_v_champ_semaine where campaign_id='{CAMP}' and panel_id='{pK['id']}'", "0")
+q(f"select set_config('request.jwt.claim.sub', '{U['bm']}', false); update public.campaigns set status='CLOSED' where id='{CAMP2}';")
+sync1("CMP-12", X, "auh_bro", "Campagne 2 fermée : nouvelle visite refusée", "VISITE_ENREGISTRER", {**visite(str(uuid.uuid4()), 0, [obs(a) for a in ARBK]), "panel_id": pK["id"]}, "REJETEE", "campagne")
+act("CMP-13", X, "uh_bro", "Campagne fermée : parcelles installables toujours filtrées par cluster", "select count(*) = count(*) filter (where cluster_code='BROBO') from public.pheno_parcelles_disponibles('" + CAMP2 + "')", True, "t")
+
 vu_par("SEC-58", X, "auh_bro", "Collègues de collecte : seulement ceux de son cluster, sans soi-même", "select string_agg(nom, ',' order by nom) from public.pheno_observateurs_du_cluster()", "AUH BROBO 2 FICTIF,UH BROBO FICTIF")
 vu_par("SEC-59", X, "rt", "Collègues de collecte : rien pour un RT", "select count(*) from public.pheno_observateurs_du_cluster()", "0")
 vu_par("SEC-60", X, "zh1", "Collègues de collecte : rien hors rôles de collecte", "select count(*) from public.pheno_observateurs_du_cluster()", "0")
@@ -455,7 +485,7 @@ for r in RESULTS:
     d = par.setdefault(r["famille"], [0, 0]); d[0] += 1; d[1] += r["resultat"] == "RÉUSSI"
 json.dump({"date": str(datetime.datetime.now()), "base": DB, "hote": HOST, "total": tot, "reussis": ok_n, "echoues": tot - ok_n,
            "par_famille": {k: {"total": v[0], "reussis": v[1], "echoues": v[0] - v[1]} for k, v in par.items()}, "tests": RESULTS},
-          open(os.path.join(OUT_DIR, "serveur.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          open(os.path.join(OUT_DIR, "serveur" + os.environ.get("OBS_SUFFIXE", "") + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print("| Famille | Tests | Réussis | Échoués |\n|---|---|---|---|")
 for k, v in par.items(): print(f"| {k} | {v[0]} | {v[1]} | {v[0] - v[1]} |")
 print(f"| TOTAL | {tot} | {ok_n} | {tot - ok_n} |")

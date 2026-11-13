@@ -1,0 +1,2049 @@
+{
+ "date": "2026-11-13 17:28:08.432243",
+ "base": "fbms_pheno_staging",
+ "hote": "127.0.0.1",
+ "total": 223,
+ "reussis": 223,
+ "echoues": 0,
+ "par_famille": {
+  "Échantillonnage": {
+   "total": 44,
+   "reussis": 44,
+   "echoues": 0
+  },
+  "Observation terrain": {
+   "total": 14,
+   "reussis": 14,
+   "echoues": 0
+  },
+  "Synchronisation": {
+   "total": 20,
+   "reussis": 20,
+   "echoues": 0
+  },
+  "Validation": {
+   "total": 40,
+   "reussis": 40,
+   "echoues": 0
+  },
+  "Indicateurs pilote": {
+   "total": 16,
+   "reussis": 16,
+   "echoues": 0
+  },
+  "Sécurité": {
+   "total": 89,
+   "reussis": 89,
+   "echoues": 0
+  }
+ },
+ "tests": [
+  {
+   "id": "ECH-40",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Installation avant création de la graine de campagne : refusée",
+   "attendu": "REFUS (Graine)",
+   "obtenu": "REFUS : Graine de tirage de la campagne absente : le Branch Manager doit la créer avant toute installation.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-41",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Graine de campagne créée par un Unit Head : refusé",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Réservé au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-42",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Le Branch Manager crée la graine aléatoire de la campagne",
+   "attendu": "OK (\"deja_creee\": false)",
+   "obtenu": "OK : {\"graine\": \"7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02\", \"deja_creee\": false, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-43",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Deuxième création : la graine existante est rendue, jamais remplacée",
+   "attendu": "OK (7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02)",
+   "obtenu": "OK : {\"graine\": \"7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02\", \"deja_creee\": true, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-44",
+   "famille": "Échantillonnage",
+   "compte": "postgres (superutilisateur)",
+   "action": "Graine immuable, même pour le superutilisateur",
+   "attendu": "REFUS",
+   "obtenu": "refusée",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-01",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "AUH installe le champ A (B=4, b=2)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"blocs_tires\": [2, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-02",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Blocs tirés = recalcul indépendant sha256",
+   "attendu": "[2, 4]",
+   "obtenu": "[2, 4]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-03",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Tirage verrouillé, b fixé avant tirage",
+   "attendu": "true|TIRAGE_VERROUILLE|true",
+   "obtenu": "true|TIRAGE_VERROUILLE|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-04",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Réinstallation identique : idempotente",
+   "attendu": "OK (deja_installe)",
+   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"blocs_tires\": [2, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"deja_installe\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-05",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Rejouer le tirage avec un autre b : refusé",
+   "attendu": "REFUS (verrouillé)",
+   "obtenu": "REFUS : Tirage verrouillé : ce champ est déjà installé avec d'autres paramètres.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-06",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Même parcelle, autre identifiant (autre appareil) : refusé",
+   "attendu": "REFUS (déjà installée)",
+   "obtenu": "REFUS : Cette parcelle est déjà installée dans l'Observatoire pour cette campagne (autre appareil).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-07",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "b > B : refusé",
+   "attendu": "REFUS (invalide)",
+   "obtenu": "REFUS : Nombre de blocs invalide : B=2 et b=3 (1 <= b <= B, b <= 10).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-08",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Bloc sans repère physique : refusé",
+   "attendu": "REFUS (repère)",
+   "obtenu": "REFUS : Chaque bloc doit avoir un numéro unique de 1 à 3, un identifiant et un repère physique.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-09",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Liste de blocs incomplète : refusé",
+   "attendu": "REFUS (exactement)",
+   "obtenu": "REFUS : La liste des blocs doit contenir exactement 3 blocs.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-10",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Campagne fermée : refusé",
+   "attendu": "REFUS (ouverte)",
+   "obtenu": "REFUS : La campagne n'est pas ouverte.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-11",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Village sans cluster AFLP : refusé",
+   "attendu": "REFUS (cluster)",
+   "obtenu": "REFUS : Le village de la parcelle n'est rattaché à aucun cluster AFLP.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-12",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant",
+   "attendu": "7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
+   "obtenu": "7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-13",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Inventaire d'un bloc non tiré : refusé",
+   "attendu": "REFUS (pas été tiré)",
+   "obtenu": "REFUS : Ce bloc n'a pas été tiré : il n'est pas inventorié.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-14",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Inventaire bloc tiré 1 (N=7)",
+   "attendu": "OK (TIRAGE_VERROUILLE)",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"96a5a997-5ae6-4707-a4f1-98ef880df8dc\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-15",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Aucun arbre tiré tant qu'un bloc tiré n'est pas inventorié",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-16",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Inventaire bloc tiré 2 (N=9) : le champ devient actif",
+   "attendu": "OK (ACTIF)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"00514d68-ef38-e653-0830-e895bbea1a6d\", \"code\": \"B2-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"117bcb22-cf67-94d9-912f-982d11093696\", \"code\": \"B2-002\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"779f1a7f-2c49-095b-dbce-c229c8a23cd7\", \"code\": \"B2-003\", \"rang\": 3, \"role\": \"TI",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-17",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "10 titulaires et 2 réserves",
+   "attendu": "10|2|12",
+   "obtenu": "10|2|12",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-18",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve)",
+   "attendu": "4,2,3,7,5,6",
+   "obtenu": "4,2,3,7,5,6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-19",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Identifiant d'arbre déterministe (calculable hors ligne)",
+   "attendu": "00514d68-ef38-e653-0830-e895bbea1a6d",
+   "obtenu": "00514d68-ef38-e653-0830-e895bbea1a6d",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-20",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Probabilité d'inclusion (2/4)×(5/7) = 0,357",
+   "attendu": "0.357",
+   "obtenu": "0.357",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-21",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Réserve : en attente, sans probabilité",
+   "attendu": "RESERVE_EN_ATTENTE|null",
+   "obtenu": "RESERVE_EN_ATTENTE|null",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-22",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Modifier un inventaire enregistré : refusé",
+   "attendu": "REFUS (ne peut plus être modifié)",
+   "obtenu": "REFUS : Inventaire déjà enregistré (7 arbres) : il ne peut plus être modifié.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-23",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Inventaire rejoué à l'identique : idempotent",
+   "attendu": "OK (deja_inventorie)",
+   "obtenu": "OK : {\"bloc_id\": \"96a5a997-5ae6-4707-a4f1-98ef880df8dc\", \"statut_panel\": \"ACTIF\", \"deja_inventorie\": true}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-24",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Installation du champ B (B=3, b=2)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"ab6cd146-7c32-425d-9540-5be263a255ee\", \"blocs_tires\": [2, 3], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-25",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Champ B bloc 1 : N=3 (< 5 titulaires)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"9e873d36-9e25-414c-86d3-2459b761be6f\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-26",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Champ B bloc 2 : N=12 → incompatibilité signalée",
+   "attendu": "OK (INCOMPATIBLE)",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"3eeb1caa-7f83-449c-83dc-fb67f953d8a2\", \"statut_panel\": \"INCOMPATIBLE\", \"incompatibilite\": \"bloc 2 : 3 arbres inventoriés pour 5 titulaires prévus\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-27",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Bloc trop petit : aucun arbre tiré, N non gonflé, bloc non remplacé",
+   "attendu": "0|3|2",
+   "obtenu": "0|3|2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-28",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "BM installe le champ C (B=2, b=2)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"d20a63d5-1858-451a-8436-488b8038b6de\", \"blocs_tires\": [2, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-29",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Champ C bloc 1 : N=5 (5 titulaires, réserve impossible)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"9416ca23-a74a-4763-a459-4a7eea748ae4\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-30",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Champ C bloc 2 : N=20",
+   "attendu": "OK (ACTIF)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"cd8a0e64-233f-1174-02d8-12d3173166ab\", \"code\": \"B2-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"065f97dc-3e01-033a-920a-f6ff5d0a7178\", \"code\": \"B2-005\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"9a8994d4-1359-2b10-12b5-e40b5b5e064e\", \"code\": \"B2-002\", \"rang\": 3, \"role\": \"TI",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-31",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Réserve manquante signalée, champ actif",
+   "attendu": "ACTIF|1",
+   "obtenu": "ACTIF|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-32",
+   "famille": "Échantillonnage",
+   "compte": "uh_bro",
+   "action": "Probabilités amont par un Unit Head : refusé",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Réservé au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-33",
+   "famille": "Échantillonnage",
+   "compte": "bm",
+   "action": "Probabilités amont par le BM (π village 0,5 ; π champ 0,25)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"pi_champ\": 0.25, \"pi_village\": 0.5}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-34",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "π = 0,5 × 0,25 × (2/4) × (5/7) = 0,0446",
+   "attendu": "0.0446",
+   "obtenu": "0.0446",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-35",
+   "famille": "Échantillonnage",
+   "compte": "postgres (superutilisateur)",
+   "action": "Journal immuable, même pour le superutilisateur",
+   "attendu": "REFUS",
+   "obtenu": "refusée",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-36",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Installation du champ D (B=6, b=3)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"f391e460-f0cc-4bb6-88c8-01e46e77e82f\", \"blocs_tires\": [5, 4, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-37",
+   "famille": "Échantillonnage",
+   "compte": "postgres (lecture)",
+   "action": "Répartition 10 titulaires sur 3 blocs : 4+3+3, réserves 1+1+0",
+   "attendu": "4+1,3+1,3+0",
+   "obtenu": "4+1,3+1,3+0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-38",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "Marquage GPS d'un arbre",
+   "attendu": "OK",
+   "obtenu": "OK : {\"marque\": true, \"arbre_id\": \"00514d68-ef38-e653-0830-e895bbea1a6d\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "ECH-39",
+   "famille": "Échantillonnage",
+   "compte": "auh_bro",
+   "action": "GPS invalide : refusé",
+   "attendu": "REFUS (GPS)",
+   "obtenu": "REFUS : Coordonnées GPS invalides.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-01",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Brouillon partiel (3 arbres, réponses incomplètes)",
+   "attendu": "ACCEPTEE (BROUILLON)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"e5360358-9659-40fa-a04c-3f8ad4805650\", \"recu_serveur_le\": \"2026-11-13T17:27:59.840659+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-02",
+   "famille": "Observation terrain",
+   "compte": "postgres (lecture)",
+   "action": "Aucun « Non » pré-rempli : les réponses absentes restent vides",
+   "attendu": "3|0|1",
+   "obtenu": "3|0|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-03",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Soumission incomplète : refusée",
+   "attendu": "REJETEE (incomplète)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : 6 arbre(s) sans réponse « Retrouvé » (B2-005, B4-006, B4-004, B4-009, B4-001, B4-002).\", \"idempotency_key\": \"36e9d80a-ab8a-4bf9-a9cb-3c0f4911ae5d\", \"recu_serveur_le\": \"2026-11-13T17:27:59.935126+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-04",
+   "famille": "Observation terrain",
+   "compte": "postgres (lecture)",
+   "action": "Un refus n'écrit rien (transaction annulée)",
+   "attendu": "BROUILLON|3",
+   "obtenu": "BROUILLON|3",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-05",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "« Pas vu » sans raison : refusé",
+   "attendu": "REJETEE (Raison obligatoire)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-002).\", \"idempotency_key\": \"56c0fe1c-84e5-4274-a11c-f56bf5e3c25a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.012103+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-06",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Chute de fruits mûrs sans source de preuve : refusée",
+   "attendu": "REJETEE (preuve)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Source de preuve obligatoire pour une chute constatée (B4-002).\", \"idempotency_key\": \"eabd6a52-8611-4385-bda0-c5c9c9a70ebd\", \"recu_serveur_le\": \"2026-11-13T17:28:00.055972+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-07",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Arbre non retrouvé sans raison : refusé",
+   "attendu": "REJETEE (Raison obligatoire)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-002).\", \"idempotency_key\": \"8db5cc42-5b0a-42c4-91f2-062ce910b18b\", \"recu_serveur_le\": \"2026-11-13T17:28:00.107564+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-08",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Observation d'une réserve non activée : refusée",
+   "attendu": "REJETEE (réserve)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'arbre B2-006 n'est pas observé (réserve non activée ou arbre remplacé).\", \"idempotency_key\": \"7e87d7a6-ca1d-4f44-8067-ab5966955577\", \"recu_serveur_le\": \"2026-11-13T17:28:00.16345+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-09",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Semaine incohérente avec la date : refusée",
+   "attendu": "REJETEE (semaine)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La semaine 2020-W01 ne correspond pas à la date d'observation (2026-W43).\", \"idempotency_key\": \"6eb4f723-ac91-4b2b-9ec4-832838e37fe6\", \"recu_serveur_le\": \"2026-11-13T17:28:00.20567+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-10",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Date d'observation future : refusée",
+   "attendu": "REJETEE (futur)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Date d'observation dans le futur.\", \"idempotency_key\": \"c62f5f56-13de-433b-ba93-06b0c38b50c6\", \"recu_serveur_le\": \"2026-11-13T17:28:00.255751+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-11",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Ramassage non renseigné : refusé",
+   "attendu": "REJETEE (ramassage)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : question du ramassage non renseignée.\", \"idempotency_key\": \"9dfe22d6-5cf5-4fa4-8ff7-d368dac30de3\", \"recu_serveur_le\": \"2026-11-13T17:28:00.301365+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-12",
+   "famille": "Observation terrain",
+   "compte": "auh_bro",
+   "action": "Soumission complète de la semaine 1",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.360114+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-13",
+   "famille": "Observation terrain",
+   "compte": "postgres (lecture)",
+   "action": "Trois dates conservées : observation, saisie, réception serveur",
+   "attendu": "true|true",
+   "obtenu": "true|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "OBS-14",
+   "famille": "Observation terrain",
+   "compte": "postgres (lecture)",
+   "action": "Arbre non retrouvé : aucun stade enregistré",
+   "attendu": "vide|vide",
+   "obtenu": "vide|vide",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-01",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Renvoi de la même opération (même clé) : rejouée, sans doublon",
+   "attendu": "ACCEPTEE (rejoue)",
+   "obtenu": "{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.360114+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-02",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Une seule visite, dix observations après renvoi",
+   "attendu": "1|10",
+   "obtenu": "1|10",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-03",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Même clé, contenu différent : refusé",
+   "attendu": "REJETEE (déjà utilisée)",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-04",
+   "famille": "Synchronisation",
+   "compte": "uh_bro",
+   "action": "Autre appareil, même champ, même semaine : conflit, rien d'écrasé",
+   "attendu": "CONFLIT (DOUBLON_SEMAINE)",
+   "obtenu": "{\"code\": \"DOUBLON_SEMAINE\", \"statut\": \"CONFLIT\", \"message\": \"Une autre visite existe déjà pour ce champ en semaine 2026-W43. La vôtre n'a pas été enregistrée : contactez votre Unit Head.\", \"visite_id\": \"cbdd87bc-1fab-4bb1-af12-5126d89679de\", \"idempotency_key\": \"afca1975-61e3-490c-8197-593880ef146b\",",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-05",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "La visite d'origine est intacte",
+   "attendu": "1|2",
+   "obtenu": "1|2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-06",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Modification hors ligne d'une visite déjà soumise : proposition, pas d'écrasement",
+   "attendu": "CONFLIT (VISITE_FIGEE)",
+   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà soumis sur le serveur : 1 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"propositions\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"0ecbe0f3-7790-4a17-a25",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-07",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Valeur serveur inchangée, proposition de correction enregistrée",
+   "attendu": "NON|1",
+   "obtenu": "NON|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-08",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Lot de 51 opérations : refusé",
+   "attendu": "REFUS (50)",
+   "obtenu": "Lot trop volumineux (50 opérations au plus).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-09",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Type d'opération inconnu : refusé",
+   "attendu": "REJETEE (inconnu)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Type d'opération inconnu : SUPPRIMER_TOUT.\", \"idempotency_key\": \"a8061b4d-b97c-4f9a-bc6b-781670549cb2\", \"recu_serveur_le\": \"2026-11-13T17:28:00.876655+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-10",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Opération sans clé d'idempotence : refusée",
+   "attendu": "REJETEE",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence manquante.\", \"idempotency_key\": null}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-11",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Brouillon semaine 2 enregistré",
+   "attendu": "ACCEPTEE (BROUILLON)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"8c47390f-014a-492e-a474-f36248f0b85a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.961414+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-12",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Brouillon modifié avec une version périmée : conflit de version",
+   "attendu": "CONFLIT (VERSION)",
+   "obtenu": "{\"code\": \"VERSION\", \"statut\": \"CONFLIT\", \"message\": \"La visite a été modifiée sur le serveur depuis votre dernière lecture. Rechargez-la avant de la modifier.\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 1, \"idempotency_key\": \"cae1eb51-f16a-4d99-b95d-041ceee9032f\", \"recu_ser",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-13",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Semaine 2 soumise avec la bonne version",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"f9a620bb-a397-41b8-a500-84f998d34b0f\", \"recu_serveur_le\": \"2026-11-13T17:28:01.075982+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-14",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Lot mixte : une opération acceptée, une refusée, chacune avec son accusé",
+   "attendu": "ACCEPTEE + REJETEE",
+   "obtenu": "[\"ACCEPTEE\", \"REJETEE\"]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-15",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Transcription papier où l'observateur est le transcripteur : refusée",
+   "attendu": "REJETEE (autre personne)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Transcription d'une fiche papier : l'observateur doit être une autre personne que le transcripteur.\", \"idempotency_key\": \"47def5e8-b4c4-4179-97ad-3478244abd44\", \"recu_serveur_le\": \"2026-11-13T17:28:01.175645+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-16",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Transcription papier : observateur distinct, tracé",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"31d94152-5248-4623-8a5a-47f53ff6d59a\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"c65c8c3a-847b-431f-9587-1d19a48099d2\", \"recu_serveur_le\": \"2026-11-13T17:28:01.265173+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-17",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Observateur et transcripteur distincts enregistrés",
+   "attendu": "true|true",
+   "obtenu": "true|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-18",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Installation hors ligne synchronisée par lot",
+   "attendu": "ACCEPTEE (blocs_tires)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"panel_id\": \"68d3cb0d-8c17-4772-80f4-e79d0a8459dd\", \"blocs_tires\": [1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"idempotency_key\": \"d13883ac-b6f0-4acb-ad09-0c2a1c5c8020\", \"recu_serveur_le\": \"2026-11-13T17:28:01.354459+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-01",
+   "famille": "Validation",
+   "compte": "auh_bro2",
+   "action": "Assistant Unit Head vérifie : refusé",
+   "attendu": "REFUS (non autorisée)",
+   "obtenu": "REFUS : Vérification non autorisée pour ce cluster.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-02",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "L'auteur vérifie sa propre visite : refusé",
+   "attendu": "REFUS (observée ou saisie)",
+   "obtenu": "REFUS : On ne vérifie ni ne valide une visite que l'on a observée ou saisie.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-03",
+   "famille": "Validation",
+   "compte": "uh_bot",
+   "action": "Unit Head d'un autre cluster vérifie : refusé (visite invisible)",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Visite introuvable.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-04",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Unit Head du cluster met en vérification",
+   "attendu": "OK (EN_VERIFICATION)",
+   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 3, \"statut_visite\": \"EN_VERIFICATION\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-05",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Unit Head valide sans affectation : refusé",
+   "attendu": "REFUS (affectation)",
+   "obtenu": "REFUS : Validation finale non autorisée : affectation agronomique requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-06",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head valide sans affectation agronomique : refusé",
+   "attendu": "REFUS (affectation)",
+   "obtenu": "REFUS : Validation finale non autorisée : affectation agronomique requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-07",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Unit Head accorde une affectation : refusé",
+   "attendu": "REFUS (Branch Manager)",
+   "obtenu": "REFUS : Réservé au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-08",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM affecte la validation à un Assistant Unit Head : refusé",
+   "attendu": "REFUS (ne peut viser)",
+   "obtenu": "REFUS : Une affectation agronomique ne peut viser qu'un Zonal Head, un Unit Head ou l'Assistant Branch Manager actif.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-09",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM affecte la validation à un RT : refusé",
+   "attendu": "REFUS (ne peut viser)",
+   "obtenu": "REFUS : Une affectation agronomique ne peut viser qu'un Zonal Head, un Unit Head ou l'Assistant Branch Manager actif.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-10",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM accorde une affectation expirée au Zonal Head 1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"affectation_id\": \"6a541bb6-7efa-471f-bbf8-db6364606b4b\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-11",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head avec affectation expirée : refusé",
+   "attendu": "REFUS (affectation)",
+   "obtenu": "REFUS : Validation finale non autorisée : affectation agronomique requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-12",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM accorde au Zonal Head 2 la validation de BROBO (hors de sa zone)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"affectation_id\": \"b755fa55-6661-4770-b728-b208659af485\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-13",
+   "famille": "Validation",
+   "compte": "zh2",
+   "action": "Zonal Head hors zone, même affecté : refusé",
+   "attendu": "REFUS (introuvable)",
+   "obtenu": "REFUS : Visite introuvable.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-14",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM accorde au Zonal Head 1 la validation de BROBO",
+   "attendu": "OK",
+   "obtenu": "OK : {\"affectation_id\": \"b4ac67cf-b7d7-47c0-893c-da6e36a71c4f\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-15",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Demande de correction sans motif : refusée",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-16",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head affecté demande une correction motivée",
+   "attendu": "OK (CORRECTION_DEMANDEE)",
+   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 4, \"statut_visite\": \"CORRECTION_DEMANDEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-17",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Valider une visite en correction demandée : refusé",
+   "attendu": "REFUS (soumise ou en vérification)",
+   "obtenu": "REFUS : Seule une visite soumise ou en vérification peut être validée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-18",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "L'auteur soumet à nouveau sans motif : refusé",
+   "attendu": "REJETEE (Motif de correction)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Motif de correction obligatoire pour soumettre à nouveau.\", \"idempotency_key\": \"4930002b-59da-4343-af83-93549d125990\", \"recu_serveur_le\": \"2026-11-13T17:28:02.222758+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-19",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "L'auteur corrige et soumet avec motif",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 5, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"6e071af5-3e3e-4eed-b123-f550e98b0199\", \"recu_serveur_le\": \"2026-11-13T17:28:02.272625+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-20",
+   "famille": "Validation",
+   "compte": "postgres (lecture)",
+   "action": "Historique : auteur, ancienne et nouvelle valeur, motif",
+   "attendu": "true|NON|OUI|true",
+   "obtenu": "true|NON|OUI|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-21",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head affecté valide la semaine 1",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 6, \"statut_visite\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-22",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Valider deux fois : refusé",
+   "attendu": "REFUS (soumise ou en vérification)",
+   "obtenu": "REFUS : Seule une visite soumise ou en vérification peut être validée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-23",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Version périmée à la validation : refusée",
+   "attendu": "REFUS (changé)",
+   "obtenu": "REFUS : La visite a changé depuis votre lecture : rechargez-la.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-24",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head affecté valide la semaine 2",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-25",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "Envoi hors ligne tardif sur une visite VALIDÉE : proposition, jamais d'écrasement",
+   "attendu": "CONFLIT (VISITE_FIGEE)",
+   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà valide sur le serveur : 2 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"propositions\": 2, \"statut_visite\": \"VALIDE\", \"idempotency_key\": \"ab8bcb58-e45b-4c5f-97f",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-26",
+   "famille": "Validation",
+   "compte": "postgres (lecture)",
+   "action": "Visite validée intacte",
+   "attendu": "VALIDE|ABSENCE",
+   "obtenu": "VALIDE|ABSENCE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-27",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "L'auteur décide de sa propre proposition : refusé",
+   "attendu": "REFUS (valideur)",
+   "obtenu": "REFUS : Décision réservée au valideur agronomique.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-28",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Unit Head sans affectation décide : refusé",
+   "attendu": "REFUS (valideur)",
+   "obtenu": "REFUS : Décision réservée au valideur agronomique.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-29",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Décision sans motif : refusée",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-30",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Le valideur applique la correction avec motif",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"1e828e51-ce90-45e2-b61f-3f291b3a6b0c\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-31",
+   "famille": "Validation",
+   "compte": "postgres (lecture)",
+   "action": "Correction appliquée et journalisée (ancienne → nouvelle)",
+   "attendu": "MURE|ABSENCE>MURE",
+   "obtenu": "MURE|ABSENCE>MURE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-32",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Application de la preuve associée",
+   "attendu": "OK (APPLIQUEE)",
+   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"da46d74c-d526-46f4-8bb3-ff47949cdbd9\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-33",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM observe lui-même une visite (champ C, semaine précédente)",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"e4a77837-fee8-444d-a1b3-5bfdc8f98bc8\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"a50d2606-6a62-4931-a151-28f7396a3768\", \"recu_serveur_le\": \"2026-11-13T17:28:03.041017+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-34",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM valide sa propre visite : refusé",
+   "attendu": "REFUS (observée ou saisie)",
+   "obtenu": "REFUS : On ne vérifie ni ne valide une visite que l'on a observée ou saisie.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-35",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM révoque l'affectation du Zonal Head 1",
+   "attendu": "OK",
+   "obtenu": "OK : {\"actif\": false, \"affectation_id\": \"b4ac67cf-b7d7-47c0-893c-da6e36a71c4f\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-36",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Zonal Head révoqué valide : refusé",
+   "attendu": "REFUS (affectation)",
+   "obtenu": "REFUS : Validation finale non autorisée : affectation agronomique requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-37",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Activation d'une réserve sans droit de validation : refusé",
+   "attendu": "REFUS (valideur)",
+   "obtenu": "REFUS : L'activation d'une réserve est réservée au valideur agronomique.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-38",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "BM active une réserve (arbre non retrouvé), motif obligatoire",
+   "attendu": "OK (reserve_activee)",
+   "obtenu": "OK : {\"reserve_id\": \"97c54fe1-b303-cdbe-01cc-7b6e051eb38e\", \"arbre_remplace\": \"B4-002\", \"reserve_activee\": \"B4-008\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-39",
+   "famille": "Validation",
+   "compte": "postgres (lecture)",
+   "action": "Titulaire remplacé, réserve activée, probabilité marquée approchée",
+   "attendu": "REMPLACE|1",
+   "obtenu": "REMPLACE|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "VAL-40",
+   "famille": "Validation",
+   "compte": "postgres (lecture)",
+   "action": "Événements de maturité : intervalle (dernière visite négative, première positive)",
+   "attendu": "2026-10-23|2026-10-30",
+   "obtenu": "2026-10-23|2026-10-30",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-01",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Seules les visites validées alimentent les vues (V1, V2)",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-02",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Brouillon de la semaine 3 exclu",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-03",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Semaine 1 : part F pondérée, 3 Oui sur 8 réponses définies (« Pas vu » et non retrouvé hors dénominateur)",
+   "attendu": "0.3281",
+   "obtenu": "0.3281",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-04",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Semaine 2 : part C hebdo pondérée (prématurée et non confirmée ne comptent pas en C)",
+   "attendu": "0.3151",
+   "obtenu": "0.3151",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-05",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Chutes prématurées et non confirmées comptées à part",
+   "attendu": "1|1|1",
+   "obtenu": "1|1|1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-06",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Vues étiquetées pilote, non officielles",
+   "attendu": "PILOTE_NON_OFFICIEL",
+   "obtenu": "PILOTE_NON_OFFICIEL",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-07",
+   "famille": "Indicateurs pilote",
+   "compte": "bm",
+   "action": "BM accorde au Zonal Head 1 une nouvelle affectation",
+   "attendu": "OK",
+   "obtenu": "OK : {\"affectation_id\": \"141b0ec4-dee7-4fcf-bf73-c2a63d6f0154\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-08",
+   "famille": "Indicateurs pilote",
+   "compte": "auh_bro",
+   "action": "Semaine 3 soumise : aucune chute observée",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"b9e4b324-cedb-4437-bac9-a97c6a693663\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"a2462e5d-f2e7-42b7-95b9-366dbcb631c9\", \"recu_serveur_le\": \"2026-11-13T17:28:03.787755+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-09",
+   "famille": "Indicateurs pilote",
+   "compte": "zh1",
+   "action": "Semaine 3 validée",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"visite_id\": \"b9e4b324-cedb-4437-bac9-a97c6a693663\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-10",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "C cumulatif : 0 puis 3 puis 3 (une semaine sans chute n'efface rien)",
+   "attendu": "0,3,3",
+   "obtenu": "0,3,3",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-11",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Réserves (en attente ou activée) et titulaire remplacé hors dénominateur : 9 titulaires suivis",
+   "attendu": "9",
+   "obtenu": "9",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-12",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Palier expérimental : couverture insuffisante (1 champ validé sur 4 actifs)",
+   "attendu": "COUVERTURE_INSUFFISANTE",
+   "obtenu": "COUVERTURE_INSUFFISANTE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-14",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Réserve activée : comptée à part, hors proportions",
+   "attendu": "1|9",
+   "obtenu": "1|9",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-15",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Cluster : ratio pondéré (pas une moyenne de proportions)",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-16",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Non-réponse pondérée publiée (semaine 1 : « Pas vu » et non retrouvé)",
+   "attendu": "true",
+   "obtenu": "true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "IND-13",
+   "famille": "Indicateurs pilote",
+   "compte": "postgres (lecture)",
+   "action": "Qualité : transcription papier comptée",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-01",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro installe un champ dans SON cluster",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"4e7206e2-ad27-4c37-9788-d89fc040a447\", \"blocs_tires\": [1, 3], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-02",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro installe un champ à Brobo : refusé",
+   "attendu": "REFUS (réservée aux agents du cluster)",
+   "obtenu": "REFUS : Installation réservée aux agents du cluster BROBO.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-03",
+   "famille": "Sécurité",
+   "compte": "anon",
+   "action": "Anonyme lit les champs : refusé",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_panels",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-04",
+   "famille": "Sécurité",
+   "compte": "anon",
+   "action": "Anonyme appelle la synchronisation : refusé",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function pheno_sync_batch",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-05",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "BM : tous les champs",
+   "attendu": "6",
+   "obtenu": "OK : 6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-06",
+   "famille": "Sécurité",
+   "compte": "abm",
+   "action": "ABM : tous les champs (lecture)",
+   "attendu": "6",
+   "obtenu": "OK : 6",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-07",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Zonal Head 1 : sa zone seulement",
+   "attendu": "5",
+   "obtenu": "OK : 5",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-08",
+   "famille": "Sécurité",
+   "compte": "zh2",
+   "action": "Zonal Head 2 : sa zone seulement",
+   "attendu": "1",
+   "obtenu": "OK : 1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-09",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Unit Head Brobo : son cluster",
+   "attendu": "5",
+   "obtenu": "OK : 5",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-10",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro : son cluster",
+   "attendu": "1",
+   "obtenu": "OK : 1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-11",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Assistant Unit Head Brobo : son cluster",
+   "attendu": "5",
+   "obtenu": "OK : 5",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-12",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "RT : aucun champ",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-13",
+   "famille": "Sécurité",
+   "compte": "sup",
+   "action": "Supervisor : aucun champ",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-14",
+   "famille": "Sécurité",
+   "compte": "gm",
+   "action": "General Manager : aucun champ (non prévu au pilote)",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-15",
+   "famille": "Sécurité",
+   "compte": "uh_inactif",
+   "action": "Compte inactif : aucun champ",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-16",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_visites",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-17",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_observations",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-18",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_arbres",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-19",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_blocs",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-20",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_journal",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-21",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_corrections",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-22",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro ne lit rien de Brobo dans pheno_evenements_maturite",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-23",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "RT ne lit aucune observation de référence",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-24",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "RT appelle la synchronisation : refusé",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès à l'Observatoire refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-25",
+   "famille": "Sécurité",
+   "compte": "sup",
+   "action": "Supervisor installe un champ : refusé",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès à l'Observatoire refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-26",
+   "famille": "Sécurité",
+   "compte": "uh_inactif",
+   "action": "Compte inactif synchronise : refusé",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès à l'Observatoire refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-27",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Unit Head Botro envoie une visite sur un champ de Brobo : refusé",
+   "attendu": "REJETEE (PH001)",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"3de37ebf-c91e-49cf-ad4f-9ea9b365eadf\", \"recu_serveur_le\": \"2026-11-13T17:28:05.367105+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-28",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Zonal Head collecte une visite : refusé (pas un rôle de collecte)",
+   "attendu": "REJETEE (PH001)",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"101f51af-8ab5-4c95-a7ed-18b3d9f60261\", \"recu_serveur_le\": \"2026-11-13T17:28:05.407459+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-29",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : insert visite",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_visites",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-30",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : update visite (auto-validation)",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_visites",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-31",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : update observation",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_observations",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-32",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : delete visite",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_visites",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-33",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : insert affectation",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_affectations",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-34",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : insert journal",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_journal",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-35",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Écriture directe refusée, même au BM : update arbre (probabilité)",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for table pheno_arbres",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-36",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Fonction interne non appelable directement",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function pheno_visite_enregistrer",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-37",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Fonction interne de tirage non appelable",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function pheno_tirer_arbres",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-38",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Zonal Head lit ses seules affectations",
+   "attendu": "t",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-39",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Unit Head ne lit pas les affectations des autres",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-40",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : dépôt dans son dossier, champ de son cluster",
+   "attendu": "OK",
+   "obtenu": "OK : ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-41",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : dépôt sous l'identité d'un autre : refusé",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-42",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Preuve : dépôt sur un champ d'un autre cluster : refusé",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-43",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : chemin non conforme : refusé par défaut",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-44",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : extension non autorisée : refusé",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-45",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : campagne ne correspondant pas au champ : refusé",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-46",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "Preuve : dépôt par un RT : refusé",
+   "attendu": "REFUS (row-level security)",
+   "obtenu": "REFUS : new row violates row-level security policy for table \"objects\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-47",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Preuve : lecture par le cluster",
+   "attendu": "1",
+   "obtenu": "OK : 1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-48",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Preuve : invisible pour un autre cluster",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-49",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "Preuve : invisible pour un RT",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-50",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : suppression impossible (aucune politique)",
+   "attendu": "0 ligne",
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-51",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Preuve : remplacement impossible (aucune politique)",
+   "attendu": "inchangé",
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-52",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Référence de preuve pointant hors du champ : refusée",
+   "attendu": "REJETEE (preuve)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"ab3fe84c-28b2-4a08-a35a-f666e33f860d\", \"recu_serveur_le\": \"2026-11-13T17:28:06.543085+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-53",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Bucket de preuves privé",
+   "attendu": "false",
+   "obtenu": "false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-54",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "RLS active sur toutes les tables de l'Observatoire",
+   "attendu": "11/11",
+   "obtenu": "11/11",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-55",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Aucune politique d'écriture sur les tables de l'Observatoire",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-56",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Toutes les fonctions SECURITY DEFINER du module fixent search_path",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-57",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Aucune fonction du module exécutable par anon",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-61",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Fiche papier : observateur d'un autre cluster refusé",
+   "attendu": "REJETEE (cluster)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'observateur désigné n'appartient pas au cluster de ce champ.\", \"idempotency_key\": \"a5b4587c-fe1c-455c-9a82-9ed624b56705\", \"recu_serveur_le\": \"2026-11-13T17:28:06.793743+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-62",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Identité falsifiée dans la charge (user_id, acteur, observateur en mode direct) : envoi accepté…",
+   "attendu": "ACCEPTEE (BROUILLON)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"9bd481d9-87ba-48fa-91c1-0221456ebff7\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"8b9bc73a-d2d3-41db-9b31-23d68e1ebee7\", \"recu_serveur_le\": \"2026-11-13T17:28:06.842866+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-63",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "… mais l'identité retenue est celle de la session, et le statut n'est pas forcé",
+   "attendu": "true|BROUILLON",
+   "obtenu": "true|BROUILLON",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-64",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Toutes les fonctions SECURITY DEFINER du module appartiennent au propriétaire du schéma (pas à authenticated)",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-65",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Aucune fonction privée du module exécutable par authenticated hors helpers de lecture",
+   "attendu": "",
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-68",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Lecture directe du rôle d'un autre compte : refusée",
+   "attendu": "REFUS (permission)",
+   "obtenu": "REFUS : permission denied for function pheno_classe_de",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-66",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Parcelles installables : seulement son cluster (BROBO)",
+   "attendu": "BROBO",
+   "obtenu": "OK : BROBO",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-67",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "Parcelles installables : rien pour un RT",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-19",
+   "famille": "Synchronisation",
+   "compte": "uh_bro",
+   "action": "Deux envois simultanés de la même opération : les deux reçoivent un accusé « acceptée »",
+   "attendu": "ACCEPTEE ×2 dont 1 rejouée",
+   "obtenu": "[[\"ACCEPTEE\", true], [\"ACCEPTEE\", null]]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-20",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Envois simultanés : une seule visite, aucune erreur de doublon",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-69",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Appel direct d'une RPC d'écriture hors périmètre (marquage d'un arbre de Brobo) : refusé",
+   "attendu": "REFUS (réservé)",
+   "obtenu": "REFUS : Marquage réservé aux agents du cluster.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-70",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Appel direct de l'inventaire d'un bloc de Brobo : refusé",
+   "attendu": "REFUS (réservé)",
+   "obtenu": "REFUS : Inventaire réservé aux agents du cluster.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-71",
+   "famille": "Sécurité",
+   "compte": "postgres (superutilisateur)",
+   "action": "Visite dont le cluster diffère de celui de son champ : refusée par la base",
+   "attendu": "REFUS",
+   "obtenu": "refusée",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-72",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Même clé, même charge, depuis un autre appareil : refusée (empreinte sur l'enveloppe complète)",
+   "attendu": "REJETEE",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-76",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Même enveloppe rejouée par un autre compte : refusée",
+   "attendu": "REJETEE",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-73",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Photo référencée dans le dossier d'un autre agent : refusée",
+   "attendu": "REJETEE (preuve)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"48ddb187-bc4c-4276-96a4-b6d425d61157\", \"recu_serveur_le\": \"2026-11-13T17:28:07.491525+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-74",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Erreur technique : aucun détail SQL renvoyé au téléphone, code de diagnostic",
+   "attendu": "TECHNIQUE sans texte SQL",
+   "obtenu": "{\"code\": \"TECHNIQUE\", \"statut\": \"REJETEE\", \"message\": \"Opération refusée par le serveur (erreur technique). Communiquez le code 004db413d5 à votre Unit Head.\", \"diagnostic\": \"004db413d5\", \"idempotency_key\": \"5cccbcc8-92a4-49d1-a910-e1be171dda2c\", \"recu_serveur_le\": \"2026-11-13T17:28:07.535729+00:00\"",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-75",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Détail technique conservé au journal, invisible des écrans (cluster nul)",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-01",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Graine de la seconde campagne (distincte de la première)",
+   "attendu": "OK (\"deja_creee\": false)",
+   "obtenu": "OK : {\"graine\": \"382c2f75397cffdf7d71422fb2f49827fd5f1523b5a1c6f6efac5298350acc60\", \"deja_creee\": false, \"campaign_id\": \"09dc8128-9090-59e9-ae4a-c3d0ad55da9d\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-02",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Chaque campagne a sa propre graine",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-03",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Même parcelle installée dans une autre campagne : autorisé (panel par campagne)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"panel_id\": \"12faa1ca-ef2b-4486-9336-356a5f8dcaa6\", \"blocs_tires\": [1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-04",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Inventaire du bloc tiré (campagne 2)",
+   "attendu": "OK (ACTIF)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"c5bf13b5-4d15-8768-4b05-60671203390b\", \"code\": \"B1-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"ee59bcbf-9a07-c199-8fa8-b05d49613dbe\", \"code\": \"B1-007\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"b63ff38d-186d-d3bb-46c4-2f47f8c674ae\", \"code\": \"B1-012\", \"rang\": 3, \"role\": \"TI",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-05",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Tirage de la campagne 2 indépendant de la campagne 1 (graine différente)",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-06",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Visite soumise dans la campagne 2",
+   "attendu": "ACCEPTEE (SOUMIS)",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2bcd38ac-6bc0-470d-9ab4-3443908629df\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"06c45440-9953-4860-9e46-8ffbc14433f2\", \"recu_serveur_le\": \"2026-11-13T17:28:07.938843+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-07",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Le Zonal Head 1 a des affectations sur la campagne 1 et aucune sur la campagne 2",
+   "attendu": "true/0",
+   "obtenu": "true/0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-08",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Validation dans la campagne 2 avec une affectation de la campagne 1 : refusée",
+   "attendu": "REFUS (affectation)",
+   "obtenu": "REFUS : Validation finale non autorisée : affectation agronomique requise.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-09",
+   "famille": "Sécurité",
+   "compte": "bm",
+   "action": "Affectation de validation sur la campagne 2",
+   "attendu": "OK",
+   "obtenu": "OK : {\"affectation_id\": \"4560cfe1-467b-4b9a-93f3-3a6c2e3de64e\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-10",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Validation dans la campagne 2 avec l'affectation de la campagne 2 : acceptée",
+   "attendu": "OK (VALIDE)",
+   "obtenu": "OK : {\"visite_id\": \"2bcd38ac-6bc0-470d-9ab4-3443908629df\", \"row_version\": 2, \"statut_visite\": \"VALIDE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-11",
+   "famille": "Sécurité",
+   "compte": "postgres (lecture)",
+   "action": "Vues pilotes cloisonnées par campagne (aucune visite de la campagne 2 dans la campagne 1)",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-12",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Campagne 2 fermée : nouvelle visite refusée",
+   "attendu": "REJETEE (campagne)",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La campagne n'est pas ouverte.\", \"idempotency_key\": \"0d2dc232-ebd5-4e6b-89bf-2a312e47f8be\", \"recu_serveur_le\": \"2026-11-13T17:28:08.258111+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CMP-13",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Campagne fermée : parcelles installables toujours filtrées par cluster",
+   "attendu": "OK (t)",
+   "obtenu": "OK : t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-58",
+   "famille": "Sécurité",
+   "compte": "auh_bro",
+   "action": "Collègues de collecte : seulement ceux de son cluster, sans soi-même",
+   "attendu": "AUH BROBO 2 FICTIF,UH BROBO FICTIF",
+   "obtenu": "OK : AUH BROBO 2 FICTIF,UH BROBO FICTIF",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-59",
+   "famille": "Sécurité",
+   "compte": "rt",
+   "action": "Collègues de collecte : rien pour un RT",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SEC-60",
+   "famille": "Sécurité",
+   "compte": "zh1",
+   "action": "Collègues de collecte : rien hors rôles de collecte",
+   "attendu": "0",
+   "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}
