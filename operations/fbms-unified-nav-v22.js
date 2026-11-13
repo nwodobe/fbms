@@ -64,6 +64,8 @@ function canonical(path){var url=new URL(path,global.location.href);
 }
 function pathId(){
  var file=global.location.pathname.split('/').pop(),hash=(global.location.hash||'').toLowerCase();
+ if(/\/fieldproof\//.test(global.location.pathname))return 'E2';
+ if(/\/moto\//.test(global.location.pathname))return 'E0';
  if(file==='espaces.html'||file==='index.html')return 'E0';
  if(file==='procurement.html')return 'E4';
  if(file==='reports.html'||file==='aflp-data.html'||file==='campaigns.html'||file==='traceability.html')return 'E5';
@@ -79,7 +81,7 @@ function pathId(){
 function hrefInApp(path){
  // One URL convention from the operations directory, including root index.html.
  var dir=global.location.pathname.replace(/[^/]*$/,'');
- var root=/\/operations\/$/.test(dir)?dir.replace(/operations\/$/,''):dir;
+ var root=/(?:\/)(operations|moto|fieldproof|shared)\/$/.test(dir)?dir.replace(/(?:operations|moto|fieldproof|shared)\/$/,''):dir;
  var base=new URL(root+'operations/',global.location.origin);
  // This app also runs under GitHub Pages /fbms/, so paths resolve relative to base.
  return new URL(path,base).pathname+new URL(path,base).search+new URL(path,base).hash;
@@ -87,10 +89,11 @@ function hrefInApp(path){
 function ensureShell(){
  var side=document.getElementById('opsSidebar');
  if(side)return side;
- // Adapt older reports/campaigns/trace pages with no sidebar at all.
- var main=document.querySelector('body > main.ops-main');
+ // Adapt older reports/campaigns/trace pages and specialized field apps.
+ var main=document.querySelector('body > main.ops-main, #motoApp > main.mm-main, body > main.fp-main');
  if(!main)return null;
  var shell=document.createElement('div');shell.className='ops-shell';
+ if(main.matches('.mm-main,.fp-main'))document.body.classList.add('fbms-v22-specialized');
  main.parentNode.insertBefore(shell,main);
  side=document.createElement('aside');side.className='ops-sidebar';side.id='opsSidebar';
  side.setAttribute('aria-label','Navigation principale FBMS');
@@ -124,6 +127,21 @@ function render(){
       (x[3]==='document'?' target="_blank" rel="noopener"':'')+'>'+
       esc(label)+(x[3]==='external'?' <span aria-label="Service distinct">↗</span>':'')+'</a>';
    });
+   // Specialized apps retain their original route logic and permissions,
+   // but their native *navigation bar* is hidden: route links live here.
+   var special=s.id==='E0'?'#motoNav':s.id==='E2'?'nav.fp-nav':null;
+   if(special && ((s.id==='E0'&&/\/moto\//.test(global.location.pathname)) ||
+                 (s.id==='E2'&&/\/fieldproof\//.test(global.location.pathname)))){
+     var nativeNav=document.querySelector(special);
+     if(nativeNav){
+       Array.prototype.forEach.call(nativeNav.querySelectorAll('a[href^="#"]'),function(a){
+         var item=global.location.pathname+a.getAttribute('href');
+         var selected=a.getAttribute('href')===global.location.hash;
+         block+='<a class="fbms-v22-action'+(selected?' selected':'')+
+           '" href="'+esc(item)+'">'+esc(a.textContent.replace(/\s+/g,' ').trim())+'</a>';
+       });
+     }
+   }
    block+='</div>';
   }
   return block;
@@ -141,7 +159,7 @@ function render(){
 }
 function ensureMobileToggle(){
  if(document.getElementById('fbmsMenuToggle'))return;
- var host=document.querySelector('.ops-main')||document.querySelector('.esp-main');
+ var host=document.querySelector('.ops-main,.esp-main,.mm-main,.fp-main');
  if(!host)return;
  var btn=document.createElement('button');
  btn.id='fbmsMenuToggle';btn.type='button';btn.className='fbms-v22-toggle';
@@ -156,7 +174,19 @@ function ensureMobileToggle(){
  overlay.addEventListener('click',close);
  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
 }
-function init(){render()}
+function init(){
+ render();
+ // Fleet writes role-filtered route links asynchronously after auth.
+ // Observe link insertion only; the original nav remains mounted for the
+ // Fleet controller but it is not displayed as a competing navigation.
+ var moto=document.getElementById('motoNav');
+ if(moto && typeof MutationObserver!=='undefined'){
+   var observer=new MutationObserver(function(list){
+     if(list.some(function(m){return m.type==='childList'}))render();
+   });
+   observer.observe(moto,{childList:true});
+ }
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 document.addEventListener('anagroci:authenticated',render);
 document.addEventListener('anagroci:language',render);
