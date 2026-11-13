@@ -1,3 +1,6 @@
+
+// The only app-level menu is the six-space menu; legacy operation workspaces keep
+// their context actions, but their second nav shell is replaced.
 /* FBMS V2.2 - one shared navigation across bord-champ workspaces.
  * Read-only navigation UI. Authorization stays server-side.
  * Do not treat invisible menu entries as RLS permission checks.
@@ -6,7 +9,7 @@
 'use strict';
 var MENU=[
  {id:'E0',fr:'Ma journée',en:'My day',icon:'⌂',items:[
-  ['Accueil','Home','espaces.html'],
+  ['Accueil','Home','../index.html'],
   ['Missions & carburant','Missions & fuel','../moto/index.html','external'],
   ['Preuves terrain','Field evidence','../fieldproof/index.html','external']]},
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
@@ -73,6 +76,14 @@ function pathId(){
  }
  return 'E0';
 }
+function hrefInApp(path){
+ // One URL convention from the operations directory, including root index.html.
+ var dir=global.location.pathname.replace(/[^/]*$/,'');
+ var root=/\/operations\/$/.test(dir)?dir.replace(/operations\/$/,''):dir;
+ var base=new URL(root+'operations/',global.location.origin);
+ // This app also runs under GitHub Pages /fbms/, so paths resolve relative to base.
+ return new URL(path,base).pathname+new URL(path,base).search+new URL(path,base).hash;
+}
 function render(){
  var host=document.getElementById('opsSidebar');
  if(!host)return;
@@ -82,15 +93,15 @@ function render(){
  var links=MENU.filter(function(s){return ROLE[r].includes(s.id)}).map(function(s){
   var isActive=s.id===active;
   var target=s.items[0][2];
-  var top=s.id==='E0'?'espaces.html':target;
+  var top=s.id==='E0'?'../index.html':target;
   var topLabel=(en?s.en:s.fr);
-  var block='<a class="fbms-v22-main'+(isActive?' active':'')+'" href="'+esc(top)+'"'+(isActive?' aria-current="page"':'')+'>'+
+  var block='<a class="fbms-v22-main'+(isActive?' active':'')+'" href="'+esc(hrefInApp(top))+'"'+(isActive?' aria-current="page"':'')+'>'+
     '<span aria-hidden="true" class="fbms-v22-icon">'+s.icon+'</span>'+esc(topLabel)+'</a>';
   if(isActive){
    block+='<div class="fbms-v22-context">';
    s.items.forEach(function(x){
     if(x[3]==='document'&&r==='RO')return;
-    var label=en?x[1]:x[0],href=x[2],absolute=new URL(href,global.location.href);
+    var label=en?x[1]:x[0],href=hrefInApp(x[2]),absolute=new URL(href,global.location.href);
     var selected=file===absolute.pathname.split('/').pop()&&global.location.hash===absolute.hash;
     block+='<a class="fbms-v22-action'+(selected?' selected':'')+'" href="'+esc(href)+'"'+
       (x[3]==='document'?' target="_blank" rel="noopener"':'')+'>'+
