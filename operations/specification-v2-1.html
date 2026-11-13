@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23">
+<title>Cahier des charges FBMS AFLP 2027 V2.1 · ANAGROCI</title>
+<link rel="icon" href="../assets/logo-pjs-mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="./operations.css?v=20260830-1">
+<link rel="stylesheet" href="./operations-v2.css?v=20261008-campagnes-1">
+<link rel="stylesheet" href="./specification.css?v=20261113-v21-1">
+<script defer src="../shared/auth-gate.js?v=20261111-offline-session-1" data-module="portail"></script>
+</head>
+<body class="portal-page">
+<header class="ops-topbar"><a class="ops-brand" href="../index.html"><img src="../assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI OPERATIONS</strong><small>Operations Suite</small></span></a><div class="ops-title"><strong>Cahier des charges V2.1</strong><small>FBMS AFLP 2027 · référence de conception</small></div><div class="ops-top-actions"><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div></header>
+<main class="spec-wrap">
+<a class="ops-portal-link" href="../index.html">← Portail Operations</a>
+<div class="spec-banner"><span>Version du 13/11/2026</span><span>Lecture seule</span><span>Source : docs/specs/FBMS_AFLP_2027_V2.1.md</span><span>Aucune fonction nouvelle n'est encore active</span></div>
+<article class="spec-doc">
+<h1 id="fbms-aflp-2027--spécification-fonctionnelle-v21">FBMS AFLP 2027 · Spécification fonctionnelle V2.1</h1>
+<p>13 novembre 2026 · Commanditaire : Branch Manager ANAGROCI Centre · Cahier des charges de référence, version de travail</p>
+<h2 id="0-statut-portée-et-principes">0. Statut, portée et principes</h2>
+<p>V2.1 est le cahier des charges de référence de FBMS AFLP 2027 : rien n'est développé hors de ce document, et rien n'est mis en production sans les critères du §7. Aucune PR n'est fusionnée et l'application de production n'est pas modifiée au stade de cette version.</p>
+<p><strong>Portée.</strong> FBMS couvre le bord champ, des clusters et villages jusqu'à la remise physique des noix au transporteur, constatée par un BEV signé. PJS Operations couvre la réception, la pesée de réception, le GRN, les entrepôts, les BIN, les transferts et l'usine. FBMS lit les statuts PJS sans jamais les recréer.</p>
+<p><strong>Sept principes non négociables</strong></p>
+<ol type="1">
+<li><strong>Un registre de référence par événement.</strong> Achat, financement confirmé, mouvement de sacs, BEV, réception et GRN ont chacun une seule table maîtresse. Vues, tableaux de bord et exports sont des projections, jamais des registres.</li>
+<li><strong>Le geste physique précède la validation informatique.</strong> Le BEV papier signé, horodaté sur le téléphone, prouve le transfert de garde ; la synchronisation et la validation serveur viennent après sans réécrire l'heure réelle.</li>
+<li><strong>Aucune valeur par défaut favorable.</strong> Une qualité non mesurée reste NON_MESURÉ ; un solde sans preuve reste « non vérifié », jamais zéro ni « OK ».</li>
+<li><strong>Auteur certain.</strong> Toute opération porte l'agent, l'appareil et la campagne ; une opération sans auteur est mise en quarantaine.</li>
+<li><strong>Séparation des tâches côté serveur.</strong> Celui qui demande ne confirme pas ; celui qui saisit ne valide pas ; la qualité officielle reste à QFS.</li>
+<li><strong>Append-only.</strong> Une correction crée un événement compensateur avec motif ; l'original reste lisible.</li>
+<li><strong>Masquer n'est pas supprimer.</strong> Les écrans retirés passent en lecture seule ; leurs tables et historiques sont conservés.</li>
+</ol>
+<p><strong>Hors périmètre V2.1 :</strong> LBA, Warehouse Buying Model, réception usine, stock usine, bilan matière, règlements comptables définitifs. AFLP Fleet reste une application séparée, régie par ses propres spécifications.</p>
+<h2 id="1-arborescence-finale-des-six-espaces">1. Arborescence finale des six espaces</h2>
+<p>Six espaces, 27 écrans métier, trois services intégrés. Chaque écran porte un code (E1.2, etc.) repris dans la matrice des droits et les critères de recette.</p>
+<ol type="1">
+<li><strong>E0 · Ma journée</strong> (accueil, contenu calculé par rôle)
+<ol type="1">
+<li>E0.1 Tâches du jour : validations en attente, BEV à compléter, bilans dus, pièces manquantes</li>
+<li>E0.2 Alertes utiles de mon périmètre (calibrées par phase de campagne)</li>
+<li>E0.3 Boîte d'envoi : N opérations à envoyer, en erreur, en quarantaine</li>
+<li>E0.4 Raccourcis : 4 par rôle + mission/carburant Fleet</li>
+</ol></li>
+<li><strong>E1 · Réseau</strong>
+<ol type="1">
+<li>E1.1 Villages &amp; clusters : liste, fiche village, carte, potentiel, statut d'approbation (fusion Recensement + Hubs &amp; Cartographie)</li>
+<li>E1.2 RT : liste, fiche RT avec trois comptes (noix, argent, sacs), contrat, compte Wave, historique</li>
+<li>E1.3 Producteurs : liste, fiche unique (identité, Farmer Passport, parcelles, consentements, RT de rattachement)</li>
+<li>E1.4 Coopératives : fiche, membres, sections, points de collecte, livraisons consolidées</li>
+</ol></li>
+<li><strong>E2 · Terrain</strong>
+<ol type="1">
+<li>E2.1 Mobilisation : réunions village, présences</li>
+<li>E2.2 Visites &amp; formations : visites producteurs, sessions, présences</li>
+<li>E2.3 Durabilité : questionnaires, plans d'action producteurs</li>
+<li>E2.4 Observatoire (pilote) : observations floraison/nouaison par protocole versionné, sans indicateur officiel</li>
+</ol></li>
+<li><strong>E3 · Achats &amp; comptes RT</strong>
+<ol type="1">
+<li>E3.1 Nouvel achat : producteur, pesée, qualité, prix, reçu papier, preuve</li>
+<li>E3.2 Revue UH : achats à valider, à rejeter, à compléter</li>
+<li>E3.3 Financements Wave : demandes, versements Finance, accusés RT, remboursements</li>
+<li>E3.4 Sacherie RT : dotations, sacs utilisés, sacs pleins, retours</li>
+<li>E3.5 Bilan hebdomadaire : comptage, comparaison, décision RT, signature UH, revue ZH</li>
+</ol></li>
+<li><strong>E4 · Expédition</strong>
+<ol type="1">
+<li>E4.1 Lots : constitution des lots par RT à partir des achats validés</li>
+<li>E4.2 Voyage &amp; BEV : voyage (camion), un BEV par RT, chargement, signatures, remise</li>
+<li>E4.3 Suivi aval PJS : statut transport, réception, GRN, écart BEV/GRN, en lecture seule</li>
+</ol></li>
+<li><strong>E5 · Pilotage &amp; Administration</strong>
+<ol type="1">
+<li>E5.1 Tableau de bord : cible AFLP, achats, financement, sacs, BEV, par zone/cluster/RT</li>
+<li>E5.2 Alertes &amp; anomalies : file de traitement, assignation, clôture motivée</li>
+<li>E5.3 Rapports &amp; exports : rapports hebdomadaires, exports Excel, export coopératives</li>
+<li>E5.4 Campagnes &amp; règles : campagne, prix, seuils qualité, convention des masses, routes versionnées</li>
+<li>E5.5 Utilisateurs &amp; rôles : comptes, rôle, périmètre géographique, appareils</li>
+<li>E5.6 Diagnostic synchronisation &amp; appareils : files par agent, versions APK, quarantaine</li>
+<li>E5.7 Bibliothèque de preuves &amp; audit : preuves, journal des corrections</li>
+</ol></li>
+</ol>
+<p><strong>Services intégrés (pas de menu)</strong> : capture de preuve Field Proof dans E3.1, E3.3, E3.5 et E4.2 ; recherche globale (producteur, RT, achat, lot, BEV, référence PJS) dans la barre supérieure ; onglet Historique sur chaque fiche.</p>
+<p><strong>Masqués, lecture seule à la date de bascule :</strong> Entrepôts relais, Transferts relais → usine, Factory, LBA Purchase, Suppliers, Arrivages, Achat RCN. Tables wms_* conservées, aucune nouvelle écriture après bascule du site concerné.</p>
+<h2 id="2-écrans-exacts-par-rôle">2. Écrans exacts par rôle</h2>
+<p>Chaque rôle voit 4 raccourcis en barre basse et seulement les écrans de son périmètre ; les autres écrans autorisés restent accessibles par le menu. É = écriture, L = lecture seule, — = invisible. Le périmètre géographique est appliqué par le serveur, pas par l'écran.</p>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Rôle (périmètre)</th>
+<th>4 raccourcis</th>
+<th>E0</th>
+<th>E1 Réseau</th>
+<th>E2 Terrain</th>
+<th>E3 Achats &amp; comptes RT</th>
+<th>E4 Expédition</th>
+<th>E5 Pilotage</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Assistant Unit Head (1 cluster)</td>
+<td>Ma journée · Producteurs · Terrain · Achats</td>
+<td>É</td>
+<td>É E1.1–E1.3, L E1.4</td>
+<td>É</td>
+<td>É E3.1, E3.4 ; É préparation E3.5 ; L E3.2, E3.3</td>
+<td>É E4.1 (préparation) ; L E4.2, E4.3</td>
+<td>— (sauf E5.6 pour son appareil)</td>
+</tr>
+<tr class="even">
+<td>Unit Head (1 cluster)</td>
+<td>Ma journée · Achats · Contrôles RT · Expéditions</td>
+<td>É</td>
+<td>É</td>
+<td>É</td>
+<td>É E3.1, E3.2, E3.4, E3.5 ; L E3.3 + accusé RT assisté</td>
+<td>É E4.1, E4.2 ; L E4.3</td>
+<td>L E5.1, E5.2 de son cluster</td>
+</tr>
+<tr class="odd">
+<td>Zonal Head (sa zone)</td>
+<td>Ma journée · RT à risque · Contrôles · Rapports</td>
+<td>É</td>
+<td>L, É approbation villages/RT</td>
+<td>L</td>
+<td>L ; É revue ZH du bilan E3.5</td>
+<td>L</td>
+<td>L E5.1, É E5.2, L E5.3</td>
+</tr>
+<tr class="even">
+<td>Logistics Coordinator (programme)</td>
+<td>Ma journée · Voyages · Suivi PJS · Fleet</td>
+<td>É</td>
+<td>L</td>
+<td>—</td>
+<td>L E3.4</td>
+<td>É E4.2 (voyage, transporteur) ; L E4.1, E4.3</td>
+<td>L E5.1, É routes E5.4</td>
+</tr>
+<tr class="odd">
+<td>Assistant Branch Manager (programme)</td>
+<td>Ma journée · Suivi des équipes · Pièces manquantes · Fleet</td>
+<td>É</td>
+<td>L</td>
+<td>L</td>
+<td>L ; É relances</td>
+<td>L</td>
+<td>L E5.1–E5.3, E5.6, E5.7 ; É E5.2</td>
+</tr>
+<tr class="even">
+<td>Branch Manager (programme)</td>
+<td>Ma journée · Pilotage · Anomalies · Administration</td>
+<td>É</td>
+<td>É approbation</td>
+<td>L</td>
+<td>É demande d'avance E3.3, dérogation prix ; L le reste</td>
+<td>L</td>
+<td>É E5.1–E5.7</td>
+</tr>
+<tr class="odd">
+<td>Finance (programme)</td>
+<td>Ma journée · Financements Wave · Remboursements · Rapports</td>
+<td>É</td>
+<td>L E1.2</td>
+<td>—</td>
+<td>É E3.3 (versement, preuve, remboursement) ; L E3.5</td>
+<td>—</td>
+<td>L E5.1, E5.3</td>
+</tr>
+<tr class="even">
+<td>QFS (programme, qualité seule)</td>
+<td>Ma journée · Qualité en attente · Écarts BEV/GRN · Rapports</td>
+<td>É</td>
+<td>L E1.1</td>
+<td>—</td>
+<td>É décision qualité sur E3.1/E3.2 uniquement</td>
+<td>L E4.3</td>
+<td>L E5.1, E5.3</td>
+</tr>
+<tr class="odd">
+<td>Read Only / Audit</td>
+<td>Ma journée · Tableau de bord · Rapports · Preuves</td>
+<td>L</td>
+<td>L</td>
+<td>L</td>
+<td>L</td>
+<td>L</td>
+<td>L E5.1, E5.3, E5.7</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>RT sans smartphone.</strong> Le RT n'a pas de compte obligatoire. Il intervient sur le téléphone de l'UH ou de l'AUH par trois gestes : signature sur écran ou papier photographié (achat, BEV, bilan), accusé de réception Wave dicté et signé, choix accord / réserve / refus au bilan. Chaque geste enregistre le nom du RT, l'agent témoin, l'appareil et l'heure locale.</p>
+<p><strong>Magasinier de relais.</strong> Rôle WAREHOUSE_KEEPER conservé en lecture seule dans FBMS après la bascule de son site ; son travail officiel se fait dans PJS.</p>
+<h2 id="3-matrice-des-permissions-métier-et-serveur">3. Matrice des permissions métier et serveur</h2>
+<p>La matrice côté écran (shared/aflp-access.js) n'est qu'un confort d'affichage : chaque ligne ci-dessous est imposée par une RPC <code>security definer</code> qui relit le rôle et le périmètre en base (<code>auth.uid()</code>), et par la RLS des tables maîtresses. « Interdit » signifie refusé par le serveur même pour le BM.</p>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Action métier</th>
+<th>Réalise</th>
+<th>Valide / contresigne</th>
+<th>Interdit à</th>
+<th>Contrôle serveur exigé</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Créer ou modifier un producteur</td>
+<td>AUH, UH</td>
+<td>UH (doublon, RT rattaché)</td>
+<td>Finance, QFS</td>
+<td>Périmètre cluster ; RT obligatoire en canal direct ; historique farmer_change_log</td>
+</tr>
+<tr class="even">
+<td>Approuver un village ou un RT</td>
+<td>ZH, BM</td>
+<td>—</td>
+<td>AUH, UH</td>
+<td>Périmètre zone</td>
+</tr>
+<tr class="odd">
+<td>Enregistrer un achat</td>
+<td>AUH, UH</td>
+<td>UH (E3.2)</td>
+<td>ZH, BM, Finance</td>
+<td>Campagne ouverte ; disponible RT suffisant, verrouillé en concurrence ; reçu numéroté unique par RT</td>
+</tr>
+<tr class="even">
+<td>Valider ou rejeter un achat</td>
+<td>UH</td>
+<td>—</td>
+<td>Auteur de la saisie ; AUH</td>
+<td>Valideur ≠ auteur ; décision figée, correction par événement</td>
+</tr>
+<tr class="odd">
+<td>Décider la qualité officielle (hors seuil, dérogation)</td>
+<td>QFS</td>
+<td>—</td>
+<td>UH, ZH, BM</td>
+<td>Seul rôle QFS ; UH ne peut que mesurer</td>
+</tr>
+<tr class="even">
+<td>Prix hors barème</td>
+<td>UH (demande)</td>
+<td>BM</td>
+<td>AUH</td>
+<td>Motif obligatoire ; plafond de campagne</td>
+</tr>
+<tr class="odd">
+<td>Demander une avance RT</td>
+<td>BM</td>
+<td>—</td>
+<td>UH, Finance</td>
+<td>Montant, RT, campagne ; demande ≠ crédit RT</td>
+</tr>
+<tr class="even">
+<td>Verser sur Wave et enregistrer la référence</td>
+<td>Finance</td>
+<td>—</td>
+<td>BM, UH, ZH</td>
+<td>Référence Wave unique, preuve privée ; seul Finance</td>
+</tr>
+<tr class="odd">
+<td>Accusé de réception du RT</td>
+<td>RT (sur téléphone UH)</td>
+<td>UH témoin</td>
+<td>BM, Finance</td>
+<td>Témoin ≠ demandeur ≠ payeur</td>
+</tr>
+<tr class="even">
+<td>Remboursement RT</td>
+<td>RT (remet)</td>
+<td>Finance (confirme)</td>
+<td>UH, BM</td>
+<td>Preuve et référence uniques</td>
+</tr>
+<tr class="odd">
+<td>Mouvement de sacs (dotation, retour)</td>
+<td>UH, AUH</td>
+<td>UH</td>
+<td>Finance</td>
+<td>Journal canonique unique (§4)</td>
+</tr>
+<tr class="even">
+<td>Constituer un lot</td>
+<td>AUH, UH</td>
+<td>UH</td>
+<td>ZH, BM</td>
+<td>Achats validés du même RT uniquement ; quantité ≤ disponible</td>
+</tr>
+<tr class="odd">
+<td>Créer un voyage</td>
+<td>UH, Logistics Coordinator</td>
+<td>—</td>
+<td>AUH</td>
+<td>Transporteur et camion référencés</td>
+</tr>
+<tr class="even">
+<td>Signer et enregistrer un BEV</td>
+<td>UH (atteste), RT et transporteur (signent)</td>
+<td>—</td>
+<td>AUH (prépare seulement), BM</td>
+<td>Lots du RT du BEV ; quantités allouées ; pas de double sortie ; idempotent</td>
+</tr>
+<tr class="odd">
+<td>Bilan hebdomadaire</td>
+<td>UH + RT</td>
+<td>ZH (revue)</td>
+<td>AUH (signe pour l'UH), BM</td>
+<td>Snapshot figé ; versionné ; échéance 7 jours</td>
+</tr>
+<tr class="even">
+<td>Corriger un enregistrement signé</td>
+<td>UH (propose)</td>
+<td>ZH ou BM</td>
+<td>Auteur seul</td>
+<td>Nouvelle version + motif ; original conservé</td>
+</tr>
+<tr class="odd">
+<td>Paramètres de campagne, prix, seuils, routes</td>
+<td>BM</td>
+<td>—</td>
+<td>Tous les autres</td>
+<td>Version + date d'effet ; historique intact</td>
+</tr>
+<tr class="even">
+<td>Comptes et rôles</td>
+<td>BM</td>
+<td>—</td>
+<td>Tous les autres</td>
+<td>Journal d'administration</td>
+</tr>
+<tr class="odd">
+<td>Lire réception, GRN, écart (PJS)</td>
+<td>Tous selon périmètre</td>
+<td>—</td>
+<td>Toute écriture FBMS</td>
+<td>Lecture seule, source PJS</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Écarts du code actuel à corriger (vérifiés dans shared/aflp-access.js)</strong></p>
+<ul>
+<li>BRANCH_MANAGER = <code>*:*</code> : à remplacer par une liste explicite, sans confirmation Wave, accusé RT ni décision QFS.</li>
+<li>ZONAL_HEAD a une portée géographique globale et <code>qualite:validate</code> : restreindre à sa zone, retirer la validation qualité.</li>
+<li>UNIT_HEAD a <code>avances:create</code> : la demande d'avance revient au BM selon le SOP.</li>
+<li>Assistant Branch Manager est un rôle « legacy » : créer ASSISTANT_BRANCH_MANAGER (lecture programme, relances, Fleet) sans droits UH ni Finance.</li>
+<li>Aucun rôle QFS : créer QFS_CONTROLLER limité aux décisions qualité.</li>
+<li>Aucun profil Finance actif en production : créer un compte Finance nominatif avant tout essai Wave.</li>
+</ul>
+<h2 id="4-dictionnaire-des-données-et-événements-fbmspjs">4. Dictionnaire des données et événements FBMS/PJS</h2>
+<p>Chaque événement métier a une table maîtresse unique. Les noms existants viennent du dépôt (main et branche #311) ; « à créer » signifie absent aujourd'hui. Toutes les tables maîtresses portent : <code>campaign_id</code>, <code>occurred_at</code> (heure réelle sur le téléphone), <code>recorded_at</code> (heure serveur), <code>actor_user_id</code>, <code>device_id</code>, <code>idempotency_key</code>, <code>version</code>, <code>supersedes_id</code>.</p>
+<h3 id="41-registres-de-référence-par-événement">4.1 Registres de référence par événement</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Événement</th>
+<th>Table maîtresse</th>
+<th>État</th>
+<th>Champs métier clés</th>
+<th>Projections autorisées (lecture seule)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Producteur enrôlé ou modifié</td>
+<td>producteurs + farmer_change_log</td>
+<td>Existe ; modification hors ligne à ajouter</td>
+<td>identité, village, RT de rattachement, canal, consentement</td>
+<td>Farmer Passport, exports</td>
+</tr>
+<tr class="even">
+<td>Achat bord champ</td>
+<td>achats</td>
+<td>Existe ; champs masses et qualité à compléter</td>
+<td>producteur, RT, n° reçu, masses (§4.2), qualité (§4.3), prix, montant, mode de paiement</td>
+<td>rt_sop_purchase_state_v, tableaux de bord</td>
+</tr>
+<tr class="odd">
+<td>Décision UH sur un achat</td>
+<td>rt_sop_purchase_reviews</td>
+<td>Branche #311</td>
+<td>décision, motif, achat figé (snapshot)</td>
+<td>stock sous garde RT</td>
+</tr>
+<tr class="even">
+<td>Demande d'avance</td>
+<td>rt_sop_funding_requests</td>
+<td>Branche #311</td>
+<td>RT, montant demandé, demandeur BM</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Versement, accusé, remboursement</td>
+<td>rt_sop_cash_events (+ rt_sop_refunds)</td>
+<td>Branche #311</td>
+<td>type (PAYMENT, ACK_RT, REFUND), référence Wave unique, preuve</td>
+<td>rt_sop_cash_balance_v (remplace la caisse indicative)</td>
+</tr>
+<tr class="even">
+<td>Mouvement de sacs</td>
+<td>sacs_mouvements</td>
+<td>Existe ; à confirmer comme journal unique après audit de rcn_jute_movements</td>
+<td>type, nombre, état (vide, plein), RT, BEV lié</td>
+<td>sacherie_ct_rt_stock, rt_sop_jute_card_v</td>
+</tr>
+<tr class="odd">
+<td>Lot</td>
+<td>field_lots + field_lot_contributors</td>
+<td>Existe</td>
+<td>RT gardien, achats contributeurs, masse nette physique, sacs</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Voyage</td>
+<td>trips</td>
+<td>À créer</td>
+<td>camion, transporteur, chauffeur, route, date</td>
+<td>manifeste</td>
+</tr>
+<tr class="odd">
+<td>Expédition individuelle + BEV</td>
+<td>field_shipments + rt_sop_bev (1:1)</td>
+<td>Existe + branche #311</td>
+<td>n° BEV papier, RT, voyage, destination de route, masses, sacs, signatures</td>
+<td>rt_sop_rcn_custody_v</td>
+</tr>
+<tr class="even">
+<td>Allocation lot → BEV</td>
+<td>rt_sop_bev_lots</td>
+<td>Branche #311 ; quantité à ajouter</td>
+<td>lot, kg alloués, sacs alloués</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Bilan hebdomadaire</td>
+<td>rt_sop_weekly_signoffs</td>
+<td>Branche #311</td>
+<td>semaine, snapshot noix/argent/sacs, décision RT, signature UH, version</td>
+<td>rt_sop_weekly_status_v</td>
+</tr>
+<tr class="even">
+<td>Réception, pesée, GRN</td>
+<td>PJS Operations</td>
+<td>Source externe</td>
+<td>n° GRN, poids reçu, humidité, KOR, date</td>
+<td>pjs_status_snapshots (à créer, copie en lecture)</td>
+</tr>
+<tr class="odd">
+<td>Incident / écart</td>
+<td>aflp_incidents + rt_sop_incident_links</td>
+<td>Existe + branche #311</td>
+<td>type, objet lié, responsable, statut</td>
+<td>alertes E5.2</td>
+</tr>
+<tr class="even">
+<td>Réception relais (WMS FBMS)</td>
+<td>wms_receptions, wms_grns</td>
+<td>Existe ; gelé à la bascule</td>
+<td>—</td>
+<td>lecture historique seulement</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="42-convention-des-masses-à-valider-par-procurement-qfs-finance">4.2 Convention des masses (à valider par Procurement, QFS, Finance)</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Grandeur</th>
+<th>Définition</th>
+<th>Formule</th>
+<th>Qui la produit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Poids brut (kg)</td>
+<td>Lecture de la bascule, sacs compris</td>
+<td>mesuré</td>
+<td>UH/AUH</td>
+</tr>
+<tr class="even">
+<td>Tare (kg)</td>
+<td>Poids des sacs</td>
+<td>nombre de sacs × tare unitaire de campagne (1 kg proposé)</td>
+<td>calculé</td>
+</tr>
+<tr class="odd">
+<td>Poids net physique (kg)</td>
+<td>Noix réellement remises</td>
+<td>brut − tare</td>
+<td>calculé</td>
+</tr>
+<tr class="even">
+<td>Réfaction qualité (kg)</td>
+<td>Déduction liée à l'humidité ou au KOR selon barème</td>
+<td>barème versionné de campagne</td>
+<td>calculé, décision QFS si hors barème</td>
+</tr>
+<tr class="odd">
+<td>Réfaction totale (kg)</td>
+<td>Tare + réfaction qualité</td>
+<td>tare + réfaction qualité</td>
+<td>calculé</td>
+</tr>
+<tr class="even">
+<td>Poids payé (kg)</td>
+<td>Base du paiement producteur</td>
+<td>brut − réfaction totale</td>
+<td>calculé</td>
+</tr>
+<tr class="odd">
+<td>Montant (FCFA)</td>
+<td>Paiement</td>
+<td>poids payé × prix</td>
+<td>calculé</td>
+</tr>
+</tbody>
+</table></div>
+<p>Le BEV et le GRN se comparent sur le <strong>poids net physique</strong>, jamais sur le poids payé. La tare n'est déduite qu'une fois. Les achats déjà enregistrés gardent leur formule d'origine (version de règle 1 : net = brut − tare).</p>
+<h3 id="43-états-qualité">4.3 États qualité</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>État</th>
+<th>Condition</th>
+<th>Effet sur le stock</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NON_MESURÉ</td>
+<td>Humidité ou KOR absent</td>
+<td>Stock sous garde, non libéré ; alerte UH</td>
+</tr>
+<tr class="even">
+<td>MESURÉ_CONFORME</td>
+<td>Les deux mesures présentes et dans les seuils</td>
+<td>Libérable après validation UH</td>
+</tr>
+<tr class="odd">
+<td>HORS_SEUIL</td>
+<td>Humidité &gt; seuil ou KOR &lt; seuil</td>
+<td>À sécher ou à trier ; non libéré</td>
+</tr>
+<tr class="even">
+<td>EN_ATTENTE_QFS</td>
+<td>Dérogation ou litige demandé</td>
+<td>Bloqué jusqu'à décision QFS</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="44-contrat-déchange-fbms--pjs-bev-et-pjs--fbms-statuts">4.4 Contrat d'échange FBMS → PJS (BEV) et PJS → FBMS (statuts)</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Sens</th>
+<th>Données</th>
+<th>Clé de rapprochement</th>
+<th>Canal phase 1</th>
+<th>Canal cible</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FBMS → PJS</td>
+<td>n° BEV, voyage, RT, village, cluster, route, destination, nombre de sacs, brut, tare, net physique, transporteur, camion, chauffeur, heure de remise</td>
+<td>n° BEV + n° voyage</td>
+<td>Export fichier signé (pjs-export.js existe) importé par PJS</td>
+<td>API PJS si Agilemorph la fournit</td>
+</tr>
+<tr class="even">
+<td>PJS → FBMS</td>
+<td>statut (en transit, reçu, GRN émis), n° GRN, poids reçu net, humidité, KOR, date, écart</td>
+<td>n° BEV</td>
+<td>Import fichier PJS dans pjs_status_snapshots</td>
+<td>API ou webhook</td>
+</tr>
+</tbody>
+</table></div>
+<p>Règle : un GRN manquant laisse le rapprochement ouvert et déclenche une alerte ; il n'annule jamais un BEV signé et ne remet jamais les noix sous la garde du RT. Un écart BEV/GRN ouvre un incident, sans imputation automatique.</p>
+<h2 id="5-fonctionnement-hors-connexion">5. Fonctionnement hors connexion</h2>
+<p>Toute opération de terrain s'enregistre d'abord sur le téléphone, avec son heure réelle et son auteur, puis part dans la file <code>offline_sync_batch</code> ; le serveur accepte, rejette ou met en quarantaine, sans jamais modifier l'heure réelle. Le versement Wave par Finance reste la seule opération financière exclusivement en ligne.</p>
+<h3 id="51-enveloppe-commune-dune-opération">5.1 Enveloppe commune d'une opération</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Champ</th>
+<th>Règle</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>idempotency_key</td>
+<td>UUID généré à la création ; un rejeu renvoie le même résultat, jamais un doublon</td>
+</tr>
+<tr class="even">
+<td>actor_user_id + device_id</td>
+<td>Obligatoires ; absents ou différents de la session → QUARANTAINE (corrige ownedBy)</td>
+</tr>
+<tr class="odd">
+<td>campaign_id</td>
+<td>Obligatoire ; campagne fermée → REJET motivé</td>
+</tr>
+<tr class="even">
+<td>occurred_at</td>
+<td>Heure du téléphone au geste ; conservée telle quelle ; écart &gt; 72 h avec recorded_at → alerte E5.6</td>
+</tr>
+<tr class="odd">
+<td>base_version</td>
+<td>Version de la fiche lue avant modification ; différente → CONFLIT</td>
+</tr>
+<tr class="even">
+<td>proof_refs</td>
+<td>Photos compressées (reçu, BEV, signature) envoyées avec l'opération ou juste après</td>
+</tr>
+</tbody>
+</table></div>
+<p>États d'une opération visibles dans E0.3 : LOCALE → ENVOYÉE → ACCEPTÉE, ou REJETÉE (motif lisible, action proposée), ou CONFLIT (arbitrage UH), ou QUARANTAINE (arbitrage BM/ABM). Une opération n'est jamais supprimée en silence. Le téléphone refuse la déconnexion et la mise à jour de l'APK tant que la file n'est pas vide ou exportée.</p>
+<h3 id="52-catalogue-des-opérations-hors-ligne">5.2 Catalogue des opérations hors ligne</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Opération</th>
+<th>Existe</th>
+<th>Contrôle serveur au rejeu</th>
+<th>En cas d'échec</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FARMER_ENROLL / COOP_FARMER_ENROLL</td>
+<td>Oui</td>
+<td>Doublon (téléphone, nom, village), RT obligatoire en canal direct</td>
+<td>CONFLIT doublon</td>
+</tr>
+<tr class="even">
+<td>FARMER_UPDATE</td>
+<td>Non, à créer</td>
+<td>base_version ; champ par champ</td>
+<td>CONFLIT si même champ modifié ailleurs</td>
+</tr>
+<tr class="odd">
+<td>FIELD_GPS_UPDATE</td>
+<td>Oui</td>
+<td>Périmètre</td>
+<td>REJET</td>
+</tr>
+<tr class="even">
+<td>FIELD_PURCHASE_CREATE</td>
+<td>Oui, à compléter</td>
+<td>Masses §4.2, qualité §4.3, n° reçu unique par RT, disponible RT</td>
+<td>REJET dépassement ; CONFLIT n° reçu</td>
+</tr>
+<tr class="odd">
+<td>BAG_MOVEMENT_CREATE</td>
+<td>Oui</td>
+<td>Journal canonique, solde non négatif</td>
+<td>CONFLIT</td>
+</tr>
+<tr class="even">
+<td>LOT_CREATE</td>
+<td>Non, à créer</td>
+<td>Achats validés du même RT, non déjà alloués</td>
+<td>CONFLIT</td>
+</tr>
+<tr class="odd">
+<td>TRIP_CREATE</td>
+<td>Non, à créer</td>
+<td>Transporteur référencé</td>
+<td>REJET</td>
+</tr>
+<tr class="even">
+<td>BEV_SIGN</td>
+<td>Non (RPC en ligne aujourd'hui)</td>
+<td>Lots du RT, quantités allouées, pas de double sortie, n° BEV papier unique</td>
+<td>CONFLIT ; la remise physique reste constatée</td>
+</tr>
+<tr class="odd">
+<td>WAVE_ACK_RT</td>
+<td>Non (en ligne dans #311)</td>
+<td>Versement Finance existant, témoin ≠ demandeur</td>
+<td>En attente du versement</td>
+</tr>
+<tr class="even">
+<td>WEEKLY_SIGNOFF</td>
+<td>Non (en ligne dans #311)</td>
+<td>Snapshot figé au moment du comptage</td>
+<td>Nouvelle version si données arrivées après</td>
+</tr>
+<tr class="odd">
+<td>WAVE_PAYMENT_CONFIRM</td>
+<td>En ligne uniquement</td>
+<td>Rôle Finance, référence unique</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="53-achat-hors-ligne">5.3 Achat hors ligne</h3>
+<ol type="1">
+<li>L'agent choisit le village, le RT et le producteur dans les données préchargées (préparation <code>offline_prepare_device</code>, valable pour la campagne et un délai fixé).</li>
+<li>Il saisit le n° du reçu papier, le nombre de sacs, le poids brut, l'humidité et le KOR ; l'écran calcule tare, net physique, réfaction, poids payé et montant.</li>
+<li>Sans humidité ou sans KOR, l'achat est enregistré NON_MESURÉ et n'alimente pas le stock libéré.</li>
+<li>Il photographie le reçu ; le RT signe. Le téléphone vérifie un disponible local indicatif ; le serveur tranche au rejeu.</li>
+<li>L'achat apparaît « enregistré, non validé » jusqu'à la revue UH (E3.2), qui peut se faire plus tard en ligne.</li>
+</ol>
+<h3 id="54-wave">5.4 Wave</h3>
+<ol type="1">
+<li>BM crée la demande (en ligne).</li>
+<li>Finance verse sur Wave, saisit la référence et joint la preuve (en ligne).</li>
+<li>Le versement est préchargé sur le téléphone de l'UH.</li>
+<li>Au village, le RT confirme le montant reçu et signe ; l'UH est témoin (WAVE_ACK_RT, hors ligne).</li>
+<li>Un écart entre montant versé et montant déclaré ouvre un incident.</li>
+<li>Disponible RT = versé et accusé − achats validés − remboursements confirmés ; les achats saisis non validés sont affichés à part.</li>
+</ol>
+<h3 id="55-signatures">5.5 Signatures</h3>
+<p>Trois supports acceptés, dans cet ordre : signature sur écran du téléphone de l'UH ; signature papier photographiée ; refus de signer constaté (motif, témoin, photo). Une signature image attestée par l'UH n'est pas une signature électronique qualifiée : l'original papier est archivé. Au bilan, « désaccord sur le solde » (le RT signe avec réserve) et « refus de signer » sont deux états distincts ; aucun des deux ne bloque la suite, les deux ouvrent un incident ZH.</p>
+<h3 id="56-bev-et-transfert-de-garde">5.6 BEV et transfert de garde</h3>
+<ol type="1">
+<li>Le camion arrive ; l'UH ou le coordinateur crée le Voyage (camion, transporteur, chauffeur, route par défaut du cluster).</li>
+<li>Pour chaque RT chargé : l'UH choisit ses lots, saisit sacs et kg alloués ; l'écran refuse un lot d'un autre RT ou une quantité supérieure au disponible local.</li>
+<li>Pesée de départ et comptage des sacs au chargement ; saisie du n° BEV papier pré-imprimé.</li>
+<li>RT, transporteur et UH signent le BEV papier ; l'UH le photographie. <strong>À cet instant la garde passe au transporteur</strong> : occurred_at est figé et le stock RT affiche « sortie physique constatée, synchronisation en attente ».</li>
+<li>BEV_SIGN part dans la file. Au rejeu, le serveur vérifie propriété, quantités et unicité ; en cas de conflit, le BEV reste constaté et un incident est ouvert, jamais une seconde remise.</li>
+<li>Une fois accepté, le BEV entre dans l'export vers PJS. Une réception PJS arrivée avant la synchronisation se rapproche plus tard par le n° BEV.</li>
+</ol>
+<p>Le transfert de garde (étape 4) et la validation informatique (étape 5) sont deux événements distincts, datés séparément.</p>
+<h2 id="6-corrections-p0-classées-par-dépendance">6. Corrections P0 classées par dépendance</h2>
+<p>18 corrections P0 en cinq niveaux : un niveau ne démarre en recette que lorsque ses dépendances sont vertes. Tout se fait sur branche isolée et sur un staging Supabase complet (RLS et déclencheurs réels), jamais en production.</p>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>N°</th>
+<th>Niveau</th>
+<th>Correction</th>
+<th>Dépend de</th>
+<th>Preuve d'achèvement</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>P0-01</td>
+<td>0 · Fondations</td>
+<td>Matrice des rôles §3 validée ; comptes nominatifs Finance, QFS, ABM créés</td>
+<td>Décision BM</td>
+<td>Matrice signée</td>
+</tr>
+<tr class="even">
+<td>P0-02</td>
+<td>0</td>
+<td>Convention des masses §4.2 et seuils qualité validés</td>
+<td>Procurement, QFS, Finance</td>
+<td>Note signée + jeu de pesées de référence</td>
+</tr>
+<tr class="odd">
+<td>P0-03</td>
+<td>0</td>
+<td>Staging Supabase complet (réplique schéma, RLS, déclencheurs)</td>
+<td>—</td>
+<td>Empreinte schéma = production</td>
+</tr>
+<tr class="even">
+<td>P0-04</td>
+<td>0</td>
+<td>Inventaire des APK installés et des files non synchronisées</td>
+<td>—</td>
+<td>Liste par appareil</td>
+</tr>
+<tr class="odd">
+<td>P0-05</td>
+<td>1 · Socle</td>
+<td>Enveloppe hors ligne §5.1 : auteur et appareil obligatoires, quarantaine (ownedBy)</td>
+<td>P0-03</td>
+<td>Test téléphone partagé : 0 opération mal attribuée</td>
+</tr>
+<tr class="even">
+<td>P0-06</td>
+<td>1</td>
+<td>Qualité en 4 états, plus de « OK » par défaut</td>
+<td>P0-02</td>
+<td>Achat sans mesure = NON_MESURÉ</td>
+</tr>
+<tr class="odd">
+<td>P0-07</td>
+<td>1</td>
+<td>Champs de masses dans achats, règle de campagne versionnée, historique inchangé</td>
+<td>P0-02</td>
+<td>1 020 kg brut, 20 sacs → 1 000 net, 970 payé (réfaction 30)</td>
+</tr>
+<tr class="even">
+<td>P0-08</td>
+<td>1</td>
+<td>Journal sacherie canonique désigné (sacs_mouvements ou rcn_jute_movements), l'autre en projection</td>
+<td>P0-03</td>
+<td>Un seul point d'écriture ; vues cohérentes</td>
+</tr>
+<tr class="odd">
+<td>P0-09</td>
+<td>1</td>
+<td>Séparation des tâches serveur : BM sans <code>*:*</code>, ZH limité à sa zone et sans validation qualité, UH sans demande d'avance</td>
+<td>P0-01</td>
+<td>Tests de refus par profil</td>
+</tr>
+<tr class="even">
+<td>P0-10</td>
+<td>2 · Chaîne</td>
+<td>Découpler #311 du GRN interne : supprimer la dépendance trg_051 → wms_grns ; statut aval lu depuis PJS</td>
+<td>P0-03</td>
+<td>Expédition clôturable côté FBMS sans GRN FBMS</td>
+</tr>
+<tr class="odd">
+<td>P0-11</td>
+<td>2</td>
+<td>Objet Voyage ; rt_sop_bev_lots avec kg et sacs ; contrôle du RT gardien ; verrou anti-allocation concurrente</td>
+<td>P0-07, P0-08</td>
+<td>2 allocations simultanées du même lot : 1 refusée</td>
+</tr>
+<tr class="even">
+<td>P0-12</td>
+<td>2</td>
+<td>Disponible RT verrouillé en concurrence lors d'un achat</td>
+<td>P0-05</td>
+<td>2 achats simultanés ne dépassent pas le disponible</td>
+</tr>
+<tr class="odd">
+<td>P0-13</td>
+<td>3 · Terrain</td>
+<td>BEV_SIGN dans la file hors ligne, photo du BEV papier, occurred_at figé</td>
+<td>P0-05, P0-11</td>
+<td>BEV en mode avion accepté au retour réseau, sans doublon</td>
+</tr>
+<tr class="even">
+<td>P0-14</td>
+<td>3</td>
+<td>WAVE_ACK_RT et WEEKLY_SIGNOFF hors ligne ; échéance du bilan à 7 jours</td>
+<td>P0-05, P0-09</td>
+<td>Bilan en retard le 8e jour</td>
+</tr>
+<tr class="odd">
+<td>P0-15</td>
+<td>3</td>
+<td>FARMER_UPDATE hors ligne avec base_version et conflits</td>
+<td>P0-05</td>
+<td>Conflit détecté sur un même champ</td>
+</tr>
+<tr class="even">
+<td>P0-16</td>
+<td>4 · Intégration</td>
+<td>Export BEV → PJS et import des statuts PJS (§4.4)</td>
+<td>P0-10, P0-13, audit PJS</td>
+<td>BEV reconnu par PJS ; GRN visible dans E4.3</td>
+</tr>
+<tr class="odd">
+<td>P0-17</td>
+<td>4</td>
+<td>Routes versionnées : direct Yamoussoukro, N'Djébonoua via Bouaké, relais</td>
+<td>P0-16</td>
+<td>Les trois routes testées</td>
+</tr>
+<tr class="even">
+<td>P0-18</td>
+<td>4</td>
+<td>Canal APK stable signé contenant P0-05 à P0-15, mise à jour sans perte de file</td>
+<td>P0-04, P0-13 à P0-15</td>
+<td>Mise à jour avec 20 opérations en attente : 0 perte</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>P1, après les P0 :</strong> alertes recalibrées par phase (fin des 117 « RT sans activité » avant campagne) ; objectifs Centre et AFLP séparés (40 000 MT affichés contre 3 000 MT AFLP) ; zone de N'Djébonoua corrigée ; parcours coopératif distinct ; navigation V2 ; libellés terrain en français. <strong>P2 :</strong> découpage des fichiers monolithiques, ménage de docs/.</p>
+<h2 id="7-critères-de-recette-go--no-go">7. Critères de recette GO / NO-GO</h2>
+<p>Huit mises en service, chacune décidée séparément par le BM sur procès-verbal : un critère rouge = NO-GO de cette fonction ou de ce site, quel que soit l'état des autres. Le score de conception (94/100) n'entre pas dans la décision ; seuls comptent les essais ci-dessous.</p>
+<h3 id="71-conditions-dessai-communes">7.1 Conditions d'essai communes</h3>
+<ul>
+<li><strong>Appareils :</strong> au moins 3 téléphones Android réellement distribués aux équipes (dont le modèle le moins puissant), APK du canal à mettre en service, pas un navigateur de bureau.</li>
+<li><strong>Réseau :</strong> mode avion complet ; coupure pendant une synchronisation ; réseau 2G lent ; retour réseau après 48 h.</li>
+<li><strong>Situations d'erreur :</strong> téléphone partagé entre deux agents ; horloge du téléphone décalée d'un jour ; batterie coupée pendant l'enregistrement ; double appui sur Enregistrer ; même opération saisie sur deux téléphones.</li>
+<li><strong>Profils :</strong> chaque scénario est joué par un vrai titulaire du rôle (AUH, UH, ZH, Finance, QFS), sur staging avec données fictives.</li>
+<li><strong>Mesures relevées :</strong> temps et nombre d'étapes par scénario, erreurs commises, opérations perdues ou dupliquées, refus serveur justifiés ou non.</li>
+</ul>
+<h3 id="72-critères-par-mise-en-service">7.2 Critères par mise en service</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Mise en service</th>
+<th>Scénarios obligatoires</th>
+<th>GO si</th>
+<th>NO-GO si</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>M1 · Navigation V2, Réseau, Terrain</td>
+<td>S1 : AUH enrôle 5 producteurs et modifie 3 fiches en mode avion, puis synchronise</td>
+<td>8/8 opérations acceptées ; 0 doublon ; ≤ 10 étapes par fiche ; l'AUH trouve chaque écran sans aide</td>
+<td>Une fiche perdue, une modification écrasée sans conflit signalé, un écran hors périmètre visible</td>
+</tr>
+<tr class="even">
+<td>M2 · Achats bord champ</td>
+<td>S2 : 10 achats dont 2 sans mesure, 1 hors seuil, 1 hors barème, 2 simultanés dépassant le disponible</td>
+<td>Masses exactes au kg ; sans mesure = NON_MESURÉ ; dépassement refusé ; n° reçu en double refusé</td>
+<td>Un achat « OK » sans mesure ; un écart de calcul ; un dépassement accepté</td>
+</tr>
+<tr class="odd">
+<td>M3 · Wave et comptes RT</td>
+<td>S3 : versement 300 000, achats validés 200 000, en attente 40 000, remboursement 10 000</td>
+<td>Reste à justifier = 90 000 FCFA ; 40 000 affichés à part ; BM ne peut ni confirmer le versement ni l'accusé</td>
+<td>Un profil contourne Finance ou le RT ; une référence Wave acceptée deux fois</td>
+</tr>
+<tr class="even">
+<td>M4 · Bilan hebdomadaire</td>
+<td>S4 : 3 bilans (accord, réserve, refus de signer) dont un hors ligne et un corrigé après signature</td>
+<td>3 états distincts conservés ; correction = nouvelle version, original lisible ; retard signalé au 8e jour</td>
+<td>Signature fabriquée ; original modifié ; retard mesuré à 14 jours</td>
+</tr>
+<tr class="odd">
+<td>M5 · Voyage et BEV</td>
+<td>S5 : un camion, 2 RT de 2 villages, 200 kg et 150 kg, en mode avion, puis tentative d'allocation d'un lot d'un 3e RT</td>
+<td>2 BEV, 1 voyage ; heures de remise conservées ; lot étranger refusé ; aucun double départ au rejeu</td>
+<td>Un BEV perdu ou dupliqué ; une sortie de stock comptée deux fois ; un lot d'un autre RT accepté</td>
+</tr>
+<tr class="even">
+<td>M6 · Interface PJS</td>
+<td>S6 : 3 BEV exportés, PJS réceptionne 2 (dont un à 195 kg pour 200 kg), le 3e sans GRN</td>
+<td>BEV reconnus par n° ; écart −5 kg ouvert en incident ; GRN manquant = alerte, BEV intact ; aucun GRN créé dans FBMS</td>
+<td>Ressaisie manuelle du chargement dans PJS ; BEV annulé par l'absence de GRN</td>
+</tr>
+<tr class="odd">
+<td>M7 · Bascule d'un relais vers PJS (par site)</td>
+<td>Inventaire physique signé, stock d'ouverture importé dans PJS, expéditions en cours traitées</td>
+<td>Écart inventaire/FBMS expliqué ; FBMS du site en lecture seule ; un seul système officiel</td>
+<td>Deux systèmes écrivent le stock du même site</td>
+</tr>
+<tr class="even">
+<td>M8 · Canal APK stable</td>
+<td>Mise à jour de 3 téléphones portant chacun 20 opérations en attente ; retour arrière</td>
+<td>0 opération perdue ; empreinte du certificat vérifiée ; retour arrière éprouvé</td>
+<td>Une perte de file ; une installation par désinstallation</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="73-simulations-de-supervision">7.3 Simulations de supervision</h3>
+<ul>
+<li><strong>S6 ZH :</strong> depuis E0, le ZH affiche ses RT à risque (achat hors barème, solde non justifié, bilan en retard, BEV en conflit) en ≤ 3 écrans et ouvre la preuve en 1 clic.</li>
+<li><strong>S7 BM depuis Bouaké :</strong> E5.1 montre la cible AFLP (pas l'objectif Centre), chaque chiffre avec sa source et son niveau de vérification, et la liste des actions en attente par responsable.</li>
+</ul>
+<h3 id="74-ordre-de-mise-en-service-et-calendrier-cible">7.4 Ordre de mise en service et calendrier cible</h3>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Mise en service</th>
+<th>Prérequis P0</th>
+<th>Échéance cible</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>M1, M2</td>
+<td>P0-01 à P0-07, P0-12, P0-15</td>
+<td>Recette avant le 15/12/2026</td>
+</tr>
+<tr class="even">
+<td>M3, M4</td>
+<td>P0-09, P0-14</td>
+<td>Recette avant le 31/12/2026 ; GO avant le premier versement RT (fin janvier 2027)</td>
+</tr>
+<tr class="odd">
+<td>M5, M6</td>
+<td>P0-10, P0-11, P0-13, P0-16, P0-17</td>
+<td>GO avant la première expédition réelle</td>
+</tr>
+<tr class="even">
+<td>M7</td>
+<td>Audit PJS multi-sites</td>
+<td>Décision par site, à partir du 15/12/2026</td>
+</tr>
+<tr class="odd">
+<td>M8</td>
+<td>P0-18</td>
+<td>Avec chaque GO ci-dessus</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="8-arbitrages-ouverts-et-hypothèses">8. Arbitrages ouverts et hypothèses</h2>
+<p>Six décisions restent au BM avant le développement ; tant qu'elles ne sont pas prises, la ligne de dépendance concernée (§6) reste bloquée.</p>
+<div class="spec-table"><table>
+<thead>
+<tr class="header">
+<th>Arbitrage</th>
+<th>Recommandation</th>
+<th>Bloque</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Relais non prêt dans PJS au 15/12</td>
+<td>(a) FBMS officiel temporaire pour ce seul site avec date de migration écrite, ou (b) relais non utilisé pour l'achat, routage direct ; jamais deux systèmes officiels</td>
+<td>M7, P0-17</td>
+</tr>
+<tr class="even">
+<td>Convention des masses et tare unitaire</td>
+<td>Grandeurs §4.2, tare 1 kg/sac déduite une seule fois</td>
+<td>P0-02, P0-07, M2</td>
+</tr>
+<tr class="odd">
+<td>Coopérative qui livre elle-même</td>
+<td>Document de remise propre au circuit coopératif ; définir qui remet, transporte et signe</td>
+<td>Parcours coopératif (P1)</td>
+</tr>
+<tr class="even">
+<td>Journal sacherie canonique</td>
+<td>sacs_mouvements ou rcn_jute_movements, après audit des écritures existantes</td>
+<td>P0-08, P0-11</td>
+</tr>
+<tr class="odd">
+<td>SOP-AFLP-RT-001</td>
+<td>Obtenir les visas BM, Finance, QFS, Direction (document encore en V1.0 « à approuver »)</td>
+<td>M3, M4</td>
+</tr>
+<tr class="even">
+<td>Observatoire des vergers</td>
+<td>Collecte pilote étiquetée, protocole versionné ; aucun indicateur officiel ni conversion en tonnage</td>
+<td>E2.4</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Hypothèses à vérifier</strong></p>
+<ul>
+<li>PJS sait importer un BEV et exporter ses statuts par fichier : non vérifié, PJS n'a pas été audité au-delà de son écran de connexion.</li>
+<li>Les objectifs 40 000 MT affichés correspondent à la Zone Centre et non à l'AFLP (3 000 MT).</li>
+<li>Les cinq relais ne sont utilisés que pour les lots qui y transitent réellement ; la route par défaut des clusters hors N'Djébonoua reste directe vers Yamoussoukro.</li>
+</ul>
+<p><strong>Ce que V2.1 n'autorise pas :</strong> aucune fusion de PR (dont #311), aucune migration en production, aucune écriture dans la base réelle. La prochaine étape autorisée est la préparation des P0 de niveau 0 et 1 sur branche isolée et staging.</p>
+<p><strong>Sources :</strong> dépôt nwodobe/fbms, main a857065 (12/11/2026) et branche de la PR #311 (migrations rt_sop_*, operations/rt-sop-console.js) ; shared/aflp-access.js ; shared/offline-field.js ; operations/field-buying.js ; contre-expertise Claude × ChatGPT du 13/11/2026.</p>
+
+</article>
+</main>
+<footer class="ops-footer">ANAGROCI Operations Suite · CAHIER DES CHARGES FBMS AFLP 2027 V2.1</footer>
+</body>
+</html>
