@@ -5,6 +5,21 @@ const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
+/* FBMS V2.4 – photo provenance and single clean sidebar. */
+assert.ok(portal.includes('aflp-reseau-terrain-v24-800.webp'), 'Réseau must use the higher-resolution original field photograph');
+assert.ok(portal.includes('width="800" height="360"'), 'Réseau dimensions must describe the actual image');
+assert.ok(portal.includes('aflp-achats-rt-adultes-v24.webp'), 'RCN purchasing photo must be replaced with adult-only professional illustration');
+assert.ok(!portal.includes('src="assets/operations/modules/field-buying.webp"'), 'Unsuitable historical buying illustration must not be used on the home page');
+for (const p of ['assets/operations/modules/aflp-reseau-terrain-v24-800.webp','assets/operations/modules/aflp-achats-rt-adultes-v24.webp']) {
+ const img=fs.readFileSync(new URL('../'+p,import.meta.url));
+ assert.ok(img.length>40000&&img.length<160000,'Image size not optimized: '+p);
+ assert.equal(img.subarray(0,4).toString('ascii'),'RIFF','WebP header missing: '+p);
+}
+const v24Nav=read('operations/fbms-unified-nav-v22.js');
+assert.ok(v24Nav.includes("if(isActive && s.id!=='E0')"), 'Ma journée subordinate menu must be removed');
+assert.ok(portal.includes('href="moto/index.html"'), 'Missions and fuel still need to be directly accessible');
+assert.ok(portal.includes('href="operations/field-buying.html#sync"'), 'Synchronisation must remain directly accessible');
+
 /* FBMS V2.3 – visual shortcuts without a second shell or a portal gallery. */
 assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missing');
 assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
@@ -13,8 +28,8 @@ for (const id of ['E0','E1','E2','E3','E4','E5']) {
 }
 const v23Cards=(portal.match(/class="fbms-v23-card" data-space=/g)||[]).length;
 assert.equal(v23Cards,6,'exactly six illustrated spaces expected, no second portal');
-assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-20261113.webp'), 'user supplied Réseau photo is required');
-const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-20261113.webp',import.meta.url));
+assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-v24-800.webp'), 'user supplied Réseau photo is required');
+const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-v24-800.webp',import.meta.url));
 assert.ok(reseauImage.length>1000&&reseauImage.length<50000,'Réseau photo should be present and compressed');
 assert.equal(reseauImage.subarray(0,4).toString('ascii'),'RIFF','Réseau image must be a RIFF WebP');
 for (const href of [
