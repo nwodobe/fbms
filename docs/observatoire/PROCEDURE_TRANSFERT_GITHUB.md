@@ -33,3 +33,14 @@ Sans `gh` : GitHub > onglet *Pull requests* > *New pull request* > base `main`, 
 ## Ce que cette procédure ne fait pas
 
 Elle ne fusionne pas dans `main`, n'applique aucune migration et ne déploie rien. La mise en ligne suit la demande unique de validation (`DEMANDE_MISE_EN_PRODUCTION.md`).
+
+## Deuxième branche : correctif de sécurité « photos » (à publier séparément)
+
+```powershell
+git bundle verify $HOME\Downloads\fbms-correctif-photos.bundle
+git fetch $HOME\Downloads\fbms-correctif-photos.bundle fix/photos-urls-signees:fix/photos-urls-signees
+git push -u origin fix/photos-urls-signees
+gh pr create --base main --head fix/photos-urls-signees --title "Sécurité photos : affichage par URL signées (étape 1)" --body "Préalable à la fermeture du bucket photos. Voir docs/securite/ANOMALIE_BUCKET_PHOTOS.md. Sans effet visible tant que le bucket reste public." --draft
+```
+
+Cette branche peut être fusionnée avant l'Observatoire : elle ne dépend de rien et ne change rien tant que le bucket est public.
