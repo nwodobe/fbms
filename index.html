@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#053B23"><meta name="description" content="FBMS AFLP 2027 : opérations bord champ ANAGROCI.">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Ma journée · FBMS AFLP 2027</title>
+<title>Accueil · FBMS AFLP 2027</title>
 <link rel="icon" href="assets/logo-pjs-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,12 +16,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="shared/aflp-access.js?v=20261113-espaces-1"></script>
 <script defer src="shared/auth-gate.js?v=20261111-offline-session-1" data-module="portail"></script>
-<script defer src="operations/fbms-unified-nav-v22.js?v=20261113-2"></script>
+<script defer src="operations/fbms-unified-nav-v22.js?v=20261113-fleet-first-1"></script>
+
+<!-- Legacy-cache guard: keep the landing page free of subordinate menus. -->
+<style id="fbms-home-clean-navigation">
+body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context { display: none !important; }
+</style>
 </head>
 <body data-workspace="aflp-day" class="fbms-v22 fbms-v23">
 <header class="ops-topbar">
  <a class="ops-brand" href="index.html"><img src="assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI · FBMS</strong><small>AFLP 2027 · Bord champ</small></span></a>
- <div class="ops-title"><strong>Ma journée</strong><small>Six espaces · Une seule navigation</small></div>
+ <div class="ops-title"><strong>Accueil FBMS</strong><small>Six espaces · Une seule navigation</small></div>
  <div class="ops-top-actions"><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>
 </header>
 <div class="ops-shell">
@@ -29,15 +34,15 @@
  <main class="ops-main" id="main">
   <section class="fbms-day-header" aria-labelledby="fbms-day-title">
    <small>ANAGROCI · FieldLink Programme</small>
-   <h1 id="fbms-day-title">Ma journée</h1>
+   <h1 id="fbms-day-title">Bienvenue sur FBMS</h1>
    <p>Votre travail bord champ, en accès direct. Retrouvez les producteurs, les activités terrain et les achats sans quitter la navigation FBMS.</p>
   </section>
   <section aria-labelledby="fbms-espaces-title">
    <div class="fbms-v23-section-title"><div><h2 id="fbms-espaces-title">Les espaces de travail</h2><p>Des raccourcis illustrés vers les fonctions existantes, sans portail intermédiaire.</p></div></div>
    <div class="fbms-v23-grid">
-    <a class="fbms-v23-card" data-space="E0" href="#actions-rapides" aria-label="Ma journée : voir mes actions rapides">
+    <a class="fbms-v23-card" data-space="E0" href="moto/index.html" aria-label="AFLP FLEET : ouvrir le suivi des motos, du carburant et des missions">
      <span class="fbms-v23-card-media"><img src="assets/operations/modules/moto-manager.webp" alt="Moto utilisée pour les missions terrain" loading="eager" decoding="async" width="1200" height="675"></span>
-     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 01</span><span class="fbms-v23-card-title">Ma journée</span><span class="fbms-v23-card-desc">Missions, tâches et accès rapides.</span><span class="fbms-v23-card-go">Voir mes actions <span aria-hidden="true">↗</span></span></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 01</span><span class="fbms-v23-card-title">AFLP FLEET</span><span class="fbms-v23-card-desc">Motos, carburant, missions et maintenance.</span><span class="fbms-v23-card-go">Ouvrir AFLP FLEET <span aria-hidden="true">↗</span></span></span>
     </a>
     <a class="fbms-v23-card" data-space="E1" href="operations/field-buying.html#farmers" aria-label="Réseau : ouvrir directement les producteurs">
      <span class="fbms-v23-card-media"><img src="assets/operations/modules/aflp-reseau-terrain-v24-800.webp" alt="Réunion des membres du réseau terrain AFLP au village" loading="eager" decoding="async" width="800" height="360"></span>
@@ -68,7 +73,8 @@
     <a class="fbms-v23-shortcut" data-space="E3" href="operations/field-buying.html#purchases">Achats RCN <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E3" href="operations/field-buying.html#cash">Comptes RT <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E4" href="operations/procurement.html#evacuations">Lots &amp; expéditions <span aria-hidden="true">↗</span></a>
-    <a class="fbms-v23-shortcut" data-space="E0" href="moto/index.html">Missions &amp; carburant <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E0" href="moto/index.html">AFLP FLEET · Motos &amp; carburant <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E2" href="fieldproof/index.html">Preuves terrain <span aria-hidden="true">↗</span></a>
     <a class="fbms-v23-shortcut" data-space="E0" href="operations/field-buying.html#sync">Synchronisation <span aria-hidden="true">↗</span></a>
    </div>
   </section>
@@ -89,6 +95,22 @@
  document.addEventListener('anagroci:authenticated',filterVisibleActions);
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',filterVisibleActions);
  else filterVisibleActions();
+})();
+</script>
+
+<!-- This idempotent guard removes legacy sublinks even if an older JS bundle restores them. -->
+<script id="fbms-home-prune-submenu">
+(function(){
+  'use strict';
+  var sidebar=document.getElementById('opsSidebar');
+  if(!sidebar) return;
+  function removeLegacyHomeSubmenu(){
+    sidebar.querySelectorAll('.fbms-v22-context').forEach(function(item){item.remove();});
+  }
+  removeLegacyHomeSubmenu();
+  if(typeof MutationObserver==='function'){
+    new MutationObserver(removeLegacyHomeSubmenu).observe(sidebar,{childList:true});
+  }
 })();
 </script>
 </body></html>

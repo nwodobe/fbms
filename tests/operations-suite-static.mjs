@@ -3,6 +3,22 @@ import assert from 'node:assert/strict';
 
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
+
+/* AFLP FLEET is the first of exactly six spaces; the homepage is a neutral landing screen. */
+const fleetNav=read('operations/fbms-unified-nav-v22.js');
+assert.ok(fleetNav.includes("{id:'E0',fr:'AFLP FLEET'"), 'AFLP FLEET must replace Ma journée as first space');
+assert.ok(fleetNav.includes("['Parc motos & carburant','Motorcycles & fuel','../moto/index.html'"), 'AFLP FLEET must open its existing moto app');
+assert.ok(fleetNav.includes("BM:['E0'"), 'AFLP FLEET must be accessible to BM and authorized field roles');
+
+/* Ma journée: hard guarantee of no legacy sublinks even with cached JS. */
+assert.ok(portal.includes('id="fbms-home-clean-navigation"'),'Home must have CSS backup hiding subordinate sidebar links');
+assert.ok(portal.includes('body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context'),'Only homepage should suppress submenu with scoped selector');
+assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cached-js legacy submenu nodes');
+assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
+assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
+assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-fleet-first-1'),'Home must bust stale cached navigation JS');
+
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
 /* FBMS V2.4 – photo provenance and single clean sidebar. */
@@ -16,13 +32,15 @@ for (const p of ['assets/operations/modules/aflp-reseau-terrain-v24-800.webp','a
  assert.equal(img.subarray(0,4).toString('ascii'),'RIFF','WebP header missing: '+p);
 }
 const v24Nav=read('operations/fbms-unified-nav-v22.js');
-assert.ok(v24Nav.includes("if(isActive && (s.id!=='E0'"), 'Home submenu should not be rendered in the landing page');
+assert.ok(v24Nav.includes("if(file==='espaces.html'||file==='index.html')return 'HOME';"), 'Landing page must not activate Fleet submenu');
 assert.ok(v24Nav.includes("moto") && v24Nav.includes("global.location.pathname"), 'Fleet must retain contextual routes');
 assert.ok(portal.includes('href="moto/index.html"'), 'Missions and fuel still need to be directly accessible');
 assert.ok(portal.includes('href="operations/field-buying.html#sync"'), 'Synchronisation must remain directly accessible');
 
 /* FBMS V2.3 – visual shortcuts without a second shell or a portal gallery. */
 assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missing');
+assert.ok(portal.includes('data-space="E0" href="moto/index.html"'), 'First photo card must open AFLP FLEET');
+assert.ok(!portal.includes('fbms-v23-card-title">Ma journée'), 'No Ma journée module should remain');
 assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
 for (const id of ['E0','E1','E2','E3','E4','E5']) {
  assert.ok(portal.includes('class="fbms-v23-card" data-space="'+id+'"'), 'illustrated space missing: '+id);
@@ -46,19 +64,19 @@ for(const visual of ['moto-manager.webp','field-proof.webp','field-buying.webp',
  assert.ok(fs.existsSync(new URL('../assets/operations/modules/'+visual,import.meta.url)),'image missing: '+visual);
 }
 
-/* FBMS V2.2 – single navigation: Ma journée is the root, not a card gallery.
+/* FBMS V2.5 – single navigation: neutral accueil is the root, FLEET is the first module.
    All existing routes remain reachable through a canonical shared sidebar. */
-assert.ok(portal.includes('Ma journée'), 'FBMS entry must open Ma journée');
+assert.ok(portal.includes('Bienvenue sur FBMS'), 'FBMS landing page must remain a neutral home');
 assert.ok(portal.includes('id="opsSidebar"'), 'single navigation sidebar must exist in the root');
 assert.ok(portal.includes('fbms-unified-nav-v22.js'), 'root must load the unified navigation');
 assert.ok(!portal.includes('href="operations/espaces.html#'), 'root may not open an intermediate six-space gallery');
 for (const href of ['operations/field-buying.html#farmers','operations/field-buying.html#purchases',
                     'operations/field-buying.html#cash','operations/procurement.html#evacuations','moto/index.html']) {
-  assert.ok(portal.includes('href="'+href+'"'), 'Ma journée direct task missing: '+href);
+  assert.ok(portal.includes('href="'+href+'"'), 'FBMS home direct task missing: '+href);
 }
 assert.ok(!portal.includes('href="operations/factory.html"'), 'Factory must not appear in the AFLP navigation');
 const v22Nav = read('operations/fbms-unified-nav-v22.js');
-for (const space of ['Ma journée','Réseau','Terrain','Achats & comptes RT','Expédition','Pilotage & administration']) {
+for (const space of ['AFLP FLEET','Réseau','Terrain','Achats & comptes RT','Expédition','Pilotage & administration']) {
   assert.ok(v22Nav.includes(space), 'Six-space navigation missing '+space);
 }
 for(const specialized of ['moto/index.html','fieldproof/index.html']) {
