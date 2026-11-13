@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#053B23">
+<meta name="theme-color" content="#053B23"><meta name="description" content="FBMS AFLP 2027 : opérations bord champ ANAGROCI.">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Ma journée · FBMS AFLP 2027</title>
 <link rel="icon" href="assets/logo-pjs-mark.png">
@@ -12,51 +12,83 @@
 <link rel="stylesheet" href="operations/operations.css?v=20260830-1">
 <link rel="stylesheet" href="operations/operations-v2.css?v=20261008-campagnes-1">
 <link rel="stylesheet" href="operations/fbms-unified-nav-v22.css?v=20261113-1">
+<link rel="stylesheet" href="operations/fbms-v23-visual.css?v=20261113-1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="shared/aflp-access.js?v=20261113-espaces-1"></script>
 <script defer src="shared/auth-gate.js?v=20261111-offline-session-1" data-module="portail"></script>
 <script defer src="operations/fbms-unified-nav-v22.js?v=20261113-1"></script>
-<style>
-.fbms-day-header{padding:0 0 16px;border-bottom:1px solid #DCE9DF;margin:0 0 18px}
-.fbms-day-header small{display:block;color:#008F37;font-weight:750;text-transform:uppercase;letter-spacing:1.5px;font-size:11px}
-.fbms-day-header h1{margin:8px 0;color:#053B23;font-size:clamp(24px,3vw,35px)}
-.fbms-day-header p{color:#65776D;margin:0;font-size:14px;max-width:670px}
-.fbms-day-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:13px}
-.fbms-day-card{background:white;border:1px solid #DCE9DF;border-radius:14px;padding:21px;display:flex;flex-direction:column;gap:9px;text-decoration:none;min-height:165px;box-shadow:0 7px 18px #053B2308}
-.fbms-day-card b{color:#053B23;font-size:16px}
-.fbms-day-card span{color:#617569;font-size:12px}
-.fbms-day-card strong{margin-top:auto;color:#008F37;font-size:12px}
-.fbms-day-card:hover{border-color:#008F37;box-shadow:0 9px 22px #053B2319}
-.fbms-day-notice{margin:18px 0;background:#FFF8E9;border-left:4px solid #D0A144;border-radius:6px;padding:12px 15px;color:#695323;font-size:12px}
-.fbms-day-footer{font-size:11px;color:#6A7C70;margin:29px 0}
-.fbms-v22 .ops-main{padding:23px clamp(14px,3vw,38px)}
-.fbms-v22 .ops-shell{min-height:calc(100vh - 65px)}
-@media(max-width:700px){.fbms-day-card{min-height:135px}}
-</style>
 </head>
-<body data-workspace="aflp-day" class="fbms-v22">
+<body data-workspace="aflp-day" class="fbms-v22 fbms-v23">
 <header class="ops-topbar">
-  <a class="ops-brand" href="index.html"><img src="assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI · FBMS</strong><small>AFLP 2027 · Bord champ</small></span></a>
-  <div class="ops-title"><strong>Ma journée</strong><small>Une seule navigation · six espaces</small></div>
-  <div class="ops-top-actions"><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>
+ <a class="ops-brand" href="index.html"><img src="assets/logo-pjs-mark.png" alt="PJS Global"><span><strong>ANAGROCI · FBMS</strong><small>AFLP 2027 · Bord champ</small></span></a>
+ <div class="ops-title"><strong>Ma journée</strong><small>Six espaces · Une seule navigation</small></div>
+ <div class="ops-top-actions"><span id="anagroci-lang-slot"></span><span id="anagroci-userslot"></span></div>
 </header>
 <div class="ops-shell">
-<aside class="ops-sidebar" id="opsSidebar" aria-label="Navigation principale FBMS"></aside>
-<main class="ops-main" id="main">
-<section class="fbms-day-header">
-  <small>Accueil opérationnel</small>
-  <h1>Ma journée</h1>
-  <p>Retrouvez directement votre travail au village. Les fonctions se déroulent dans une navigation commune. Les droits restent vérifiés par chaque module.</p>
-</section>
-<section class="fbms-day-actions" aria-label="Actions essentielles">
-  <a class="fbms-day-card" href="operations/field-buying.html#farmers"><b>Producteurs</b><span>Retrouver une fiche et accéder à l'enrôlement.</span><strong>Ouvrir les producteurs →</strong></a>
-  <a class="fbms-day-card" href="operations/field-buying.html#purchases"><b>Achats RCN</b><span>Ouvrir les achats et le formulaire bord champ.</span><strong>Ouvrir les achats →</strong></a>
-  <a class="fbms-day-card" href="operations/field-buying.html#sync"><b>Synchronisation</b><span>Consulter les opérations en attente et vérifier les erreurs.</span><strong>Voir les envois →</strong></a>
-  <a class="fbms-day-card" href="moto/index.html"><b>Missions & carburant</b><span>Retrouver le suivi des motos et déplacements AFLP.</span><strong>Ouvrir les missions →</strong></a>
-  <a class="fbms-day-card" href="operations/field-buying.html#cash"><b>Comptes RT</b><span>Accéder à la caisse et aux contrôles terrain existants.</span><strong>Voir les comptes →</strong></a>
-  <a class="fbms-day-card" href="operations/procurement.html#evacuations"><b>Expédition</b><span>Préparer les lots et les départs du village.</span><strong>Ouvrir les expéditions →</strong></a>
-</section>
-<section class="fbms-day-notice" role="note"><strong>À distinguer :</strong> cet accueil fournit des actions directes réelles, sans créer de faux indicateurs ni de tâches fictives. Les listes d'alertes personnalisées par profil seront branchées sur les vues autorisées après validation.</section>
-<div class="fbms-day-footer">ANAGROCI · PJS Global · Les opérations de réception officielle, GRN et usine relèvent de PJS Operations.</div>
-</main></div>
+ <aside class="ops-sidebar" id="opsSidebar" aria-label="Navigation principale FBMS"></aside>
+ <main class="ops-main" id="main">
+  <section class="fbms-day-header" aria-labelledby="fbms-day-title">
+   <small>ANAGROCI · FieldLink Programme</small>
+   <h1 id="fbms-day-title">Ma journée</h1>
+   <p>Votre travail bord champ, en accès direct. Retrouvez les producteurs, les activités terrain et les achats sans quitter la navigation FBMS.</p>
+  </section>
+  <section aria-labelledby="fbms-espaces-title">
+   <div class="fbms-v23-section-title"><div><h2 id="fbms-espaces-title">Les espaces de travail</h2><p>Des raccourcis illustrés vers les fonctions existantes, sans portail intermédiaire.</p></div></div>
+   <div class="fbms-v23-grid">
+    <a class="fbms-v23-card" data-space="E0" href="#actions-rapides" aria-label="Ma journée : voir mes actions rapides">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/moto-manager.webp" alt="Moto utilisée pour les missions terrain" loading="eager" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 01</span><span class="fbms-v23-card-title">Ma journée</span><span class="fbms-v23-card-desc">Missions, tâches et accès rapides.</span><span class="fbms-v23-card-go">Voir mes actions <span aria-hidden="true">↗</span></span></span>
+    </a>
+    <a class="fbms-v23-card" data-space="E1" href="operations/field-buying.html#farmers" aria-label="Réseau : ouvrir directement les producteurs">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/aflp-reseau-terrain-20261113.webp" alt="Réunion de personnes au village, photographie transmise par le Branch Manager" loading="eager" decoding="async" width="320" height="144"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 02</span><span class="fbms-v23-card-title">Réseau</span><span class="fbms-v23-card-desc">Producteurs, RT, villages et coopératives.</span><span class="fbms-v23-card-go">Ouvrir les producteurs <span aria-hidden="true">↗</span></span></span>
+    </a>
+    <a class="fbms-v23-card" data-space="E2" href="operations/field-buying.html#sustainability" aria-label="Terrain : ouvrir directement les activités durabilité">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/field-proof.webp" alt="Activités et preuves documentaires des missions terrain" loading="lazy" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 03</span><span class="fbms-v23-card-title">Terrain</span><span class="fbms-v23-card-desc">Visites, formations et durabilité.</span><span class="fbms-v23-card-go">Ouvrir le terrain <span aria-hidden="true">↗</span></span></span>
+    </a>
+    <a class="fbms-v23-card" data-space="E3" href="operations/field-buying.html#purchases" aria-label="Achats et comptes RT : ouvrir directement les achats RCN">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/field-buying.webp" alt="Noix de cajou en collecte et conditionnement" loading="lazy" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 04</span><span class="fbms-v23-card-title">Achats &amp; comptes RT</span><span class="fbms-v23-card-desc">Achats RCN, avances, stock et sacs.</span><span class="fbms-v23-card-go">Ouvrir les achats <span aria-hidden="true">↗</span></span></span>
+    </a>
+    <a class="fbms-v23-card" data-space="E4" href="operations/procurement.html#evacuations" aria-label="Expédition : ouvrir directement les lots et les départs">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/stock-transfer.webp" alt="Photo illustrative de la logistique et du transfert de marchandises" loading="lazy" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 05</span><span class="fbms-v23-card-title">Expédition</span><span class="fbms-v23-card-desc">Lots, chargements et départs du village.</span><span class="fbms-v23-card-go">Ouvrir les expéditions <span aria-hidden="true">↗</span></span></span>
+    </a>
+    <a class="fbms-v23-card" data-space="E5" href="operations/field-buying.html#overview" aria-label="Pilotage et administration : ouvrir directement le tableau de bord">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/reports.webp" alt="Reporting opérationnel et suivi des performances" loading="lazy" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 06</span><span class="fbms-v23-card-title">Pilotage &amp; administration</span><span class="fbms-v23-card-desc">Tableaux de bord, rapports et campagnes.</span><span class="fbms-v23-card-go">Ouvrir le pilotage <span aria-hidden="true">↗</span></span></span>
+    </a>
+   </div>
+  </section>
+  <section class="fbms-v23-quick" id="actions-rapides" aria-labelledby="fbms-actions-title">
+   <div class="fbms-v23-section-title"><div><h2 id="fbms-actions-title">Accès rapides</h2><p>Un clic vers la fonction, sans deuxième menu.</p></div></div>
+   <div class="fbms-v23-actions">
+    <a class="fbms-v23-shortcut" data-space="E1" href="operations/field-buying.html#farmers">Producteurs <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E3" href="operations/field-buying.html#purchases">Achats RCN <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E3" href="operations/field-buying.html#cash">Comptes RT <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E4" href="operations/procurement.html#evacuations">Lots &amp; expéditions <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E0" href="moto/index.html">Missions &amp; carburant <span aria-hidden="true">↗</span></a>
+    <a class="fbms-v23-shortcut" data-space="E0" href="operations/field-buying.html#sync">Synchronisation <span aria-hidden="true">↗</span></a>
+   </div>
+  </section>
+  <p class="fbms-day-notice">Les photos illustrent les espaces. Les mouvements réels, soldes et validations restent dans les modules existants, soumis aux autorisations serveur.</p>
+  <div class="fbms-day-footer">ANAGROCI · PJS Global · Les réceptions officielles et GRN relèvent de PJS Operations.</div>
+ </main>
+</div>
+<script>
+(function(){
+ function filterVisibleActions(){
+  var ui=window.FBMS_UNIFIED_NAV,auth=window.ANAGROCI_AUTH;
+  if(!ui||!auth||!ui.ROLES||!ui.role)return;
+  var allowed=ui.ROLES[ui.role()]||ui.ROLES.RO||['E0'];
+  document.querySelectorAll('[data-space]').forEach(function(item){
+   item.hidden=!allowed.includes(item.dataset.space);
+  });
+ }
+ document.addEventListener('anagroci:authenticated',filterVisibleActions);
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',filterVisibleActions);
+ else filterVisibleActions();
+})();
+</script>
 </body></html>
