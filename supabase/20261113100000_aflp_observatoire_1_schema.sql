@@ -36,7 +36,7 @@ create table if not exists public.pheno_protocoles (
 insert into public.pheno_protocoles (code, version, parametres)
 values ('AFLP2027-OBS', 'v0.9', jsonb_build_object(
   'titulaires', 10, 'reserves', 2,
-  'algorithme_tirage', 'sha256(graine:numero) croissant',
+  'algorithme_tirage', 'sha256(graine:numero) croissant ; graines campagne:parcelle:BLOCS et campagne:parcelle:B<n>:ARBRES',
   'seuils_experimentaux_c_cumulatif', jsonb_build_array(10, 20, 30),
   'couverture_min_prealerte', 0.75,
   'delai_maturite', 'hypothèse non calibrée, aucune prévision en 2027'))

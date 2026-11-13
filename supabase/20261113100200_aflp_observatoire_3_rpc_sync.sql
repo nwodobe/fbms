@@ -7,9 +7,11 @@
 --   * Toutes les écritures passent par ces fonctions SECURITY DEFINER,
 --     qui contrôlent le rôle, le périmètre et l'état avant d'écrire.
 --   * Tirage reproductible : ordre croissant de sha256('<graine>:<numéro>').
---     Graine des blocs = '<panel_id>:BLOCS' ; graine des arbres =
---     '<bloc_id>:ARBRES'. Le navigateur applique le même calcul hors ligne ;
---     le serveur fait foi et recalcule.
+--     Graines NON CHOISIES par l'agent (audit du 13/11/2026) :
+--       blocs  = '<campaign_id>:<plot_id>:BLOCS'
+--       arbres = '<campaign_id>:<plot_id>:B<numéro du bloc>:ARBRES'
+--     Réinstaller un champ ne change donc pas le tirage. Le navigateur applique
+--     le même calcul hors ligne ; le serveur fait foi et recalcule.
 --   * b (blocs tirés) est transmis AVANT le tirage et verrouillé avec lui.
 --     Un tirage verrouillé ne peut être ni rejoué ni modifié.
 --   * Synchronisation dédiée (pheno_sync_batch) : offline_sync_batch n'est
@@ -84,7 +86,7 @@ begin
   end if;
 
   for v_b in select * from public.pheno_blocs where panel_id = p_panel and tire order by rang_tirage loop
-    v_ordre := private.pheno_tirage(v_b.id::text || ':ARBRES', v_b.nb_arbres_inventories,
+    v_ordre := private.pheno_tirage(v_panel.campaign_id::text || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES', v_b.nb_arbres_inventories,
       least(v_b.nb_arbres_inventories, v_b.nb_titulaires_prevus + v_b.nb_reserves_prevues));
     v_proba := coalesce(v_panel.pi_village, 1) * coalesce(v_panel.pi_champ, 1)
       * (v_panel.nb_blocs_tires::numeric / v_panel.nb_blocs_total)
@@ -103,7 +105,7 @@ begin
       end if;
     end loop;
     v_manque := v_manque + greatest(0, v_b.nb_titulaires_prevus + v_b.nb_reserves_prevues - v_b.nb_arbres_inventories);
-    v_detail := v_detail || jsonb_build_object('bloc', v_b.numero, 'graine', v_b.id::text || ':ARBRES',
+    v_detail := v_detail || jsonb_build_object('bloc', v_b.numero, 'graine', v_panel.campaign_id::text || ':' || v_panel.plot_id::text || ':B' || v_b.numero || ':ARBRES',
       'N', v_b.nb_arbres_inventories, 'm', v_b.nb_titulaires_prevus, 'ordre', to_jsonb(v_ordre), 'proba', v_proba);
   end loop;
 
@@ -170,11 +172,11 @@ begin
     nb_blocs_total, nb_blocs_tires, tirage_graine, tirage_par, device_id, created_by,
     pi_village, pi_champ)
   values (v_id, v_campaign, v_proto.id, v_plot.id, v_plot.producteur_id, v_plot.village_id, v_cluster,
-    v_total, v_tires, v_id::text || ':BLOCS', auth.uid(), p->>'device_id', auth.uid(),
+    v_total, v_tires, v_campaign::text || ':' || v_plot.id::text || ':BLOCS', auth.uid(), p->>'device_id', auth.uid(),
     case when private.pheno_classe() = 'BM' then (p->>'pi_village')::numeric end,
     case when private.pheno_classe() = 'BM' then (p->>'pi_champ')::numeric end);
 
-  v_ordre := private.pheno_tirage(v_id::text || ':BLOCS', v_total, v_tires);
+  v_ordre := private.pheno_tirage(v_campaign::text || ':' || v_plot.id::text || ':BLOCS', v_total, v_tires);
   for v_bloc in select * from jsonb_array_elements(p->'blocs') loop
     v_rang := array_position(v_ordre, (v_bloc->>'numero')::integer);
     v_m := 0; v_r := 0;
@@ -188,7 +190,7 @@ begin
   end loop;
 
   perform private.pheno_journaliser(v_cluster, 'PANEL', v_id, 'TIRAGE_BLOCS', null, jsonb_build_object(
-    'protocole', v_proto.code || ' ' || v_proto.version, 'graine', v_id::text || ':BLOCS',
+    'protocole', v_proto.code || ' ' || v_proto.version, 'graine', v_campaign::text || ':' || v_plot.id::text || ':BLOCS',
     'algorithme', 'sha256(graine:numero) croissant', 'B', v_total, 'b', v_tires, 'blocs_tires', to_jsonb(v_ordre),
     'b_fixe_avant_tirage', true, 'appareil', p->>'device_id', 'saisi_le_client', p->>'created_at_client'), null);
 
@@ -414,6 +416,10 @@ begin
       raise exception 'Transcription d''une fiche papier : l''observateur doit être une autre personne que le transcripteur.' using errcode = 'PH002'; end if;
     if private.pheno_classe_de(v_obs) is null or private.pheno_classe_de(v_obs) not in ('UH', 'AUH', 'BM') then
       raise exception 'Observateur inconnu ou non habilité.' using errcode = 'PH002'; end if;
+    -- L'observateur d'une fiche papier appartient au cluster du champ (sauf Branch Manager).
+    if private.pheno_classe_de(v_obs) <> 'BM' and not exists (select 1 from public.profils pr where pr.user_id = v_obs and pr.actif
+         and public.aflp_cluster_code(pr.cluster) = v_panel.cluster_code) then
+      raise exception 'L''observateur désigné n''appartient pas au cluster de ce champ.' using errcode = 'PH002'; end if;
   else raise exception 'Mode de saisie invalide.' using errcode = 'PH002';
   end if;
 
@@ -536,7 +542,11 @@ begin
       v_out := v_out || jsonb_build_object('idempotency_key', v_cle, 'statut', 'REJETEE', 'message', 'Clé d''idempotence manquante.');
       continue;
     end if;
-    v_hash := md5((v_op->>'type') || coalesce((v_op->'payload')::text, ''));
+    -- Empreinte sur la forme canonique jsonb (clés triées par PostgreSQL), en SHA-256.
+    v_hash := private.pheno_hex(coalesce(v_op->>'type', '') || '|' || coalesce((v_op->'payload')::text, ''));
+    -- Deux envois simultanés de la même opération : le second attend la fin du premier,
+    -- puis trouve son accusé (écriture métier et accusé sont dans la même transaction).
+    perform pg_advisory_xact_lock(hashtextextended('pheno_sync:' || v_cle, 0));
     select * into v_recu from private.pheno_sync_recus where idempotency_key = v_cle;
     if found then
       if v_recu.user_id = auth.uid() and v_recu.request_hash = v_hash then
@@ -710,6 +720,25 @@ begin
   return jsonb_build_object('correction_id', p_correction, 'statut', p_decision);
 end $$;
 
+-- Parcelles du registre installables par l'agent : son cluster seulement (tout pour le BM).
+-- Champs minimaux, aucun téléphone ni donnée sensible du registre. Évite de dépendre des
+-- droits de lecture du registre producteurs, qui ne sont pas accordés à l'Assistant Unit Head.
+create or replace function public.pheno_parcelles_disponibles(p_campaign uuid) returns table (
+  plot_id uuid, producteur_id text, producteur_nom text, producteur_code text, village_id text, village_nom text,
+  cluster_code text, parcelle_nom text, arbres_declares integer, deja_installee boolean)
+language sql stable security definer set search_path to 'public', 'private', 'pg_temp' as $$
+  select fp.id, fp.producteur_id, pr.nom, pr.code, fp.village_id, v.village,
+    public.aflp_cluster_code(coalesce(nullif(btrim(v.cluster_code), ''), nullif(btrim(v.cluster), ''), v.data->'s1'->>'cluster')) as cl,
+    fp.local_name, fp.tree_count,
+    exists (select 1 from public.pheno_panels pp where pp.campaign_id = p_campaign and pp.plot_id = fp.id)
+  from public.farmer_plots fp
+  join public.villages v on v.id = fp.village_id
+  join public.producteurs pr on pr.id = fp.producteur_id
+  where not fp.deleted and coalesce(fp.status, 'ACTIVE') = 'ACTIVE' and not coalesce(pr.deleted, false)
+    and private.pheno_peut_collecter(public.aflp_cluster_code(coalesce(nullif(btrim(v.cluster_code), ''), nullif(btrim(v.cluster), ''), v.data->'s1'->>'cluster')))
+  order by pr.nom, fp.local_name
+$$;
+
 -- Collègues de collecte du même cluster (nom uniquement), pour désigner
 -- l'observateur d'une fiche papier. Aucune autre donnée de profil n'est exposée.
 create or replace function public.pheno_observateurs_du_cluster() returns table (user_id uuid, nom text, role text)
@@ -733,12 +762,12 @@ revoke all on function public.pheno_panel_installer(jsonb), public.pheno_bloc_in
   public.pheno_affectation_accorder(jsonb), public.pheno_affectation_revoquer(uuid, text), public.pheno_sync_batch(jsonb),
   public.pheno_visite_verifier(uuid, integer), public.pheno_visite_demander_correction(uuid, text, integer),
   public.pheno_visite_valider(uuid, integer), public.pheno_correction_decider(uuid, text, text),
-  public.pheno_observateurs_du_cluster() from public, anon;
+  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid) from public, anon;
 grant execute on function public.pheno_panel_installer(jsonb), public.pheno_bloc_inventorier(jsonb), public.pheno_arbre_marquer(jsonb),
   public.pheno_reserve_activer(uuid, text), public.pheno_panel_definir_probabilites(uuid, numeric, numeric, text),
   public.pheno_affectation_accorder(jsonb), public.pheno_affectation_revoquer(uuid, text), public.pheno_sync_batch(jsonb),
   public.pheno_visite_verifier(uuid, integer), public.pheno_visite_demander_correction(uuid, text, integer),
   public.pheno_visite_valider(uuid, integer), public.pheno_correction_decider(uuid, text, text),
-  public.pheno_observateurs_du_cluster() to authenticated;
+  public.pheno_observateurs_du_cluster(), public.pheno_parcelles_disponibles(uuid) to authenticated;
 
 commit;

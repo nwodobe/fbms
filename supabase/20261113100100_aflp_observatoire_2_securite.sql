@@ -211,10 +211,10 @@ revoke all on function private.pheno_classe(), private.pheno_classe_de(uuid), pr
   private.pheno_peut_lire_panel(uuid), private.pheno_peut_lire_visite(uuid), private.pheno_uuid_ou_null(text),
   private.pheno_preuve_autorisee(text, text) from public, anon;
 grant usage on schema private to authenticated;
-grant execute on function private.pheno_classe(), private.pheno_classe_de(uuid), private.pheno_mon_cluster(), private.pheno_ma_zone(),
-  private.pheno_peut_lire_cluster(text), private.pheno_peut_collecter(text), private.pheno_a_affectation(uuid, text, text[]),
-  private.pheno_peut_verifier(uuid, text), private.pheno_peut_valider(uuid, text), private.pheno_cluster_du_panel(uuid),
-  private.pheno_peut_lire_panel(uuid), private.pheno_peut_lire_visite(uuid), private.pheno_uuid_ou_null(text),
-  private.pheno_preuve_autorisee(text, text) to authenticated;
+-- Seules les fonctions citées dans les politiques sont exécutables par authenticated ;
+-- les autres ne s'exécutent qu'à l'intérieur des fonctions SECURITY DEFINER du module
+-- (aucune lecture du rôle d'un autre compte possible par appel direct).
+grant execute on function private.pheno_classe(), private.pheno_peut_lire_cluster(text), private.pheno_peut_lire_panel(uuid),
+  private.pheno_peut_lire_visite(uuid), private.pheno_preuve_autorisee(text, text) to authenticated;
 
 commit;

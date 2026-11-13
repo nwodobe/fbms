@@ -166,7 +166,7 @@
     return aDesEnvoisPour(v.id).then(function (dejaEnFile) {
       var charge = C.chargeVisite(v, soumettre);
       if (dejaEnFile) charge.base_version = null;   // la chaîne locale fait foi tant que le serveur n'a pas répondu
-      v.etat_envoi = 'EN_ATTENTE'; v.intention = soumettre ? 'SOUMETTRE' : 'BROUILLON';
+      v.etat_envoi = 'EN_ATTENTE'; v.intention = soumettre ? 'SOUMETTRE' : 'BROUILLON'; v.proprietaire = v.proprietaire || utilisateur();
       return enregistrerVisite(v).then(function () { return mettreEnFile('VISITE_ENREGISTRER', charge, { entite: 'VISITE', entite_id: v.id, libelle: libelle }); });
     });
   }
@@ -195,19 +195,15 @@
         return pages(function () { return sb.from('pheno_observations').select('*').in('visite_id', ouvertes).order('id'); }).then(function (o) { res.obs = o; });
       });
     }).then(function () {
-      return Promise.all([
-        pages(function () { return sb.from('farmer_plots').select('id,producteur_id,village_id,local_name,tree_count').eq('deleted', false).order('id'); }).catch(function () { return null; }),
-        pages(function () { return sb.from('villages').select('id,village,cluster,cluster_code').order('id'); }).catch(function () { return null; })
-      ]);
-    }).then(function (r) {
-      res.plots = r[0]; res.villages = r[1];
-      var pid = {}; (res.plots || []).forEach(function (x) { pid[x.producteur_id] = 1; });
-      var ids = Object.keys(pid);
-      if (!ids.length) return [];
-      /* Nom et code uniquement : aucun téléphone ni donnée sensible n'est copié sur l'appareil. */
-      var lots = []; while (ids.length) lots.push(ids.splice(0, 150));
-      return Promise.all(lots.map(function (l) { return sb.from('producteurs').select('id,nom,code').in('id', l).then(function (x) { return x.error ? [] : x.data; }); }))
-        .then(function (t) { return [].concat.apply([], t); });
+      /* Parcelles installables : une seule RPC, filtrée par le serveur sur le périmètre de l'agent. */
+      return sb.rpc('pheno_parcelles_disponibles', { p_campaign: campaignId }).then(function (x) { if (x.error) throw new Error(x.error.message); return x.data || []; }).catch(function () { return null; });
+    }).then(function (rows) {
+      if (!rows) { res.plots = null; return []; }
+      var vil = {}, pro = {};
+      res.plots = rows.map(function (r) { vil[r.village_id] = { id: r.village_id, village: r.village_nom, cluster_code: r.cluster_code }; pro[r.producteur_id] = { id: r.producteur_id, nom: r.producteur_nom, code: r.producteur_code };
+        return { id: r.plot_id, producteur_id: r.producteur_id, village_id: r.village_id, local_name: r.parcelle_nom, tree_count: r.arbres_declares, deja_installee: r.deja_installee }; });
+      res.villages = Object.keys(vil).map(function (k) { return vil[k]; });
+      return Object.keys(pro).map(function (k) { return pro[k]; });
     }).then(function (producteurs) {
       return Promise.all([tout('panels'), tout('visites'), enAttente()]).then(function (loc) {
         var enFile = {}; loc[2].forEach(function (o) { if (o.entite_id) enFile[o.entite_id] = 1; });
@@ -230,7 +226,7 @@
           ecritures.push(ecrire('visites', { id: v.id, panel_id: v.panel_id, date_observation: v.date_observation, semaine_iso: v.semaine_iso, saisie_le: v.saisie_le,
             recu_serveur_le: v.recu_serveur_le, mode_saisie: v.mode_saisie, observateur_id: v.observateur_id, transcripteur_id: v.transcripteur_id,
             ramassage: v.ramassage, anomalies: v.anomalies, latitude: v.latitude, longitude: v.longitude, statut_serveur: v.statut, row_version: v.row_version,
-            correction_motif: v.correction_motif, etat_envoi: 'RECU',
+            correction_motif: v.correction_motif, etat_envoi: 'RECU', proprietaire: v.transcripteur_id || v.observateur_id,
             observations: obs.length ? obs.map(function (o) { return { arbre_id: o.arbre_id, retrouve: o.retrouve, f: o.f, n: o.n, p: o.p, pas_vu_motif: o.pas_vu_motif, chute: o.chute, chute_preuve: o.chute_preuve, anomalie: o.anomalie, photo_ref: o.photo_ref }; })
               : (local && local.observations) || [] }));
         });

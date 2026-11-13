@@ -3,7 +3,8 @@
    Mêmes règles que le serveur (supabase/20261113100200_aflp_observatoire_3_rpc_sync.sql) :
    le serveur fait foi et recalcule ; ce module permet de travailler HORS LIGNE.
      · tirage reproductible : ordre croissant de sha256('<graine>:<numéro>') ;
-     · graine des blocs = '<panel_id>:BLOCS' ; graine des arbres = '<bloc_id>:ARBRES' ;
+     · graines non choisies par l'agent : blocs = '<campagne>:<parcelle>:BLOCS',
+       arbres = '<campagne>:<parcelle>:B<numéro du bloc>:ARBRES' ;
      · identifiant d'arbre déterministe = 32 premiers hexadécimaux de sha256('<bloc_id>:ARBRE:<numéro>') ;
      · aucune réponse n'est préremplie : une réponse absente vaut null, jamais « Non ».
    Utilisable dans le navigateur (window.ANAGROCI_OBS_COEUR) et sous Node (tests). */
@@ -94,9 +95,10 @@
     if (blocs.length !== B) erreurs.push('Décrivez exactement ' + B + ' blocs.');
     blocs.forEach(function (x, i) { if (!String(x.repere || '').trim()) erreurs.push('Bloc ' + (i + 1) + ' : repère physique obligatoire.'); });
     if (erreurs.length) return { erreurs: erreurs };
-    var ordre = tirage(p.id + ':BLOCS', B, b), rep = repartition(T, R, b);
+    if (!p.campaign_id || !p.plot_id) return { erreurs: ['Campagne ou parcelle manquante.'] };
+    var graine = p.campaign_id + ':' + p.plot_id + ':BLOCS', ordre = tirage(graine, B, b), rep = repartition(T, R, b);
     return {
-      erreurs: [], blocs_tires: ordre, graine: p.id + ':BLOCS',
+      erreurs: [], blocs_tires: ordre, graine: graine,
       blocs: blocs.map(function (x, i) {
         var numero = i + 1, rang = ordre.indexOf(numero) + 1;
         return { id: x.id || uuid(), numero: numero, repere: String(x.repere).trim(), latitude: x.latitude == null ? null : x.latitude, longitude: x.longitude == null ? null : x.longitude,
@@ -117,7 +119,7 @@
     }
     var arbres = [], rt = 0, rr = 0, manque = 0;
     tires.forEach(function (bl) {
-      var N = bl.nb_arbres_inventories, ordre = tirage(bl.id + ':ARBRES', N, Math.min(N, bl.nb_titulaires_prevus + bl.nb_reserves_prevues));
+      var N = bl.nb_arbres_inventories, ordre = tirage(panel.campaign_id + ':' + panel.plot_id + ':B' + bl.numero + ':ARBRES', N, Math.min(N, bl.nb_titulaires_prevus + bl.nb_reserves_prevues));
       var proba = (panel.nb_blocs_tires / panel.nb_blocs_total) * (bl.nb_titulaires_prevus / N);
       ordre.forEach(function (numero, i) {
         var tit = i < bl.nb_titulaires_prevus;

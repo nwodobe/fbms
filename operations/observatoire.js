@@ -147,13 +147,12 @@ function vueInstaller() {
   var camp = campagne();
   if (!peutCollecter()) return vueRefus();
   return Promise.all([L.referentiel(), L.panels(camp && camp.id)]).then(function (r) {
-    var ref = r[0], pris = {}; r[1].forEach(function (p) { pris[p.plot_id] = 1; });
-    var norme = function (x) { return String(x || '').normalize('NFD').replace(/[^A-Za-z]/g, '').toUpperCase(); }, monCluster = norme(profil().cluster);
+    var ref = r[0], pris = {}; r[1].forEach(function (p) { pris[p.plot_id] = 1; }); (ref.plots || []).forEach(function (p) { if (p.deja_installee) pris[p.id] = 1; });
     var options = (ref.plots || []).filter(function (p) { return !pris[p.id]; }).map(function (p) {
       var pr = (ref.producteurs || []).filter(function (x) { return x.id === p.producteur_id; })[0] || {}, vi = (ref.villages || []).filter(function (x) { return x.id === p.village_id; })[0] || {};
-      return { id: p.id, txt: (pr.nom || 'Producteur') + ' — ' + (p.local_name || 'Parcelle') + ' — ' + (vi.village || '') + (p.tree_count ? ' (' + p.tree_count + ' arbres déclarés)' : ''), cluster: norme(vi.cluster_code || vi.cluster) };
-    }).filter(function (o) { return classe() === 'BM' || !monCluster || !o.cluster || o.cluster.indexOf(monCluster) >= 0 || monCluster.indexOf(o.cluster) >= 0; })
-      .sort(function (a, b) { return a.txt.localeCompare(b.txt); });
+      /* La liste vient du serveur (pheno_parcelles_disponibles) : seules les parcelles de son périmètre y figurent. */
+      return { id: p.id, txt: (pr.nom || 'Producteur') + ' — ' + (p.local_name || 'Parcelle') + ' — ' + (vi.village || '') + (p.tree_count ? ' (' + p.tree_count + ' arbres déclarés)' : '') };
+    }).sort(function (a, b) { return a.txt.localeCompare(b.txt); });
     peindre(entete('Installation d’un champ : blocs, tirage, verrouillage.', '', '<a class="btn secondary" href="#observatoire">Retour</a>') +
       (camp ? '' : note('Aucune campagne sélectionnée.', 'warn')) +
       (options.length ? '' : note('Aucune parcelle disponible sur cet appareil. Revenez à « Mes champs » et touchez « Préparer le hors-ligne » avec du réseau. La parcelle doit exister dans le registre des producteurs.', 'warn')) +
@@ -177,7 +176,7 @@ function soumettreInstallation(form) {
   var camp = campagne(), err = document.getElementById('obsInstallErr');
   var B = parseInt(form.querySelector('#obsB').value, 10), b = parseInt(form.querySelector('#obsb').value, 10), plot = form.querySelector('#obsPlot').value;
   var blocs = []; for (var i = 1; i <= B; i++) blocs.push({ id: C.uuid(), repere: (form.querySelector('#obsRep' + i) || {}).value });
-  var id = C.uuid(), res = C.installer({ id: id, nb_blocs_total: B, nb_blocs_tires: b, blocs: blocs });
+  var id = C.uuid(), res = C.installer({ id: id, campaign_id: camp && camp.id, plot_id: plot, nb_blocs_total: B, nb_blocs_tires: b, blocs: blocs });
   if (!camp) res.erreurs = (res.erreurs || []).concat('Aucune campagne sélectionnée.');
   if (!plot) res.erreurs = (res.erreurs || []).concat('Choisissez la parcelle.');
   if (res.erreurs && res.erreurs.length) { err.innerHTML = note(res.erreurs.map(esc).join('<br>'), 'danger'); return; }
@@ -271,7 +270,9 @@ function choix(nom, valeur, options) {
     return '<button type="button" role="radio" aria-checked="' + (valeur === o[0]) + '" class="' + (valeur === o[0] ? 'actif' : '') + '" data-act="rep" data-champ="' + nom + '" data-val="' + esc(String(o[0])) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>';
 }
 var ONP = [['OUI', 'Oui'], ['NON', 'Non'], ['PAS_VU', 'Pas vu']];
-function figee(v) { return ['SOUMIS', 'EN_VERIFICATION', 'VALIDE'].indexOf(v.statut_serveur) >= 0; }
+/* Figée : soumise sur le serveur, OU soumise sur ce téléphone et pas encore refusée
+   (on ne laisse pas modifier une soumission en attente : elle deviendrait un conflit). */
+function figee(v) { return ['SOUMIS', 'EN_VERIFICATION', 'VALIDE'].indexOf(v.statut_serveur) >= 0 || (v.intention === 'SOUMETTRE' && v.etat_envoi !== 'REJETE' && v.etat_envoi !== 'CONFLIT' && v.etat_envoi !== 'RECU'); }
 function chargerVisite(panelId, visiteId) {
   if (brouillon && brouillon.visite.id === visiteId && brouillon.panel.id === panelId) return Promise.resolve(brouillon);
   return Promise.all([L.panel(panelId), visiteId === 'nouvelle' ? null : L.visite(visiteId), L.visites(panelId)]).then(function (r) {
@@ -291,6 +292,11 @@ function vueVisite(panelId, visiteId, ecran) {
     if (visiteId === 'nouvelle') { history.replaceState(null, '', '#observatoire/visite/' + panelId + '/' + b.visite.id); }
     var n = nomParcelle(r[1], b.panel), v = b.visite, lecture = figee(v) || !peutCollecter();
     if (!b.arbres.length) { peindre(entete(n.producteur + ' — ' + n.parcelle, '') + note('Ce champ n’a pas encore d’arbres tirés. Terminez l’installation.', 'warn') + '<a class="btn secondary" href="#observatoire/champ/' + panelId + '">Fiche du champ</a>'); return; }
+    /* Téléphone partagé : un brouillon non encore reçu appartient à son auteur ; un autre compte ne peut ni le reprendre ni l'envoyer. */
+    if (v.proprietaire && v.proprietaire !== L.utilisateur() && v.etat_envoi !== 'RECU') {
+      peindre(entete(n.producteur + ' — ' + n.parcelle, '') + note('Cette visite a été commencée sur ce téléphone par un <b>autre compte</b> et n’est pas encore reçue par le serveur. Elle ne peut être reprise ou envoyée que par son auteur. Rien n’a été modifié.', 'warn') + '<a class="btn secondary" href="#observatoire">Retour</a>');
+      return;
+    }
     if (ecran === 'resume' || lecture) return ecranResume(b, n, lecture);
     var i = Math.min(etat.idx, b.arbres.length - 1), a = b.arbres[i], o = v.observations[i], bloc = (b.panel.blocs || []).filter(function (x) { return x.id === a.bloc_id; })[0] || {};
     var pasVu = o.retrouve === false || [o.f, o.n, o.p, o.chute].indexOf('PAS_VU') >= 0;
@@ -314,7 +320,7 @@ function vueVisite(panelId, visiteId, ecran) {
       '<p class="obs-info centre">Chaque réponse est enregistrée sur ce téléphone au fur et à mesure.</p></div>');
   });
 }
-function sauverBrouillon() { if (brouillon) return L.enregistrerVisite(brouillon.visite); return Promise.resolve(); }
+function sauverBrouillon() { if (!brouillon) return Promise.resolve(); if (!brouillon.visite.proprietaire) brouillon.visite.proprietaire = L.utilisateur(); return L.enregistrerVisite(brouillon.visite); }
 function repondre(champ, val) {
   if (!brouillon) return; var o = brouillon.visite.observations[etat.idx];
   if (champ === 'retrouve') { o.retrouve = val === 'true'; if (!o.retrouve) { o.f = o.n = o.p = o.chute = o.chute_preuve = null; } }
@@ -374,7 +380,8 @@ function vueEnvois() {
   return L.file().then(function (l) {
     var lignes = l.slice().reverse().map(function (o) {
       var ton = { RECU: 'ok', EN_ATTENTE: 'warn', ECHEC_RESEAU: 'warn', ENVOI: 'info', REJETE: 'danger', CONFLIT: 'danger' }[o.statut];
-      return '<tr><td data-l="Opération">' + esc(o.libelle) + '</td><td data-l="Saisie le">' + esc(heureFr(o.created_at_client)) + '</td><td data-l="État">' + badge(C.LIBELLES.statut_envoi[o.statut] || o.statut, ton) + (o.dernier_message ? '<div class="obs-detail">' + esc(o.dernier_message) + '</div>' : '') + '</td><td data-l="Reçu serveur">' + (o.statut === 'RECU' || o.statut === 'CONFLIT' ? esc(heureFr(o.recu_serveur_le)) : '—') + '</td><td>' + (o.statut === 'REJETE' ? '<button type="button" class="btn secondary" data-act="reessayer" data-cle="' + esc(o.idempotency_key) + '">Renvoyer</button>' : '') + '</td></tr>';
+      var autre = o.user_id && o.user_id !== L.utilisateur() && o.statut !== 'RECU';
+      return '<tr><td data-l="Opération">' + esc(o.libelle) + (autre ? ' ' + badge('Autre compte : envoi réservé à son auteur', 'warn') : '') + '</td><td data-l="Saisie le">' + esc(heureFr(o.created_at_client)) + '</td><td data-l="État">' + badge(C.LIBELLES.statut_envoi[o.statut] || o.statut, ton) + (o.dernier_message ? '<div class="obs-detail">' + esc(o.dernier_message) + '</div>' : '') + '</td><td data-l="Reçu serveur">' + (o.statut === 'RECU' || o.statut === 'CONFLIT' ? esc(heureFr(o.recu_serveur_le)) : '—') + '</td><td>' + (o.statut === 'REJETE' ? '<button type="button" class="btn secondary" data-act="reessayer" data-cle="' + esc(o.idempotency_key) + '">Renvoyer</button>' : '') + '</td></tr>';
     }).join('');
     peindre(entete('Ce qui est sur ce téléphone, et ce que le serveur a réellement reçu.', 'envois', '<button type="button" class="btn primary" data-act="sync">Envoyer maintenant</button>') + message() +
       note('Une ligne n’est « reçue » que lorsque le serveur a répondu avec sa date de réception. Renvoyer une opération ne crée jamais de doublon.', 'info') +
@@ -453,12 +460,12 @@ function vueQualite() {
     var p = r[2], actifs = p.filter(function (x) { return x.statut === 'ACTIF'; }).length, sansPi = p.filter(function (x) { return x.statut === 'ACTIF' && (x.pi_village == null || x.pi_champ == null); }).length;
     var q = r[0].map(function (x) { var couv = x.champs_actifs ? x.visites / x.champs_actifs : null;
       return '<tr><td data-l="Semaine">' + esc(x.semaine_iso) + '</td><td data-l="Cluster">' + esc(x.cluster_code) + '</td><td data-l="Champs actifs">' + x.champs_actifs + '</td><td data-l="Visites reçues">' + x.visites + ' (' + pct(couv) + ')</td><td data-l="Brouillons">' + x.brouillons + '</td><td data-l="À traiter">' + (x.soumises + x.en_verification) + '</td><td data-l="Corrections">' + x.corrections_demandees + '</td><td data-l="Validées">' + x.validees + '</td><td data-l="Fiches papier">' + x.transcriptions_papier + '</td><td data-l="Reçues après 48 h">' + x.recues_apres_48h + '</td><td data-l="Arbres non retrouvés">' + x.arbres_non_retrouves + '</td><td data-l="Arbres avec « Pas vu »">' + x.arbres_avec_pas_vu + '</td><td data-l="Écarts en attente">' + x.corrections_en_attente + '</td></tr>'; }).join('');
-    var c = r[1].map(function (x) { var pal = { COUVERTURE_INSUFFISANTE: ['Couverture insuffisante', ''], AUCUN: ['Aucun palier', ''], PREALERTE_10: ['Préalerte 10 %', 'warn'], PREALERTE_20: ['Préalerte 20 %', 'warn'], PREALERTE_30: ['Préalerte 30 %', 'danger'] }[x.palier_experimental] || [x.palier_experimental, ''];
-      return '<tr><td data-l="Semaine">' + esc(x.semaine_iso) + '</td><td data-l="Cluster">' + esc(x.cluster_code) + '</td><td data-l="Champs validés">' + x.champs_valides + ' / ' + x.champs_actifs + ' (' + pct(x.couverture) + ')</td><td data-l="C cumulatif (moyenne des champs)">' + pct(x.part_c_cumulatif_moyenne) + '</td><td data-l="Palier expérimental">' + badge(pal[0], pal[1]) + '</td></tr>'; }).join('');
+    var c = r[1].map(function (x) { var pal = { DESCRIPTIF_SANS_PALIER: ['Descriptif : pas de palier', ''], COUVERTURE_INSUFFISANTE: ['Couverture insuffisante', ''], AUCUN: ['Aucun palier', ''], PREALERTE_10: ['Préalerte 10 %', 'warn'], PREALERTE_20: ['Préalerte 20 %', 'warn'], PREALERTE_30: ['Préalerte 30 %', 'danger'] }[x.palier_experimental] || [x.palier_experimental, ''];
+      return '<tr><td data-l="Semaine">' + esc(x.semaine_iso) + '</td><td data-l="Cluster">' + esc(x.cluster_code) + '</td><td data-l="Champs validés">' + x.champs_valides + ' / ' + x.champs_actifs + ' (' + pct(x.couverture) + ')' + (x.champs_incompatibles ? ' · ' + x.champs_incompatibles + ' incompatible(s)' : '') + '</td><td data-l="Part d’arbres avec chute de fruits mûrs (cumul)">' + pct(x.part_c_cumulatif_ratio) + '</td><td data-l="Estimation">' + (x.type_estimation === 'PLAN_COMPLET' ? 'Pondérée (plan complet)' : 'Descriptive (pondération intra-champ)') + '</td><td data-l="Palier expérimental">' + badge(pal[0], pal[1]) + '</td></tr>'; }).join('');
     peindre(entete('Qualité des données et suivis pilotes.', 'qualite') +
       '<div class="kpi-grid"><div class="kpi"><small>Champs installés</small><b>' + p.length + '</b><span>' + actifs + ' actifs</span></div><div class="kpi ' + (p.length - actifs ? 'attn' : '') + '"><small>Installation en cours ou incompatible</small><b>' + (p.length - actifs) + '</b><span>à traiter</span></div><div class="kpi ' + (sansPi ? 'attn' : '') + '"><small>Probabilités amont non renseignées</small><b>' + sansPi + '</b><span>poids limités au champ</span></div></div>' +
       '<section class="card"><div class="card-head"><h2>Qualité par semaine et par cluster</h2><p>Tous statuts confondus. Outil de pilotage de la collecte.</p></div>' + (q ? '<div class="table-wrap"><table class="obs-table"><thead><tr><th>Semaine</th><th>Cluster</th><th>Champs actifs</th><th>Visites reçues</th><th>Brouillons</th><th>À traiter</th><th>Corrections</th><th>Validées</th><th>Fiches papier</th><th>Reçues après 48 h</th><th>Non retrouvés</th><th>« Pas vu »</th><th>Écarts</th></tr></thead><tbody>' + q + '</tbody></table></div>' : '<div class="ops-empty">Aucune visite reçue pour cette campagne.</div>') + '</section>' +
-      '<section class="card"><div class="card-head"><h2>Chute de fruits mûrs, cumul (PILOTE)</h2><p>Visites validées uniquement. Réserves non activées et brouillons exclus.</p></div>' + note('<b>Non officiel.</b> Paliers 10/20/30 % expérimentaux : simple préalerte, sans intervalle de confiance. Aucune prévision ni tonnage ne peut en être tiré en 2027.', 'warn') + (c ? '<div class="table-wrap"><table class="obs-table"><thead><tr><th>Semaine</th><th>Cluster</th><th>Champs validés</th><th>C cumulatif (moyenne des champs)</th><th>Palier expérimental</th></tr></thead><tbody>' + c + '</tbody></table></div>' : '<div class="ops-empty">Aucune visite validée.</div>') + '</section>');
+      '<section class="card"><div class="card-head"><h2>Chute de fruits mûrs, cumul (PILOTE)</h2><p>Visites validées uniquement. Titulaires seulement : réserves (même activées) et brouillons exclus. Ratio pondéré sur l’ensemble des arbres des champs validés.</p></div>' + note('<b>Non officiel.</b> Paliers 10/20/30 % expérimentaux : simple préalerte, sans intervalle de confiance, affichée seulement si les probabilités de tirage sont toutes connues et la couverture suffisante. Aucune prévision ni tonnage ne peut en être tiré en 2027.', 'warn') + (c ? '<div class="table-wrap"><table class="obs-table"><thead><tr><th>Semaine</th><th>Cluster</th><th>Champs validés</th><th>Part d’arbres avec chute de fruits mûrs (cumul)</th><th>Estimation</th><th>Palier expérimental</th></tr></thead><tbody>' + c + '</tbody></table></div>' : '<div class="ops-empty">Aucune visite validée.</div>') + '</section>');
   }).catch(function (e) { peindre(entete('Qualité.', 'qualite') + note(esc(e.message), 'danger')); });
 }
 
