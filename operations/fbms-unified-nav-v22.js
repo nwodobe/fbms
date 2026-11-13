@@ -19,7 +19,8 @@ var MENU=[
  {id:'E2',fr:'Terrain',en:'Field activities',icon:'✿',items:[
   ['Durabilité','Sustainability','field-buying.html#sustainability'],
   ['Photos et vidéos','Photos & videos','../fieldproof/index.html','external'],
-  ['Missions terrain','Field missions','../moto/index.html','external']]},
+  ['Missions terrain','Field missions','../moto/index.html','external'],
+  ['Observatoire agronomique (pilote)','Agronomic observatory (pilot)','field-buying.html#observatoire']]},
  {id:'E3',fr:'Achats & comptes RT',en:'Buying & RT accounts',icon:'▣',items:[
   ['Achats RCN','RCN buying','field-buying.html#purchases'],
   ['Caisse & avances','Cash & advances','field-buying.html#cash'],

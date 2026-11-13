@@ -1,0 +1,429 @@
+{
+ "date": "2026-11-13T17:45:16.431Z",
+ "base": "fbms_pheno_e2e",
+ "total": 60,
+ "reussis": 60,
+ "echoues": 0,
+ "tests": [
+  {
+   "id": "E2E-01",
+   "famille": "Parcours terrain",
+   "libelle": "Entrée « Observatoire agronomique » dans le menu FIELD BUYING",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-02",
+   "famille": "Parcours terrain",
+   "libelle": "Bandeau pilote : aucun indicateur officiel",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-03",
+   "famille": "Parcours terrain",
+   "libelle": "Onglets de l’Assistant Unit Head : collecte seulement (ni Validation ni Affectations)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"Mes champs\",\"Envois\"], obtenu [\"Mes champs\",\"Envois\"]"
+  },
+  {
+   "id": "E2E-04",
+   "famille": "Parcours terrain",
+   "libelle": "Préparation hors-ligne : seules les 2 parcelles du cluster de l’agent sont copiées sur l’appareil",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-05",
+   "famille": "Parcours terrain",
+   "libelle": "Hors ligne : l’application fermée puis rouverte se recharge depuis le cache, module compris",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-06",
+   "famille": "Parcours terrain",
+   "libelle": "Installation : seules les parcelles du cluster de l’agent sont proposées",
+   "resultat": "RÉUSSI",
+   "detail": "attendu 2, obtenu 2"
+  },
+  {
+   "id": "E2E-07",
+   "famille": "Parcours terrain",
+   "libelle": "Avertissement avant verrouillage : b ne pourra plus être changé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-08",
+   "famille": "Parcours terrain",
+   "libelle": "Blocs tirés hors ligne = tirage reproductible (recalcul indépendant)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [3,4], obtenu [3,4]"
+  },
+  {
+   "id": "E2E-09",
+   "famille": "Synchronisation",
+   "libelle": "Hors ligne : « Non encore sauvegardée sur le serveur » affiché, jamais « reçu »",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-10",
+   "famille": "Parcours terrain",
+   "libelle": "Après inventaire : 10 titulaires et 2 réserves tirés hors ligne, codes permanents",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [10,2,12], obtenu [10,2,12]"
+  },
+  {
+   "id": "E2E-11",
+   "famille": "Parcours terrain",
+   "libelle": "Inventaire non modifiable à l’écran après enregistrement",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-12",
+   "famille": "Parcours terrain",
+   "libelle": "Marquage GPS d’un arbre enregistré sur l’appareil",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-13",
+   "famille": "Parcours terrain",
+   "libelle": "Visite : aucune réponse présélectionnée à l’ouverture",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-14",
+   "famille": "Parcours terrain",
+   "libelle": "Visite : dix arbres 01 à 10 (réserves exclues)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"01\",\"02\",\"03\",\"04\",\"05\",\"06\",\"07\",\"08\",\"09\",\"10\"], obtenu [\"01\",\"02\",\"03\",\"04\",\"05\",\"06\",\"07\",\"08\",\"09\",\"10\"]"
+  },
+  {
+   "id": "E2E-15",
+   "famille": "Parcours terrain",
+   "libelle": "Résumé inaccessible à la soumission tant que la visite est incomplète",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-16",
+   "famille": "Parcours terrain",
+   "libelle": "Soumission encore bloquée : question du ramassage sans réponse",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-17",
+   "famille": "Synchronisation",
+   "libelle": "Visite terminée hors ligne : « Enregistré sur ce téléphone. Non encore sauvegardé sur le serveur. »",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-18",
+   "famille": "Synchronisation",
+   "libelle": "Hors ligne : rien n’est arrivé en base (0 champ, 0 visite)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"0\", obtenu \"0\""
+  },
+  {
+   "id": "E2E-19",
+   "famille": "Synchronisation",
+   "libelle": "File d’envoi : 5 opérations en attente, aucune « reçue »",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [5,0], obtenu [5,0]"
+  },
+  {
+   "id": "E2E-20",
+   "famille": "Synchronisation",
+   "libelle": "La file survit à la fermeture et à la réouverture de l’application hors ligne",
+   "resultat": "RÉUSSI",
+   "detail": "attendu 5, obtenu 5"
+  },
+  {
+   "id": "E2E-21",
+   "famille": "Synchronisation",
+   "libelle": "Retour du réseau : envoi automatique, 5 accusés de réception du serveur",
+   "resultat": "RÉUSSI",
+   "detail": "RECU: ; RECU: ; RECU: ; RECU: ; RECU:"
+  },
+  {
+   "id": "E2E-22",
+   "famille": "Synchronisation",
+   "libelle": "Serveur : champ actif, mêmes blocs tirés que hors ligne",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"ACTIF|3,4\", obtenu \"ACTIF|3,4\""
+  },
+  {
+   "id": "E2E-23",
+   "famille": "Synchronisation",
+   "libelle": "Serveur : mêmes arbres (identifiants et codes) que ceux tirés hors ligne",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"08fb55dc-36ae-33c4-72d9-fa611bbcd16f:B4-001,1ba056a7-369b-4712-5316-250a37d248f4:B3-001,2c95ddf4-2455-db0d-c733-71f20ef96f52:B4-007,339eb00c-f6ca-9a76-5ec8-b80effb8bafb:B4-008,687b1f97-0c99-62f9-333c-adb5012af854:B4-006,77dd6193-0cc7-eaf2-7bb2-11f36a332471:B3-007,86165a54-a42c-f79b-d9ce-9f3"
+  },
+  {
+   "id": "E2E-24",
+   "famille": "Synchronisation",
+   "libelle": "Serveur : visite SOUMISE, 10 observations, trois dates, appareil tracé",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"SOUMIS|10|true|true\", obtenu \"SOUMIS|10|true|true\""
+  },
+  {
+   "id": "E2E-25",
+   "famille": "Synchronisation",
+   "libelle": "Serveur : réponses conformes à la saisie (3 F Oui, 1 mûre vue, 1 prématurée déclarée, 1 non retrouvé sans stade)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"3|1|1|1\", obtenu \"3|1|1|1\""
+  },
+  {
+   "id": "E2E-26",
+   "famille": "Synchronisation",
+   "libelle": "Serveur : marquage GPS reçu",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"1\", obtenu \"1\""
+  },
+  {
+   "id": "E2E-27",
+   "famille": "Synchronisation",
+   "libelle": "Renvoi forcé des 5 mêmes opérations : aucun doublon en base",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"1|1|10|12\", obtenu \"1|1|10|12\""
+  },
+  {
+   "id": "E2E-28",
+   "famille": "Synchronisation",
+   "libelle": "Renvoi : le serveur a bien été rappelé et a répondu « rejoué »",
+   "resultat": "RÉUSSI",
+   "detail": "[[\"RECU\",true],[\"RECU\",true],[\"RECU\",true],[\"RECU\",true],[\"RECU\",true]]"
+  },
+  {
+   "id": "E2E-29",
+   "famille": "Synchronisation",
+   "libelle": "Fiche du champ : visite « Soumis », « Reçue par le serveur le … »",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-30",
+   "famille": "Parcours terrain",
+   "libelle": "Visite soumise : lecture seule sur l’appareil",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-31",
+   "famille": "Sécurité",
+   "libelle": "RT : accès refusé à l’écran, aucun onglet",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-32",
+   "famille": "Sécurité",
+   "libelle": "RT : la base ne renvoie aucun champ, aucune visite, aucune observation (RLS)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [0,0,0], obtenu [0,0,0]"
+  },
+  {
+   "id": "E2E-33",
+   "famille": "Sécurité",
+   "libelle": "RT : synchronisation refusée par le serveur",
+   "resultat": "RÉUSSI",
+   "detail": "{\"message\":\"Accès à l'Observatoire refusé.\"}"
+  },
+  {
+   "id": "E2E-34",
+   "famille": "Sécurité",
+   "libelle": "Unit Head d’un autre cluster : 0 champ après préparation",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-35",
+   "famille": "Sécurité",
+   "libelle": "Assistant Unit Head : écran de validation refusé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-36",
+   "famille": "Sécurité",
+   "libelle": "Assistant Unit Head : validation refusée par le serveur même en appel direct",
+   "resultat": "RÉUSSI",
+   "detail": "{\"message\":\"On ne vérifie ni ne valide une visite que l'on a observée ou saisie.\"}"
+  },
+  {
+   "id": "E2E-37",
+   "famille": "Validation",
+   "libelle": "Zonal Head sans affectation : validation refusée, message clair",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"SOUMIS\", obtenu \"SOUMIS\""
+  },
+  {
+   "id": "E2E-38",
+   "famille": "Validation",
+   "libelle": "Branch Manager : affectation de validation accordée au Zonal Head (BROBO)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"VALIDATION|{BROBO}|true\", obtenu \"VALIDATION|{BROBO}|true\""
+  },
+  {
+   "id": "E2E-39",
+   "famille": "Validation",
+   "libelle": "Demande de correction sans motif : bloquée à l’écran",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-40",
+   "famille": "Validation",
+   "libelle": "Correction demandée avec motif, tracée",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"CORRECTION_DEMANDEE|Arbre 05 : jeunes noix à revoir\", obtenu \"CORRECTION_DEMANDEE|Arbre 05 : jeunes noix à revoir\""
+  },
+  {
+   "id": "E2E-41",
+   "famille": "Validation",
+   "libelle": "L’agent voit la demande de correction et son motif",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-42",
+   "famille": "Validation",
+   "libelle": "Nouvelle soumission sans dire ce qui a été corrigé : bloquée",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"CORRECTION_DEMANDEE\", obtenu \"CORRECTION_DEMANDEE\""
+  },
+  {
+   "id": "E2E-43",
+   "famille": "Validation",
+   "libelle": "Correction soumise : historique avec ancienne valeur, nouvelle valeur, motif, auteur",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"SOUMIS|PAS_VU>OUI|Jeunes noix confirmées sur l’arbre 05|true\", obtenu \"SOUMIS|PAS_VU>OUI|Jeunes noix confirmées sur l’arbre 05|true\""
+  },
+  {
+   "id": "E2E-44",
+   "famille": "Validation",
+   "libelle": "Zonal Head affecté : visite validée",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"VALIDE|true\", obtenu \"VALIDE|true\""
+  },
+  {
+   "id": "E2E-45",
+   "famille": "Validation",
+   "libelle": "Qualité : suivi étiqueté « Non officiel », paliers expérimentaux, aucune prévision",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-58",
+   "famille": "Sécurité",
+   "libelle": "Téléphone partagé : l’envoi en attente d’un autre compte n’est pas envoyé sous la session courante",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [true,\"0\"], obtenu [true,\"0\"]"
+  },
+  {
+   "id": "E2E-59",
+   "famille": "Sécurité",
+   "libelle": "Téléphone partagé : le brouillon d’un autre compte ne peut pas être repris",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-60",
+   "famille": "Synchronisation",
+   "libelle": "Téléphone partagé : rendu à son auteur, l’envoi part sous sa propre identité",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"true|BROUILLON\", obtenu \"true|BROUILLON\""
+  },
+  {
+   "id": "E2E-46",
+   "famille": "Affichage",
+   "libelle": "390×844 · observatoire/qualite : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "390 > 390"
+  },
+  {
+   "id": "E2E-47",
+   "famille": "Affichage",
+   "libelle": "390×844 · observatoire/validation : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "390 > 390"
+  },
+  {
+   "id": "E2E-48",
+   "famille": "Affichage",
+   "libelle": "768×1024 · observatoire/qualite : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "768 > 768"
+  },
+  {
+   "id": "E2E-49",
+   "famille": "Affichage",
+   "libelle": "768×1024 · observatoire/validation : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "768 > 768"
+  },
+  {
+   "id": "E2E-50",
+   "famille": "Affichage",
+   "libelle": "1440×900 · observatoire/qualite : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "1440 > 1440"
+  },
+  {
+   "id": "E2E-51",
+   "famille": "Affichage",
+   "libelle": "1440×900 · observatoire/validation : pas de débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "1440 > 1440"
+  },
+  {
+   "id": "E2E-52",
+   "famille": "Affichage",
+   "libelle": "390×844 · Mes champs : pas de débordement, boutons d’au moins 40 px",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [true,true], obtenu [true,true]"
+  },
+  {
+   "id": "E2E-57",
+   "famille": "Affichage",
+   "libelle": "390×844 · résumé de visite : chaque valeur reste dans l’écran (lecture en cartes)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu 0, obtenu 0"
+  },
+  {
+   "id": "E2E-53",
+   "famille": "Non-régression",
+   "libelle": "FIELD BUYING : la rubrique Synchronisation existante s’affiche toujours",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-54",
+   "famille": "Non-régression",
+   "libelle": "FIELD BUYING : la vue d’ensemble existante s’affiche toujours",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-55",
+   "famille": "Non-régression",
+   "libelle": "File hors ligne FIELD BUYING intacte : aucune opération de l’Observatoire dans anagroci_ops_offline",
+   "resultat": "RÉUSSI",
+   "detail": "attendu 0, obtenu 0"
+  },
+  {
+   "id": "E2E-56",
+   "famille": "Non-régression",
+   "libelle": "Aucune erreur JavaScript du module pendant tout le parcours",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}

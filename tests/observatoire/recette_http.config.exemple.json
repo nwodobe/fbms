@@ -1,0 +1,16 @@
+{
+  "url": "https://<REF-DU-PROJET-DE-TEST>.supabase.co",
+  "anon_key": "<clé publique anon du projet de TEST>",
+  "comptes": {
+    "bm":          { "email": "bm.recette@example.invalid",       "mot_de_passe": "<à saisir localement, jamais commité>" },
+    "uh_bro":      { "email": "uhbro.recette@example.invalid",    "mot_de_passe": "<...>" },
+    "uh_bot":      { "email": "uhbot.recette@example.invalid",    "mot_de_passe": "<...>" },
+    "auh_bro":     { "email": "auhbro.recette@example.invalid",   "mot_de_passe": "<...>" },
+    "inactif":     { "email": "inactif.recette@example.invalid",  "mot_de_passe": "<...>" },
+    "sans_profil": { "email": "sansprofil.recette@example.invalid","mot_de_passe": "<...>" }
+  },
+  "campagne": "<uuid de la campagne SIMULATION du projet de test>",
+  "panel_bro": "<uuid d'un champ installé dans BROBO>",
+  "preuve_bro": "<campagne>/<panel>/<fichier>.jpg",
+  "semaine_libre": "2026-W40", "date_libre": "2026-10-01", "date_autre": "2026-10-02"
+}
