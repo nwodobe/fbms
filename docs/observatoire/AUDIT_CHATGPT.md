@@ -41,3 +41,19 @@ Décision ChatGPT : **NO-GO production confirmé** ; « je ne vois pas de preuve
 Conditions posées par ChatGPT pour un futur GO : staging fidèle à la production, revue du code intégral des RPC sur ce staging, version finale des droits, tests de sécurité et de non-régression rejoués sur staging.
 
 Observation hors périmètre relevée pendant la vérification S3 : le bucket existant `photos` est public et ses politiques autorisent tout compte connecté à lire, déposer, modifier et supprimer n'importe quel fichier. Ce risque est antérieur et indépendant de l'Observatoire.
+
+## Tour 3 (13/11/2026) : audit avant mise en production
+
+**Verdict ChatGPT :** NO-GO production ; GO pour la publication de la demande de fusion, la recette sur un Supabase isolé et un correctif `photos` séparé et prioritaire. ChatGPT a vérifié de son côté, en lecture seule : PostgreSQL 17.6, bucket `photos` public sans limite (252 objets, 68 dossiers, politiques limitées à `bucket_id`), branche Supabase en MIGRATIONS_FAILED, aucune table `pheno_*` en production, commit non visible sur GitHub. Gravité ÉLEVÉE de `photos` confirmée.
+
+| Exigence ChatGPT | Réponse | État |
+|---|---|---|
+| Code inspectable (commit et migrations) | Bundle + procédure `PROCEDURE_TRANSFERT_GITHUB.md` ; l'écriture GitHub est refusée à l'agent | Attend le BM (D1) |
+| Manifeste des 170 objets et zones non couvertes | `MANIFESTE_STAGING_170.md` | Fait |
+| Recette HTTP sur Supabase isolé (Auth, REST, Storage) | `tests/observatoire/recette_http.mjs`, 18 contrôles ; projet isolé payant, binaires externes refusés | Prêt, NON EXÉCUTÉ (D2) |
+| Attaques logiques de synchronisation (clé réutilisée, hors cluster, envoi après désactivation ou mutation, lot mixte, perte de réponse) | SYN-21 à SYN-26 ajoutés ; lot mixte (SYN-14), renvoi (SYN-01), concurrence (SYN-19/20) existaient | 229/229 |
+| Dossier `photos` : dépendances, transition, politiques concurrentes, anciennes URL | Inventaire (2 fichiers, 42 fiches avec URL publique), ordre front puis migration, proposition testée avant/après, retour arrière vérifié | Fait, non appliqué (D3) |
+| Retour arrière potentiellement destructif | Après données réelles : revert du front seulement | Intégré à la demande |
+| Graine non renouvelable | Déjà garanti (ECH-43, ECH-44) | Fait |
+
+Désaccord résiduel : aucun sur le fond. Je partage le NO-GO immédiat ; la demande de mise en production est donc conditionnelle (D4).

@@ -1,7 +1,7 @@
 # Demande unique de validation : mise en production de l'Observatoire AFLP 2027
 
 **Destinataire :** Monsieur KOUASSI, Branch Manager, ANAGROCI Centre, Bouaké.
-**Date :** 13/11/2026. **Branche :** `feature/aflp-observatoire-2027` (base `3686cb1`, 12 commits). **État de la production :** inchangée ; aucune table `pheno_*` n'existe.
+**Date :** 13/11/2026. **Branche :** `feature/aflp-observatoire-2027` (base `3686cb1`, 13 commits). **État de la production :** inchangée ; aucune table `pheno_*` n'existe.
 
 ## 1. Recommandation
 
