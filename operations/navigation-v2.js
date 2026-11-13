@@ -30,6 +30,7 @@ function ensureChrome(){
  }
 }
 function renderNav(){
+ if(global.FBMS_UNIFIED_NAV){global.FBMS_UNIFIED_NAV.render();return;}
  var d=defs[page]; if(!d)return;
  var side=document.getElementById('opsSidebar');
  if(side&&d.routes.length){var r=route();var file=(location.pathname.split('/').pop()||'');side.innerHTML='<div class="ops-side-head">'+esc(d.title)+'</div><nav class="ops-nav">'+d.routes.map(function(x){var ext=!!x[2],act=ext?file===x[2]:r===x[0];return '<a class="'+(act?'active':'')+'" href="'+(ext?x[2]:'#'+x[0])+'"><span class="nav-dot"></span>'+esc(navLabel(x[1]))+'</a>';}).join('')+'</nav>';}
