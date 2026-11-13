@@ -84,8 +84,22 @@ function hrefInApp(path){
  // This app also runs under GitHub Pages /fbms/, so paths resolve relative to base.
  return new URL(path,base).pathname+new URL(path,base).search+new URL(path,base).hash;
 }
+function ensureShell(){
+ var side=document.getElementById('opsSidebar');
+ if(side)return side;
+ // Adapt older reports/campaigns/trace pages with no sidebar at all.
+ var main=document.querySelector('body > main.ops-main');
+ if(!main)return null;
+ var shell=document.createElement('div');shell.className='ops-shell';
+ main.parentNode.insertBefore(shell,main);
+ side=document.createElement('aside');side.className='ops-sidebar';side.id='opsSidebar';
+ side.setAttribute('aria-label','Navigation principale FBMS');
+ shell.appendChild(side);shell.appendChild(main);
+ main.style.maxWidth='';main.style.margin='';main.style.width='';
+ return side;
+}
 function render(){
- var host=document.getElementById('opsSidebar');
+ var host=ensureShell();
  if(!host)return;
  var r=role(),en=language()==='en',active=pathId(),file=global.location.pathname.split('/').pop();
  if(!ROLE[r].includes(active))active='E0';
@@ -101,6 +115,9 @@ function render(){
    block+='<div class="fbms-v22-context">';
    s.items.forEach(function(x){
     if(x[3]==='document'&&r==='RO')return;
+    if(x[0]==='Comptes et rôles'&&r!=='BM')return;
+    if(x[0]==='Campagnes'&&r!=='BM'&&r!=='ABM')return;
+    if(s.id==='E3'&&(x[0]==='Achats RCN')&&r==='FIN')return;
     var label=en?x[1]:x[0],href=hrefInApp(x[2]),absolute=new URL(href,global.location.href);
     var selected=file===absolute.pathname.split('/').pop()&&global.location.hash===absolute.hash;
     block+='<a class="fbms-v22-action'+(selected?' selected':'')+'" href="'+esc(href)+'"'+
