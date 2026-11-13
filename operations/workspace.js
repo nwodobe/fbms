@@ -257,6 +257,8 @@
         (c.nav || []).map(function (x) { return '<a class="'+(active===x[0]?'active':'')+'" href="'+x[2]+'"><span class="nav-dot"></span>'+esc(x[1])+'</a>'; }).join('') +
         '</nav>';
     }
+    // V2.2: workspace must not restore a second navigation when it refreshes the shell.
+    if (global.FBMS_UNIFIED_NAV) global.FBMS_UNIFIED_NAV.render();
   }
 
   function waitClient() {
