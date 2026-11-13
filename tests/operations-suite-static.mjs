@@ -32,6 +32,8 @@ for(const file of ['index.html','operations/field-buying.html','operations/procu
 }
 
 
+
+
 /* AFLP FLEET is the first of exactly six spaces; the homepage is a neutral landing screen. */
 const fleetNav=read('operations/fbms-unified-nav-v22.js');
 assert.ok(fleetNav.includes("{id:'E0',fr:'AFLP FLEET'"), 'AFLP FLEET must replace Ma journée as first space');
@@ -45,7 +47,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'),'Home must load current no-sidebar JS instead of stale cached navigation');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'),'Home must load the refreshed navigation JS');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 

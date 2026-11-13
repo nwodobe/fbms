@@ -5100,6 +5100,13 @@ var ROUTES = {
     if (global.ANAGROCI_COOP && global.ANAGROCI_COOP.render) return global.ANAGROCI_COOP.render(p);
     paint(head('Coopératives AFLP', 'Module en cours de chargement…') + skeletonPage(4));
     return new Promise(function (resolve) { setTimeout(function () { resolve(global.ANAGROCI_COOP ? global.ANAGROCI_COOP.render(p) : null); }, 600); });
+  },
+  /* Observatoire agronomique AFLP 2027 (pilote) : rubrique de FIELD BUYING, moteur dans
+     observatoire.js (tables pheno_*, file hors ligne dédiée, aucune écriture dans farmer_visits). */
+  observatoire: function (p) {
+    if (global.ANAGROCI_OBSERVATOIRE && global.ANAGROCI_OBSERVATOIRE.render) return global.ANAGROCI_OBSERVATOIRE.render(p);
+    paint(head('Observatoire agronomique', 'Module en cours de chargement…') + skeletonPage(4));
+    return new Promise(function (resolve) { setTimeout(function () { resolve(global.ANAGROCI_OBSERVATOIRE ? global.ANAGROCI_OBSERVATOIRE.render(p) : null); }, 600); });
   }
 };
 

@@ -1,0 +1,133 @@
+{
+ "total": 21,
+ "reussis": 21,
+ "echoues": 0,
+ "tests": [
+  {
+   "id": "JS-01",
+   "libelle": "SHA-256 identique à la référence Node (ASCII, accents, emoji, 200 car.)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-02",
+   "libelle": "Tirage reproductible : même graine, même résultat",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-03",
+   "libelle": "Tirage sans remise, dans 1..N",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-04",
+   "libelle": "Tirage k > N : limité à N",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-05",
+   "libelle": "Répartition 10 titulaires et 2 réserves sur 2 blocs : 5+1, 5+1",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-06",
+   "libelle": "Répartition sur 3 blocs : 4+1, 3+1, 3+0",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-07",
+   "libelle": "Installation refusée si b > B ou repère vide",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-08",
+   "libelle": "Bloc trop petit : incompatibilité, aucun arbre, N non gonflé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-09",
+   "libelle": "Arbres : 10 titulaires, 2 réserves, probabilité (2/4)×(5/7)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-10",
+   "libelle": "Semaine ISO : passages d’année (53e semaine, semaine 1)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-11",
+   "libelle": "Observation vide : aucune réponse préremplie (jamais « Non »)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-12",
+   "libelle": "Arbres observés : réserve en attente exclue",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-13",
+   "libelle": "Contrôle de visite : ramassage, « Pas vu » sans raison, chute sans preuve détectés",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-14",
+   "libelle": "Contrôle de visite : visite complète acceptée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-15",
+   "libelle": "Date future refusée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-16",
+   "libelle": "Charge envoyée : arbre non retrouvé sans stade, preuve retirée hors chute constatée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-17",
+   "libelle": "Libellé d’envoi : « Non encore sauvegardé » tant que le serveur n’a pas répondu",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-18",
+   "libelle": "Identifiant d’arbre : format UUID, déterministe",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-19",
+   "libelle": "Graine non choisie par l’agent : réinstaller (nouvel identifiant) donne le même tirage",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-20",
+   "libelle": "Installation refusée sans campagne ni parcelle",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-21",
+   "libelle": "Sans graine de campagne, aucun tirage possible sur l’appareil",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}

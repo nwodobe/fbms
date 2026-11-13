@@ -26,7 +26,7 @@
       { c: 'E2.2', t: 'Visites & formations', d: 'Visites producteurs, sessions de formation, présences.', s: 'todo' },
       { c: 'E2.3', t: 'Durabilité', d: 'Suivi de durabilité par village.', s: 'part', l: [[FB + '#sustainability', 'Sustainability']] },
       { c: 'E2.4', t: 'Preuves terrain', d: 'Photos et vidéos géolocalisées des missions.', s: 'ok', l: [['../fieldproof/index.html', 'AFLP Field Proof']] },
-      { c: 'E2.5', t: 'Observatoire des vergers', d: 'Floraison et nouaison, en phase pilote.', s: 'todo' }
+      { c: 'E2.5', t: 'Observatoire des vergers', d: 'Floraison et nouaison, en phase pilote.', s: 'part', l: [[FB + '#observatoire', 'Observatoire agronomique (pilote)']] }
     ] },
     { id: 'E3', name: 'Achats & comptes RT', lead: 'L’achat bord champ et les trois comptes du RT : argent, noix, sacs.', screens: [
       { c: 'E3.1', t: 'Nouvel achat', d: 'Producteur, pesée, qualité, prix, reçu.', s: 'part', l: [[FB + '#purchases', 'Achat Bord Champ']] },

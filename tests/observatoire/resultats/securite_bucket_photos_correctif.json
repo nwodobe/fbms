@@ -1,0 +1,100 @@
+[
+ {
+  "id": "PH-01",
+  "compte": "rt",
+  "action": "Un RT lit la liste et le portrait du chef d'un village quelconque",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-02",
+  "compte": "uh_bot",
+  "action": "Un Unit Head d'un autre cluster lit le portrait",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-03",
+  "compte": "rt",
+  "action": "Un RT dépose un fichier dans le dossier d'un village quelconque",
+  "obtenu": "REFUSÉ",
+  "detail": "new row violates row-level security policy for table \"objects\""
+ },
+ {
+  "id": "PH-04",
+  "compte": "rt",
+  "action": "Un RT dépose un fichier exécutable (aucun contrôle de type)",
+  "obtenu": "REFUSÉ",
+  "detail": "new row violates row-level security policy for table \"objects\""
+ },
+ {
+  "id": "PH-05",
+  "compte": "uh_bot",
+  "action": "Un Unit Head d'un autre cluster REMPLACE le portrait du chef",
+  "obtenu": "REFUSÉ",
+  "detail": ""
+ },
+ {
+  "id": "PH-06",
+  "compte": "inactif",
+  "action": "Un compte DÉSACTIVÉ (session encore valide) dépose un fichier",
+  "obtenu": "REFUSÉ",
+  "detail": "new row violates row-level security policy for table \"objects\""
+ },
+ {
+  "id": "PH-07",
+  "compte": "sans_profil",
+  "action": "Un compte connecté SANS profil FBMS lit le bucket",
+  "obtenu": "REFUSÉ",
+  "detail": "0"
+ },
+ {
+  "id": "PH-11",
+  "compte": "bm",
+  "action": "Le Branch Manager lit le portrait (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-12",
+  "compte": "uh_bro",
+  "action": "Le Unit Head du cluster du village lit le portrait (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-13",
+  "compte": "uh_bro",
+  "action": "Le Unit Head du cluster du village dépose une photo (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-14",
+  "compte": "bm",
+  "action": "Le Branch Manager remplace une photo (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-08",
+  "compte": "rt",
+  "action": "Un RT SUPPRIME le portrait du chef d'un village quelconque",
+  "obtenu": "REFUSÉ",
+  "detail": ""
+ },
+ {
+  "id": "PH-09",
+  "compte": null,
+  "action": "Un visiteur non connecté (anon) lit via la base",
+  "obtenu": "REFUSÉ",
+  "detail": "0"
+ },
+ {
+  "id": "PH-10",
+  "compte": "configuration",
+  "action": "Bucket public (URL lisible sans connexion par l'API Storage) ; limite de taille ; types admis",
+  "obtenu": "false|10485760|image/jpeg,image/png,image/webp",
+  "detail": ""
+ }
+]
