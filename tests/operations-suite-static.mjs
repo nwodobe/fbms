@@ -4,6 +4,12 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 
+/* AFLP FLEET remains a first-class, visible module after removing home submenu. */
+const fleetNav=read('operations/fbms-unified-nav-v22.js');
+assert.ok(fleetNav.includes('fbms-v22-fleet'), 'AFLP FLEET must have a primary menu entry');
+assert.ok(fleetNav.includes("hrefInApp('../moto/index.html')"), 'AFLP FLEET primary link must open its actual app');
+assert.ok(fleetNav.includes("['BM','ABM','ZH','UH','AUH','LOG']"), 'AFLP FLEET must be visible to field supervisors and agents');
+
 /* Ma journée: hard guarantee of no legacy sublinks even with cached JS. */
 assert.ok(portal.includes('id="fbms-home-clean-navigation"'),'Home must have CSS backup hiding subordinate sidebar links');
 assert.ok(portal.includes('body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context'),'Only homepage should suppress submenu with scoped selector');
