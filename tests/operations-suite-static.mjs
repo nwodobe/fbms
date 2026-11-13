@@ -4,20 +4,38 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
-/* Portail AFLP 2027 V2.1 (13/11/2026) : six espaces (operations/espaces.html), deux services
-   transversaux, et accès direct conservé aux espaces actuels (rien n'est masqué avant bascule PJS). */
-for (const label of ['MA JOURNÉE','RÉSEAU','TERRAIN','ACHATS &amp; COMPTES RT','EXPÉDITION','PILOTAGE &amp; ADMINISTRATION','AFLP FLEET','AFLP FIELD PROOF']) {
-  assert.ok(portal.includes(label), `portal missing ${label}`);
+/* FBMS V2.2 – single navigation: Ma journée is the root, not a card gallery.
+   All existing routes remain reachable through a canonical shared sidebar. */
+assert.ok(portal.includes('Ma journée'), 'FBMS entry must open Ma journée');
+assert.ok(portal.includes('id="opsSidebar"'), 'single navigation sidebar must exist in the root');
+assert.ok(portal.includes('fbms-unified-nav-v22.js'), 'root must load the unified navigation');
+assert.ok(!portal.includes('href="operations/espaces.html#'), 'root may not open an intermediate six-space gallery');
+for (const href of ['operations/field-buying.html#farmers','operations/field-buying.html#purchases',
+                    'operations/field-buying.html#cash','operations/procurement.html#evacuations','moto/index.html']) {
+  assert.ok(portal.includes('href="'+href+'"'), 'Ma journée direct task missing: '+href);
 }
-for (const id of ['E0','E1','E2','E3','E4','E5']) {
-  assert.ok(portal.includes(`href="operations/espaces.html#${id}"`), `portal missing espace ${id}`);
+assert.ok(!portal.includes('href="operations/factory.html"'), 'Factory must not appear in the AFLP navigation');
+const v22Nav = read('operations/fbms-unified-nav-v22.js');
+for (const space of ['Ma journée','Réseau','Terrain','Achats & comptes RT','Expédition','Pilotage & administration']) {
+  assert.ok(v22Nav.includes(space), 'Six-space navigation missing '+space);
 }
-for (const href of ['operations/field-buying.html','operations/procurement.html','operations/warehouse.html','operations/stock-transfer.html','operations/traceability.html','operations/reports.html']) {
-  assert.ok(portal.includes(`href="${href}"`), `portal missing direct access ${href}`);
+for(const specialized of ['moto/index.html','fieldproof/index.html']) {
+  const html=read(specialized);
+  assert.ok(html.includes('fbms-unified-nav-v22.js'), specialized+' must share the FBMS navigation');
+  assert.ok(html.includes('fbms-unified-nav-v22.css'), specialized+' must share the FBMS design system');
 }
-assert.ok(!portal.includes('href="operations/factory.html"'), 'Factory ne doit plus être exposé au portail AFLP');
-assert.ok(portal.includes('ACHAT BORD CHAMP'), 'portal must use Achat Bord Champ');
-assert.ok(!portal.includes('ACHATS DIRECTS'), 'legacy Achats Directs wording still visible on portal');
+const v22CSS=read('operations/fbms-unified-nav-v22.css');
+assert.ok(v22CSS.includes('.fbms-v22-specialized #motoNav'), 'Fleet second navigation must be hidden');
+assert.ok(v22CSS.includes('nav.fp-nav'), 'Field Proof second navigation must be hidden');
+assert.ok(v22Nav.includes('querySelectorAll(\'a[href^="#"]\')'), 'Specialized internal routes must remain reachable');
+const v22Legacy = read('operations/espaces.html');
+assert.ok(v22Legacy.includes('location.replace'), 'Old six-space bookmarks must redirect without a second navigation');
+assert.ok(!v22Legacy.includes('id="espView"'), 'Old intermediate gallery still visible');
+for (const f of ['field-buying.html','procurement.html','reports.html','aflp-data.html','campaigns.html','traceability.html']) {
+  const html = read('operations/'+f);
+  assert.ok(html.includes('fbms-unified-nav-v22.js'), f+' must share the same nav controller');
+  assert.ok(html.includes('fbms-unified-nav-v22.css'), f+' must share the same design system');
+}
 for (const file of workspaces) {
   const html = read('operations/' + file);
   assert.ok(html.includes('operations.css'), `${file}: shared design system missing`);
