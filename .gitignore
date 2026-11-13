@@ -69,3 +69,4 @@ tests/moto/resultats/camera-compteur-*.mjpeg
 
 # Clé PUBLIQUE de publication des mises à jour Web de l'APK : versionnée volontairement
 !android/update-keys/web-bundle-public.pem
+tests/observatoire/recette_http.config.json

@@ -477,6 +477,20 @@ vu_par("SEC-58", X, "auh_bro", "Collègues de collecte : seulement ceux de son c
 vu_par("SEC-59", X, "rt", "Collègues de collecte : rien pour un RT", "select count(*) from public.pheno_observateurs_du_cluster()", "0")
 vu_par("SEC-60", X, "zh1", "Collègues de collecte : rien hors rôles de collecte", "select count(*) from public.pheno_observateurs_du_cluster()", "0")
 
+# Attaques logiques sur la synchronisation (demandées par la contre-expertise, tour 3)
+nE = lambda: q(f"select count(*) from pheno_panels where plot_id='{PLOTS['E']}'")
+n0 = nE()
+sync1("SYN-21", S, "auh_bro", "Clé d'opération légitime réutilisée avec un champ d'un autre cluster : refusée", "PANEL_INSTALLER", panel("E", 3, 1), "REJETEE", cle=CLE1)
+sync1("SYN-22", S, "auh_bro", "Nouvelle clé, installation sur un champ d'un autre cluster : refusée", "PANEL_INSTALLER", panel("E", 3, 1), "REJETEE")
+check("SYN-23", S, "Aucun champ installé hors cluster après les deux tentatives", f"select count(*) from pheno_panels where plot_id='{PLOTS['E']}'", n0)
+nv = q(f"select count(*) from pheno_visites where panel_id='{pC['id']}'")
+psql(f"update public.profils set actif=false where user_id='{U['auh_bro2']}'")
+sync1("SYN-24", S, "auh_bro2", "Saisie hors ligne envoyée après désactivation du compte : refusée (accès coupé, opération conservée sur le téléphone)", "VISITE_ENREGISTRER", {**visite(str(uuid.uuid4()), 4, [obs(a) for a in ARBC]), "panel_id": pC["id"]}, "ERREUR", "accès à l'observatoire refusé")
+psql(f"update public.profils set actif=true, cluster='BOTRO' where user_id='{U['auh_bro2']}'")
+sync1("SYN-25", S, "auh_bro2", "Saisie hors ligne envoyée après mutation de l'agent dans un autre cluster : refusée", "VISITE_ENREGISTRER", {**visite(str(uuid.uuid4()), 4, [obs(a) for a in ARBC]), "panel_id": pC["id"]}, "REJETEE")
+psql(f"update public.profils set cluster='BROBO' where user_id='{U['auh_bro2']}'")
+check("SYN-26", S, "Aucune visite écrite par ces envois tardifs", f"select count(*) from pheno_visites where panel_id='{pC['id']}'", nv)
+
 # ---------------------------------------------------------------------------
 os.makedirs(OUT_DIR, exist_ok=True)
 tot = len(RESULTS); ok_n = sum(1 for r in RESULTS if r["resultat"] == "RÉUSSI")

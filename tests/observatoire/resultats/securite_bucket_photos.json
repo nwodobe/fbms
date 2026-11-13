@@ -49,6 +49,34 @@
   "detail": "4"
  },
  {
+  "id": "PH-11",
+  "compte": "bm",
+  "action": "Le Branch Manager lit le portrait (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-12",
+  "compte": "uh_bro",
+  "action": "Le Unit Head du cluster du village lit le portrait (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-13",
+  "compte": "uh_bro",
+  "action": "Le Unit Head du cluster du village dépose une photo (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
+  "id": "PH-14",
+  "compte": "bm",
+  "action": "Le Branch Manager remplace une photo (contrôle positif)",
+  "obtenu": "AUTORISÉ",
+  "detail": "1"
+ },
+ {
   "id": "PH-08",
   "compte": "rt",
   "action": "Un RT SUPPRIME le portrait du chef d'un village quelconque",

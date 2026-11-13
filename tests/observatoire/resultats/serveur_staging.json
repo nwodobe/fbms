@@ -1,9 +1,9 @@
 {
- "date": "2026-11-13 17:28:08.432243",
+ "date": "2026-11-13 17:43:35.035545",
  "base": "fbms_pheno_staging",
  "hote": "127.0.0.1",
- "total": 223,
- "reussis": 223,
+ "total": 229,
+ "reussis": 229,
  "echoues": 0,
  "par_famille": {
   "Échantillonnage": {
@@ -17,8 +17,8 @@
    "echoues": 0
   },
   "Synchronisation": {
-   "total": 20,
-   "reussis": 20,
+   "total": 26,
+   "reussis": 26,
    "echoues": 0
   },
   "Validation": {
@@ -62,7 +62,7 @@
    "compte": "bm",
    "action": "Le Branch Manager crée la graine aléatoire de la campagne",
    "attendu": "OK (\"deja_creee\": false)",
-   "obtenu": "OK : {\"graine\": \"7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02\", \"deja_creee\": false, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
+   "obtenu": "OK : {\"graine\": \"5189259163ca05f8ce6341c312d5f2741bee6ead72abb252e8c18d616a9a9f33\", \"deja_creee\": false, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -70,8 +70,8 @@
    "famille": "Échantillonnage",
    "compte": "bm",
    "action": "Deuxième création : la graine existante est rendue, jamais remplacée",
-   "attendu": "OK (7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02)",
-   "obtenu": "OK : {\"graine\": \"7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02\", \"deja_creee\": true, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
+   "attendu": "OK (5189259163ca05f8ce6341c312d5f2741bee6ead72abb252e8c18d616a9a9f33)",
+   "obtenu": "OK : {\"graine\": \"5189259163ca05f8ce6341c312d5f2741bee6ead72abb252e8c18d616a9a9f33\", \"deja_creee\": true, \"campaign_id\": \"597c0280-e45a-54d9-b498-dedb5596b3c0\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -89,7 +89,7 @@
    "compte": "auh_bro",
    "action": "AUH installe le champ A (B=4, b=2)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"blocs_tires\": [2, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"ad074c15-abe2-4923-a20c-001a3158226b\", \"blocs_tires\": [1, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -97,8 +97,8 @@
    "famille": "Échantillonnage",
    "compte": "auh_bro",
    "action": "Blocs tirés = recalcul indépendant sha256",
-   "attendu": "[2, 4]",
-   "obtenu": "[2, 4]",
+   "attendu": "[1, 4]",
+   "obtenu": "[1, 4]",
    "resultat": "RÉUSSI"
   },
   {
@@ -116,7 +116,7 @@
    "compte": "auh_bro",
    "action": "Réinstallation identique : idempotente",
    "attendu": "OK (deja_installe)",
-   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"blocs_tires\": [2, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"deja_installe\": true}",
+   "obtenu": "OK : {\"panel_id\": \"ad074c15-abe2-4923-a20c-001a3158226b\", \"blocs_tires\": [1, 4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"deja_installe\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -187,8 +187,8 @@
    "famille": "Échantillonnage",
    "compte": "postgres (lecture)",
    "action": "Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant",
-   "attendu": "7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
-   "obtenu": "7126805cab5658f0c2e33b3b64c24c253458fb1eda1b81826fe94dd4718cbf02:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
+   "attendu": "5189259163ca05f8ce6341c312d5f2741bee6ead72abb252e8c18d616a9a9f33:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
+   "obtenu": "5189259163ca05f8ce6341c312d5f2741bee6ead72abb252e8c18d616a9a9f33:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS|true|AFLP2027-OBS v0.9",
    "resultat": "RÉUSSI"
   },
   {
@@ -206,7 +206,7 @@
    "compte": "auh_bro",
    "action": "Inventaire bloc tiré 1 (N=7)",
    "attendu": "OK (TIRAGE_VERROUILLE)",
-   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"96a5a997-5ae6-4707-a4f1-98ef880df8dc\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"251f2354-2c2c-4b1c-b4c6-8cbf3d1d145c\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
    "resultat": "RÉUSSI"
   },
   {
@@ -224,7 +224,7 @@
    "compte": "uh_bro",
    "action": "Inventaire bloc tiré 2 (N=9) : le champ devient actif",
    "attendu": "OK (ACTIF)",
-   "obtenu": "OK : {\"arbres\": [{\"id\": \"00514d68-ef38-e653-0830-e895bbea1a6d\", \"code\": \"B2-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"117bcb22-cf67-94d9-912f-982d11093696\", \"code\": \"B2-002\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"779f1a7f-2c49-095b-dbce-c229c8a23cd7\", \"code\": \"B2-003\", \"rang\": 3, \"role\": \"TI",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"307128ac-6ff9-8c59-da0c-d1b1fc1503b6\", \"code\": \"B1-005\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"f0493e75-9009-0127-6b41-2378c9f625b6\", \"code\": \"B1-001\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"7770d81b-b1b6-87dd-e56c-8b7b9e723ce4\", \"code\": \"B1-006\", \"rang\": 3, \"role\": \"TI",
    "resultat": "RÉUSSI"
   },
   {
@@ -241,8 +241,8 @@
    "famille": "Échantillonnage",
    "compte": "postgres (lecture)",
    "action": "Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve)",
-   "attendu": "4,2,3,7,5,6",
-   "obtenu": "4,2,3,7,5,6",
+   "attendu": "5,1,6,7,2,3",
+   "obtenu": "5,1,6,7,2,3",
    "resultat": "RÉUSSI"
   },
   {
@@ -250,8 +250,8 @@
    "famille": "Échantillonnage",
    "compte": "postgres (lecture)",
    "action": "Identifiant d'arbre déterministe (calculable hors ligne)",
-   "attendu": "00514d68-ef38-e653-0830-e895bbea1a6d",
-   "obtenu": "00514d68-ef38-e653-0830-e895bbea1a6d",
+   "attendu": "307128ac-6ff9-8c59-da0c-d1b1fc1503b6",
+   "obtenu": "307128ac-6ff9-8c59-da0c-d1b1fc1503b6",
    "resultat": "RÉUSSI"
   },
   {
@@ -287,7 +287,7 @@
    "compte": "auh_bro",
    "action": "Inventaire rejoué à l'identique : idempotent",
    "attendu": "OK (deja_inventorie)",
-   "obtenu": "OK : {\"bloc_id\": \"96a5a997-5ae6-4707-a4f1-98ef880df8dc\", \"statut_panel\": \"ACTIF\", \"deja_inventorie\": true}",
+   "obtenu": "OK : {\"bloc_id\": \"251f2354-2c2c-4b1c-b4c6-8cbf3d1d145c\", \"statut_panel\": \"ACTIF\", \"deja_inventorie\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -296,7 +296,7 @@
    "compte": "uh_bro",
    "action": "Installation du champ B (B=3, b=2)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"ab6cd146-7c32-425d-9540-5be263a255ee\", \"blocs_tires\": [2, 3], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"2e8ae040-0376-4220-8699-5e3af995ea43\", \"blocs_tires\": [2, 3], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -305,7 +305,7 @@
    "compte": "uh_bro",
    "action": "Champ B bloc 1 : N=3 (< 5 titulaires)",
    "attendu": "OK",
-   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"9e873d36-9e25-414c-86d3-2459b761be6f\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"077e133c-d657-441e-9f05-c922fbaa0799\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
    "resultat": "RÉUSSI"
   },
   {
@@ -314,7 +314,7 @@
    "compte": "uh_bro",
    "action": "Champ B bloc 2 : N=12 → incompatibilité signalée",
    "attendu": "OK (INCOMPATIBLE)",
-   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"3eeb1caa-7f83-449c-83dc-fb67f953d8a2\", \"statut_panel\": \"INCOMPATIBLE\", \"incompatibilite\": \"bloc 2 : 3 arbres inventoriés pour 5 titulaires prévus\"}",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"1e2f1e5f-253c-4266-9b1d-ab286856ebe9\", \"statut_panel\": \"INCOMPATIBLE\", \"incompatibilite\": \"bloc 2 : 3 arbres inventoriés pour 5 titulaires prévus\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -332,7 +332,7 @@
    "compte": "bm",
    "action": "BM installe le champ C (B=2, b=2)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"d20a63d5-1858-451a-8436-488b8038b6de\", \"blocs_tires\": [2, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"6ab8f707-72d3-49fd-b04b-1c7401fe2a26\", \"blocs_tires\": [1, 2], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -341,7 +341,7 @@
    "compte": "bm",
    "action": "Champ C bloc 1 : N=5 (5 titulaires, réserve impossible)",
    "attendu": "OK",
-   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"9416ca23-a74a-4763-a459-4a7eea748ae4\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
+   "obtenu": "OK : {\"arbres\": [], \"bloc_id\": \"3c1c1173-3747-4167-bbb9-a3bbecf15114\", \"statut_panel\": \"TIRAGE_VERROUILLE\", \"incompatibilite\": null}",
    "resultat": "RÉUSSI"
   },
   {
@@ -350,7 +350,7 @@
    "compte": "bm",
    "action": "Champ C bloc 2 : N=20",
    "attendu": "OK (ACTIF)",
-   "obtenu": "OK : {\"arbres\": [{\"id\": \"cd8a0e64-233f-1174-02d8-12d3173166ab\", \"code\": \"B2-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"065f97dc-3e01-033a-920a-f6ff5d0a7178\", \"code\": \"B2-005\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"9a8994d4-1359-2b10-12b5-e40b5b5e064e\", \"code\": \"B2-002\", \"rang\": 3, \"role\": \"TI",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"e4e163bd-6896-a618-bd31-e24df6801aae\", \"code\": \"B1-005\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"a64b51c0-a665-a9e2-4a96-a8bd4ee6c586\", \"code\": \"B1-004\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"4bbf1b93-eb25-b457-3d0e-31e71e537f54\", \"code\": \"B1-002\", \"rang\": 3, \"role\": \"TI",
    "resultat": "RÉUSSI"
   },
   {
@@ -377,7 +377,7 @@
    "compte": "bm",
    "action": "Probabilités amont par le BM (π village 0,5 ; π champ 0,25)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"a11507c2-ea7b-4ecf-a250-57ceac45c4c1\", \"pi_champ\": 0.25, \"pi_village\": 0.5}",
+   "obtenu": "OK : {\"panel_id\": \"ad074c15-abe2-4923-a20c-001a3158226b\", \"pi_champ\": 0.25, \"pi_village\": 0.5}",
    "resultat": "RÉUSSI"
   },
   {
@@ -404,7 +404,7 @@
    "compte": "auh_bro",
    "action": "Installation du champ D (B=6, b=3)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"f391e460-f0cc-4bb6-88c8-01e46e77e82f\", \"blocs_tires\": [5, 4, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"0666a001-f2c0-4017-973e-27544112924d\", \"blocs_tires\": [4, 2, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -422,7 +422,7 @@
    "compte": "auh_bro",
    "action": "Marquage GPS d'un arbre",
    "attendu": "OK",
-   "obtenu": "OK : {\"marque\": true, \"arbre_id\": \"00514d68-ef38-e653-0830-e895bbea1a6d\"}",
+   "obtenu": "OK : {\"marque\": true, \"arbre_id\": \"307128ac-6ff9-8c59-da0c-d1b1fc1503b6\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -440,7 +440,7 @@
    "compte": "auh_bro",
    "action": "Brouillon partiel (3 arbres, réponses incomplètes)",
    "attendu": "ACCEPTEE (BROUILLON)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"e5360358-9659-40fa-a04c-3f8ad4805650\", \"recu_serveur_le\": \"2026-11-13T17:27:59.840659+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"7f3d86cb-d369-4cda-aab9-f13be931a17b\", \"recu_serveur_le\": \"2026-11-13T17:43:25.668905+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -458,7 +458,7 @@
    "compte": "auh_bro",
    "action": "Soumission incomplète : refusée",
    "attendu": "REJETEE (incomplète)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : 6 arbre(s) sans réponse « Retrouvé » (B2-005, B4-006, B4-004, B4-009, B4-001, B4-002).\", \"idempotency_key\": \"36e9d80a-ab8a-4bf9-a9cb-3c0f4911ae5d\", \"recu_serveur_le\": \"2026-11-13T17:27:59.935126+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : 6 arbre(s) sans réponse « Retrouvé » (B1-002, B4-008, B4-006, B4-001, B4-002, B4-005).\", \"idempotency_key\": \"4309e13c-dbc4-4081-8fd4-55ed214d2985\", \"recu_serveur_le\": \"2026-11-13T17:43:25.765047+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -476,7 +476,7 @@
    "compte": "auh_bro",
    "action": "« Pas vu » sans raison : refusé",
    "attendu": "REJETEE (Raison obligatoire)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-002).\", \"idempotency_key\": \"56c0fe1c-84e5-4274-a11c-f56bf5e3c25a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.012103+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-005).\", \"idempotency_key\": \"f1cd8a17-b81f-4c7e-b37d-f3a5467a0d6c\", \"recu_serveur_le\": \"2026-11-13T17:43:25.860779+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -485,7 +485,7 @@
    "compte": "auh_bro",
    "action": "Chute de fruits mûrs sans source de preuve : refusée",
    "attendu": "REJETEE (preuve)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Source de preuve obligatoire pour une chute constatée (B4-002).\", \"idempotency_key\": \"eabd6a52-8611-4385-bda0-c5c9c9a70ebd\", \"recu_serveur_le\": \"2026-11-13T17:28:00.055972+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Source de preuve obligatoire pour une chute constatée (B4-005).\", \"idempotency_key\": \"67a4e118-77d3-42c8-b8e5-09818205466c\", \"recu_serveur_le\": \"2026-11-13T17:43:25.924321+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -494,7 +494,7 @@
    "compte": "auh_bro",
    "action": "Arbre non retrouvé sans raison : refusé",
    "attendu": "REJETEE (Raison obligatoire)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-002).\", \"idempotency_key\": \"8db5cc42-5b0a-42c4-91f2-062ce910b18b\", \"recu_serveur_le\": \"2026-11-13T17:28:00.107564+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Raison obligatoire pour « Pas vu » ou arbre non retrouvé (B4-005).\", \"idempotency_key\": \"7993f9bb-87c8-4611-aa4b-523b7a728927\", \"recu_serveur_le\": \"2026-11-13T17:43:25.979215+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -503,7 +503,7 @@
    "compte": "auh_bro",
    "action": "Observation d'une réserve non activée : refusée",
    "attendu": "REJETEE (réserve)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'arbre B2-006 n'est pas observé (réserve non activée ou arbre remplacé).\", \"idempotency_key\": \"7e87d7a6-ca1d-4f44-8067-ab5966955577\", \"recu_serveur_le\": \"2026-11-13T17:28:00.16345+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'arbre B1-003 n'est pas observé (réserve non activée ou arbre remplacé).\", \"idempotency_key\": \"603ec470-9938-436c-b952-50cfffe101b3\", \"recu_serveur_le\": \"2026-11-13T17:43:26.033387+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -512,7 +512,7 @@
    "compte": "auh_bro",
    "action": "Semaine incohérente avec la date : refusée",
    "attendu": "REJETEE (semaine)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La semaine 2020-W01 ne correspond pas à la date d'observation (2026-W43).\", \"idempotency_key\": \"6eb4f723-ac91-4b2b-9ec4-832838e37fe6\", \"recu_serveur_le\": \"2026-11-13T17:28:00.20567+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La semaine 2020-W01 ne correspond pas à la date d'observation (2026-W43).\", \"idempotency_key\": \"c452f5a2-b87a-498a-93fe-ae26bcce573f\", \"recu_serveur_le\": \"2026-11-13T17:43:26.089585+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -521,7 +521,7 @@
    "compte": "auh_bro",
    "action": "Date d'observation future : refusée",
    "attendu": "REJETEE (futur)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Date d'observation dans le futur.\", \"idempotency_key\": \"c62f5f56-13de-433b-ba93-06b0c38b50c6\", \"recu_serveur_le\": \"2026-11-13T17:28:00.255751+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Date d'observation dans le futur.\", \"idempotency_key\": \"75fb9208-e636-4678-991c-063b9482c794\", \"recu_serveur_le\": \"2026-11-13T17:43:26.138684+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -530,7 +530,7 @@
    "compte": "auh_bro",
    "action": "Ramassage non renseigné : refusé",
    "attendu": "REJETEE (ramassage)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : question du ramassage non renseignée.\", \"idempotency_key\": \"9dfe22d6-5cf5-4fa4-8ff7-d368dac30de3\", \"recu_serveur_le\": \"2026-11-13T17:28:00.301365+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Visite incomplète : question du ramassage non renseignée.\", \"idempotency_key\": \"73e45567-c564-40c1-827d-42e3fcf182c9\", \"recu_serveur_le\": \"2026-11-13T17:43:26.193445+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -539,7 +539,7 @@
    "compte": "auh_bro",
    "action": "Soumission complète de la semaine 1",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.360114+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\", \"recu_serveur_le\": \"2026-11-13T17:43:26.24543+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -566,7 +566,7 @@
    "compte": "auh_bro",
    "action": "Renvoi de la même opération (même clé) : rejouée, sans doublon",
    "attendu": "ACCEPTEE (rejoue)",
-   "obtenu": "{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.360114+00:00\"}",
+   "obtenu": "{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\", \"recu_serveur_le\": \"2026-11-13T17:43:26.24543+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -584,7 +584,7 @@
    "compte": "auh_bro",
    "action": "Même clé, contenu différent : refusé",
    "attendu": "REJETEE (déjà utilisée)",
-   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -593,7 +593,7 @@
    "compte": "uh_bro",
    "action": "Autre appareil, même champ, même semaine : conflit, rien d'écrasé",
    "attendu": "CONFLIT (DOUBLON_SEMAINE)",
-   "obtenu": "{\"code\": \"DOUBLON_SEMAINE\", \"statut\": \"CONFLIT\", \"message\": \"Une autre visite existe déjà pour ce champ en semaine 2026-W43. La vôtre n'a pas été enregistrée : contactez votre Unit Head.\", \"visite_id\": \"cbdd87bc-1fab-4bb1-af12-5126d89679de\", \"idempotency_key\": \"afca1975-61e3-490c-8197-593880ef146b\",",
+   "obtenu": "{\"code\": \"DOUBLON_SEMAINE\", \"statut\": \"CONFLIT\", \"message\": \"Une autre visite existe déjà pour ce champ en semaine 2026-W43. La vôtre n'a pas été enregistrée : contactez votre Unit Head.\", \"visite_id\": \"67363502-c2c1-444d-98bb-c438e7ac8e69\", \"idempotency_key\": \"54d9daae-343b-4c44-b21a-1dd69d4430ac\",",
    "resultat": "RÉUSSI"
   },
   {
@@ -611,7 +611,7 @@
    "compte": "auh_bro",
    "action": "Modification hors ligne d'une visite déjà soumise : proposition, pas d'écrasement",
    "attendu": "CONFLIT (VISITE_FIGEE)",
-   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà soumis sur le serveur : 1 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"propositions\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"0ecbe0f3-7790-4a17-a25",
+   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà soumis sur le serveur : 1 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"propositions\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"6ec6e6b1-bf23-4e49-8b7",
    "resultat": "RÉUSSI"
   },
   {
@@ -638,7 +638,7 @@
    "compte": "auh_bro",
    "action": "Type d'opération inconnu : refusé",
    "attendu": "REJETEE (inconnu)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Type d'opération inconnu : SUPPRIMER_TOUT.\", \"idempotency_key\": \"a8061b4d-b97c-4f9a-bc6b-781670549cb2\", \"recu_serveur_le\": \"2026-11-13T17:28:00.876655+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Type d'opération inconnu : SUPPRIMER_TOUT.\", \"idempotency_key\": \"00c109d7-474c-480c-bea3-f67745e77ad7\", \"recu_serveur_le\": \"2026-11-13T17:43:26.768999+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -656,7 +656,7 @@
    "compte": "auh_bro",
    "action": "Brouillon semaine 2 enregistré",
    "attendu": "ACCEPTEE (BROUILLON)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"8c47390f-014a-492e-a474-f36248f0b85a\", \"recu_serveur_le\": \"2026-11-13T17:28:00.961414+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"3a9d86c5-c231-4dba-b369-e9311bb15929\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"2db34c7e-67f2-4c0d-b1a4-765b61466cab\", \"recu_serveur_le\": \"2026-11-13T17:43:26.852751+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -665,7 +665,7 @@
    "compte": "auh_bro",
    "action": "Brouillon modifié avec une version périmée : conflit de version",
    "attendu": "CONFLIT (VERSION)",
-   "obtenu": "{\"code\": \"VERSION\", \"statut\": \"CONFLIT\", \"message\": \"La visite a été modifiée sur le serveur depuis votre dernière lecture. Rechargez-la avant de la modifier.\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 1, \"idempotency_key\": \"cae1eb51-f16a-4d99-b95d-041ceee9032f\", \"recu_ser",
+   "obtenu": "{\"code\": \"VERSION\", \"statut\": \"CONFLIT\", \"message\": \"La visite a été modifiée sur le serveur depuis votre dernière lecture. Rechargez-la avant de la modifier.\", \"visite_id\": \"3a9d86c5-c231-4dba-b369-e9311bb15929\", \"row_version\": 1, \"idempotency_key\": \"aa86d698-0564-4af2-aafd-5bc7e742b122\", \"recu_ser",
    "resultat": "RÉUSSI"
   },
   {
@@ -674,7 +674,7 @@
    "compte": "auh_bro",
    "action": "Semaine 2 soumise avec la bonne version",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"f9a620bb-a397-41b8-a500-84f998d34b0f\", \"recu_serveur_le\": \"2026-11-13T17:28:01.075982+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"3a9d86c5-c231-4dba-b369-e9311bb15929\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"43a7a73d-2802-4119-b93c-9172bdc974e4\", \"recu_serveur_le\": \"2026-11-13T17:43:26.962657+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -692,7 +692,7 @@
    "compte": "auh_bro",
    "action": "Transcription papier où l'observateur est le transcripteur : refusée",
    "attendu": "REJETEE (autre personne)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Transcription d'une fiche papier : l'observateur doit être une autre personne que le transcripteur.\", \"idempotency_key\": \"47def5e8-b4c4-4179-97ad-3478244abd44\", \"recu_serveur_le\": \"2026-11-13T17:28:01.175645+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Transcription d'une fiche papier : l'observateur doit être une autre personne que le transcripteur.\", \"idempotency_key\": \"09e02bf6-80ff-4be8-a3be-458d46deff60\", \"recu_serveur_le\": \"2026-11-13T17:43:27.076978+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -701,7 +701,7 @@
    "compte": "auh_bro",
    "action": "Transcription papier : observateur distinct, tracé",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"31d94152-5248-4623-8a5a-47f53ff6d59a\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"c65c8c3a-847b-431f-9587-1d19a48099d2\", \"recu_serveur_le\": \"2026-11-13T17:28:01.265173+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2d63b5c6-74cd-43b1-83ee-5c10d0bf753a\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"46cae928-1645-4601-b89b-2ea0ef93efae\", \"recu_serveur_le\": \"2026-11-13T17:43:27.177947+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -719,7 +719,7 @@
    "compte": "auh_bro",
    "action": "Installation hors ligne synchronisée par lot",
    "attendu": "ACCEPTEE (blocs_tires)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"panel_id\": \"68d3cb0d-8c17-4772-80f4-e79d0a8459dd\", \"blocs_tires\": [1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"idempotency_key\": \"d13883ac-b6f0-4acb-ad09-0c2a1c5c8020\", \"recu_serveur_le\": \"2026-11-13T17:28:01.354459+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"panel_id\": \"c416c719-2143-411b-9dd5-69b56efcfc7c\", \"blocs_tires\": [4], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\", \"idempotency_key\": \"56ca5e5b-9f68-497c-8be4-11ec6d6feb3c\", \"recu_serveur_le\": \"2026-11-13T17:43:27.299902+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -755,7 +755,7 @@
    "compte": "uh_bro",
    "action": "Unit Head du cluster met en vérification",
    "attendu": "OK (EN_VERIFICATION)",
-   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 3, \"statut_visite\": \"EN_VERIFICATION\"}",
+   "obtenu": "OK : {\"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 3, \"statut_visite\": \"EN_VERIFICATION\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -809,7 +809,7 @@
    "compte": "bm",
    "action": "BM accorde une affectation expirée au Zonal Head 1",
    "attendu": "OK",
-   "obtenu": "OK : {\"affectation_id\": \"6a541bb6-7efa-471f-bbf8-db6364606b4b\"}",
+   "obtenu": "OK : {\"affectation_id\": \"fd049a4c-2810-4af2-94c4-2bcb864f90ed\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -827,7 +827,7 @@
    "compte": "bm",
    "action": "BM accorde au Zonal Head 2 la validation de BROBO (hors de sa zone)",
    "attendu": "OK",
-   "obtenu": "OK : {\"affectation_id\": \"b755fa55-6661-4770-b728-b208659af485\"}",
+   "obtenu": "OK : {\"affectation_id\": \"0d33ccf6-07e2-4e68-a131-76177433cd24\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -845,7 +845,7 @@
    "compte": "bm",
    "action": "BM accorde au Zonal Head 1 la validation de BROBO",
    "attendu": "OK",
-   "obtenu": "OK : {\"affectation_id\": \"b4ac67cf-b7d7-47c0-893c-da6e36a71c4f\"}",
+   "obtenu": "OK : {\"affectation_id\": \"07fef729-b2fe-41f8-bed7-f8fdfc2ec92f\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -863,7 +863,7 @@
    "compte": "zh1",
    "action": "Zonal Head affecté demande une correction motivée",
    "attendu": "OK (CORRECTION_DEMANDEE)",
-   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 4, \"statut_visite\": \"CORRECTION_DEMANDEE\"}",
+   "obtenu": "OK : {\"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 4, \"statut_visite\": \"CORRECTION_DEMANDEE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -881,7 +881,7 @@
    "compte": "auh_bro",
    "action": "L'auteur soumet à nouveau sans motif : refusé",
    "attendu": "REJETEE (Motif de correction)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Motif de correction obligatoire pour soumettre à nouveau.\", \"idempotency_key\": \"4930002b-59da-4343-af83-93549d125990\", \"recu_serveur_le\": \"2026-11-13T17:28:02.222758+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Motif de correction obligatoire pour soumettre à nouveau.\", \"idempotency_key\": \"1c77880d-6e6e-43ce-908a-825e62a55d6b\", \"recu_serveur_le\": \"2026-11-13T17:43:28.259555+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -890,7 +890,7 @@
    "compte": "auh_bro",
    "action": "L'auteur corrige et soumet avec motif",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 5, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"6e071af5-3e3e-4eed-b123-f550e98b0199\", \"recu_serveur_le\": \"2026-11-13T17:28:02.272625+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 5, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"eed129a3-437e-4099-8818-8f62db9d4650\", \"recu_serveur_le\": \"2026-11-13T17:43:28.304138+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -908,7 +908,7 @@
    "compte": "zh1",
    "action": "Zonal Head affecté valide la semaine 1",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"visite_id\": \"873ea770-2afb-4a0b-80f3-8ca6dad31aa1\", \"row_version\": 6, \"statut_visite\": \"VALIDE\"}",
+   "obtenu": "OK : {\"visite_id\": \"32fe98dc-1c65-42c5-a280-1f050ad8fa4f\", \"row_version\": 6, \"statut_visite\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -935,7 +935,7 @@
    "compte": "zh1",
    "action": "Zonal Head affecté valide la semaine 2",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
+   "obtenu": "OK : {\"visite_id\": \"3a9d86c5-c231-4dba-b369-e9311bb15929\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -944,7 +944,7 @@
    "compte": "auh_bro",
    "action": "Envoi hors ligne tardif sur une visite VALIDÉE : proposition, jamais d'écrasement",
    "attendu": "CONFLIT (VISITE_FIGEE)",
-   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà valide sur le serveur : 2 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"2035a484-e3f5-48f9-a281-378aecd8882b\", \"propositions\": 2, \"statut_visite\": \"VALIDE\", \"idempotency_key\": \"ab8bcb58-e45b-4c5f-97f",
+   "obtenu": "{\"code\": \"VISITE_FIGEE\", \"statut\": \"CONFLIT\", \"message\": \"La visite est déjà valide sur le serveur : 2 écart(s) transmis comme proposition(s) de correction.\", \"visite_id\": \"3a9d86c5-c231-4dba-b369-e9311bb15929\", \"propositions\": 2, \"statut_visite\": \"VALIDE\", \"idempotency_key\": \"27cc72a8-43ef-4d8c-882",
    "resultat": "RÉUSSI"
   },
   {
@@ -989,7 +989,7 @@
    "compte": "zh1",
    "action": "Le valideur applique la correction avec motif",
    "attendu": "OK (APPLIQUEE)",
-   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"1e828e51-ce90-45e2-b61f-3f291b3a6b0c\"}",
+   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"99690808-7cf3-415c-ab55-6fdc2cf1f6a2\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1007,7 +1007,7 @@
    "compte": "zh1",
    "action": "Application de la preuve associée",
    "attendu": "OK (APPLIQUEE)",
-   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"da46d74c-d526-46f4-8bb3-ff47949cdbd9\"}",
+   "obtenu": "OK : {\"statut\": \"APPLIQUEE\", \"correction_id\": \"34541191-ebda-4d01-8e9e-9fbd319eb9f4\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1016,7 +1016,7 @@
    "compte": "bm",
    "action": "BM observe lui-même une visite (champ C, semaine précédente)",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"e4a77837-fee8-444d-a1b3-5bfdc8f98bc8\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"a50d2606-6a62-4931-a151-28f7396a3768\", \"recu_serveur_le\": \"2026-11-13T17:28:03.041017+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"5d3491f2-32df-49c5-b85f-5a8ae92a262a\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"e2c3efa2-b660-451d-903e-7ac7116aea41\", \"recu_serveur_le\": \"2026-11-13T17:43:29.014664+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1034,7 +1034,7 @@
    "compte": "bm",
    "action": "BM révoque l'affectation du Zonal Head 1",
    "attendu": "OK",
-   "obtenu": "OK : {\"actif\": false, \"affectation_id\": \"b4ac67cf-b7d7-47c0-893c-da6e36a71c4f\"}",
+   "obtenu": "OK : {\"actif\": false, \"affectation_id\": \"07fef729-b2fe-41f8-bed7-f8fdfc2ec92f\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1061,7 +1061,7 @@
    "compte": "bm",
    "action": "BM active une réserve (arbre non retrouvé), motif obligatoire",
    "attendu": "OK (reserve_activee)",
-   "obtenu": "OK : {\"reserve_id\": \"97c54fe1-b303-cdbe-01cc-7b6e051eb38e\", \"arbre_remplace\": \"B4-002\", \"reserve_activee\": \"B4-008\"}",
+   "obtenu": "OK : {\"reserve_id\": \"f41a18f7-bd71-0bbe-13e2-3de9eac0b7b7\", \"arbre_remplace\": \"B4-005\", \"reserve_activee\": \"B4-004\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1142,7 +1142,7 @@
    "compte": "bm",
    "action": "BM accorde au Zonal Head 1 une nouvelle affectation",
    "attendu": "OK",
-   "obtenu": "OK : {\"affectation_id\": \"141b0ec4-dee7-4fcf-bf73-c2a63d6f0154\"}",
+   "obtenu": "OK : {\"affectation_id\": \"4b03e03c-1999-4b96-80c1-73d7d712c2bf\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1151,7 +1151,7 @@
    "compte": "auh_bro",
    "action": "Semaine 3 soumise : aucune chute observée",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"b9e4b324-cedb-4437-bac9-a97c6a693663\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"a2462e5d-f2e7-42b7-95b9-366dbcb631c9\", \"recu_serveur_le\": \"2026-11-13T17:28:03.787755+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"fa43464f-e488-4c73-bb2b-32fe514522d4\", \"row_version\": 2, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"dda74bac-afc8-451c-9b6c-bc0c67ce050f\", \"recu_serveur_le\": \"2026-11-13T17:43:29.789247+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1160,7 +1160,7 @@
    "compte": "zh1",
    "action": "Semaine 3 validée",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"visite_id\": \"b9e4b324-cedb-4437-bac9-a97c6a693663\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
+   "obtenu": "OK : {\"visite_id\": \"fa43464f-e488-4c73-bb2b-32fe514522d4\", \"row_version\": 3, \"statut_visite\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1232,7 +1232,7 @@
    "compte": "uh_bot",
    "action": "Unit Head Botro installe un champ dans SON cluster",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"4e7206e2-ad27-4c37-9788-d89fc040a447\", \"blocs_tires\": [1, 3], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"7c9f1bc8-02ca-4985-92cc-ed7183093742\", \"blocs_tires\": [3, 1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1466,7 +1466,7 @@
    "compte": "uh_bot",
    "action": "Unit Head Botro envoie une visite sur un champ de Brobo : refusé",
    "attendu": "REJETEE (PH001)",
-   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"3de37ebf-c91e-49cf-ad4f-9ea9b365eadf\", \"recu_serveur_le\": \"2026-11-13T17:28:05.367105+00:00\"}",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"8b453fd1-7917-408c-97ee-211794597af1\", \"recu_serveur_le\": \"2026-11-13T17:43:31.504149+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1475,7 +1475,7 @@
    "compte": "zh1",
    "action": "Zonal Head collecte une visite : refusé (pas un rôle de collecte)",
    "attendu": "REJETEE (PH001)",
-   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"101f51af-8ab5-4c95-a7ed-18b3d9f60261\", \"recu_serveur_le\": \"2026-11-13T17:28:05.407459+00:00\"}",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"0adc078e-9e0d-4547-a75d-7099af5c627b\", \"recu_serveur_le\": \"2026-11-13T17:43:31.553664+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1691,7 +1691,7 @@
    "compte": "auh_bro",
    "action": "Référence de preuve pointant hors du champ : refusée",
    "attendu": "REJETEE (preuve)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"ab3fe84c-28b2-4a08-a35a-f666e33f860d\", \"recu_serveur_le\": \"2026-11-13T17:28:06.543085+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"ea0b228c-81f2-4470-8958-158a7633db35\", \"recu_serveur_le\": \"2026-11-13T17:43:32.692204+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1745,7 +1745,7 @@
    "compte": "uh_bro",
    "action": "Fiche papier : observateur d'un autre cluster refusé",
    "attendu": "REJETEE (cluster)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'observateur désigné n'appartient pas au cluster de ce champ.\", \"idempotency_key\": \"a5b4587c-fe1c-455c-9a82-9ed624b56705\", \"recu_serveur_le\": \"2026-11-13T17:28:06.793743+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"L'observateur désigné n'appartient pas au cluster de ce champ.\", \"idempotency_key\": \"54311150-963f-4c6a-bb5f-2cfb4ea0ee22\", \"recu_serveur_le\": \"2026-11-13T17:43:32.962369+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1754,7 +1754,7 @@
    "compte": "uh_bro",
    "action": "Identité falsifiée dans la charge (user_id, acteur, observateur en mode direct) : envoi accepté…",
    "attendu": "ACCEPTEE (BROUILLON)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"9bd481d9-87ba-48fa-91c1-0221456ebff7\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"8b9bc73a-d2d3-41db-9b31-23d68e1ebee7\", \"recu_serveur_le\": \"2026-11-13T17:28:06.842866+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"09fdc2cf-18a7-4849-81dd-912522ab6497\", \"row_version\": 1, \"statut_visite\": \"BROUILLON\", \"idempotency_key\": \"e67fe590-8f56-4780-a3c5-d25166303370\", \"recu_serveur_le\": \"2026-11-13T17:43:33.013617+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1862,7 +1862,7 @@
    "compte": "auh_bro",
    "action": "Même clé, même charge, depuis un autre appareil : refusée (empreinte sur l'enveloppe complète)",
    "attendu": "REJETEE",
-   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1871,7 +1871,7 @@
    "compte": "uh_bro",
    "action": "Même enveloppe rejouée par un autre compte : refusée",
    "attendu": "REJETEE",
-   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"4a761b28-cece-46cc-89b6-8a337c07b88a\"}",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1880,7 +1880,7 @@
    "compte": "auh_bro",
    "action": "Photo référencée dans le dossier d'un autre agent : refusée",
    "attendu": "REJETEE (preuve)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"48ddb187-bc4c-4276-96a4-b6d425d61157\", \"recu_serveur_le\": \"2026-11-13T17:28:07.491525+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"Référence de preuve invalide.\", \"idempotency_key\": \"77d75844-9938-4a17-af99-0a3834c94b70\", \"recu_serveur_le\": \"2026-11-13T17:43:33.597953+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1889,7 +1889,7 @@
    "compte": "uh_bro",
    "action": "Erreur technique : aucun détail SQL renvoyé au téléphone, code de diagnostic",
    "attendu": "TECHNIQUE sans texte SQL",
-   "obtenu": "{\"code\": \"TECHNIQUE\", \"statut\": \"REJETEE\", \"message\": \"Opération refusée par le serveur (erreur technique). Communiquez le code 004db413d5 à votre Unit Head.\", \"diagnostic\": \"004db413d5\", \"idempotency_key\": \"5cccbcc8-92a4-49d1-a910-e1be171dda2c\", \"recu_serveur_le\": \"2026-11-13T17:28:07.535729+00:00\"",
+   "obtenu": "{\"code\": \"TECHNIQUE\", \"statut\": \"REJETEE\", \"message\": \"Opération refusée par le serveur (erreur technique). Communiquez le code 6d622163d8 à votre Unit Head.\", \"diagnostic\": \"6d622163d8\", \"idempotency_key\": \"00d737fb-97aa-4e05-bc72-2091f100e4d1\", \"recu_serveur_le\": \"2026-11-13T17:43:33.654474+00:00\"",
    "resultat": "RÉUSSI"
   },
   {
@@ -1907,7 +1907,7 @@
    "compte": "bm",
    "action": "Graine de la seconde campagne (distincte de la première)",
    "attendu": "OK (\"deja_creee\": false)",
-   "obtenu": "OK : {\"graine\": \"382c2f75397cffdf7d71422fb2f49827fd5f1523b5a1c6f6efac5298350acc60\", \"deja_creee\": false, \"campaign_id\": \"09dc8128-9090-59e9-ae4a-c3d0ad55da9d\"}",
+   "obtenu": "OK : {\"graine\": \"e18da0cb2e35b754278236131d14fb8ddad1cc3a585b8c7c87e3efa33389a1ad\", \"deja_creee\": false, \"campaign_id\": \"09dc8128-9090-59e9-ae4a-c3d0ad55da9d\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1925,7 +1925,7 @@
    "compte": "uh_bro",
    "action": "Même parcelle installée dans une autre campagne : autorisé (panel par campagne)",
    "attendu": "OK",
-   "obtenu": "OK : {\"panel_id\": \"12faa1ca-ef2b-4486-9336-356a5f8dcaa6\", \"blocs_tires\": [1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
+   "obtenu": "OK : {\"panel_id\": \"18130104-021e-4ce4-8178-cb18823c8fed\", \"blocs_tires\": [1], \"row_version\": 1, \"statut_panel\": \"TIRAGE_VERROUILLE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1934,7 +1934,7 @@
    "compte": "uh_bro",
    "action": "Inventaire du bloc tiré (campagne 2)",
    "attendu": "OK (ACTIF)",
-   "obtenu": "OK : {\"arbres\": [{\"id\": \"c5bf13b5-4d15-8768-4b05-60671203390b\", \"code\": \"B1-004\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"ee59bcbf-9a07-c199-8fa8-b05d49613dbe\", \"code\": \"B1-007\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"b63ff38d-186d-d3bb-46c4-2f47f8c674ae\", \"code\": \"B1-012\", \"rang\": 3, \"role\": \"TI",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"c7058b40-1f0f-aa65-aaef-9d5573683c4b\", \"code\": \"B1-011\", \"rang\": 1, \"role\": \"TITULAIRE\"}, {\"id\": \"23d80783-fdfa-2540-f3f2-ddb3bd94eba2\", \"code\": \"B1-003\", \"rang\": 2, \"role\": \"TITULAIRE\"}, {\"id\": \"168833e1-0536-53f6-c6f4-d1af22c53f82\", \"code\": \"B1-007\", \"rang\": 3, \"role\": \"TI",
    "resultat": "RÉUSSI"
   },
   {
@@ -1952,7 +1952,7 @@
    "compte": "auh_bro",
    "action": "Visite soumise dans la campagne 2",
    "attendu": "ACCEPTEE (SOUMIS)",
-   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"2bcd38ac-6bc0-470d-9ab4-3443908629df\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"06c45440-9953-4860-9e46-8ffbc14433f2\", \"recu_serveur_le\": \"2026-11-13T17:28:07.938843+00:00\"}",
+   "obtenu": "{\"statut\": \"ACCEPTEE\", \"visite_id\": \"23f83d9d-6025-4d4b-bb87-7f7b6e5059db\", \"row_version\": 1, \"statut_visite\": \"SOUMIS\", \"idempotency_key\": \"34c48cdb-3ec3-4720-b751-4880c79a498c\", \"recu_serveur_le\": \"2026-11-13T17:43:34.083071+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1979,7 +1979,7 @@
    "compte": "bm",
    "action": "Affectation de validation sur la campagne 2",
    "attendu": "OK",
-   "obtenu": "OK : {\"affectation_id\": \"4560cfe1-467b-4b9a-93f3-3a6c2e3de64e\"}",
+   "obtenu": "OK : {\"affectation_id\": \"544dc7c3-6ede-4e43-b284-61b4c823ef1d\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1988,7 +1988,7 @@
    "compte": "zh1",
    "action": "Validation dans la campagne 2 avec l'affectation de la campagne 2 : acceptée",
    "attendu": "OK (VALIDE)",
-   "obtenu": "OK : {\"visite_id\": \"2bcd38ac-6bc0-470d-9ab4-3443908629df\", \"row_version\": 2, \"statut_visite\": \"VALIDE\"}",
+   "obtenu": "OK : {\"visite_id\": \"23f83d9d-6025-4d4b-bb87-7f7b6e5059db\", \"row_version\": 2, \"statut_visite\": \"VALIDE\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2006,7 +2006,7 @@
    "compte": "auh_bro",
    "action": "Campagne 2 fermée : nouvelle visite refusée",
    "attendu": "REJETEE (campagne)",
-   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La campagne n'est pas ouverte.\", \"idempotency_key\": \"0d2dc232-ebd5-4e6b-89bf-2a312e47f8be\", \"recu_serveur_le\": \"2026-11-13T17:28:08.258111+00:00\"}",
+   "obtenu": "{\"code\": \"PH002\", \"statut\": \"REJETEE\", \"message\": \"La campagne n'est pas ouverte.\", \"idempotency_key\": \"d327f772-071b-44f0-b85b-19908d8edac7\", \"recu_serveur_le\": \"2026-11-13T17:43:34.395831+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -2043,6 +2043,60 @@
    "action": "Collègues de collecte : rien hors rôles de collecte",
    "attendu": "0",
    "obtenu": "OK : 0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-21",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Clé d'opération légitime réutilisée avec un champ d'un autre cluster : refusée",
+   "attendu": "REJETEE",
+   "obtenu": "{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"f2322b1b-b8e5-42f8-8847-d09f1099e35a\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-22",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Nouvelle clé, installation sur un champ d'un autre cluster : refusée",
+   "attendu": "REJETEE",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Installation réservée aux agents du cluster BOTRO.\", \"idempotency_key\": \"443259db-f297-4871-ad06-af66b02f1af1\", \"recu_serveur_le\": \"2026-11-13T17:43:34.696879+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-23",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Aucun champ installé hors cluster après les deux tentatives",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-24",
+   "famille": "Synchronisation",
+   "compte": "auh_bro2",
+   "action": "Saisie hors ligne envoyée après désactivation du compte : refusée (accès coupé, opération conservée sur le téléphone)",
+   "attendu": "ERREUR (accès à l'observatoire refusé)",
+   "obtenu": "{\"statut\": \"ERREUR\", \"message\": \"Accès à l'Observatoire refusé.\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-25",
+   "famille": "Synchronisation",
+   "compte": "auh_bro2",
+   "action": "Saisie hors ligne envoyée après mutation de l'agent dans un autre cluster : refusée",
+   "attendu": "REJETEE",
+   "obtenu": "{\"code\": \"PH001\", \"statut\": \"REJETEE\", \"message\": \"Collecte réservée aux agents du cluster BROBO.\", \"idempotency_key\": \"12040128-2c06-42b3-8897-4f3d89d77e18\", \"recu_serveur_le\": \"2026-11-13T17:43:34.948417+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "SYN-26",
+   "famille": "Synchronisation",
+   "compte": "postgres (lecture)",
+   "action": "Aucune visite écrite par ces envois tardifs",
+   "attendu": "4",
+   "obtenu": "4",
    "resultat": "RÉUSSI"
   }
  ]

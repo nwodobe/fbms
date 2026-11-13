@@ -1,6 +1,6 @@
 # Observatoire agronomique AFLP 2027 — rapport de tests
 
-Dernière exécution serveur : 2026-11-13 17:29 ; navigateur : 2026-11-13T17:29 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
+Dernière exécution serveur : 2026-11-13 17:44 ; navigateur : 2026-11-13T17:45 (UTC). Environnement : PostgreSQL 16 **local** (réplique `tests/sql/replica` + compléments), Chromium + Playwright, données **100 % fictives**. Aucun test n'a touché Supabase.
 
 Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/executer_tests_observatoire.sh` puis `python3 tests/observatoire/generer_rapport.py`.
 
@@ -8,11 +8,11 @@ Commande : `PGHOST=127.0.0.1 PGPORT=54329 OBS_E2E=1 ./tests/observatoire/execute
 
 | Suite | Exécutés | Réussis | Échoués | Non exécutés |
 |---|---|---|---|---|
-| Serveur (RLS + RPC, rôle `authenticated`, JWT fictifs) | 223 | 223 | 0 | 0 |
+| Serveur (RLS + RPC, rôle `authenticated`, JWT fictifs) | 229 | 229 | 0 | 0 |
 | Non-régression SQL (empreinte de l'existant, retour arrière) | 8 | 8 | 0 | 0 |
 | Cœur métier JavaScript | 21 | 21 | 0 | 0 |
 | Navigateur de bout en bout (vrai Service Worker, mode avion) | 60 | 60 | 0 | 0 |
-| **Total module** | **312** | **312** | **0** | 0 |
+| **Total module** | **318** | **318** | **0** | 0 |
 
 Contrôles du dépôt : `verifier-html` 0 nouvel écart (3 historiques) ; `verifier-js` 0 nouvelle erreur (1 historique) ; `verifier-liens` 0 nouveau lien cassé (4 historiques) ; `verifier-pages` (toutes les pages × 3 largeurs) 0 nouveau problème (16 historiques).
 
@@ -29,10 +29,10 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-40 | auh_bro | Installation avant création de la graine de campagne : refusée | REFUS (Graine) | RÉUSSI |
 | ECH-41 | uh_bro | Graine de campagne créée par un Unit Head : refusé | REFUS (Branch Manager) | RÉUSSI |
 | ECH-42 | bm | Le Branch Manager crée la graine aléatoire de la campagne | OK ("deja_creee": false) | RÉUSSI |
-| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (5dd787a473f0c17ae19fa765d021f3d8cbeed25b688ce3c8907ad9a67e7994f6) | RÉUSSI |
+| ECH-43 | bm | Deuxième création : la graine existante est rendue, jamais remplacée | OK (4ceaf9d919987221d9c72b5c3ebda8c8566cd3542d5a1144e2736a3c4b1f1e5e) | RÉUSSI |
 | ECH-44 | postgres (superutilisateur) | Graine immuable, même pour le superutilisateur | REFUS | RÉUSSI |
 | ECH-01 | auh_bro | AUH installe le champ A (B=4, b=2) | OK | RÉUSSI |
-| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [4, 1] | RÉUSSI |
+| ECH-02 | auh_bro | Blocs tirés = recalcul indépendant sha256 | [1, 4] | RÉUSSI |
 | ECH-03 | postgres (lecture) | Tirage verrouillé, b fixé avant tirage | true/TIRAGE_VERROUILLE/true | RÉUSSI |
 | ECH-04 | auh_bro | Réinstallation identique : idempotente | OK (deja_installe) | RÉUSSI |
 | ECH-05 | auh_bro | Rejouer le tirage avec un autre b : refusé | REFUS (verrouillé) | RÉUSSI |
@@ -42,14 +42,14 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | ECH-09 | auh_bro | Liste de blocs incomplète : refusé | REFUS (exactement) | RÉUSSI |
 | ECH-10 | auh_bro | Campagne fermée : refusé | REFUS (ouverte) | RÉUSSI |
 | ECH-11 | bm | Village sans cluster AFLP : refusé | REFUS (cluster) | RÉUSSI |
-| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | 5dd787a473f0c17ae19fa765d021f3d8cbeed25b688ce3c8907ad9a67e7994f6:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
+| ECH-12 | postgres (lecture) | Journal du tirage : graine non choisie par l'agent (campagne:parcelle), b fixé avant | 4ceaf9d919987221d9c72b5c3ebda8c8566cd3542d5a1144e2736a3c4b1f1e5e:f93c1c6b-41d3-5015-9fcd-57d388d286c8:BLOCS/true/AFLP2027-OBS v0.9 | RÉUSSI |
 | ECH-13 | auh_bro | Inventaire d'un bloc non tiré : refusé | REFUS (pas été tiré) | RÉUSSI |
 | ECH-14 | auh_bro | Inventaire bloc tiré 1 (N=7) | OK (TIRAGE_VERROUILLE) | RÉUSSI |
 | ECH-15 | postgres (lecture) | Aucun arbre tiré tant qu'un bloc tiré n'est pas inventorié | 0 | RÉUSSI |
 | ECH-16 | uh_bro | Inventaire bloc tiré 2 (N=9) : le champ devient actif | OK (ACTIF) | RÉUSSI |
 | ECH-17 | postgres (lecture) | 10 titulaires et 2 réserves | 10/2/12 | RÉUSSI |
-| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 2,4,1,5,7,3 | RÉUSSI |
-| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | 74db2b85-116c-bec9-8fec-684c84a6ea49 | RÉUSSI |
+| ECH-18 | postgres (lecture) | Arbres du bloc 1 = recalcul indépendant (5 titulaires puis 1 réserve) | 6,3,5,4,2,1 | RÉUSSI |
+| ECH-19 | postgres (lecture) | Identifiant d'arbre déterministe (calculable hors ligne) | d9b12003-1bc8-5364-4f8a-eb4e1c1c674d | RÉUSSI |
 | ECH-20 | postgres (lecture) | Probabilité d'inclusion (2/4)×(5/7) = 0,357 | 0.357 | RÉUSSI |
 | ECH-21 | postgres (lecture) | Réserve : en attente, sans probabilité | RESERVE_EN_ATTENTE/null | RÉUSSI |
 | ECH-22 | auh_bro | Modifier un inventaire enregistré : refusé | REFUS (ne peut plus être modifié) | RÉUSSI |
@@ -90,7 +90,7 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | OBS-13 | postgres (lecture) | Trois dates conservées : observation, saisie, réception serveur | true/true | RÉUSSI |
 | OBS-14 | postgres (lecture) | Arbre non retrouvé : aucun stade enregistré | vide/vide | RÉUSSI |
 
-### Synchronisation (20/20)
+### Synchronisation (26/26)
 
 | Id | Compte | Action | Attendu | Résultat |
 |---|---|---|---|---|
@@ -114,6 +114,12 @@ Tests existants rejoués : `offline-field-static`, `operations-suite-static`, `f
 | SYN-18 | auh_bro | Installation hors ligne synchronisée par lot | ACCEPTEE (blocs_tires) | RÉUSSI |
 | SYN-19 | uh_bro | Deux envois simultanés de la même opération : les deux reçoivent un accusé « acceptée » | ACCEPTEE ×2 dont 1 rejouée | RÉUSSI |
 | SYN-20 | postgres (lecture) | Envois simultanés : une seule visite, aucune erreur de doublon | 1 | RÉUSSI |
+| SYN-21 | auh_bro | Clé d'opération légitime réutilisée avec un champ d'un autre cluster : refusée | REJETEE | RÉUSSI |
+| SYN-22 | auh_bro | Nouvelle clé, installation sur un champ d'un autre cluster : refusée | REJETEE | RÉUSSI |
+| SYN-23 | postgres (lecture) | Aucun champ installé hors cluster après les deux tentatives | 1 | RÉUSSI |
+| SYN-24 | auh_bro2 | Saisie hors ligne envoyée après désactivation du compte : refusée (accès coupé, opération conservée sur le téléphone) | ERREUR (accès à l'observatoire refusé) | RÉUSSI |
+| SYN-25 | auh_bro2 | Saisie hors ligne envoyée après mutation de l'agent dans un autre cluster : refusée | REJETEE | RÉUSSI |
+| SYN-26 | postgres (lecture) | Aucune visite écrite par ces envois tardifs | 4 | RÉUSSI |
 
 ### Validation (40/40)
 

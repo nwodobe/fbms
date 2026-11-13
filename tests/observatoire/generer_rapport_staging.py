@@ -16,12 +16,12 @@ L = ["# Observatoire AFLP 2027 — tests rejoués sur le staging fidèle\n",
  f"| Non-régression SQL | {nr['reussis']+nr['echoues']} | {nr['reussis']} | {nr['echoues']} |",
  f"| Cœur JavaScript | {c['total']} | {c['reussis']} | {c['echoues']} |",
  f"| Navigateur de bout en bout (Service Worker réel, hors ligne, reprise de file) | {n['total']} | {n['reussis']} | {n['echoues']} |\n",
- "Mêmes suites rejouées sur la réplique historique : résultats identiques (223 / 8 / 21 / 60, 0 échec).\n",
+ f"Mêmes suites rejouées sur la réplique historique : résultats identiques ({s['total']} / 8 / 21 / 60, 0 échec). Manifeste des 170 objets : `MANIFESTE_STAGING_170.md`.\n",
  "## Droits par campagne\n\n| Id | Compte | Action | Attendu | Résultat |\n|---|---|---|---|---|"]
 L += [f"| {t['id']} | {t['compte']} | {t['action'].replace('|','/')} | {t['attendu'].replace('|','/')} | {t['resultat']} |" for t in cmp_]
-L += ["\n## Contrôle séparé du bucket existant « photos »\n", "Voir `ANOMALIE_BUCKET_PHOTOS.md`.\n", "| Id | Compte | Action | Obtenu |\n|---|---|---|---|"]
+L += ["\n## Contrôle séparé du bucket existant « photos »\n", "Voir `ANOMALIE_BUCKET_PHOTOS.md` (comparaison avant / après correctif proposé).\n", "| Id | Compte | Action | Obtenu |\n|---|---|---|---|"]
 L += [f"| {t['id']} | {t['compte']} | {t['action']} | {t['obtenu']} |" for t in ph]
-L += ["\n## Non exécuté\n", "- Aucun test sur l'API HTTP réelle de Supabase (PostgREST, Storage, Auth) : à faire juste après migration, liste de contrôle dans la demande de mise en production.", "- Aucun test sur téléphone Android réel ni de charge."]
+L += ["\n## Non exécuté\n", "- Aucun test sur l'API HTTP réelle de Supabase (PostgREST, Storage, Auth) : script prêt (`tests/observatoire/recette_http.mjs`, 18 contrôles), NON EXÉCUTÉ faute de projet Supabase isolé.", "- Aucun test sur téléphone Android réel ni de charge."]
 open(os.path.join(D, 'RAPPORT_TESTS_STAGING.md'), 'w', encoding='utf-8').write("\n".join(L) + "\n")
 rows = [l.split('|') for l in open(os.path.join(R, 'audit_fonctions_pheno.txt'), encoding='utf-8').read().strip().splitlines()]
 de = [r for r in rows if r[1] == 'DEFINER']; exp = [r for r in de if r[5] == 'OUI']

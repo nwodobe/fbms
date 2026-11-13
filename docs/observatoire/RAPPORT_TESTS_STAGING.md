@@ -1,6 +1,6 @@
 # Observatoire AFLP 2027 — tests rejoués sur le staging fidèle
 
-Exécution serveur : 2026-11-13 17:28 UTC ; navigateur : 2026-11-13T17:28 UTC. Base : PostgreSQL 16 local `fbms_pheno_staging`, construite par `tests/observatoire/staging/construire_staging.sh` à partir du catalogue de PRODUCTION extrait en lecture seule (projet jmbdgpdthzpszfnddwzi, PostgreSQL 17.6). Données 100 % fictives ; aucune donnée personnelle recopiée.
+Exécution serveur : 2026-11-13 17:43 UTC ; navigateur : 2026-11-13T17:44 UTC. Base : PostgreSQL 16 local `fbms_pheno_staging`, construite par `tests/observatoire/staging/construire_staging.sh` à partir du catalogue de PRODUCTION extrait en lecture seule (projet jmbdgpdthzpszfnddwzi, PostgreSQL 17.6). Données 100 % fictives ; aucune donnée personnelle recopiée.
 
 ## Fidélité du staging
 
@@ -11,13 +11,13 @@ Exécution serveur : 2026-11-13 17:28 UTC ; navigateur : 2026-11-13T17:28 UTC. B
 
 | Suite | Exécutés | Réussis | Échoués |
 |---|---|---|---|
-| Serveur (RLS, RPC SECURITY DEFINER, preuves photo, synchronisation, droits par campagne) | 223 | 223 | 0 |
+| Serveur (RLS, RPC SECURITY DEFINER, preuves photo, synchronisation, droits par campagne) | 229 | 229 | 0 |
 | dont droits par campagne (CMP-01 à CMP-13) | 13 | 13 | 0 |
 | Non-régression SQL | 8 | 8 | 0 |
 | Cœur JavaScript | 21 | 21 | 0 |
 | Navigateur de bout en bout (Service Worker réel, hors ligne, reprise de file) | 60 | 60 | 0 |
 
-Mêmes suites rejouées sur la réplique historique : résultats identiques (223 / 8 / 21 / 60, 0 échec).
+Mêmes suites rejouées sur la réplique historique : résultats identiques (229 / 8 / 21 / 60, 0 échec). Manifeste des 170 objets : `MANIFESTE_STAGING_170.md`.
 
 ## Droits par campagne
 
@@ -39,7 +39,7 @@ Mêmes suites rejouées sur la réplique historique : résultats identiques (223
 
 ## Contrôle séparé du bucket existant « photos »
 
-Voir `ANOMALIE_BUCKET_PHOTOS.md`.
+Voir `ANOMALIE_BUCKET_PHOTOS.md` (comparaison avant / après correctif proposé).
 
 | Id | Compte | Action | Obtenu |
 |---|---|---|---|
@@ -50,11 +50,15 @@ Voir `ANOMALIE_BUCKET_PHOTOS.md`.
 | PH-05 | uh_bot | Un Unit Head d'un autre cluster REMPLACE le portrait du chef | AUTORISÉ |
 | PH-06 | inactif | Un compte DÉSACTIVÉ (session encore valide) dépose un fichier | AUTORISÉ |
 | PH-07 | sans_profil | Un compte connecté SANS profil FBMS lit le bucket | AUTORISÉ |
+| PH-11 | bm | Le Branch Manager lit le portrait (contrôle positif) | AUTORISÉ |
+| PH-12 | uh_bro | Le Unit Head du cluster du village lit le portrait (contrôle positif) | AUTORISÉ |
+| PH-13 | uh_bro | Le Unit Head du cluster du village dépose une photo (contrôle positif) | AUTORISÉ |
+| PH-14 | bm | Le Branch Manager remplace une photo (contrôle positif) | AUTORISÉ |
 | PH-08 | rt | Un RT SUPPRIME le portrait du chef d'un village quelconque | AUTORISÉ |
 | PH-09 | None | Un visiteur non connecté (anon) lit via la base | REFUSÉ |
 | PH-10 | configuration | Bucket public (URL lisible sans connexion par l'API Storage) ; limite de taille ; types admis | true|aucune|tous |
 
 ## Non exécuté
 
-- Aucun test sur l'API HTTP réelle de Supabase (PostgREST, Storage, Auth) : à faire juste après migration, liste de contrôle dans la demande de mise en production.
+- Aucun test sur l'API HTTP réelle de Supabase (PostgREST, Storage, Auth) : script prêt (`tests/observatoire/recette_http.mjs`, 18 contrôles), NON EXÉCUTÉ faute de projet Supabase isolé.
 - Aucun test sur téléphone Android réel ni de charge.

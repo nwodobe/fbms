@@ -1,5 +1,5 @@
 {
- "date": "2026-11-13T17:29:50.036Z",
+ "date": "2026-11-13T17:45:16.431Z",
  "base": "fbms_pheno_e2e",
  "total": 60,
  "reussis": 60,
@@ -164,7 +164,7 @@
    "famille": "Synchronisation",
    "libelle": "Serveur : mêmes arbres (identifiants et codes) que ceux tirés hors ligne",
    "resultat": "RÉUSSI",
-   "detail": "attendu \"18a5a0d6-2e9a-e960-cd8a-cc8ad39ab4af:B3-001,26a9d985-1fe2-d9f7-33f6-b87f76c1c297:B3-002,32a41737-d616-c177-67f0-db04163df2ed:B3-007,3c2ff215-d80e-a4f4-3503-950e95d574fb:B4-008,502b3554-31e2-5fbe-398a-3aa74781d47a:B3-004,5510a366-ce0a-d4b7-646c-70cc4b1ece33:B3-005,59aa03b8-3c46-7ee8-e4ba-daf"
+   "detail": "attendu \"08fb55dc-36ae-33c4-72d9-fa611bbcd16f:B4-001,1ba056a7-369b-4712-5316-250a37d248f4:B3-001,2c95ddf4-2455-db0d-c733-71f20ef96f52:B4-007,339eb00c-f6ca-9a76-5ec8-b80effb8bafb:B4-008,687b1f97-0c99-62f9-333c-adb5012af854:B4-006,77dd6193-0cc7-eaf2-7bb2-11f36a332471:B3-007,86165a54-a42c-f79b-d9ce-9f3"
   },
   {
    "id": "E2E-24",
