@@ -172,8 +172,6 @@ function render(){
        if(fleetLinks.length)fleetBlock+='<div class="fbms-v22-context">'+fleetLinks.join('')+'</div>';
      }
    }
-   var beforePurchases=links.indexOf('<a class="fbms-v22-main',links.indexOf('href="'+esc(hrefInApp('field-buying.html#sustainability'))+'"'));
-   // Append after standard spaces if route lookup isn't stable; still one main menu.
    links+=fleetBlock;
  }
  host.classList.add('fbms-v22-side');
