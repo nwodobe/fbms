@@ -114,7 +114,10 @@ function render(){
   var topLabel=(en?s.en:s.fr);
   var block='<a class="fbms-v22-main'+(isActive?' active':'')+'" href="'+esc(hrefInApp(top))+'"'+(isActive?' aria-current="page"':'')+'>'+
     '<span aria-hidden="true" class="fbms-v22-icon">'+s.icon+'</span>'+esc(topLabel)+'</a>';
-  if(isActive){
+  // The landing page is the workspace: do not show the subordinate
+  // Accueil / Missions & carburant / Preuves terrain bar beneath Ma journée.
+  // These actions remain accessible through the Ma journée quick links.
+  if(isActive && s.id!=='E0'){
    block+='<div class="fbms-v22-context">';
    s.items.forEach(function(x){
     if(x[3]==='document'&&r==='RO')return;
