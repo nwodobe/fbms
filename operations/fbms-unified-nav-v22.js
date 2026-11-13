@@ -108,7 +108,7 @@ function render(){
  if(!ROLE[r].includes(active))active='E0';
  var header='<div class="fbms-v22-logo"><span class="fbms-v22-mark" aria-hidden="true">P</span><span><strong>FBMS</strong><small>ANAGROCI · AFLP 2027</small></span></div>';
  var links=MENU.filter(function(s){return ROLE[r].includes(s.id)}).map(function(s){
-  var isActive=s.id===active;
+  var isActive=s.id===active && !(/\/moto\//.test(global.location.pathname) && s.id==='E0');
   var target=s.items[0][2];
   var top=s.id==='E0'?'../index.html':target;
   var topLabel=(en?s.en:s.fr);
@@ -150,15 +150,31 @@ function render(){
   }
   return block;
  }).join('');
- // AFLP FLEET is a full transverse module, not a hidden Ma journée submenu.
- // Display one prominent direct entry in the existing shared navigation.
+ // Fleet is a first-class transversal module, independent from the home submenu.
+ // Keep the old Fleet route controller, but show its links inside the unified menu.
  var fleetUsers=['BM','ABM','ZH','UH','AUH','LOG'];
  if(fleetUsers.includes(r)){
    var fleetActive=/\/moto\//.test(global.location.pathname);
-   links+='<a class="fbms-v22-main fbms-v22-fleet'+(fleetActive?' active':'')+
+   var fleetBlock='<a class="fbms-v22-main fbms-v22-fleet'+(fleetActive?' active':'')+
      '" href="'+esc(hrefInApp('../moto/index.html'))+'"'+
      (fleetActive?' aria-current="page"':'')+
      '><span class="fbms-v22-icon" aria-hidden="true">▤</span>AFLP FLEET</a>';
+   if(fleetActive){
+     var nativeFleet=document.getElementById('motoNav');
+     if(nativeFleet){
+       var fleetLinks=[];
+       Array.prototype.forEach.call(nativeFleet.querySelectorAll('a[href^="#"]'),function(a){
+         var hash=a.getAttribute('href');
+         fleetLinks.push('<a class="fbms-v22-action'+(hash===global.location.hash?' selected':'')+
+           '" href="'+esc(global.location.pathname+hash)+'">'+
+           esc(a.textContent.replace(/\s+/g,' ').trim())+'</a>');
+       });
+       if(fleetLinks.length)fleetBlock+='<div class="fbms-v22-context">'+fleetLinks.join('')+'</div>';
+     }
+   }
+   var beforePurchases=links.indexOf('<a class="fbms-v22-main',links.indexOf('href="'+esc(hrefInApp('field-buying.html#sustainability'))+'"'));
+   // Append after standard spaces if route lookup isn't stable; still one main menu.
+   links+=fleetBlock;
  }
  host.classList.add('fbms-v22-side');
  host.innerHTML=header+'<nav class="fbms-v22-navigation" aria-label="'+(en?'FBMS navigation':'Navigation unique FBMS')+'">'+links+'</nav>'+
