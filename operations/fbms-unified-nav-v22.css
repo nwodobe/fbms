@@ -147,3 +147,10 @@ body.fbms-v22-open #fbmsMenuVeil{display:block!important}
 @media(prefers-reduced-motion:reduce){
   #opsSidebar.fbms-v22-side{transition:none!important}
 }
+
+/* No persistent column even before the navigation controller finishes rendering. */
+body.fbms-v22 #opsSidebar:not(.fbms-v22-side){
+  position:fixed!important;left:0;top:0;bottom:0;
+  width:min(330px,86vw);height:100dvh;
+  visibility:hidden!important;pointer-events:none!important;
+}
