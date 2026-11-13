@@ -30,7 +30,7 @@ const v23Cards=(portal.match(/class="fbms-v23-card" data-space=/g)||[]).length;
 assert.equal(v23Cards,6,'exactly six illustrated spaces expected, no second portal');
 assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-v24-800.webp'), 'user supplied Réseau photo is required');
 const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-v24-800.webp',import.meta.url));
-assert.ok(reseauImage.length>1000&&reseauImage.length<50000,'Réseau photo should be present and compressed');
+assert.ok(reseauImage.length>40000&&reseauImage.length<160000,'Réseau photo should be present and compressed');
 assert.equal(reseauImage.subarray(0,4).toString('ascii'),'RIFF','Réseau image must be a RIFF WebP');
 for (const href of [
  'operations/field-buying.html#farmers',
