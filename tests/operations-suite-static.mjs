@@ -4,6 +4,32 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const portal = read('index.html');
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
+
+/* FBMS V2.3 – visual shortcuts without a second shell or a portal gallery. */
+assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missing');
+assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
+for (const id of ['E0','E1','E2','E3','E4','E5']) {
+ assert.ok(portal.includes('class="fbms-v23-card" data-space="'+id+'"'), 'illustrated space missing: '+id);
+}
+const v23Cards=(portal.match(/class="fbms-v23-card" data-space=/g)||[]).length;
+assert.equal(v23Cards,6,'exactly six illustrated spaces expected, no second portal');
+assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-20261113.webp'), 'user supplied Réseau photo is required');
+const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-20261113.webp',import.meta.url));
+assert.ok(reseauImage.length>1000&&reseauImage.length<50000,'Réseau photo should be present and compressed');
+assert.equal(reseauImage.subarray(0,4).toString('ascii'),'RIFF','Réseau image must be a RIFF WebP');
+for (const href of [
+ 'operations/field-buying.html#farmers',
+ 'operations/field-buying.html#sustainability',
+ 'operations/field-buying.html#purchases',
+ 'operations/procurement.html#evacuations',
+ 'operations/field-buying.html#overview'
+]) assert.ok(portal.includes('href="'+href+'"'), 'space must directly open an existing function: '+href);
+assert.ok(portal.includes('fbms-unified-nav-v22.js'),'V2.3 must preserve the one menu shared with operations');
+assert.ok(!portal.includes('operations/espaces.html#'),'V2.3 must not recreate an intermediate portal');
+for(const visual of ['moto-manager.webp','field-proof.webp','field-buying.webp','stock-transfer.webp','reports.webp']) {
+ assert.ok(fs.existsSync(new URL('../assets/operations/modules/'+visual,import.meta.url)),'image missing: '+visual);
+}
+
 /* FBMS V2.2 – single navigation: Ma journée is the root, not a card gallery.
    All existing routes remain reachable through a canonical shared sidebar. */
 assert.ok(portal.includes('Ma journée'), 'FBMS entry must open Ma journée');
