@@ -1174,6 +1174,54 @@ const RemotePhotos = {
   },
 };
 
+/** Photos privées (correctif sécurité du bucket « photos ») : les fiches gardent
+    l'URL publique historique ; à l'affichage, on lui substitue une URL signée
+    temporaire (1 h) obtenue avec la session de l'utilisateur. Tant que le bucket
+    est public, l'URL d'origine reste un repli valable : déploiement sans rupture. */
+const PhotoSigner = {
+  MARQUE: "/storage/v1/object/public/photos/",
+  cache: new Map(), enCours: false,
+  chemin(u){
+    const s = String(u || ""); const i = s.indexOf(this.MARQUE);
+    if (i < 0) return null;
+    try { return decodeURIComponent(s.slice(i + this.MARQUE.length).split("?")[0]); } catch(e){ return null; }
+  },
+  src(u){
+    const p = this.chemin(u); if (!p) return u;
+    const c = this.cache.get(p);
+    return (c && c.exp > Date.now()) ? c.url : u;
+  },
+  async prefetch(villages){
+    if (this.enCours || !isSupabase() || !AUTH.isConnected()) return false;
+    const manquants = [];
+    for (const v of (villages || [])){
+      if (!v || !v.photos) continue;
+      for (const k of Object.keys(v.photos)){
+        const p = this.chemin(v.photos[k]); const c = p && this.cache.get(p);
+        if (p && (!c || c.exp <= Date.now()) && manquants.indexOf(p) < 0) manquants.push(p);
+      }
+    }
+    if (!manquants.length) return false;
+    this.enCours = true; let ajout = false;
+    try {
+      initSupabase();
+      for (let i = 0; i < manquants.length; i += 100){
+        const { data, error } = await SB.storage.from("photos").createSignedUrls(manquants.slice(i, i + 100), 3600);
+        if (error || !data) continue;
+        for (const d of data){ if (d && d.signedUrl && d.path){ this.cache.set(d.path, { url: d.signedUrl, exp: Date.now() + 50 * 60 * 1000 }); ajout = true; } }
+      }
+    } catch(e){ console.warn("[FBMS] URL signées des photos indisponibles :", e.message); }
+    finally { this.enCours = false; }
+    return ajout;
+  },
+  planifier(){
+    this.prefetch(STATE.villages).then(ajout => {
+      if (!ajout) return;
+      try { renderContent(); if (STATE.drawerId) renderDrawer(); } catch(e){}
+    });
+  },
+};
+
 /** API distante utilisateurs — réservée au Branch Manager. v0.15 : la table
     profils (Supabase) porte nom/rôle/actif ; la CRÉATION du compte (email +
     mot de passe) se fait dans le tableau de bord Supabase (Authentication),
@@ -2269,6 +2317,7 @@ function collectFormData(baseRecord){
    ========================================================================== */
 function renderContent(){
   const el = document.getElementById("content");
+  PhotoSigner.planifier();
   if (STATE.active==="dashboard"){ el.innerHTML = DashboardView(); mountDashboardCharts(); }
   else if (STATE.active==="database"){ el.innerHTML = DatabaseView(); }
   // v0.13 : rubrique "Décision BM" retirée à la demande de la direction —
@@ -3581,7 +3630,7 @@ function GalleryView(){
     PHOTO_SLOTS.forEach(([k,label])=>{
       const has = hasPhotoSrc(v.photos[k]); // Étape 3 : base64 local OU URL Drive
       if (has){
-        html += '<div onclick="openPhotoViewer(\''+v.photos[k]+'\')" class="aspect-square rounded-lg cursor-zoom-in" style="background-image:url(\''+v.photos[k]+'\');background-size:cover;background-position:center;border:1px solid '+T.line+'" title="'+esc(label)+'"></div>';
+        html += '<div onclick="openPhotoViewer(\''+PhotoSigner.src(v.photos[k])+'\')" class="aspect-square rounded-lg cursor-zoom-in" style="background-image:url(\''+PhotoSigner.src(v.photos[k])+'\');background-size:cover;background-position:center;border:1px solid '+T.line+'" title="'+esc(label)+'"></div>';
       } else {
         html += '<div class="aspect-square rounded-lg flex flex-col items-center justify-center gap-1" style="background-color:'+T.cream+';border:1px solid '+T.line+'">'
           + icon('camera','w-4 h-4') + '<span class="ff-body text-[9px] text-center px-1 leading-tight" style="color:'+T.inkSoft+'">'+t(label)+'</span></div>';
@@ -4548,7 +4597,7 @@ function removeAcheteur(i){ const arr = readAcheteursFromDom(); arr.splice(i,1);
 
 function photoTileHTML(slot, label, dataUri){
   const has = hasPhotoSrc(dataUri); // Étape 3 : base64 local OU URL Drive
-  const bg = has ? "background-color:#00000000;border:1.5px dashed "+T.emerald+";background-image:url('"+dataUri+"');background-size:cover;background-position:center;" : "background-color:"+T.cream+";border:1.5px dashed "+T.line+";";
+  const bg = has ? "background-color:#00000000;border:1.5px dashed "+T.emerald+";background-image:url('"+PhotoSigner.src(dataUri)+"');background-size:cover;background-position:center;" : "background-color:"+T.cream+";border:1.5px dashed "+T.line+";";
   let inner = '<div id="photoWrap_'+slot+'" class="relative">';
   inner += '<input type="file" accept="image/*" id="photoInput_'+slot+'" class="hidden" onchange="handlePhotoUpload(this,\''+slot+'\',\''+esc(label)+'\')">';
   inner += '<input type="hidden" data-path="photos.'+slot+'" id="photoData_'+slot+'" value="'+esc(dataUri||"")+'">';
@@ -5064,7 +5113,7 @@ function openVillageReport(id){
   if (slotsAvecPhoto.length){
     html += '<div style="margin-bottom:14px"><div class="ff-body" style="font-size:11px;font-weight:700;color:'+T.forest700+';margin-bottom:4px">'+t('Photos')+' ('+slotsAvecPhoto.length+'/6)</div>'
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
-      + slotsAvecPhoto.map(([k,label])=>'<div><img src="'+v.photos[k]+'" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid '+T.line+'"/><div class="ff-body" style="font-size:9px;color:#7A7878;text-align:center;margin-top:2px">'+t(label)+'</div></div>').join('')
+      + slotsAvecPhoto.map(([k,label])=>'<div><img src="'+PhotoSigner.src(v.photos[k])+'" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid '+T.line+'"/><div class="ff-body" style="font-size:9px;color:#7A7878;text-align:center;margin-top:2px">'+t(label)+'</div></div>').join('')
       + '</div></div>';
   }
   // Décision + signature
@@ -5143,7 +5192,7 @@ function renderDrawer(){
   html += '<div class="rounded-xl p-4" style="background:#fff;border:1px solid '+T.line+'"><h3 class="ff-body text-sm font-bold mb-2" style="color:'+T.ink+'">'+t('Photos')+'</h3><div class="grid grid-cols-6 gap-2">';
   PHOTO_SLOTS.forEach(([k,label])=>{
     const has = hasPhotoSrc(v.photos[k]); // Étape 3 : base64 local OU URL Drive
-    if (has) html += '<div onclick="openPhotoViewer(\''+v.photos[k]+'\')" class="aspect-square rounded-md cursor-zoom-in" style="background-image:url(\''+v.photos[k]+'\');background-size:cover;background-position:center;border:1px solid '+T.line+'" title="'+esc(label)+'"></div>';
+    if (has) html += '<div onclick="openPhotoViewer(\''+PhotoSigner.src(v.photos[k])+'\')" class="aspect-square rounded-md cursor-zoom-in" style="background-image:url(\''+PhotoSigner.src(v.photos[k])+'\');background-size:cover;background-position:center;border:1px solid '+T.line+'" title="'+esc(label)+'"></div>';
     else html += '<div class="aspect-square rounded-md flex items-center justify-center" style="background-color:'+T.cream+';border:1px solid '+T.line+'">'+icon('camera','w-3.5 h-3.5')+'</div>';
   });
   html += '</div></div>';

@@ -4611,9 +4611,26 @@ function addVillagePhoto(villageId) {
     });
   });
 }
+/* Correctif sécurité du bucket « photos » : URL signée temporaire (1 h) dès qu'elle
+   est disponible ; l'URL publique historique reste un repli tant que le bucket est
+   public, ce qui permet de livrer ce code AVANT de rendre le bucket privé. */
+var PHOTOS_SIGNEES = {};
 function villagePhotoUrl(path) {
-  /* Le bucket photos est public : URL directe, comme historiquement. */
+  var c = PHOTOS_SIGNEES[path];
+  if (c && c.exp > Date.now()) return c.url;
   return (global.ANAGROCI_SUPABASE_URL || '') + '/storage/v1/object/public/' + BUCKET_PHOTOS + '/' + path;
+}
+function signerPhotosGalerie(paths, apres) {
+  var manquants = (paths || []).filter(function (p) { var c = PHOTOS_SIGNEES[p]; return p && (!c || c.exp <= Date.now()); });
+  if (!manquants.length) return;
+  client().then(function (c) { return c ? c.storage.from(BUCKET_PHOTOS).createSignedUrls(manquants, 3600) : null; })
+    .then(function (r) {
+      if (!r || r.error || !r.data) return;
+      var ajout = false;
+      r.data.forEach(function (d) { if (d && d.signedUrl && d.path) { PHOTOS_SIGNEES[d.path] = { url: d.signedUrl, exp: Date.now() + 50 * 60 * 1000 }; ajout = true; } });
+      if (ajout && apres) apres();
+    })
+    .catch(function () { /* repli silencieux : URL d'origine */ });
 }
 function archiveVillagePhoto(villageId, index) {
   if (!canEditTerrain()) return;
@@ -5018,6 +5035,9 @@ function renderVillageFiche(vid, tab) {
             '<td>' + date(f.last_purchase_date) + '</td></tr>';
         })) + '</section>';
     } else if (tab === 'galerie') {
+      signerPhotosGalerie(galerie.map(function (g) { return g.path; }), function () {
+        if (String(global.location && global.location.hash || '').indexOf('/galerie') >= 0) renderVillageFiche(vid, 'galerie');
+      });
       body = '<div class="notice info">Photos de recensement — recommandées, jamais bloquantes. ' +
         'Prise directe à l’appareil photo sur mobile.</div>' +
         (canEditTerrain() && villageInScope(v) ? '<div class="ops-actions" style="margin-bottom:12px">' +
