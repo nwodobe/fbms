@@ -198,8 +198,10 @@
         return pages(function () { return sb.from('pheno_observations').select('*').in('visite_id', ouvertes).order('id'); }).then(function (o) { res.obs = o; });
       });
     }).then(function () {
-      /* Parcelles installables : une seule RPC, filtrée par le serveur sur le périmètre de l'agent. */
-      return sb.rpc('pheno_parcelles_disponibles', { p_campaign: campaignId }).then(function (x) { if (x.error) throw new Error(x.error.message); return x.data || []; }).catch(function () { return null; });
+      /* Parcelles installables : RPC filtrée par le serveur sur le périmètre de l'agent.
+         Lue par pages de 1000 : le serveur plafonne chaque réponse à 1000 lignes
+         (le Branch Manager voit tout le registre, plus de 1000 parcelles). */
+      return pages(function () { return sb.rpc('pheno_parcelles_disponibles', { p_campaign: campaignId }).order('plot_id'); }).catch(function () { return null; });
     }).then(function (rows) {
       if (!rows) { res.plots = null; return []; }
       var vil = {}, pro = {};

@@ -148,23 +148,64 @@ function vueInstaller() {
   if (!peutCollecter()) return vueRefus();
   return Promise.all([L.referentiel(), L.panels(camp && camp.id)]).then(function (r) {
     var ref = r[0], pris = {}; r[1].forEach(function (p) { pris[p.plot_id] = 1; }); (ref.plots || []).forEach(function (p) { if (p.deja_installee) pris[p.id] = 1; });
+    var pros = {}, vils = {};
+    (ref.producteurs || []).forEach(function (x) { pros[x.id] = x; });
+    (ref.villages || []).forEach(function (x) { vils[x.id] = x; });
     var options = (ref.plots || []).filter(function (p) { return !pris[p.id]; }).map(function (p) {
-      var pr = (ref.producteurs || []).filter(function (x) { return x.id === p.producteur_id; })[0] || {}, vi = (ref.villages || []).filter(function (x) { return x.id === p.village_id; })[0] || {};
+      var pr = pros[p.producteur_id] || {}, vi = vils[p.village_id] || {};
       /* La liste vient du serveur (pheno_parcelles_disponibles) : seules les parcelles de son périmètre y figurent. */
-      return { id: p.id, txt: (pr.nom || 'Producteur') + ' — ' + (p.local_name || 'Parcelle') + ' — ' + (vi.village || '') + (p.tree_count ? ' (' + p.tree_count + ' arbres déclarés)' : '') };
+      var txt = (pr.nom || 'Producteur') + (pr.code ? ' (' + pr.code + ')' : '') + ' — ' + (p.local_name || 'Parcelle') + ' — ' + (vi.village || '') + (p.tree_count ? ' (' + p.tree_count + ' arbres déclarés)' : '');
+      return { id: p.id, txt: txt, cl: vi.cluster_code || '', vil: p.village_id || '', vilNom: vi.village || '', q: sansAccent(txt) };
     }).sort(function (a, b) { return a.txt.localeCompare(b.txt); });
+    etat.parcellesInstall = options;
+    var clusters = {}; options.forEach(function (o) { if (o.cl) clusters[o.cl] = (clusters[o.cl] || 0) + 1; });
+    var listeClusters = Object.keys(clusters).sort();
     peindre(entete('Installation d’un champ : blocs, tirage, verrouillage.', '', '<a class="btn secondary" href="#observatoire">Retour</a>') +
       (camp ? '' : note('Aucune campagne sélectionnée.', 'warn')) +
       (options.length ? '' : note('Aucune parcelle disponible sur cet appareil. Revenez à « Mes champs » et touchez « Préparer le hors-ligne » avec du réseau. La parcelle doit exister dans le registre des producteurs.', 'warn')) +
       '<form id="obsInstall" class="card obs-form" autocomplete="off">' +
-      '<div class="field"><label for="obsPlot">1. Parcelle du registre producteurs</label><select id="obsPlot" required><option value="">— Choisir —</option>' + options.map(function (o) { return '<option value="' + esc(o.id) + '">' + esc(o.txt) + '</option>'; }).join('') + '</select></div>' +
+      (options.length ? '<fieldset class="obs-filtres"><legend>Trouver la parcelle</legend><div class="obs-duo">' +
+        (listeClusters.length > 1 ? '<div class="field"><label for="obsFiltreCluster">Cluster</label><select id="obsFiltreCluster"><option value="">Tous les clusters</option>' +
+          listeClusters.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + ' (' + clusters[c] + ')</option>'; }).join('') + '</select></div>' : '') +
+        '<div class="field"><label for="obsFiltreVillage">Village</label><select id="obsFiltreVillage">' + optionsVillages('') + '</select></div></div>' +
+        '<div class="field"><label for="obsFiltreTexte">Producteur (nom ou code)</label><input id="obsFiltreTexte" type="search" inputmode="search" maxlength="80" placeholder="Ex. Kouakou ou SAK-0012"></div>' +
+        '<p class="obs-info" id="obsFiltreCompte" aria-live="polite"></p></fieldset>' : '') +
+      '<div class="field"><label for="obsPlot">1. Parcelle du registre producteurs</label><select id="obsPlot" required>' + optionsParcelles(options) + '</select></div>' +
       '<div class="obs-duo"><div class="field"><label for="obsB">2. Nombre total de blocs du champ (B)</label><input id="obsB" type="number" inputmode="numeric" min="1" max="60" required></div>' +
       '<div class="field"><label for="obsb">3. Nombre de blocs à tirer (b)</label><input id="obsb" type="number" inputmode="numeric" min="1" max="10" required></div></div>' +
       '<p class="obs-info">Découpez le champ en blocs qui ne se chevauchent pas, délimités par des repères visibles (piste, termitière, gros arbre, borne). <b>b est fixé avant le tirage et ne pourra plus être changé.</b></p>' +
       '<div id="obsReperes"></div><div id="obsInstallErr"></div>' +
       '<div class="obs-actions"><button type="submit" class="btn primary">Tirer les blocs et verrouiller</button></div></form>');
+    filtrerParcelles();
     barreEnvoi();
   });
+}
+/* Filtre de la liste des parcelles : cluster → village → nom ou code du producteur.
+   La liste est reconstruite (et non masquée) : masquer une <option> ne marche pas sur iPhone. */
+function sansAccent(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function optionsVillages(cluster) {
+  var vus = {}, l = [];
+  (etat.parcellesInstall || []).forEach(function (o) { if ((!cluster || o.cl === cluster) && o.vil && !vus[o.vil]) { vus[o.vil] = { id: o.vil, nom: o.vilNom || o.vil, n: 0 }; l.push(vus[o.vil]); } if (vus[o.vil] && (!cluster || o.cl === cluster)) vus[o.vil].n++; });
+  l.sort(function (a, b) { return a.nom.localeCompare(b.nom); });
+  return '<option value="">Tous les villages</option>' + l.map(function (v) { return '<option value="' + esc(v.id) + '">' + esc(v.nom) + ' (' + v.n + ')</option>'; }).join('');
+}
+function optionsParcelles(liste, choisie) {
+  return '<option value="">— Choisir —</option>' + liste.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === choisie ? ' selected' : '') + '>' + esc(o.txt) + '</option>'; }).join('');
+}
+function filtrerParcelles(e) {
+  var tout = etat.parcellesInstall || [], sel = document.getElementById('obsPlot'); if (!sel) return;
+  var fc = document.getElementById('obsFiltreCluster'), fv = document.getElementById('obsFiltreVillage'), ft = document.getElementById('obsFiltreTexte');
+  var cl = fc ? fc.value : '';
+  if (e && e.target === fc && fv) fv.innerHTML = optionsVillages(cl);
+  var vil = fv ? fv.value : '', mots = sansAccent(ft ? ft.value : '').split(/\s+/).filter(Boolean);
+  var liste = tout.filter(function (o) {
+    return (!cl || o.cl === cl) && (!vil || o.vil === vil) && mots.every(function (m) { return o.q.indexOf(m) >= 0; });
+  });
+  var choisie = sel.value;
+  sel.innerHTML = optionsParcelles(liste, liste.some(function (o) { return o.id === choisie; }) ? choisie : (liste.length === 1 ? liste[0].id : ''));
+  var c = document.getElementById('obsFiltreCompte');
+  if (c) c.textContent = liste.length === tout.length ? tout.length + ' parcelle(s) disponibles.'
+    : liste.length + ' parcelle(s) sur ' + tout.length + (liste.length ? '.' : ' : aucune ne correspond, modifiez le filtre.');
 }
 function majReperes() {
   var B = Math.min(60, Math.max(0, parseInt((document.getElementById('obsB') || {}).value, 10) || 0)), h = document.getElementById('obsReperes'); if (!h) return;
@@ -552,6 +593,7 @@ function surClic(e) {
 function surSaisie(e) {
   if (parts()[0] !== 'observatoire') return; var t = e.target;
   if (t.id === 'obsB') return majReperes();
+  if (t.id === 'obsFiltreCluster' || t.id === 'obsFiltreVillage' || t.id === 'obsFiltreTexte') return filtrerParcelles(e);
   if (t.hasAttribute && t.hasAttribute('data-saisie') && brouillon) { brouillon.visite.observations[etat.idx][t.getAttribute('data-saisie')] = t.value.trim() || null; sauverBrouillon(); }
   if (t.hasAttribute && t.hasAttribute('data-visite') && brouillon) {
     var k = t.getAttribute('data-visite'); brouillon.visite[k] = t.value.trim() || null;
