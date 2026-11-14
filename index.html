@@ -52,6 +52,10 @@ body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context { display: none !i
      <span class="fbms-v23-card-media"><img src="assets/operations/modules/field-proof.webp" alt="Activités et preuves documentaires des missions terrain" loading="lazy" decoding="async" width="1200" height="675"></span>
      <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 03</span><span class="fbms-v23-card-title">AFLP FIELD PROOF</span><span class="fbms-v23-card-desc">Photos, vidéos, GPS et rapports de mission.</span><span class="fbms-v23-card-go">Ouvrir AFLP FIELD PROOF <span aria-hidden="true">↗</span></span></span>
     </a>
+    <a class="fbms-v23-card" data-space="E2" data-observatoire="true" href="operations/field-buying.html#observatoire" aria-label="Observatoire agronomique AFLP : ouvrir le suivi de la floraison, des jeunes noix et des visites de champs">
+     <span class="fbms-v23-card-media"><img src="assets/operations/modules/observatoire-agronomique-aflp.svg" alt="Illustration : un agent AFLP suit la floraison et les jeunes noix dans un verger d'anacardiers" loading="lazy" decoding="async" width="1200" height="675"></span>
+     <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">AFLP 2027 · Programme pilote</span><span class="fbms-v23-card-title">Observatoire agronomique AFLP</span><span class="fbms-v23-card-desc">Floraison, jeunes noix et visites hebdomadaires des champs.</span><span class="fbms-v23-card-go">Ouvrir l'Observatoire <span aria-hidden="true">↗</span></span></span>
+    </a>
     <a class="fbms-v23-card" data-space="E3" href="operations/field-buying.html#purchases" aria-label="Achats et comptes RT : ouvrir directement les achats RCN">
      <span class="fbms-v23-card-media"><img src="assets/operations/modules/aflp-achats-rt-adultes-v24.webp" alt="Illustration générée : des adultes contrôlent la pesée, la qualité et le reçu d’achat des noix de cajou" loading="lazy" decoding="async" width="900" height="507"></span>
      <span class="fbms-v23-card-text"><span class="fbms-v23-card-overline">Espace 04</span><span class="fbms-v23-card-title">Achats &amp; comptes RT</span><span class="fbms-v23-card-desc">Achats RCN, avances, stock et sacs.</span><span class="fbms-v23-card-go">Ouvrir les achats <span aria-hidden="true">↗</span></span></span>
@@ -88,8 +92,10 @@ body[data-workspace="aflp-day"] #opsSidebar .fbms-v22-context { display: none !i
   var ui=window.FBMS_UNIFIED_NAV,auth=window.ANAGROCI_AUTH;
   if(!ui||!auth||!ui.ROLES||!ui.role)return;
   var allowed=ui.ROLES[ui.role()]||ui.ROLES.RO||['E0'];
+  var obsRoles=['BM','ABM','ZH','UH','AUH'],currentRole=ui.role();
   document.querySelectorAll('[data-space]').forEach(function(item){
-   item.hidden=!allowed.includes(item.dataset.space);
+   item.hidden=!allowed.includes(item.dataset.space) ||
+     (item.hasAttribute('data-observatoire') && !obsRoles.includes(currentRole));
   });
  }
  document.addEventListener('anagroci:authenticated',filterVisibleActions);

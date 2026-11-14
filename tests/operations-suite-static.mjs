@@ -72,13 +72,20 @@ assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missi
 assert.ok(portal.includes('data-space="E0" href="moto/index.html"'), 'First photo card must open AFLP FLEET');
 assert.ok(!portal.includes('fbms-v23-card-title">Ma journée'), 'No Ma journée module should remain');
 assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
+assert.ok(portal.includes('data-observatoire="true" href="operations/field-buying.html#observatoire"'), 'Agronomic Observatory must have its own home card opening the existing route');
+assert.ok(portal.includes('fbms-v23-card-title">Observatoire agronomique AFLP'), 'Observatoire card must show its name');
+assert.ok(portal.includes("item.hasAttribute('data-observatoire')"), 'Observatoire shortcut must respect field and management roles');
+assert.ok(portal.includes('href="fieldproof/index.html"'), 'AFLP FIELD PROOF entry must remain visible');
+const obsIllustration=read('assets/operations/modules/observatoire-agronomique-aflp.svg');
+assert.ok(obsIllustration.startsWith('<svg') && obsIllustration.includes('viewBox="0 0 1200 675"'), 'Observatoire artwork missing or malformed');
+
 assert.ok(portal.includes('class="fbms-v23-card" data-space="E2" href="fieldproof/index.html"'), 'Espace 03 must open AFLP FIELD PROOF directly');
 assert.ok(portal.includes('<span class="fbms-v23-card-title">AFLP FIELD PROOF</span>'), 'Espace 03 must visibly identify AFLP FIELD PROOF');
 for (const id of ['E0','E1','E2','E3','E4','E5']) {
  assert.ok(portal.includes('class="fbms-v23-card" data-space="'+id+'"'), 'illustrated space missing: '+id);
 }
 const v23Cards=(portal.match(/class="fbms-v23-card" data-space=/g)||[]).length;
-assert.equal(v23Cards,6,'exactly six illustrated spaces expected, no second portal');
+assert.equal(v23Cards,7,'six primary space cards and one Observatoire pilot card; no extra navigation shell');
 assert.ok(portal.includes('assets/operations/modules/aflp-reseau-terrain-v24-800.webp'), 'user supplied Réseau photo is required');
 const reseauImage=fs.readFileSync(new URL('../assets/operations/modules/aflp-reseau-terrain-v24-800.webp',import.meta.url));
 assert.ok(reseauImage.length>40000&&reseauImage.length<160000,'Réseau photo should be present and compressed');
@@ -91,6 +98,7 @@ for (const href of [
  'operations/field-buying.html#overview'
 ]) assert.ok(portal.includes('href="'+href+'"'), 'space must directly open an existing function: '+href);
 assert.ok(portal.includes('fbms-unified-nav-v22.js'),'V2.3 must preserve the one menu shared with operations');
+assert.ok(read('operations/fbms-unified-nav-v22.js').includes('sustainability|observatoire'), 'Observatoire routes must activate Terrain navigation');
 assert.ok(!portal.includes('operations/espaces.html#'),'V2.3 must not recreate an intermediate portal');
 for(const visual of ['moto-manager.webp','field-proof.webp','field-buying.webp','stock-transfer.webp','reports.webp']) {
  assert.ok(fs.existsSync(new URL('../assets/operations/modules/'+visual,import.meta.url)),'image missing: '+visual);
