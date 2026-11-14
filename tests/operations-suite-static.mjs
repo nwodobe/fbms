@@ -76,8 +76,8 @@ assert.ok(portal.includes('data-observatoire="true" href="operations/field-buyin
 assert.ok(portal.includes('fbms-v23-card-title">Observatoire agronomique AFLP'), 'Observatoire card must show its name');
 assert.ok(portal.includes("item.hasAttribute('data-observatoire')"), 'Observatoire shortcut must respect field and management roles');
 assert.ok(portal.includes('href="fieldproof/index.html"'), 'AFLP FIELD PROOF entry must remain visible');
-const obsIllustration=read('assets/operations/modules/observatoire-agronomique-aflp.svg');
-assert.ok(obsIllustration.startsWith('<svg') && obsIllustration.includes('viewBox="0 0 1200 675"'), 'Observatoire artwork missing or malformed');
+const obsIllustration=fs.readFileSync(new URL('../assets/operations/modules/observatoire-agronomique-terrain.webp',import.meta.url));
+assert.ok(obsIllustration.subarray(0,4).toString()==='RIFF' && obsIllustration.subarray(8,12).toString()==='WEBP' && obsIllustration.length<400000, 'Observatoire photo missing, malformed or too heavy');
 
 assert.ok(portal.includes('class="fbms-v23-card" data-space="E2" href="fieldproof/index.html"'), 'Espace 03 must open AFLP FIELD PROOF directly');
 assert.ok(portal.includes('<span class="fbms-v23-card-title">AFLP FIELD PROOF</span>'), 'Espace 03 must visibly identify AFLP FIELD PROOF');
