@@ -72,6 +72,8 @@ assert.ok(portal.includes('fbms-v23-visual.css'), 'photographic design CSS missi
 assert.ok(portal.includes('data-space="E0" href="moto/index.html"'), 'First photo card must open AFLP FLEET');
 assert.ok(!portal.includes('fbms-v23-card-title">Ma journée'), 'No Ma journée module should remain');
 assert.ok(portal.includes('class="fbms-v23-grid"'), 'illustrated spaces grid missing');
+assert.ok(portal.includes('class="fbms-v23-card" data-space="E2" href="fieldproof/index.html"'), 'Espace 03 must open AFLP FIELD PROOF directly');
+assert.ok(portal.includes('<span class="fbms-v23-card-title">AFLP FIELD PROOF</span>'), 'Espace 03 must visibly identify AFLP FIELD PROOF');
 for (const id of ['E0','E1','E2','E3','E4','E5']) {
  assert.ok(portal.includes('class="fbms-v23-card" data-space="'+id+'"'), 'illustrated space missing: '+id);
 }
@@ -83,7 +85,7 @@ assert.ok(reseauImage.length>40000&&reseauImage.length<160000,'Réseau photo sho
 assert.equal(reseauImage.subarray(0,4).toString('ascii'),'RIFF','Réseau image must be a RIFF WebP');
 for (const href of [
  'operations/field-buying.html#farmers',
- 'operations/field-buying.html#sustainability',
+ 'fieldproof/index.html',
  'operations/field-buying.html#purchases',
  'operations/procurement.html#evacuations',
  'operations/field-buying.html#overview'
