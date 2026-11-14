@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#053B23"><title>FBMS · Redirection vers la navigation unique</title>
+<link rel="icon" href="../assets/logo-pjs-mark.png">
+<script>
+(function () {
+  'use strict';
+  // Preserve old 6-space bookmarks without rendering a second navigation.
+  var routes={
+    E0:'../moto/index.html',
+    E1:'field-buying.html#farmers',
+    E2:'field-buying.html#sustainability',
+    E3:'field-buying.html#purchases',
+    E4:'procurement.html#evacuations',
+    E5:'field-buying.html#overview'
+  };
+  var match=/^#(E[0-5])(?:$|[-/])/.exec(location.hash);
+  var target=routes[match?match[1]:'E0'];
+  location.replace(target);
+})();
+</script>
+<style>body{font:16px/1.5 Arial,sans-serif;color:#053B23;margin:50px auto;max-width:600px;padding:20px}
+a{color:#008F37;font-weight:bold}</style></head>
+<body><h1>FBMS : navigation unique</h1>
+<p>Les anciens liens vers les six espaces conduisent maintenant directement aux fonctions de FBMS.</p>
+<p><a href="../index.html">Ouvrir Ma journée</a></p></body></html>

@@ -1,0 +1,81 @@
+/* FIELD BUYING · Observatoire agronomique AFLP 2027 (pilote).
+   Thème FBMS (shared/pjs-theme.css, operations.css) : aucune couleur nouvelle.
+   Conçu d'abord pour le téléphone (390 px) : grandes cibles tactiles, une question par bloc. */
+.obs{max-width:1180px}
+.obs-bandeau{background:var(--orange-pale,#FDEFCE);border:1px solid #F2D79D;color:#7A5200;border-radius:10px;padding:8px 12px;font-size:12px;margin-bottom:12px}
+.obs-onglets{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+.obs-onglets a{flex:0 0 auto;min-height:40px;display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;border:1px solid var(--line,#D9E4DA);background:#fff;color:var(--forest,#053B23);font-weight:800;font-size:12px;text-decoration:none}
+.obs-onglets a.actif{background:var(--forest,#053B23);border-color:var(--forest,#053B23);color:#fff}
+.obs-envoi{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--orange-pale,#FDEFCE);border:1px solid #F2D79D;color:#5C3F00;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+.obs-info{color:var(--muted,#5F6F64);font-size:12px;line-height:1.5;margin:8px 0 14px}.obs-info.centre{text-align:center}
+.obs-grille{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.obs-carte{background:#fff;border:1px solid var(--line,#D9E4DA);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.obs-carte-tete{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.obs-carte h3{margin:0;font-family:var(--font-display,Archivo,sans-serif);font-size:15px;color:var(--forest,#053B23);overflow-wrap:anywhere}
+.obs-carte p{margin:3px 0 0;font-size:12px;color:var(--muted,#5F6F64)}
+.obs-carte-etat{font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:22px}
+.obs-carte-actions,.obs-actions{display:flex;gap:8px;flex-wrap:wrap}
+.obs-carte-actions .btn{flex:1 1 auto;justify-content:center;text-decoration:none}
+.obs-form{display:flex;flex-direction:column;gap:12px}
+.obs-form .field input,.obs-form .field select,.obs-zone{min-height:46px;border:1px solid var(--line,#D9E4DA);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;width:100%;box-sizing:border-box;background:#fff}
+.obs-zone{min-height:0;resize:vertical}
+.obs-erreur{border-color:var(--danger,#B3261E)!important;outline:2px solid rgba(179,38,30,.2)}
+.obs-duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.obs-titre{font-family:var(--font-display,Archivo,sans-serif);font-size:14px;color:var(--forest,#053B23);margin:6px 0 0}
+.obs-cases{border:1px solid var(--line,#D9E4DA);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px 16px;margin:0}
+.obs-cases legend{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#5F6F64);font-weight:800;padding:0 4px}
+.obs-cases label{display:inline-flex;gap:6px;align-items:center;min-height:36px;font-size:13px}
+.obs-table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.obs-table th{position:sticky;top:0;background:var(--pale,#F1F9EF);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--pine,#0A5531);padding:9px 10px;white-space:nowrap}
+.obs-table td{padding:9px 10px;border-top:1px solid var(--line,#D9E4DA);vertical-align:middle}
+.obs-table tr.obs-tire td{background:#F7FCF5}
+.obs-table .btn{min-height:36px;padding:6px 10px}
+.obs-gris{color:#849088}.obs-manque{color:var(--danger,#B3261E);font-weight:800}
+.obs-detail{font-size:11px;color:var(--muted,#5F6F64);margin-top:4px;max-width:340px;white-space:normal}
+.obs-inventaire{display:inline-flex;gap:6px;align-items:center}
+.obs-inventaire input{width:92px;min-height:42px;border:1px solid var(--line,#D9E4DA);border-radius:10px;padding:8px 10px;font-size:16px}
+.obs-histo{margin:0;padding-left:18px;font-size:13px;line-height:1.7}
+/* Visite : écran terrain */
+.obs-visite{max-width:640px;margin:0 auto}
+.obs-visite-tete{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.obs-visite-tete div{display:flex;flex-direction:column;min-width:0}.obs-visite-tete b{font-family:var(--font-display,Archivo,sans-serif);color:var(--forest,#053B23);font-size:16px;overflow-wrap:anywhere}
+.obs-visite-tete span{font-size:12px;color:var(--muted,#5F6F64)}
+.obs-retour{flex:0 0 auto;min-height:42px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid var(--line,#D9E4DA);border-radius:10px;background:#fff;color:var(--forest,#053B23);font-weight:800;font-size:12px;text-decoration:none}
+.obs-pastilles{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:12px}
+.obs-pastilles button{min-height:40px;border-radius:10px;border:1px solid var(--line,#D9E4DA);background:#fff;font-family:var(--font-mono,"IBM Plex Mono",monospace);font-weight:600;font-size:12px;color:var(--ink,#323131);cursor:pointer;padding:0}
+.obs-pastilles button.partiel{background:var(--orange-pale,#FDEFCE);border-color:#F2D79D}
+.obs-pastilles button.fait{background:var(--pale,#E0F3DE);border-color:#B6DC8E;color:var(--pine,#0A5531)}
+.obs-pastilles button.courant{outline:3px solid var(--emerald,#008F37);outline-offset:1px}
+.obs-arbre{background:#fff;border:1px solid var(--line,#D9E4DA);border-radius:16px;padding:14px}
+.obs-arbre-tete{display:flex;gap:12px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--line,#D9E4DA);margin-bottom:4px}
+.obs-arbre-tete div{display:flex;flex-direction:column}.obs-arbre-tete span{font-size:12px;color:var(--muted,#5F6F64)}
+.obs-numero{flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:var(--forest,#053B23);color:#fff;display:flex!important;align-items:center;justify-content:center;font-family:var(--font-mono,"IBM Plex Mono",monospace);font-size:20px!important;font-weight:600}
+.obs-q{padding:12px 0;border-bottom:1px solid #EEF3EE}.obs-q:last-child{border-bottom:0}
+.obs-q h3{margin:0 0 8px;font-size:15px;font-family:var(--font-body,"IBM Plex Sans",sans-serif);font-weight:700;color:var(--ink,#323131)}
+.obs-choix{display:flex;flex-wrap:wrap;gap:8px}
+.obs-choix button{flex:1 1 30%;min-height:52px;border-radius:12px;border:2px solid var(--line,#D9E4DA);background:#fff;font:inherit;font-size:15px;font-weight:700;color:var(--ink,#323131);cursor:pointer;padding:8px 10px}
+.obs-choix button.actif{background:var(--forest,#053B23);border-color:var(--forest,#053B23);color:#fff}
+.obs-choix button:focus-visible,.obs-pastilles button:focus-visible{outline:3px solid var(--orange,#EE9E00);outline-offset:2px}
+.obs-photo{margin-top:8px;cursor:pointer}
+.obs-pied{display:flex;gap:10px;margin:14px 0 6px;position:sticky;bottom:0;background:linear-gradient(180deg,rgba(241,249,239,0),var(--mist,#F1F9EF) 30%);padding:14px 0 10px}
+.obs-pied .btn{flex:1;min-height:52px;font-size:14px;justify-content:center}
+/* Dialogue */
+.obs-voile{position:fixed;inset:0;background:rgba(5,59,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:4000}
+.obs-dialogue{background:#fff;border-radius:16px;padding:18px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.obs-dialogue h3{margin:0 0 8px;font-family:var(--font-display,Archivo,sans-serif);color:var(--forest,#053B23);font-size:17px}
+.obs-dialogue-corps{font-size:14px;line-height:1.5;color:var(--ink,#323131)}.obs-dialogue-corps p{margin:0 0 10px}
+.obs-dialogue-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.obs-dialogue-actions .btn{min-height:46px}
+.badge.info{background:var(--info-pale,#E6F0F8);color:#245A82}
+@media(max-width:1050px){.obs-grille{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){
+  .obs-grille,.obs-duo{grid-template-columns:1fr}
+  .obs-pastilles{grid-template-columns:repeat(5,1fr)}
+  .obs-choix button{flex:1 1 45%}
+  .obs-table{min-width:0}.obs-table tbody{display:block}
+  .obs-table thead{display:none}.obs-table tr{display:block;border-top:1px solid var(--line,#D9E4DA);padding:8px 0}
+  .obs-table td{display:flex;justify-content:space-between;gap:12px;border:0;padding:5px 10px;text-align:right;overflow-wrap:anywhere}
+  .obs-table td:not([data-l]){justify-content:flex-end}
+  .obs-table td[data-l]::before{content:attr(data-l);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#5F6F64);font-weight:800;text-align:left;flex:0 0 38%}
+  .obs-dialogue-actions{flex-direction:column-reverse}.obs-dialogue-actions .btn{width:100%;justify-content:center}
+  .obs-envoi .btn{width:100%;justify-content:center}
+}
