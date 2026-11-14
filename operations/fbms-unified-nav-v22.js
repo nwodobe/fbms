@@ -70,7 +70,7 @@ function pathId(){
  if(file==='reports.html'||file==='aflp-data.html'||file==='campaigns.html'||file==='traceability.html')return 'E5';
  if(file==='field-buying.html'){
   if(/#(farmers|rt|census|cooperatives|hubs)/.test(hash))return 'E1';
-  if(/#sustainability/.test(hash))return 'E2';
+  if(/#(sustainability|observatoire)(\/|$)/.test(hash))return 'E2';
   if(/#(purchases|cash|bags)/.test(hash))return 'E3';
   if(/#(overview|command|sync|aflp-data|traceability)/.test(hash))return 'E5';
   return 'E0';
