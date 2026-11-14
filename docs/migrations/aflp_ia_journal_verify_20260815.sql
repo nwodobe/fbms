@@ -65,14 +65,38 @@ where schemaname = 'public'
   and tablename like 'aflp_ia_%'
   and 'anon' = any(roles);
 
--- 6. Le rôle `anon` n'a aucun privilège table --------------------------------
-select 'Privilèges anon révoqués' as controle,
+-- 6. Le rôle `anon` n'a aucun privilège — TABLES ET VUE ----------------------
+--    La vue compte. `alter default privileges … grant all on tables to anon`
+--    s'applique aussi aux vues : `aflp_ia_metriques` est née avec DELETE,
+--    INSERT, TRUNCATE, UPDATE et SELECT pour `anon`. Ce contrôle l'a trouvé sur
+--    la base réelle, après une première application.
+select 'Privilèges anon révoqués (tables et vue)' as controle,
        case when count(*) = 0 then 'CONFORME'
             else 'DÉFAUT : ' || string_agg(distinct table_name || ':' || privilege_type, ', ') end as verdict
 from information_schema.role_table_grants
 where table_schema = 'public'
   and table_name like 'aflp_ia_%'
   and grantee = 'anon';
+
+-- 6 bis. `authenticated` n'a que SELECT sur la vue ---------------------------
+select 'Vue en lecture seule pour authenticated' as controle,
+       case when count(*) = 0 then 'CONFORME'
+            else 'DÉFAUT : ' || string_agg(privilege_type, ', ') end as verdict
+from information_schema.role_table_grants
+where table_schema = 'public' and table_name = 'aflp_ia_metriques'
+  and grantee = 'authenticated' and privilege_type <> 'SELECT';
+
+-- 6 ter. Les fonctions de déclencheur ont un search_path figé ----------------
+select 'search_path figé sur les déclencheurs' as controle,
+       case when count(*) filter (where p.proconfig is null
+                                    or not (p.proconfig::text like '%search_path%')) = 0
+            then 'CONFORME'
+            else 'DÉFAUT : ' || string_agg(p.proname, ', ')
+                 filter (where p.proconfig is null
+                            or not (p.proconfig::text like '%search_path%')) end as verdict
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where (n.nspname = 'public' and p.proname like 'aflp_ia_%')
+   or (n.nspname = 'aflp_ia_interne' and p.proname = 'auditer');
 
 -- 7. Le journal ne peut pas être supprimé depuis le navigateur ---------------
 select 'DELETE/TRUNCATE retirés à authenticated sur le journal' as controle,
@@ -85,10 +109,16 @@ where table_schema = 'public'
   and privilege_type in ('DELETE','TRUNCATE');
 
 -- 8. Les déclencheurs d'immutabilité et de figement sont en place ------------
+--    COUNT(DISTINCT trigger_name), et non COUNT(*).
+--    `information_schema.triggers` renvoie UNE LIGNE PAR ÉVÉNEMENT : un
+--    déclencheur déclaré `after insert or update or delete` y compte pour
+--    trois. La première version de ce contrôle annonçait « DÉFAUT : 12/6 » sur
+--    une base parfaitement conforme. Un contrôle qui crie au loup est aussi
+--    nuisible qu'un contrôle qui dort : on cesse de le lire.
 select 'Déclencheurs' as controle,
-       case when count(*) = 6 then 'CONFORME'
-            else 'DÉFAUT : ' || count(*) || '/6 — ' ||
-                 coalesce(string_agg(trigger_name, ', '), 'aucun') end as verdict
+       case when count(distinct trigger_name) = 6 then 'CONFORME'
+            else 'DÉFAUT : ' || count(distinct trigger_name) || '/6 — ' ||
+                 coalesce(string_agg(distinct trigger_name, ', '), 'aucun') end as verdict
 from information_schema.triggers
 where trigger_schema = 'public'
   and trigger_name in ('aflp_ia_q_no_update','aflp_ia_int_fige','aflp_ia_form_fige',

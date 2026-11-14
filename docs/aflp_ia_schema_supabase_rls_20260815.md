@@ -2,12 +2,31 @@
 
 **15 août 2026 · migration `docs/migrations/aflp_ia_journal_20260815.sql`**
 
-> **La migration n'est appliquée sur aucun projet Supabase.**
-> `supabase/**` est interdit à toute modification automatique (CLAUDE.md §3) et
-> `modifying-a-hosted-supabase-project` figure parmi les actions interdites
-> d'`agent-policy.yml`. Elle a en revanche été **réellement exécutée sur
-> PostgreSQL** par `.github/agent-tests/aflp-ia-journal-rls.mjs` : 43 contrôles,
-> 43 conformes.
+> **APPLIQUÉE le 15/08/2026 sur le projet `jmbdgpdthzpszfnddwzi`**
+> (PostgreSQL 17.6), sur instruction expresse du Branch Manager, propriétaire du
+> projet — `agent-policy.yml` interdit ce geste à un agent, et la levée est
+> consignée dans l'en-tête du fichier SQL lui-même.
+>
+> Vérifiée **avant** sur PostgreSQL 18 (PGlite) : 46/46.
+> Vérifiée **après**, sur la base réelle : 15/15 contrôles structurels, puis
+> 8/8 contrôles de politiques joués rôle par rôle dans une transaction annulée.
+> Advisors : **aucune alerte imputable à ce lot**.
+
+## 0. Trois défauts que seule l'application réelle a révélés
+
+Le banc PGlite passait à 43/43 **et** ces trois défauts existaient. C'est
+l'enseignement le plus utile de cette mise en production.
+
+| Défaut | Comment il est apparu | Pourquoi le banc ne l'avait pas vu |
+|---|---|---|
+| La **vue** `aflp_ia_metriques` naissait avec tous les droits pour `anon` | Contrôle F du script livré, sur la base réelle | Le banc ne regardait que les **tables**. `alter default privileges … on tables` s'applique aussi aux vues |
+| Les quatre fonctions de déclencheur de `public` n'avaient pas de `search_path` figé | Advisors Supabase, 4 alertes `function_search_path_mutable` | PGlite n'exécute pas les advisors |
+| Les politiques réévaluaient `auth.uid()` **à chaque ligne**, et deux politiques permissives se superposaient | Advisors performance : 8 × `auth_rls_initplan`, 2 × `multiple_permissive_policies` | Idem — et sur des tables vides, aucune conséquence mesurable |
+
+Les trois sont corrigés, **dans le fichier de migration lui-même** et non dans
+des migrations satellites : le fichier reste la source de vérité de ce qui est
+en base. Trois contrôles ont été ajoutés au banc PGlite pour que le premier ne
+puisse plus repasser.
 
 ---
 
