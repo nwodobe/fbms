@@ -303,16 +303,41 @@ var FBStore = {
   clear: function () { store = Object.create(null); }
 };
 
+/* Le serveur Supabase plafonne chaque reponse a 1 000 lignes (max_rows) : une
+   demande de 1 200 lignes en rendait 1 000 sans erreur, et le registre affichait
+   993 producteurs au lieu de 1 154 (15/11/2026). Au-dela d'une page, q() lit
+   donc par tranches de 1 000, triees sur la premiere colonne (cle unique). */
+var Q_PAGE = 1000;
 function q(tableName, cols, limit, mod) {
   return client().then(function (c) {
     if (!c) return [];
-    var req = c.from(tableName).select(cols || '*');
-    if (mod) req = mod(req);
-    if (limit) req = req.limit(limit);
-    return req.then(function (r) {
+    function build() {
+      var req = c.from(tableName).select(cols || '*');
+      if (mod) req = mod(req);
+      return req;
+    }
+    function rows(r) {
       if (r.error) throw new Error(r.error.message);
       return r.data || [];
-    });
+    }
+    if (!limit || limit <= Q_PAGE) {
+      var req = build();
+      if (limit) req = req.limit(limit);
+      return req.then(rows);
+    }
+    var key = String(cols || '').split(',')[0].trim();
+    if (!key || key === '*') key = 'id';
+    var out = [];
+    function page(from) {
+      var to = Math.min(from + Q_PAGE, limit) - 1;
+      return build().order(key, { ascending: true }).range(from, to).then(function (r) {
+        var d = rows(r);
+        out = out.concat(d);
+        if (d.length < to - from + 1 || out.length >= limit) return out;
+        return page(from + Q_PAGE);
+      });
+    }
+    return page(0);
   });
 }
 
@@ -331,9 +356,9 @@ function base() {
          quand un formulaire réécrit data sans elles. */
       q('villages_light_v', 'id,village,region,departement,cluster,cluster_code,statut,score,gps_lat,gps_lng,farmer_code_prefix,data,deleted', 500),
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
-      q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
+      q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 20000, function (r) { return r.eq('deleted', false); }),
       /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
-      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,validated_by,validated_at,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
+      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,validated_by,validated_at,stock_statut,cash_statut,rejet,kor,humidite,created_at', 50000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
       q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
       campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
