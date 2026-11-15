@@ -34,11 +34,11 @@ function fixture({role,allowed}) {
   const tables={villages_light_v:villages,rt_light_v:rts,farmer_passport_summary_v:farmers,achats:[],aflp_clusters:clusters,aflp_zones:[{code:'GBEKE_1',label:'GBEKE 1',active:true},{code:'GBEKE_2',label:'GBEKE 2',active:true}],profils:[me]};
   window.__rtTest={clusters,tables,reads:[],writes:[],fail:false};
   function query(table){
-    let data=tables[table]||[],cols='*',single=false,limit=null;
-    const q={select(v){cols=v||'*';return q;},eq(k,v){data=data.filter(x=>x[k]===v);return q;},order(){return q;},limit(n){limit=n;return q;},maybeSingle(){single=true;return q;},single(){single=true;return q;},in(k,vs){data=data.filter(x=>vs.includes(x[k]));return q;},then(ok,bad){
+    let data=tables[table]||[],cols='*',single=false,limit=null,off=0;
+    const q={select(v){cols=v||'*';return q;},eq(k,v){data=data.filter(x=>x[k]===v);return q;},order(){return q;},limit(n){limit=n;return q;},range(a,b){off=a;limit=b-a+1;return q;},maybeSingle(){single=true;return q;},single(){single=true;return q;},in(k,vs){data=data.filter(x=>vs.includes(x[k]));return q;},then(ok,bad){
       window.__rtTest.reads.push(table);
       if(window.__rtTest.fail&&table==='villages_light_v')return Promise.resolve({data:null,error:{message:'SIMULATED_NETWORK_FAILURE'}}).then(ok,bad);
-      let rows=limit?data.slice(0,limit):data.slice();
+      let rows=limit?data.slice(off,off+limit):data.slice(off);
       if(cols!=='*'&&/^[a-z_,]+$/i.test(cols))rows=rows.map(x=>Object.fromEntries(cols.split(',').map(k=>[k,x[k]])));
       return Promise.resolve({data:single?(rows[0]||null):rows,error:null}).then(ok,bad);
     }};
