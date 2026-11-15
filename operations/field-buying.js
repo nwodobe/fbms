@@ -1580,7 +1580,7 @@ function openFarmerForm(prefill, editId) {
             telephone: phone || null, village_id: vid, village_nom: v.village || null,
             rt_id: rtSel.value || null, rt_nom: (c.rm[rtSel.value] || {}).nom || null,
             cluster_code: v.cluster_code || null, cluster_label: v.cluster || null,
-            operational_status: 'Identifié', passport_completion: pctLocal, review_required: localHits.length > 0,
+            operational_status: 'Enrôlé', passport_completion: pctLocal, review_required: localHits.length > 0,
             possible_duplicate: localHits.length > 0, local_only: true, pending_sync: true, local_operation_id: op.id,
             gps_mapped_count: plot.latitude != null && plot.longitude != null ? 1 : 0
           };
@@ -1654,7 +1654,7 @@ function openFarmerForm(prefill, editId) {
           if (!editRow && duplicateJustification) { row.possible_duplicate = true; row.review_required = true; row.review_reason = 'Créé malgré correspondance : ' + duplicateJustification; }
           var write = editRow
             ? cl.from('producteurs').update(row).eq('id', editRow.id)
-            : (row.id = id, row.statut = 'Identifié', cl.from('producteurs').insert(row));
+            : (row.id = id, row.statut = 'Enrôlé', cl.from('producteurs').insert(row));
           return write.then(function (r) {
             if (r.error) throw new Error(r.error.message);
             /* Parcelle facultative : registre canonique farmer_plots, jamais data. */
@@ -1941,7 +1941,7 @@ function renderFarmerPassport(id, tab) {
       var body = '';
       if (tab === 'overview') {
         body = kpis([
-          [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Identifié', 'Identified'))],
+          [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Enrôlé', 'Enrolled'))],
           ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
           [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante (règle de campagne)', 'never blocking (campaign rule)'), p.plots.length ? '' : 'warn'],
           [TT('Achats campagne', 'Campaign purchases'), mt(kg), mine.length + TT(' achat(s) · ', ' purchase(s) · ') + money(valAch)],
@@ -5056,7 +5056,7 @@ function renderVillageFiche(vid, tab) {
         mesProducteurs.map(function (f) {
           var r = c.rm[f.rt_id];
           return '<tr><td>' + farmerLink(f) + '</td><td>' + esc(f.telephone || '—') + '</td>' +
-            '<td>' + (r ? rtLink(r) : '—') + '</td><td>' + badge(f.operational_status || 'Identifié') + '</td>' +
+            '<td>' + (r ? rtLink(r) : '—') + '</td><td>' + badge(f.operational_status || 'Enrôlé') + '</td>' +
             '<td>' + date(f.last_purchase_date) + '</td></tr>';
         })) + '</section>';
     } else if (tab === 'galerie') {

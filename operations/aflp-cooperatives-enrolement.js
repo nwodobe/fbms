@@ -237,7 +237,7 @@ function enroll(coopId) {
             var vv=c.vm[p.village_id]||{};
             var lf={producteur_id:localId,farmer_id:'LOCAL · EN ATTENTE',nom:p.nom,prenoms:p.prenoms||null,telephone:p.telephone||null,
               village_id:p.village_id,village_nom:vv.village||null,rt_id:p.followup_rt_id||null,rt_nom:(c.rm[p.followup_rt_id]||{}).nom||null,
-              cluster_code:vv.cluster_code||null,cluster_label:vv.cluster||null,operational_status:'Identifié',
+              cluster_code:vv.cluster_code||null,cluster_label:vv.cluster||null,operational_status:'Enrôlé',
               review_required:hits.length>0,possible_duplicate:hits.length>0,local_only:true,pending_sync:true,local_operation_id:op.id,
               gps_mapped_count:(p.home_gps_lat!=null&&p.home_gps_lng!=null)?1:0};
             return Promise.all([
