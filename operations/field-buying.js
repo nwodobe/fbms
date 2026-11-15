@@ -303,16 +303,41 @@ var FBStore = {
   clear: function () { store = Object.create(null); }
 };
 
+/* Le serveur Supabase plafonne chaque reponse a 1 000 lignes (max_rows) : une
+   demande de 1 200 lignes en rendait 1 000 sans erreur, et le registre affichait
+   993 producteurs au lieu de 1 154 (15/11/2026). Au-dela d'une page, q() lit
+   donc par tranches de 1 000, triees sur la premiere colonne (cle unique). */
+var Q_PAGE = 1000;
 function q(tableName, cols, limit, mod) {
   return client().then(function (c) {
     if (!c) return [];
-    var req = c.from(tableName).select(cols || '*');
-    if (mod) req = mod(req);
-    if (limit) req = req.limit(limit);
-    return req.then(function (r) {
+    function build() {
+      var req = c.from(tableName).select(cols || '*');
+      if (mod) req = mod(req);
+      return req;
+    }
+    function rows(r) {
       if (r.error) throw new Error(r.error.message);
       return r.data || [];
-    });
+    }
+    if (!limit || limit <= Q_PAGE) {
+      var req = build();
+      if (limit) req = req.limit(limit);
+      return req.then(rows);
+    }
+    var key = String(cols || '').split(',')[0].trim();
+    if (!key || key === '*') key = 'id';
+    var out = [];
+    function page(from) {
+      var to = Math.min(from + Q_PAGE, limit) - 1;
+      return build().order(key, { ascending: true }).range(from, to).then(function (r) {
+        var d = rows(r);
+        out = out.concat(d);
+        if (d.length < to - from + 1 || out.length >= limit) return out;
+        return page(from + Q_PAGE);
+      });
+    }
+    return page(0);
   });
 }
 
@@ -331,9 +356,9 @@ function base() {
          quand un formulaire réécrit data sans elles. */
       q('villages_light_v', 'id,village,region,departement,cluster,cluster_code,statut,score,gps_lat,gps_lng,farmer_code_prefix,data,deleted', 500),
       q('rt_light_v', 'id,id_rt,nom,telephone,village_id,village_nom,cluster,statut,score,deleted,data', 500),
-      q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 1200),
+      q('farmer_passport_summary_v', 'producteur_id,farmer_id,nom,prenoms,telephone,village_id,village_nom,rt_id,rt_nom,cluster_code,cluster_label,zone_code,zone_label,operational_status,passport_stage,passport_completion,risk_profile,possible_duplicate,review_required,plot_count,gps_mapped_count,last_purchase_date,last_purchase_kg,deleted', 20000, function (r) { return r.eq('deleted', false); }),
       /* Multi-campagnes : les achats et l'objectif sont ceux de la campagne active uniquement. */
-      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,validated_by,validated_at,stock_statut,cash_statut,rejet,kor,humidite,created_at', 1000, campOnly),
+      q('achats', 'id,local_id,date,cluster,village_id,village_nom,rt_id,rt_nom,producteur_id,producteur_code,producteur_nom,producteur_tel,poids_net,nb_sacs,prix_kg,montant,mode_paiement,numero_recu,qualite_statut,statut_validation,validated_by,validated_at,stock_statut,cash_statut,rejet,kor,humidite,created_at', 50000, campOnly),
       q('aflp_zones', 'code,label,region,active', 20),
       q('aflp_clusters', 'code,label,zone_code,aliases,active', 30),
       campId() ? q('campaign_targets', 'target_mt', 1, function (r) { return r.eq('campaign_id', campId()).eq('level', 'CAMPAIGN').eq('ref_id', ''); }).catch(function () { return []; }) : Promise.resolve([])
@@ -1555,7 +1580,7 @@ function openFarmerForm(prefill, editId) {
             telephone: phone || null, village_id: vid, village_nom: v.village || null,
             rt_id: rtSel.value || null, rt_nom: (c.rm[rtSel.value] || {}).nom || null,
             cluster_code: v.cluster_code || null, cluster_label: v.cluster || null,
-            operational_status: 'Identifié', passport_completion: pctLocal, review_required: localHits.length > 0,
+            operational_status: 'Enrôlé', passport_completion: pctLocal, review_required: localHits.length > 0,
             possible_duplicate: localHits.length > 0, local_only: true, pending_sync: true, local_operation_id: op.id,
             gps_mapped_count: plot.latitude != null && plot.longitude != null ? 1 : 0
           };
@@ -1629,7 +1654,7 @@ function openFarmerForm(prefill, editId) {
           if (!editRow && duplicateJustification) { row.possible_duplicate = true; row.review_required = true; row.review_reason = 'Créé malgré correspondance : ' + duplicateJustification; }
           var write = editRow
             ? cl.from('producteurs').update(row).eq('id', editRow.id)
-            : (row.id = id, row.statut = 'Identifié', cl.from('producteurs').insert(row));
+            : (row.id = id, row.statut = 'Enrôlé', cl.from('producteurs').insert(row));
           return write.then(function (r) {
             if (r.error) throw new Error(r.error.message);
             /* Parcelle facultative : registre canonique farmer_plots, jamais data. */
@@ -1916,7 +1941,7 @@ function renderFarmerPassport(id, tab) {
       var body = '';
       if (tab === 'overview') {
         body = kpis([
-          [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Identifié', 'Identified'))],
+          [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Enrôlé', 'Enrolled'))],
           ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
           [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante (règle de campagne)', 'never blocking (campaign rule)'), p.plots.length ? '' : 'warn'],
           [TT('Achats campagne', 'Campaign purchases'), mt(kg), mine.length + TT(' achat(s) · ', ' purchase(s) · ') + money(valAch)],
@@ -5031,7 +5056,7 @@ function renderVillageFiche(vid, tab) {
         mesProducteurs.map(function (f) {
           var r = c.rm[f.rt_id];
           return '<tr><td>' + farmerLink(f) + '</td><td>' + esc(f.telephone || '—') + '</td>' +
-            '<td>' + (r ? rtLink(r) : '—') + '</td><td>' + badge(f.operational_status || 'Identifié') + '</td>' +
+            '<td>' + (r ? rtLink(r) : '—') + '</td><td>' + badge(f.operational_status || 'Enrôlé') + '</td>' +
             '<td>' + date(f.last_purchase_date) + '</td></tr>';
         })) + '</section>';
     } else if (tab === 'galerie') {

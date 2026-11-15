@@ -2711,7 +2711,7 @@ const RemoteProducteurs = {
         code: (copy.code && String(copy.code).indexOf("TMP") !== 0) ? copy.code : null, // code définitif attribué par le trigger PostgreSQL
         nom: copy.nom || "", telephone: copy.telephone || "",
         village_id: copy.villageId, village_nom: copy.villageNom || "",
-        rt_id: copy.rtId || null, statut: copy.statut || "Identifié",
+        rt_id: copy.rtId || null, statut: copy.statut || "Enrôlé",
         created_by: copy.createdBy || (AUTH.session && AUTH.session.email) || null, deleted: false,
       };
       const { data, error } = await SB.from("producteurs").upsert(row).select("data, code, updated_at").single();
@@ -2756,7 +2756,7 @@ function blankProducteur(){
     paiementMode:"", mobileMoneyNum:"", mobileMoneyTitulaire:"",
     pieceType:"", pieceNum:"",
     villageId:"", villageNom:"",
-    statut:"Identifié",
+    statut:"Enrôlé",
     suivi:{ tonnageLivreKg:"", montantPaye:"", nbLivraisons:"", derniereLivraison:"" }, // alimenté par les futures transactions
     notes:"",
     createdAt: new Date().toISOString(),
@@ -2866,13 +2866,13 @@ function ProducteursView(){
   const totalVillage = rows.length;
   const engages = rows.reduce((a,p)=>a+(Number(p.engagementKg)||0),0);
   const superficie = rows.reduce((a,p)=>a+(Number(p.superficieHa)||0),0);
-  const actifs = rows.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Identifié")).length;
+  const actifs = rows.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Enrôlé")).length;
   const enAttente = rows.filter(p=>p._sync && p._sync!=="synced").length; // figé AVANT filtrage
   if (STATE.prodQuery){
     const q = STATE.prodQuery.toLowerCase();
     rows = rows.filter(p=> ((p.nom||"")+" "+(p.code||"")+" "+(p.telephone||"")+" "+(p.campement||"")).toLowerCase().includes(q));
   }
-  if (STATE.prodStatutFilter) rows = rows.filter(p=>(p.statut||"Identifié")===STATE.prodStatutFilter);
+  if (STATE.prodStatutFilter) rows = rows.filter(p=>(p.statut||"Enrôlé")===STATE.prodStatutFilter);
   rows.sort((a,b)=> (a.code||"").localeCompare(b.code||""));
 
   html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
@@ -2899,7 +2899,7 @@ function ProducteursView(){
         + '<td class="px-4 py-2.5 ff-body text-xs" style="color:'+T.inkSoft+'">'+esc(rt ? rt.nom : "—")+'</td>'
         + '<td class="px-4 py-2.5 ff-mono text-xs" style="color:'+T.inkSoft+'">'+esc(p.superficieHa||"—")+' ha</td>'
         + '<td class="px-4 py-2.5 ff-mono text-xs" style="color:'+T.inkSoft+'">'+esc(p.prodPrecKg||"—")+' kg</td>'
-        + '<td class="px-4 py-2.5">'+prodStatutPill(p.statut||"Identifié")+'</td>'
+        + '<td class="px-4 py-2.5">'+prodStatutPill(p.statut||"Enrôlé")+'</td>'
         + '<td class="px-4 py-2.5 text-right whitespace-nowrap">'
         + '<button onclick="openProdModal(\''+p.id+'\')" class="p-1.5" title="Éditer">'+icon('pencil','w-4 h-4')+'</button>'
         + (canDelete() ? '<button onclick="deleteProducteur(\''+p.id+'\')" class="p-1.5" title="'+t('Supprimer')+'">'+icon('trash-2','w-4 h-4')+'</button>' : '')+'</td></tr>';
@@ -2996,7 +2996,7 @@ function renderProdModal(){
     + '</div>'
 
     + '<div class="grid grid-cols-2 gap-2.5 mb-4">'
-    + sel("pStatut","Statut", p.statut||"Identifié", PROD_STATUTS.map(s=>s.key), false)
+    + sel("pStatut","Statut", p.statut||"Enrôlé", PROD_STATUTS.map(s=>s.key), false)
     + inp("pNotes","Notes", p.notes)
     + '</div>'
 
@@ -3654,7 +3654,7 @@ function StatsView(){
   const nbRTBase = rtScope.length; // base RT du périmètre de l'utilisateur
   const nbRTOperationnels = rtScope.filter(r=>["Confirmé","Actif"].includes(r.statut||"Pressenti")).length;
   const nbProd = STATE.producteurs.length; // cache local : villages consultés sur CET appareil
-  const nbProdActifs = STATE.producteurs.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Identifié")).length;
+  const nbProdActifs = STATE.producteurs.filter(p=>["Enrôlé","Actif"].includes(p.statut||"Enrôlé")).length;
   // Comptage des clusters insensible a la casse / aux accents / aux espaces
   // (meme cle que le classement enqueteurs) : « DIABO », « Diabo » et « Diabo »
   // avec espace ne comptent que pour un seul cluster.
