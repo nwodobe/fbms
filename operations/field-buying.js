@@ -1376,8 +1376,10 @@ function openFarmerForm(prefill, editId) {
       '<form id="farmerForm">' + completenessBar('farmerForm') +
 
       section('1. Création rapide — identité', '<div class="ops-form-grid">' +
-        field('Nom *', '<input id="ff_nom" data-c required maxlength="120">') +
-        field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120">') +
+        field('Nom *', '<input id="ff_nom" data-c required maxlength="120" autocomplete="family-name" placeholder="Nom de famille uniquement">') +
+        field('Prénoms', '<input id="ff_prenoms" data-c maxlength="120" autocomplete="given-name" placeholder="Tous les prénoms déclarés">') +
+        '<div id="ff_identity_hint" class="muted" aria-live="polite" style="grid-column:1/-1"></div>' +
+        '<label style="grid-column:1/-1;font-size:12px"><input id="ff_nom_compose" type="checkbox" style="width:auto;margin-right:6px">Je confirme que le champ Nom contient volontairement un nom de famille composé (sans prénoms connus).</label>' +
         field('Village *', '<select id="ff_village" data-c required><option value="">Choisir…</option>' + villageOpts + '</select>') +
         field('RT référent *', '<select id="ff_rt" data-c><option value="">— Choisir le RT —</option></select><small class="muted" id="ff_rt_hint"></small>') +
         field('Sexe', '<select id="ff_sexe" data-c><option value="">—</option><option value="M">M · Homme</option><option value="F">F · Femme</option></select>') +
@@ -1493,14 +1495,40 @@ function openFarmerForm(prefill, editId) {
         ? '<div class="notice danger"><b>Un producteur très proche existe déjà :</b> ' +
           esc(hit.farmer_id || hit.producteur_id) + ' · ' + esc(hit.nom) + ' (' + esc(hit.village_nom || '—') + ').</div>' : '';
     }
-    nom.addEventListener('input', checkDupLocal);
+    function identityIssue() {
+      var family = val('ff_nom').replace(/\s+/g, ' ').trim();
+      var given = val('ff_prenoms').replace(/\s+/g, ' ').trim();
+      if (!family || family.split(' ').length < 2) return '';
+      var rest = family.split(' ').slice(1).join(' ');
+      if (given && normName(rest) && (normName(rest) === normName(given) ||
+          normName(rest).indexOf(normName(given)) === 0)) {
+        return 'Le champ Nom répète les prénoms. Séparez les deux champs avant de continuer.';
+      }
+      if (!given && !document.getElementById('ff_nom_compose').checked) {
+        return 'Plusieurs mots dans Nom : renseignez les prénoms, ou confirmez qu’il s’agit d’un nom de famille composé.';
+      }
+      return '';
+    }
+    function showIdentityHint() {
+      var hint = document.getElementById('ff_identity_hint');
+      if (!hint) return;
+      var issue = identityIssue();
+      hint.textContent = issue || 'Nom et Prénoms sont enregistrés séparément. Si l’année de naissance est inconnue, laissez-la vide : aucune date fictive.';
+      hint.style.color = issue ? '#9B341B' : '';
+    }
+    nom.addEventListener('input', function () { checkDupLocal(); showIdentityHint(); });
+    document.getElementById('ff_prenoms').addEventListener('input', showIdentityHint);
+    document.getElementById('ff_nom_compose').addEventListener('change', showIdentityHint);
     tel.addEventListener('input', checkDupLocal);
+    showIdentityHint();
 
     var duplicateJustification = '';
     document.getElementById('farmerForm').addEventListener('submit', function (e) {
       e.preventDefault(); duplicateJustification = '';
       var msg = document.getElementById('ff_msg'), btn = document.getElementById('ff_submit');
       var name = val('ff_nom'), vid = villageSel.value;
+      var identityWarning = identityIssue();
+      if (identityWarning) { msg.className = 'ops-danger-text'; msg.textContent = identityWarning; document.getElementById('ff_prenoms').focus(); return; }
       if (!name || !vid) { msg.className = 'ops-danger-text'; msg.textContent = 'Nom et village sont le minimum opérationnel.'; return; }
       if (!rtSel.value && rtRequis()) {
         msg.className = 'ops-danger-text';
