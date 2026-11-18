@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche hebdomadaire RT · AFLP 2027 · ANAGROCI</title>
+<style>
+:root{--forest:#053B23;--green:#008F37;--mist:#F1F9EF;--line:#D2D0D0;--text:#323131;--orange:#EE9E00}
+*{box-sizing:border-box}body{font:11px/1.42 Arial,sans-serif;color:var(--text);background:#f2f2f0;margin:0;padding:18px}
+.sheet{background:#fff;max-width:210mm;margin:0 auto;padding:12mm 13mm;min-height:275mm;box-shadow:0 2px 20px #0002}
+header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--green);padding-bottom:9px;margin-bottom:11px}
+header strong{font-size:15px;color:var(--forest)}header small{font-size:10px;color:#666}
+h1{font-size:16px;color:var(--forest);margin:0 0 3px}h2{font-size:12px;color:var(--forest);background:var(--mist);padding:5px 8px;border-left:4px solid var(--green);margin:13px 0 6px}
+.notice{background:#fff8e5;border-left:3px solid var(--orange);padding:6px 9px;margin:9px 0;color:#644b00}
+.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.field{display:flex;flex-direction:column;gap:3px}.field label{font-weight:bold;font-size:10px}
+input[type=text],textarea{width:100%;min-height:23px;border:1px solid var(--line);border-radius:2px;padding:3px 5px;font:inherit;color:inherit;background:white}
+textarea{min-height:38px;resize:vertical}
+table{width:100%;border-collapse:collapse;font-size:10.5px}th{background:var(--forest);color:#fff;text-align:left;padding:6px 7px}td{padding:5px 7px;border-bottom:1px solid #e8e7e7}
+td:last-child{width:34%;text-align:right}td input{min-width:0}
+.fine{font-size:9.5px;color:#555;margin:5px 0 0}
+.agreement{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;margin:6px 0}
+.signature{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:9px}
+.sign{border:1px solid var(--line);padding:7px 9px;min-height:67px}
+.sign b{color:var(--forest)}.line{margin-top:28px;border-top:1px dotted #999;padding-top:3px}
+footer{display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:6px;color:#666;font-size:9px;margin-top:14px}
+.tools{max-width:210mm;margin:0 auto 12px;display:flex;justify-content:space-between;align-items:center}
+button{background:var(--green);color:white;border:0;padding:10px 18px;border-radius:6px;font-weight:bold;cursor:pointer}
+@page{size:A4;margin:8mm} @media print{body{padding:0;background:white}.sheet{box-shadow:none;max-width:none;min-height:0;padding:0}.tools{display:none}input,textarea{border-color:#bbb!important}h2{break-after:avoid}table,.signature{break-inside:avoid}}
+</style></head>
+<body><div class="tools"><span><strong>Modèle SOP RT 2027</strong> · fiche vierge, sans données automatiques</span><button type="button" onclick="window.print()">Imprimer / PDF</button></div>
+<main class="sheet">
+<header><div><strong>ANAGROCI · PJS GLOBAL</strong><div><small>AFLP 2027 · Known for Quality</small></div></div><small>SOP-AFLP-RT-001 · Annexe de rapprochement hebdomadaire</small></header>
+<h1>Situation hebdomadaire des ressources du RT</h1>
+<p style="margin:0 0 9px">Le RT, le Chef d'Unité et le Chef de Zone vérifient les noix, l'argent et les sacs. Les montants doivent venir de pièces réelles, jamais de ce formulaire vierge.</p>
+<div class="meta">
+<div class="field"><label>Nom / code RT</label><input type="text" aria-label="Nom et code RT"></div>
+<div class="field"><label>Village / cluster</label><input type="text" aria-label="Village et cluster"></div>
+<div class="field"><label>Semaine du ... au ...</label><input type="text" aria-label="Période"></div>
+</div>
+<div class="notice"><b>Règle :</b> une signature prouve la prise de connaissance. Elle ne remplace ni le contrôle physique, ni les reçus, ni les preuves Wave, ni les BEV.</div>
+<h2>1. Noix de cajou (RCN) · kg</h2>
+<table><thead><tr><th>Situation</th><th>Quantité (kg)</th></tr></thead><tbody>
+<tr><td>Stock au début de semaine</td><td><input type="text" aria-label="Stock RCN initial"></td></tr>
+<tr><td>+ Noix achetées avec reçus</td><td><input type="text" aria-label="RCN achetées"></td></tr>
+<tr><td>− Noix remises au prestataire avec BEV signé</td><td><input type="text" aria-label="RCN sorties BEV"></td></tr>
+<tr><td><b>= Stock attendu chez le RT</b></td><td><input type="text" aria-label="Stock RCN attendu"></td></tr>
+<tr><td>Stock réellement compté / pesé · Écart</td><td><input type="text" aria-label="Stock physique et écart RCN"></td></tr></tbody></table>
+<h2>2. Argent des achats AFLP · FCFA</h2>
+<table><thead><tr><th>Situation</th><th>Montant (FCFA)</th></tr></thead><tbody>
+<tr><td>Ancien solde à justifier</td><td><input type="text" aria-label="Ancien solde financier"></td></tr>
+<tr><td>+ Nouvelles avances Wave confirmées Finance / RT</td><td><input type="text" aria-label="Avances Wave confirmées"></td></tr>
+<tr><td>− Achats vérifiés et acceptés par UH</td><td><input type="text" aria-label="Achats acceptés UH"></td></tr>
+<tr><td>− Argent rendu à Finance avec preuve</td><td><input type="text" aria-label="Restitutions confirmées"></td></tr>
+<tr><td><b>= Argent restant à justifier</b></td><td><input type="text" aria-label="Argent restant à justifier"></td></tr>
+<tr><td>À part : achats en attente / Wave et espèces déclarés</td><td><input type="text" aria-label="Achats en attente et fonds détenus"></td></tr></tbody></table>
+<h2>3. Sacs de jute · unités</h2>
+<table><thead><tr><th>Situation</th><th>Nombre de sacs</th></tr></thead><tbody>
+<tr><td>Sacs vides reçus / sacs utilisés pour remplir</td><td><input type="text" aria-label="Sacs reçus et utilisés"></td></tr>
+<tr><td>Sacs vides disponibles chez le RT</td><td><input type="text" aria-label="Sacs vides disponibles"></td></tr>
+<tr><td>Sacs pleins encore chez le RT</td><td><input type="text" aria-label="Sacs pleins détenus"></td></tr>
+<tr><td>Sacs retournés / abîmés / sortis avec BEV</td><td><input type="text" aria-label="Sacs retournés ou expédiés"></td></tr>
+<tr><td><b>Écart au comptage physique</b></td><td><input type="text" aria-label="Ecart de sacs"></td></tr></tbody></table>
+<h2>4. Pièces et signatures</h2>
+<div class="field"><label>Références des reçus, BEV, Wave, bons de sacs et éventuels incidents</label><textarea aria-label="Références documentaires"></textarea></div>
+<p class="fine"><b>Avis du RT :</b> il peut ne pas être d'accord. Toute réserve doit être écrite et examinée.</p>
+<div class="agreement">
+<label><input type="checkbox"> D'accord</label>
+<label><input type="checkbox"> D'accord avec réserve</label>
+<label><input type="checkbox"> Pas d'accord</label>
+</div>
+<div class="field"><label>Réserves, écarts et action demandée</label><textarea aria-label="Réserves et actions"></textarea></div>
+<div class="signature">
+<div class="sign"><b>RT</b><div class="line">Date / Nom / Signature</div></div>
+<div class="sign"><b>Chef d'Unité (UH)</b><div class="line">Date / Nom / Signature</div></div>
+<div class="sign"><b>Contrôle Chef de Zone (ZH)</b><div class="line">Date / Visa si contrôlé</div></div>
+</div>
+<footer><span>Formulaire vierge de rapprochement · une copie signée doit être archivée dans FBMS.</span><span>Page 1 · AFLP 2027</span></footer>
+</main></body></html>
