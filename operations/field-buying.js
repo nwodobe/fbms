@@ -3813,23 +3813,69 @@ function openBagApprove(id) {
     var host = formHost();
     host.innerHTML = '<div class="card-head"><div><h2>Décision Branch Manager — ' + esc(r.request_code || r.id) + '</h2>' +
       '<p>Demandé : <b>' + num(r.requested_qty) + '</b> sac(s) · ' + esc(r.cluster || '') + '. ' +
-      'L’approbation réserve les sacs 24 h (durée MVP à revalider métier) ; elle n’est pas la sortie physique.</p></div></div>' +
+      'L’approbation réserve les sacs 24 h (durée MVP à revalider métier) ; elle n’est pas la sortie physique.</p>' +
+      '<p>Plafond : (stock RCN vérifié + volume financé restant) × 1,10 ÷ 80 kg, moins les sacs déjà détenus et réservés. Le serveur refuse tout dépassement.</p></div></div>' +
       '<form id="bagAppForm"><div class="ops-form-grid">' +
+      field('Cycle de financement *', '<select id="ba_cycle" required><option value="">Chargement des cycles…</option></select>') +
+      field('Stock RCN vérifié chez le RT (kg) *', '<input id="ba_stock" type="number" min="0" step="1" required>') +
       field('Quantité approuvée *', '<input id="ba_qty" type="number" min="1" max="' + n(r.requested_qty) + '" value="' + n(r.requested_qty) + '" required>') +
       field('Commentaire', '<input id="ba_note" type="text" placeholder="obligatoire si quantité réduite">') +
-      '</div><div class="ops-actions" style="margin-top:12px">' +
+      '</div><div id="ba_plafond" class="muted" style="margin-top:10px">Choisissez le cycle et saisissez le stock pour calculer le plafond.</div>' +
+      '<div class="ops-actions" style="margin-top:12px">' +
+      '<button class="btn secondary" type="button" id="ba_calc">Calculer le plafond</button>' +
       '<button class="btn primary" type="submit">Approuver</button>' +
       '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Annuler</button></div>' +
       '<div id="ba_msg" class="muted" style="margin-top:10px"></div></form>';
+    var plafond = null;
+    var selCycle = document.getElementById('ba_cycle');
+    /* Cycles ouverts du RT : la source du volume financé (table avances). */
+    client().then(function (cl) {
+      return cl.from('avances').select('cycle_id,volume_finance_kg,cycle_statut,created_at')
+        .eq('rt_id', r.rt_id).eq('cycle_statut', 'OPEN').order('created_at', { ascending: false }).limit(20);
+    }).then(function (res) {
+      var vus = {}, opts = (res && res.data || []).filter(function (a) {
+        if (!a.cycle_id || vus[a.cycle_id]) return false; vus[a.cycle_id] = true; return true;
+      });
+      selCycle.innerHTML = opts.length
+        ? '<option value="">Choisir…</option>' + opts.map(function (a) {
+            return '<option value="' + esc(a.cycle_id) + '">' + esc(a.cycle_id) + ' · ' + num(a.volume_finance_kg) + ' kg financés</option>';
+          }).join('')
+        : '<option value="">Aucun cycle de financement ouvert pour ce RT</option>';
+    }).catch(function () { selCycle.innerHTML = '<option value="">Cycles indisponibles</option>'; });
+    function lirePlafond() {
+      var msg = document.getElementById('ba_plafond');
+      var cyc = selCycle.value, stock = document.getElementById('ba_stock').value;
+      plafond = null;
+      if (!cyc || stock === '') { msg.className = 'ops-danger-text'; msg.textContent = 'Cycle et stock RCN vérifié obligatoires.'; return Promise.resolve(null); }
+      msg.className = 'muted'; msg.textContent = 'Calcul du plafond…';
+      return client().then(function (cl) {
+        return cl.rpc('ops_aflp_plafond_apercu', { p_request_id: id, p_cycle_id: cyc, p_stock_rcn_kg: n(stock) });
+      }).then(function (res) {
+        if (res.error) { msg.className = 'ops-danger-text'; msg.textContent = res.error.message; return null; }
+        plafond = res.data || null;
+        if (!plafond) return null;
+        msg.className = 'ops-ok-text';
+        msg.textContent = 'Plafond : ' + num(plafond.max_nouveaux_sacs) + ' sac(s) au plus pour ce RT (financé restant ' +
+          num(plafond.volume_finance_restant_kg) + ' kg · déjà détenus ' + num(plafond.sacs_detenus) + ' · réservés ' + num(plafond.sacs_reserves) + ').';
+        return plafond;
+      });
+    }
+    document.getElementById('ba_calc').addEventListener('click', lirePlafond);
     document.getElementById('bagAppForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var qty = n(document.getElementById('ba_qty').value), note = document.getElementById('ba_note').value.trim();
+      var cyc = selCycle.value, stock = document.getElementById('ba_stock').value;
       var msg = document.getElementById('ba_msg');
+      if (!cyc || stock === '') { msg.className = 'ops-danger-text'; msg.textContent = 'Cycle de financement et stock RCN vérifié obligatoires.'; return; }
       if (qty <= 0 || qty > n(r.requested_qty)) { msg.className = 'ops-danger-text'; msg.textContent = 'Quantité approuvée invalide.'; return; }
       if (qty < n(r.requested_qty) && !note) { msg.className = 'ops-danger-text'; msg.textContent = 'Un commentaire est obligatoire pour une approbation partielle.'; return; }
-      bagStep(id, { status: 'BM_APPROVED', approved_qty: qty,
-        expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
-        notes: note || r.notes || null }, 'sacs_demande_approuvee').then(function (ok) { if (ok) closeForm(); });
+      lirePlafond().then(function (p) {
+        if (!p) { msg.className = 'ops-danger-text'; msg.textContent = 'Plafond non calculé : approbation impossible.'; return; }
+        if (qty > n(p.max_nouveaux_sacs)) { msg.className = 'ops-danger-text'; msg.textContent = 'Quantité supérieure au plafond (' + num(p.max_nouveaux_sacs) + ' sacs au plus).'; return; }
+        bagStep(id, { status: 'BM_APPROVED', approved_qty: qty, cycle_id: cyc, stock_rcn_kg_verified: n(stock),
+          expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+          notes: note || r.notes || null }, 'sacs_demande_approuvee').then(function (ok) { if (ok) closeForm(); });
+      });
     });
   });
 }
