@@ -8,7 +8,9 @@
 (function(global){
 'use strict';
 var MENU=[
- /* Incident SOUAFOUÈ KAN (18/11/2026) : la file locale doit être visible en un
+ /* E6 n'est pas un septième espace métier : c'est un accès utilitaire épinglé
+    en tête du menu (l'ordre d'affichage suit MENU, pas ROLE).
+    Incident SOUAFOUÈ KAN (18/11/2026) : la file locale doit être visible en un
     geste depuis tous les écrans, pour tous les profils terrain. Le journal ne
     montre que les opérations du compte connecté sur ce téléphone. */
  {id:'E6',fr:'Synchronisation & Journal',en:'Sync & log',icon:'⟳',items:[
@@ -43,10 +45,10 @@ var MENU=[
   ['Traçabilité','Traceability','traceability.html'],
   ['Comptes et rôles','Users & roles','../shared/admin.html','external']]}
 ];
-var ROLE={BM:['E6','E0','E1','E2','E3','E4','E5'],ABM:['E6','E0','E1','E2','E3','E4','E5'],
- UH:['E6','E0','E1','E2','E3','E4','E5'],AUH:['E6','E0','E1','E2','E3'],
- ZH:['E6','E0','E1','E2','E3','E4','E5'],LOG:['E6','E0','E1','E3','E4','E5'],
- FIN:['E6','E0','E3','E5'],RO:['E6','E0','E1','E2','E5']};
+var ROLE={BM:['E0','E1','E2','E3','E4','E5','E6'],ABM:['E0','E1','E2','E3','E4','E5','E6'],
+ UH:['E0','E1','E2','E3','E4','E5','E6'],AUH:['E0','E1','E2','E3','E6'],
+ ZH:['E0','E1','E2','E3','E4','E5','E6'],LOG:['E0','E1','E3','E4','E5','E6'],
+ FIN:['E0','E3','E5','E6'],RO:['E0','E1','E2','E5','E6']};
 var MAP={BRANCH_MANAGER:'BM',ZONAL_HEAD:'ZH',UNIT_HEAD:'UH',ASSISTANT_UNIT_HEAD:'AUH',
  LOGISTICS_COORDINATOR:'LOG',FINANCE_CONTROLLER:'FIN',LEGACY_ASSISTANT_BM:'ABM',
  READ_ONLY_AUDIT:'RO',WAREHOUSE_KEEPER:'RO',RT_FIELD_PARTNER:'RO'};
