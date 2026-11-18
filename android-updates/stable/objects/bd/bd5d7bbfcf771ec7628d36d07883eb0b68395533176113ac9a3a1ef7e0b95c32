@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer">
+<title>Récupérer mon accès · ANAGROCI FBMS</title>
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(140deg,#053B23,#176440);font:15px/1.5 system-ui,Arial,sans-serif;color:#183529}
+main{width:100%;max-width:460px;background:#fff;border-radius:20px;padding:30px;box-shadow:0 18px 55px #001f1466}h1{font-size:24px;color:#053B23;margin:0 0 8px}p{margin:0 0 18px;color:#53665c}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#28753e;margin-bottom:12px}label{display:block;margin:12px 0 5px;font-weight:700;font-size:13px}input{width:100%;padding:13px;border-radius:9px;border:1px solid #91a99a;font-size:16px}input:focus{outline:3px solid #b0e2b7}button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:700;background:#00712c;color:#fff;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.notice{margin:15px 0;padding:12px;border-radius:9px;background:#e5f3e6;color:#123d21}.notice.error{background:#fff1eb;color:#872d20}[hidden]{display:none!important}a{color:#07652f}.back{display:block;text-align:center;margin-top:20px}small{display:block;color:#62766a;margin-top:16px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" referrerpolicy="no-referrer"></script>
+<script defer src="./password-reset.js?v=20261016-2"></script>
+</head><body><main><div class="brand">ANAGROCI · FIELD BUYING</div><h1>Récupérer mon accès</h1><p>Réinitialisez votre mot de passe de manière sécurisée. Une connexion Internet est nécessaire.</p>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<form id="request-form"><label for="recover-email">Adresse e-mail du compte</label><input type="email" id="recover-email" autocomplete="email" required placeholder="nom@exemple.com"><button id="request-button" type="submit">Recevoir un lien de réinitialisation</button><small>Si un compte correspond à cette adresse, vous recevrez un e-mail. Vérifiez également les spams.</small></form>
+<div id="waiting" hidden>Vérification du lien…</div>
+<form id="update-form" hidden><label for="new-password">Nouveau mot de passe</label><input id="new-password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="password-hint"><small id="password-hint" style="margin-top:6px">12 caractères minimum.</small><label for="confirm-password">Confirmer le mot de passe</label><input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required><button id="update-button" type="submit">Enregistrer mon nouveau mot de passe</button></form>
+<div id="completed" hidden><p>Votre mot de passe a été modifié. Vous pouvez maintenant vous connecter.</p></div>
+<a class="back" href="../index.html">Retour à la connexion FBMS</a>
+</main></body></html>
