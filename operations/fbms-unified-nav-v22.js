@@ -8,6 +8,11 @@
 (function(global){
 'use strict';
 var MENU=[
+ /* Incident SOUAFOUÈ KAN (18/11/2026) : la file locale doit être visible en un
+    geste depuis tous les écrans, pour tous les profils terrain. Le journal ne
+    montre que les opérations du compte connecté sur ce téléphone. */
+ {id:'E6',fr:'Synchronisation & Journal',en:'Sync & log',icon:'⟳',items:[
+  ['Synchronisation & Journal','Sync & log','field-buying.html#sync']]},
  {id:'E0',fr:'AFLP FLEET',en:'AFLP FLEET',icon:'▤',items:[
   ['Parc motos & carburant','Motorcycles & fuel','../moto/index.html','external']]},
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
@@ -38,10 +43,10 @@ var MENU=[
   ['Traçabilité','Traceability','traceability.html'],
   ['Comptes et rôles','Users & roles','../shared/admin.html','external']]}
 ];
-var ROLE={BM:['E0','E1','E2','E3','E4','E5'],ABM:['E0','E1','E2','E3','E4','E5'],
- UH:['E0','E1','E2','E3','E4','E5'],AUH:['E0','E1','E2','E3'],
- ZH:['E0','E1','E2','E3','E4','E5'],LOG:['E0','E1','E3','E4','E5'],
- FIN:['E0','E3','E5'],RO:['E0','E1','E2','E5']};
+var ROLE={BM:['E6','E0','E1','E2','E3','E4','E5'],ABM:['E6','E0','E1','E2','E3','E4','E5'],
+ UH:['E6','E0','E1','E2','E3','E4','E5'],AUH:['E6','E0','E1','E2','E3'],
+ ZH:['E6','E0','E1','E2','E3','E4','E5'],LOG:['E6','E0','E1','E3','E4','E5'],
+ FIN:['E6','E0','E3','E5'],RO:['E6','E0','E1','E2','E5']};
 var MAP={BRANCH_MANAGER:'BM',ZONAL_HEAD:'ZH',UNIT_HEAD:'UH',ASSISTANT_UNIT_HEAD:'AUH',
  LOGISTICS_COORDINATOR:'LOG',FINANCE_CONTROLLER:'FIN',LEGACY_ASSISTANT_BM:'ABM',
  READ_ONLY_AUDIT:'RO',WAREHOUSE_KEEPER:'RO',RT_FIELD_PARTNER:'RO'};
@@ -72,7 +77,8 @@ function pathId(){
   if(/#(farmers|rt|census|cooperatives|hubs)/.test(hash))return 'E1';
   if(/#(sustainability|observatoire)(\/|$)/.test(hash))return 'E2';
   if(/#(purchases|cash|bags)/.test(hash))return 'E3';
-  if(/#(overview|command|sync|aflp-data|traceability)/.test(hash))return 'E5';
+  if(/#sync(\/|$)/.test(hash))return 'E6';
+  if(/#(overview|command|aflp-data|traceability)/.test(hash))return 'E5';
   return 'E0';
  }
  return 'E0';

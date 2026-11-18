@@ -154,3 +154,11 @@ body.fbms-v22 #opsSidebar:not(.fbms-v22-side){
   width:min(330px,86vw);height:100dvh;
   visibility:hidden!important;pointer-events:none!important;
 }
+
+/* Synchronisation & Journal (18/11/2026) : l'indicateur de file locale reste
+   visible sur téléphone (il était masqué sous 520 px par operations.css) et
+   mène au journal en un geste. */
+@media(max-width:520px){
+  .ops-top-actions #opsOfflineSlot .ops-pill{display:inline-flex!important}
+}
+#opsOfflineSlot .ops-pill{text-decoration:none}
