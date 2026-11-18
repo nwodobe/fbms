@@ -27,8 +27,8 @@ for(const file of ['index.html','operations/field-buying.html','operations/procu
                    'operations/reports.html','operations/aflp-data.html','operations/campaigns.html',
                    'operations/traceability.html','moto/index.html','fieldproof/index.html']){
  const html=read(file);
- assert.ok(html.includes('fbms-unified-nav-v22.css?v=20261113-no-sidebar-1'), file+' must reload new menu style');
- assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'), file+' must reload new menu controller');
+ assert.ok(html.includes('fbms-unified-nav-v22.css?v=20261118-sync-journal-1'), file+' must reload new menu style');
+ assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261118-sync-journal-1'), file+' must reload new menu controller');
 }
 
 
@@ -47,7 +47,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261113-no-sidebar-1'),'Home must load the refreshed navigation JS');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261118-sync-journal-1'),'Home must load the refreshed navigation JS');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 

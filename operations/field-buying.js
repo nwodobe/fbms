@@ -4186,30 +4186,37 @@ function prepareOfflineMode() {
   }).then(function(){return off.readiness();});
 }
 function renderSync() {
-  var off=global.ANAGROCI_OFFLINE;
+  var off=global.ANAGROCI_OFFLINE, J=global.ANAGROCI_SYNC_JOURNAL;
   if(!off){
-    paint(head('Synchronisation','Mode terrain hors ligne.')+danger('Le moteur hors ligne n’est pas disponible sur cette page.'));
+    paint(head('Synchronisation & Journal','Mode terrain hors ligne.')+danger('Le moteur hors ligne n’est pas disponible sur cette page.'));
     return Promise.resolve();
   }
-  paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
-    '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
-    '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+skeletonPage(4));
-  return Promise.all([off.readiness(),off.summary(),off.list(),off.storageEstimate()]).then(function(rs){
-    var r=rs[0],s=rs[1],ops=rs[2],st=rs[3]||{};
+  var actions='<button class="btn primary" id="offSync" type="button">Synchroniser maintenant</button>'+
+    '<button class="btn secondary" id="offRetryFailed" type="button">Réessayer les opérations échouées</button>'+
+    '<button class="btn secondary" id="offRefresh" type="button">Actualiser le statut</button>'+
+    '<button class="btn secondary" id="offExport" type="button">Exporter un diagnostic</button>';
+  var title='Synchronisation & Journal', sub='Ce que ce téléphone contient, ce qui a été transmis et ce que le serveur a réellement accepté.';
+  if(!renderSync._painted) paint(head(title,sub,actions)+skeletonPage(6));
+  var fr=global.AFLP_FARMER_REGISTRY, regP=fr&&typeof fr.pendingCount==='function'?Promise.resolve().then(function(){return fr.pendingCount();}).catch(function(){return 0;}):Promise.resolve(0);
+  return Promise.all([off.readiness(),off.summary(),off.list(),off.storageEstimate(),off.lastSyncEvent?off.lastSyncEvent():Promise.resolve(null),regP,off.getBundle('field_base').catch(function(){return null;})]).then(function(rs){
+    var r=rs[0],s=rs[1],ops=rs[2],st=rs[3]||{},lastEv=rs[4],regPending=Number(rs[5]||0),base=rs[6]||{};
+    var villages={};(base.villages||[]).forEach(function(v){villages[v.id]=v;});
     var last=r.last_prepared&&r.last_prepared.at?date(r.last_prepared.at):'Jamais';
-    var status=s.syncing?'Synchronisation '+s.done+' / '+s.total:(!s.online?'Hors ligne':(s.pending||s.failed||s.review||s.conflicts)?'À synchroniser':'Tout synchronisé');
     var ready=r.ready?'Prêt pour le terrain ✓':'Mode hors ligne non préparé';
     var storage=st.quota?num((st.usage||0)/1048576,1)+' / '+num(st.quota/1048576,0)+' Mo':'—';
-    paint(head('Synchronisation','Préparer ce téléphone avant de partir sur le terrain et suivre les opérations locales.',
-      '<button class="btn primary" id="offPrepare" type="button">Préparer le mode hors ligne</button>'+
-      '<button class="btn secondary" id="offSync" type="button">Synchroniser maintenant</button>')+
-      kpis([
-        ['État réseau',s.online?'En ligne':'Hors ligne',status,s.online?'':'warn'],
-        ['Mode terrain',ready,'dernière préparation : '+last,r.ready?'':'warn'],
-        ['Opérations en attente',String(s.pending+s.failed),s.review+s.conflicts+' à vérifier',(s.failed||s.review||s.conflicts)?'warn':''],
-        ['Stockage local',storage,st.persisted===true?'stockage persistant accordé':'protection du stockage selon le navigateur']
-      ])+
-      '<section class="card"><div class="card-head"><div><h2>Données disponibles hors ligne</h2><p>Campagne '+esc(r.campaign_code||'—')+' · cache de cet appareil uniquement.</p></div></div>'+
+    if(J)J.css();
+    var locked=off.retentionLocked&&off.retentionLocked();
+    renderSync._painted=true;
+    paint(head(title,sub,actions)+
+      (J?J.dashboardHtml(s,lastEv,regPending):kpis([['Opérations en attente',String(s.pending+s.failed),s.review+s.conflicts+' à vérifier','']]))+
+      '<section class="card"><div class="card-head"><div><h2>Journal détaillé</h2><p>Consultable sans Internet. Touchez une opération pour voir son détail.</p></div></div>'+
+      '<div id="offJournal">'+(J?J.journalHtml(ops,villages,{allowCancel:!locked}):off.journalHtml(ops))+'</div>'+
+      (locked?'<div class="notice info"><b>Conservation des preuves :</b>&nbsp; dans cette version, aucune opération n’est supprimée du téléphone et aucun enrôlement local ne peut être annulé. Le bouton « Nettoyer les opérations synchronisées » est désactivé.</div>':
+        '<button class="btn secondary" id="offClear" type="button">Nettoyer les opérations synchronisées</button>')+
+      '</section>'+
+      (!s.online?'<div class="notice warn"><b>Hors ligne :</b>&nbsp; les opérations restent sur cet appareil et seront synchronisées au retour du réseau.</div>':'')+
+      '<section class="card"><div class="card-head"><div><h2>Préparation du téléphone</h2><p>Campagne '+esc(r.campaign_code||'—')+' · '+esc(ready)+' · dernière préparation : '+esc(last)+' · stockage '+esc(storage)+(st.persisted===true?' (persistant)':'')+'</p></div>'+
+      '<button class="btn secondary" id="offPrepare" type="button">Préparer le mode hors ligne</button></div>'+
       table(['Donnée','Disponibilité','Volume'],[
         '<tr><td>Campagne / règles d’achat</td><td>'+badge(r.rule_cached?'Disponible':'À préparer')+'</td><td>1 campagne</td></tr>',
         '<tr><td>Villages</td><td>'+badge(r.villages?'Disponible':'À préparer')+'</td><td>'+num(r.villages)+'</td></tr>',
@@ -4227,32 +4234,56 @@ function renderSync() {
       '</div>'+
       ((r.leases||[]).length?'<div class="notice ok"><b>RT autorisés :</b> '+(r.leases||[]).map(function(l){var rr=(r.rts_list||[]).filter(function(x){return x.id===l.rt_id;})[0]||{};return esc((rr.id_rt||l.rt_id)+' · '+(rr.nom||'')+' · jusqu’au '+(l.valid_until?date(l.valid_until):'—'));}).join(' · ')+'</div>':
         '<div class="notice warn"><b>Sécurité caisse :</b>&nbsp; aucun achat financier ne sera accepté hors ligne tant qu’un RT n’est pas explicitement autorisé sur cet appareil.</div>')+
-      '</section>'+
-      '<section class="card"><div class="card-head"><div><h2>Journal hors ligne</h2><p>Une opération locale n’est jamais supprimée avant confirmation serveur.</p></div>'+
-      '<button class="btn secondary" id="offClear" type="button">Nettoyer les opérations synchronisées</button></div><div id="offJournal">'+off.journalHtml(ops)+'</div></section>'+
-      (!s.online?'<div class="notice warn"><b>Hors ligne :</b>&nbsp; les opérations restent sur cet appareil et seront synchronisées au retour du réseau.</div>':''));
-    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear'),authRt=document.getElementById('offAuthorizeRt');
+      '</section>');
+    function busy(b,label){if(b){b.disabled=true;b.textContent=label;}}
+    function fail(e){alert(e&&e.message?e.message:String(e));renderSync();}
+    var prep=document.getElementById('offPrepare'),syn=document.getElementById('offSync'),clr=document.getElementById('offClear'),authRt=document.getElementById('offAuthorizeRt'),
+      rf=document.getElementById('offRetryFailed'),rr=document.getElementById('offRefresh'),ex=document.getElementById('offExport');
     if(prep) prep.onclick=function(){
-      prep.disabled=true;prep.textContent='Préparation…';
-      prepareOfflineMode().then(function(){FBStore.clear();renderSync();}).catch(function(e){prep.disabled=false;prep.textContent='Préparer le mode hors ligne';alert(e.message);});
+      busy(prep,'Préparation…');
+      prepareOfflineMode().then(function(){FBStore.clear();renderSync();}).catch(fail);
     };
     if(syn) syn.onclick=function(){
-      syn.disabled=true;syn.textContent='Synchronisation…';
-      off.syncNow().then(function(){FBStore.clear();renderSync();}).catch(function(e){syn.disabled=false;syn.textContent='Synchroniser maintenant';alert(e.message);});
+      busy(syn,'Synchronisation…');
+      (off.manualSync||off.syncNow)().then(function(){FBStore.clear();renderSync();}).catch(fail);
+    };
+    if(rf) rf.onclick=function(){
+      if(!(s.failed>0)){alert('Aucune opération échouée à relancer.');return;}
+      busy(rf,'Relance…');
+      off.retryFailed().then(function(x){FBStore.clear();renderSync();if(x&&x.results&&(x.results.FAILED||x.results.NO_RESULT))alert('Certaines opérations ont de nouveau échoué : ouvrez leur détail.');}).catch(fail);
+    };
+    if(rr) rr.onclick=function(){renderSync();};
+    if(ex) ex.onclick=function(){
+      busy(ex,'Export…');
+      off.diagnostic({ readiness:{campaign_code:r.campaign_code,ready:r.ready,villages:r.villages,producers:r.producers}, registry_pending:regPending }).then(function(d){
+        var stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+        if(J)J.download('FBMS_diagnostic_sync_'+stamp+'.json',d);
+        ex.disabled=false;ex.textContent='Exporter un diagnostic';
+      }).catch(fail);
     };
     if(authRt) authRt.onclick=function(){
       var sel=document.getElementById('offRtAuthorize'),rid=sel&&sel.value;
       if(!rid){alert('Choisissez un RT.');return;}
       if(!off.isOnline()){alert('Une connexion Internet est nécessaire pour autoriser un RT sur cet appareil.');return;}
-      authRt.disabled=true;authRt.textContent='Autorisation…';
+      busy(authRt,'Autorisation…');
       off.prepareDeviceLease(rid).then(function(x){
         if(!x||x.authorized!==true)throw new Error((x&&x.reason)||'Autorisation refusée.');
         return renderSync();
-      }).catch(function(e){authRt.disabled=false;authRt.textContent='Autoriser ce RT sur cet appareil';alert(e.message);});
+      }).catch(fail);
     };
-    if(clr) clr.onclick=function(){off.clearSynced().then(renderSync);};
-    [].slice.call(document.querySelectorAll('[data-off-retry]')).forEach(function(b){b.onclick=function(){off.retry(b.getAttribute('data-off-retry')).then(renderSync).catch(function(e){alert(e.message);});};});
-    [].slice.call(document.querySelectorAll('[data-off-cancel]')).forEach(function(b){b.onclick=function(){if(!confirm('Annuler cette opération locale ?'))return;off.cancel(b.getAttribute('data-off-cancel')).then(renderSync).catch(function(e){alert(e.message);});};});
+    if(clr) clr.onclick=function(){off.clearSynced().then(renderSync).catch(fail);};
+    [].slice.call(document.querySelectorAll('[data-sj-filter]')).forEach(function(b){b.onclick=function(){
+      if(!J)return; J.setFilter(b.getAttribute('data-sj-filter'));
+      var host=document.getElementById('offJournal'); if(host){host.innerHTML=J.journalHtml(ops,villages,{allowCancel:!locked});bindRows();host.scrollIntoView({block:'start'});}
+    };});
+    function bindRows(){
+      [].slice.call(document.querySelectorAll('#offJournal [data-sj-filter]')).forEach(function(b){b.onclick=function(){J.setFilter(b.getAttribute('data-sj-filter'));var host=document.getElementById('offJournal');host.innerHTML=J.journalHtml(ops,villages,{allowCancel:!locked});bindRows();};});
+      [].slice.call(document.querySelectorAll('[data-off-retry]')).forEach(function(b){b.onclick=function(ev){ev.preventDefault();busy(b,'Envoi…');off.retry(b.getAttribute('data-off-retry')).then(function(){FBStore.clear();renderSync();}).catch(fail);};});
+      [].slice.call(document.querySelectorAll('[data-off-cancel]')).forEach(function(b){b.onclick=function(ev){ev.preventDefault();if(!confirm('Annuler cette opération locale ? Elle restera dans le journal avec le statut Annulée.'))return;off.cancel(b.getAttribute('data-off-cancel')).then(renderSync).catch(fail);};});
+    }
+    bindRows();
+  }).catch(function(e){
+    paint(head(title,sub,actions)+danger('Lecture du journal local impossible : '+(e&&e.message?e.message:e)+'. Aucune donnée n’a été modifiée.'));
   });
 }
 global.addEventListener&&global.addEventListener('anagroci:offline-status',function(){if(route()==='sync'){clearTimeout(renderSync._t);renderSync._t=setTimeout(renderSync,250);}});

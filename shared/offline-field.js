@@ -18,6 +18,16 @@ var dbPromise = null;
 var syncPromise = null;
 var syncTimer = null;
 var runtime = { syncing: false, done: 0, total: 0, lastError: null };
+/* Version de diagnostic (incident SOUAFOUÈ KAN, 18/11/2026) : aucune opération
+   locale n'est supprimée et aucun enrôlement local ne peut être annulé depuis
+   le téléphone. Les preuves restent sur l'appareil jusqu'à la fin de l'enquête. */
+var RETENTION_LOCK = true;
+var ENROLL_TYPES = ['FARMER_ENROLL', 'COOP_FARMER_ENROLL'];
+var MAX_ATTEMPTS = 10;
+/* Historique des cycles de synchronisation (méta-données uniquement, aucune
+   donnée personnelle). Les opérations elles-mêmes ne sont jamais tronquées. */
+var EVENTS_KEY = 'sync_events';
+var EVENTS_MAX = 300;
 
 function nowIso() { return new Date().toISOString(); }
 function uuid() {
@@ -148,12 +158,21 @@ function statusRank(s) { return { PENDING: 1, SYNCING: 2, FAILED: 3, CONFLICT: 4
 function summary() {
   return all(STORE_OPS).then(function (ops) {
     var uid = currentUserId();
-    var s = { online: isOnline(), syncing: runtime.syncing, done: runtime.done, total: runtime.total, pending: 0, failed: 0, conflicts: 0, review: 0, synced: 0, cancelled: 0, other_users_open: 0, lastError: runtime.lastError };
+    var s = { online: isOnline(), syncing: runtime.syncing, done: runtime.done, total: runtime.total, pending: 0, failed: 0, conflicts: 0, review: 0, synced: 0, cancelled: 0, other_users_open: 0, other_users_total: 0, lastError: runtime.lastError,
+      waiting: 0, in_progress: 0, blocked: 0, total_local: 0, transmitted: 0, accepted: 0, enroll_total: 0, enroll_open: 0 };
     ops.forEach(function (o) {
       if (!ownedBy(uid, o)) {
+        s.other_users_total++;
         if (o.status !== 'SYNCED' && o.status !== 'CANCELLED') s.other_users_open++;
         return;
       }
+      s.total_local++;
+      if (Number(o.attempt_count || 0) > 0 || ['SYNCED', 'CONFLICT', 'NEEDS_REVIEW'].indexOf(o.status) >= 0) s.transmitted++;
+      if (o.status === 'SYNCED') s.accepted++;
+      if (ENROLL_TYPES.indexOf(o.operation_type) >= 0) { s.enroll_total++; if (o.status !== 'SYNCED' && o.status !== 'CANCELLED') s.enroll_open++; }
+      if (o.status === 'PENDING') s.waiting++;
+      if (o.status === 'SYNCING') s.in_progress++;
+      if (o.status === 'FAILED' && Number(o.attempt_count || 0) >= MAX_ATTEMPTS) s.blocked++;
       if (o.status === 'PENDING' || o.status === 'SYNCING') s.pending++;
       else if (o.status === 'FAILED') s.failed++;
       else if (o.status === 'CONFLICT') s.conflicts++;
@@ -238,6 +257,7 @@ function cancelOperation(id) {
     var row = ops.filter(function (o) { return o.id === id; })[0];
     if (!row) throw new Error('Opération introuvable.');
     if (row.status === 'SYNCED') throw new Error('Une opération déjà synchronisée ne peut pas être annulée localement.');
+    if (RETENTION_LOCK && ENROLL_TYPES.indexOf(row.operation_type) >= 0) throw new Error('Version de diagnostic : un enrôlement local ne peut pas être annulé sur le téléphone. Synchronisez-le ou contactez le Branch Manager.');
     return updateOperation(id, { status: 'CANCELLED', last_error: null });
   });
 }
@@ -286,8 +306,10 @@ function friendly(msg){
 }
 function applyResult(op, res) {
   var status = String(res.status || 'FAILED').toUpperCase();
-  var patch = { status: status, result: res, last_error: res.message ? friendly(res.message) : null };
-  if (status === 'SYNCED') { patch.last_error = null; patch.next_attempt_at = null; }
+  var patch = { status: status, result: res, last_error: res.message ? friendly(res.message) : null, server_answered_at: nowIso() };
+  if (res.server_id) patch.server_id = res.server_id;
+  if (res.farmer_id) patch.server_farmer_id = res.farmer_id;
+  if (status === 'SYNCED') { patch.last_error = null; patch.next_attempt_at = null; patch.synced_at = nowIso(); }
   if (status === 'FAILED') patch.next_attempt_at = nextBackoff(op.attempt_count || 1);
   if (status === 'CONFLICT' || status === 'NEEDS_REVIEW') patch.next_attempt_at = null;
   return updateOperation(op.id, patch).then(function () {
@@ -352,15 +374,15 @@ function syncNow() {
     var eligible = ops.filter(function (o) {
       if (o.status !== 'PENDING' && o.status !== 'FAILED') return false;
       if (!sessionUid || !ownedBy(sessionUid, o)) return false;
-      if (Number(o.attempt_count || 0) >= 10) return false;
+      if (Number(o.attempt_count || 0) >= MAX_ATTEMPTS) return false;
       if (o.next_attempt_at && new Date(o.next_attempt_at).getTime() > now) return false;
       return depsDone(o, byId);
     }).sort(function(a,b){return new Date(a.created_at_client||0)-new Date(b.created_at_client||0);}).slice(0, MAX_BATCH);
-    if (!eligible.length) return { empty: true };
+    if (!eligible.length) return { empty: true, open: ops.filter(function (o) { return ownedBy(sessionUid, o) && (o.status === 'PENDING' || o.status === 'FAILED'); }).length };
 
     runtime.syncing = true; runtime.done = 0; runtime.total = eligible.length; runtime.lastError = null; emit();
     return Promise.all(eligible.map(function (o) {
-      return updateOperation(o.id, { status: 'SYNCING', attempt_count: Number(o.attempt_count || 0) + 1, last_attempt_at: nowIso(), last_error: null });
+      return updateOperation(o.id, { status: 'SYNCING', attempt_count: Number(o.attempt_count || 0) + 1, last_attempt_at: nowIso(), first_transmitted_at: o.first_transmitted_at || nowIso(), last_error: null });
     })).then(function () {
       return cl.rpc('offline_sync_batch', { p_operations: eligible.map(function (o) {
         return {
@@ -377,15 +399,24 @@ function syncNow() {
       if (r.error) throw new Error(r.error.message);
       var results = r.data && r.data.results ? r.data.results : [];
       var byKey = {}; results.forEach(function (x) { byKey[x.idempotency_key] = x; });
+      /* Une réponse HTTP 200 ne prouve rien : seul le résultat individuel de
+         chaque opération (clé d'idempotence) fait foi. */
+      var tally = { SYNCED: 0, FAILED: 0, CONFLICT: 0, NEEDS_REVIEW: 0, NO_RESULT: 0 };
       return eligible.reduce(function (p, op) {
         return p.then(function () {
-          var res = byKey[op.idempotency_key] || { status: 'FAILED', message: 'Aucun résultat serveur pour cette opération.' };
+          var res = byKey[op.idempotency_key];
+          if (!res) { tally.NO_RESULT++; res = { status: 'FAILED', message: 'Aucun résultat serveur pour cette opération.' }; }
+          else { var st = String(res.status || 'FAILED').toUpperCase(); tally[st] = (tally[st] || 0) + 1; }
           return applyResult(op, res).then(function () { runtime.done++; emit(); });
         });
-      }, Promise.resolve()).then(function () { return { synced: results.length }; });
+      }, Promise.resolve()).then(function () {
+        return logSyncEvent({ kind: 'BATCH', sent: eligible.length, received: results.length, results: tally,
+          enroll_sent: eligible.filter(function (o) { return ENROLL_TYPES.indexOf(o.operation_type) >= 0; }).length });
+      }).then(function () { return { synced: tally.SYNCED, sent: eligible.length, results: tally }; });
     });
   }).catch(function (err) {
     runtime.lastError = friendly(err && err.message ? err.message : String(err));
+    logSyncEvent({ kind: 'ERROR', message: runtime.lastError });
     return allOperations().then(function (ops) {
       var affected = ops.filter(function (o) { return o.status === 'SYNCING'; });
       return Promise.all(affected.map(function (o) {
@@ -563,7 +594,83 @@ function requestPersistentStorage() {
   if (!navigator.storage || !navigator.storage.persist) return Promise.resolve(false);
   return navigator.storage.persist().catch(function () { return false; });
 }
+function logSyncEvent(ev) {
+  ev = Object.assign({ at: nowIso(), user_id: currentUserId(), online: isOnline() }, ev || {});
+  return getMeta(EVENTS_KEY).then(function (list) {
+    list = Array.isArray(list) ? list : [];
+    list.unshift(ev);
+    if (list.length > EVENTS_MAX) list = list.slice(0, EVENTS_MAX);
+    return setMeta(EVENTS_KEY, list);
+  }).then(function () { return setMeta('last_sync_event', ev); }).catch(function () {});
+}
+function syncEvents() { return getMeta(EVENTS_KEY).then(function (l) { return Array.isArray(l) ? l : []; }).catch(function () { return []; }); }
+function lastSyncEvent() { return getMeta('last_sync_event').catch(function () { return null; }); }
+/* Relance manuelle : l'identifiant d'opération et la clé d'idempotence ne
+   changent JAMAIS ; le serveur reconnaît une opération déjà reçue. Les
+   conflits et vérifications ne sont pas forcés. */
+function retryOperation(id) {
+  return listOperations().then(function (ops) {
+    var row = ops.filter(function (o) { return o.id === id; })[0];
+    if (!row) throw new Error('Opération introuvable pour ce compte.');
+    if (row.status !== 'FAILED' && row.status !== 'PENDING') throw new Error('Statut ' + row.status + ' : cette opération ne se relance pas automatiquement. Contrôle manuel requis.');
+    return updateOperation(id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null, manual_retry_at: nowIso(), manual_retry_count: Number(row.manual_retry_count || 0) + 1 });
+  }).then(function () { return logSyncEvent({ kind: 'RETRY', scope: 'ONE', count: 1 }); }).then(manualSync);
+}
+function retryFailed() {
+  return listOperations().then(function (ops) {
+    var f = ops.filter(function (o) { return o.status === 'FAILED'; });
+    return Promise.all(f.map(function (o) {
+      return updateOperation(o.id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null, manual_retry_at: nowIso(), manual_retry_count: Number(o.manual_retry_count || 0) + 1 });
+    })).then(function () { return logSyncEvent({ kind: 'RETRY', scope: 'FAILED', count: f.length }); }).then(function () { return f.length; });
+  }).then(function (n) { if (!n) return { retried: 0 }; return manualSync().then(function (x) { return Object.assign({ retried: n }, x || {}); }); });
+}
+function manualSync() {
+  if (!isOnline()) { logSyncEvent({ kind: 'OFFLINE', manual: true }); return Promise.reject(new Error('Hors ligne : les opérations restent conservées sur cet appareil.')); }
+  return syncNow().then(function (x) {
+    if (x && x.empty) logSyncEvent({ kind: 'NOTHING', manual: true, open: x.open || 0 });
+    return x;
+  });
+}
+function redactPayload(op) {
+  var p = op.payload || {}, row = p.row || p.candidate || p.member || {};
+  return { village_id: row.village_id || null, rt_id: row.rt_id || null, cooperative_id: row.cooperative_id || null,
+    has_plot_gps: !!(p.plot && p.plot.latitude != null && p.plot.longitude != null) };
+}
+/* Diagnostic local minimisé : aucun nom, téléphone, pièce d'identité ni
+   coordonnée de paiement. Les opérations d'un autre compte ne sont comptées
+   que globalement. */
+function diagnostic(extra) {
+  var uid = currentUserId();
+  return Promise.all([allOperations(), summary(), syncEvents(), deviceId(), storageEstimate(), getMeta('last_prepared')]).then(function (rs) {
+    var ops = rs[0];
+    var mine = ops.filter(function (o) { return ownedBy(uid, o); });
+    return {
+      format: 'ANAGROCI_FBMS_DIAGNOSTIC_SYNC@1',
+      generated_at: nowIso(),
+      app: global.ANAGROCI_NATIVE || { platform: 'web' },
+      origin: global.location ? global.location.origin : null,
+      device_id: rs[3], user_id: uid,
+      campaign_id: campaignId(), campaign_code: campaignCode(),
+      storage: rs[4], last_prepared: rs[5] ? { at: rs[5].at, campaign_code: rs[5].campaign_code, producers: rs[5].producers } : null,
+      summary: rs[1],
+      other_accounts: { operations: ops.length - mine.length, open: rs[1].other_users_open },
+      operations: mine.map(function (o) {
+        var r = o.result || {};
+        return { id: o.id, idempotency_key: o.idempotency_key, type: o.operation_type, status: o.status,
+          created_at_client: o.created_at_client, first_transmitted_at: o.first_transmitted_at || null,
+          last_attempt_at: o.last_attempt_at || null, server_answered_at: o.server_answered_at || null, synced_at: o.synced_at || null,
+          attempts: Number(o.attempt_count || 0), manual_retries: Number(o.manual_retry_count || 0),
+          server_id: o.server_id || r.server_id || null, farmer_id: o.server_farmer_id || r.farmer_id || null,
+          local_id: (o.payload && o.payload.local_id) || null, campaign_code: o.campaign_code || null,
+          error: o.last_error || null, dependencies: (o.dependencies || []).length, context: redactPayload(o) };
+      }),
+      events: rs[2].slice(0, 100),
+      extra: extra || null
+    };
+  });
+}
 function clearSynced() {
+  if (RETENTION_LOCK) return Promise.reject(new Error('Version de diagnostic : le nettoyage est désactivé. Aucune opération locale n’est supprimée de ce téléphone.'));
   return listOperations().then(function (ops) {
     return Promise.all(ops.filter(function (o) { return o.status === 'SYNCED' || o.status === 'CANCELLED'; })
       .map(function (o) { return del(STORE_OPS, o.id); }));
@@ -614,7 +721,15 @@ var API = {
   list: listOperations,
   summary: summary,
   syncNow: syncNow,
-  retry: function (id) { return updateOperation(id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null }).then(syncNow); },
+  retry: retryOperation,
+  retryFailed: retryFailed,
+  manualSync: manualSync,
+  syncEvents: syncEvents,
+  lastSyncEvent: lastSyncEvent,
+  diagnostic: diagnostic,
+  retentionLocked: function () { return RETENTION_LOCK; },
+  enrollTypes: function () { return ENROLL_TYPES.slice(); },
+  maxAttempts: MAX_ATTEMPTS,
   cancel: cancelOperation,
   mappingSet: mappingSet,
   pendingSpend: pendingSpend,
@@ -638,4 +753,175 @@ var API = {
 };
 global.ANAGROCI_OFFLINE = API;
 API.ready().catch(function (e) { runtime.lastError = e.message; emit(); });
+})(window);
+
+/* ---- Synchronisation & Journal : rendu de l'écran #sync (embarqué ici pour être
+   disponible hors ligne partout où le moteur l'est, Service Worker compris). ---- */
+(function (global) {
+'use strict';
+
+var STATUS = {
+  PENDING:      { fr: 'En attente',       tone: 'warn',   help: 'Enregistrée sur ce téléphone, pas encore confirmée par le serveur.' },
+  SYNCING:      { fr: 'En cours',         tone: 'info',   help: 'Envoi au serveur en cours.' },
+  SYNCED:       { fr: 'Synchronisée',     tone: 'ok',     help: 'Le serveur a confirmé l’enregistrement.' },
+  FAILED:       { fr: 'Échouée',          tone: 'danger', help: 'Erreur : une nouvelle tentative est nécessaire.' },
+  CONFLICT:     { fr: 'En conflit',       tone: 'danger', help: 'Le serveur a détecté un conflit : résolution requise, pas de relance forcée.' },
+  NEEDS_REVIEW: { fr: 'À vérifier',       tone: 'danger', help: 'Contrôle manuel requis (droits, campagne, données).' },
+  CANCELLED:    { fr: 'Annulée',          tone: 'info',   help: 'Annulée sur le téléphone, conservée pour l’historique.' }
+};
+var TYPES = {
+  FARMER_ENROLL: 'Enrôlement producteur',
+  COOP_FARMER_ENROLL: 'Enrôlement producteur (coopérative)',
+  COOP_FARMER_LINK: 'Rattachement coopérative',
+  FIELD_PURCHASE_CREATE: 'Achat bord champ'
+};
+var FILTERS = [
+  ['all', 'Toutes'], ['enroll', 'Enrôlements producteurs'], ['open', 'Non synchronisées'],
+  ['FAILED', 'Échouées'], ['CONFLICT', 'En conflit'], ['NEEDS_REVIEW', 'À vérifier'], ['SYNCED', 'Synchronisées']
+];
+var ENROLL = ['FARMER_ENROLL', 'COOP_FARMER_ENROLL'];
+var state = { filter: 'all' };
+
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function dt(v) { if (!v) return '—'; var d = new Date(v); return isNaN(d) ? '—' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function st(s) { return STATUS[s] || { fr: s || '—', tone: 'info', help: '' }; }
+function badge(s) { var x = st(s); return '<span class="badge ' + x.tone + '" data-status="' + esc(s) + '">' + esc(x.fr) + '</span>'; }
+function isEnroll(o) { return ENROLL.indexOf(o.operation_type) >= 0; }
+
+function matches(o, f) {
+  if (f === 'all') return true;
+  if (f === 'enroll') return isEnroll(o);
+  if (f === 'open') return o.status !== 'SYNCED' && o.status !== 'CANCELLED';
+  return o.status === f;
+}
+
+function villageOf(o, villages) {
+  var p = o.payload || {}, row = p.row || p.candidate || p.member || {};
+  var vid = row.village_id || null, v = vid && villages ? villages[vid] : null;
+  return { id: vid, name: v ? (v.village || v.nom || null) : null, cluster: v ? (v.cluster || v.cluster_label || v.cluster_code || null) : null };
+}
+
+function tile(label, value, detail, tone, key) {
+  return '<button type="button" class="kpi sj-tile ' + (tone || '') + '" data-sj-filter="' + esc(key) + '" aria-label="Filtrer : ' + esc(label) + '">' +
+    '<small>' + esc(label) + '</small><b>' + esc(value) + '</b><span>' + esc(detail || '') + '</span></button>';
+}
+
+function eventLine(ev) {
+  if (!ev) return 'Aucun cycle de synchronisation enregistré sur ce téléphone depuis l’installation de cette version.';
+  var when = dt(ev.at);
+  if (ev.kind === 'BATCH') {
+    var r = ev.results || {};
+    return when + ' · ' + ev.sent + ' envoyée(s) · ' + (r.SYNCED || 0) + ' acceptée(s)' +
+      ((r.FAILED || 0) ? ' · ' + r.FAILED + ' échouée(s)' : '') + ((r.CONFLICT || 0) ? ' · ' + r.CONFLICT + ' conflit(s)' : '') +
+      ((r.NEEDS_REVIEW || 0) ? ' · ' + r.NEEDS_REVIEW + ' à vérifier' : '') + ((r.NO_RESULT || 0) ? ' · ' + r.NO_RESULT + ' sans réponse serveur' : '');
+  }
+  if (ev.kind === 'ERROR') return when + ' · échec du cycle : ' + (ev.message || 'erreur inconnue');
+  if (ev.kind === 'NOTHING') return when + ' · rien à envoyer' + (ev.open ? ' (' + ev.open + ' en attente de délai de reprise)' : '');
+  if (ev.kind === 'OFFLINE') return when + ' · tentative hors ligne';
+  if (ev.kind === 'RETRY') return when + ' · relance manuelle de ' + (ev.count || 0) + ' opération(s)';
+  return when + ' · ' + ev.kind;
+}
+
+function dashboardHtml(s, lastEvent, registryPending) {
+  s = s || {};
+  var net = s.online ? 'En ligne' : 'Hors ligne';
+  var html = '<section class="kpi-grid sj-status" aria-label="Statuts de synchronisation">' +
+    tile('En attente', s.waiting || 0, 'sur le téléphone, non confirmées', (s.waiting ? 'warn' : ''), 'PENDING') +
+    tile('En cours', s.in_progress || 0, s.syncing ? 'envoi ' + (s.done || 0) + ' / ' + (s.total || 0) : 'aucun envoi en cours', '', 'SYNCING') +
+    tile('Synchronisées', s.synced || 0, 'confirmées par le serveur', '', 'SYNCED') +
+    tile('Échouées', s.failed || 0, (s.blocked ? s.blocked + ' bloquée(s) après 10 essais' : 'à réessayer'), (s.failed ? 'danger' : ''), 'FAILED') +
+    tile('En conflit', s.conflicts || 0, 'résolution requise', (s.conflicts ? 'danger' : ''), 'CONFLICT') +
+    tile('À vérifier', s.review || 0, 'contrôle manuel', (s.review ? 'danger' : ''), 'NEEDS_REVIEW') +
+    '</section>' +
+    '<section class="card sj-levels"><div class="card-head"><div><h2>Où sont mes opérations ?</h2>' +
+    '<p>Trois niveaux distincts. Une réponse « 200 » du réseau ne suffit jamais : seule la confirmation individuelle du serveur compte.</p></div></div>' +
+    '<div class="sj-level-grid">' +
+      '<div class="sj-level"><small>1 · Dans ce téléphone</small><b data-sj="total_local">' + (s.total_local || 0) + '</b><span>opérations enregistrées localement' + (s.enroll_total ? ' · dont ' + s.enroll_total + ' enrôlement(s)' : '') + '</span></div>' +
+      '<div class="sj-level"><small>2 · Transmises au serveur</small><b data-sj="transmitted">' + (s.transmitted || 0) + '</b><span>au moins un envoi effectué</span></div>' +
+      '<div class="sj-level"><small>3 · Acceptées par le serveur</small><b data-sj="accepted">' + (s.accepted || 0) + '</b><span>enregistrement confirmé (statut Synchronisée)</span></div>' +
+    '</div>' +
+    '<div class="sj-meta"><span><b>Réseau :</b> ' + esc(net) + '</span>' +
+      '<span><b>Dernier événement :</b> ' + esc(eventLine(lastEvent)) + '</span>' +
+      (s.enroll_open ? '<span class="sj-warn"><b>' + s.enroll_open + ' enrôlement(s)</b> pas encore acceptés par le serveur.</span>' : '') +
+      (registryPending ? '<span><b>Registre producteurs :</b> ' + registryPending + ' élément(s) (parcelles, durabilité, inspections) en attente.</span>' : '') +
+      (s.other_users_total ? '<span class="sj-warn"><b>Autre compte :</b> ' + s.other_users_total + ' opération(s) créée(s) sous un autre compte sur ce téléphone' +
+        (s.other_users_open ? ', dont ' + s.other_users_open + ' non synchronisée(s)' : '') + '. Elles ne s’affichent pas ici et ne partiront qu’avec la session de leur auteur.</span>' : '') +
+      (s.lastError ? '<span class="sj-warn"><b>Dernier message :</b> ' + esc(s.lastError) + '</span>' : '') +
+    '</div></section>';
+  return html;
+}
+
+function detailHtml(o, v) {
+  var r = o.result || {};
+  var rows = [
+    ['Type', (TYPES[o.operation_type] || o.operation_type) + ' (' + o.operation_type + ')'],
+    ['Statut', st(o.status).fr + ' · ' + st(o.status).help],
+    ['Enregistrée sur le téléphone', dt(o.created_at_client)],
+    ['Première transmission', dt(o.first_transmitted_at || (o.attempt_count ? o.last_attempt_at : null))],
+    ['Dernière tentative', dt(o.last_attempt_at)],
+    ['Réponse du serveur', dt(o.server_answered_at)],
+    ['Synchronisée le', dt(o.synced_at || (o.status === 'SYNCED' ? o.updated_at_local : null))],
+    ['Tentatives', String(Number(o.attempt_count || 0)) + (Number(o.manual_retry_count || 0) ? ' · ' + o.manual_retry_count + ' relance(s) manuelle(s)' : '')],
+    ['Identifiant local', o.id],
+    ['Clé d’idempotence', o.idempotency_key],
+    ['Identifiant serveur', o.server_id || r.server_id || '—'],
+    ['Farmer ID', o.server_farmer_id || r.farmer_id || '—'],
+    ['Village', v.name || v.id || '—'],
+    ['Cluster', v.cluster || '—'],
+    ['Campagne', o.campaign_code || '—'],
+    ['Message / motif', o.last_error || r.message || '—']
+  ];
+  return '<dl class="sj-detail">' + rows.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('') + '</dl>';
+}
+
+function journalHtml(ops, villages, opts) {
+  opts = opts || {};
+  var f = state.filter, list = (ops || []).filter(function (o) { return matches(o, f); });
+  var filters = '<div class="sj-filters" role="group" aria-label="Filtrer le journal">' + FILTERS.map(function (x) {
+    var n = (ops || []).filter(function (o) { return matches(o, x[0]); }).length;
+    return '<button type="button" class="btn ' + (x[0] === f ? 'primary' : 'secondary') + ' sj-filter" data-sj-filter="' + x[0] + '" aria-pressed="' + (x[0] === f) + '">' + esc(x[1]) + ' (' + n + ')</button>';
+  }).join('') + '</div>';
+  if (!list.length) return filters + '<div class="ops-empty">' + (ops && ops.length ? 'Aucune opération pour ce filtre.' : 'Aucune opération locale enregistrée sur ce téléphone pour ce compte.') + '</div>';
+  var body = list.map(function (o) {
+    var v = villageOf(o, villages);
+    var retry = (o.status === 'FAILED' || o.status === 'PENDING') ? '<button class="btn secondary" type="button" data-off-retry="' + esc(o.id) + '">Réessayer</button>' : '';
+    var cancel = (opts.allowCancel && o.status !== 'SYNCED' && o.status !== 'CANCELLED' && !isEnroll(o)) ? ' <button class="btn secondary" type="button" data-off-cancel="' + esc(o.id) + '">Annuler</button>' : '';
+    return '<details class="sj-op" data-op-id="' + esc(o.id) + '" data-op-type="' + esc(o.operation_type) + '" data-op-status="' + esc(o.status) + '">' +
+      '<summary><span class="sj-op-status">' + badge(o.status) + '</span>' +
+      '<span class="sj-op-main"><b>' + esc(TYPES[o.operation_type] || o.operation_type) + '</b><span>' + esc(o.entity_label || o.label || '—') + '</span></span>' +
+      '<span class="sj-op-when">' + esc(dt(o.created_at_client)) + (Number(o.attempt_count || 0) ? ' · ' + Number(o.attempt_count) + ' essai(s)' : '') + '</span>' +
+      (o.last_error ? '<span class="sj-op-err">' + esc(o.last_error) + '</span>' : '') +
+      '</summary>' + detailHtml(o, v) + '<div class="sj-op-actions">' + retry + cancel + '</div></details>';
+  }).join('');
+  return filters + '<div class="sj-list">' + body + '</div>';
+}
+
+function css() {
+  if (document.getElementById('sjStyle')) return;
+  var s = document.createElement('style'); s.id = 'sjStyle';
+  s.textContent = '.sj-status{grid-template-columns:repeat(3,minmax(0,1fr))}.sj-tile{text-align:left;cursor:pointer;font:inherit;color:inherit}' +
+    '.sj-level-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sj-level{border:1px solid #d9e6dc;border-radius:12px;padding:10px 12px;background:#f7fbf7}' +
+    '.sj-level small{display:block;font-weight:700;color:#3d5a47}.sj-level b{display:block;font-size:24px;color:#053B23}.sj-level span{font-size:12px;color:#506357}' +
+    '.sj-meta{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:13px}.sj-warn{color:#8a3b00}' +
+    '.sj-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.sj-filters .btn{min-height:40px;padding:6px 10px;font-size:12px}' +
+    '.sj-op{border:1px solid #dfe8e1;border-radius:12px;margin-bottom:8px;background:#fff}.sj-op summary{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:10px 12px;cursor:pointer;list-style:none}' +
+    '.sj-op summary::-webkit-details-marker{display:none}.sj-op-main b{display:block}.sj-op-main span,.sj-op-when{font-size:12px;color:#506357}.sj-op-when,.sj-op-err{grid-column:2}.sj-op-err{font-size:12px;color:#9b1c1c}' +
+    '.sj-detail{display:grid;grid-template-columns:minmax(120px,38%) 1fr;gap:4px 10px;margin:0;padding:0 12px 10px;font-size:12px}.sj-detail dt{color:#506357}.sj-detail dd{margin:0;word-break:break-all}' +
+    '.sj-op-actions{padding:0 12px 12px;display:flex;gap:8px;flex-wrap:wrap}' +
+    '@media(max-width:560px){.sj-status{grid-template-columns:repeat(2,minmax(0,1fr))}.sj-level-grid{grid-template-columns:1fr}}';
+  document.head.appendChild(s);
+}
+
+function download(name, obj) {
+  var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 1000);
+}
+
+global.ANAGROCI_SYNC_JOURNAL = {
+  STATUS: STATUS, TYPES: TYPES, FILTERS: FILTERS, state: state,
+  css: css, dashboardHtml: dashboardHtml, journalHtml: journalHtml, eventLine: eventLine,
+  matches: matches, download: download,
+  setFilter: function (f) { state.filter = FILTERS.some(function (x) { return x[0] === f; }) ? f : (STATUS[f] ? f : 'all'); return state.filter; }
+};
 })(window);
