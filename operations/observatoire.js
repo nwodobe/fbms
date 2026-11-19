@@ -140,7 +140,8 @@ function nomParcelle(ref, panel) {
   var pl = (ref.plots || []).filter(function (x) { return x.id === panel.plot_id; })[0] || {};
   var pr = (ref.producteurs || []).filter(function (x) { return x.id === (pl.producteur_id || panel.producteur_id); })[0] || {};
   var vi = (ref.villages || []).filter(function (x) { return x.id === (pl.village_id || panel.village_id); })[0] || {};
-  return { producteur: pr.nom || panel.producteur_nom || 'Producteur', parcelle: pl.local_name || panel.parcelle_nom || 'Parcelle', village: vi.village || panel.village_nom || '' };
+  return { producteur: pr.nom || panel.producteur_nom || 'Producteur', parcelle: pl.local_name || panel.parcelle_nom || 'Parcelle', village: vi.village || panel.village_nom || '',
+    code: pr.code || '', cluster: vi.cluster_code || panel.cluster_code || '', village_id: vi.id || pl.village_id || panel.village_id || '' };
 }
 
 /* ------------------------------------------------------------------ Mes champs */
@@ -158,13 +159,17 @@ function vueChamps() {
         .catch(function (e) { etat.message = ['warn', 'Chargement impossible (' + e.message + '). Touchez « Préparer le hors-ligne » quand le réseau est bon.']; })
         .then(function () { return rendre(); });
     }
+    var fiches = [];
     var cartes = r[0].sort(function (a, b) { return (a.created_at || '') < (b.created_at || '') ? 1 : -1; }).map(function (p) {
       var n = nomParcelle(ref, p), v = r[1].filter(function (x) { return x.panel_id === p.id && C.semaineIso(x.date_observation) === semaine; })[0];
       var statut = p.statut_local || p.statut, action;
       if (statut === 'ACTIF') action = '<a class="btn primary" href="#observatoire/visite/' + p.id + '/' + (v ? v.id : 'nouvelle') + '">' + (v ? (v.statut_serveur && v.statut_serveur !== 'BROUILLON' && v.statut_serveur !== 'CORRECTION_DEMANDEE' ? 'Voir la visite' : 'Reprendre la visite') : 'Visite de la semaine') + '</a>';
       else if (statut === 'TIRAGE_VERROUILLE') action = '<a class="btn signal" href="#observatoire/champ/' + p.id + '">Continuer l’installation</a>';
       else action = '';
-      return '<article class="obs-carte"><div class="obs-carte-tete"><div><h3>' + esc(n.producteur) + '</h3><p>' + esc(n.parcelle) + (n.village ? ' · ' + esc(n.village) : '') + '</p></div>' +
+      /* Filtre « Mes champs » (demande M. KOUASSI 19/11) : cluster, village, producteur, visites à faire. */
+      var aFaire = statut === 'TIRAGE_VERROUILLE' || (statut === 'ACTIF' && (!v || !v.statut_serveur || ['BROUILLON', 'CORRECTION_DEMANDEE', 'LOCAL'].indexOf(v.statut_serveur) >= 0));
+      fiches.push({ cl: n.cluster, vil: n.village_id || n.village, vilNom: n.village || 'Village non renseigné' });
+      return '<article class="obs-carte" data-cl="' + esc(n.cluster) + '" data-vil="' + esc(n.village_id || n.village) + '" data-afaire="' + (aFaire ? 1 : 0) + '" data-q="' + esc(sansAccent(n.producteur + ' ' + n.code + ' ' + n.parcelle + ' ' + n.village)) + '"><div class="obs-carte-tete"><div><h3>' + esc(n.producteur) + '</h3><p>' + esc(n.parcelle) + (n.village ? ' · ' + esc(n.village) : '') + '</p></div>' +
         badge(statut === 'ACTIF' ? 'Actif' : statut === 'TIRAGE_VERROUILLE' ? 'Installation en cours' : statut === 'INCOMPATIBLE' ? 'Incompatible' : statut, tonStatut(statut)) + '</div>' +
         '<div class="obs-carte-etat">' + (p.local ? badge('Installation non encore reçue par le serveur', 'warn') : '') +
         (statut === 'ACTIF' ? 'Semaine ' + esc(semaine.slice(-2)) + ' : ' + (v ? badge(C.LIBELLES.statut_visite[v.statut_serveur || 'LOCAL'], tonStatut(v.statut_serveur)) + (v.etat_envoi && v.etat_envoi !== 'RECU' ? ' ' + badge('non envoyée', 'warn') : '') : badge('à faire', 'warn')) : '') + '</div>' +
@@ -175,9 +180,51 @@ function vueChamps() {
       (camp ? '' : note('Aucune campagne sélectionnée. Choisissez la campagne en haut de l’écran.', 'warn')) +
       (camp && !camp.ouverte ? note('La campagne sélectionnée n’est pas ouverte : la saisie sera refusée par le serveur.', 'warn') : '') +
       '<p class="obs-info">Dernière préparation hors-ligne : ' + (prep ? esc(heureFr(prep.le)) + ' (' + prep.champs + ' champ(s))' : 'jamais. Faites-la avant de partir sur le terrain.') + '</p>' +
-      (cartes ? '<div class="obs-grille">' + cartes + '</div>' : '<div class="ops-empty">Aucun champ installé sur cet appareil. Touchez « Préparer le hors-ligne » pour charger vos champs, ou « Installer un champ ».</div>'));
+      (cartes ? barreFiltreChamps(fiches) + '<div class="obs-grille" id="obsGrilleChamps">' + cartes + '</div>' : '<div class="ops-empty">Aucun champ installé sur cet appareil. Touchez « Préparer le hors-ligne » pour charger vos champs, ou « Installer un champ ».</div>'));
+    etat.fichesChamps = fiches;
+    filtrerChamps();
     barreEnvoi();
   });
+}
+/* Barre de filtre de « Mes champs » : fonctionne hors ligne (filtre local des cartes), garde le choix
+   pendant la session (les re-rendus après synchronisation ne l'effacent pas). */
+function villagesChamps(cluster) {
+  var vus = {}, l = [];
+  (etat.fichesChamps || []).forEach(function (f) {
+    if (cluster && f.cl !== cluster) return;
+    if (!vus[f.vil]) { vus[f.vil] = { id: f.vil, nom: f.vilNom, n: 0 }; l.push(vus[f.vil]); }
+    vus[f.vil].n++;
+  });
+  l.sort(function (a, b) { return a.nom.localeCompare(b.nom); });
+  var choix = (etat.filtreChamps || {}).vil || '';
+  return '<option value="">Tous les villages</option>' + l.map(function (v) { return '<option value="' + esc(v.id) + '"' + (v.id === choix ? ' selected' : '') + '>' + esc(v.nom) + ' (' + v.n + ')</option>'; }).join('');
+}
+function barreFiltreChamps(fiches) {
+  etat.fichesChamps = fiches;
+  var f = etat.filtreChamps || {}, cl = {};
+  fiches.forEach(function (x) { if (x.cl) cl[x.cl] = (cl[x.cl] || 0) + 1; });
+  var lc = Object.keys(cl).sort();
+  return '<fieldset class="card obs-filtres obs-filtres-champs"><legend>Retrouver un champ</legend><div class="obs-duo">' +
+    (lc.length > 1 ? '<div class="field"><label for="obsChCluster">Cluster</label><select id="obsChCluster"><option value="">Tous les clusters</option>' +
+      lc.map(function (c) { return '<option value="' + esc(c) + '"' + (c === f.cl ? ' selected' : '') + '>' + esc(c) + ' (' + cl[c] + ')</option>'; }).join('') + '</select></div>' : '') +
+    '<div class="field"><label for="obsChVillage">Village</label><select id="obsChVillage">' + villagesChamps(lc.length > 1 ? f.cl : '') + '</select></div></div>' +
+    '<div class="field"><label for="obsChTexte">Producteur (nom ou code)</label><input id="obsChTexte" type="search" inputmode="search" maxlength="80" placeholder="Ex. Kouakou ou SAK-0012" value="' + esc(f.q || '') + '"></div>' +
+    '<label class="obs-case-ligne"><input type="checkbox" id="obsChAFaire"' + (f.aFaire ? ' checked' : '') + '> Seulement les champs à visiter cette semaine</label>' +
+    '<p class="obs-info" id="obsChCompte" aria-live="polite"></p></fieldset>';
+}
+function filtrerChamps(e) {
+  var g = document.getElementById('obsGrilleChamps'); if (!g) return;
+  var fc = document.getElementById('obsChCluster'), fv = document.getElementById('obsChVillage'), ft = document.getElementById('obsChTexte'), fa = document.getElementById('obsChAFaire');
+  var f = etat.filtreChamps = { cl: fc ? fc.value : '', vil: fv ? fv.value : '', q: ft ? ft.value : '', aFaire: !!(fa && fa.checked) };
+  if (e && e.target === fc && fv) { f.vil = ''; fv.innerHTML = villagesChamps(f.cl); }
+  var mots = sansAccent(f.q).split(/\s+/).filter(Boolean), cartes = g.querySelectorAll('.obs-carte'), vues = 0;
+  [].forEach.call(cartes, function (c) {
+    var ok = (!f.cl || c.getAttribute('data-cl') === f.cl) && (!f.vil || c.getAttribute('data-vil') === f.vil) &&
+      (!f.aFaire || c.getAttribute('data-afaire') === '1') && mots.every(function (m) { return c.getAttribute('data-q').indexOf(m) >= 0; });
+    c.hidden = !ok; if (ok) vues++;
+  });
+  var n = document.getElementById('obsChCompte');
+  if (n) n.textContent = vues === cartes.length ? cartes.length + ' champ(s).' : vues + ' champ(s) sur ' + cartes.length + (vues ? '.' : ' : aucun ne correspond, modifiez le filtre.');
 }
 function vueRefus() { peindre('<div class="ops-route-head"><div><h1>Observatoire agronomique</h1><p>Accès réservé.</p></div></div>' + note('Votre profil n’a pas accès à l’Observatoire agronomique. Ce module est réservé aux équipes agronomiques AFLP désignées.', 'warn')); }
 
@@ -812,6 +859,7 @@ function surSaisie(e) {
   if (t.id === 'obsB') { clearTimeout(etat.minuteB); etat.minuteB = setTimeout(majReperes, e.type === 'change' ? 0 : 700); return; }
   if (t.id === 'obsb' || /^obsRep|^obsSuivi/.test(t.id || '')) { var er = document.getElementById('obsInstallErr'); if (er) er.innerHTML = ''; }
   if (t.id === 'obsFiltreCluster' || t.id === 'obsFiltreVillage' || t.id === 'obsFiltreTexte') return filtrerParcelles(e);
+  if (/^obsCh(Cluster|Village|Texte|AFaire)$/.test(t.id || '')) return filtrerChamps(e);
   if (t.hasAttribute && t.hasAttribute('data-saisie') && brouillon) { brouillon.visite.observations[etat.idx][t.getAttribute('data-saisie')] = t.value.trim() || null; sauverBrouillon(); }
   if (t.hasAttribute && t.hasAttribute('data-visite') && brouillon) {
     var k = t.getAttribute('data-visite'); brouillon.visite[k] = t.value.trim() || null;

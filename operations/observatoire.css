@@ -99,3 +99,8 @@
 
 .obs-photo-vue{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:8px;object-fit:contain}
 
+.obs-filtres-champs{margin:12px 0}
+.obs-case-ligne{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600}
+.obs-case-ligne input{width:24px;height:24px}
+.obs-grille .obs-carte[hidden]{display:none}
+
