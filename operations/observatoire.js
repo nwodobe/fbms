@@ -595,7 +595,9 @@ function exceptionPhoto() {
 function voirPhoto(ref) {
   client().then(function (c) { return c.storage.from(L.BUCKET).createSignedUrl(ref, 300); }).then(function (x) {
     if (x.error || !x.data) throw new Error(x.error ? x.error.message : 'Photo introuvable.');
-    global.open(x.data.signedUrl, '_blank', 'noopener');
+    /* Recette APK 19/11 : window.open() après l'appel réseau était bloqué par la WebView
+       (plus de geste utilisateur) : « Voir la photo » ne faisait rien. La photo s'affiche ici. */
+    return dialogue('Photo de la visite', '<img class="obs-photo-vue" alt="Photo de l’arbre" src="' + esc(x.data.signedUrl) + '">', [['Fermer', false, 'primary']]);
   }).catch(function (e) { etat.message = ['danger', 'Photo non disponible : ' + e.message]; rendre(); });
 }
 

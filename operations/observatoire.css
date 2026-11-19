@@ -96,3 +96,6 @@
 .obs-a-completer summary{cursor:pointer;padding:6px 0}
 .obs-liste{margin:8px 0 0;padding-left:18px}.obs-liste li{margin:6px 0}
 @media (max-width:640px){.obs-choix-arbre{grid-template-columns:1fr 1fr}.obs-choix-nom{grid-column:1/-1}.obs-bloc-ligne{grid-template-columns:1fr}}
+
+.obs-photo-vue{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:8px;object-fit:contain}
+
