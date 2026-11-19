@@ -80,3 +80,19 @@
   .obs-dialogue-actions{flex-direction:column-reverse}.obs-dialogue-actions .btn{width:100%;justify-content:center}
   .obs-envoi .btn{width:100%;justify-content:center}
 }
+
+/* Fiabilisation du 19/11/2026 : choix des arbres, photos, gestes sensibles éloignés */
+.obs-loin{margin-top:18px}
+.btn.danger-outline{background:#fff;color:#9B2C2C;border:1px solid #E2B4B4}
+.obs-q-photo .badge{margin:4px 6px 8px 0}
+.obs-bloc-ligne{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.obs-bloc-ligne label:first-child{grid-column:1/-1}
+.obs-case{display:flex;align-items:center;gap:8px;font-weight:700;min-height:44px;white-space:nowrap}
+.obs-case input{width:22px;height:22px}
+.obs-choix-arbre{display:grid;grid-template-columns:minmax(110px,1fr) 1.2fr 1fr;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line,#D9E4DA)}
+.obs-choix-arbre select,.obs-choix-arbre input{min-height:44px}
+.obs-choix-nom{font-weight:800}
+.obs-champ-dialogue{display:flex;flex-direction:column;gap:6px;margin:8px 0;font-weight:700}
+.obs-a-completer summary{cursor:pointer;padding:6px 0}
+.obs-liste{margin:8px 0 0;padding-left:18px}.obs-liste li{margin:6px 0}
+@media (max-width:640px){.obs-choix-arbre{grid-template-columns:1fr 1fr}.obs-choix-nom{grid-column:1/-1}.obs-bloc-ligne{grid-template-columns:1fr}}

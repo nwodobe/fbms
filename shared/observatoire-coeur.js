@@ -135,6 +135,55 @@
     return { statut: 'ACTIF', arbres: arbres, reserves_manquantes: manque };
   }
 
+  /* ---------- sélection libre (décision du Branch Manager, 19/11/2026) ---------- */
+  /* Nomenclature terrain : bloc B03, arbre A010, identifiant B03/A010 (papier = écran = base). */
+  function codeArbre(bloc, numero) { return 'B' + ('0' + bloc).slice(-2) + '/A' + ('00' + numero).slice(-3); }
+  /* Installation sans tirage : l'équipe coche les blocs suivis. Mêmes contrôles que le serveur. */
+  function installerDesignation(p) {
+    var T = p.titulaires || 10, R = p.reserves == null ? 2 : p.reserves, B = +p.nb_blocs_total, b = +p.nb_blocs_tires, erreurs = [];
+    if (!(B >= 1) || B !== Math.floor(B) || B > 60) erreurs.push('Indiquez combien de blocs compte ce champ (1 à 60).');
+    if (!(b >= 1) || b !== Math.floor(b)) erreurs.push('Indiquez combien de blocs vous allez suivre (au moins 1).');
+    else if (b > B) erreurs.push('Vous ne pouvez pas suivre plus de blocs (' + b + ') que le champ n’en compte (' + B + ').');
+    else if (b > T) erreurs.push('Vous ne pouvez pas suivre plus de ' + T + ' blocs.');
+    var blocs = p.blocs || [];
+    if (B >= 1 && blocs.length !== B) erreurs.push('Décrivez les ' + B + ' blocs.');
+    blocs.forEach(function (x, i) { if (!String(x.repere || '').trim()) erreurs.push('Bloc ' + ('0' + (i + 1)).slice(-2) + ' : écrivez le repère visible sur le terrain.'); });
+    var suivis = blocs.map(function (x, i) { return x.suivi ? i + 1 : 0; }).filter(Boolean);
+    if (b >= 1 && suivis.length !== b) erreurs.push('Cochez exactement ' + b + ' bloc(s) à suivre (vous en avez coché ' + suivis.length + ').');
+    if (erreurs.length) return { erreurs: erreurs };
+    if (!p.campaign_id || !p.plot_id) return { erreurs: ['Choisissez le champ.'] };
+    var rep = repartition(T, R, b);
+    return { erreurs: [], blocs_tires: suivis, graine: 'DESIGNATION', blocs: blocs.map(function (x, i) {
+      var numero = i + 1, rang = suivis.indexOf(numero) + 1;
+      return { id: x.id || uuid(), numero: numero, repere: String(x.repere).trim(), suivi: rang > 0, latitude: null, longitude: null,
+        tire: rang > 0, rang_tirage: rang > 0 ? rang : null, nb_titulaires_prevus: rang > 0 ? rep[rang - 1].titulaires : 0, nb_reserves_prevues: rang > 0 ? rep[rang - 1].reserves : 0, nb_arbres_inventories: null };
+    }) };
+  }
+  /* Désignation de 10 arbres suivis et 2 réserves : contrôle puis construction des arbres
+     (identifiants identiques à ceux du serveur, donc sans doublon à la synchronisation). */
+  function designerArbres(panel, choix, T, R) {
+    T = T || 10; R = R == null ? 2 : R;
+    var e = [], vus = {}, blocs = {}, arbres = [], rt = 0, rr = 0;
+    (panel.blocs || []).forEach(function (b) { blocs[b.id] = b; });
+    var nt = choix.filter(function (c) { return c.role === 'TITULAIRE'; }).length, nr = choix.filter(function (c) { return c.role === 'RESERVE'; }).length;
+    if (nt !== T) e.push('Choisissez ' + T + ' arbres suivis (vous en avez ' + nt + ').');
+    if (nr !== R) e.push('Choisissez ' + R + ' arbres de réserve (vous en avez ' + nr + ').');
+    choix.forEach(function (c) {
+      var b = blocs[c.bloc_id], n = +c.numero;
+      if (!b || !b.tire) { e.push('Un arbre est rattaché à un bloc non suivi.'); return; }
+      if (!(n >= 1) || n !== Math.floor(n) || n > b.nb_arbres_inventories) { e.push('Bloc ' + ('0' + b.numero).slice(-2) + ' : le numéro ' + (c.numero || '?') + ' doit être entre 1 et ' + b.nb_arbres_inventories + '.'); return; }
+      var k = b.id + ':' + n;
+      if (vus[k]) { e.push('L’arbre ' + codeArbre(b.numero, n) + ' est choisi deux fois.'); return; }
+      vus[k] = 1;
+      var tit = c.role === 'TITULAIRE';
+      arbres.push({ id: arbreId(b.id, n), bloc_id: b.id, bloc_numero: b.numero, numero_inventaire: n, code: codeArbre(b.numero, n), role: c.role,
+        rang: tit ? ++rt : ++rr, statut: tit ? 'ACTIF' : 'RESERVE_EN_ATTENTE', proba_dans_champ: null });
+    });
+    return { erreurs: e, arbres: e.length ? [] : arbres };
+  }
+  /* Nom de fichier d'une photo : visite + arbre + horodatage (aucune barre oblique). */
+  function nomPhoto(visiteId, arbreId_, ext) { return String(visiteId).slice(0, 8) + '_' + String(arbreId_).replace(/-/g, '') + '_' + Date.now() + '.' + (ext || 'jpg'); }
+
   /* ---------- visite ---------- */
   function semaineIso(dateIso) {
     var d = new Date(dateIso + 'T00:00:00Z'), j = (d.getUTCDay() + 6) % 7;
@@ -146,7 +195,8 @@
   }
   function aujourdhui() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function observationVide(arbreId_) {
-    return { arbre_id: arbreId_, retrouve: null, f: null, n: null, p: null, pas_vu_motif: null, chute: null, chute_preuve: null, anomalie: null, photo_ref: null };
+    return { arbre_id: arbreId_, retrouve: null, f: null, n: null, p: null, pas_vu_motif: null, chute: null, chute_preuve: null, anomalie: null, photo_ref: null,
+      photo_exception: null, photo_prise_le: null, photo_latitude: null, photo_longitude: null };
   }
   function arbresObserves(arbres) {
     return (arbres || []).filter(function (a) { return a.statut === 'ACTIF' || a.statut === 'RESERVE_ACTIVEE'; })
@@ -158,13 +208,16 @@
     if (!o.f || !o.n || !o.p || !o.chute) return false;
     if ([o.f, o.n, o.p, o.chute].indexOf('PAS_VU') >= 0 && !String(o.pas_vu_motif || '').trim()) return false;
     if ((o.chute === 'MURE' || o.chute === 'PREMATUREE') && !o.chute_preuve) return false;
+    if (!o.photo_ref && !String(o.photo_exception || '').trim()) return false;
     return true;
   }
   /* Mêmes contrôles que le serveur avant « Terminer et soumettre ». */
   function controlerVisite(visite, arbres) {
     var e = [], obs = {}; (visite.observations || []).forEach(function (o) { obs[o.arbre_id] = o; });
     if (!visite.date_observation) e.push('Date d’observation manquante.');
-    else if (visite.date_observation > aujourdhui()) e.push('La date d’observation est dans le futur.');
+    else if (visite.date_observation > aujourdhui()) e.push('La date d’observation est dans le futur. Vérifiez la date du téléphone.');
+    else if (visite.date_observation < String(visite.saisie_le || new Date().toISOString()).slice(0, 10) && !String(visite.justification_retro || '').trim())
+      e.push('Visite enregistrée après le jour de l’observation : écrivez pourquoi.');
     if (!visite.ramassage) e.push('Répondez à la question sur le ramassage.');
     arbresObserves(arbres).forEach(function (a) {
       var o = obs[a.id];
@@ -173,6 +226,7 @@
       if (!o.f || !o.n || !o.p || !o.chute) e.push('Arbre ' + a.code + ' : fleurs, jeunes noix, pommes ou chute non renseignés.');
       if ([o.f, o.n, o.p, o.chute].indexOf('PAS_VU') >= 0 && !String(o.pas_vu_motif || '').trim()) e.push('Arbre ' + a.code + ' : raison du « Pas vu » obligatoire.');
       if ((o.chute === 'MURE' || o.chute === 'PREMATUREE') && !o.chute_preuve) e.push('Arbre ' + a.code + ' : source de preuve de la chute obligatoire.');
+      if (!o.photo_ref && !String(o.photo_exception || '').trim()) e.push('Arbre ' + a.code + ' : prenez la photo de l’arbre (ou indiquez pourquoi c’est impossible).');
     });
     return e;
   }
@@ -184,9 +238,11 @@
       soumettre: !!soumettre, ramassage: visite.ramassage || null, anomalies: visite.anomalies || null,
       latitude: visite.latitude == null ? null : visite.latitude, longitude: visite.longitude == null ? null : visite.longitude,
       base_version: visite.row_version == null ? null : visite.row_version, motif_correction: visite.motif_correction || null,
+      justification_retro: visite.justification_retro || null,
       observations: (visite.observations || []).map(function (o) {
-        var x = { arbre_id: o.arbre_id, retrouve: o.retrouve, pas_vu_motif: o.pas_vu_motif || null, anomalie: o.anomalie || null, photo_ref: o.photo_ref || null };
-        if (o.retrouve !== false) { x.f = o.f; x.n = o.n; x.p = o.p; x.chute = o.chute; x.chute_preuve = (o.chute === 'MURE' || o.chute === 'PREMATUREE') ? o.chute_preuve : null; }
+        var x = { arbre_id: o.arbre_id, retrouve: o.retrouve, pas_vu_motif: o.pas_vu_motif || null, anomalie: o.anomalie || null, photo_ref: o.photo_ref || null,
+          photo_prise_le: o.photo_prise_le || null, photo_latitude: o.photo_latitude == null ? null : o.photo_latitude, photo_longitude: o.photo_longitude == null ? null : o.photo_longitude };
+        if (o.retrouve !== false) { x.f = o.f; x.n = o.n; x.p = o.p; x.chute = o.chute; x.chute_preuve = (o.chute === 'MURE' || o.chute === 'PREMATUREE') ? o.chute_preuve : null; x.photo_exception = o.photo_exception || null; }
         return x;
       })
     };
@@ -194,14 +250,15 @@
 
   var LIBELLES = {
     statut_visite: { LOCAL: 'Brouillon sur ce téléphone', BROUILLON: 'Brouillon', SOUMIS: 'Soumis', EN_VERIFICATION: 'En vérification', VALIDE: 'Validé', CORRECTION_DEMANDEE: 'Correction demandée' },
-    statut_envoi: { EN_ATTENTE: 'Enregistré sur ce téléphone. Non encore sauvegardé sur le serveur.', ENVOI: 'Envoi en cours…', RECU: 'Envoyé et reçu par le serveur',
-      ECHEC_RESEAU: 'Pas de réseau : nouvel essai automatique', REJETE: 'Refusé par le serveur', CONFLIT: 'Conflit : à traiter avec votre Unit Head' },
+    statut_envoi: { EN_ATTENTE: 'Enregistré sur ce téléphone. Pas encore envoyé.', ENVOI: 'Envoi en cours…', RECU: 'Reçu par FBMS',
+      ECHEC_RESEAU: 'Pas de réponse du serveur : nouvel essai automatique dès que le réseau revient', REJETE: 'Refusé par le serveur', CONFLIT: 'Conflit : à traiter avec votre Chef d’Unité' },
     chute: { MURE: 'Oui, des fruits mûrs', PREMATUREE: 'Seulement des fruits non mûrs', ABSENCE: 'Non, rien au sol', NON_CONFIRME: 'Je ne peux pas confirmer', PAS_VU: 'Pas vu' },
     preuve: { VUE_AGENT: 'Je l’ai vue moi-même', DECLAREE_PRODUCTEUR: 'Le producteur me l’a dit' },
     pas_vu: ['Branches trop hautes', 'Feuillage trop dense', 'Accès impossible (eau, clôture, animal)', 'Lumière insuffisante', 'Marque effacée ou arbre introuvable', 'Plusieurs raisons']
   };
 
   return { sha256: sha256, tirage: tirage, arbreId: arbreId, uuid: uuid, repartition: repartition, installer: installer, tirerArbres: tirerArbres,
+    codeArbre: codeArbre, installerDesignation: installerDesignation, designerArbres: designerArbres, nomPhoto: nomPhoto,
     semaineIso: semaineIso, aujourdhui: aujourdhui, observationVide: observationVide, arbresObserves: arbresObserves, observationComplete: observationComplete,
     controlerVisite: controlerVisite, chargeVisite: chargeVisite, LIBELLES: LIBELLES, PROTOCOLE: 'AFLP2027-OBS v0.9' };
 });
