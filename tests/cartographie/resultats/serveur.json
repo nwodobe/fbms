@@ -1,0 +1,1291 @@
+{
+ "base": "fbms_carto_test",
+ "hote": "local",
+ "total": 135,
+ "reussis": 135,
+ "echoues": 0,
+ "par_famille": {
+  "Migrations": {
+   "total": 5,
+   "reussis": 5,
+   "echoues": 0
+  },
+  "Activation": {
+   "total": 6,
+   "reussis": 6,
+   "echoues": 0
+  },
+  "Localisation": {
+   "total": 16,
+   "reussis": 16,
+   "echoues": 0
+  },
+  "Observatoire": {
+   "total": 4,
+   "reussis": 4,
+   "echoues": 0
+  },
+  "Géométrie": {
+   "total": 15,
+   "reussis": 15,
+   "echoues": 0
+  },
+  "Données": {
+   "total": 12,
+   "reussis": 12,
+   "echoues": 0
+  },
+  "Chevauchement": {
+   "total": 9,
+   "reussis": 9,
+   "echoues": 0
+  },
+  "Validation": {
+   "total": 29,
+   "reussis": 29,
+   "echoues": 0
+  },
+  "Synchronisation": {
+   "total": 8,
+   "reussis": 8,
+   "echoues": 0
+  },
+  "Sécurité": {
+   "total": 17,
+   "reussis": 17,
+   "echoues": 0
+  },
+  "Pilotage": {
+   "total": 10,
+   "reussis": 10,
+   "echoues": 0
+  },
+  "Retour arrière": {
+   "total": 4,
+   "reussis": 4,
+   "echoues": 0
+  }
+ },
+ "tests": [
+  {
+   "id": "M-01",
+   "famille": "Migrations",
+   "compte": "postgres",
+   "action": "Migrations 1 à 3 rejouables (deux passes sans erreur)",
+   "attendu": "ok",
+   "obtenu": "ok",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "M-02",
+   "famille": "Migrations",
+   "compte": "postgres",
+   "action": "Parcelles, producteurs et consentements existants inchangés après migration (empreinte)",
+   "attendu": "5fdfe7d23afa7812d9ad64132ad9a37f",
+   "obtenu": "5fdfe7d23afa7812d9ad64132ad9a37f",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "M-03",
+   "famille": "Migrations",
+   "compte": "postgres",
+   "action": "Nombre de parcelles inchangé après migration",
+   "attendu": "8",
+   "obtenu": "8",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "M-04",
+   "famille": "Migrations",
+   "compte": "postgres",
+   "action": "Aucune parcelle existante ne reçoit de statut cartographique à la migration",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "M-05",
+   "famille": "Migrations",
+   "compte": "postgres",
+   "action": "Fonctions désactivées par défaut (localisation et contours)",
+   "attendu": "false/false",
+   "obtenu": "false/false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-01",
+   "famille": "Activation",
+   "compte": "uh_bro",
+   "action": "Localisation refusée tant que la fonction est désactivée",
+   "attendu": "REFUS (pas encore activée)",
+   "obtenu": "REFUS : La localisation des champs n'est pas encore activée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-02",
+   "famille": "Activation",
+   "compte": "uh_bro",
+   "action": "Un Unit Head ne peut pas activer la cartographie",
+   "attendu": "REFUS (réservé)",
+   "obtenu": "REFUS : Paramétrage réservé au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-03",
+   "famille": "Activation",
+   "compte": "bm",
+   "action": "Imagerie satellite refusée sans licence confirmée",
+   "attendu": "REFUS (licence)",
+   "obtenu": "REFUS : Imagerie satellite : la licence doit être confirmée avant activation.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-04",
+   "famille": "Activation",
+   "compte": "bm",
+   "action": "Le Branch Manager active la localisation (tous clusters) et les contours (pilote BROBO)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-05",
+   "famille": "Activation",
+   "compte": "uh_bot",
+   "action": "Contour refusé hors cluster pilote (BOTRO)",
+   "attendu": "REFUS (pas activée pour ce cluster)",
+   "obtenu": "REFUS : La cartographie des parcelles n'est pas activée pour ce cluster.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "A-06",
+   "famille": "Activation",
+   "compte": "bm",
+   "action": "Le Branch Manager ajoute BOTRO au pilote",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-01",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Le Chef d'Unité localise un champ de son cluster (consentement GPS accordé)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"01f2bafe-022c-5b9d-99df-8019ad3fbc6c\", \"precision_m\": 6.00, \"recu_serveur_le\": \"2026-11-19T23:46:27.957595+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-02",
+   "famille": "Localisation",
+   "compte": "postgres",
+   "action": "Le point est enregistré, statut POINT_CAPTURED, auteur tracé",
+   "attendu": "POINT_CAPTURED|7.7012000|6.00|true",
+   "obtenu": "POINT_CAPTURED|7.7012000|6.00|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-03",
+   "famille": "Localisation",
+   "compte": "postgres",
+   "action": "Un point GPS ne crée aucune superficie cartographiée ni validée",
+   "attendu": "null|null|null",
+   "obtenu": "null|null|null",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-04",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Précision insuffisante refusée avec message compréhensible",
+   "attendu": "REFUS (précision insuffisante)",
+   "obtenu": "REFUS : Précision insuffisante (120 m, maximum 50 m). Placez-vous à découvert dans le champ et réessayez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-05",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Position hors Côte d'Ivoire refusée",
+   "attendu": "REFUS (hors de la côte)",
+   "obtenu": "REFUS : Position hors de la Côte d'Ivoire ou illisible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-06",
+   "famille": "Localisation",
+   "compte": "auh_bro",
+   "action": "Assistant de BROBO : parcelle de BOTRO refusée",
+   "attendu": "REFUS (hors de votre périmètre)",
+   "obtenu": "REFUS : Cette parcelle est hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-07",
+   "famille": "Localisation",
+   "compte": "zh1",
+   "action": "Un Zonal Head ne saisit pas",
+   "attendu": "REFUS (périmètre)",
+   "obtenu": "REFUS : Cette parcelle est hors de votre périmètre.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-08",
+   "famille": "Localisation",
+   "compte": "rt",
+   "action": "Un RT est refusé",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-09",
+   "famille": "Localisation",
+   "compte": "sup",
+   "action": "Supervisor sans affectation : aucune escalade de droits",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Accès refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-10",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Producteur sans consentement enregistré : refus",
+   "attendu": "REFUS (accord)",
+   "obtenu": "REFUS : Le producteur n'a pas donné son accord pour l'enregistrement des données GPS. Recueillez d'abord son consentement.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-11",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Producteur ayant refusé la portée GPS : refus",
+   "attendu": "REFUS (accord)",
+   "obtenu": "REFUS : Le producteur n'a pas donné son accord pour l'enregistrement des données GPS. Recueillez d'abord son consentement.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-12",
+   "famille": "Localisation",
+   "compte": "uh_inactif",
+   "action": "Compte inactif refusé",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-13",
+   "famille": "Localisation",
+   "compte": "auh_bro",
+   "action": "L'assistant localise un champ de son cluster",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"7869a3a0-ef16-5e62-9440-1ee77612d017\", \"precision_m\": 8.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.29818+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-14",
+   "famille": "Localisation",
+   "compte": "uh_bro",
+   "action": "Relocaliser un point VÉRIFIÉ ne le rétrograde pas",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"257a59ed-394e-5f6a-b63f-450ffff734fc\", \"precision_m\": 4.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.331018+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-15",
+   "famille": "Localisation",
+   "compte": "postgres",
+   "action": "Le statut GPS_VERIFIED est conservé",
+   "attendu": "GPS_VERIFIED",
+   "obtenu": "GPS_VERIFIED",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "L-16",
+   "famille": "Localisation",
+   "compte": "postgres",
+   "action": "Chaque localisation est journalisée avec l'état précédent",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "O-01",
+   "famille": "Observatoire",
+   "compte": "postgres",
+   "action": "Parcelle localisée (POINT_CAPTURED) : plus de manque « position GPS »",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "O-02",
+   "famille": "Observatoire",
+   "compte": "postgres",
+   "action": "Parcelle au point VÉRIFIÉ : reconnue localisée (avant la correction : refusée)",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "O-03",
+   "famille": "Observatoire",
+   "compte": "postgres",
+   "action": "Parcelle non localisée : toujours refusée",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "O-04",
+   "famille": "Observatoire",
+   "compte": "postgres",
+   "action": "Les autres exigences restent appliquées (producteur sans code signalé)",
+   "attendu": "t",
+   "obtenu": "t",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-01",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Champ rectangulaire de 5 ha (250 × 200 m)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"79baff6d-d081-4b42-83d0-63ab9215e995\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.527317+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-01b",
+   "famille": "Géométrie",
+   "compte": "postgres",
+   "action": "Champ rectangulaire de 5 ha (250 × 200 m) : surface et périmètre serveur (PostGIS) = référence GeographicLib à 0,01 % près",
+   "attendu": true,
+   "obtenu": "serveur 50000.01 m² / 900.0 m ; référence 50000.01 m² / 900.00 m ; écarts 0.00001 % / 0.00001 %",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-02",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Champ irrégulier à 9 sommets",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85100.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"5a75ef8f-06b2-4457-9837-6e48c417b5bc\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-19T23:46:28.580325+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-02b",
+   "famille": "Géométrie",
+   "compte": "postgres",
+   "action": "Champ irrégulier à 9 sommets : surface et périmètre serveur (PostGIS) = référence GeographicLib à 0,01 % près",
+   "attendu": true,
+   "obtenu": "serveur 85100.0 m² / 1128.78 m ; référence 85100.00 m² / 1128.78 m ; écarts 0.00000 % / 0.00044 %",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-03",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Champ de plus de 10 ha (12,48 ha en L)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 124799.97, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"83920584-df09-42cc-9114-f037a6eaa7d3\", \"perimeter_m\": 1640.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.627452+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-03b",
+   "famille": "Géométrie",
+   "compte": "postgres",
+   "action": "Champ de plus de 10 ha (12,48 ha en L) : surface et périmètre serveur (PostGIS) = référence GeographicLib à 0,01 % près",
+   "attendu": true,
+   "obtenu": "serveur 124799.97 m² / 1640.0 m ; référence 124799.97 m² / 1640.00 m ; écarts 0.00000 % / 0.00001 %",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-04",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Petite parcelle (0,25 ha)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 2500.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"fbce86db-cf4f-42fe-9fdc-f6b43dd2037e\", \"perimeter_m\": 200.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.6989+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-04b",
+   "famille": "Géométrie",
+   "compte": "postgres",
+   "action": "Petite parcelle : surface conforme à la référence",
+   "attendu": true,
+   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 2500.0, 'conflit': False, 'anomalies': 0, 'version_no': 1, 'geometry_id': 'fbce86db-cf4f-42fe-9fdc-f6b43dd2037e', 'perimeter_m': 200.0, 'recu_serveur_le': '2026-11-19T23:46:28.6989+00:00'}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-05",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Polygone auto-intersecté refusé",
+   "attendu": "REFUS (se croisent)",
+   "obtenu": "REFUS : Les lignes du contour se croisent : déplacez les sommets pour supprimer le croisement.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-06",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Polygone incomplet (2 sommets) refusé",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Il faut au moins 3 sommets distincts.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-07",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Contour non fermé refusé",
+   "attendu": "REFUS (fermé)",
+   "obtenu": "REFUS : Le contour n'est pas fermé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-08",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Écart de calcul téléphone / serveur au-delà de la tolérance refusé",
+   "attendu": "REFUS (écart de calcul)",
+   "obtenu": "REFUS : Écart de calcul entre le téléphone (51000 m²) et le serveur (49999.98 m²) : mettez à jour l'application.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-09",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Contour minuscule (25 m²) refusé",
+   "attendu": "REFUS (trop petit)",
+   "obtenu": "REFUS : Contour trop petit (25.00 m²) : vérifiez les sommets.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-10",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Mesure GPS avec moins de 3 points refusée",
+   "attendu": "REFUS (au moins 3 points)",
+   "obtenu": "REFUS : Mesure GPS : au moins 3 points relevés sont nécessaires.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "G-11",
+   "famille": "Géométrie",
+   "compte": "auh_bro",
+   "action": "Contour pour un producteur sans consentement GPS refusé",
+   "attendu": "REFUS (accord)",
+   "obtenu": "REFUS : Le producteur n'a pas donné son accord pour l'enregistrement des données GPS. Aucun contour ne peut être enregistré.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-01",
+   "famille": "Données",
+   "compte": "auh_bro",
+   "action": "Soumission d'un contour (parcelle B)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"7bc10991-9a5c-4aac-aa22-3e3c4e95df79\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.971164+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-02",
+   "famille": "Données",
+   "compte": "auh_bro",
+   "action": "Rejeu de la même soumission : aucun doublon",
+   "attendu": "OK",
+   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"version_no\": 1, \"geometry_id\": \"7bc10991-9a5c-4aac-aa22-3e3c4e95df79\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-19T23:46:28.971164+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-03",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Le rejeu renvoie le même contour (rejoue = vrai)",
+   "attendu": true,
+   "obtenu": "{'rejoue': True, 'statut': 'ACCEPTEE', 'area_m2': 49999.98, 'version_no': 1, 'geometry_id': '7bc10991-9a5c-4aac-aa22-3e3c4e95df79', 'perimeter_m': 900.0, 'recu_serveur_le': '2026-11-19T23:46:28.971164+00:00'}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-04",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Une seule version enregistrée pour B",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-05",
+   "famille": "Données",
+   "compte": "auh_bro",
+   "action": "Même identifiant, autre tracé : refus",
+   "attendu": "REFUS (déjà utilisé)",
+   "obtenu": "REFUS : Identifiant de contour déjà utilisé pour un autre tracé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-06",
+   "famille": "Données",
+   "compte": "uh_bro",
+   "action": "Ajouter une deuxième parcelle au même producteur, traçable comme division",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"1ab92147-bc6b-43ad-8da6-ea68a872ce44\", \"recu_serveur_le\": \"2026-11-19T23:46:29.090413+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-07",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Le producteur A a 2 parcelles ; la parcelle d'origine est conservée",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-08",
+   "famille": "Données",
+   "compte": "uh_bro",
+   "action": "Rejeu de l'ajout : aucun doublon",
+   "attendu": "OK",
+   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"1ab92147-bc6b-43ad-8da6-ea68a872ce44\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-09",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Toujours 2 parcelles après rejeu",
+   "attendu": "2",
+   "obtenu": "2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-10",
+   "famille": "Données",
+   "compte": "uh_bro",
+   "action": "Division depuis la parcelle d'un autre producteur refusée",
+   "attendu": "REFUS (même producteur)",
+   "obtenu": "REFUS : La parcelle d'origine doit appartenir au même producteur.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-11",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Superficie déclarée et superficie GPS saisie jamais écrasées par un contour",
+   "attendu": "5.000|null",
+   "obtenu": "5.000|null",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "D-12",
+   "famille": "Données",
+   "compte": "postgres",
+   "action": "Écart déclaré (2 ha) / cartographié (5 ha) signalé, non bloquant",
+   "attendu": "ECART_SUPERFICIE|false",
+   "obtenu": "ECART_SUPERFICIE|false",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-00",
+   "famille": "Chevauchement",
+   "compte": "uh_bro",
+   "action": "Nouvelle parcelle voisine (producteur C)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"afbd7a04-1ec2-4b01-9629-659f869f93ac\", \"recu_serveur_le\": \"2026-11-19T23:46:29.251372+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-01",
+   "famille": "Chevauchement",
+   "compte": "uh_bro",
+   "action": "Contour qui recouvre la parcelle B",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"3c6b1bdc-2026-4415-8c09-c324d81b397a\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-19T23:46:29.281251+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-02",
+   "famille": "Chevauchement",
+   "compte": "postgres",
+   "action": "Chevauchement détecté, superficie concernée affichée (≈ 1 ha)",
+   "attendu": true,
+   "obtenu": "serveur 9999.99 m², référence 10000.0 m²",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-03",
+   "famille": "Chevauchement",
+   "compte": "postgres",
+   "action": "Chevauchement bloquant, aucune géométrie modifiée ni supprimée",
+   "attendu": "true|2",
+   "obtenu": "true|2",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-04",
+   "famille": "Chevauchement",
+   "compte": "zh1",
+   "action": "Validation refusée tant que le chevauchement est ouvert",
+   "attendu": "REFUS (anomalie)",
+   "obtenu": "REFUS : Validation impossible : 1 anomalie(s) bloquante(s) à traiter d'abord.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-05",
+   "famille": "Chevauchement",
+   "compte": "zh2",
+   "action": "Chef de Zone d'une autre zone : classement refusé",
+   "attendu": "REFUS (zone)",
+   "obtenu": "REFUS : Cette anomalie n'est pas dans votre zone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-06",
+   "famille": "Chevauchement",
+   "compte": "zh1",
+   "action": "Classement sans justification refusé",
+   "attendu": "REFUS (justification)",
+   "obtenu": "REFUS : Justification d'au moins 10 caractères obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-07",
+   "famille": "Chevauchement",
+   "compte": "zh1",
+   "action": "Le Chef de Zone classe le cas (limite partagée) avec justification",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "X-08",
+   "famille": "Chevauchement",
+   "compte": "postgres",
+   "action": "Classement, justification et auteur enregistrés",
+   "attendu": "RESOLUE|LIMITE_PARTAGEE|true",
+   "obtenu": "RESOLUE|LIMITE_PARTAGEE|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-01",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "L'auteur ne valide pas son propre contour",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : Seul le Chef de Zone compétent valide les contours.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-02",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Le Chef d'Unité ne valide pas",
+   "attendu": "REFUS (chef de zone)",
+   "obtenu": "REFUS : Seul le Chef de Zone compétent valide les contours.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-03",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Le Chef d'Unité pré-vérifie le tracé de son assistant",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-04",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Le Chef d'Unité ne pré-vérifie pas son propre tracé",
+   "attendu": "REFUS (propre tracé)",
+   "obtenu": "REFUS : Vous ne pouvez pas pré-vérifier votre propre tracé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-05",
+   "famille": "Validation",
+   "compte": "zh2",
+   "action": "Chef de Zone GBEKE 2 : contour de BROBO (GBEKE 1) refusé",
+   "attendu": "REFUS (votre zone)",
+   "obtenu": "REFUS : Ce contour n'est pas dans votre zone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-06",
+   "famille": "Validation",
+   "compte": "zh_sans",
+   "action": "Chef de Zone sans zone renseignée : refus par défaut",
+   "attendu": "REFUS (zone n'est pas renseignée)",
+   "obtenu": "REFUS : Votre zone n'est pas renseignée dans votre profil : validation impossible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-07",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Demande de correction sans commentaire refusée",
+   "attendu": "REFUS (expliquez)",
+   "obtenu": "REFUS : Expliquez ce qu'il faut corriger.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-08",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Version périmée refusée (contrôle de version)",
+   "attendu": "REFUS (rechargez)",
+   "obtenu": "REFUS : Le contour a changé depuis votre lecture : rechargez la page.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-09",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Le Chef de Zone compétent valide",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"decision\": \"VALIDER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-10",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Parcelle VALIDE : superficie validée = surface serveur, méthode « satellite estimée », déclaré inchangé",
+   "attendu": "VALIDE|5.0000|SATELLITE_ESTIMEE|5.000|true",
+   "obtenu": "VALIDE|5.0000|SATELLITE_ESTIMEE|5.000|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-11",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Un contour déjà validé ne peut pas être revalidé",
+   "attendu": "REFUS (plus en attente)",
+   "obtenu": "REFUS : Ce contour n'est plus en attente de décision (statut VALIDE).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-12",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "Branch Manager sans drapeau d'exception : refus",
+   "attendu": "REFUS (exception)",
+   "obtenu": "REFUS : Le Branch Manager ne décide qu'en exception justifiée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-13",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "Exception avec justification trop courte : refus",
+   "attendu": "REFUS (15 caractères)",
+   "obtenu": "REFUS : Exception : justification d'au moins 15 caractères obligatoire.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-14",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Un Chef de Zone ne peut pas utiliser l'exception",
+   "attendu": "REFUS (réservée)",
+   "obtenu": "REFUS : L'exception est réservée au Branch Manager.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-15",
+   "famille": "Validation",
+   "compte": "bm",
+   "action": "Exception Branch Manager justifiée et journalisée",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"decision\": \"VALIDER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-16",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Exception tracée, auteur du tracé inchangé",
+   "attendu": "true|true|true",
+   "obtenu": "true|true|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-17",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Journal : action VALIDER_EXCEPTION_BM avec motif",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-18",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Le Chef de Zone renvoie un contour en correction avec commentaire",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"decision\": \"A_CORRIGER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-19",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Commentaire et statut À CORRIGER conservés",
+   "attendu": "A_CORRIGER|La limite est suit la piste, pas la haie.",
+   "obtenu": "A_CORRIGER|La limite est suit la piste, pas la haie.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-20",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "Correction d'un contour validé : nouvelle version sur la base validée",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 48000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"45cb019a-ba06-4b7c-b353-af16164ba5aa\", \"perimeter_m\": 880.00, \"recu_serveur_le\": \"2026-11-19T23:46:30.013115+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-21",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "La version validée n'est pas écrasée pendant la correction",
+   "attendu": "VALIDE",
+   "obtenu": "VALIDE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-22",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Validation de la correction",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"decision\": \"VALIDER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-23",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Ancienne version REMPLACÉE, une seule version VALIDE, superficie mise à jour",
+   "attendu": "REMPLACE|1|true",
+   "obtenu": "REMPLACE|1|true",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-24",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "Écriture directe dans les contours refusée (UPDATE)",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : permission denied for table farmer_plot_geometries",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-25",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "Écriture directe dans les anomalies refusée (DELETE)",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : permission denied for table farmer_plot_anomalies",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-26",
+   "famille": "Validation",
+   "compte": "zh1",
+   "action": "Écriture directe des paramètres refusée",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : permission denied for table plot_map_parametres",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-27",
+   "famille": "Validation",
+   "compte": "uh_bro",
+   "action": "Agent 1 corrige le contour C sur la dernière version",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.99, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"336f9187-4586-4df4-a33f-738237ad2386\", \"perimeter_m\": 1128.79, \"recu_serveur_le\": \"2026-11-19T23:46:30.211828+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-28",
+   "famille": "Validation",
+   "compte": "auh_bro",
+   "action": "Agent 2 soumet une correction sur l'ANCIENNE version",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.98, \"conflit\": true, \"anomalies\": 1, \"version_no\": 3, \"geometry_id\": \"47030585-1195-490a-a6cc-3db0914c104f\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-19T23:46:30.255025+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "V-29",
+   "famille": "Validation",
+   "compte": "postgres",
+   "action": "Conflit détecté : les deux versions conservées, anomalie bloquante, aucune perte",
+   "attendu": true,
+   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 85099.98, 'conflit': True, 'anomalies': 1, 'version_no': 3, 'geometry_id': '47030585-1195-490a-a6cc-3db0914c104f', 'perimeter_m': 1128.78, 'recu_serveur_le': '2026-11-19T23:46:30.255025+00:00'}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-01",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Lot hors ligne (ajout, localisation, contour, localisation imprécise)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"resultats\": [{\"statut\": \"ACCEPTEE\", \"plot_id\": \"6d0e4ac1-f4e3-4599-a62c-4e43728801ff\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-19T23:46:30.340416+00:00\"}, {\"statut\": \"ACCEPTEE\", \"plot_id\": \"6d0e4ac1-f4e3-4599-a62c-4e43728801ff\", \"precision_m\": 7.00, \"idempotency_key\": \"c",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-02",
+   "famille": "Synchronisation",
+   "compte": "postgres",
+   "action": "Statuts serveur : 3 acceptées, l'imprécise rejetée avec motif",
+   "attendu": [
+    "ACCEPTEE",
+    "ACCEPTEE",
+    "ACCEPTEE",
+    "REJETEE"
+   ],
+   "obtenu": "['ACCEPTEE', 'ACCEPTEE', 'ACCEPTEE', 'REJETEE']",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-03",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Renvoi du même lot (réseau coupé avant la réponse)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"resultats\": [{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"6d0e4ac1-f4e3-4599-a62c-4e43728801ff\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-19T23:46:30.340416+00:00\"}, {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"6d0e4ac1-f4e3-4599-a62c-4e43728801ff\", \"precision",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-04",
+   "famille": "Synchronisation",
+   "compte": "postgres",
+   "action": "Renvoi : rejoué sans doublon (même contour, même parcelle)",
+   "attendu": true,
+   "obtenu": "{'resultats': [{'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': '6d0e4ac1-f4e3-4599-a62c-4e43728801ff', 'idempotency_key': 'carto-cle-1', 'recu_serveur_le': '2026-11-19T23:46:30.340416+00:00'}, {'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': '6d0e4ac1-f4e3-4599-a62c-4e43728801ff', 'precision_m': ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-05",
+   "famille": "Synchronisation",
+   "compte": "postgres",
+   "action": "Une opération rejetée n'est pas mémorisée : elle peut être corrigée et renvoyée",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-06",
+   "famille": "Synchronisation",
+   "compte": "auh_bro",
+   "action": "Même clé, contenu différent : refus explicite",
+   "attendu": "OK",
+   "obtenu": "OK : {\"resultats\": [{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"carto-cle-2\"}], \"serveur_le\": \"2026-11-19T23:46:30.486407+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-07",
+   "famille": "Synchronisation",
+   "compte": "postgres",
+   "action": "Clé réutilisée détectée",
+   "attendu": "REJETEE",
+   "obtenu": "REJETEE",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "S-08",
+   "famille": "Synchronisation",
+   "compte": "rt",
+   "action": "Lot envoyé par un RT : refus global",
+   "attendu": "REFUS (refusé)",
+   "obtenu": "REFUS : Accès refusé.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-01",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Assistant BROBO : voit les contours BROBO, aucun de BOTRO",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-02",
+   "famille": "Sécurité",
+   "compte": "uh_bot",
+   "action": "Contour BOTRO par le Chef d'Unité de BOTRO",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.99, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"4b1e0bf4-a3e6-4bc5-b244-35ad87bf6427\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-19T23:46:30.58511+00:00\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-03",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Assistant BROBO : contour BOTRO invisible (accès direct)",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-04",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Chef de Zone GBEKE 1 : contours de BOTRO (GBEKE 2) invisibles",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-05",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Chef de Zone GBEKE 2 : voit BOTRO",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-06",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Chef de Zone sans zone : aucun contour visible",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-07",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "RT : aucun contour",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-08",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Finance : aucun contour ni coordonnée",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-09",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Supervisor sans affectation : aucun contour",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-10",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Anonyme : refus",
+   "attendu": "REFUS",
+   "obtenu": "REFUS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-11",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Reçus de synchronisation inaccessibles",
+   "attendu": "REFUS",
+   "obtenu": "REFUS",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-12",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Vue parcelles : l'assistant BROBO ne voit aucune parcelle BOTRO",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-13",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Vue contours : GeoJSON lisible par le Chef de Zone compétent",
+   "attendu": "Polygon",
+   "obtenu": "Polygon",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-14",
+   "famille": "Sécurité",
+   "compte": "uh_bro",
+   "action": "Tableau de bord refusé au Chef d'Unité",
+   "attendu": "REFUS (réservé)",
+   "obtenu": "REFUS : Tableau de bord réservé au Branch Manager, à son assistant et aux Chefs de Zone.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-15",
+   "famille": "Sécurité",
+   "compte": "zh_sans",
+   "action": "Tableau de bord refusé au Chef de Zone sans zone",
+   "attendu": "REFUS (zone)",
+   "obtenu": "REFUS : Votre zone n'est pas renseignée dans votre profil : tableau de bord indisponible.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-16",
+   "famille": "Sécurité",
+   "compte": "zh2",
+   "action": "Tableau de bord du Chef de Zone GBEKE 2",
+   "attendu": "OK",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-19T23:46:30.966638+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"GBEKE_2\", \"par_cluster\": [{\"soumises\": 1, \"validees\": 0, \"parcelles\": 1, \"a_corriger\": 0, \"locali",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "R-17",
+   "famille": "Sécurité",
+   "compte": "postgres",
+   "action": "Tableau du Chef de Zone limité à sa zone (aucune parcelle BROBO)",
+   "attendu": true,
+   "obtenu": "[{'soumises': 1, 'validees': 0, 'parcelles': 1, 'a_corriger': 0, 'localisees': 0, 'validee_ha': None, 'declaree_ha': 3.0, 'avec_contour': 1, 'cluster_code': 'BOTRO', 'cartographiee_ha': 5.0}]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-00",
+   "famille": "Pilotage",
+   "compte": "zh1",
+   "action": "Validation de la parcelle voisine (chevauchement classé)",
+   "attendu": "OK",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"decision\": \"VALIDER\"}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-01",
+   "famille": "Pilotage",
+   "compte": "bm",
+   "action": "Tableau de bord du Branch Manager",
+   "attendu": "OK",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-19T23:46:31.034877+00:00\", \"par_agent\": [{\"role\": \"AUH\", \"agent\": \"AUH BROBO FICTIF\", \"soumis\": 3, \"valides\": 2, \"contours\": 8, \"a_corriger\": 1}, {\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}, {\"role\": \"UH\", \"agent\":",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-02",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Emprise unique < somme des superficies validées quand deux parcelles validées se recouvrent",
+   "attendu": true,
+   "obtenu": "somme 14.8 ha, emprise 13.8 ha",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-03",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "La différence somme − emprise correspond au chevauchement (≈ 1 ha)",
+   "attendu": true,
+   "obtenu": "différence 1.0000 ha ; chevauchement 1.0000 ha",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-04",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Compteurs cohérents avec la base (localisées, validées, à corriger)",
+   "attendu": true,
+   "obtenu": "{'parcelles_localisees': 4, 'parcelles_validees': 3, 'parcelles_a_corriger': 1}",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-05",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Le tableau ne renvoie aucune coordonnée",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-06",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Superficie déclarée sans double comptage des divisions (la parcelle A2 issue de A n'est pas recomptée)",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-07",
+   "famille": "Pilotage",
+   "compte": "bm",
+   "action": "Filtre par cluster",
+   "attendu": "OK",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-19T23:46:31.161683+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"TOUTES_ZONES\", \"par_cluster\": [{\"soumises\": 1, \"validees\": 0, \"parcelles\": 1, \"a_corriger\": 0, \"l",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-08",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Filtre cluster appliqué",
+   "attendu": true,
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "P-09",
+   "famille": "Pilotage",
+   "compte": "postgres",
+   "action": "Travail par agent présent (auteurs des contours)",
+   "attendu": true,
+   "obtenu": "[{'role': 'AUH', 'agent': 'AUH BROBO FICTIF', 'soumis': 3, 'valides': 2, 'contours': 8, 'a_corriger': 1}, {'role': 'UH', 'agent': 'UH BOTRO FICTIF', 'soumis': 1, 'valides': 0, 'contours': 1, 'a_corriger': 0}, {'role': 'UH', 'agent': 'UH BROBO FICTIF', 'soumis': 1, 'valides': 1, 'contours': 2, 'a_cor",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B-01",
+   "famille": "Retour arrière",
+   "compte": "postgres",
+   "action": "Retour arrière : plus aucun objet de la cartographie",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B-02",
+   "famille": "Retour arrière",
+   "compte": "postgres",
+   "action": "Retour arrière : parcelles ajoutées conservées, points GPS conservés, aucune parcelle supprimée",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B-03",
+   "famille": "Retour arrière",
+   "compte": "postgres",
+   "action": "Retour arrière rejouable",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "B-04",
+   "famille": "Retour arrière",
+   "compte": "postgres",
+   "action": "Réapplication après retour arrière",
+   "attendu": true,
+   "obtenu": "",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}
