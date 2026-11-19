@@ -1,0 +1,151 @@
+{
+ "total": 24,
+ "reussis": 24,
+ "echoues": 0,
+ "tests": [
+  {
+   "id": "JS-01",
+   "libelle": "Rectangle 250 × 200 m : 5,00 ha (géodésique WGS84)",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 50000.15, attendu 50000.00"
+  },
+  {
+   "id": "JS-02",
+   "libelle": "Rectangle : périmètre 900 m",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 900.00, attendu 900.00"
+  },
+  {
+   "id": "JS-03",
+   "libelle": "Champ irrégulier 9 sommets : 8,51 ha",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 85100.07, attendu 85100.00"
+  },
+  {
+   "id": "JS-04",
+   "libelle": "Champ de plus de 10 ha (L) : 12,48 ha",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 124799.95, attendu 124800.00"
+  },
+  {
+   "id": "JS-05",
+   "libelle": "Petite parcelle 50 × 50 m : 0,25 ha",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 2500.00, attendu 2500.00"
+  },
+  {
+   "id": "JS-06",
+   "libelle": "Sens de parcours indifférent (horaire = antihoraire)",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 50000.15, attendu 50000.15"
+  },
+  {
+   "id": "JS-07",
+   "libelle": "Premier point répété en fin : même surface",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 50000.15, attendu 50000.15"
+  },
+  {
+   "id": "JS-08",
+   "libelle": "Polygone auto-intersecté détecté",
+   "resultat": "RÉUSSI",
+   "detail": "Les lignes du contour se croisent : déplacez un sommet pour supprimer le croisement. | Contour trop petit (0 m²) : vérifiez les sommets."
+  },
+  {
+   "id": "JS-09",
+   "libelle": "Polygone incomplet (2 sommets) refusé",
+   "resultat": "RÉUSSI",
+   "detail": "Placez au moins 3 sommets pour fermer le contour."
+  },
+  {
+   "id": "JS-10",
+   "libelle": "Points répétés consécutifs ignorés",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-11",
+   "libelle": "GeoJSON : anneau fermé, ordre longitude-latitude",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-12",
+   "libelle": "Surface calculée sur les coordonnées réellement envoyées (arrondies)",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 50000.15, attendu 50000.15"
+  },
+  {
+   "id": "JS-13",
+   "libelle": "Écart superficie déclarée 2 ha / mesurée 5 ha = +150 %",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-14",
+   "libelle": "Écart non calculé sans superficie déclarée (aucun chiffre inventé)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-15",
+   "libelle": "Lectures GPS : les mauvaises lectures sont écartées, précision annoncée prudente",
+   "resultat": "RÉUSSI",
+   "detail": "{\"lat\":7.7000041,\"lng\":-5.0300041,\"precision\":6,\"lectures\":2,\"total\":3}"
+  },
+  {
+   "id": "JS-16",
+   "libelle": "Aucune lecture GPS valable : aucune position fabriquée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-17",
+   "libelle": "Statistiques de précision : min, médiane, max",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-18",
+   "libelle": "Libellés de synchronisation exigés par le mandat",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-19",
+   "libelle": "Import GeoJSON (Feature) : sommets lus",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-20",
+   "libelle": "Import GeoJSON : plusieurs contours refusés",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-21",
+   "libelle": "Import KML : polygone lu, même surface",
+   "resultat": "RÉUSSI",
+   "detail": "obtenu 50000.15, attendu 50000.00"
+  },
+  {
+   "id": "JS-22",
+   "libelle": "Soumission : précision GPS, méthode et confiance transmises",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-23",
+   "libelle": "Export CSV : séparateur point-virgule, décimales à la française, BOM UTF-8",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-24",
+   "libelle": "Contour hors Côte d'Ivoire signalé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}
