@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 42;
     private static final int REQ_STORAGE = 43;
     private static final int REQ_MEDIA = 44;
+    private static final int REQ_CAMERA = 45;
+    private Runnable apresCamera;
 
     /** Délai laissé à une mise à jour Web fraîchement activée pour confirmer son démarrage. */
     private static final long BOOT_CONFIRM_MS = 60000;
@@ -270,6 +272,28 @@ public class MainActivity extends Activity {
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
             if (fileCallback != null) fileCallback.onReceiveValue(null);
             fileCallback = cb;
+            /* Recette APK 19/11 : sans permission CAMERA déjà accordée, « Prendre la photo »
+               (capture="environment") ouvrait la galerie et laissait joindre une ancienne photo.
+               On demande d'abord la caméra, puis on ouvre l'appareil photo. */
+            final FileChooserParams p0 = params;
+            if (demandeImage(params) && params.isCaptureEnabled()
+                    && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                apresCamera = new Runnable() { @Override public void run() { ouvrirSelecteur(p0); } };
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
+                return true;
+            }
+            return ouvrirSelecteur(params);
+        }
+
+        boolean demandeImage(FileChooserParams params) {
+            String[] a = params.getAcceptTypes();
+            if (a != null) for (String s : a) if (s != null && s.startsWith("image")) return true;
+            return false;
+        }
+
+        boolean ouvrirSelecteur(FileChooserParams params) {
+            ValueCallback<Uri[]> cb = fileCallback;
+            if (cb == null) return false;
             String[] accept = params.getAcceptTypes();
             boolean image = false;
             StringBuilder types = new StringBuilder();
@@ -349,6 +373,13 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        if (req == REQ_CAMERA) {
+            Runnable r = apresCamera; apresCamera = null;
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            if (!ok) Toast.makeText(this, "Appareil photo refusé : autorisez la caméra de FBMS dans les réglages du téléphone pour photographier l'arbre.", Toast.LENGTH_LONG).show();
+            if (r != null) r.run(); else if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }
+            return;
+        }
         if (req == REQ_MEDIA && mediaRequest != null) {
             PermissionRequest r = mediaRequest; mediaRequest = null;
             grantMedia(r);

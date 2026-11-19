@@ -98,25 +98,56 @@
     return suite;
   }
 
+  /* Photos : envoyées AVANT les visites (le serveur refuse une soumission dont une photo
+     n'est pas dans son stockage). Une photo n'est « reçue » qu'après la réponse du stockage ;
+     un fichier déjà présent (renvoi après coupure) est reconnu comme reçu, sans doublon.
+     Le fichier local n'est effacé qu'après cette confirmation. */
   function envoyerFichiers(sb) {
+    var u = utilisateur(), bilanF = { envoyees: 0, echecs: 0, reseau: false };
     return tout('fichiers').then(function (l) {
-      return l.filter(function (f) { return f.statut !== 'RECU'; }).reduce(function (p, f) {
+      return l.filter(function (f) { return f.statut !== 'RECU' && f.blob && (!u || !f.user_id || f.user_id === u); }).reduce(function (p, f) {
         return p.then(function () {
+          if (bilanF.reseau) return;
+          f.statut = 'ENVOI'; f.essais = (f.essais || 0) + 1;
           return sb.storage.from(BUCKET).upload(f.chemin, f.blob, { upsert: false, contentType: f.type || 'image/jpeg' }).then(function (x) {
-            if (x.error && !/exist|duplicate|409/i.test(String(x.error.message || x.error.statusCode || ''))) { f.statut = 'ECHEC'; f.dernier_message = x.error.message; }
-            else { f.statut = 'RECU'; f.recu_le = new Date().toISOString(); f.blob = null; }
+            if (x.error && !/exist|duplicate|409/i.test(String(x.error.message || x.error.statusCode || ''))) {
+              var res = /fetch|network|timeout|abort/i.test(String(x.error.message || ''));
+              f.statut = 'ECHEC'; f.dernier_message = res ? 'Pas de réponse du serveur.' : x.error.message; bilanF.echecs++; if (res) bilanF.reseau = true;
+            }
+            else { f.statut = 'RECU'; f.recu_le = new Date().toISOString(); f.blob = null; bilanF.envoyees++; }
             return ecrire('fichiers', f);
-          }).catch(function (e) { f.statut = 'ECHEC'; f.dernier_message = e.message; return ecrire('fichiers', f); });
+          }).catch(function (e) { f.statut = 'ECHEC'; f.dernier_message = 'Pas de réseau : ' + e.message; bilanF.echecs++; bilanF.reseau = true; return ecrire('fichiers', f); });
         });
       }, Promise.resolve());
-    });
+    }).then(function () { return bilanF; });
+  }
+  /* Une soumission de visite attend que toutes ses photos soient reçues par le serveur. */
+  function photosPretes(op, parChemin) {
+    if (op.type !== 'VISITE_ENREGISTRER' || !op.payload || !op.payload.soumettre) return true;
+    return (op.payload.observations || []).every(function (o) { var f = o.photo_ref && parChemin[o.photo_ref]; return !o.photo_ref || !f || f.statut === 'RECU'; });
   }
 
   /* Envoi de la file. Résout { envoyees, recues, conflits, refusees, reseau }. */
+  /* Ordre : 1) opérations qui ne dépendent d'aucune photo (installation, inventaire,
+     désignation, brouillons) ; 2) photos ; 3) soumissions dont toutes les photos sont
+     confirmées par le serveur. Une soumission dont une photo manque reste en attente. */
   function synchroniser(sb) {
     if (enCours) return enCours;
-    var bilan = { envoyees: 0, recues: 0, conflits: 0, refusees: 0, reseau: false };
-    enCours = enAttente().then(function boucle(l) {
+    var bilan = { envoyees: 0, recues: 0, conflits: 0, refusees: 0, reseau: false, photos_envoyees: 0, photos_echec: 0, en_attente_photos: 0 };
+    function pretes() {
+      return Promise.all([enAttente(), tout('fichiers')]).then(function (r) {
+        var par = {}; r[1].forEach(function (f) { par[f.chemin] = f; });
+        var ok = r[0].filter(function (o) { return photosPretes(o, par); });
+        bilan.en_attente_photos = r[0].length - ok.length;
+        return ok;
+      });
+    }
+    enCours = pretes().then(function (l) { return passe(l); })
+      .then(function () { return bilan.reseau || !sb ? null : envoyerFichiers(sb).then(function (bf) { bilan.photos_envoyees = bf.envoyees; bilan.photos_echec = bf.echecs; if (bf.reseau) bilan.reseau = true; }); })
+      .then(function () { return bilan.reseau || !sb ? null : pretes().then(function (l) { return passe(l); }); })
+      .then(function () { enCours = null; emettre(); return bilan; }, function (e) { enCours = null; emettre(); throw e; });
+    return enCours;
+    function passe(l0) { return Promise.resolve(l0).then(function boucle(l) {
       if (!l.length || !sb) return bilan;
       var lot = l.slice(0, LOT), reste = l.slice(LOT);
       return Promise.all(lot.map(function (o) { o.statut = 'ENVOI'; return ecrire('file', o); })).then(function () {
@@ -143,10 +174,26 @@
         bilan.reseau = true;
         return Promise.all(lot.map(function (o) { o.statut = 'ECHEC_RESEAU'; o.essais += 1; o.dernier_message = 'Pas de réseau : ' + (e && e.message ? e.message : 'envoi impossible'); return ecrire('file', o); })).then(function () { return bilan; });
       });
-    }).then(function (b) { return b.reseau || !sb ? b : envoyerFichiers(sb).then(function () { return b; }); })
-      .then(function (b) { enCours = null; emettre(); return b; }, function (e) { enCours = null; emettre(); throw e; });
-    return enCours;
+    }); }
   }
+  /* Compteurs affichés à l'agent : ce qui reste sur le téléphone, et pourquoi. */
+  function compter() {
+    var u = utilisateur();
+    return Promise.all([file(), tout('fichiers')]).then(function (r) {
+      var miens = r[0].filter(function (o) { return !u || !o.user_id || o.user_id === u; });
+      var ph = r[1].filter(function (f) { return f.statut !== 'RECU' && (!u || !f.user_id || f.user_id === u); });
+      return { attente: miens.filter(function (o) { return o.statut === 'EN_ATTENTE' || o.statut === 'ENVOI'; }).length,
+        echec_reseau: miens.filter(function (o) { return o.statut === 'ECHEC_RESEAU'; }).length,
+        refus: miens.filter(function (o) { return o.statut === 'REJETE' || o.statut === 'CONFLIT'; }).length,
+        photos_attente: ph.length, photos_echec: ph.filter(function (f) { return f.statut === 'ECHEC'; }).length };
+    });
+  }
+  /* Espace de stockage du navigateur (si le téléphone le donne). */
+  function espace() {
+    try { if (navigator.storage && navigator.storage.estimate) return navigator.storage.estimate().then(function (e) { return { libre: e.quota != null && e.usage != null ? e.quota - e.usage : null, usage: e.usage, quota: e.quota }; }).catch(function () { return null; }); } catch (e) {}
+    return Promise.resolve(null);
+  }
+  function fichiersDe(chemins) { return tout('fichiers').then(function (l) { var par = {}; l.forEach(function (f) { par[f.chemin] = { statut: f.statut, dernier_message: f.dernier_message, taille: f.taille }; }); return chemins.map(function (c) { return par[c] || null; }); }); }
   function reessayer(cle) {
     return lire('file', cle).then(function (o) { if (!o || o.statut !== 'REJETE') return; o.statut = 'EN_ATTENTE'; return ecrire('file', o); }).then(emettre);
   }
@@ -170,7 +217,16 @@
       return enregistrerVisite(v).then(function () { return mettreEnFile('VISITE_ENREGISTRER', charge, { entite: 'VISITE', entite_id: v.id, libelle: libelle }); });
     });
   }
-  function ajouterFichier(chemin, blob) { return ecrire('fichiers', { chemin: chemin, blob: blob, type: blob.type, statut: 'EN_ATTENTE', cree_le: new Date().toISOString() }); }
+  /* Une photo par arbre et par visite : le chemin porte la visite et l'arbre. Remplacer la
+     photo d'un arbre avant envoi retire l'ancienne de la file (elle n'est jamais envoyée). */
+  function ajouterFichier(chemin, blob, info) {
+    var f = { chemin: chemin, blob: blob, type: blob.type, taille: blob.size, statut: 'EN_ATTENTE', cree_le: new Date().toISOString(), user_id: utilisateur(),
+      visite_id: info && info.visite_id || null, arbre_id: info && info.arbre_id || null, prise_le: info && info.prise_le || null };
+    return tout('fichiers').then(function (l) {
+      var anciens = l.filter(function (x) { return info && x.visite_id === info.visite_id && x.arbre_id === info.arbre_id && x.chemin !== chemin && x.statut !== 'RECU'; });
+      return Promise.all(anciens.map(function (x) { return tx('fichiers', 'readwrite', function (s) { return s.delete(x.chemin); }); }));
+    }).then(function () { return ecrire('fichiers', f); }).then(function (x) { emettre(); return x; });
+  }
 
   /* ---------- préparation hors ligne : lecture du serveur vers l'appareil ---------- */
   function pages(req) {
@@ -184,6 +240,13 @@
     return sb.from('pheno_graines').select('campaign_id,graine').eq('campaign_id', campaignId).then(function (g) {
       res.graine = g && !g.error && g.data && g.data[0] ? g.data[0].graine : null;
       return ecrire('meta', res.graine, 'graine:' + campaignId);
+    }).then(function () {
+      /* Mode de sélection du protocole actif (désignation libre ou tirage), pour l'installation hors ligne. */
+      return sb.from('pheno_protocoles').select('code,version,parametres').eq('actif', true).limit(1).then(function (x) {
+        var p = x && !x.error && x.data && x.data[0]; res.protocole = p ? { code: p.code, version: p.version, mode_selection: (p.parametres || {}).mode_selection || 'TIRAGE',
+          titulaires: (p.parametres || {}).titulaires || 10, reserves: (p.parametres || {}).reserves == null ? 2 : p.parametres.reserves } : null;
+        return res.protocole ? ecrire('meta', res.protocole, 'protocole') : null;
+      });
     }).then(function () { return pages(function () { return sb.from('pheno_panels').select('*').eq('campaign_id', campaignId).order('id'); }); }).then(function (p) {
       res.panels = p; var ids = p.map(function (x) { return x.id; });
       if (!ids.length) { res.blocs = []; res.arbres = []; res.visites = []; res.obs = []; return; }
@@ -205,8 +268,10 @@
     }).then(function (rows) {
       if (!rows) { res.plots = null; return []; }
       var vil = {}, pro = {};
-      res.plots = rows.map(function (r) { vil[r.village_id] = { id: r.village_id, village: r.village_nom, cluster_code: r.cluster_code }; pro[r.producteur_id] = { id: r.producteur_id, nom: r.producteur_nom, code: r.producteur_code };
-        return { id: r.plot_id, producteur_id: r.producteur_id, village_id: r.village_id, local_name: r.parcelle_nom, tree_count: r.arbres_declares, deja_installee: r.deja_installee }; });
+      res.plots = rows.map(function (r) { vil[r.village_id] = { id: r.village_id, village: r.village_nom, cluster_code: r.cluster_code };
+        pro[r.producteur_id] = { id: r.producteur_id, nom: [r.producteur_nom, r.producteur_prenoms].filter(Boolean).join(' '), nom_famille: r.producteur_nom, prenoms: r.producteur_prenoms, code: r.producteur_code };
+        return { id: r.plot_id, producteur_id: r.producteur_id, village_id: r.village_id, local_name: r.parcelle_nom, tree_count: r.arbres_declares, deja_installee: r.deja_installee,
+          gps_releve: r.gps_releve, eligible: r.eligible !== false, manques: r.manques || [] }; });
       res.villages = Object.keys(vil).map(function (k) { return vil[k]; });
       return Object.keys(pro).map(function (k) { return pro[k]; });
     }).then(function (producteurs) {
@@ -232,18 +297,22 @@
             recu_serveur_le: v.recu_serveur_le, mode_saisie: v.mode_saisie, observateur_id: v.observateur_id, transcripteur_id: v.transcripteur_id,
             ramassage: v.ramassage, anomalies: v.anomalies, latitude: v.latitude, longitude: v.longitude, statut_serveur: v.statut, row_version: v.row_version,
             correction_motif: v.correction_motif, etat_envoi: 'RECU', proprietaire: v.transcripteur_id || v.observateur_id,
-            observations: obs.length ? obs.map(function (o) { return { arbre_id: o.arbre_id, retrouve: o.retrouve, f: o.f, n: o.n, p: o.p, pas_vu_motif: o.pas_vu_motif, chute: o.chute, chute_preuve: o.chute_preuve, anomalie: o.anomalie, photo_ref: o.photo_ref }; })
+            temporalite: v.temporalite, justification_retro: v.justification_retro,
+            observations: obs.length ? obs.map(function (o) { return { arbre_id: o.arbre_id, retrouve: o.retrouve, f: o.f, n: o.n, p: o.p, pas_vu_motif: o.pas_vu_motif, chute: o.chute, chute_preuve: o.chute_preuve, anomalie: o.anomalie, photo_ref: o.photo_ref,
+              photo_exception: o.photo_exception, photo_prise_le: o.photo_prise_le, photo_latitude: o.photo_latitude, photo_longitude: o.photo_longitude }; })
               : (local && local.observations) || [] }));
         });
         if (res.plots) ecritures.push(ecrire('ref', { le: new Date().toISOString(), plots: res.plots, villages: res.villages || [], producteurs: producteurs }, 'parcelles'));
         ecritures.push(ecrire('meta', { le: new Date().toISOString(), campaign_id: campaignId, champs: res.panels.length }, 'preparation'));
         return Promise.all(ecritures);
       });
-    }).then(function () { emettre(); return { champs: res.panels.length, parcelles: res.plots ? res.plots.length : null, graine: !!res.graine }; });
+    }).then(function () { emettre(); return { champs: res.panels.length, parcelles: res.plots ? res.plots.length : null, graine: !!res.graine,
+      mode: res.protocole ? res.protocole.mode_selection : null, eligibles: res.plots ? res.plots.filter(function (x) { return x.eligible && !x.deja_installee; }).length : null }; });
   }
   function referentiel() { return lire('ref', 'parcelles').then(function (x) { return x || { plots: [], villages: [], producteurs: [] }; }); }
   function derniereePreparation() { return lire('meta', 'preparation'); }
   function graine(campaignId) { return lire('meta', 'graine:' + campaignId); }
+  function protocole() { return lire('meta', 'protocole').then(function (p) { return p || { mode_selection: 'DESIGNATION', titulaires: 10, reserves: 2 }; }); }
 
   /* Au démarrage : un envoi interrompu redevient « à renvoyer » (même clé, donc sans doublon). */
   function reprendre() {
@@ -254,7 +323,8 @@
     mettreEnFile: mettreEnFile, file: file, enAttente: enAttente, synchroniser: synchroniser, reessayer: reessayer,
     panels: panels, panel: panel, enregistrerPanel: enregistrerPanel, visites: visites, visite: visite, enregistrerVisite: enregistrerVisite,
     envoyerVisite: envoyerVisite, ajouterFichier: ajouterFichier, preparer: preparer, referentiel: referentiel, dernierePreparation: derniereePreparation,
-    reprendre: reprendre, graine: graine, utilisateur: utilisateur, appareil: appareil, surChangement: function (f) { ecouteurs.push(f); }, BUCKET: BUCKET
+    reprendre: reprendre, graine: graine, utilisateur: utilisateur, appareil: appareil, surChangement: function (f) { ecouteurs.push(f); }, BUCKET: BUCKET,
+    compter: compter, espace: espace, fichiersDe: fichiersDe, protocole: protocole
   };
   reprendre();
 })(window);

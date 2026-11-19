@@ -1,6 +1,6 @@
 {
- "total": 21,
- "reussis": 21,
+ "total": 32,
+ "reussis": 32,
  "echoues": 0,
  "tests": [
   {
@@ -101,7 +101,7 @@
   },
   {
    "id": "JS-17",
-   "libelle": "Libellé d’envoi : « Non encore sauvegardé » tant que le serveur n’a pas répondu",
+   "libelle": "Libellé d’envoi : « pas encore envoyé » tant que le serveur n’a pas répondu, « reçu par FBMS » ensuite",
    "resultat": "RÉUSSI",
    "detail": ""
   },
@@ -126,6 +126,72 @@
   {
    "id": "JS-21",
    "libelle": "Sans graine de campagne, aucun tirage possible sur l’appareil",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-22",
+   "libelle": "Nomenclature terrain B03/A010 (papier = écran = base)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-23",
+   "libelle": "Désignation : blocs suivis cochés, aucun tirage",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-24",
+   "libelle": "Désignation : nombre de blocs cochés différent du nombre annoncé refusé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-25",
+   "libelle": "Désignation : messages en français, sans formule « b ≤ B »",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-26",
+   "libelle": "Choix libre : 10 suivis + 2 réserves, codes B02/A001…, identifiants identiques au serveur",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-27",
+   "libelle": "Choix libre : même arbre choisi deux fois refusé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-28",
+   "libelle": "Choix libre : numéro au-delà des arbres comptés refusé ; bloc non suivi refusé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-29",
+   "libelle": "Choix libre : il faut exactement 10 suivis et 2 réserves",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-30",
+   "libelle": "Photo obligatoire par arbre retrouvé, ou exception motivée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-31",
+   "libelle": "Saisie rétrospective : justification exigée, date jamais remplacée",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-32",
+   "libelle": "Nom de photo : porte la visite et l’arbre, sans barre oblique",
    "resultat": "RÉUSSI",
    "detail": ""
   }
