@@ -775,7 +775,7 @@ create or replace function public.pheno_preparation_clusters(p_campaign uuid) re
   champs_actifs integer, chefs_unite integer, assistants integer, chef_zone integer, validateur_disponible boolean, statut text, motifs text[])
 language plpgsql stable security definer set search_path to 'public', 'private', 'pg_temp' as $$
 begin
-  if private.pheno_classe() not in ('BM', 'ABM', 'ZH') then raise exception 'Réservé au pilotage (Branch Manager, Chef de Zone).' using errcode = 'PH001'; end if;
+  if coalesce(private.pheno_classe(), '') not in ('BM', 'ABM', 'ZH') then raise exception 'Réservé au pilotage (Branch Manager, Chef de Zone).' using errcode = 'PH001'; end if;
   return query
   with reg as (
     select public.aflp_cluster_code(coalesce(nullif(btrim(v.cluster_code), ''), nullif(btrim(v.cluster), ''), v.data->'s1'->>'cluster')) as cl,
