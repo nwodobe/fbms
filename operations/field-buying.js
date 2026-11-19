@@ -5163,6 +5163,13 @@ var ROUTES = {
     if (global.ANAGROCI_OBSERVATOIRE && global.ANAGROCI_OBSERVATOIRE.render) return global.ANAGROCI_OBSERVATOIRE.render(p);
     paint(head('Observatoire agronomique', 'Module en cours de chargement…') + skeletonPage(4));
     return new Promise(function (resolve) { setTimeout(function () { resolve(global.ANAGROCI_OBSERVATOIRE ? global.ANAGROCI_OBSERVATOIRE.render(p) : null); }, 600); });
+  },
+  /* Parcelles & cartographie (AFLP 2027) : rubrique de FIELD BUYING, moteur dans parcelles.js
+     (table farmer_plots existante + versions de contour, file hors ligne dédiée, RPC plot_map_*). */
+  parcelles: function (p) {
+    if (global.ANAGROCI_PARCELLES && global.ANAGROCI_PARCELLES.render) return global.ANAGROCI_PARCELLES.render(p);
+    paint(head('Parcelles & cartographie', 'Module en cours de chargement…') + skeletonPage(4));
+    return new Promise(function (resolve) { setTimeout(function () { resolve(global.ANAGROCI_PARCELLES ? global.ANAGROCI_PARCELLES.render(p) : null); }, 600); });
   }
 };
 

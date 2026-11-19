@@ -19,6 +19,7 @@ var MENU=[
   ['Parc motos & carburant','Motorcycles & fuel','../moto/index.html','external']]},
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
   ['Producteurs','Farmers','field-buying.html#farmers'],
+  ['Parcelles & cartographie','Plots & mapping','field-buying.html#parcelles'],
   ['Représentants RT','RT representatives','field-buying.html#rt'],
   ['Villages & clusters','Villages & clusters','field-buying.html#census'],
   ['Coopératives','Cooperatives','field-buying.html#cooperatives'],
@@ -38,6 +39,7 @@ var MENU=[
   ['Rapprochement','Reconciliation','procurement.html#reconciliation']]},
  {id:'E5',fr:'Pilotage & administration',en:'Management & settings',icon:'▦',items:[
   ['Tableau de bord','Dashboard','field-buying.html#overview'],
+  ['Carte des parcelles','Plot map','field-buying.html#parcelles/pilotage'],
   ['Alertes terrain','Field alerts','field-buying.html#command'],
   ['Rapports et exports','Reports & export','reports.html'],
   ['AFLP DATA','AFLP DATA','aflp-data.html'],
@@ -76,7 +78,8 @@ function pathId(){
  if(file==='procurement.html')return 'E4';
  if(file==='reports.html'||file==='aflp-data.html'||file==='campaigns.html'||file==='traceability.html')return 'E5';
  if(file==='field-buying.html'){
-  if(/#(farmers|rt|census|cooperatives|hubs)/.test(hash))return 'E1';
+  if(/#parcelles\/pilotage(\/|$)/.test(hash))return 'E5';
+  if(/#(farmers|rt|census|cooperatives|hubs|parcelles)/.test(hash))return 'E1';
   if(/#(sustainability|observatoire)(\/|$)/.test(hash))return 'E2';
   if(/#(purchases|cash|bags)/.test(hash))return 'E3';
   if(/#sync(\/|$)/.test(hash))return 'E6';

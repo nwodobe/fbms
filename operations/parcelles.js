@@ -247,6 +247,16 @@ function miniCarte(idEl, x, version) {
   if (x.latitude != null) { var pt = global.L.circleMarker(centre(x), { radius: 7, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1 }).addTo(m).bindTooltip('Point de référence'); bornes.push(global.L.latLngBounds([centre(x), centre(x)])); }
   if (bornes.length) { var b = bornes[0]; bornes.slice(1).forEach(function (z) { b.extend(z); }); m.fitBounds(b.pad(0.4), { maxZoom: 18 }); } else { m.setView(centre(x), 13); el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">Champ non localisé</div>'); }
   setTimeout(function () { m.invalidateSize(); }, 150);
+  /* Arbres suivis de l'Observatoire, quand ils ont une position : ils situent les observations,
+     ils ne représentent pas toute la parcelle (aucune extrapolation). */
+  if (enLigne()) lire('pheno_panels', 'id', function (r) { return r.eq('plot_id', x.plot_id); }).then(function (pa) {
+    if (!pa.length) return;
+    return lire('pheno_arbres', 'code,latitude,longitude,statut', function (r) { return r.in('panel_id', pa.map(function (z) { return z.id; })); }).then(function (ar) {
+      var n = 0;
+      ar.forEach(function (a) { if (a.latitude == null || a.statut === 'REMPLACE') return; n++; global.L.circleMarker([Number(a.latitude), Number(a.longitude)], { radius: 4, color: '#7C2D12', weight: 1, fillColor: '#EE9E00', fillOpacity: 0.9 }).addTo(m).bindTooltip('Arbre suivi ' + a.code); });
+      if (n) el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">' + n + ' arbre(s) suivi(s) par l\'Observatoire (points orange)</div>');
+    });
+  }).catch(function () {});
 }
 
 /* ------------------------------------------------------------------ GPS (aucune position simulée) */
