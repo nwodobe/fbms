@@ -385,7 +385,7 @@ function construireCarte() {
   if (carte) { try { carte.remove(); } catch (e) {} carte = null; }
   var el = document.getElementById('pcCarte'); if (!el) return;
   if (!global.L) { el.innerHTML = '<div class="ops-empty">Bibliothèque de carte indisponible.</div>'; return; }
-  carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12 });
+  carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12, inertia: false });   // sans inertie : l'image s'arrête où le doigt la lâche (précision du viseur, constaté le 20/11/2026)
   var f = fond(carte, function (etatFond) {
     var z = document.getElementById('pcFondImage'); if (!z) return;
     z.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible ici</b> (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d\'un cran si besoin. Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : avis('info', esc(ed.fondInfo || ''));
