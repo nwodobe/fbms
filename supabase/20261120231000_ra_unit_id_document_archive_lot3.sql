@@ -93,29 +93,27 @@ create policy ra_docs_read on public.farmer_plot_ra_documents for select to auth
 revoke all on public.farmer_plot_ra_documents from anon,authenticated;
 grant select on public.farmer_plot_ra_documents to authenticated;
 
--- Path format: plot-id/geometry-id/document-id.pdf; exact geometry binding.
+-- Format plot-uuid/geometry-uuid/document-uuid.pdf, no extra directories.
 create or replace function private.ra_pdf_can_access(p_path text,p_read boolean)
-returns boolean language sql stable security definer set search_path=public,private,storage,pg_temp as $$
- select case
-  when (storage.foldername(p_path))[1] !~* '^[0-9a-f-]{36}$'
-       or (storage.foldername(p_path))[2] !~* '^[0-9a-f-]{36}$'
-       or array_length(storage.foldername(p_path),1) is distinct from 2
-       or (storage.filename(p_path)) !~* '^[0-9a-f-]{36}[.]pdf  else exists (
-   select 1 from public.farmer_plot_geometries g
-   where g.plot_id=((storage.foldername(p_path))[1])::uuid
-     and g.id=((storage.foldername(p_path))[2])::uuid
-     and private.plot_map_peut_lire(g.producteur_id,g.zone_code)
-     and private.plot_map_consentement_gps(g.producteur_id)
-     and (
-       (p_read and private.plot_map_classe() in ('BM','ZH','ABM'))
-       or (not p_read and private.plot_map_classe() in ('BM','ZH')
-          and g.status='VALIDE'
-          and exists(select 1 from public.farmer_plot_ra_units u where u.plot_id=g.plot_id and u.status='VERIFIE')
-          and exists(select 1 from public.plot_map_ra_preparation_v pr where pr.geometry_id=g.id and pr.statut_preparation='REVUE_DOCUMENTAIRE_RA_REQUISE')
-       )
-     )
-  ) end
-$$;
+returns boolean language plpgsql stable security definer set search_path=public,private,storage,pg_temp as $ra$
+declare dirs text[]:=storage.foldername(p_path);
+begin
+ if coalesce(array_length(dirs,1),0)<>2
+   or dirs[1] !~* '^[0-9a-f-]{36}$'
+   or dirs[2] !~* '^[0-9a-f-]{36}$'
+   or storage.filename(p_path) !~* '^[0-9a-f-]{36}[.]pdf$' then return false;end if;
+ return exists(
+  select 1 from public.farmer_plot_geometries g
+  where g.plot_id=dirs[1]::uuid and g.id=dirs[2]::uuid
+    and private.plot_map_peut_lire(g.producteur_id,g.zone_code)
+    and private.plot_map_consentement_gps(g.producteur_id)
+    and ((p_read and private.plot_map_classe() in ('BM','ZH','ABM'))
+      or (not p_read and private.plot_map_classe() in ('BM','ZH')
+         and g.status='VALIDE'
+         and exists(select 1 from public.farmer_plot_ra_units u where u.plot_id=g.plot_id and u.status='VERIFIE')
+         and exists(select 1 from public.plot_map_ra_preparation_v pr
+                    where pr.geometry_id=g.id and pr.statut_preparation='REVUE_DOCUMENTAIRE_RA_REQUISE')));
+end $ra$;
 drop policy if exists ra_pdf_insert on storage.objects;
 create policy ra_pdf_insert on storage.objects for insert to authenticated
 with check (bucket_id='aflp-ra-plantation-pdfs' and private.ra_pdf_can_access(name,false));
@@ -124,84 +122,44 @@ create policy ra_pdf_read on storage.objects for select to authenticated
 using (bucket_id='aflp-ra-plantation-pdfs' and private.ra_pdf_can_access(name,true));
 
 create or replace function public.plot_map_ra_document_archiver(p_id uuid,p_plot uuid,p_geometry uuid,p_path text,p_sha text,p_bytes integer)
-returns jsonb language plpgsql security definer set search_path=public,private,storage,pg_temp as $$
-declare g public.farmer_plot_geometries; u public.farmer_plot_ra_units; object_record record;
+returns jsonb language plpgsql security definer set search_path=public,private,storage,pg_temp as $arch$
+declare
+ g public.farmer_plot_geometries;
+ u public.farmer_plot_ra_units;
+ object_record record;
 begin
  select * into g from public.farmer_plot_geometries where id=p_geometry;
  if g.id is null or g.plot_id is distinct from p_plot or g.status<>'VALIDE'
- or not private.ra_pdf_can_access(p_path,false) then raise exception 'Dossier cartographique non éligible.' using errcode='PM001';end if;
- if p_path is distinct from p_plot::text||'/'||p_geometry::text||'/'||p_id::text||'.pdf' then
-   raise exception 'Chemin documentaire invalide.' using errcode='PM002';end if;
- if not private.plot_map_consentement_gps(g.producteur_id) then raise exception 'Consentement absent.' using errcode='PM001';end if;
+ or not private.ra_pdf_can_access(p_path,false) then
+   raise exception 'Dossier cartographique non éligible.' using errcode='PM001';
+ end if;
+ if p_path is distinct from (p_plot::text||'/'||p_geometry::text||'/'||p_id::text||'.pdf') then
+   raise exception 'Chemin documentaire invalide.' using errcode='PM002';
+ end if;
+ if not private.plot_map_consentement_gps(g.producteur_id) then
+   raise exception 'Consentement absent.' using errcode='PM001';
+ end if;
  select * into u from public.farmer_plot_ra_units where plot_id=p_plot and status='VERIFIE';
  if u.plot_id is null then raise exception 'Farm Unit ID non vérifié.' using errcode='PM001';end if;
- if p_sha !~ '^[a-f0-9]{64}$' or p_bytes<100 or p_bytes>5242880 then raise exception 'Empreinte ou taille incorrecte.' using errcode='PM002';end if;
- select o.name,o.owner_id,o.metadata into object_record
- from storage.objects o where o.bucket_id='aflp-ra-plantation-pdfs' and o.name=p_path;
+ if p_sha !~ '^[a-f0-9]{64}$' or p_bytes<100 or p_bytes>5242880 then
+   raise exception 'Empreinte ou taille incorrecte.' using errcode='PM002';
+ end if;
+ select o.name,o.owner_id,o.metadata into object_record from storage.objects o
+ where o.bucket_id='aflp-ra-plantation-pdfs' and o.name=p_path;
  if object_record.name is null or object_record.owner_id is distinct from auth.uid()::text then
-   raise exception 'PDF absent du stockage privé ou envoyé par un autre compte.' using errcode='PM001';end if;
+   raise exception 'PDF absent du stockage privé ou envoyé par un autre compte.' using errcode='PM001';
+ end if;
  if (object_record.metadata->>'mimetype') is distinct from 'application/pdf'
  or coalesce((object_record.metadata->>'size')::integer,-1)<>p_bytes then
-   raise exception 'Format ou taille du PDF incohérent.' using errcode='PM002';end if;
+   raise exception 'Format ou taille du PDF incohérent.' using errcode='PM002';
+ end if;
  insert into public.farmer_plot_ra_documents
- (id,plot_id,geometry_id,producteur_id,zone_code,farm_unit_id,geometry_version,storage_path,claimed_sha256,byte_size,created_by)
- values(p_id,p_plot,p_geometry,g.producteur_id,g.zone_code,u.farm_unit_id,g.version_no,p_path,p_sha,p_bytes,auth.uid());
+  (id,plot_id,geometry_id,producteur_id,zone_code,farm_unit_id,geometry_version,storage_path,claimed_sha256,byte_size,created_by)
+ values
+  (p_id,p_plot,p_geometry,g.producteur_id,g.zone_code,u.farm_unit_id,g.version_no,p_path,p_sha,p_bytes,auth.uid());
  perform private.plot_map_journaliser(p_plot,p_geometry,'RA_PDF_ARCHIVE',null,
- jsonb_build_object('document_id',p_id,'storage_path',p_path,'sha256_client',p_sha),null);
+   jsonb_build_object('document_id',p_id,'storage_path',p_path,'sha256_client',p_sha),null);
  return jsonb_build_object('statut','ARCHIVE_INTERNE','document_id',p_id);
-end $$;
-revoke all on function public.plot_map_ra_document_archiver(uuid,uuid,uuid,text,text,integer) from public,anon;
-grant execute on function public.plot_map_ra_document_archiver(uuid,uuid,uuid,text,text,integer) to authenticated;
- then false
-  else exists (
-   select 1 from public.farmer_plot_geometries g
-   where g.plot_id=((storage.foldername(p_path))[1])::uuid
-     and g.id=((storage.foldername(p_path))[2])::uuid
-     and private.plot_map_peut_lire(g.producteur_id,g.zone_code)
-     and private.plot_map_consentement_gps(g.producteur_id)
-     and (
-       (p_read and private.plot_map_classe() in ('BM','ZH','ABM'))
-       or (not p_read and private.plot_map_classe() in ('BM','ZH')
-          and g.status='VALIDE'
-          and exists(select 1 from public.farmer_plot_ra_units u where u.plot_id=g.plot_id and u.status='VERIFIE')
-          and exists(select 1 from public.plot_map_ra_preparation_v pr where pr.geometry_id=g.id and pr.statut_preparation='REVUE_DOCUMENTAIRE_RA_REQUISE')
-       )
-     )
-  ) end
-$$;
-drop policy if exists ra_pdf_insert on storage.objects;
-create policy ra_pdf_insert on storage.objects for insert to authenticated
-with check (bucket_id='aflp-ra-plantation-pdfs' and private.ra_pdf_can_access(name,false));
-drop policy if exists ra_pdf_read on storage.objects;
-create policy ra_pdf_read on storage.objects for select to authenticated
-using (bucket_id='aflp-ra-plantation-pdfs' and private.ra_pdf_can_access(name,true));
-
-create or replace function public.plot_map_ra_document_archiver(p_id uuid,p_plot uuid,p_geometry uuid,p_path text,p_sha text,p_bytes integer)
-returns jsonb language plpgsql security definer set search_path=public,private,storage,pg_temp as $$
-declare g public.farmer_plot_geometries; u public.farmer_plot_ra_units; object_record record;
-begin
- select * into g from public.farmer_plot_geometries where id=p_geometry;
- if g.id is null or g.plot_id is distinct from p_plot or g.status<>'VALIDE'
- or not private.ra_pdf_can_access(p_path,false) then raise exception 'Dossier cartographique non éligible.' using errcode='PM001';end if;
- if p_path is distinct from p_plot::text||'/'||p_geometry::text||'/'||p_id::text||'.pdf' then
-   raise exception 'Chemin documentaire invalide.' using errcode='PM002';end if;
- if not private.plot_map_consentement_gps(g.producteur_id) then raise exception 'Consentement absent.' using errcode='PM001';end if;
- select * into u from public.farmer_plot_ra_units where plot_id=p_plot and status='VERIFIE';
- if u.plot_id is null then raise exception 'Farm Unit ID non vérifié.' using errcode='PM001';end if;
- if p_sha !~ '^[a-f0-9]{64}$' or p_bytes<100 or p_bytes>5242880 then raise exception 'Empreinte ou taille incorrecte.' using errcode='PM002';end if;
- select o.name,o.owner_id,o.metadata into object_record
- from storage.objects o where o.bucket_id='aflp-ra-plantation-pdfs' and o.name=p_path;
- if object_record.name is null or object_record.owner_id is distinct from auth.uid()::text then
-   raise exception 'PDF absent du stockage privé ou envoyé par un autre compte.' using errcode='PM001';end if;
- if (object_record.metadata->>'mimetype') is distinct from 'application/pdf'
- or coalesce((object_record.metadata->>'size')::integer,-1)<>p_bytes then
-   raise exception 'Format ou taille du PDF incohérent.' using errcode='PM002';end if;
- insert into public.farmer_plot_ra_documents
- (id,plot_id,geometry_id,producteur_id,zone_code,farm_unit_id,geometry_version,storage_path,claimed_sha256,byte_size,created_by)
- values(p_id,p_plot,p_geometry,g.producteur_id,g.zone_code,u.farm_unit_id,g.version_no,p_path,p_sha,p_bytes,auth.uid());
- perform private.plot_map_journaliser(p_plot,p_geometry,'RA_PDF_ARCHIVE',null,
- jsonb_build_object('document_id',p_id,'storage_path',p_path,'sha256_client',p_sha),null);
- return jsonb_build_object('statut','ARCHIVE_INTERNE','document_id',p_id);
-end $$;
+end $arch$;
 revoke all on function public.plot_map_ra_document_archiver(uuid,uuid,uuid,text,text,integer) from public,anon;
 grant execute on function public.plot_map_ra_document_archiver(uuid,uuid,uuid,text,text,integer) to authenticated;
