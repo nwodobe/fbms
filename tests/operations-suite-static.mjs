@@ -483,3 +483,6 @@ console.log('AFLP DATA static assertions: PASS');
 // SOP RT 2027: read-only ledger evidence and UI regression checks.
 await import('./rt-sop-ledger.mjs');
 await import('./rt-sop-integration-static.mjs');
+
+// Rainforest Alliance plot mapping and document regression checks.
+await import('./cartographie/carte-plantation-ra-static.mjs');
