@@ -241,7 +241,9 @@ function couchesImagerie() {
     var jeton = '?token=' + encodeURIComponent(im.cle);
     /* Image : service de tuiles World Imagery du Basemap Styles service (le service « static » ne propose pas
        d'imagerie, seulement ses étiquettes : vérifié avec une vraie clé le 20/11/2026). Plan : tuiles statiques 512 px. */
-    c.satellite = global.L.tileLayer(ESRI_IMAGERIE + '/tile/{z}/{y}/{x}' + jeton, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
+    /* Niveau natif 18 : l'image Vantor 0,6 m des clusters s'arrête au niveau 18 (le 19 répond 404, vérifié à Diabo) ;
+       au-delà, Leaflet agrandit la tuile du niveau 18 au lieu d'afficher du gris. */
+    c.satellite = global.L.tileLayer(ESRI_IMAGERIE + '/tile/{z}/{y}/{x}' + jeton, { maxNativeZoom: 18, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
     c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation/static/tile/{z}/{y}/{x}' + jeton, { tileSize: 512, zoomOffset: -1, maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
     c.nom = 'Esri World Imagery (ArcGIS Location Platform)'; c.licence = 'Conditions Esri · ArcGIS Location Platform';
   } else if (f === 'tms' && im.licence_confirmee && im.url) {

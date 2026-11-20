@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 08:15"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 08:20"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"9a9fcd15-a723-41d5-ba42-765b24c07c21\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"acde2da7-86f1-4c35-9526-fa6ea180af3e\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"19609dc3-cc3a-4117-a781-2882a90b5cb6\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"3086285e-68e4-4e57-b3e0-9f192510acee\"]]}"
   },
   {
    "id": "E2E-22",
@@ -336,9 +336,9 @@
   {
    "id": "E2E-I5",
    "famille": "Affichage",
-   "libelle": "Zoom jusqu'au niveau maximal : tuiles natives demandées jusqu'au niveau 19, jamais au-delà (agrandissement local)",
+   "libelle": "Zoom jusqu'au niveau maximal : tuiles natives demandées jusqu'au niveau 18, jamais au-delà (agrandissement local)",
    "resultat": "RÉUSSI",
-   "detail": "crans 3, niveaux demandés 18,19"
+   "detail": "crans 3, niveaux demandés 18"
   },
   {
    "id": "E2E-P1",

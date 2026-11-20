@@ -323,12 +323,12 @@ async function main() {
     await verifier('E2E-I2', A, 'Attribution Esri obligatoire affichée sur la carte', async () => /Powered by Esri/i.test(await page.locator('.leaflet-control-attribution').innerText()) && /Vantor/i.test(await page.locator('.leaflet-control-attribution').innerText()));
     await verifier('E2E-I3', F, 'Image indisponible : message clair, tracé toujours possible sur fond neutre', async () => { const t = await page.locator('#pcFond').innerText(); const n0 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); await page.locator('[data-pc="viseur-sommet"]').click(); await page.waitForTimeout(300); const n1 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); return { ok: /image satellite indisponible/i.test(t) && n1 === n0 + 1, detail: n0 + '→' + n1 + ' | ' + t.slice(0, 160) }; });
     await verifier('E2E-I4', A, 'Bascule satellite / plan proposée quand les deux fonds sont autorisés', async () => (await page.locator('[data-pc="fond"]').count()) === 1);
-    await verifier('E2E-I5', A, 'Zoom jusqu\'au niveau maximal : tuiles natives demandées jusqu\'au niveau 19, jamais au-delà (agrandissement local)', async () => {
+    await verifier('E2E-I5', A, 'Zoom jusqu\'au niveau maximal : tuiles natives demandées jusqu\'au niveau 18, jamais au-delà (agrandissement local)', async () => {
       const zin = page.locator('#pcCarte .leaflet-control-zoom-in'); let k = 0;
       while (k < 12 && !(await zin.getAttribute('class')).includes('leaflet-disabled')) { await zin.click(); await page.waitForTimeout(400); k++; }
       await page.waitForTimeout(800);
       const z = tuilesEsri.filter(u => /World_Imagery/.test(u)).map(u => Number((u.match(/\/tile\/(\d+)\//) || [])[1]));
-      return { ok: (await zin.getAttribute('class')).includes('leaflet-disabled') && z.includes(19) && !z.some(v => v > 19), detail: 'crans ' + k + ', niveaux demandés ' + [...new Set(z)].sort((a, b) => a - b).join(',') }; });
+      return { ok: (await zin.getAttribute('class')).includes('leaflet-disabled') && z.includes(18) && !z.some(v => v > 18), detail: 'crans ' + k + ', niveaux demandés ' + [...new Set(z)].sort((a, b) => a - b).join(',') }; });
     psql(`begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"${U.bm}","role":"authenticated"}',true); select set_config('request.jwt.claim.sub','${U.bm}',true);
           select public.plot_map_parametre_definir('imagerie', '{"fournisseur":"aucun","licence_confirmee":false}'::jsonb); commit;`);
     await page.evaluate(async id => { await ANAGROCI_PARCELLES_LOCAL.brouillon.effacer(id); }, PL.A);
