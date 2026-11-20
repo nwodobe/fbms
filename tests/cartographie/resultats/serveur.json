@@ -235,7 +235,7 @@
    "compte": "uh_bro",
    "action": "Le Chef d'Unité localise un champ de son cluster (consentement GPS accordé)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"01f2bafe-022c-5b9d-99df-8019ad3fbc6c\", \"precision_m\": 6.00, \"recu_serveur_le\": \"2026-11-20T08:30:21.500727+00:00\", \"verification_annulee\": false}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"01f2bafe-022c-5b9d-99df-8019ad3fbc6c\", \"precision_m\": 6.00, \"recu_serveur_le\": \"2026-11-20T12:27:08.175373+00:00\", \"verification_annulee\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -343,7 +343,7 @@
    "compte": "auh_bro",
    "action": "L'assistant localise un champ de son cluster",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"7869a3a0-ef16-5e62-9440-1ee77612d017\", \"precision_m\": 8.00, \"recu_serveur_le\": \"2026-11-20T08:30:21.911464+00:00\", \"verification_annulee\": false}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"7869a3a0-ef16-5e62-9440-1ee77612d017\", \"precision_m\": 8.00, \"recu_serveur_le\": \"2026-11-20T12:27:08.706926+00:00\", \"verification_annulee\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -370,7 +370,7 @@
    "compte": "uh_bro",
    "action": "Même position (au centimètre) : acceptée, la vérification est conservée",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"257a59ed-394e-5f6a-b63f-450ffff734fc\", \"precision_m\": 4.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.025771+00:00\", \"verification_annulee\": false}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"257a59ed-394e-5f6a-b63f-450ffff734fc\", \"precision_m\": 4.00, \"recu_serveur_le\": \"2026-11-20T12:27:08.85067+00:00\", \"verification_annulee\": false}",
    "resultat": "RÉUSSI"
   },
   {
@@ -388,7 +388,7 @@
    "compte": "uh_bro",
    "action": "Remplacement confirmé explicitement : accepté",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"257a59ed-394e-5f6a-b63f-450ffff734fc\", \"precision_m\": 4.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.104714+00:00\", \"verification_annulee\": true}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"257a59ed-394e-5f6a-b63f-450ffff734fc\", \"precision_m\": 4.00, \"recu_serveur_le\": \"2026-11-20T12:27:08.930414+00:00\", \"verification_annulee\": true}",
    "resultat": "RÉUSSI"
   },
   {
@@ -469,7 +469,7 @@
    "compte": "auh_bro",
    "action": "Champ rectangulaire de 5 ha (250 × 200 m)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"650166a9-9f25-4a4e-8e7d-1fa67b98dc5f\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.445269+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"2aad994e-4f88-44fc-8ed9-33aa0d5d006f\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:09.401612+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -487,7 +487,7 @@
    "compte": "auh_bro",
    "action": "Champ irrégulier à 9 sommets",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85100.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"b296a06c-821c-4e40-8280-f4d4e3dc3f60\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-20T08:30:22.514687+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85100.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"54e973c7-553b-4747-9ab3-e69fed481c26\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-20T12:27:09.494543+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -505,7 +505,7 @@
    "compte": "auh_bro",
    "action": "Champ de plus de 10 ha (12,48 ha en L)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 124799.97, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"05e9bbca-c013-4834-9e17-5aa615eeb8d2\", \"perimeter_m\": 1640.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.57641+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 124799.97, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"4181a848-82e0-4bbd-a0c6-0edf1f565206\", \"perimeter_m\": 1640.00, \"recu_serveur_le\": \"2026-11-20T12:27:09.589123+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -523,7 +523,7 @@
    "compte": "auh_bro",
    "action": "Petite parcelle (0,25 ha)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 2500.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"22e87f1c-0796-41d3-9735-52bba5bc5046\", \"perimeter_m\": 200.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.676103+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 2500.00, \"conflit\": false, \"anomalies\": 0, \"version_no\": 1, \"geometry_id\": \"9428029a-e5cd-49fa-9b42-a3c5d0bb5359\", \"perimeter_m\": 200.00, \"recu_serveur_le\": \"2026-11-20T12:27:09.727093+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -532,7 +532,7 @@
    "compte": "postgres",
    "action": "Petite parcelle : surface conforme à la référence",
    "attendu": true,
-   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 2500.0, 'conflit': False, 'anomalies': 0, 'version_no': 1, 'geometry_id': '22e87f1c-0796-41d3-9735-52bba5bc5046', 'perimeter_m': 200.0, 'recu_serveur_le': '2026-11-20T08:30:22.676103+00:00'}",
+   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 2500.0, 'conflit': False, 'anomalies': 0, 'version_no': 1, 'geometry_id': '9428029a-e5cd-49fa-9b42-a3c5d0bb5359', 'perimeter_m': 200.0, 'recu_serveur_le': '2026-11-20T12:27:09.727093+00:00'}",
    "resultat": "RÉUSSI"
   },
   {
@@ -568,7 +568,7 @@
    "compte": "auh_bro",
    "action": "Écart de calcul téléphone / serveur : contour gardé (valeur serveur) mais signalé",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"conflit\": false, \"anomalies\": 2, \"version_no\": 1, \"geometry_id\": \"166ab50d-dc5a-4711-ab5e-a61b8d83de83\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:22.860376+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"conflit\": false, \"anomalies\": 2, \"version_no\": 1, \"geometry_id\": \"e3d82e72-ab45-49aa-8ee5-24928a067c24\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:09.949298+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -640,7 +640,7 @@
    "compte": "auh_bro",
    "action": "Soumission d'un contour (parcelle B)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"a688ce28-1b95-4d5e-a32b-30daa07f5513\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:23.198918+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"520316d5-3f5c-4c11-8960-24bb7568206d\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:10.376681+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -649,7 +649,7 @@
    "compte": "auh_bro",
    "action": "Rejeu de la même soumission : aucun doublon",
    "attendu": "OK",
-   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"version_no\": 1, \"geometry_id\": \"a688ce28-1b95-4d5e-a32b-30daa07f5513\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:23.198918+00:00\"}",
+   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"area_m2\": 49999.98, \"version_no\": 1, \"geometry_id\": \"520316d5-3f5c-4c11-8960-24bb7568206d\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:10.376681+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -658,7 +658,7 @@
    "compte": "postgres",
    "action": "Le rejeu renvoie le même contour (rejoue = vrai)",
    "attendu": true,
-   "obtenu": "{'rejoue': True, 'statut': 'ACCEPTEE', 'area_m2': 49999.98, 'version_no': 1, 'geometry_id': 'a688ce28-1b95-4d5e-a32b-30daa07f5513', 'perimeter_m': 900.0, 'recu_serveur_le': '2026-11-20T08:30:23.198918+00:00'}",
+   "obtenu": "{'rejoue': True, 'statut': 'ACCEPTEE', 'area_m2': 49999.98, 'version_no': 1, 'geometry_id': '520316d5-3f5c-4c11-8960-24bb7568206d', 'perimeter_m': 900.0, 'recu_serveur_le': '2026-11-20T12:27:10.376681+00:00'}",
    "resultat": "RÉUSSI"
   },
   {
@@ -685,7 +685,7 @@
    "compte": "uh_bro",
    "action": "Ajouter une deuxième parcelle au même producteur, traçable comme division",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"bd1cb9de-5536-4db1-b12d-52002f26bb1b\", \"recu_serveur_le\": \"2026-11-20T08:30:23.350234+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"f0f2715e-9c5d-4bee-b4dd-dced10c7f296\", \"recu_serveur_le\": \"2026-11-20T12:27:10.585112+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -703,7 +703,7 @@
    "compte": "uh_bro",
    "action": "Rejeu de l'ajout : aucun doublon",
    "attendu": "OK",
-   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"bd1cb9de-5536-4db1-b12d-52002f26bb1b\"}",
+   "obtenu": "OK : {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"f0f2715e-9c5d-4bee-b4dd-dced10c7f296\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -748,7 +748,7 @@
    "compte": "uh_bro",
    "action": "Nouvelle parcelle voisine (producteur C)",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"68285fee-5290-4017-aa3d-a33cef16ccff\", \"recu_serveur_le\": \"2026-11-20T08:30:23.576905+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"plot_id\": \"0bf41971-9d80-47a1-9f69-c245eea9ba76\", \"recu_serveur_le\": \"2026-11-20T12:27:10.892946+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -757,7 +757,7 @@
    "compte": "uh_bro",
    "action": "Contour qui recouvre la parcelle B",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"6be7fdb0-dc45-43b3-91fd-b7b1f47d6133\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:23.619634+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 50000.01, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"91e98fbf-6142-4931-870a-cecf556f7292\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:10.947537+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1000,7 +1000,7 @@
    "compte": "auh_bro",
    "action": "Correction d'un contour validé : nouvelle version sur la base validée",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 48000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"50a423c4-20eb-4129-8e65-caac00819d87\", \"perimeter_m\": 880.00, \"recu_serveur_le\": \"2026-11-20T08:30:24.632003+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 48000.01, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"3998bdab-f691-4518-9038-7b7c1bd6446c\", \"perimeter_m\": 880.00, \"recu_serveur_le\": \"2026-11-20T12:27:12.2761+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1063,7 +1063,7 @@
    "compte": "uh_bro",
    "action": "Agent 1 corrige le contour C sur la dernière version",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.99, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"e50016ec-daf8-4766-a044-f1f4854cbdd5\", \"perimeter_m\": 1128.79, \"recu_serveur_le\": \"2026-11-20T08:30:24.928034+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.99, \"conflit\": false, \"anomalies\": 0, \"version_no\": 2, \"geometry_id\": \"4de6a8c3-58d6-4905-b22e-278b5dce5722\", \"perimeter_m\": 1128.79, \"recu_serveur_le\": \"2026-11-20T12:27:12.623413+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1072,7 +1072,7 @@
    "compte": "auh_bro",
    "action": "Agent 2 soumet une correction sur l'ANCIENNE version",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.98, \"conflit\": true, \"anomalies\": 1, \"version_no\": 3, \"geometry_id\": \"a5039234-04bc-4d90-a281-3f550e395b42\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-20T08:30:24.983546+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 85099.98, \"conflit\": true, \"anomalies\": 1, \"version_no\": 3, \"geometry_id\": \"1810db1c-ff16-4ec6-aeb3-9f60e2d28213\", \"perimeter_m\": 1128.78, \"recu_serveur_le\": \"2026-11-20T12:27:12.693124+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1081,7 +1081,7 @@
    "compte": "postgres",
    "action": "Conflit détecté : les deux versions conservées, anomalie bloquante, aucune perte",
    "attendu": true,
-   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 85099.98, 'conflit': True, 'anomalies': 1, 'version_no': 3, 'geometry_id': 'a5039234-04bc-4d90-a281-3f550e395b42', 'perimeter_m': 1128.78, 'recu_serveur_le': '2026-11-20T08:30:24.983546+00:00'}",
+   "obtenu": "{'statut': 'ACCEPTEE', 'area_m2': 85099.98, 'conflit': True, 'anomalies': 1, 'version_no': 3, 'geometry_id': '1810db1c-ff16-4ec6-aeb3-9f60e2d28213', 'perimeter_m': 1128.78, 'recu_serveur_le': '2026-11-20T12:27:12.693124+00:00'}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1090,7 +1090,7 @@
    "compte": "auh_bro",
    "action": "Lot hors ligne (ajout, localisation, contour, localisation imprécise)",
    "attendu": "OK",
-   "obtenu": "OK : {\"resultats\": [{\"statut\": \"ACCEPTEE\", \"plot_id\": \"902043ff-f31c-4a0e-a93f-d2af4fa62206\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-20T08:30:25.09632+00:00\"}, {\"statut\": \"ACCEPTEE\", \"plot_id\": \"902043ff-f31c-4a0e-a93f-d2af4fa62206\", \"precision_m\": 7.00, \"idempotency_key\": \"ca",
+   "obtenu": "OK : {\"resultats\": [{\"statut\": \"ACCEPTEE\", \"plot_id\": \"d65be0ba-e8a8-45f6-9566-005c373749b9\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-20T12:27:12.837165+00:00\"}, {\"statut\": \"ACCEPTEE\", \"plot_id\": \"d65be0ba-e8a8-45f6-9566-005c373749b9\", \"precision_m\": 7.00, \"idempotency_key\": \"c",
    "resultat": "RÉUSSI"
   },
   {
@@ -1113,7 +1113,7 @@
    "compte": "auh_bro",
    "action": "Renvoi du même lot (réseau coupé avant la réponse)",
    "attendu": "OK",
-   "obtenu": "OK : {\"resultats\": [{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"902043ff-f31c-4a0e-a93f-d2af4fa62206\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-20T08:30:25.09632+00:00\"}, {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"902043ff-f31c-4a0e-a93f-d2af4fa62206\", \"precision_",
+   "obtenu": "OK : {\"resultats\": [{\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"d65be0ba-e8a8-45f6-9566-005c373749b9\", \"idempotency_key\": \"carto-cle-1\", \"recu_serveur_le\": \"2026-11-20T12:27:12.837165+00:00\"}, {\"rejoue\": true, \"statut\": \"ACCEPTEE\", \"plot_id\": \"d65be0ba-e8a8-45f6-9566-005c373749b9\", \"precision",
    "resultat": "RÉUSSI"
   },
   {
@@ -1122,7 +1122,7 @@
    "compte": "postgres",
    "action": "Renvoi : rejoué sans doublon (même contour, même parcelle)",
    "attendu": true,
-   "obtenu": "{'resultats': [{'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': '902043ff-f31c-4a0e-a93f-d2af4fa62206', 'idempotency_key': 'carto-cle-1', 'recu_serveur_le': '2026-11-20T08:30:25.09632+00:00'}, {'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': '902043ff-f31c-4a0e-a93f-d2af4fa62206', 'precision_m': 7",
+   "obtenu": "{'resultats': [{'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': 'd65be0ba-e8a8-45f6-9566-005c373749b9', 'idempotency_key': 'carto-cle-1', 'recu_serveur_le': '2026-11-20T12:27:12.837165+00:00'}, {'rejoue': True, 'statut': 'ACCEPTEE', 'plot_id': 'd65be0ba-e8a8-45f6-9566-005c373749b9', 'precision_m': ",
    "resultat": "RÉUSSI"
   },
   {
@@ -1140,7 +1140,7 @@
    "compte": "auh_bro",
    "action": "Même clé, contenu différent : refus explicite",
    "attendu": "OK",
-   "obtenu": "OK : {\"resultats\": [{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"carto-cle-2\"}], \"serveur_le\": \"2026-11-20T08:30:25.301727+00:00\"}",
+   "obtenu": "OK : {\"resultats\": [{\"statut\": \"REJETEE\", \"message\": \"Clé d'idempotence déjà utilisée pour une autre demande.\", \"idempotency_key\": \"carto-cle-2\"}], \"serveur_le\": \"2026-11-20T12:27:13.082646+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1176,7 +1176,7 @@
    "compte": "uh_bot",
    "action": "Contour BOTRO par le Chef d'Unité de BOTRO",
    "attendu": "OK",
-   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.99, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"088c5aef-b7c6-43e5-b4bb-3bd6d617f6dc\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T08:30:25.439267+00:00\"}",
+   "obtenu": "OK : {\"statut\": \"ACCEPTEE\", \"area_m2\": 49999.99, \"conflit\": false, \"anomalies\": 1, \"version_no\": 1, \"geometry_id\": \"a88d32f1-ba54-44fa-8839-64e393ba5ee5\", \"perimeter_m\": 900.00, \"recu_serveur_le\": \"2026-11-20T12:27:13.285862+00:00\"}",
    "resultat": "RÉUSSI"
   },
   {
@@ -1329,7 +1329,7 @@
    "compte": "zh2",
    "action": "Tableau de bord du Chef de Zone GBEKE 2",
    "attendu": "OK",
-   "obtenu": "OK : {\"genere_le\": \"2026-11-20T08:30:26.065127+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"GBEKE_2\", \"par_niveau\": {\"niveau_1\": 1, \"niveau_2\": 0, \"niveau_3\": 0, \"sans_marche_complete\": 1},",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-20T12:27:14.106079+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"GBEKE_2\", \"par_niveau\": {\"niveau_1\": 1, \"niveau_2\": 0, \"niveau_3\": 0, \"sans_marche_complete\": 1},",
    "resultat": "RÉUSSI"
   },
   {
@@ -1356,7 +1356,7 @@
    "compte": "bm",
    "action": "Tableau de bord du Branch Manager",
    "attendu": "OK",
-   "obtenu": "OK : {\"genere_le\": \"2026-11-20T08:30:26.151961+00:00\", \"par_agent\": [{\"role\": \"AUH\", \"agent\": \"AUH BROBO FICTIF\", \"soumis\": 4, \"valides\": 2, \"contours\": 9, \"a_corriger\": 1}, {\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}, {\"role\": \"UH\", \"agent\":",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-20T12:27:14.241959+00:00\", \"par_agent\": [{\"role\": \"AUH\", \"agent\": \"AUH BROBO FICTIF\", \"soumis\": 4, \"valides\": 2, \"contours\": 9, \"a_corriger\": 1}, {\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}, {\"role\": \"UH\", \"agent\":",
    "resultat": "RÉUSSI"
   },
   {
@@ -1410,7 +1410,7 @@
    "compte": "bm",
    "action": "Filtre par cluster",
    "attendu": "OK",
-   "obtenu": "OK : {\"genere_le\": \"2026-11-20T08:30:26.319284+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"TOUTES_ZONES\", \"par_niveau\": {\"niveau_1\": 1, \"niveau_2\": 0, \"niveau_3\": 0, \"sans_marche_complete\"",
+   "obtenu": "OK : {\"genere_le\": \"2026-11-20T12:27:14.482363+00:00\", \"par_agent\": [{\"role\": \"UH\", \"agent\": \"UH BOTRO FICTIF\", \"soumis\": 1, \"valides\": 0, \"contours\": 1, \"a_corriger\": 0}], \"parcelles\": 1, \"perimetre\": \"TOUTES_ZONES\", \"par_niveau\": {\"niveau_1\": 1, \"niveau_2\": 0, \"niveau_3\": 0, \"sans_marche_complete\"",
    "resultat": "RÉUSSI"
   },
   {

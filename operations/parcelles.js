@@ -384,7 +384,7 @@ global.addEventListener('online', connexion); global.addEventListener('offline',
 function construireCarte() {
   if (carte) { try { carte.remove(); } catch (e) {} carte = null; }
   var el = document.getElementById('pcCarte'); if (!el) return;
-  if (!global.L) { el.innerHTML = '<div class="ops-empty">Bibliothèque de carte indisponible.</div>'; return; }
+  if (!global.L || !global.L.version) { el.innerHTML = '<div class="ops-empty">Bibliothèque de carte indisponible ou incomplète : vérifiez le réseau puis rouvrez cette page. Votre brouillon est conservé.</div>'; return; }   // L.version absent : bibliothèque partielle ou doublure
   carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12, inertia: false });   // sans inertie : l'image s'arrête où le doigt la lâche (précision du viseur, constaté le 20/11/2026)
   var f = fond(carte, function (etatFond) {
     var z = document.getElementById('pcFondImage'); if (!z) return;

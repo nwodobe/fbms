@@ -71,8 +71,11 @@
     var balise = new RegExp('<script ' + 'sr' + 'c=.https://cdn\\.jsdelivr\\.net/npm/@supabase[^>]*></scr' + 'ipt>');   // écrite en morceaux pour les portes du dépôt
     h = h.replace(balise, '')       // client remplacé ci-dessus
          .replace(/<script>if\("serviceWorker"[\s\S]*?<\/script>/, '')                                     // pas de service worker en démonstration
-         /* Chemins relatifs rendus absolus (une balise <base> casserait les liens internes « #parcelles/… »). */
+         /* Chemins relatifs rendus absolus (en plus de la balise <base>). */
          .replace(/(\s(?:src|href))="(\.\/|\.\.\/)/g, function (m, attr, rel) { return attr + '="' + new URL(rel, base).href; })
+         /* Tout chemin relatif résolu ensuite par les scripts (logo, scripts injectés par uppercase.js…) doit viser operations/ :
+            balise <base>. Les liens internes « #parcelles/… » restent sur cette page grâce à l'interception ci-dessous. */
+         .replace('<he' + 'ad>', '<he' + 'ad><base href="' + base + '"><script>document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href^=\\"#\\"]");if(!a)return;e.preventDefault();location.hash=a.getAttribute("href").slice(1);},true);<\/script>')
          .replace('<\/body>', '<div style="position:fixed;left:8px;top:8px;z-index:99999;pointer-events:none;opacity:.92;background:#7C2D12;color:#fff;font:600 12px/1.3 Arial,sans-serif;padding:6px 9px;border-radius:8px;max-width:92vw">DÉMONSTRATION · données fictives · aucun serveur · ' + (CLE ? 'image Esri World Imagery' : 'orthophoto réelle OpenAerialMap (CC BY-SA 4.0)') + '</div><\/body>');
     if (!location.hash) history.replaceState(null, '', '#parcelles/tracer/' + PLOT + '/sat');
     document.open(); document.write(h); document.close();

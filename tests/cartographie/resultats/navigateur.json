@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 11:35"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 12:26"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"7eedf7d2-ec87-47f1-967d-37077b0397f4\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"8608e713-4f98-44d9-acf0-f855dd9ff03b\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"7da447d6-f6a5-455d-8889-2eb4c52b0369\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"5cd27f6f-2187-43f3-809d-243a78649e5f\"]]}"
   },
   {
    "id": "E2E-22",
