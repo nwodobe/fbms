@@ -169,9 +169,11 @@ function fiche(id) {
   peindre(tete('Parcelle', '') + '<div class="ops-empty">Chargement…</div>');
   return Promise.all([parametres(), parcelle(id), L.file.pourParcelle(id), L.brouillon.lire(id),
     enLigne() ? lire('plot_map_geometries_v', 'id,plot_id,version_no,status,method,area_m2,perimeter_m,boundary_confidence,producer_confirmation,producer_confirmation_note,auteur_nom,created_by_role,created_at,preverifie_par_nom,decide_par_nom,decided_at,decision_comment,decision_exception,geojson,imagery_source,imagery_date,gps_points,gps_accuracy_max_m,localisation_source', function (r) { return r.eq('plot_id', id).order('version_no', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
-    enLigne() ? lire('farmer_plot_anomalies', 'id,type,statut,bloquante,overlap_m2,detail,classification,justification,geometry_id', function (r) { return r.eq('plot_id', id); }).catch(function () { return []; }) : Promise.resolve([])
+    enLigne() ? lire('farmer_plot_anomalies', 'id,type,statut,bloquante,overlap_m2,detail,classification,justification,geometry_id', function (r) { return r.eq('plot_id', id); }).catch(function () { return []; }) : Promise.resolve([]),
+    enLigne() ? lire('farmer_plot_ra_field_references', 'id,geometry_id,plot_id,status,accuracy_m,captured_at_client,recorded_at,created_by,note,reviewed_at,review_comment', function (r) { return r.eq('plot_id', id).order('recorded_at', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
+    enLigne() ? lire('plot_map_ra_preparation_v', 'geometry_id,plot_id,contour_status,references_en_attente,references_confirmees,references_rejetees,statut_preparation', function (r) { return r.eq('plot_id', id); }).catch(function () { return null; }) : Promise.resolve(null)
   ]).then(function (r) {
-    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [];
+    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [], referencesTerrain = r[6], preparations = r[7];
     if (!x) {
       var ajout = ops.filter(function (o) { return o.type === 'AJOUTER_PARCELLE' && o.payload.id === id; })[0];
       if (!ajout) { peindre(tete('Parcelle introuvable', '') + avis('erreur', 'Cette parcelle n\'est pas dans votre périmètre ou n\'existe plus.') + lien('Retour aux parcelles', 'parcelles', 'secondary')); return; }
@@ -181,6 +183,11 @@ function fiche(id) {
     var st = statutParcelle(x), consent = x.consentement_gps === true, active = (versions || []).filter(function (v) { return ['SOUMIS', 'A_CORRIGER', 'VALIDE'].indexOf(v.status) >= 0; })[0];
     var geomDoc = (versions || []).filter(function (v) { return v.status === 'VALIDE' && v.geojson; })[0]
       || (versions || []).filter(function (v) { return ['SOUMIS','A_CORRIGER'].indexOf(v.status) >= 0 && v.geojson; })[0] || null;
+    var preparationDoc = geomDoc && (preparations || []).filter(function(v){return v.geometry_id === geomDoc.id;})[0];
+    if (geomDoc) {
+      geomDoc.ra_statut_preparation = preparationDoc ? preparationDoc.statut_preparation : 'NON_VERIFIE';
+      geomDoc.ra_references_confirmees = preparationDoc ? preparationDoc.references_confirmees : 0;
+    }
     var documentApi = global.ANAGROCI_CARTE_PLANTATION;
     etat.documentFiche = (peutPiloter() && consent && geomDoc && documentApi
       && documentApi.eligible(x, geomDoc))
