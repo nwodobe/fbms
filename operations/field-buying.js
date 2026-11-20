@@ -2045,7 +2045,7 @@ function renderFarmerPassport(id, tab) {
             [TT('Paiement préféré', 'Preferred payment'), extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
         body = '<div class="notice ok"><b>' + TT('Règle de campagne :', 'Campaign rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
-          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur.', 'Each plot stays a separate entity from the farmer.') + '</p></div>' +
+          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur. Après enregistrement, ouvrez Esri pour tracer les limites et préparer la carte de plantation. Aucun tracé satellite seul ne prouve une vérification terrain.', 'Each plot stays separate. After saving, open Esri to map its boundaries and prepare the plantation map; satellite drawing alone is not ground evidence.') + '</p></div>' +
           '<div class="ops-route-actions">' + editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()') + '</div></div>' +
           table([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
           p.plots.map(function (x) {
@@ -2055,7 +2055,11 @@ function renderFarmerPassport(id, tab) {
               '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
               '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
               '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td>' +
-              '<td>' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
+              '<td>' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") +
+              (x._sync_status && x._sync_status !== 'SYNCED'
+                ? '<small>En attente serveur : mapping indisponible</small>'
+                : '<a class="btn secondary" href="#parcelles/p/' + encodeURIComponent(x.id) + '">' +
+                  TT('Carte de plantation · Esri', 'Plantation map · Esri') + '</a>') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'production') {
         body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>' + TT('Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.', 'A FINAL baseline is kept in history and never rewritten; a correction goes through a new version.') + '</p></div>' +
