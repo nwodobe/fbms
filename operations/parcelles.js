@@ -182,7 +182,7 @@ function fiche(id) {
     var validee = (versions || []).filter(function (v) { return v.status === 'VALIDE'; })[0];
     var actions = '';
     if (peutSaisir()) {
-      if (!consent) actions += avis('alerte', '<b>Consentement GPS non enregistré pour ce producteur.</b> Aucune localisation ni aucun contour ne peut être enregistré. Recueillez d\'abord son accord dans son passeport (portée « Données GPS »).');
+      if (!consent) actions += avis('alerte', '<b>Consentement GPS non enregistré pour ce producteur.</b> Aucun point ni contour ne peut être envoyé sans décision explicite. Confirmez-la avec le producteur et enregistrez-la dans son passeport.') + '<p><a class="btn secondary" href="#farmers/' + encodeURIComponent(x.producteur_id) + '/consents">Ouvrir le consentement du producteur</a></p>';
       else {
         if (actif('localisation', x.cluster_code)) actions += bouton(x.latitude != null ? 'Relocaliser mon champ' : 'Localiser mon champ', 'localiser', x.latitude != null ? 'secondary' : '');
         if (actif('contours', x.cluster_code)) actions += lien(br && br.sommets && br.sommets.length ? 'Reprendre le tracé (' + br.sommets.length + ' sommets)' : 'Tracer sur la carte', 'parcelles/tracer/' + id + '/sat') + lien('Mesurer avec GPS', 'parcelles/tracer/' + id + '/gps', 'secondary') + lien('Importer un fichier', 'parcelles/tracer/' + id + '/import', 'secondary');
