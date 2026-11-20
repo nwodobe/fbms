@@ -82,8 +82,8 @@ begin
   select * into v_existing from public.farmer_plot_ra_field_references where id=v_id;
   if v_existing.id is not null then
     if v_existing.geometry_id=v_geom_id and v_existing.created_by=auth.uid()
-       and v_existing.latitude=v_lat and v_existing.longitude=v_lng
-       and v_existing.accuracy_m=v_prec and v_existing.captured_at_client=v_captured then
+       and v_existing.latitude=round(v_lat,7) and v_existing.longitude=round(v_lng,7)
+       and v_existing.accuracy_m=round(v_prec,2) and v_existing.captured_at_client=v_captured then
       return jsonb_build_object('statut','ACCEPTEE','reference_id',v_id,'rejoue',true);
     end if;
     raise exception 'Référence GPS déjà utilisée pour une autre mesure.' using errcode='PM409';
