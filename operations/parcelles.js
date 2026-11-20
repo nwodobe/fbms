@@ -63,6 +63,7 @@ function profil() { return (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile
 function classe() { return { 'Branch Manager': 'BM', 'Branch Manager / Head of Programme': 'BM', 'Assistant Branch Manager': 'ABM', 'Zonal Head': 'ZH', 'Unit Head': 'UH', 'Assistant Unit Head': 'AUH' }[profil().role] || null; }
 function peutSaisir() { return ['BM', 'UH', 'AUH'].indexOf(classe()) >= 0; }
 function peutValider() { return ['BM', 'ZH'].indexOf(classe()) >= 0; }
+function peutPreverifier() { return classe() === 'UH'; }   // Chef d'Unité : pré-vérifie le travail de ses assistants, ne décide pas
 function peutPiloter() { return ['BM', 'ABM', 'ZH'].indexOf(classe()) >= 0; }
 
 /* ------------------------------------------------------------------ données */
@@ -137,7 +138,7 @@ function accueil() {
       : avis('info', 'Tracé des contours ouvert en pilote pour : <b>' + esc((a.clusters_pilotes || []).join(', ') || 'aucun cluster') + '</b>.');
     var tuiles = [['NON_LOCALISEE', 'Non localisées', c.NON_LOCALISEE], ['brouillons', 'Brouillons sur ce téléphone', Object.keys(parBr).length], ['A_CORRIGER', 'À corriger', c.A_CORRIGER], ['SOUMIS', 'Soumises au Chef de Zone', c.SOUMIS], ['VALIDE', 'Validées', c.VALIDE]];
     var h = tete('Parcelles & cartographie', 'Localiser les champs, tracer leurs contours, suivre leur validation.',
-      (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
+      (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : peutPreverifier() ? lien('À pré-vérifier', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
       (etat.message ? avis('ok', esc(etat.message)) : '') + bandeau + sync +
       (etat.listeHorsLigne ? avis('info', 'Hors ligne : liste enregistrée sur ce téléphone' + (etat.listeLe ? ' le ' + heureFr(etat.listeLe) : '') + '.') : '') +
       '<div class="pc-tuiles">' + tuiles.map(function (t) {
@@ -463,15 +464,16 @@ function validerAjout() {
 
 /* ------------------------------------------------------------------ 5. validation (Chef de Zone ; BM en exception) */
 function validation() {
-  if (!peutValider()) { peindre(tete('À valider', '') + avis('erreur', 'Réservé au Chef de Zone et au Branch Manager.')); return Promise.resolve(); }
+  if (!peutValider() && !peutPreverifier()) { peindre(tete('À valider', '') + avis('erreur', 'Réservé au Chef de Zone, au Chef d\'Unité (pré-vérification) et au Branch Manager.')); return Promise.resolve(); }
   peindre(tete('Contours à valider', '') + '<div class="ops-empty">Chargement…</div>');
   return Promise.all([lire('plot_map_geometries_v', 'id,plot_id,cluster_code,zone_code,version_no,method,area_m2,boundary_confidence,producer_confirmation,auteur_nom,created_by_role,created_at,preverifie_par_nom,row_version', function (r) { return r.eq('status', 'SOUMIS').order('created_at'); }),
     lire('farmer_plot_anomalies', 'geometry_id,type,bloquante', function (r) { return r.eq('statut', 'OUVERTE'); }), chargerListe()]).then(function (r) {
+    if (peutPreverifier()) r[0] = r[0].filter(function (g) { return g.created_by_role === 'AUH' && !g.preverifie_par_nom; });   // la lecture reste limitée au cluster par le serveur
     var anos = {}, parc = {};
     r[1].forEach(function (a) { (anos[a.geometry_id] = anos[a.geometry_id] || []).push(a); });
     r[2].forEach(function (x) { parc[x.plot_id] = x; });
     var p = profil();
-    peindre(tete('Contours à valider', classe() === 'ZH' ? 'Zone ' + (p.zone || 'non renseignée') : 'Branch Manager · décision en exception justifiée uniquement', lien('Retour', 'parcelles', 'secondary')) +
+    peindre(tete(peutPreverifier() ? 'Contours à pré-vérifier' : 'Contours à valider', peutPreverifier() ? 'Cluster ' + (p.cluster || 'non renseigné') + ' · tracés de vos assistants, avant la décision du Chef de Zone' : classe() === 'ZH' ? 'Zone ' + (p.zone || 'non renseignée') : 'Branch Manager · décision en exception justifiée uniquement', lien('Retour', 'parcelles', 'secondary')) +
       (classe() === 'ZH' && !p.zone ? avis('erreur', 'Votre zone n\'est pas renseignée dans votre profil : le serveur refusera toute validation. Contactez le Branch Manager.') : '') +
       (r[0].length ? '<div class="pc-liste">' + r[0].map(function (g) {
         var x = parc[g.plot_id] || {}, a = anos[g.id] || [], bl = a.filter(function (z) { return z.bloquante; }).length;
@@ -502,12 +504,15 @@ function valider(gid) {
           (a.statut === 'OUVERTE' ? '<div class="pc-ano-form"><select data-ano="' + esc(a.id) + '">' + optionsClassement(a.type) + '</select><input type="text" placeholder="Justification (obligatoire)" data-ano-j="' + esc(a.id) + '" maxlength="300">' + bouton('Enregistrer le classement', 'classer', 'secondary pc-mini', ' data-v="' + esc(a.id) + '"') + '</div>'
             : '<small>' + esc(a.classification || '') + ' : ' + esc(a.justification || '') + '</small>') + '</div>';
       }).join('') + '</section>' : '') +
+      (peutPreverifier() ? '<section class="card pc-decision"><div class="card-head"><div><h2>Pré-vérification</h2></div></div>' + (g.preverifie_par_nom ? avis('info', 'Déjà pré-vérifié par ' + esc(g.preverifie_par_nom) + '.') :
+        '<label class="pc-champ"><span>Observation pour le Chef de Zone (facultatif)</span><textarea id="pcComment" rows="3" maxlength="500"></textarea></label><div class="pc-actions">' + bouton('Pré-vérifier et transmettre au Chef de Zone', 'preverifier') + '</div>') +
+        '<p class="pc-note">La pré-vérification ne valide pas : seul le Chef de Zone décide. Une correction se demande au Chef de Zone.</p></section>' :
       '<section class="card pc-decision"><div class="card-head"><div><h2>Décision</h2></div></div>' +
       (bloq.length ? avis('alerte', 'Validation impossible tant que les anomalies bloquantes ne sont pas classées.') : '') +
       '<label class="pc-champ"><span>Commentaire (obligatoire pour une correction)</span><textarea id="pcComment" rows="3" maxlength="500"></textarea></label>' +
       (bm ? '<label class="pc-case"><input type="checkbox" id="pcException"> Décision exceptionnelle du Branch Manager (justification d\'au moins 15 caractères, journalisée)</label>' : '') +
       '<div class="pc-actions">' + bouton('Valider le contour', 'decider', '', (bloq.length ? ' disabled' : '') + ' data-v="VALIDER"') + bouton('Demander une correction', 'decider', 'secondary', ' data-v="A_CORRIGER"') + '</div>' +
-      '<p class="pc-note">Valider confirme le contour pour le suivi AFLP : ce n\'est pas une certification topographique.</p></section>' +
+      '<p class="pc-note">Valider confirme le contour pour le suivi AFLP : ce n\'est pas une certification topographique.</p></section>') +
       '</div><div id="pcCarteVal" class="pc-carte pc-carte-mini" aria-label="Carte du contour et des parcelles voisines"></div></div>';
     peindre(h);
     ed = { validation: g };
@@ -640,6 +645,12 @@ document.addEventListener('click', function (ev) {
     var sel = document.querySelector('[data-ano="' + v + '"]'), j = document.querySelector('[data-ano-j="' + v + '"]');
     rpc('plot_map_classer_anomalie', { p_anomalie: v, p_classification: sel && sel.value, p_justification: j && j.value }).then(function () { valider(p[2]); })
       .catch(function (e) { alerteDecision(e.message); });
+  }
+  else if (a === 'preverifier' && ed && ed.validation) {
+    b.disabled = true;
+    rpc('plot_map_preverifier', { p_geometry: ed.validation.id, p_note: (document.getElementById('pcComment') || {}).value || null })
+      .then(function () { etat.message = 'Contour pré-vérifié : transmis au Chef de Zone.'; aller('parcelles/validation'); })
+      .catch(function (e) { b.disabled = false; alerteDecision(e.message); });
   }
   else if (a === 'decider' && ed && ed.validation) {
     var com = (document.getElementById('pcComment') || {}).value || '', exc = !!(document.getElementById('pcException') || {}).checked;

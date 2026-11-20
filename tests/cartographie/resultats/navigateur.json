@@ -1,6 +1,6 @@
 {
- "total": 41,
- "reussis": 41,
+ "total": 45,
+ "reussis": 45,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -114,7 +114,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:24"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:32"
   },
   {
    "id": "E2E-17",
@@ -149,7 +149,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"2bb47130-ed3e-48e9-bfef-756a7edbfc56\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"6989aa8c-9b64-45b0-a62c-0e53caf4adaf\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"48e41b49-4179-493b-b655-2c1c5eff3495\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"fb4801da-8d34-4ee7-ad4e-76f6dd26e5fb\"]]}"
   },
   {
    "id": "E2E-22",
@@ -199,6 +199,34 @@
    "libelle": "Contour du tracé au doigt reçu (méthode, confiance, confirmation producteur)",
    "resultat": "RÉUSSI",
    "detail": "attendu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\", obtenu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\""
+  },
+  {
+   "id": "E2E-P1",
+   "famille": "Sécurité",
+   "libelle": "Assistant : ni validation ni pré-vérification",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-P2",
+   "famille": "Validation",
+   "libelle": "Chef d'Unité BROBO : 2 tracés de son assistant à pré-vérifier",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-P3",
+   "famille": "Sécurité",
+   "libelle": "Chef d'Unité : aucun bouton de validation",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-P4",
+   "famille": "Validation",
+   "libelle": "Pré-vérification enregistrée par le serveur, statut toujours SOUMIS, liste réduite à 1",
+   "resultat": "RÉUSSI",
+   "detail": "1|2"
   },
   {
    "id": "E2E-29",

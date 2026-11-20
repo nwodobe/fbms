@@ -276,6 +276,19 @@ async function main() {
     await page.locator('[data-pc="envoyer"]').click(); await attendre('Envois depuis ce téléphone', 30000); await fileVidee();
     await verifier('E2E-28', S, 'Contour du tracé au doigt reçu (méthode, confiance, confirmation producteur)', async () => { const r = egal(psql(`select method||'|'||boundary_confidence||'|'||producer_confirmation from farmer_plot_geometries where plot_id='${PL.B}'`), 'SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE'); if (!r.ok) r.detail += ' | file : ' + JSON.stringify(await page.evaluate(async () => (await ANAGROCI_PARCELLES_LOCAL.file.toutes()).map(o => [o.type, o.etat, o.code, o.message]))); return r; });
 
+    /* ----- G0. Pré-vérification par le Chef d'Unité ----- */
+    await ouvrir('parcelles/validation', 'auh_bro');
+    await verifier('E2E-P1', X, 'Assistant : ni validation ni pré-vérification', async () => /Réservé au Chef de Zone/i.test(await texte()));
+    await ouvrir('parcelles/validation', 'uh_bro');
+    await verifier('E2E-P2', V, 'Chef d\'Unité BROBO : 2 tracés de son assistant à pré-vérifier', async () => /pré-vérifier/i.test(await texte()) && (await page.locator('a.pc-ligne').count()) === 2);
+    await page.locator('a.pc-ligne').first().click(); await page.waitForSelector('[data-pc="preverifier"]');
+    await verifier('E2E-P3', X, 'Chef d\'Unité : aucun bouton de validation', async () => (await page.locator('[data-pc="decider"]').count()) === 0);
+    await page.fill('#pcComment', 'Limites vues avec le producteur (test fictif).'); await page.locator('[data-pc="preverifier"]').click();
+    await attendre('pré-vérifier', 30000).catch(() => {}); await page.waitForTimeout(800);
+    await verifier('E2E-P4', V, 'Pré-vérification enregistrée par le serveur, statut toujours SOUMIS, liste réduite à 1', async () => {
+      const r = psql(`select count(*) filter (where preverified_by='${U.uh_bro}')||'|'||count(*) filter (where status='SOUMIS') from farmer_plot_geometries`);
+      return { ok: r === '1|2' && (await page.locator('a.pc-ligne').count()) === 1, detail: r }; });
+
     /* ----- G. Validation par le Chef de Zone ----- */
     await ouvrir('parcelles/pilotage', 'auh_bro');
     await verifier('E2E-29', X, 'Tableau de bord refusé à l\'assistant (contrôle serveur)', async () => /réservé|Réservé/i.test(await texte()));
