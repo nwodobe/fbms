@@ -1,6 +1,6 @@
 {
- "total": 45,
- "reussis": 45,
+ "total": 48,
+ "reussis": 48,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -114,7 +114,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:32"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:36"
   },
   {
    "id": "E2E-17",
@@ -149,7 +149,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"48e41b49-4179-493b-b655-2c1c5eff3495\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"fb4801da-8d34-4ee7-ad4e-76f6dd26e5fb\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"75a55ccf-d67e-4d6f-ac9e-de9715b91474\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"9b7527d4-09ca-4db8-9c1c-282916af521c\"]]}"
   },
   {
    "id": "E2E-22",
@@ -236,6 +236,13 @@
    "detail": "true"
   },
   {
+   "id": "E2E-A3",
+   "famille": "Sécurité",
+   "libelle": "Panneau d'activation absent pour un non-Branch Manager",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
    "id": "E2E-30",
    "famille": "Sécurité",
    "libelle": "Chef de Zone GBEKE 2 : aucun contour BROBO à valider",
@@ -276,6 +283,20 @@
    "libelle": "Somme et emprise unique affichées séparément",
    "resultat": "RÉUSSI",
    "detail": "true"
+  },
+  {
+   "id": "E2E-A1",
+   "famille": "Sécurité",
+   "libelle": "Panneau d'activation visible pour le Branch Manager, reflète le pilote BROBO",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-A2",
+   "famille": "Pilotage",
+   "libelle": "Activation enregistrée par le serveur (BOTRO ajouté au pilote)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"t\", obtenu \"t\""
   },
   {
    "id": "E2E-36",

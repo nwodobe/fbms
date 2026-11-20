@@ -292,6 +292,7 @@ async function main() {
     /* ----- G. Validation par le Chef de Zone ----- */
     await ouvrir('parcelles/pilotage', 'auh_bro');
     await verifier('E2E-29', X, 'Tableau de bord refusé à l\'assistant (contrôle serveur)', async () => /réservé|Réservé/i.test(await texte()));
+    await verifier('E2E-A3', X, 'Panneau d\'activation absent pour un non-Branch Manager', async () => { await ouvrir('parcelles/pilotage', 'zh1'); return (await page.locator('#pcActivation').count()) === 0; });
     await ouvrir('parcelles/validation', 'zh2');
     await verifier('E2E-30', X, 'Chef de Zone GBEKE 2 : aucun contour BROBO à valider', async () => /Aucun contour en attente/i.test(await texte()));
     await ouvrir('parcelles/validation', 'zh1');
@@ -312,6 +313,10 @@ async function main() {
       return { ok: t['Validées'] === '1' && t['Soumises'] === '1' && /^1 \//.test(t['Parcelles localisées']), detail: JSON.stringify(t) }; });
     await verifier('E2E-35', P, 'Somme et emprise unique affichées séparément', async () => /Emprise unique validée/i.test(await texte()) && /Superficie validée \(somme\)/i.test(await texte()));
     await capture('07-pilotage-1440');
+    await verifier('E2E-A1', X, 'Panneau d\'activation visible pour le Branch Manager, reflète le pilote BROBO', async () => (await page.locator('#pcActivation').count()) === 1 && (await page.locator('input[name=pcActCl][value=BROBO]').isChecked()));
+    await page.locator('input[name=pcActCl][value=BOTRO]').check({ force: true }); await page.locator('[data-pc="activer"]').click(); await page.waitForTimeout(1500);
+    await verifier('E2E-A2', P, 'Activation enregistrée par le serveur (BOTRO ajouté au pilote)', async () => egal(psql(`select valeur->'clusters_pilotes' @> '["BOTRO","BROBO"]'::jsonb from plot_map_parametres where cle='activation'`), 't'));
+    await page.locator('input[name=pcActCl][value=BOTRO]').uncheck({ force: true }); await page.locator('[data-pc="activer"]').click(); await page.waitForTimeout(1500);
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.locator('[data-pc="export-csv"]').click()]);
     const contenu = readFileSync(await dl.path(), 'utf8');
     await verifier('E2E-36', P, 'Export CSV : colonnes de superficies distinctes, aucune coordonnée', async () => ({ ok: /Superficie déclarée \(ha\);Superficie cartographiée \(ha\)/.test(contenu) && !/7\.70|latitude/i.test(contenu), detail: contenu.slice(0, 200) }));

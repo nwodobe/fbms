@@ -538,7 +538,7 @@ function pilotage() {
   if (!peutPiloter()) { peindre(tete('Carte des parcelles', '') + avis('erreur', 'Réservé au Branch Manager, à son assistant et aux Chefs de Zone.')); return Promise.resolve(); }
   var f = etat.filtresPilotage || (etat.filtresPilotage = {});
   peindre(tete('Carte des parcelles', 'Pilotage de la cartographie') + '<div class="ops-empty">Calcul des indicateurs…</div>');
-  return rpc('plot_map_tableau', { p: Object.assign({ detail: 'oui' }, f) }).then(function (t) {
+  return parametres().then(function () { return rpc('plot_map_tableau', { p: Object.assign({ detail: 'oui' }, f) }); }).then(function (t) {
     etat.tableau = t;
     function k(lib, val, note) { return '<div class="kpi"><span>' + esc(lib) + '</span><b>' + (val == null ? '—' : esc(val)) + '</b>' + (note ? '<small>' + esc(note) + '</small>' : '') + '</div>'; }
     var clusters = (t.par_cluster || []).map(function (c) { return c.cluster_code; });
@@ -564,9 +564,22 @@ function pilotage() {
       '</tbody></table></div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Travail par agent</h2></div></div><div class="table-wrap"><table><thead><tr><th>Agent</th><th>Rôle</th><th>Contours</th><th>Soumis</th><th>Validés</th><th>À corriger</th></tr></thead><tbody>' +
       ((t.par_agent || []).length ? t.par_agent.map(function (a) { return '<tr><td>' + esc(a.agent) + '</td><td>' + esc(a.role || '') + '</td><td>' + a.contours + '</td><td>' + a.soumis + '</td><td>' + a.valides + '</td><td>' + a.a_corriger + '</td></tr>'; }).join('') : '<tr><td colspan="6">Aucun contour sur la période.</td></tr>') +
-      '</tbody></table></div></section>';
+      '</tbody></table></div></section>' + panneauActivation();
     peindre(h);
   }).catch(function (e) { peindre(tete('Carte des parcelles', '', lien('Retour', 'parcelles', 'secondary')) + avis('erreur', esc(e.message))); });
+}
+/* Activation progressive (indicateurs de fonctionnalité) : Branch Manager uniquement, contrôlé par le serveur
+   (plot_map_parametre_definir). Couper = décocher : les contours reçus restent, le registre n'est pas touché. */
+function panneauActivation() {
+  if (classe() !== 'BM') return '';
+  var a = (etat.params || {}).activation || {}, pil = a.clusters_pilotes || [], im = (etat.params || {}).imagerie || {};
+  return '<section class="card pc-decision" id="pcActivation"><div class="card-head"><div><h2>Activation (Branch Manager)</h2></div></div>' +
+    '<label class="pc-case"><input type="checkbox" id="pcActLoc"' + (a.localisation ? ' checked' : '') + '> Localiser mon champ (tous clusters)</label>' +
+    '<label class="pc-case"><input type="checkbox" id="pcActCont"' + (a.contours ? ' checked' : '') + '> Tracé des contours (clusters pilotes seulement)</label>' +
+    '<fieldset class="pc-choix"><legend>Clusters pilotes</legend>' + ['BEOUMI', 'BOTRO', 'BROBO', 'DIABO', 'DJEBONOUA', 'SAKASSOU'].map(function (c) {
+      return '<label class="pc-puce' + (pil.indexOf(c) >= 0 ? ' actif' : '') + '"><input type="checkbox" name="pcActCl" value="' + c + '"' + (pil.indexOf(c) >= 0 ? ' checked' : '') + '> ' + c + '</label>'; }).join('') + '</fieldset>' +
+    '<p class="pc-note">Imagerie : ' + esc(im.fournisseur && im.fournisseur !== 'aucun' ? im.fournisseur : 'aucune') + (im.licence_confirmee ? ' (licence confirmée)' : ' (aucune licence confirmée : le tracé se fait sans image)') + '. Commencez par un seul cluster.</p>' +
+    '<div class="pc-actions">' + bouton('Enregistrer l\'activation', 'activer') + '</div></section>';
 }
 function telecharger(nom, contenu, type) {
   var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([contenu], { type: type })); a.download = nom;
@@ -657,6 +670,14 @@ document.addEventListener('click', function (ev) {
     rpc('plot_map_decider', { p_geometry: ed.validation.id, p_decision: v, p_commentaire: com, p_version: ed.validation.row_version, p_exception: exc })
       .then(function () { etat.liste = null; etat.message = v === 'VALIDER' ? 'Contour validé.' : 'Correction demandée à l\'agent.'; aller('parcelles/validation'); })
       .catch(function (e) { alerteDecision(e.message); });
+  }
+  else if (a === 'activer') {
+    var obj = { localisation: !!(document.getElementById('pcActLoc') || {}).checked, contours: !!(document.getElementById('pcActCont') || {}).checked,
+      clusters_pilotes: Array.prototype.map.call(document.querySelectorAll('input[name=pcActCl]:checked'), function (i) { return i.value; }) };
+    if (obj.contours && !obj.clusters_pilotes.length) { alerteDecision('Choisissez au moins un cluster pilote pour le tracé des contours.'); return; }
+    b.disabled = true;
+    rpc('plot_map_parametre_definir', { p_cle: 'activation', p_valeur: obj }).then(function () { etat.params = null; return parametres(); })
+      .then(function () { etat.message = 'Activation enregistrée.'; pilotage(); }).catch(function (e) { b.disabled = false; alerteDecision(e.message); });
   }
   else if (a === 'filtrer-pilotage') {
     var fd = document.getElementById('pcFiltresPil'), f = {};
