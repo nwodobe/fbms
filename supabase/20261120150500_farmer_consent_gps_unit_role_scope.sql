@@ -11,6 +11,7 @@ WITH CHECK (
   AND created_by = auth.uid()
   AND agent_id = auth.uid()
   AND private.farmer_registry_can_access_producteur(producteur_id)
+  AND source = 'FIELD_GPS_DECISION'
   AND (
     public.mon_role() IN ('Unit Head','Assistant Unit Head')
     OR (
