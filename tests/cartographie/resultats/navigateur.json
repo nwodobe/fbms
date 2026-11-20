@@ -1,6 +1,6 @@
 {
- "total": 48,
- "reussis": 48,
+ "total": 67,
+ "reussis": 67,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -79,7 +79,7 @@
    "famille": "Parcours terrain",
    "libelle": "Hors ligne : 3 sommets GPS posés, superficie calculée sur le téléphone",
    "resultat": "RÉUSSI",
-   "detail": "CALCUL PROVISOIRE SUR CE TÉLÉPHONE\n0,49 ha\n4 950 m² · périmètre 342 m · 3 sommet(s)\nÉcart de -58,8 % avec la superficie déclarée : vérifiez les limites avec le producteur.\nPrécision GPS : 5 à 5 m (médiane 5 m)\n\nMarchez jusqu'à chaque coin du champ, puis appuyez sur le bouton. Le contour se ferme aut"
+   "detail": "CALCUL PROVISOIRE SUR CE TÉLÉPHONE (VÉRIFIÉ PAR LE SERVEUR À L'ENVOI)\n0,49 ha · 4 950 m² · périmètre 342 m\nÉcart de -58,8 % avec la superficie déclarée : vérifiez les limites avec le producteur.\nPrécision GPS : 5 à 5 m (médiane 5 m)\nConfirmation des limites par le producteur\nNon demandée\nConfirmée s"
   },
   {
    "id": "E2E-12",
@@ -110,11 +110,18 @@
    "detail": "true"
   },
   {
+   "id": "E2E-15b",
+   "famille": "Parcours terrain",
+   "libelle": "Envoi bloqué tant que l'identité de la parcelle n'est pas confirmée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
    "id": "E2E-16",
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:36"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:21"
   },
   {
    "id": "E2E-17",
@@ -149,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"75a55ccf-d67e-4d6f-ac9e-de9715b91474\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"9b7527d4-09ca-4db8-9c1c-282916af521c\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"bbd6570a-b08c-405f-9629-3ce38a9c3fb6\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"ba1de96f-8fb7-4d85-9366-cd63249cbfeb\"]]}"
   },
   {
    "id": "E2E-22",
@@ -159,16 +166,37 @@
    "detail": "true"
   },
   {
-   "id": "E2E-23",
+   "id": "E2E-F1",
    "famille": "Parcours terrain",
-   "libelle": "Tracé au doigt : 4 sommets, contour fermé automatiquement, superficie affichée",
+   "libelle": "Méthode 2 : champ sans GPS, carte centrée sur le village avec avertissement",
    "resultat": "RÉUSSI",
    "detail": "true"
   },
   {
+   "id": "E2E-F2",
+   "famille": "Affichage",
+   "libelle": "En-tête : producteur, village, cluster, parcelle, état de connexion",
+   "resultat": "RÉUSSI",
+   "detail": "Tracer sur l'image satellite\n9002 PRODUCTEUR FICTIF BRAVO\nVILLAGE FICTIF BROBO · BROBO · CHAMP FICTIF BRAVO · déclarée 2 ha\nEn ligne\nFermer"
+  },
+  {
+   "id": "E2E-F3",
+   "famille": "Parcours terrain",
+   "libelle": "Un toucher sur la carte n'ajoute rien par défaut (pas d'ajout accidentel)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-23",
+   "famille": "Parcours terrain",
+   "libelle": "Viseur : 4 sommets posés après glissement de l'image, contour fermé, superficie et périmètre affichés",
+   "resultat": "RÉUSSI",
+   "detail": "4 | Superficie calculée\n0,25 ha\nPérimètre\n249 m\nSommets\n4\nPoser un sommet au viseur\nPlacer le sommet 4 au viseur\n↶ Annuler\n↷"
+  },
+  {
    "id": "E2E-24",
    "famille": "Parcours terrain",
-   "libelle": "Ajout d'un sommet sur un côté (« + »)",
+   "libelle": "Insertion d'un sommet entre deux points (« + »)",
    "resultat": "RÉUSSI",
    "detail": "true"
   },
@@ -187,18 +215,123 @@
    "detail": "true"
   },
   {
+   "id": "E2E-26b",
+   "famille": "Parcours terrain",
+   "libelle": "Rétablissement de l'action annulée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
    "id": "E2E-27",
    "famille": "Parcours terrain",
-   "libelle": "Déplacement d'un sommet : superficie recalculée",
+   "libelle": "Déplacement d'un sommet au doigt : superficie recalculée",
    "resultat": "RÉUSSI",
-   "detail": "3,41 ha → 4,07 ha | translate3d(180px, 125px, 0px) → translate3d(235px, 60px, 0px)"
+   "detail": "0,25 ha → 0,42 ha"
+  },
+  {
+   "id": "E2E-27b",
+   "famille": "Parcours terrain",
+   "libelle": "Correction d'un sommet au viseur (« Placer le sommet au viseur »)",
+   "resultat": "RÉUSSI",
+   "detail": "0,49 ha → 0,42 ha"
+  },
+  {
+   "id": "E2E-F4",
+   "famille": "Parcours terrain",
+   "libelle": "Ajout au toucher activable explicitement",
+   "resultat": "RÉUSSI",
+   "detail": "5"
+  },
+  {
+   "id": "E2E-F5",
+   "famille": "Affichage",
+   "libelle": "Masquer les repères : sommets cachés, contour conservé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-F6",
+   "famille": "Parcours terrain",
+   "libelle": "Méthode 3 : coordonnées saisies, carte centrée et rappel de vérification d'identité",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-F7",
+   "famille": "Parcours terrain",
+   "libelle": "Méthode 1 : « Je suis dans mon champ » affiche « Vous êtes ici » sans créer de sommet",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-F8",
+   "famille": "Parcours terrain",
+   "libelle": "Effacer le tracé demande une confirmation (rien d'effacé au premier appui)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-F9",
+   "famille": "Sécurité",
+   "libelle": "Niveau 1 indisponible tant que le producteur n'a pas confirmé les limites sur place",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-F10",
+   "famille": "Synchronisation",
+   "libelle": "Après fermeture brutale : contour, fiabilité et identité retrouvés",
+   "resultat": "RÉUSSI",
+   "detail": "0,42 ha / 0,42 ha"
   },
   {
    "id": "E2E-28",
    "famille": "Synchronisation",
-   "libelle": "Contour du tracé au doigt reçu (méthode, confiance, confirmation producteur)",
+   "libelle": "Contour reçu : méthode, niveau, confirmation, identité, source de localisation",
    "resultat": "RÉUSSI",
-   "detail": "attendu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\", obtenu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\""
+   "detail": "attendu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE|true|VILLAGE\", obtenu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE|true|VILLAGE\""
+  },
+  {
+   "id": "E2E-28b",
+   "famille": "Synchronisation",
+   "libelle": "Superficie serveur PostGIS = superficie du téléphone (écart < 0,01 %), aucune anomalie de calcul",
+   "resultat": "RÉUSSI",
+   "detail": "4229.11 / 4229.11 / 0"
+  },
+  {
+   "id": "E2E-I1",
+   "famille": "Sécurité",
+   "libelle": "Esri : tuiles demandées au service Static Basemap Tiles (style arcgis/imagery) avec la clé en jeton",
+   "resultat": "RÉUSSI",
+   "detail": "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/static/tile/18/125447/127409?token=AAPTcle_fictive_de_recette_0000000000 https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/static/tile"
+  },
+  {
+   "id": "E2E-I2",
+   "famille": "Affichage",
+   "libelle": "Attribution Esri obligatoire affichée sur la carte",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-I3",
+   "famille": "Parcours terrain",
+   "libelle": "Image indisponible : message clair, tracé toujours possible sur fond neutre",
+   "resultat": "RÉUSSI",
+   "detail": "4→5 | Image satellite indisponible (réseau faible, service ou clé refusés). Votre contour est conservé et reste modifiable sur fond neutre ; l'image reviendra avec le"
+  },
+  {
+   "id": "E2E-I4",
+   "famille": "Affichage",
+   "libelle": "Bascule satellite / plan proposée quand les deux fonds sont autorisés",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-I5",
+   "famille": "Affichage",
+   "libelle": "Zoom jusqu'au niveau maximal : tuiles natives demandées jusqu'au niveau 19, jamais au-delà (agrandissement local)",
+   "resultat": "RÉUSSI",
+   "detail": "crans 3, niveaux demandés 18,19"
   },
   {
    "id": "E2E-P1",
@@ -275,7 +408,7 @@
    "famille": "Pilotage",
    "libelle": "Tableau de bord BM : 1 validée, 1 soumise, 1 parcelle localisée",
    "resultat": "RÉUSSI",
-   "detail": "{\"Producteurs avec un champ localisé\":\"1 / 4\",\"Parcelles localisées\":\"1 / 4\",\"Parcelles avec contour\":\"2\",\"Soumises\":\"1\",\"Validées\":\"1\",\"À corriger\":\"0\",\"Superficie déclarée\":\"7,20 ha\",\"Superficie cartographiée\":\"5,06 ha\",\"Superficie validée (somme)\":\"0,99 ha\",\"Emprise unique validée\":\"0,99 ha\",\"Che"
+   "detail": "{\"Producteurs avec un champ localisé\":\"1 / 4\",\"Parcelles localisées\":\"1 / 4\",\"Parcelles avec contour\":\"2\",\"Soumises\":\"1\",\"Validées\":\"1\",\"À corriger\":\"0\",\"Superficie déclarée\":\"7,20 ha\",\"Superficie cartographiée\":\"1,41 ha\",\"Superficie validée (somme)\":\"0,99 ha\",\"Emprise unique validée\":\"0,99 ha\",\"Che"
   },
   {
    "id": "E2E-35",

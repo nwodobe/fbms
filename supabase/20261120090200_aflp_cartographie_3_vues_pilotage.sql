@@ -19,7 +19,7 @@ grant execute on function private.plot_map_nom(uuid) to authenticated;
 
 create or replace view public.plot_map_parcelles_v with (security_invoker = true) as
 select fp.id as plot_id, fp.plot_code, fp.producteur_id, pr.code as producteur_code, pr.nom as producteur_nom, pr.prenoms as producteur_prenoms,
-       fp.village_id, v.village as village_nom, cx.cluster_code, cx.zone_code, fp.local_name, fp.declared_area, fp.area_unit, fp.tree_count,
+       fp.village_id, v.village as village_nom, v.gps_lat as village_latitude, v.gps_lng as village_longitude, cx.cluster_code, cx.zone_code, fp.local_name, fp.declared_area, fp.area_unit, fp.tree_count,
        fp.latitude, fp.longitude, fp.gps_accuracy_m, fp.gps_captured_at, fp.gps_status, fp.mapping_status, fp.mapped_area_ha, fp.mapped_area_method,
        fp.current_geometry_id, fp.split_from_plot_id, fp.status as plot_status, fp.record_version,
        private.plot_map_consentement_gps(fp.producteur_id) as consentement_gps,

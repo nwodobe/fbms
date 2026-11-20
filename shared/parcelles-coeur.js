@@ -121,7 +121,9 @@
     NON_LOCALISEE: 'Non localisée', LOCALISEE: 'Localisée (point GPS)', SOUMIS: 'Soumis au Chef de Zone',
     A_CORRIGER: 'À corriger', VALIDE: 'Validé', REMPLACE: 'Remplacé', ARCHIVE: 'Archivé'
   };
-  var CONFIANCE = { VISIBLES: 'Limites clairement visibles', PARTIELLES: 'Limites partiellement visibles', INCERTAINES: 'Limites incertaines', VERIFICATION_TERRAIN: 'Vérification terrain nécessaire' };
+  /* Fiabilité de la mesure, en trois niveaux (le calcul de l'aire peut être exact alors que le tracé est faux). */
+  var CONFIANCE = { VISIBLES: 'Niveau 1 · Limites visibles et confirmées', PARTIELLES: 'Niveau 2 · Limites partiellement visibles', INCERTAINES: 'Niveau 3 · Limites incertaines', VERIFICATION_TERRAIN: 'Niveau 3 · Vérification terrain nécessaire' };
+  var SOURCES = { GPS_SUR_PLACE: 'GPS de l\'agent dans le champ', VILLAGE: 'Recherche depuis le village', COORDONNEES: 'Coordonnées saisies', POINT_EXISTANT: 'Point GPS déjà enregistré', CONTOUR_EXISTANT: 'Contour précédent' };
   var METHODES = { SATELLITE: 'Tracé sur image', GPS_POINTS: 'Mesure GPS', IMPORT_FICHIER: 'Import de fichier', MIXTE: 'Mixte' };
   var SUPERFICIES = {
     SATELLITE_ESTIMEE: 'Superficie cartographique estimée (image)', GPS_MESUREE: 'Superficie mesurée par GPS',
@@ -144,7 +146,8 @@
       imagery_source: brouillon.fond || null, imagery_date: brouillon.date_image || null,
       gps_points: st ? st.n : null, gps_accuracy_min_m: st ? st.min : null, gps_accuracy_median_m: st ? st.mediane : null, gps_accuracy_max_m: st ? st.max : null,
       producer_confirmation: brouillon.confirmation || 'NON_DEMANDEE', producer_confirmation_note: brouillon.confirmation_note || null,
-      notes: brouillon.notes || null, device_id: appareil || null
+      notes: brouillon.notes || null, device_id: appareil || null,
+      identite_confirmee: brouillon.identite === true, localisation_source: brouillon.source || null
     };
   }
   /* Import : premier polygone d'un GeoJSON (Feature, FeatureCollection, Polygon, MultiPolygon à 1 élément) ou d'un KML. */
@@ -172,7 +175,7 @@
   return {
     nettoyer: nettoyer, geojson: geojson, mesurer: mesurer, distance: distance, croisements: croisements, verifier: verifier,
     hectares: hectares, metres: metres, ecartDeclare: ecartDeclare, combinerLectures: combinerLectures, statsPrecision: statsPrecision,
-    ETATS: ETATS, STATUTS: STATUTS, CONFIANCE: CONFIANCE, METHODES: METHODES, SUPERFICIES: SUPERFICIES,
+    ETATS: ETATS, STATUTS: STATUTS, CONFIANCE: CONFIANCE, SOURCES: SOURCES, METHODES: METHODES, SUPERFICIES: SUPERFICIES,
     uuid: uuid, operation: operation, soumission: soumission, sommetsDepuisGeoJSON: sommetsDepuisGeoJSON, sommetsDepuisKML: sommetsDepuisKML, csv: csv
   };
 });

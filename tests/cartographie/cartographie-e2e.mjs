@@ -51,7 +51,7 @@ insert into public.profils (user_id, email, nom, role, cluster, zone, actif) val
  ('${U.uh_bot}', 'uh.bot@example.invalid', 'UH BOTRO FICTIF', 'Unit Head', 'BOTRO', null, true) on conflict do nothing;
 select set_config('request.jwt.claim.sub', '${U.bm}', false);
 insert into public.campaigns (id, code, name, year, status, is_current, campaign_type) values ('10000000-0000-4000-8000-000000000009', '2097', 'CAMPAGNE FICTIVE E2E', 2097, 'OPEN', true, 'SIMULATION') on conflict do nothing;
-insert into public.villages (id, data, village, cluster, cluster_code) values ('V-CE2E-BRO', '{}', 'VILLAGE FICTIF BROBO', 'Brobo', 'BROBO'), ('V-CE2E-BOT', '{}', 'VILLAGE FICTIF BOTRO', 'Botro', 'BOTRO') on conflict do nothing;
+insert into public.villages (id, data, village, cluster, cluster_code, gps_lat, gps_lng) values ('V-CE2E-BRO', '{}', 'VILLAGE FICTIF BROBO', 'Brobo', 'BROBO', 7.7040, -5.0260), ('V-CE2E-BOT', '{}', 'VILLAGE FICTIF BOTRO', 'Botro', 'BOTRO', 7.9000, -5.3000) on conflict do nothing;
 insert into public.rt (id, data, nom, village_id) values ('RT-CE2E-BRO', '{}', 'RT FICTIF BROBO', 'V-CE2E-BRO'), ('RT-CE2E-BOT', '{}', 'RT FICTIF BOTRO', 'V-CE2E-BOT') on conflict do nothing;
 insert into public.producteurs (id, code, data, nom, prenoms, village_id, rt_id) values
  ('P-CE2E-A', '9001', '{}', 'PRODUCTEUR FICTIF', 'ALPHA', 'V-CE2E-BRO', 'RT-CE2E-BRO'), ('P-CE2E-B', '9002', '{}', 'PRODUCTEUR FICTIF', 'BRAVO', 'V-CE2E-BRO', 'RT-CE2E-BRO'),
@@ -145,7 +145,7 @@ const STUB = String.raw`
 })();`;
 
 /* ---------- déroulé ---------- */
-const R = [], erreurs = []; let page, ctx;
+const R = [], erreurs = [], tuilesEsri = []; let page, ctx;
 function note(id, famille, libelle, ok, detail) { R.push({ id, famille, libelle, resultat: ok ? 'RÉUSSI' : 'ÉCHOUÉ', detail: String(detail ?? '').slice(0, 300) }); console.log((ok ? 'RÉUSSI  ' : 'ÉCHOUÉ  ') + id + ' ' + libelle + (ok ? '' : ' — ' + String(detail ?? '').slice(0, 220))); }
 async function verifier(id, famille, libelle, fn) { try { const r = await fn(); note(id, famille, libelle, r === true || (r && r.ok), r && r.detail !== undefined ? r.detail : r); } catch (e) { note(id, famille, libelle, false, e.message); } }
 const egal = (a, b) => ({ ok: JSON.stringify(a) === JSON.stringify(b), detail: `attendu ${JSON.stringify(b)}, obtenu ${JSON.stringify(a)}` });
@@ -163,9 +163,9 @@ async function ouvrir(hash, user, largeur = 390, hauteur = 844) {
   for (let essai = 0; essai < 3; essai++) {
     try {
       await page.goto(base + '#' + hash, { waitUntil: 'domcontentloaded', timeout: 25000 });
-      await page.waitForFunction(() => window.ANAGROCI_AUTH && window.ANAGROCI_PARCELLES && document.querySelector('#opsRouteView .ops-route-head'), null, { timeout: 30000 });
+      await page.waitForFunction(() => window.ANAGROCI_AUTH && window.ANAGROCI_PARCELLES && document.querySelector('#opsRouteView .ops-route-head, #opsRouteView .pc-ed-tete'), null, { timeout: 30000 });
       await page.waitForTimeout(900);
-      await page.waitForFunction(() => document.querySelector('#opsRouteView .ops-route-head') && !/Chargement/.test(document.getElementById('opsRouteView').innerText.slice(0, 200)), null, { timeout: 30000 });
+      await page.waitForFunction(() => document.querySelector('#opsRouteView .ops-route-head, #opsRouteView .pc-ed-tete') && !/Chargement|Préparation/.test(document.getElementById('opsRouteView').innerText.slice(0, 200)), null, { timeout: 30000 });
       return;
     } catch (e) { if (essai === 2) throw e; await page.waitForTimeout(1000).catch(() => {}); }
   }
@@ -181,8 +181,9 @@ async function main() {
   const browser = await chromium.launch({ executablePath: process.env.CARTO_E2E_CHROME || (existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined), args: ['--no-sandbox'] });
   ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow', geolocation: { ...point(0, 0), accuracy: 6 }, permissions: ['geolocation'], acceptDownloads: true });
   await ctx.addInitScript({ content: STUB });
-  await ctx.route(/https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|tile\.openstreetmap\.org|ibasemaps-api\.arcgis\.com)\/.*/, async route => {
+  await ctx.route(/https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|tile\.openstreetmap\.org|ibasemaps-api\.arcgis\.com|static-map-tiles-api\.arcgis\.com)\/.*/, async route => {
     const u = route.request().url();
+    if (/static-map-tiles-api\.arcgis\.com/.test(u)) { tuilesEsri.push(u); return route.abort('internetdisconnected'); }   // aucune image fictive : le service est réputé injoignable
     if (/leaflet@1\.9\.4\/dist\/leaflet(\.min)?\.js/.test(u)) return route.fulfill({ status: 200, contentType: 'text/javascript', body: readFileSync(join(LEAFLET, 'leaflet.js')) });
     if (/leaflet@1\.9\.4\/dist\/leaflet(\.min)?\.css/.test(u)) return route.fulfill({ status: 200, contentType: 'text/css', body: readFileSync(join(LEAFLET, 'leaflet.css')) });
     if (/tile\.openstreetmap|arcgis/.test(u)) { erreurs.push('TUILE DEMANDÉE ALORS QU\'AUCUN FOND N\'EST ACTIVÉ : ' + u); return route.fulfill({ status: 404, body: '' }); }
@@ -220,7 +221,7 @@ async function main() {
     await capture('02-fiche-390');
 
     /* ----- E. Mesure GPS hors ligne, fermeture brutale, reprise ----- */
-    await page.evaluate(id => { location.hash = 'parcelles/tracer/' + id + '/gps'; }, PL.A); await page.waitForSelector('#pcPanneau [data-pc="gps-sommet"]');
+    await page.evaluate(id => { location.hash = 'parcelles/tracer/' + id + '/gps'; }, PL.A); await page.waitForSelector('#pcBarre [data-pc="gps-sommet"]');
     await ctx.setOffline(true);
     const coins = [[0, 0], [110, 0], [110, 90], [0, 90]];
     for (let i = 0; i < 3; i++) {
@@ -242,6 +243,8 @@ async function main() {
     await verifier('E2E-14', F, 'Superficie affichée = référence géodésique indépendante (0,99 ha, à 0,01 ha près)', async () => { const t = await page.locator('.pc-surface').innerText(); const v = Number(t.replace(' ha', '').replace(',', '.')); return { ok: Math.abs(v - refArea / 10000) < 0.011, detail: `écran ${t}, référence ${(refArea / 10000).toFixed(4)} ha` }; });
     await verifier('E2E-15', F, 'Envoi bloqué tant que la visibilité des limites n\'est pas indiquée', async () => page.locator('[data-pc="envoyer"]').isDisabled());
     await page.locator('input[name=pcConf][value="PARTIELLES"]').check({ force: true }); await page.waitForTimeout(300);
+    await verifier('E2E-15b', F, 'Envoi bloqué tant que l\'identité de la parcelle n\'est pas confirmée', async () => page.locator('[data-pc="envoyer"]').isDisabled());
+    await page.locator('#pcIdentite').check({ force: true }); await page.waitForTimeout(300);
     await capture('03-mesure-gps-390');
     await page.locator('[data-pc="envoyer"]').click(); await attendre('Envois depuis ce téléphone', 30000);
     await verifier('E2E-16', S, 'Hors ligne : « En attente de synchronisation », jamais « Reçu »', async () => { const t = await page.locator('.pc-envoi').first().innerText(); return { ok: /En attente de synchronisation/i.test(t) && /Contour/i.test(t) && !/Reçu par le serveur/i.test(t), detail: t }; });
@@ -254,27 +257,80 @@ async function main() {
     await verifier('E2E-20', S, 'Synchronisation répétée : aucun doublon', async () => egal(psql(`select count(*) from farmer_plot_geometries`), '1'));
     await verifier('E2E-21', S, 'Brouillon effacé après réception par le serveur', async () => { await ouvrir('parcelles/p/' + PL.A); const t = await texte(); const br = await page.evaluate(async id => JSON.stringify({ br: await ANAGROCI_PARCELLES_LOCAL.brouillon.lire(id), f: (await ANAGROCI_PARCELLES_LOCAL.file.toutes()).map(o => [o.type, o.etat, o.idempotency_key]) }), PL.A); return { ok: !/Reprendre le tracé/i.test(t) && /Reçu par le serveur/i.test(t), detail: br.slice(0, 280) }; });
 
-    /* ----- F. Tracé sur carte (sans imagerie : fond neutre) ----- */
-    await page.evaluate(id => { location.hash = 'parcelles/tracer/' + id + '/sat'; }, PL.B); await page.waitForSelector('#pcCarte .leaflet-container, #pcCarte.leaflet-container', { timeout: 20000 });
+    /* ----- F. Tracé sur image : recherche du champ, viseur, édition, image indisponible ----- */
+    await page.evaluate(id => { location.hash = 'parcelles/tracer/' + id + '/sat'; }, PL.B); await page.waitForSelector('#pcCarte.leaflet-container', { timeout: 20000 });
     await verifier('E2E-22', X, 'Aucune imagerie sans licence : message explicite, aucune tuile demandée', async () => /licence à confirmer/i.test(await texte()) && !erreurs.some(e => /TUILE/.test(e)));
-    await page.locator('#pcCarte').scrollIntoViewIfNeeded(); await page.waitForTimeout(400);
-    for (let z = 0; z < 4; z++) { await page.locator('#pcCarte .leaflet-control-zoom-in').click(); await page.waitForTimeout(450); } const box = await page.locator('#pcCarte').boundingBox();
-    for (const [dx, dy] of [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]]) { await page.mouse.click(box.x + box.width * dx, box.y + box.height * dy); await page.waitForTimeout(250); }
-    await verifier('E2E-23', F, 'Tracé au doigt : 4 sommets, contour fermé automatiquement, superficie affichée', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4 && /ha/.test(await page.locator('.pc-surface').innerText()));
+    await verifier('E2E-F1', F, 'Méthode 2 : champ sans GPS, carte centrée sur le village avec avertissement', async () => /centrée sur le village/i.test(await texte()) && /ne prouve pas/i.test(await texte()));
+    await verifier('E2E-F2', A, 'En-tête : producteur, village, cluster, parcelle, état de connexion', async () => { const t = await page.locator('.pc-ed-tete').innerText(); return { ok: /9002/.test(t) && /VILLAGE FICTIF BROBO/i.test(t) && /BROBO/.test(t) && /EN LIGNE/i.test(t), detail: t }; });
+    await verifier('E2E-F3', F, 'Un toucher sur la carte n\'ajoute rien par défaut (pas d\'ajout accidentel)', async () => { const b0 = await page.locator('#pcCarte').boundingBox(); await page.mouse.click(b0.x + b0.width * 0.5, b0.y + b0.height * 0.3); await page.waitForTimeout(300); return (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 0; });
+    await page.locator('#pcCarte .leaflet-control-zoom-in').click(); await page.waitForTimeout(450); await page.locator('#pcCarte .leaflet-control-zoom-in').click(); await page.waitForTimeout(450);
+    /* Quatre coins posés AU VISEUR : l'agent fait glisser l'image sous la croix, puis appuie sur le bouton. */
+    async function glisser(dx, dy) { const b1 = await page.locator('#pcCarte').boundingBox(); const cx = b1.x + b1.width / 2, cy = b1.y + b1.height / 2; await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + dx / 2, cy + dy / 2, { steps: 4 }); await page.mouse.move(cx + dx, cy + dy, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(350); }
+    await page.locator('#pcCarte').scrollIntoViewIfNeeded();
+    for (const [dx, dy] of [[0, 0], [-90, 0], [0, -80], [90, 0]]) { await glisser(dx, dy); await page.locator('[data-pc="viseur-sommet"]').click(); await page.waitForTimeout(250); await page.locator('#pcCarte').scrollIntoViewIfNeeded(); }
+    await verifier('E2E-23', F, 'Viseur : 4 sommets posés après glissement de l\'image, contour fermé, superficie et périmètre affichés', async () => { const n = await page.locator('.pc-sommet:not(.pc-milieu)').count(); const t = await page.locator('.pc-barre').innerText(); return { ok: n === 4 && /ha/.test(t) && /\d m/.test(t), detail: n + ' | ' + t.slice(0, 120) }; });
+    const ref4 = await page.locator('.pc-surface').innerText();
     await page.locator('.pc-milieu').first().click(); await page.waitForTimeout(250);
-    await verifier('E2E-24', F, 'Ajout d\'un sommet sur un côté (« + »)', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 5);
+    await verifier('E2E-24', F, 'Insertion d\'un sommet entre deux points (« + »)', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 5);
     await page.locator('[data-pc="supprimer"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-25', F, 'Suppression du sommet sélectionné', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);
     await page.locator('[data-pc="annuler"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-26', F, 'Annulation de la dernière action', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 5);
-    const avant = await page.locator('.pc-surface').innerText(); const trAvant = await page.locator('.pc-sommet:not(.pc-milieu)').nth(1).evaluate(e => e.style.transform);
+    await page.locator('[data-pc="retablir"]').click(); await page.waitForTimeout(250);
+    await verifier('E2E-26b', F, 'Rétablissement de l\'action annulée', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);
+    const avant = await page.locator('.pc-surface').innerText();
     const mk = page.locator('.pc-sommet:not(.pc-milieu)').nth(1); await mk.scrollIntoViewIfNeeded(); await page.waitForTimeout(300); const mb = await mk.boundingBox();
-    await page.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2); await page.mouse.down(); await page.waitForTimeout(100); await page.mouse.move(mb.x + mb.width / 2 + 6, mb.y + mb.height / 2 + 6, { steps: 3 }); await page.mouse.move(mb.x + 70, mb.y - 50, { steps: 12 }); await page.waitForTimeout(100); await page.mouse.up(); await page.waitForTimeout(600);
-    await verifier('E2E-27', F, 'Déplacement d\'un sommet : superficie recalculée', async () => { const ap = await page.locator('.pc-surface').innerText(); const trAp = await page.locator('.pc-sommet:not(.pc-milieu)').nth(1).evaluate(e => e.style.transform); return { ok: ap !== avant, detail: avant + ' → ' + ap + ' | ' + trAvant + ' → ' + trAp }; });
-    await page.locator('input[name=pcConf][value="VISIBLES"]').check({ force: true }); await page.selectOption('#pcConfirm', 'CONFIRMEE_SUR_PLACE');
+    await page.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2); await page.mouse.down(); await page.waitForTimeout(100); await page.mouse.move(mb.x + mb.width / 2 + 6, mb.y + mb.height / 2 + 6, { steps: 3 }); await page.mouse.move(mb.x + 60, mb.y - 40, { steps: 12 }); await page.waitForTimeout(100); await page.mouse.up(); await page.waitForTimeout(600);
+    await verifier('E2E-27', F, 'Déplacement d\'un sommet au doigt : superficie recalculée', async () => { const ap = await page.locator('.pc-surface').innerText(); return { ok: ap !== avant, detail: avant + ' → ' + ap }; });
+    await page.locator('.pc-sommet:not(.pc-milieu)').nth(1).click(); await page.waitForTimeout(200); await glisser(20, 20);
+    const avantVis = await page.locator('.pc-surface').innerText(); await page.locator('[data-pc="viseur-deplacer"]').click(); await page.waitForTimeout(300);
+    await verifier('E2E-27b', F, 'Correction d\'un sommet au viseur (« Placer le sommet au viseur »)', async () => { const ap = await page.locator('.pc-surface').innerText(); return { ok: ap !== avantVis && (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4, detail: avantVis + ' → ' + ap }; });
+    await page.locator('[data-pc="toucher"]').click(); await page.waitForTimeout(200);
+    await verifier('E2E-F4', F, 'Ajout au toucher activable explicitement', async () => { await page.locator('#pcCarte').scrollIntoViewIfNeeded(); await page.waitForTimeout(300); const b2 = await page.locator('#pcCarte').boundingBox(); await page.mouse.click(b2.x + b2.width * 0.65, b2.y + b2.height * 0.55); await page.waitForTimeout(300); const n = await page.locator('.pc-sommet:not(.pc-milieu)').count(); await page.locator('[data-pc="annuler"]').click(); await page.waitForTimeout(250); await page.locator('[data-pc="toucher"]').click(); return { ok: n === 5, detail: n }; });
+    await page.locator('[data-pc="reperes"]').click(); await page.waitForTimeout(200);
+    await verifier('E2E-F5', A, 'Masquer les repères : sommets cachés, contour conservé', async () => (await page.locator('.pc-sommet').count()) === 0 && (await page.locator('#pcCarte path.leaflet-interactive, #pcCarte path').count()) >= 1);
+    await page.locator('[data-pc="reperes"]').click(); await page.waitForTimeout(200);
+    await page.locator('[data-pc="coord-ouvrir"]').click(); await page.fill('#pcCoordVal', '7.70100, -5.02950'); await page.locator('[data-pc="coord-aller"]').click(); await page.waitForTimeout(400);
+    await verifier('E2E-F6', F, 'Méthode 3 : coordonnées saisies, carte centrée et rappel de vérification d\'identité', async () => /coordonnées saisies/i.test(await page.locator('#pcFond').innerText()));
+    await page.locator('[data-pc="ici"]').click(); await page.waitForSelector('.leaflet-tooltip.pc-ici', { timeout: 20000 });
+    await verifier('E2E-F7', F, 'Méthode 1 : « Je suis dans mon champ » affiche « Vous êtes ici » sans créer de sommet', async () => /vous êtes ici/i.test(await page.locator('.leaflet-tooltip.pc-ici').innerText()) && (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);
+    await page.locator('[data-pc="centrer-contour"]').click(); await page.waitForTimeout(400);
+    await page.locator('[data-pc="effacer"]').click(); await page.waitForTimeout(200);
+    await verifier('E2E-F8', F, 'Effacer le tracé demande une confirmation (rien d\'effacé au premier appui)', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4 && (await page.locator('[data-pc="effacer-ok"]').count()) === 1);
+    await page.locator('[data-pc="effacer-non"]').click(); await page.waitForTimeout(200);
+    await page.selectOption('#pcConfirm', 'NON_DEMANDEE'); await page.waitForTimeout(200);
+    await verifier('E2E-F9', X, 'Niveau 1 indisponible tant que le producteur n\'a pas confirmé les limites sur place', async () => page.locator('input[name=pcConf][value="VISIBLES"]').isDisabled());
+    await page.selectOption('#pcConfirm', 'CONFIRMEE_SUR_PLACE'); await page.waitForTimeout(200);
+    await page.locator('input[name=pcConf][value="VISIBLES"]').check({ force: true }); await page.waitForTimeout(200);
+    await page.locator('#pcIdentite').check({ force: true }); await page.waitForTimeout(200);
+    await page.locator('[data-pc="terminer"]').click(); await page.waitForTimeout(500);
     await capture('04-trace-carte-390');
+    /* Fermeture brutale puis reprise : le contour au viseur doit être intact. */
+    const surfAvantFermeture = await page.locator('.pc-surface').innerText();
+    await page.close(); page = null; await ouvrir('parcelles/tracer/' + PL.B + '/sat', 'auh_bro'); await page.waitForSelector('.pc-sommet');
+    await verifier('E2E-F10', S, 'Après fermeture brutale : contour, fiabilité et identité retrouvés', async () => { const s2 = await page.locator('.pc-surface').innerText(); return { ok: s2 === surfAvantFermeture && (await page.locator('#pcIdentite').isChecked()) && (await page.locator('input[name=pcConf][value="VISIBLES"]').isChecked()), detail: surfAvantFermeture + ' / ' + s2 }; });
     await page.locator('[data-pc="envoyer"]').click(); await attendre('Envois depuis ce téléphone', 30000); await fileVidee();
-    await verifier('E2E-28', S, 'Contour du tracé au doigt reçu (méthode, confiance, confirmation producteur)', async () => { const r = egal(psql(`select method||'|'||boundary_confidence||'|'||producer_confirmation from farmer_plot_geometries where plot_id='${PL.B}'`), 'SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE'); if (!r.ok) r.detail += ' | file : ' + JSON.stringify(await page.evaluate(async () => (await ANAGROCI_PARCELLES_LOCAL.file.toutes()).map(o => [o.type, o.etat, o.code, o.message]))); return r; });
+    await verifier('E2E-28', S, 'Contour reçu : méthode, niveau, confirmation, identité, source de localisation', async () => egal(psql(`select method||'|'||boundary_confidence||'|'||producer_confirmation||'|'||identite_confirmee||'|'||localisation_source from farmer_plot_geometries where plot_id='${PL.B}'`), 'SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE|true|VILLAGE'));
+    await verifier('E2E-28b', S, 'Superficie serveur PostGIS = superficie du téléphone (écart < 0,01 %), aucune anomalie de calcul', async () => { const r = psql(`select area_m2||'|'||area_m2_client||'|'||(select count(*) from farmer_plot_anomalies where plot_id='${PL.B}' and type='ECART_CALCUL') from farmer_plot_geometries where plot_id='${PL.B}'`).split('|').map(Number); return { ok: Math.abs(r[0] - r[1]) / r[0] < 1e-4 && r[2] === 0, detail: r.join(' / ') }; });
+
+    /* ----- F2. Image satellite Esri configurée, service injoignable ----- */
+    psql(`begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"${U.bm}","role":"authenticated"}',true); select set_config('request.jwt.claim.sub','${U.bm}',true);
+          select public.plot_map_parametre_definir('imagerie', '{"fournisseur":"esri","licence_confirmee":true,"cle":"AAPTcle_fictive_de_recette_0000000000"}'::jsonb); commit;`);
+    await ouvrir('parcelles/tracer/' + PL.A + '/sat', 'auh_bro');
+    await page.waitForTimeout(2500);
+    await verifier('E2E-I1', X, 'Esri : tuiles demandées au service Static Basemap Tiles (style arcgis/imagery) avec la clé en jeton', async () => ({ ok: tuilesEsri.some(u => /static-basemap-tiles-service\/v1\/arcgis\/imagery\/static\/tile\/\d+\/\d+\/\d+\?token=AAPT/.test(u)), detail: tuilesEsri.slice(0, 2).join(' ') }));
+    await verifier('E2E-I2', A, 'Attribution Esri obligatoire affichée sur la carte', async () => /Powered by Esri/i.test(await page.locator('.leaflet-control-attribution').innerText()) && /Vantor/i.test(await page.locator('.leaflet-control-attribution').innerText()));
+    await verifier('E2E-I3', F, 'Image indisponible : message clair, tracé toujours possible sur fond neutre', async () => { const t = await page.locator('#pcFond').innerText(); const n0 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); await page.locator('[data-pc="viseur-sommet"]').click(); await page.waitForTimeout(300); const n1 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); return { ok: /image satellite indisponible/i.test(t) && n1 === n0 + 1, detail: n0 + '→' + n1 + ' | ' + t.slice(0, 160) }; });
+    await verifier('E2E-I4', A, 'Bascule satellite / plan proposée quand les deux fonds sont autorisés', async () => (await page.locator('[data-pc="fond"]').count()) === 1);
+    await verifier('E2E-I5', A, 'Zoom jusqu\'au niveau maximal : tuiles natives demandées jusqu\'au niveau 19, jamais au-delà (agrandissement local)', async () => {
+      const zin = page.locator('#pcCarte .leaflet-control-zoom-in'); let k = 0;
+      while (k < 12 && !(await zin.getAttribute('class')).includes('leaflet-disabled')) { await zin.click(); await page.waitForTimeout(400); k++; }
+      await page.waitForTimeout(800);
+      const z = tuilesEsri.map(u => Number((u.match(/\/tile\/(\d+)\//) || [])[1]));
+      return { ok: (await zin.getAttribute('class')).includes('leaflet-disabled') && z.includes(19) && !z.some(v => v > 19), detail: 'crans ' + k + ', niveaux demandés ' + [...new Set(z)].sort((a, b) => a - b).join(',') }; });
+    psql(`begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"${U.bm}","role":"authenticated"}',true); select set_config('request.jwt.claim.sub','${U.bm}',true);
+          select public.plot_map_parametre_definir('imagerie', '{"fournisseur":"aucun","licence_confirmee":false}'::jsonb); commit;`);
+    await page.evaluate(async id => { await ANAGROCI_PARCELLES_LOCAL.brouillon.effacer(id); }, PL.A);
 
     /* ----- G0. Pré-vérification par le Chef d'Unité ----- */
     await ouvrir('parcelles/validation', 'auh_bro');
