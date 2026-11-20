@@ -1,5 +1,5 @@
 /* ANAGROCI Operations — Service Worker Offline First */
-var CACHE_VERSION = 'ops-offline-v29-ra-preuves';
+var CACHE_VERSION = 'ops-offline-v30-ra-docs';
 var SHELL_CACHE = 'anagroci-shell-' + CACHE_VERSION;
 var RUNTIME_CACHE = 'anagroci-runtime-' + CACHE_VERSION;
 var OWN_PREFIXES = ['anagroci-', 'fbms-'];
@@ -19,6 +19,7 @@ var SHELL = [
   './operations/fbms-v23-visual.css',
   './operations/field-buying.js',
   './operations/carte-plantation.js',
+  './operations/ra-documents-lot3.js',
   './operations/farmer-passport-edit-bridge.js',
   './operations/rt-farmer-rights.js',
   './operations/aflp-cooperatives.js',
