@@ -226,20 +226,23 @@ function libAnomalie(a) {
 
 /* ------------------------------------------------------------------ cartes (Leaflet) */
 /* Imagerie : uniquement ce que la licence permet, configurée par le Branch Manager (plot_map_parametres.imagerie).
-   - « esri » : ArcGIS Location Platform, service Static Basemap Tiles (style arcgis/imagery), clé d'API à portée
+   - « esri » : ArcGIS Location Platform, tuiles World Imagery du Basemap Styles service, clé d'API à portée
      « basemaps » restreinte au site FBMS. Esri autorise la collecte et l'édition de données sur World Imagery.
    - « tms » : orthophoto dont ANAGROCI détient les droits, ou sous licence libre (attribution obligatoire).
    - « osm » : plan seulement (jamais présenté comme une image satellite).
    Aucune tuile n'est préchargée ni conservée pour un usage hors ligne (licences). */
 var ESRI_STATIQUE = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/';
+var ESRI_IMAGERIE = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer';
 var ESRI_ATTRIBUTION = 'Powered by <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> | Esri, Vantor, Earthstar Geographics, and the GIS User Community';
 function couchesImagerie() {
   var im = (etat.params || {}).imagerie || {}, f = im.fournisseur || 'aucun', c = { satellite: null, plan: null, nom: null, licence: null };
   if (!global.L) return c;
   if (f === 'esri' && im.licence_confirmee && im.cle) {
-    var t = '/static/tile/{z}/{y}/{x}?token=' + encodeURIComponent(im.cle);
-    c.satellite = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/imagery' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
-    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
+    var jeton = '?token=' + encodeURIComponent(im.cle);
+    /* Image : service de tuiles World Imagery du Basemap Styles service (le service « static » ne propose pas
+       d'imagerie, seulement ses étiquettes : vérifié avec une vraie clé le 20/11/2026). Plan : tuiles statiques 512 px. */
+    c.satellite = global.L.tileLayer(ESRI_IMAGERIE + '/tile/{z}/{y}/{x}' + jeton, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
+    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation/static/tile/{z}/{y}/{x}' + jeton, { tileSize: 512, zoomOffset: -1, maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
     c.nom = 'Esri World Imagery (ArcGIS Location Platform)'; c.licence = 'Conditions Esri · ArcGIS Location Platform';
   } else if (f === 'tms' && im.licence_confirmee && im.url) {
     c.satellite = global.L.tileLayer(im.url, { maxNativeZoom: Number(im.zoom_max) || 20, maxZoom: 22, attribution: esc(im.attribution || '') + (im.licence ? ' · ' + esc(im.licence) : '') });

@@ -183,7 +183,7 @@ async function main() {
   await ctx.addInitScript({ content: STUB });
   await ctx.route(/https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|tile\.openstreetmap\.org|ibasemaps-api\.arcgis\.com|static-map-tiles-api\.arcgis\.com)\/.*/, async route => {
     const u = route.request().url();
-    if (/static-map-tiles-api\.arcgis\.com/.test(u)) { tuilesEsri.push(u); return route.abort('internetdisconnected'); }   // aucune image fictive : le service est réputé injoignable
+    if (/static-map-tiles-api\.arcgis\.com|ibasemaps-api\.arcgis\.com/.test(u)) { tuilesEsri.push(u); return route.abort('internetdisconnected'); }   // aucune image fictive : le service est réputé injoignable
     if (/leaflet@1\.9\.4\/dist\/leaflet(\.min)?\.js/.test(u)) return route.fulfill({ status: 200, contentType: 'text/javascript', body: readFileSync(join(LEAFLET, 'leaflet.js')) });
     if (/leaflet@1\.9\.4\/dist\/leaflet(\.min)?\.css/.test(u)) return route.fulfill({ status: 200, contentType: 'text/css', body: readFileSync(join(LEAFLET, 'leaflet.css')) });
     if (/tile\.openstreetmap|arcgis/.test(u)) { erreurs.push('TUILE DEMANDÉE ALORS QU\'AUCUN FOND N\'EST ACTIVÉ : ' + u); return route.fulfill({ status: 404, body: '' }); }
@@ -319,7 +319,7 @@ async function main() {
           select public.plot_map_parametre_definir('imagerie', '{"fournisseur":"esri","licence_confirmee":true,"cle":"AAPTcle_fictive_de_recette_0000000000"}'::jsonb); commit;`);
     await ouvrir('parcelles/tracer/' + PL.A + '/sat', 'auh_bro');
     await page.waitForTimeout(2500);
-    await verifier('E2E-I1', X, 'Esri : tuiles demandées au service Static Basemap Tiles (style arcgis/imagery) avec la clé en jeton', async () => ({ ok: tuilesEsri.some(u => /static-basemap-tiles-service\/v1\/arcgis\/imagery\/static\/tile\/\d+\/\d+\/\d+\?token=AAPT/.test(u)), detail: tuilesEsri.slice(0, 2).join(' ') }));
+    await verifier('E2E-I1', X, 'Esri : tuiles World Imagery demandées (Basemap Styles service) avec la clé en jeton', async () => ({ ok: tuilesEsri.some(u => /ibasemaps-api\.arcgis\.com\/arcgis\/rest\/services\/World_Imagery\/MapServer\/tile\/\d+\/\d+\/\d+\?token=AAPT/.test(u)), detail: tuilesEsri.slice(0, 2).join(' ') }));
     await verifier('E2E-I2', A, 'Attribution Esri obligatoire affichée sur la carte', async () => /Powered by Esri/i.test(await page.locator('.leaflet-control-attribution').innerText()) && /Vantor/i.test(await page.locator('.leaflet-control-attribution').innerText()));
     await verifier('E2E-I3', F, 'Image indisponible : message clair, tracé toujours possible sur fond neutre', async () => { const t = await page.locator('#pcFond').innerText(); const n0 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); await page.locator('[data-pc="viseur-sommet"]').click(); await page.waitForTimeout(300); const n1 = await page.locator('.pc-sommet:not(.pc-milieu)').count(); return { ok: /image satellite indisponible/i.test(t) && n1 === n0 + 1, detail: n0 + '→' + n1 + ' | ' + t.slice(0, 160) }; });
     await verifier('E2E-I4', A, 'Bascule satellite / plan proposée quand les deux fonds sont autorisés', async () => (await page.locator('[data-pc="fond"]').count()) === 1);
@@ -327,7 +327,7 @@ async function main() {
       const zin = page.locator('#pcCarte .leaflet-control-zoom-in'); let k = 0;
       while (k < 12 && !(await zin.getAttribute('class')).includes('leaflet-disabled')) { await zin.click(); await page.waitForTimeout(400); k++; }
       await page.waitForTimeout(800);
-      const z = tuilesEsri.map(u => Number((u.match(/\/tile\/(\d+)\//) || [])[1]));
+      const z = tuilesEsri.filter(u => /World_Imagery/.test(u)).map(u => Number((u.match(/\/tile\/(\d+)\//) || [])[1]));
       return { ok: (await zin.getAttribute('class')).includes('leaflet-disabled') && z.includes(19) && !z.some(v => v > 19), detail: 'crans ' + k + ', niveaux demandés ' + [...new Set(z)].sort((a, b) => a - b).join(',') }; });
     psql(`begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"${U.bm}","role":"authenticated"}',true); select set_config('request.jwt.claim.sub','${U.bm}',true);
           select public.plot_map_parametre_definir('imagerie', '{"fournisseur":"aucun","licence_confirmee":false}'::jsonb); commit;`);

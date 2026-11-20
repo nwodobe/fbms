@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:59"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 08:15"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"9674bd3d-5279-4489-816e-a2b0c0c1c2ad\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"c2d4abef-f4be-44eb-9c7d-d40edbdc06bd\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"9a9fcd15-a723-41d5-ba42-765b24c07c21\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"acde2da7-86f1-4c35-9526-fa6ea180af3e\"]]}"
   },
   {
    "id": "E2E-22",
@@ -308,9 +308,9 @@
   {
    "id": "E2E-I1",
    "famille": "Sécurité",
-   "libelle": "Esri : tuiles demandées au service Static Basemap Tiles (style arcgis/imagery) avec la clé en jeton",
+   "libelle": "Esri : tuiles World Imagery demandées (Basemap Styles service) avec la clé en jeton",
    "resultat": "RÉUSSI",
-   "detail": "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/static/tile/18/125447/127409?token=AAPTcle_fictive_de_recette_0000000000 https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/static/tile"
+   "detail": "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/18/125447/127409?token=AAPTcle_fictive_de_recette_0000000000 https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/18/125447/127410?token=AAPTcle_fictive_de_recette_0000000000"
   },
   {
    "id": "E2E-I2",
