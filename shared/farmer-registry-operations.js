@@ -109,7 +109,7 @@
       if(ouvrirCarte){
         close();
         if(FR.passportUI&&FR.passportUI.close)FR.passportUI.close();
-        global.location.hash='#parcelles/p/'+encodeURIComponent(id);
+        global.location.hash='#parcelles/tracer/'+encodeURIComponent(id)+'/sat';
       }else{
         await refresh();
       }
