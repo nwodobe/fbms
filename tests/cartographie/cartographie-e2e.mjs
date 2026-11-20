@@ -275,6 +275,11 @@ async function main() {
     await page.locator('[data-pc="supprimer"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-25', F, 'Suppression du sommet sélectionné', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);
     const posBoutons = async () => page.evaluate(() => ['viseur-sommet', 'viseur-deplacer', 'annuler', 'retablir', 'supprimer', 'terminer', 'ici'].map(k => { const b = document.querySelector('[data-pc="' + k + '"]'); if (!b) return k + ':absent'; const r = b.getBoundingClientRect(); return k + ':' + Math.round(r.left) + ',' + Math.round(r.top - document.getElementById('pcBarre').getBoundingClientRect().top); }).join(' '));
+    const vp = page.viewportSize();
+    if (vp && vp.width <= 820) {
+      await page.evaluate(() => { const c = document.getElementById('pcCarte'); window.scrollBy(0, c.getBoundingClientRect().top - Math.round(innerHeight * 0.4)); }); await page.waitForTimeout(250);
+      await verifier('E2E-26s', F, 'Téléphone : barre de mesure collée en bas de l\'écran pendant que la carte est visible (régression itel S688LN)', async () => { const r = await page.evaluate(() => { const b = document.getElementById('pcBarre').getBoundingClientRect(), c = document.getElementById('pcCarte').getBoundingClientRect(); return { bas: Math.round(b.bottom), haut: Math.round(b.top), vh: innerHeight, carteHaut: Math.round(c.top) }; }); return { ok: r.bas <= r.vh + 1 && r.haut < r.vh && r.haut > r.carteHaut, detail: JSON.stringify(r) }; });
+    }
     const posAvant = await posBoutons();
     await page.locator('[data-pc="annuler"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-26p', F, 'Boutons de tracé à positions fixes après « Annuler » (régression itel S688LN : « Rétablir » ne doit pas céder sa place)', async () => { const ap = await posBoutons(); return { ok: ap === posAvant && !/absent/.test(ap), detail: ap }; });

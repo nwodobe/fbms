@@ -1,6 +1,6 @@
 {
- "total": 69,
- "reussis": 69,
+ "total": 70,
+ "reussis": 70,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 11:23"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 11:35"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"208b15fd-3ba4-4d4c-a08a-d9ff7703cfd4\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"061b87c9-098b-4c39-ae5d-ffda94103195\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"7eedf7d2-ec87-47f1-967d-37077b0397f4\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"8608e713-4f98-44d9-acf0-f855dd9ff03b\"]]}"
   },
   {
    "id": "E2E-22",
@@ -208,11 +208,18 @@
    "detail": "true"
   },
   {
+   "id": "E2E-26s",
+   "famille": "Parcours terrain",
+   "libelle": "Téléphone : barre de mesure collée en bas de l'écran pendant que la carte est visible (régression itel S688LN)",
+   "resultat": "RÉUSSI",
+   "detail": "{\"bas\":844,\"haut\":635,\"vh\":844,\"carteHaut\":338}"
+  },
+  {
    "id": "E2E-26p",
    "famille": "Parcours terrain",
    "libelle": "Boutons de tracé à positions fixes après « Annuler » (régression itel S688LN : « Rétablir » ne doit pas céder sa place)",
    "resultat": "RÉUSSI",
-   "detail": "viseur-sommet:25,56 viseur-deplacer:198,56 annuler:25,106 retablir:198,106 supprimer:25,156 terminer:198,156 ici:14,221"
+   "detail": "viseur-sommet:25,56 viseur-deplacer:198,56 annuler:25,106 retablir:198,106 supprimer:25,156 terminer:198,156 ici:14,400"
   },
   {
    "id": "E2E-26",
