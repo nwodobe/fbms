@@ -1,0 +1,927 @@
+/* ANAGROCI Operations — Offline First terrain.
+   Couche unique pour FIELD BUYING : IndexedDB, file persistante, idempotence,
+   cache de référentiels et synchronisation au retour du réseau.
+   Le serveur reste l'autorité : aucune permission, avance ou règle métier n'est
+   considérée définitive tant que l'opération n'est pas synchronisée. */
+(function (global) {
+'use strict';
+
+var DB_NAME = 'anagroci_ops_offline';
+var DB_VERSION = 1;
+var STORE_META = 'meta';
+var STORE_BUNDLES = 'bundles';
+var STORE_OPS = 'operations';
+var STORE_MAP = 'mappings';
+var MAX_BATCH = 50;
+var SYNC_INTERVAL = 60000;
+var dbPromise = null;
+var syncPromise = null;
+var syncTimer = null;
+var runtime = { syncing: false, done: 0, total: 0, lastError: null };
+/* Version de diagnostic (incident SOUAFOUÈ KAN, 18/11/2026) : aucune opération
+   locale n'est supprimée et aucun enrôlement local ne peut être annulé depuis
+   le téléphone. Les preuves restent sur l'appareil jusqu'à la fin de l'enquête. */
+var RETENTION_LOCK = true;
+var ENROLL_TYPES = ['FARMER_ENROLL', 'COOP_FARMER_ENROLL'];
+var MAX_ATTEMPTS = 10;
+/* Historique des cycles de synchronisation (méta-données uniquement, aucune
+   donnée personnelle). Les opérations elles-mêmes ne sont jamais tronquées. */
+var EVENTS_KEY = 'sync_events';
+var EVENTS_MAX = 300;
+
+function nowIso() { return new Date().toISOString(); }
+function uuid() {
+  if (global.crypto && global.crypto.randomUUID) return global.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 3 | 8); return v.toString(16);
+  });
+}
+function isOnline() { return typeof navigator === 'undefined' ? true : navigator.onLine !== false; }
+function campaignId() {
+  try { return global.ANAGROCI_CAMPAIGN && global.ANAGROCI_CAMPAIGN.id && global.ANAGROCI_CAMPAIGN.id(); } catch (e) { return null; }
+}
+function campaignCode() {
+  try { return global.ANAGROCI_CAMPAIGN && global.ANAGROCI_CAMPAIGN.code && global.ANAGROCI_CAMPAIGN.code(); } catch (e) { return null; }
+}
+function profile() {
+  return global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile ? global.ANAGROCI_AUTH.profile : {};
+}
+/* Isolation multi-utilisateurs sur un même téléphone (AFLP 2027).
+   Le serveur attribue chaque opération synchronisée à la session courante
+   (auth.uid()). Sans ce filtre, l'utilisateur B connecté après A enverrait
+   les opérations de A sous son propre nom. Une opération sans user_id
+   (créée avant cette garde) reste traitée comme appartenant à l'utilisateur
+   connecté, pour ne jamais bloquer une file existante. */
+function currentUserId() { var p = profile(); return p.user_id || p.userId || null; }
+function ownedBy(uid, row) { if (!uid) return true; return !row || !row.user_id || row.user_id === uid; }
+function idbReq(req) {
+  return new Promise(function (resolve, reject) {
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function () { reject(req.error || new Error('IndexedDB indisponible')); };
+  });
+}
+function openDb() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise(function (resolve, reject) {
+    if (!global.indexedDB) return reject(new Error('IndexedDB indisponible sur cet appareil.'));
+    var req = global.indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function () {
+      var db = req.result;
+      if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META, { keyPath: 'key' });
+      if (!db.objectStoreNames.contains(STORE_BUNDLES)) {
+        var b = db.createObjectStore(STORE_BUNDLES, { keyPath: 'key' });
+        b.createIndex('campaign_id', 'campaign_id', { unique: false });
+        b.createIndex('cached_at', 'cached_at', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_OPS)) {
+        var o = db.createObjectStore(STORE_OPS, { keyPath: 'id' });
+        o.createIndex('status', 'status', { unique: false });
+        o.createIndex('campaign_id', 'campaign_id', { unique: false });
+        o.createIndex('created_at_client', 'created_at_client', { unique: false });
+        o.createIndex('idempotency_key', 'idempotency_key', { unique: true });
+      }
+      if (!db.objectStoreNames.contains(STORE_MAP)) db.createObjectStore(STORE_MAP, { keyPath: 'local_id' });
+    };
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function () { reject(req.error || new Error('Ouverture IndexedDB impossible.')); };
+  });
+  return dbPromise;
+}
+function tx(store, mode, fn) {
+  return openDb().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tr = db.transaction(store, mode);
+      var st = tr.objectStore(store), out;
+      try { out = fn(st, tr); } catch (e) { reject(e); return; }
+      tr.oncomplete = function () { resolve(out); };
+      tr.onerror = function () { reject(tr.error || new Error('Transaction locale impossible.')); };
+      tr.onabort = function () { reject(tr.error || new Error('Transaction locale annulée.')); };
+    });
+  });
+}
+function get(store, key) { return openDb().then(function (db) { return idbReq(db.transaction(store, 'readonly').objectStore(store).get(key)); }); }
+function put(store, row) { return tx(store, 'readwrite', function (st) { st.put(row); return row; }); }
+function del(store, key) { return tx(store, 'readwrite', function (st) { st.delete(key); return true; }); }
+function all(store) { return openDb().then(function (db) { return idbReq(db.transaction(store, 'readonly').objectStore(store).getAll()); }); }
+
+function setMeta(key, value) { return put(STORE_META, { key: key, value: value, updated_at: nowIso() }); }
+function getMeta(key) { return get(STORE_META, key).then(function (x) { return x ? x.value : null; }); }
+function deviceId() {
+  return getMeta('device_id').then(function (x) {
+    if (x) return x;
+    var id = uuid(); return setMeta('device_id', id).then(function () { return id; });
+  });
+}
+function legacyBundleKey(name, cid) { return name + ':' + (cid || campaignId() || 'none'); }
+function bundleKey(name, cid) {
+  var uid = currentUserId();
+  return legacyBundleKey(name, cid) + (uid ? ':u:' + uid : '');
+}
+function setBundle(name, value, opts) {
+  opts = opts || {}; var cid = opts.campaign_id === undefined ? campaignId() : opts.campaign_id;
+  return put(STORE_BUNDLES, { key: bundleKey(name, cid), name: name, campaign_id: cid || null, owner_user_id: currentUserId(), cached_at: nowIso(), value: value });
+}
+function getBundle(name, opts) {
+  opts = opts || {}; var cid = opts.campaign_id === undefined ? campaignId() : opts.campaign_id;
+  var key = bundleKey(name, cid), legacy = legacyBundleKey(name, cid);
+  return get(STORE_BUNDLES, key).then(function (x) {
+    if (x) return x.value;
+    if (key === legacy) return null;
+    /* Cache préparé avant l'isolation : utilisable seulement s'il n'est
+       attribué à aucun autre utilisateur. */
+    return get(STORE_BUNDLES, legacy).then(function (y) {
+      return y && ownedBy(currentUserId(), { user_id: y.owner_user_id }) ? y.value : null;
+    });
+  });
+}
+function setTable(name, rows, opts) { return setBundle('table:' + name, rows || [], opts); }
+function getTable(name, opts) { return getBundle('table:' + name, opts).then(function (x) { return x || []; }); }
+function updateBundle(name, updater, opts) {
+  opts = opts || {}; var cid = opts.campaign_id === undefined ? campaignId() : opts.campaign_id;
+  var key = bundleKey(name, cid);
+  return openDb().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tr = db.transaction(STORE_BUNDLES, 'readwrite'), st = tr.objectStore(STORE_BUNDLES), req = st.get(key), out;
+      req.onerror = function () { reject(req.error); };
+      req.onsuccess = function () {
+        var row = req.result || { key: key, name: name, campaign_id: cid || null, owner_user_id: currentUserId(), value: null };
+        try { out = updater(row.value); } catch (e) { reject(e); tr.abort(); return; }
+        row.value = out; row.cached_at = nowIso(); st.put(row);
+      };
+      tr.oncomplete = function () { resolve(out); };
+      tr.onerror = function () { reject(tr.error); };
+    });
+  });
+}
+
+function statusRank(s) { return { PENDING: 1, SYNCING: 2, FAILED: 3, CONFLICT: 4, NEEDS_REVIEW: 5, SYNCED: 6, CANCELLED: 7 }[s] || 99; }
+function summary() {
+  return all(STORE_OPS).then(function (ops) {
+    var uid = currentUserId();
+    var s = { online: isOnline(), syncing: runtime.syncing, done: runtime.done, total: runtime.total, pending: 0, failed: 0, conflicts: 0, review: 0, synced: 0, cancelled: 0, other_users_open: 0, other_users_total: 0, lastError: runtime.lastError,
+      waiting: 0, in_progress: 0, blocked: 0, total_local: 0, transmitted: 0, accepted: 0, enroll_total: 0, enroll_open: 0 };
+    ops.forEach(function (o) {
+      if (!ownedBy(uid, o)) {
+        s.other_users_total++;
+        if (o.status !== 'SYNCED' && o.status !== 'CANCELLED') s.other_users_open++;
+        return;
+      }
+      s.total_local++;
+      if (Number(o.attempt_count || 0) > 0 || ['SYNCED', 'CONFLICT', 'NEEDS_REVIEW'].indexOf(o.status) >= 0) s.transmitted++;
+      if (o.status === 'SYNCED') s.accepted++;
+      if (ENROLL_TYPES.indexOf(o.operation_type) >= 0) { s.enroll_total++; if (o.status !== 'SYNCED' && o.status !== 'CANCELLED') s.enroll_open++; }
+      if (o.status === 'PENDING') s.waiting++;
+      if (o.status === 'SYNCING') s.in_progress++;
+      if (o.status === 'FAILED' && Number(o.attempt_count || 0) >= MAX_ATTEMPTS) s.blocked++;
+      if (o.status === 'PENDING' || o.status === 'SYNCING') s.pending++;
+      else if (o.status === 'FAILED') s.failed++;
+      else if (o.status === 'CONFLICT') s.conflicts++;
+      else if (o.status === 'NEEDS_REVIEW') s.review++;
+      else if (o.status === 'SYNCED') s.synced++;
+      else if (o.status === 'CANCELLED') s.cancelled++;
+    });
+    return s;
+  });
+}
+function emit() {
+  summary().then(function (s) {
+    try { global.dispatchEvent(new CustomEvent('anagroci:offline-status', { detail: s })); } catch (e) {}
+  });
+}
+
+function queueOperation(type, payload, opts) {
+  opts = opts || {};
+  var cid = opts.campaign_id || campaignId();
+  if (!cid) return Promise.reject(new Error('Aucune campagne active : impossible de conserver cette opération hors ligne.'));
+  return storageEstimate().then(function(st){
+    if(st.quota&&st.usage/st.quota>=0.95) throw new Error('Espace local presque saturé. Synchronisez vos opérations avant de continuer ; la file en attente ne sera jamais supprimée automatiquement.');
+    if(st.quota&&st.usage/st.quota>=0.80) runtime.lastError='Stockage local supérieur à 80 % : synchronisez dès que possible.';
+    return deviceId();
+  }).then(function (did) {
+    var p = profile();
+    var op = {
+      id: opts.id || uuid(),
+      idempotency_key: opts.idempotency_key || uuid(),
+      operation_type: type,
+      campaign_id: cid,
+      campaign_code: opts.campaign_code || campaignCode() || null,
+      user_id: p.user_id || p.userId || null,
+      device_id: did,
+      payload: payload || {},
+      dependencies: Array.isArray(opts.dependencies) ? opts.dependencies.slice() : [],
+      label: opts.label || type,
+      entity_label: opts.entity_label || null,
+      created_at_client: opts.created_at_client || nowIso(),
+      updated_at_local: nowIso(),
+      attempt_count: 0,
+      last_attempt_at: null,
+      next_attempt_at: null,
+      status: 'PENDING',
+      last_error: null,
+      result: null
+    };
+    return put(STORE_OPS, op).then(function () { emit(); return op; });
+  });
+}
+function listOperations() {
+  var uid = currentUserId();
+  return allOperations().then(function (rows) { return rows.filter(function (o) { return ownedBy(uid, o); }); });
+}
+function allOperations() {
+  return all(STORE_OPS).then(function (rows) {
+    return rows.sort(function (a, b) {
+      var ra = statusRank(a.status), rb = statusRank(b.status);
+      if (ra !== rb) return ra - rb;
+      return new Date(b.created_at_client || 0) - new Date(a.created_at_client || 0);
+    });
+  });
+}
+function updateOperation(id, patch) {
+  return openDb().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tr = db.transaction(STORE_OPS, 'readwrite'), st = tr.objectStore(STORE_OPS), req = st.get(id), out;
+      req.onsuccess = function () {
+        if (!req.result) { out = null; return; }
+        out = Object.assign({}, req.result, patch || {}, { updated_at_local: nowIso() }); st.put(out);
+      };
+      req.onerror = function () { reject(req.error); };
+      tr.oncomplete = function () { emit(); resolve(out); };
+      tr.onerror = function () { reject(tr.error); };
+    });
+  });
+}
+function cancelOperation(id) {
+  return listOperations().then(function (ops) {
+    var dep = ops.filter(function (o) { return o.status !== 'CANCELLED' && o.status !== 'SYNCED' && (o.dependencies || []).indexOf(id) >= 0; });
+    if (dep.length) throw new Error('Cette opération est utilisée par ' + dep.length + ' autre(s) opération(s) locale(s). Annulez d’abord les dépendances.');
+    var row = ops.filter(function (o) { return o.id === id; })[0];
+    if (!row) throw new Error('Opération introuvable.');
+    if (row.status === 'SYNCED') throw new Error('Une opération déjà synchronisée ne peut pas être annulée localement.');
+    if (RETENTION_LOCK && ENROLL_TYPES.indexOf(row.operation_type) >= 0) throw new Error('Version de diagnostic : un enrôlement local ne peut pas être annulé sur le téléphone. Synchronisez-le ou contactez le Branch Manager.');
+    return updateOperation(id, { status: 'CANCELLED', last_error: null });
+  });
+}
+function mappingSet(localId, serverId, farmerId) {
+  if (!localId || !serverId) return Promise.resolve();
+  return put(STORE_MAP, { local_id: localId, server_id: serverId, farmer_id: farmerId || null, mapped_at: nowIso() });
+}
+function mappingsObject() {
+  return all(STORE_MAP).then(function (rows) { var m = {}; rows.forEach(function (x) { m[x.local_id] = x; }); return m; });
+}
+function resolveRefs(value, maps) {
+  if (typeof value === 'string' && maps[value]) return maps[value].server_id;
+  if (Array.isArray(value)) return value.map(function (x) { return resolveRefs(x, maps); });
+  if (value && typeof value === 'object') {
+    var o = {}; Object.keys(value).forEach(function (k) { o[k] = resolveRefs(value[k], maps); }); return o;
+  }
+  return value;
+}
+function depsDone(op, byId) {
+  return (op.dependencies || []).every(function (id) { return byId[id] && byId[id].status === 'SYNCED'; });
+}
+function nextBackoff(attempt) {
+  var sec = Math.min(Math.pow(2, Math.max(0, attempt || 0)), 300);
+  var jitter = 0.8 + Math.random() * 0.4;
+  return new Date(Date.now() + sec * 1000 * jitter).toISOString();
+}
+function getClient() {
+  if (!global.supabase || !global.supabase.createClient || !global.ANAGROCI_SUPABASE_URL || !global.ANAGROCI_SUPABASE_ANON) return null;
+  if (!getClient._client) getClient._client = global.supabase.createClient(global.ANAGROCI_SUPABASE_URL, global.ANAGROCI_SUPABASE_ANON);
+  return getClient._client;
+}
+function resetStaleSyncing() {
+  return allOperations().then(function (ops) {
+    var stale = ops.filter(function (o) { return o.status === 'SYNCING'; });
+    return Promise.all(stale.map(function (o) { return updateOperation(o.id, { status: 'PENDING', last_error: 'Synchronisation interrompue : reprise automatique.' }); }));
+  });
+}
+
+function friendly(msg){
+  var m=String(msg||'');
+  try{if(global.ANAGROCI_ERREUR_METIER)return global.ANAGROCI_ERREUR_METIER(m);}catch(e){}
+  if(/row-level security|permission denied/i.test(m))return 'Vous n’avez plus l’autorisation d’effectuer cette opération.';
+  if(/duplicate key|unique constraint/i.test(m))return 'Cette opération ou cette référence existe déjà : vérification requise.';
+  if(/failed to fetch|network|load failed/i.test(m))return 'Connexion indisponible. L’opération reste conservée sur cet appareil.';
+  return m;
+}
+function applyResult(op, res) {
+  var status = String(res.status || 'FAILED').toUpperCase();
+  var patch = { status: status, result: res, last_error: res.message ? friendly(res.message) : null, server_answered_at: nowIso() };
+  if (res.server_id) patch.server_id = res.server_id;
+  if (res.farmer_id) patch.server_farmer_id = res.farmer_id;
+  if (status === 'SYNCED') { patch.last_error = null; patch.next_attempt_at = null; patch.synced_at = nowIso(); }
+  if (status === 'FAILED') patch.next_attempt_at = nextBackoff(op.attempt_count || 1);
+  if (status === 'CONFLICT' || status === 'NEEDS_REVIEW') patch.next_attempt_at = null;
+  return updateOperation(op.id, patch).then(function () {
+    if (res.local_id && res.server_id) return mappingSet(res.local_id, res.server_id, res.farmer_id);
+  }).then(function () {
+    if (status !== 'SYNCED') return;
+    if (op.operation_type === 'FARMER_ENROLL' || op.operation_type === 'COOP_FARMER_ENROLL') {
+      var localFarmerId=res.local_id || (op.payload && op.payload.local_id);
+      var jobs=[updateBundle('field_base', function (b) {
+        if (!b || !b.farmers) return b;
+        b.farmers = b.farmers.map(function (f) {
+          if (f.producteur_id !== localFarmerId) return f;
+          return Object.assign({}, f, { producteur_id: res.server_id || f.producteur_id, farmer_id: res.farmer_id || f.farmer_id, local_only: false, pending_sync: false });
+        });
+        return b;
+      }, { campaign_id: op.campaign_id }).catch(function () {})];
+      if(op.operation_type==='COOP_FARMER_ENROLL'&&op.payload&&op.payload.candidate&&op.payload.candidate.cooperative_id){
+        jobs.push(updateBundle('coop_members:'+op.payload.candidate.cooperative_id,function(rows){
+          return (rows||[]).map(function(m){
+            if(m.producer_id!==localFarmerId)return m;
+            return Object.assign({},m,{producer_id:res.server_id||m.producer_id,farmer_id:res.farmer_id||m.farmer_id,membership_id:res.membership_id||m.membership_id,local_only:false,pending_sync:false});
+          });
+        },{campaign_id:op.campaign_id}).catch(function(){}));
+      }
+      return Promise.all(jobs);
+    }
+    if (op.operation_type === 'COOP_FARMER_LINK' && op.payload && op.payload.member) {
+      return updateBundle('coop_members:'+op.payload.member.cooperative_id,function(rows){
+        return (rows||[]).map(function(m){
+          if(m.producer_id!==op.payload.member.producer_id || !m.pending_sync)return m;
+          return Object.assign({},m,{farmer_id:res.farmer_id||m.farmer_id,membership:res.membership||m.membership,local_only:false,pending_sync:false});
+        });
+      },{campaign_id:op.campaign_id}).catch(function(){});
+    }
+    if (op.operation_type === 'FIELD_PURCHASE_CREATE') {
+      return updateBundle('field_base', function (b) {
+        if (!b || !b.achats) return b;
+        var lid = op.payload && op.payload.row && op.payload.row.local_id;
+        b.achats = b.achats.map(function (a) {
+          if (!lid || a.local_id !== lid) return a;
+          return Object.assign({}, a, { id: res.purchase_id || a.id, pending_sync: false, local_only: false, statut_validation: a.statut_validation === 'LOCAL · EN ATTENTE' ? ((op.payload&&op.payload.row&&op.payload.row.statut_validation)||'À valider') : a.statut_validation });
+        });
+        return b;
+      }, { campaign_id: op.campaign_id }).catch(function () {});
+    }
+  });
+}
+
+function syncNow() {
+  if (syncPromise) return syncPromise;
+  if (!isOnline()) { emit(); return Promise.reject(new Error('Hors ligne : les opérations restent conservées sur cet appareil.')); }
+  var cl = getClient();
+  if (!cl) return Promise.reject(new Error('Client Supabase indisponible.'));
+
+  syncPromise = cl.auth.getSession().then(function (s) {
+    if (!(s.data && s.data.session)) throw new Error('Session expirée : reconnectez-vous. Vos opérations locales sont conservées.');
+    var sessionUid = s.data.session.user && s.data.session.user.id || null;
+    return Promise.all([allOperations(), mappingsObject(), sessionUid]);
+  }).then(function (rs) {
+    var ops = rs[0], maps = rs[1], sessionUid = rs[2], byId = {}; ops.forEach(function (o) { byId[o.id] = o; });
+    var now = Date.now();
+    var eligible = ops.filter(function (o) {
+      if (o.status !== 'PENDING' && o.status !== 'FAILED') return false;
+      if (!sessionUid || !ownedBy(sessionUid, o)) return false;
+      if (Number(o.attempt_count || 0) >= MAX_ATTEMPTS) return false;
+      if (o.next_attempt_at && new Date(o.next_attempt_at).getTime() > now) return false;
+      return depsDone(o, byId);
+    }).sort(function(a,b){return new Date(a.created_at_client||0)-new Date(b.created_at_client||0);}).slice(0, MAX_BATCH);
+    if (!eligible.length) return { empty: true, open: ops.filter(function (o) { return ownedBy(sessionUid, o) && (o.status === 'PENDING' || o.status === 'FAILED'); }).length };
+
+    runtime.syncing = true; runtime.done = 0; runtime.total = eligible.length; runtime.lastError = null; emit();
+    return Promise.all(eligible.map(function (o) {
+      return updateOperation(o.id, { status: 'SYNCING', attempt_count: Number(o.attempt_count || 0) + 1, last_attempt_at: nowIso(), first_transmitted_at: o.first_transmitted_at || nowIso(), last_error: null });
+    })).then(function () {
+      return cl.rpc('offline_sync_batch', { p_operations: eligible.map(function (o) {
+        return {
+          client_operation_id: o.id,
+          idempotency_key: o.idempotency_key,
+          operation_type: o.operation_type,
+          campaign_id: o.campaign_id,
+          device_id: o.device_id,
+          created_at_client: o.created_at_client,
+          payload: resolveRefs(o.payload, maps)
+        };
+      }) });
+    }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      var results = r.data && r.data.results ? r.data.results : [];
+      var byKey = {}; results.forEach(function (x) { byKey[x.idempotency_key] = x; });
+      /* Une réponse HTTP 200 ne prouve rien : seul le résultat individuel de
+         chaque opération (clé d'idempotence) fait foi. */
+      var tally = { SYNCED: 0, FAILED: 0, CONFLICT: 0, NEEDS_REVIEW: 0, NO_RESULT: 0 };
+      return eligible.reduce(function (p, op) {
+        return p.then(function () {
+          var res = byKey[op.idempotency_key];
+          if (!res) { tally.NO_RESULT++; res = { status: 'FAILED', message: 'Aucun résultat serveur pour cette opération.' }; }
+          else { var st = String(res.status || 'FAILED').toUpperCase(); tally[st] = (tally[st] || 0) + 1; }
+          return applyResult(op, res).then(function () { runtime.done++; emit(); });
+        });
+      }, Promise.resolve()).then(function () {
+        return logSyncEvent({ kind: 'BATCH', sent: eligible.length, received: results.length, results: tally,
+          enroll_sent: eligible.filter(function (o) { return ENROLL_TYPES.indexOf(o.operation_type) >= 0; }).length });
+      }).then(function () { return { synced: tally.SYNCED, sent: eligible.length, results: tally }; });
+    });
+  }).catch(function (err) {
+    runtime.lastError = friendly(err && err.message ? err.message : String(err));
+    logSyncEvent({ kind: 'ERROR', message: runtime.lastError });
+    return allOperations().then(function (ops) {
+      var affected = ops.filter(function (o) { return o.status === 'SYNCING'; });
+      return Promise.all(affected.map(function (o) {
+        return updateOperation(o.id, { status: 'PENDING', last_error: runtime.lastError, next_attempt_at: nextBackoff(o.attempt_count || 1) });
+      })).then(function () { throw err; });
+    });
+  }).finally(function () {
+    runtime.syncing = false; runtime.done = 0; runtime.total = 0; syncPromise = null; emit();
+  });
+
+  return syncPromise.then(function (x) {
+    if (!x || x.empty || !isOnline()) return x;
+    /* Drain the queue in the same user-visible sync cycle. Dependencies (for example
+       FARMER_ENROLL -> FIELD_PURCHASE_CREATE) become eligible only after the first
+       batch has produced the local_id -> server_id mapping. Waiting for the next
+       timer made callers observe a half-synchronised state and could leave an
+       offline purchase pending after the farmer had already been created. */
+    return new Promise(function (resolve) { setTimeout(resolve, 50); }).then(function () {
+      return syncNow();
+    }).then(function (next) {
+      return { synced: Number(x.synced || 0) + Number(next && next.synced || 0), drained: !!(next && next.empty) };
+    });
+  });
+}
+
+function pendingSpend(rtId) {
+  /* Prudence caisse : toute dépense locale non synchronisée de l'appareil compte. */
+  return allOperations().then(function (ops) {
+    return ops.filter(function (o) {
+      if (['PENDING','SYNCING','FAILED'].indexOf(o.status) < 0 || o.operation_type !== 'FIELD_PURCHASE_CREATE') return false;
+      var r = o.payload && o.payload.row; return r && r.rt_id === rtId;
+    }).reduce(function (t, o) { return t + Number((o.payload.row && o.payload.row.montant) || 0); }, 0);
+  });
+}
+function estimatedCashAvailable(rtId, base, cash) {
+  var av = cash && cash.avances ? cash.avances : [], buys = base && base.achats ? base.achats : [];
+  var total = av.filter(function (a) { return a.rt_id === rtId && a.statut !== 'Annulee'; }).reduce(function (t, a) { return t + Number(a.montant || 0); }, 0);
+  var used = buys.filter(function (a) { return a.rt_id === rtId && !a.rejet && !a.pending_sync; }).reduce(function (t, a) { return t + Number(a.montant || 0); }, 0);
+  return pendingSpend(rtId).then(function (p) { return { advance: total, server_used: used, pending: p, available: total - used - p }; });
+}
+
+function appendLocalFarmer(row, opts) {
+  opts = opts || {}; var cid = opts.campaign_id || campaignId();
+  return updateBundle('field_base', function (b) {
+    if (!b) return b;
+    b.farmers = b.farmers || [];
+    if (!b.farmers.some(function (f) { return f.producteur_id === row.producteur_id; })) b.farmers.push(row);
+    return b;
+  }, { campaign_id: cid });
+}
+function appendPendingPurchase(row, opts) {
+  opts = opts || {}; var cid = opts.campaign_id || campaignId();
+  return updateBundle('field_base', function (b) {
+    if (!b) return b;
+    b.achats = b.achats || [];
+    if (!b.achats.some(function (a) { return a.local_id === row.local_id; })) b.achats.unshift(row);
+    return b;
+  }, { campaign_id: cid });
+}
+
+function prepareDeviceLease(rtId) {
+  if (!isOnline()) return Promise.reject(new Error('Connexion requise pour autoriser cet appareil aux achats hors ligne.'));
+  var cl=getClient(); if(!cl) return Promise.reject(new Error('Client Supabase indisponible.'));
+  return deviceId().then(function(did){
+    return cl.rpc('offline_prepare_device',{p_device_id:did,p_campaign_id:campaignId(),p_rt_id:rtId||null,p_hours:18});
+  }).then(function(r){
+    if(r.error) throw new Error(r.error.message);
+    var lease=r.data||null;
+    return getMeta('offline_device_leases').then(function(m){
+      m=m&&typeof m==='object'?m:{};
+      if(lease&&lease.authorized===true&&lease.rt_id)m[String(lease.rt_id)]=lease;
+      return setMeta('offline_device_leases',m).then(function(){return lease;});
+    });
+  });
+}
+function getDeviceLeases() { return getMeta('offline_device_leases').then(function(m){return m&&typeof m==='object'?m:{};}); }
+function getDeviceLease(rtId) {
+  return getDeviceLeases().then(function(m){
+    if(rtId!=null&&m[String(rtId)])return m[String(rtId)];
+    var keys=Object.keys(m),now=Date.now();
+    for(var i=0;i<keys.length;i++){var l=m[keys[i]];if(l&&l.authorized===true&&(!l.valid_until||new Date(l.valid_until).getTime()>now))return l;}
+    return null;
+  });
+}
+function leaseAllows(rtId) {
+  return getDeviceLeases().then(function(m){
+    var l=m[String(rtId||'')]||null;
+    if(!l||l.authorized!==true) return {ok:false,reason:'Ce RT n’est pas encore autorisé pour les achats hors ligne sur cet appareil.'};
+    if(l.campaign_id&&campaignId()&&String(l.campaign_id)!==String(campaignId()))return {ok:false,reason:'L’autorisation hors ligne de ce RT appartient à une autre campagne.'};
+    if(l.valid_until&&new Date(l.valid_until).getTime()<Date.now()) return {ok:false,reason:'L’autorisation d’achat hors ligne de ce RT a expiré. Reconnectez-vous et préparez de nouveau ce RT.'};
+    return {ok:true,lease:l};
+  });
+}
+
+function readiness() {
+  var cid = campaignId();
+  return Promise.all([
+    getBundle('field_base', { campaign_id: cid }),
+    getBundle('field_rule', { campaign_id: cid }),
+    getBundle('cash', { campaign_id: cid }),
+    getBundle('bags', { campaign_id: cid }),
+    getBundle('coop_dashboard', { campaign_id: cid }),
+    getMeta('last_prepared'),
+    getDeviceLeases()
+  ]).then(function (rs) {
+    var b = rs[0] || {}, last = rs[5] || null, leases=rs[6] || {};
+    var now=Date.now(),activeLeases=Object.keys(leases).map(function(k){return leases[k];}).filter(function(l){return l&&l.authorized===true&&(!l.valid_until||new Date(l.valid_until).getTime()>now);});
+    return {
+      campaign_id: cid,
+      campaign_code: campaignCode(),
+      last_prepared: last,
+      ready: !!(cid && rs[0] && rs[1] && rs[2]),
+      villages: (b.villages || []).length,
+      rts: (b.rts || []).length,
+      rts_list: (b.rts || []).filter(function(x){return !x.deleted;}).map(function(x){return {id:x.id,id_rt:x.id_rt||x.id,nom:x.nom||'',village_nom:x.village_nom||'',cluster:x.cluster||''};}),
+      producers: (b.farmers || []).length,
+      cooperatives: Array.isArray(rs[4]) ? rs[4].length : 0,
+      purchases: (b.achats || []).length,
+      bags_cached: !!rs[3],
+      cash_cached: !!rs[2],
+      rule_cached: !!rs[1],
+      lease: activeLeases[0]||null,
+      leases: activeLeases,
+      cash_offline_authorized: activeLeases.length>0
+    };
+  });
+}
+function markPrepared(extra) {
+  return setMeta('last_prepared', Object.assign({ at: nowIso(), campaign_id: campaignId(), campaign_code: campaignCode() }, extra || {})).then(emit);
+}
+function nativeShell() {
+  /* Application Android ANAGROCI FIELD BUYING : les fichiers de l'application
+     sont livrés DANS l'APK et servis localement. Il n'y a rien à précacher ;
+     le pont natif confirme que les fichiers critiques sont présents. */
+  try {
+    var n = global.AnagrociNative;
+    if (!n || typeof n.shellStatus !== 'function') return null;
+    var st = JSON.parse(n.shellStatus() || '{}');
+    return st && st.bundled === true ? st : { bundled: false, missing: st && st.missing || [] };
+  } catch (e) { return { bundled: false, error: String(e && e.message || e) }; }
+}
+function prepareShell() {
+  var nat = nativeShell();
+  if (nat) {
+    return Promise.resolve({ service_worker: false, native_bundle: nat.bundled === true, precache_confirmed: nat.bundled === true,
+      version: nat.version || null, missing: nat.missing || [] });
+  }
+  var secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!('serviceWorker' in navigator) || !secure) return Promise.resolve({ service_worker: false });
+  return navigator.serviceWorker.register('../sw.js', { scope: '../' }).then(function (reg) {
+    return navigator.serviceWorker.ready.then(function (ready) {
+      var target = ready.active || reg.active || reg.waiting || reg.installing;
+      if (!target) return { service_worker:false, scope:ready.scope||reg.scope };
+      return new Promise(function (resolve) {
+        var done=false, timer=setTimeout(function(){if(done)return;done=true;navigator.serviceWorker.removeEventListener('message',onMsg);resolve({service_worker:true,scope:ready.scope||reg.scope,precache_confirmed:false});},10000);
+        function onMsg(ev){
+          if(!ev.data||ev.data.type!=='PRECACHE_FIELD_DONE'||done)return;
+          done=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);
+          resolve({service_worker:true,scope:ready.scope||reg.scope,precache_confirmed:true,version:ev.data.version||null});
+        }
+        navigator.serviceWorker.addEventListener('message',onMsg);
+        target.postMessage({ type: 'PRECACHE_FIELD' });
+      });
+    });
+  });
+}
+function storageEstimate() {
+  if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve({ usage: null, quota: null, persisted: null });
+  return Promise.all([
+    navigator.storage.estimate(),
+    navigator.storage.persisted ? navigator.storage.persisted().catch(function(){return null;}) : Promise.resolve(null)
+  ]).then(function (x) { return { usage: x[0].usage || 0, quota: x[0].quota || 0, persisted: x[1] }; });
+}
+function requestPersistentStorage() {
+  if (!navigator.storage || !navigator.storage.persist) return Promise.resolve(false);
+  return navigator.storage.persist().catch(function () { return false; });
+}
+function logSyncEvent(ev) {
+  ev = Object.assign({ at: nowIso(), user_id: currentUserId(), online: isOnline() }, ev || {});
+  return getMeta(EVENTS_KEY).then(function (list) {
+    list = Array.isArray(list) ? list : [];
+    list.unshift(ev);
+    if (list.length > EVENTS_MAX) list = list.slice(0, EVENTS_MAX);
+    return setMeta(EVENTS_KEY, list);
+  }).then(function () { return setMeta('last_sync_event', ev); }).catch(function () {});
+}
+function syncEvents() { return getMeta(EVENTS_KEY).then(function (l) { return Array.isArray(l) ? l : []; }).catch(function () { return []; }); }
+function lastSyncEvent() { return getMeta('last_sync_event').catch(function () { return null; }); }
+/* Relance manuelle : l'identifiant d'opération et la clé d'idempotence ne
+   changent JAMAIS ; le serveur reconnaît une opération déjà reçue. Les
+   conflits et vérifications ne sont pas forcés. */
+function retryOperation(id) {
+  return listOperations().then(function (ops) {
+    var row = ops.filter(function (o) { return o.id === id; })[0];
+    if (!row) throw new Error('Opération introuvable pour ce compte.');
+    if (row.status !== 'FAILED' && row.status !== 'PENDING') throw new Error('Statut ' + row.status + ' : cette opération ne se relance pas automatiquement. Contrôle manuel requis.');
+    return updateOperation(id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null, manual_retry_at: nowIso(), manual_retry_count: Number(row.manual_retry_count || 0) + 1 });
+  }).then(function () { return logSyncEvent({ kind: 'RETRY', scope: 'ONE', count: 1 }); }).then(manualSync);
+}
+function retryFailed() {
+  return listOperations().then(function (ops) {
+    var f = ops.filter(function (o) { return o.status === 'FAILED'; });
+    return Promise.all(f.map(function (o) {
+      return updateOperation(o.id, { status: 'PENDING', attempt_count: 0, next_attempt_at: null, last_error: null, manual_retry_at: nowIso(), manual_retry_count: Number(o.manual_retry_count || 0) + 1 });
+    })).then(function () { return logSyncEvent({ kind: 'RETRY', scope: 'FAILED', count: f.length }); }).then(function () { return f.length; });
+  }).then(function (n) { if (!n) return { retried: 0 }; return manualSync().then(function (x) { return Object.assign({ retried: n }, x || {}); }); });
+}
+function manualSync() {
+  if (!isOnline()) { logSyncEvent({ kind: 'OFFLINE', manual: true }); return Promise.reject(new Error('Hors ligne : les opérations restent conservées sur cet appareil.')); }
+  return syncNow().then(function (x) {
+    if (x && x.empty) logSyncEvent({ kind: 'NOTHING', manual: true, open: x.open || 0 });
+    return x;
+  });
+}
+function redactPayload(op) {
+  var p = op.payload || {}, row = p.row || p.candidate || p.member || {};
+  return { village_id: row.village_id || null, rt_id: row.rt_id || null, cooperative_id: row.cooperative_id || null,
+    has_plot_gps: !!(p.plot && p.plot.latitude != null && p.plot.longitude != null) };
+}
+/* Diagnostic local minimisé : aucun nom, téléphone, pièce d'identité ni
+   coordonnée de paiement. Les opérations d'un autre compte ne sont comptées
+   que globalement. */
+function diagnostic(extra) {
+  var uid = currentUserId();
+  return Promise.all([allOperations(), summary(), syncEvents(), deviceId(), storageEstimate(), getMeta('last_prepared')]).then(function (rs) {
+    var ops = rs[0];
+    var mine = ops.filter(function (o) { return ownedBy(uid, o); });
+    return {
+      format: 'ANAGROCI_FBMS_DIAGNOSTIC_SYNC@1',
+      generated_at: nowIso(),
+      app: global.ANAGROCI_NATIVE || { platform: 'web' },
+      origin: global.location ? global.location.origin : null,
+      device_id: rs[3], user_id: uid,
+      campaign_id: campaignId(), campaign_code: campaignCode(),
+      storage: rs[4], last_prepared: rs[5] ? { at: rs[5].at, campaign_code: rs[5].campaign_code, producers: rs[5].producers } : null,
+      summary: rs[1],
+      other_accounts: { operations: ops.length - mine.length, open: rs[1].other_users_open },
+      operations: mine.map(function (o) {
+        var r = o.result || {};
+        return { id: o.id, idempotency_key: o.idempotency_key, type: o.operation_type, status: o.status,
+          created_at_client: o.created_at_client, first_transmitted_at: o.first_transmitted_at || null,
+          last_attempt_at: o.last_attempt_at || null, server_answered_at: o.server_answered_at || null, synced_at: o.synced_at || null,
+          attempts: Number(o.attempt_count || 0), manual_retries: Number(o.manual_retry_count || 0),
+          server_id: o.server_id || r.server_id || null, farmer_id: o.server_farmer_id || r.farmer_id || null,
+          local_id: (o.payload && o.payload.local_id) || null, campaign_code: o.campaign_code || null,
+          error: o.last_error || null, dependencies: (o.dependencies || []).length, context: redactPayload(o) };
+      }),
+      events: rs[2].slice(0, 100),
+      extra: extra || null
+    };
+  });
+}
+function clearSynced() {
+  if (RETENTION_LOCK) return Promise.reject(new Error('Version de diagnostic : le nettoyage est désactivé. Aucune opération locale n’est supprimée de ce téléphone.'));
+  return listOperations().then(function (ops) {
+    return Promise.all(ops.filter(function (o) { return o.status === 'SYNCED' || o.status === 'CANCELLED'; })
+      .map(function (o) { return del(STORE_OPS, o.id); }));
+  }).then(function () { emit(); return true; });
+}
+
+function htmlEscape(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function journalHtml(ops) {
+  if (!ops.length) return '<div class="ops-empty">Aucune opération locale pour le moment.</div>';
+  return '<div class="table-wrap"><table><thead><tr><th>État</th><th>Type</th><th>Créée</th><th>Objet</th><th>Message</th><th></th></tr></thead><tbody>' +
+    ops.map(function (o) {
+      var cls = o.status === 'SYNCED' ? 'ok' : (o.status === 'CONFLICT' || o.status === 'NEEDS_REVIEW' || o.status === 'FAILED') ? 'danger' : 'warn';
+      var canCancel = o.status !== 'SYNCED' && o.status !== 'CANCELLED';
+      return '<tr><td><span class="badge ' + cls + '">' + htmlEscape(o.status) + '</span></td><td><b>' + htmlEscape(o.operation_type) + '</b></td>' +
+        '<td>' + htmlEscape(new Date(o.created_at_client).toLocaleString('fr-FR')) + '</td><td>' + htmlEscape(o.entity_label || o.label || '—') + '</td>' +
+        '<td>' + htmlEscape(o.last_error || (o.status === 'PENDING' ? 'En attente de synchronisation' : '—')) + '</td><td>' +
+        ((o.status === 'FAILED' || o.status === 'PENDING') ? '<button class="btn secondary" type="button" data-off-retry="' + o.id + '">Réessayer</button> ' : '') +
+        (canCancel ? '<button class="btn secondary" type="button" data-off-cancel="' + o.id + '">Annuler</button>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
+
+function startTimer() {
+  if (syncTimer) return;
+  syncTimer = global.setInterval(function () {
+    if (isOnline()) summary().then(function (s) { if (s.pending || s.failed) syncNow().catch(function () {}); });
+  }, SYNC_INTERVAL);
+}
+
+global.addEventListener && global.addEventListener('online', function () { emit(); setTimeout(function () { syncNow().catch(function () {}); }, 1000); });
+global.addEventListener && global.addEventListener('offline', emit);
+global.addEventListener && global.addEventListener('focus', function () { if (isOnline()) syncNow().catch(function () {}); });
+
+var API = {
+  ready: function () { return openDb().then(resetStaleSyncing).then(function () { startTimer(); emit(); return true; }); },
+  isOnline: isOnline,
+  uuid: uuid,
+  deviceId: deviceId,
+  campaignId: campaignId,
+  campaignCode: campaignCode,
+  setMeta: setMeta,
+  getMeta: getMeta,
+  setBundle: setBundle,
+  getBundle: getBundle,
+  updateBundle: updateBundle,
+  setTable: setTable,
+  getTable: getTable,
+  queue: queueOperation,
+  list: listOperations,
+  summary: summary,
+  syncNow: syncNow,
+  retry: retryOperation,
+  retryFailed: retryFailed,
+  manualSync: manualSync,
+  syncEvents: syncEvents,
+  lastSyncEvent: lastSyncEvent,
+  diagnostic: diagnostic,
+  retentionLocked: function () { return RETENTION_LOCK; },
+  enrollTypes: function () { return ENROLL_TYPES.slice(); },
+  maxAttempts: MAX_ATTEMPTS,
+  cancel: cancelOperation,
+  mappingSet: mappingSet,
+  pendingSpend: pendingSpend,
+  estimatedCashAvailable: estimatedCashAvailable,
+  prepareDeviceLease: prepareDeviceLease,
+  getDeviceLease: getDeviceLease,
+  getDeviceLeases: getDeviceLeases,
+  leaseAllows: leaseAllows,
+  appendLocalFarmer: appendLocalFarmer,
+  appendPendingPurchase: appendPendingPurchase,
+  readiness: readiness,
+  markPrepared: markPrepared,
+  prepareShell: prepareShell,
+  nativeShell: nativeShell,
+  currentUserId: currentUserId,
+  storageEstimate: storageEstimate,
+  requestPersistentStorage: requestPersistentStorage,
+  clearSynced: clearSynced,
+  journalHtml: journalHtml,
+  emit: emit
+};
+global.ANAGROCI_OFFLINE = API;
+API.ready().catch(function (e) { runtime.lastError = e.message; emit(); });
+})(window);
+
+/* ---- Synchronisation & Journal : rendu de l'écran #sync (embarqué ici pour être
+   disponible hors ligne partout où le moteur l'est, Service Worker compris). ---- */
+(function (global) {
+'use strict';
+
+var STATUS = {
+  PENDING:      { fr: 'En attente',       tone: 'warn',   help: 'Enregistrée sur ce téléphone, pas encore confirmée par le serveur.' },
+  SYNCING:      { fr: 'En cours',         tone: 'info',   help: 'Envoi au serveur en cours.' },
+  SYNCED:       { fr: 'Synchronisée',     tone: 'ok',     help: 'Le serveur a confirmé l’enregistrement.' },
+  FAILED:       { fr: 'Échouée',          tone: 'danger', help: 'Erreur : une nouvelle tentative est nécessaire.' },
+  CONFLICT:     { fr: 'En conflit',       tone: 'danger', help: 'Le serveur a détecté un conflit : résolution requise, pas de relance forcée.' },
+  NEEDS_REVIEW: { fr: 'À vérifier',       tone: 'danger', help: 'Contrôle manuel requis (droits, campagne, données).' },
+  CANCELLED:    { fr: 'Annulée',          tone: 'info',   help: 'Annulée sur le téléphone, conservée pour l’historique.' }
+};
+var TYPES = {
+  FARMER_ENROLL: 'Enrôlement producteur',
+  COOP_FARMER_ENROLL: 'Enrôlement producteur (coopérative)',
+  COOP_FARMER_LINK: 'Rattachement coopérative',
+  FIELD_PURCHASE_CREATE: 'Achat bord champ'
+};
+var FILTERS = [
+  ['all', 'Toutes'], ['enroll', 'Enrôlements producteurs'], ['open', 'Non synchronisées'],
+  ['FAILED', 'Échouées'], ['CONFLICT', 'En conflit'], ['NEEDS_REVIEW', 'À vérifier'], ['SYNCED', 'Synchronisées']
+];
+var ENROLL = ['FARMER_ENROLL', 'COOP_FARMER_ENROLL'];
+var state = { filter: 'all' };
+
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function dt(v) { if (!v) return '—'; var d = new Date(v); return isNaN(d) ? '—' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function st(s) { return STATUS[s] || { fr: s || '—', tone: 'info', help: '' }; }
+function badge(s) { var x = st(s); return '<span class="badge ' + x.tone + '" data-status="' + esc(s) + '">' + esc(x.fr) + '</span>'; }
+function isEnroll(o) { return ENROLL.indexOf(o.operation_type) >= 0; }
+
+function matches(o, f) {
+  if (f === 'all') return true;
+  if (f === 'enroll') return isEnroll(o);
+  if (f === 'open') return o.status !== 'SYNCED' && o.status !== 'CANCELLED';
+  return o.status === f;
+}
+
+function villageOf(o, villages) {
+  var p = o.payload || {}, row = p.row || p.candidate || p.member || {};
+  var vid = row.village_id || null, v = vid && villages ? villages[vid] : null;
+  return { id: vid, name: v ? (v.village || v.nom || null) : null, cluster: v ? (v.cluster || v.cluster_label || v.cluster_code || null) : null };
+}
+
+function tile(label, value, detail, tone, key) {
+  return '<button type="button" class="kpi sj-tile ' + (tone || '') + '" data-sj-filter="' + esc(key) + '" aria-label="Filtrer : ' + esc(label) + '">' +
+    '<small>' + esc(label) + '</small><b>' + esc(value) + '</b><span>' + esc(detail || '') + '</span></button>';
+}
+
+function eventLine(ev) {
+  if (!ev) return 'Aucun cycle de synchronisation enregistré sur ce téléphone depuis l’installation de cette version.';
+  var when = dt(ev.at);
+  if (ev.kind === 'BATCH') {
+    var r = ev.results || {};
+    return when + ' · ' + ev.sent + ' envoyée(s) · ' + (r.SYNCED || 0) + ' acceptée(s)' +
+      ((r.FAILED || 0) ? ' · ' + r.FAILED + ' échouée(s)' : '') + ((r.CONFLICT || 0) ? ' · ' + r.CONFLICT + ' conflit(s)' : '') +
+      ((r.NEEDS_REVIEW || 0) ? ' · ' + r.NEEDS_REVIEW + ' à vérifier' : '') + ((r.NO_RESULT || 0) ? ' · ' + r.NO_RESULT + ' sans réponse serveur' : '');
+  }
+  if (ev.kind === 'ERROR') return when + ' · échec du cycle : ' + (ev.message || 'erreur inconnue');
+  if (ev.kind === 'NOTHING') return when + ' · rien à envoyer' + (ev.open ? ' (' + ev.open + ' en attente de délai de reprise)' : '');
+  if (ev.kind === 'OFFLINE') return when + ' · tentative hors ligne';
+  if (ev.kind === 'RETRY') return when + ' · relance manuelle de ' + (ev.count || 0) + ' opération(s)';
+  return when + ' · ' + ev.kind;
+}
+
+function dashboardHtml(s, lastEvent, registryPending) {
+  s = s || {};
+  var net = s.online ? 'En ligne' : 'Hors ligne';
+  var html = '<section class="kpi-grid sj-status" aria-label="Statuts de synchronisation">' +
+    tile('En attente', s.waiting || 0, 'sur le téléphone, non confirmées', (s.waiting ? 'warn' : ''), 'PENDING') +
+    tile('En cours', s.in_progress || 0, s.syncing ? 'envoi ' + (s.done || 0) + ' / ' + (s.total || 0) : 'aucun envoi en cours', '', 'SYNCING') +
+    tile('Synchronisées', s.synced || 0, 'confirmées par le serveur', '', 'SYNCED') +
+    tile('Échouées', s.failed || 0, (s.blocked ? s.blocked + ' bloquée(s) après 10 essais' : 'à réessayer'), (s.failed ? 'danger' : ''), 'FAILED') +
+    tile('En conflit', s.conflicts || 0, 'résolution requise', (s.conflicts ? 'danger' : ''), 'CONFLICT') +
+    tile('À vérifier', s.review || 0, 'contrôle manuel', (s.review ? 'danger' : ''), 'NEEDS_REVIEW') +
+    '</section>' +
+    '<section class="card sj-levels"><div class="card-head"><div><h2>Où sont mes opérations ?</h2>' +
+    '<p>Trois niveaux distincts. Une réponse « 200 » du réseau ne suffit jamais : seule la confirmation individuelle du serveur compte.</p></div></div>' +
+    '<div class="sj-level-grid">' +
+      '<div class="sj-level"><small>1 · Dans ce téléphone</small><b data-sj="total_local">' + (s.total_local || 0) + '</b><span>opérations enregistrées localement' + (s.enroll_total ? ' · dont ' + s.enroll_total + ' enrôlement(s)' : '') + '</span></div>' +
+      '<div class="sj-level"><small>2 · Transmises au serveur</small><b data-sj="transmitted">' + (s.transmitted || 0) + '</b><span>au moins un envoi effectué</span></div>' +
+      '<div class="sj-level"><small>3 · Acceptées par le serveur</small><b data-sj="accepted">' + (s.accepted || 0) + '</b><span>enregistrement confirmé (statut Synchronisée)</span></div>' +
+    '</div>' +
+    '<div class="sj-meta"><span><b>Réseau :</b> ' + esc(net) + '</span>' +
+      '<span><b>Dernier événement :</b> ' + esc(eventLine(lastEvent)) + '</span>' +
+      (s.enroll_open ? '<span class="sj-warn"><b>' + s.enroll_open + ' enrôlement(s)</b> pas encore acceptés par le serveur.</span>' : '') +
+      (registryPending ? '<span><b>Registre producteurs :</b> ' + registryPending + ' élément(s) (parcelles, durabilité, inspections) en attente.</span>' : '') +
+      (s.other_users_total ? '<span class="sj-warn"><b>Autre compte :</b> ' + s.other_users_total + ' opération(s) créée(s) sous un autre compte sur ce téléphone' +
+        (s.other_users_open ? ', dont ' + s.other_users_open + ' non synchronisée(s)' : '') + '. Elles ne s’affichent pas ici et ne partiront qu’avec la session de leur auteur.</span>' : '') +
+      (s.lastError ? '<span class="sj-warn"><b>Dernier message :</b> ' + esc(s.lastError) + '</span>' : '') +
+    '</div></section>';
+  return html;
+}
+
+function detailHtml(o, v) {
+  var r = o.result || {};
+  var rows = [
+    ['Type', (TYPES[o.operation_type] || o.operation_type) + ' (' + o.operation_type + ')'],
+    ['Statut', st(o.status).fr + ' · ' + st(o.status).help],
+    ['Enregistrée sur le téléphone', dt(o.created_at_client)],
+    ['Première transmission', dt(o.first_transmitted_at || (o.attempt_count ? o.last_attempt_at : null))],
+    ['Dernière tentative', dt(o.last_attempt_at)],
+    ['Réponse du serveur', dt(o.server_answered_at)],
+    ['Synchronisée le', dt(o.synced_at || (o.status === 'SYNCED' ? o.updated_at_local : null))],
+    ['Tentatives', String(Number(o.attempt_count || 0)) + (Number(o.manual_retry_count || 0) ? ' · ' + o.manual_retry_count + ' relance(s) manuelle(s)' : '')],
+    ['Identifiant local', o.id],
+    ['Clé d’idempotence', o.idempotency_key],
+    ['Identifiant serveur', o.server_id || r.server_id || '—'],
+    ['Farmer ID', o.server_farmer_id || r.farmer_id || '—'],
+    ['Village', v.name || v.id || '—'],
+    ['Cluster', v.cluster || '—'],
+    ['Campagne', o.campaign_code || '—'],
+    ['Message / motif', o.last_error || r.message || '—']
+  ];
+  return '<dl class="sj-detail">' + rows.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('') + '</dl>';
+}
+
+function journalHtml(ops, villages, opts) {
+  opts = opts || {};
+  var f = state.filter, list = (ops || []).filter(function (o) { return matches(o, f); });
+  var filters = '<div class="sj-filters" role="group" aria-label="Filtrer le journal">' + FILTERS.map(function (x) {
+    var n = (ops || []).filter(function (o) { return matches(o, x[0]); }).length;
+    return '<button type="button" class="btn ' + (x[0] === f ? 'primary' : 'secondary') + ' sj-filter" data-sj-filter="' + x[0] + '" aria-pressed="' + (x[0] === f) + '">' + esc(x[1]) + ' (' + n + ')</button>';
+  }).join('') + '</div>';
+  if (!list.length) return filters + '<div class="ops-empty">' + (ops && ops.length ? 'Aucune opération pour ce filtre.' : 'Aucune opération locale enregistrée sur ce téléphone pour ce compte.') + '</div>';
+  var body = list.map(function (o) {
+    var v = villageOf(o, villages);
+    var retry = (o.status === 'FAILED' || o.status === 'PENDING') ? '<button class="btn secondary" type="button" data-off-retry="' + esc(o.id) + '">Réessayer</button>' : '';
+    var cancel = (opts.allowCancel && o.status !== 'SYNCED' && o.status !== 'CANCELLED' && !isEnroll(o)) ? ' <button class="btn secondary" type="button" data-off-cancel="' + esc(o.id) + '">Annuler</button>' : '';
+    return '<details class="sj-op" data-op-id="' + esc(o.id) + '" data-op-type="' + esc(o.operation_type) + '" data-op-status="' + esc(o.status) + '">' +
+      '<summary><span class="sj-op-status">' + badge(o.status) + '</span>' +
+      '<span class="sj-op-main"><b>' + esc(TYPES[o.operation_type] || o.operation_type) + '</b><span>' + esc(o.entity_label || o.label || '—') + '</span></span>' +
+      '<span class="sj-op-when">' + esc(dt(o.created_at_client)) + (Number(o.attempt_count || 0) ? ' · ' + Number(o.attempt_count) + ' essai(s)' : '') + '</span>' +
+      (o.last_error ? '<span class="sj-op-err">' + esc(o.last_error) + '</span>' : '') +
+      '</summary>' + detailHtml(o, v) + '<div class="sj-op-actions">' + retry + cancel + '</div></details>';
+  }).join('');
+  return filters + '<div class="sj-list">' + body + '</div>';
+}
+
+function css() {
+  if (document.getElementById('sjStyle')) return;
+  var s = document.createElement('style'); s.id = 'sjStyle';
+  s.textContent = '.sj-status{grid-template-columns:repeat(3,minmax(0,1fr))}.sj-tile{text-align:left;cursor:pointer;font:inherit;color:inherit}' +
+    '.sj-level-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sj-level{border:1px solid #d9e6dc;border-radius:12px;padding:10px 12px;background:#f7fbf7}' +
+    '.sj-level small{display:block;font-weight:700;color:#3d5a47}.sj-level b{display:block;font-size:24px;color:#053B23}.sj-level span{font-size:12px;color:#506357}' +
+    '.sj-meta{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:13px}.sj-warn{color:#8a3b00}' +
+    '.sj-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.sj-filters .btn{min-height:40px;padding:6px 10px;font-size:12px}' +
+    '.sj-op{border:1px solid #dfe8e1;border-radius:12px;margin-bottom:8px;background:#fff}.sj-op summary{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:10px 12px;cursor:pointer;list-style:none}' +
+    '.sj-op summary::-webkit-details-marker{display:none}.sj-op-main b{display:block}.sj-op-main span,.sj-op-when{font-size:12px;color:#506357}.sj-op-when,.sj-op-err{grid-column:2}.sj-op-err{font-size:12px;color:#9b1c1c}' +
+    '.sj-detail{display:grid;grid-template-columns:minmax(120px,38%) 1fr;gap:4px 10px;margin:0;padding:0 12px 10px;font-size:12px}.sj-detail dt{color:#506357}.sj-detail dd{margin:0;word-break:break-all}' +
+    '.sj-op-actions{padding:0 12px 12px;display:flex;gap:8px;flex-wrap:wrap}' +
+    '@media(max-width:560px){.sj-status{grid-template-columns:repeat(2,minmax(0,1fr))}.sj-level-grid{grid-template-columns:1fr}}';
+  document.head.appendChild(s);
+}
+
+function download(name, obj) {
+  var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 1000);
+}
+
+global.ANAGROCI_SYNC_JOURNAL = {
+  STATUS: STATUS, TYPES: TYPES, FILTERS: FILTERS, state: state,
+  css: css, dashboardHtml: dashboardHtml, journalHtml: journalHtml, eventLine: eventLine,
+  matches: matches, download: download,
+  setFilter: function (f) { state.filter = FILTERS.some(function (x) { return x[0] === f; }) ? f : (STATUS[f] ? f : 'all'); return state.filter; }
+};
+})(window);
