@@ -276,7 +276,7 @@ function fiche(id) {
       raDocsHTML += '<div class="pc-actions">'
         + bouton('Export GeoJSON RA','ra-export-geojson','secondary')
         + bouton('Export KML RA','ra-export-kml','secondary')
-        + bouton('Archiver une carte PDF privée','ra-pdf-archiver','primary')
+        + (['BM','ZH'].includes(classe()) ? bouton('Archiver une carte PDF privée','ra-pdf-archiver','primary') : '')
         + '</div>' + avis('info','Préparation documentaire interne seulement. L’import réel et l’acceptation sur la plateforme Rainforest Alliance restent à confirmer.');
     } else if (consent) {
       raDocsHTML += avis('info','Export officiel bloqué tant que le Farm Unit ID, le contour validé et les preuves terrain confirmées ne sont pas réunis.');
