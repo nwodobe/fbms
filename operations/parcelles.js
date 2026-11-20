@@ -839,6 +839,43 @@ document.addEventListener('click', function (ev) {
   if (!b || !document.getElementById('opsRouteView') || !/^#parcelles/.test(location.hash)) return;
   var a = b.getAttribute('data-pc'), v = b.getAttribute('data-v'), p = parts();
   if (b.tagName === 'BUTTON') ev.preventDefault();
+  if (a === 'ra-relever' || a === 'ra-decider') {
+    if (!enLigne() || !etat.raGeometry || p[2] !== etat.raGeometry.plot_id) {
+      alert('Fiche ou connexion indisponible : rechargez la parcelle.'); return;
+    }
+    var raContext = etat.raGeometry;
+    if (a === 'ra-relever') {
+      if (!peutSaisir() || !navigator.geolocation) { alert('Droit terrain ou GPS indisponible.'); return; }
+      b.disabled = true;
+      navigator.geolocation.getCurrentPosition(function (position) {
+        var gps = position.coords;
+        var payload = {
+          id:C.uuid(), geometry_id:raContext.geometry_id,
+          latitude:gps.latitude, longitude:gps.longitude,
+          accuracy_m:gps.accuracy,
+          captured_at_client:new Date(position.timestamp).toISOString()
+        };
+        rpc('plot_map_ra_ref_ajouter', { p:payload })
+          .then(function () { etat.liste = null; return fiche(raContext.plot_id); })
+          .catch(function(e) { b.disabled = false; alert('Repère GPS NON enregistré : '+e.message); });
+      }, function(e) { b.disabled = false; alert('GPS non acquis : '+e.message); },
+      {enableHighAccuracy:true, timeout:25000, maximumAge:0});
+    } else {
+      if (!peutValider()) { alert('Validation réservée au Chef de Zone ou au Branch Manager en exception.'); return; }
+      var decision = b.getAttribute('data-decision');
+      if (decision !== 'CONFIRMER' && decision !== 'REJETER') return;
+      var texte = ((document.getElementById('pcRaMotif_' + v) || {}).value || '').trim();
+      var exception = classe() === 'BM';
+      if (exception && texte.length < 15) { alert('Exception BM : justifiez en 15 caractères minimum.'); return; }
+      if (decision === 'REJETER' && texte.length < 8) { alert('Expliquez le rejet en 8 caractères minimum.'); return; }
+      b.disabled = true;
+      rpc('plot_map_ra_ref_decider', {
+        p_reference:v, p_decision:decision, p_commentaire:texte || null, p_exception:exception
+      }).then(function () { etat.liste = null; return fiche(raContext.plot_id); })
+        .catch(function(e) { b.disabled = false; alert('Décision non enregistrée : '+e.message); });
+    }
+    return;
+  }
   if (a === 'carte-pdf' || a === 'carte-geojson') {
     try {
       if (!peutPiloter() || !etat.documentFiche || parts()[2] !== etat.documentFiche.x.plot_id)
