@@ -43,7 +43,10 @@ assert.throws(()=>generator.geojson({...plot,consentement_gps:false},geometry),/
 assert.throws(()=>generator.html(plot,{...geometry,plot_id:'plot-2'}),/Aucun contour/);
 assert.throws(()=>generator.geojson(plot,{...geometry,geojson:{type:'Point',coordinates:[-5.2,7.8]}}),/Export interdit/);
 assert.match(generator.qualification({...geometry,status:'SOUMIS'}),/PROVISOIRE/);
-assert.match(generator.qualification({...geometry,gps_points:3,method:'GPS_POINTS'}),/examen documentaire/);
+assert.match(generator.qualification({...geometry,gps_points:3,method:'GPS_POINTS'}),/références terrain à contrôler/);
+assert.match(generator.qualification({...geometry,ra_statut_preparation:'REVUE_DOCUMENTAIRE_RA_REQUISE',ra_references_confirmees:2}),/revue documentaire/);
+assert.equal(JSON.parse(JSON.stringify(generator.geojson(plot,{...geometry,ra_statut_preparation:'REVUE_DOCUMENTAIRE_RA_REQUISE',ra_references_confirmees:2}))).features[0].properties.ground_references_confirmed,2);
+assert.doesNotMatch(generator.qualification({...geometry,ra_statut_preparation:'REFERENCES_TERRAIN_A_CONFIRMER',gps_points:99}),/revue documentaire/);
 assert.match(operationsSource,/Enregistrer puis ouvrir Esri/);
 assert.match(operationsSource,/global\.location\.hash='#parcelles\/tracer\/'/);
 assert.match(operationsSource,/result&&result\._sync_status==='SYNCED'/);
