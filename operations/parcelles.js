@@ -885,6 +885,65 @@ document.addEventListener('click', function (ev) {
   if (!b || !document.getElementById('opsRouteView') || !/^#parcelles/.test(location.hash)) return;
   var a = b.getAttribute('data-pc'), v = b.getAttribute('data-v'), p = parts();
   if (b.tagName === 'BUTTON') ev.preventDefault();
+  if (['ra-unit-saisir','ra-unit-verifier','ra-unit-rejeter',
+    'ra-export-geojson','ra-export-kml','ra-pdf-archiver','ra-pdf-lire'].indexOf(a)>=0) {
+    if (!enLigne() || !peutPiloter() || !p[2] || p[2] !== (etat.documentFiche && etat.documentFiche.x.plot_id ||
+        (etat.raGeometry && etat.raGeometry.plot_id))) {
+      alert('Fiche ou autorisation indisponible. Rechargez la parcelle avec une connexion active.'); return;
+    }
+    var unit=etat.raUnit;
+    var d=etat.documentFiche;
+    var engine=global.ANAGROCI_RA_LOT3;
+    if (a === 'ra-unit-saisir') {
+      var fid=((document.getElementById('pcRaFarmId')||{}).value||'');
+      var uid=((document.getElementById('pcRaFarmUnitId')||{}).value||'');
+      var src=((document.getElementById('pcRaSource')||{}).value||'');
+      if (!fid || !uid || !src) { alert('Tous les identifiants et la référence du registre RA sont obligatoires.');return; }
+      b.disabled=true;
+      rpc('plot_map_ra_unite_saisir',{
+        p_plot:p[2],p_farm_id:fid,p_farm_unit_id:uid,p_source_reference:src
+      }).then(function(){return fiche(p[2]);}).catch(function(e){b.disabled=false;alert('Saisie RA refusée : '+e.message);});
+      return;
+    }
+    if (a==='ra-unit-verifier' || a==='ra-unit-rejeter') {
+      if (!peutValider() || !unit || unit.status!=='A_VERIFIER') {
+        alert('Contrôle indépendant indisponible.');return;
+      }
+      var comment=((document.getElementById('pcRaUnitComment')||{}).value||'').trim();
+      if(comment.length<12){alert('Référence de rapprochement obligatoire (12 caractères minimum).');return;}
+      b.disabled=true;
+      rpc('plot_map_ra_unite_verifier',{
+        p_plot:p[2],p_decision:a==='ra-unit-verifier'?'VERIFIER':'REJETER',p_commentaire:comment
+      }).then(function(){return fiche(p[2]);}).catch(function(e){b.disabled=false;alert('Vérification RA refusée : '+e.message);});
+      return;
+    }
+    if (a==='ra-pdf-lire') {
+      var item=(etat.raDocuments||[]).find(function(q){return q.id===v;});
+      if(!item || !engine){alert('Document privé indisponible.');return;}
+      b.disabled=true;
+      client().then(function(cl){
+        return engine.urlPrivee(cl,item.storage_path);
+      }).then(function(url){ global.open(url,'_blank','noopener,noreferrer');b.disabled=false; })
+        .catch(function(e){b.disabled=false;alert('Lecture privée refusée : '+e.message);});
+      return;
+    }
+    if(!d || !unit || !engine || !d.x.consentement_gps
+       || unit.status!=='VERIFIE' || d.geometry.status!=='VALIDE'
+       || d.geometry.ra_statut_preparation!=='REVUE_DOCUMENTAIRE_RA_REQUISE') {
+      alert('Dossier RA incomplet. Aucun export RA possible.');return;
+    }
+    if (a==='ra-export-geojson'||a==='ra-export-kml') {
+      try{engine.exporter(d.x,d.geometry,unit,a==='ra-export-kml'?'kml':'geojson');}
+      catch(e){alert('Export RA refusé : '+e.message);}return;
+    }
+    if(a==='ra-pdf-archiver'){
+      b.disabled=true;
+      client().then(function(cl){return engine.archive(d.x,d.geometry,unit,cl,C.uuid);})
+        .then(function(){return fiche(p[2]);})
+        .catch(function(e){b.disabled=false;alert('Archivage PDF non confirmé : '+e.message);});
+      return;
+    }
+  }
   if (a === 'ra-relever' || a === 'ra-decider') {
     if (!enLigne() || !etat.raGeometry || p[2] !== etat.raGeometry.plot_id) {
       alert('Fiche ou connexion indisponible : rechargez la parcelle.'); return;
