@@ -169,9 +169,11 @@ function fiche(id) {
   peindre(tete('Parcelle', '') + '<div class="ops-empty">Chargement…</div>');
   return Promise.all([parametres(), parcelle(id), L.file.pourParcelle(id), L.brouillon.lire(id),
     enLigne() ? lire('plot_map_geometries_v', 'id,plot_id,version_no,status,method,area_m2,perimeter_m,boundary_confidence,producer_confirmation,producer_confirmation_note,auteur_nom,created_by_role,created_at,preverifie_par_nom,decide_par_nom,decided_at,decision_comment,decision_exception,geojson,imagery_source,imagery_date,gps_points,gps_accuracy_max_m,localisation_source', function (r) { return r.eq('plot_id', id).order('version_no', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
-    enLigne() ? lire('farmer_plot_anomalies', 'id,type,statut,bloquante,overlap_m2,detail,classification,justification,geometry_id', function (r) { return r.eq('plot_id', id); }).catch(function () { return []; }) : Promise.resolve([])
+    enLigne() ? lire('farmer_plot_anomalies', 'id,type,statut,bloquante,overlap_m2,detail,classification,justification,geometry_id', function (r) { return r.eq('plot_id', id); }).catch(function () { return []; }) : Promise.resolve([]),
+    enLigne() ? lire('farmer_plot_ra_field_references', 'id,geometry_id,plot_id,status,accuracy_m,captured_at_client,recorded_at,created_by,note,reviewed_at,review_comment', function (r) { return r.eq('plot_id', id).order('recorded_at', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
+    enLigne() ? lire('plot_map_ra_preparation_v', 'geometry_id,plot_id,contour_status,references_en_attente,references_confirmees,references_rejetees,statut_preparation', function (r) { return r.eq('plot_id', id); }).catch(function () { return null; }) : Promise.resolve(null)
   ]).then(function (r) {
-    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [];
+    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [], referencesTerrain = r[6], preparations = r[7];
     if (!x) {
       var ajout = ops.filter(function (o) { return o.type === 'AJOUTER_PARCELLE' && o.payload.id === id; })[0];
       if (!ajout) { peindre(tete('Parcelle introuvable', '') + avis('erreur', 'Cette parcelle n\'est pas dans votre périmètre ou n\'existe plus.') + lien('Retour aux parcelles', 'parcelles', 'secondary')); return; }
@@ -181,6 +183,11 @@ function fiche(id) {
     var st = statutParcelle(x), consent = x.consentement_gps === true, active = (versions || []).filter(function (v) { return ['SOUMIS', 'A_CORRIGER', 'VALIDE'].indexOf(v.status) >= 0; })[0];
     var geomDoc = (versions || []).filter(function (v) { return v.status === 'VALIDE' && v.geojson; })[0]
       || (versions || []).filter(function (v) { return ['SOUMIS','A_CORRIGER'].indexOf(v.status) >= 0 && v.geojson; })[0] || null;
+    var preparationDoc = geomDoc && (preparations || []).filter(function(v){return v.geometry_id === geomDoc.id;})[0];
+    if (geomDoc) {
+      geomDoc.ra_statut_preparation = preparationDoc ? preparationDoc.statut_preparation : 'NON_VERIFIE';
+      geomDoc.ra_references_confirmees = preparationDoc ? preparationDoc.references_confirmees : 0;
+    }
     var documentApi = global.ANAGROCI_CARTE_PLANTATION;
     etat.documentFiche = (peutPiloter() && consent && geomDoc && documentApi
       && documentApi.eligible(x, geomDoc))
@@ -205,6 +212,38 @@ function fiche(id) {
     } else if (peutPiloter() && !consent) {
       actions += avis('info', 'Carte PDF et GeoJSON indisponibles sans consentement GPS actif.');
     }
+    var raActive = (versions || []).filter(function (v) { return ['SOUMIS','VALIDE'].indexOf(v.status) >= 0; })[0] || null;
+    var raPreparation = raActive && (preparations || []).find(function (v) { return v.geometry_id === raActive.id; });
+    var raReferences = (referencesTerrain || []).filter(function (v) { return raActive && v.geometry_id === raActive.id; });
+    etat.raGeometry = raActive && consent ? { geometry_id: raActive.id, plot_id:x.plot_id } : null;
+    var raInfo = '';
+    if (raActive) {
+      raInfo = '<section class="card"><div class="card-head"><div><h2>Preuves terrain · Rainforest Alliance</h2>'
+        + '<p>Relevés GPS proches des limites du champ, soumis puis vérifiés par la supervision. Le compteur de points déclaré dans le tracé ne constitue pas une preuve validée.</p></div></div>'
+        + (raPreparation
+          ? avis('info', '<b>État de préparation interne :</b> ' + esc(raPreparation.statut_preparation)
+            + ' · Confirmés : ' + Number(raPreparation.references_confirmees || 0)
+            + ' · En attente : ' + Number(raPreparation.references_en_attente || 0))
+          : avis('alerte','Contrôle RA non disponible ou non synchronisé. Aucune conformité présumée.'))
+        + (consent && peutSaisir() && enLigne()
+          ? '<div class="pc-actions">' + bouton('Relever un repère GPS sur le terrain', 'ra-relever', 'secondary') + '</div>' : '')
+        + (raReferences.length ? raReferences.map(function (ref) {
+            var info = '<div class="pc-version"><b>Repère ' + esc(ref.id.slice(0, 8)) + '</b> · ' + esc(ref.status)
+              + ' · précision ' + Number(ref.accuracy_m).toFixed(1) + ' m'
+              + '<small>Capturé le ' + esc(heureFr(ref.captured_at_client))
+              + (ref.note ? ' · ' + esc(ref.note) : '') + '</small>'
+              + (ref.review_comment ? '<small>Observation supervision : ' + esc(ref.review_comment) + '</small>' : '');
+            if (consent && peutValider() && ref.status === 'A_VERIFIER' && enLigne()) {
+              info += '<div class="pc-actions"><input type="text" id="pcRaMotif_' + esc(ref.id)
+                + '" maxlength="500" placeholder="Motif de contrôle / exception BM" aria-label="Motif de décision GPS">'
+                + bouton('Confirmer', 'ra-decider', 'secondary',' data-v="' + esc(ref.id) + '" data-decision="CONFIRMER"')
+                + bouton('Rejeter', 'ra-decider', 'secondary',' data-v="' + esc(ref.id) + '" data-decision="REJETER"')
+                + '</div>';
+            }
+            return info + '</div>';
+          }).join('') : '<p class="pc-note">Aucune référence terrain indépendante reçue par le serveur pour cette géométrie.</p>')
+        + '<p class="pc-note">Deux références indépendantes confirmées sont une règle de préparation ANAGROCI, pas une certification Rainforest Alliance.</p></section>';
+    }
     var decl = x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ' + (x.area_unit || 'HA').toLowerCase() : 'non déclarée';
     var supers = '<div class="pc-superficies">' +
       '<div><span>Superficie déclarée par le producteur</span><b>' + esc(decl) + '</b></div>' +
@@ -227,7 +266,7 @@ function fiche(id) {
     var anoH = anos.length ? avis('alerte', '<b>' + anos.length + ' anomalie(s) ouverte(s)</b> : ' + anos.map(function (a) { return esc(libAnomalie(a)); }).join(' ; ')) : '';
     peindre(tete(x.local_name || 'Parcelle sans nom', (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.village_nom || '') + ' · ' + (x.cluster_code || ''), lien('Retour', 'parcelles', 'secondary')) +
       '<div class="pc-fiche-tete">' + badge(st) + (x.plot_code ? '<span class="mono">' + esc(x.plot_code) + '</span>' : '') + '</div>' + anoH +
-      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + envois + hist);
+      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + raInfo + envois + hist);
     miniCarte('pcMiniCarte', x, active || validee);
   });
 }
@@ -800,6 +839,43 @@ document.addEventListener('click', function (ev) {
   if (!b || !document.getElementById('opsRouteView') || !/^#parcelles/.test(location.hash)) return;
   var a = b.getAttribute('data-pc'), v = b.getAttribute('data-v'), p = parts();
   if (b.tagName === 'BUTTON') ev.preventDefault();
+  if (a === 'ra-relever' || a === 'ra-decider') {
+    if (!enLigne() || !etat.raGeometry || p[2] !== etat.raGeometry.plot_id) {
+      alert('Fiche ou connexion indisponible : rechargez la parcelle.'); return;
+    }
+    var raContext = etat.raGeometry;
+    if (a === 'ra-relever') {
+      if (!peutSaisir() || !navigator.geolocation) { alert('Droit terrain ou GPS indisponible.'); return; }
+      b.disabled = true;
+      navigator.geolocation.getCurrentPosition(function (position) {
+        var gps = position.coords;
+        var payload = {
+          id:C.uuid(), geometry_id:raContext.geometry_id,
+          latitude:gps.latitude, longitude:gps.longitude,
+          accuracy_m:gps.accuracy,
+          captured_at_client:new Date(position.timestamp).toISOString()
+        };
+        rpc('plot_map_ra_ref_ajouter', { p:payload })
+          .then(function () { etat.liste = null; return fiche(raContext.plot_id); })
+          .catch(function(e) { b.disabled = false; alert('Repère GPS NON enregistré : '+e.message); });
+      }, function(e) { b.disabled = false; alert('GPS non acquis : '+e.message); },
+      {enableHighAccuracy:true, timeout:25000, maximumAge:0});
+    } else {
+      if (!peutValider()) { alert('Validation réservée au Chef de Zone ou au Branch Manager en exception.'); return; }
+      var decision = b.getAttribute('data-decision');
+      if (decision !== 'CONFIRMER' && decision !== 'REJETER') return;
+      var texte = ((document.getElementById('pcRaMotif_' + v) || {}).value || '').trim();
+      var exception = classe() === 'BM';
+      if (exception && texte.length < 15) { alert('Exception BM : justifiez en 15 caractères minimum.'); return; }
+      if (decision === 'REJETER' && texte.length < 8) { alert('Expliquez le rejet en 8 caractères minimum.'); return; }
+      b.disabled = true;
+      rpc('plot_map_ra_ref_decider', {
+        p_reference:v, p_decision:decision, p_commentaire:texte || null, p_exception:exception
+      }).then(function () { etat.liste = null; return fiche(raContext.plot_id); })
+        .catch(function(e) { b.disabled = false; alert('Décision non enregistrée : '+e.message); });
+    }
+    return;
+  }
   if (a === 'carte-pdf' || a === 'carte-geojson') {
     try {
       if (!peutPiloter() || !etat.documentFiche || parts()[2] !== etat.documentFiche.x.plot_id)

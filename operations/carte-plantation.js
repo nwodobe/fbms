@@ -31,9 +31,11 @@
   }
   function qualification(g) {
     if (g.status !== 'VALIDE') return 'PROVISOIRE — contour non validé FBMS';
-    if (g.method === 'SATELLITE' || !Number(g.gps_points)) return 'VALIDÉ FBMS — références terrain à contrôler';
-    if (g.producer_confirmation !== 'CONFIRMEE_SUR_PLACE') return 'VALIDÉ FBMS — confirmation du producteur à contrôler';
-    return 'VALIDÉ FBMS — examen documentaire Rainforest Alliance requis';
+    if (g.ra_statut_preparation === 'CONSENTEMENT_INACTIF') return 'EXPORT GPS SUSPENDU — consentement inactif';
+    // A phone-declared gps_points count is NOT independent evidence of a ground visit.
+    if (g.ra_statut_preparation !== 'REVUE_DOCUMENTAIRE_RA_REQUISE')
+      return 'VALIDÉ FBMS — références terrain à contrôler';
+    return 'VALIDÉ FBMS — revue documentaire Rainforest Alliance requise';
   }
   function construireGeojson(x,g) {
     if (!garde(x,g)) throw new Error('Export interdit : contour serveur, parcelle ou consentement GPS indisponible.');
@@ -61,7 +63,9 @@
           qualification:qualification(g),
           imagery_source:g.imagery_source || null,
           captured_at:g.created_at || null,
-          ground_gps_points:Number(g.gps_points||0),
+          ground_gps_points_declared:Number(g.gps_points||0),
+          ground_references_confirmed:Number(g.ra_references_confirmees||0),
+          ra_internal_status:g.ra_statut_preparation || 'NON_VERIFIE',
           producer_confirmation:g.producer_confirmation || null,
           crs:'EPSG:4326'
         },
@@ -133,7 +137,9 @@
       +'<dt>Méthode</dt><dd>'+esc(g.method)+'</dd>'
       +'<dt>Version géométrie</dt><dd>v'+esc(g.version_no)+' · '+esc(g.id)+'</dd>'
       +'<dt>Relevé / envoi</dt><dd>'+date(g.created_at)+'</dd>'
-      +'<dt>Références GPS terrain</dt><dd>'+Number(g.gps_points||0)+' point(s) déclaré(s)</dd>'
+      +'<dt>Points GPS déclarés</dt><dd>'+Number(g.gps_points||0)+' point(s) non assimilés à des preuves validées</dd>'
+      +'<dt>Références terrain confirmées</dt><dd>'+Number(g.ra_references_confirmees||0)+' repère(s) indépendant(s)</dd>'
+      +'<dt>Préparation RA interne</dt><dd>'+esc(g.ra_statut_preparation||'NON_VÉRIFIÉ')+'</dd>'
       +'<dt>Confirmation producteur</dt><dd>'+esc(g.producer_confirmation||'Non renseignée')+'</dd>'
       +'<dt>Décision Chef de Zone</dt><dd>'+esc(g.status)+' · '+esc(g.decide_par_nom||'Non validé')+' · '+date(g.decided_at)+'</dd>'
       +'<dt>Source imagerie du tracé</dt><dd>'+esc(g.imagery_source||'Non renseignée')+'</dd>'
