@@ -1,6 +1,6 @@
 {
- "total": 67,
- "reussis": 67,
+ "total": 68,
+ "reussis": 68,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:26"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:48"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"5f905307-092f-4928-829f-d00af9e4ba33\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"239e405f-f5b3-4737-85c5-d59f16b6d8be\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"06f5562b-3ffd-4d5a-84f4-b806c5023c4a\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"03ea5c14-ca2f-4a16-8a0e-5bbc75465bf3\"]]}"
   },
   {
    "id": "E2E-22",
@@ -233,7 +233,7 @@
    "famille": "Parcours terrain",
    "libelle": "Correction d'un sommet au viseur (« Placer le sommet au viseur »)",
    "resultat": "RÉUSSI",
-   "detail": "0,49 ha → 0,42 ha"
+   "detail": "0,42 ha → 0,24 ha"
   },
   {
    "id": "E2E-F4",
@@ -278,11 +278,18 @@
    "detail": "true"
   },
   {
+   "id": "E2E-F11",
+   "famille": "Parcours terrain",
+   "libelle": "Contour valide : « Terminer le contour » disponible",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
    "id": "E2E-F10",
    "famille": "Synchronisation",
    "libelle": "Après fermeture brutale : contour, fiabilité et identité retrouvés",
    "resultat": "RÉUSSI",
-   "detail": "0,42 ha / 0,42 ha"
+   "detail": "0,24 ha / 0,24 ha"
   },
   {
    "id": "E2E-28",
@@ -296,7 +303,7 @@
    "famille": "Synchronisation",
    "libelle": "Superficie serveur PostGIS = superficie du téléphone (écart < 0,01 %), aucune anomalie de calcul",
    "resultat": "RÉUSSI",
-   "detail": "4229.11 / 4229.11 / 0"
+   "detail": "2380.13 / 2380.13 / 0"
   },
   {
    "id": "E2E-I1",
@@ -408,7 +415,7 @@
    "famille": "Pilotage",
    "libelle": "Tableau de bord BM : 1 validée, 1 soumise, 1 parcelle localisée",
    "resultat": "RÉUSSI",
-   "detail": "{\"Producteurs avec un champ localisé\":\"1 / 4\",\"Parcelles localisées\":\"1 / 4\",\"Parcelles avec contour\":\"2\",\"Soumises\":\"1\",\"Validées\":\"1\",\"À corriger\":\"0\",\"Superficie déclarée\":\"7,20 ha\",\"Superficie cartographiée\":\"1,41 ha\",\"Superficie validée (somme)\":\"0,99 ha\",\"Emprise unique validée\":\"0,99 ha\",\"Che"
+   "detail": "{\"Producteurs avec un champ localisé\":\"1 / 4\",\"Parcelles localisées\":\"1 / 4\",\"Parcelles avec contour\":\"2\",\"Soumises\":\"1\",\"Validées\":\"1\",\"À corriger\":\"0\",\"Superficie déclarée\":\"7,20 ha\",\"Superficie cartographiée\":\"1,23 ha\",\"Superficie validée (somme)\":\"0,99 ha\",\"Emprise unique validée\":\"0,99 ha\",\"Che"
   },
   {
    "id": "E2E-35",

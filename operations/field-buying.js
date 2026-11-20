@@ -5169,7 +5169,17 @@ var ROUTES = {
   parcelles: function (p) {
     if (global.ANAGROCI_PARCELLES && global.ANAGROCI_PARCELLES.render) return global.ANAGROCI_PARCELLES.render(p);
     paint(head('Parcelles & cartographie', 'Module en cours de chargement…') + skeletonPage(4));
-    return new Promise(function (resolve) { setTimeout(function () { resolve(global.ANAGROCI_PARCELLES ? global.ANAGROCI_PARCELLES.render(p) : null); }, 600); });
+    /* Réseau lent : on attend le module jusqu'à 30 s (une seule tentative à 600 ms laissait l'écran bloqué
+       sur « chargement », constaté le 20/11/2026), tant que l'utilisateur reste sur la rubrique. */
+    return new Promise(function (resolve) {
+      var debut = Date.now();
+      (function attendre() {
+        if (!/^#parcelles/.test(location.hash || '')) return resolve(null);
+        if (global.ANAGROCI_PARCELLES && global.ANAGROCI_PARCELLES.render) return resolve(global.ANAGROCI_PARCELLES.render(p));
+        if (Date.now() - debut > 30000) { paint(head('Parcelles & cartographie', '') + '<div class="notice warn">Le module n\'a pas pu être chargé. Vérifiez le réseau puis rouvrez la rubrique.</div>'); return resolve(null); }
+        setTimeout(attendre, 300);
+      })();
+    });
   }
 };
 

@@ -72,7 +72,7 @@
          .replace(/<script>if\("serviceWorker"[\s\S]*?<\/script>/, '')                                     // pas de service worker en démonstration
          /* Chemins relatifs rendus absolus (une balise <base> casserait les liens internes « #parcelles/… »). */
          .replace(/(\s(?:src|href))="(\.\/|\.\.\/)/g, function (m, attr, rel) { return attr + '="' + new URL(rel, base).href; })
-         .replace('</body>', '<div style="position:fixed;left:8px;bottom:8px;z-index:99999;background:#7C2D12;color:#fff;font:600 12px/1.3 Arial,sans-serif;padding:6px 9px;border-radius:8px;max-width:92vw">DÉMONSTRATION · données fictives · aucun serveur · ' + (CLE ? 'image Esri World Imagery' : 'orthophoto réelle OpenAerialMap (CC BY-SA 4.0)') + '</div></body>');
+         .replace('<\/body>', '<div style="position:fixed;left:8px;bottom:8px;z-index:99999;background:#7C2D12;color:#fff;font:600 12px/1.3 Arial,sans-serif;padding:6px 9px;border-radius:8px;max-width:92vw">DÉMONSTRATION · données fictives · aucun serveur · ' + (CLE ? 'image Esri World Imagery' : 'orthophoto réelle OpenAerialMap (CC BY-SA 4.0)') + '</div><\/body>');
     if (!location.hash) history.replaceState(null, '', '#parcelles/tracer/' + PLOT + '/sat');
     document.open(); document.write(h); document.close();
   });

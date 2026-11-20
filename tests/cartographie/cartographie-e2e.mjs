@@ -282,7 +282,7 @@ async function main() {
     const mk = page.locator('.pc-sommet:not(.pc-milieu)').nth(1); await mk.scrollIntoViewIfNeeded(); await page.waitForTimeout(300); const mb = await mk.boundingBox();
     await page.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2); await page.mouse.down(); await page.waitForTimeout(100); await page.mouse.move(mb.x + mb.width / 2 + 6, mb.y + mb.height / 2 + 6, { steps: 3 }); await page.mouse.move(mb.x + 60, mb.y - 40, { steps: 12 }); await page.waitForTimeout(100); await page.mouse.up(); await page.waitForTimeout(600);
     await verifier('E2E-27', F, 'Déplacement d\'un sommet au doigt : superficie recalculée', async () => { const ap = await page.locator('.pc-surface').innerText(); return { ok: ap !== avant, detail: avant + ' → ' + ap }; });
-    await page.locator('.pc-sommet:not(.pc-milieu)').nth(1).click(); await page.waitForTimeout(200); await glisser(20, 20);
+    await page.locator('[data-pc="centrer-contour"]').click(); await page.waitForTimeout(400); await page.locator('.pc-sommet:not(.pc-milieu)').nth(1).click(); await page.waitForTimeout(200); await glisser(12, 8);
     const avantVis = await page.locator('.pc-surface').innerText(); await page.locator('[data-pc="viseur-deplacer"]').click(); await page.waitForTimeout(300);
     await verifier('E2E-27b', F, 'Correction d\'un sommet au viseur (« Placer le sommet au viseur »)', async () => { const ap = await page.locator('.pc-surface').innerText(); return { ok: ap !== avantVis && (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4, detail: avantVis + ' → ' + ap }; });
     await page.locator('[data-pc="toucher"]').click(); await page.waitForTimeout(200);
@@ -303,6 +303,7 @@ async function main() {
     await page.selectOption('#pcConfirm', 'CONFIRMEE_SUR_PLACE'); await page.waitForTimeout(200);
     await page.locator('input[name=pcConf][value="VISIBLES"]').check({ force: true }); await page.waitForTimeout(200);
     await page.locator('#pcIdentite').check({ force: true }); await page.waitForTimeout(200);
+    await verifier('E2E-F11', F, 'Contour valide : « Terminer le contour » disponible', async () => !(await page.locator('[data-pc="terminer"]').isDisabled()));
     await page.locator('[data-pc="terminer"]').click(); await page.waitForTimeout(500);
     await capture('04-trace-carte-390');
     /* Fermeture brutale puis reprise : le contour au viseur doit être intact. */
