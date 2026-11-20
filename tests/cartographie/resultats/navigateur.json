@@ -1,0 +1,295 @@
+{
+ "total": 41,
+ "reussis": 41,
+ "echoues": 0,
+ "erreurs": [],
+ "tests": [
+  {
+   "id": "E2E-01",
+   "famille": "Affichage",
+   "libelle": "Entrée « Parcelles & cartographie » dans la navigation unique (espace Réseau)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-02",
+   "famille": "Affichage",
+   "libelle": "Fonction désactivée par défaut : bandeau explicite, aucune action de saisie",
+   "resultat": "RÉUSSI",
+   "detail": "Parcelles & cartographie\n\nLocaliser les champs, tracer leurs contours, suivre leur validation.\n\nFonction en préparation. La localisation et le tracé ne sont pas encore activés par le Branch Manager. Vous pouvez consulter les parcelles.\nTout est reçu par le serveur\nSynchroniser\nJournal\n3\nNon localisé"
+  },
+  {
+   "id": "E2E-03",
+   "famille": "Sécurité",
+   "libelle": "Désactivée : bouton « Localiser mon champ » absent",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-04",
+   "famille": "Affichage",
+   "libelle": "Pilote BROBO annoncé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-05",
+   "famille": "Sécurité",
+   "libelle": "Liste : seulement les parcelles du cluster de l'agent (3 BROBO, aucune BOTRO)",
+   "resultat": "RÉUSSI",
+   "detail": "Parcelles & cartographie\n\nLocaliser les champs, tracer leurs contours, suivre leur validation.\n\nTracé des contours ouvert en pilote pour : BROBO.\nTout est reçu par le serveur\nSynchroniser\nJournal\n3\nNon localisées\n0\nBrouillons sur ce téléphone\n0\nÀ corriger\n0\nSoumises au Chef de Zone\n0\nValidées\nRecher"
+  },
+  {
+   "id": "E2E-06",
+   "famille": "Affichage",
+   "libelle": "Accès rapide aux parcelles non localisées",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-07",
+   "famille": "Sécurité",
+   "libelle": "Producteur sans consentement GPS : message clair, aucun bouton de localisation ni de tracé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-08",
+   "famille": "Parcours terrain",
+   "libelle": "Localisation sans parcours du contour : précision affichée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-09",
+   "famille": "Synchronisation",
+   "libelle": "Point reçu par le serveur : statut POINT_CAPTURED en base",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"POINT_CAPTURED|6\", obtenu \"POINT_CAPTURED|6\""
+  },
+  {
+   "id": "E2E-10",
+   "famille": "Affichage",
+   "libelle": "Fiche parcelle : point GPS de référence et mention « ne mesure pas sa superficie »",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-11",
+   "famille": "Parcours terrain",
+   "libelle": "Hors ligne : 3 sommets GPS posés, superficie calculée sur le téléphone",
+   "resultat": "RÉUSSI",
+   "detail": "CALCUL PROVISOIRE SUR CE TÉLÉPHONE\n0,49 ha\n4 950 m² · périmètre 342 m · 3 sommet(s)\nÉcart de -58,8 % avec la superficie déclarée : vérifiez les limites avec le producteur.\nPrécision GPS : 5 à 5 m (médiane 5 m)\n\nMarchez jusqu'à chaque coin du champ, puis appuyez sur le bouton. Le contour se ferme aut"
+  },
+  {
+   "id": "E2E-12",
+   "famille": "Synchronisation",
+   "libelle": "Brouillon enregistré sur ce téléphone à chaque sommet",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-13",
+   "famille": "Synchronisation",
+   "libelle": "Après fermeture brutale : « Reprendre le tracé (3 sommets) » proposé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-14",
+   "famille": "Parcours terrain",
+   "libelle": "Superficie affichée = référence géodésique indépendante (0,99 ha, à 0,01 ha près)",
+   "resultat": "RÉUSSI",
+   "detail": "écran 0,99 ha, référence 0.9900 ha"
+  },
+  {
+   "id": "E2E-15",
+   "famille": "Parcours terrain",
+   "libelle": "Envoi bloqué tant que la visibilité des limites n'est pas indiquée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-16",
+   "famille": "Synchronisation",
+   "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
+   "resultat": "RÉUSSI",
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 00:24"
+  },
+  {
+   "id": "E2E-17",
+   "famille": "Synchronisation",
+   "libelle": "Hors ligne : rien n'est arrivé en base",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"0\", obtenu \"0\""
+  },
+  {
+   "id": "E2E-18",
+   "famille": "Synchronisation",
+   "libelle": "Retour du réseau : contour reçu par le serveur, une seule version",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"1|SOUMIS|GPS_POINTS\", obtenu \"1|SOUMIS|GPS_POINTS\""
+  },
+  {
+   "id": "E2E-19",
+   "famille": "Synchronisation",
+   "libelle": "Superficie serveur = superficie du téléphone (écart < 0,01 %)",
+   "resultat": "RÉUSSI",
+   "detail": "9900 / 9900"
+  },
+  {
+   "id": "E2E-20",
+   "famille": "Synchronisation",
+   "libelle": "Synchronisation répétée : aucun doublon",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"1\", obtenu \"1\""
+  },
+  {
+   "id": "E2E-21",
+   "famille": "Synchronisation",
+   "libelle": "Brouillon effacé après réception par le serveur",
+   "resultat": "RÉUSSI",
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"2bb47130-ed3e-48e9-bfef-756a7edbfc56\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"6989aa8c-9b64-45b0-a62c-0e53caf4adaf\"]]}"
+  },
+  {
+   "id": "E2E-22",
+   "famille": "Sécurité",
+   "libelle": "Aucune imagerie sans licence : message explicite, aucune tuile demandée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-23",
+   "famille": "Parcours terrain",
+   "libelle": "Tracé au doigt : 4 sommets, contour fermé automatiquement, superficie affichée",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-24",
+   "famille": "Parcours terrain",
+   "libelle": "Ajout d'un sommet sur un côté (« + »)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-25",
+   "famille": "Parcours terrain",
+   "libelle": "Suppression du sommet sélectionné",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-26",
+   "famille": "Parcours terrain",
+   "libelle": "Annulation de la dernière action",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-27",
+   "famille": "Parcours terrain",
+   "libelle": "Déplacement d'un sommet : superficie recalculée",
+   "resultat": "RÉUSSI",
+   "detail": "3,41 ha → 4,07 ha | translate3d(180px, 125px, 0px) → translate3d(235px, 60px, 0px)"
+  },
+  {
+   "id": "E2E-28",
+   "famille": "Synchronisation",
+   "libelle": "Contour du tracé au doigt reçu (méthode, confiance, confirmation producteur)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\", obtenu \"SATELLITE|VISIBLES|CONFIRMEE_SUR_PLACE\""
+  },
+  {
+   "id": "E2E-29",
+   "famille": "Sécurité",
+   "libelle": "Tableau de bord refusé à l'assistant (contrôle serveur)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-30",
+   "famille": "Sécurité",
+   "libelle": "Chef de Zone GBEKE 2 : aucun contour BROBO à valider",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-31",
+   "famille": "Validation",
+   "libelle": "Chef de Zone GBEKE 1 : 2 contours en attente",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-32",
+   "famille": "Validation",
+   "libelle": "Demande de correction sans commentaire refusée par le serveur, message affiché",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-33",
+   "famille": "Validation",
+   "libelle": "Contour validé : parcelle VALIDE en base, superficie validée renseignée, déclaré intact",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"1\", obtenu \"1\""
+  },
+  {
+   "id": "E2E-34",
+   "famille": "Pilotage",
+   "libelle": "Tableau de bord BM : 1 validée, 1 soumise, 1 parcelle localisée",
+   "resultat": "RÉUSSI",
+   "detail": "{\"Producteurs avec un champ localisé\":\"1 / 4\",\"Parcelles localisées\":\"1 / 4\",\"Parcelles avec contour\":\"2\",\"Soumises\":\"1\",\"Validées\":\"1\",\"À corriger\":\"0\",\"Superficie déclarée\":\"7,20 ha\",\"Superficie cartographiée\":\"5,06 ha\",\"Superficie validée (somme)\":\"0,99 ha\",\"Emprise unique validée\":\"0,99 ha\",\"Che"
+  },
+  {
+   "id": "E2E-35",
+   "famille": "Pilotage",
+   "libelle": "Somme et emprise unique affichées séparément",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "E2E-36",
+   "famille": "Pilotage",
+   "libelle": "Export CSV : colonnes de superficies distinctes, aucune coordonnée",
+   "resultat": "RÉUSSI",
+   "detail": "﻿Code parcelle;Code producteur;Village;Cluster;Parcelle;Statut;Superficie déclarée (ha);Superficie cartographiée (ha);Méthode;Visibilité des limites;Superficie validée (ha);Anomalies ouvertes\n;9003;VI"
+  },
+  {
+   "id": "E2E-37",
+   "famille": "Pilotage",
+   "libelle": "Export GeoJSON : contours validés seulement, avertissement non cadastral",
+   "resultat": "RÉUSSI",
+   "detail": "1"
+  },
+  {
+   "id": "E2E-L390",
+   "famille": "Affichage",
+   "libelle": "Fiche parcelle à 390 px : aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "390 / 390"
+  },
+  {
+   "id": "E2E-L768",
+   "famille": "Affichage",
+   "libelle": "Fiche parcelle à 768 px : aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "768 / 768"
+  },
+  {
+   "id": "E2E-L1440",
+   "famille": "Affichage",
+   "libelle": "Fiche parcelle à 1440 px : aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "1440 / 1440"
+  },
+  {
+   "id": "E2E-99",
+   "famille": "Affichage",
+   "libelle": "Aucune erreur JavaScript de la rubrique pendant le parcours",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}

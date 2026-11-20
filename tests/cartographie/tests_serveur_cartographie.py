@@ -375,6 +375,9 @@ tf = act("P-07", F, "bm", "Filtre par cluster", "select public.plot_map_tableau(
 verif_vrai("P-08", F, "Filtre cluster appliqué", tf.get("parcelles") == int(q("select count(*) from public.farmer_plots fp join public.villages v on v.id=fp.village_id where v.cluster_code='BOTRO' and not fp.deleted")), tf.get("parcelles"))
 verif_vrai("P-09", F, "Travail par agent présent (auteurs des contours)", len(tb.get("par_agent", [])) >= 2, tb.get("par_agent"))
 
+verif("D-20", "Données", "Numéros de parcelle uniques (séquence ; non-régression de la collision d'identifiants du 20/11/2026)",
+      q("select (count(plot_code) = count(distinct plot_code) and count(plot_code) > 0 and bool_and(plot_code ~ '^PLT-[A-Z0-9_]+-[0-9]{6}$'))::text from public.farmer_plots where plot_code is not null"), "true")
+
 # ------------------------------------------------------------------ 12. retour arrière
 F = "Retour arrière"
 avant_rb = q(EMPREINTE)

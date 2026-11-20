@@ -338,7 +338,7 @@ begin
   end if;
 
   update public.farmer_plots set mapping_status = 'SOUMIS', updated_by = auth.uid(),
-         plot_code = coalesce(plot_code, 'PLT-' || cx.cluster_code || '-' || upper(substr(replace(v_plot::text, '-', ''), 1, 8)))
+         plot_code = coalesce(plot_code, 'PLT-' || cx.cluster_code || '-' || lpad(nextval('private.plot_map_code_seq')::text, 6, '0'))
    where id = v_plot and (mapping_status is distinct from 'SOUMIS' or plot_code is null);
   perform private.plot_map_journaliser(v_plot, v_id, 'SOUMETTRE', null,
     jsonb_build_object('version_no', v_version, 'area_m2', v_area, 'perimeter_m', v_per, 'method', v_method, 'conflit', v_conflit), null);

@@ -241,11 +241,15 @@ function fond(map) {
 function centre(x) { return x && x.latitude != null ? [Number(x.latitude), Number(x.longitude)] : [7.69, -5.03]; }
 function miniCarte(idEl, x, version) {
   var el = document.getElementById(idEl); if (!el || !global.L) { if (el) el.innerHTML = '<div class="ops-empty">Carte indisponible.</div>'; return; }
+  /* La vue doit être fixée AVANT d'ajouter un contour : Leaflet ne sait pas dessiner un polygone
+     sur une carte sans centre (erreur _clipPoints constatée au test navigateur du 20/11/2026). */
   var m = global.L.map(el, { zoomControl: true, attributionControl: true }); fond(m);
-  var bornes = [];
-  if (version && version.geojson) { var p = global.L.geoJSON(version.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.3 } }).addTo(m); bornes.push(p.getBounds()); }
-  if (x.latitude != null) { var pt = global.L.circleMarker(centre(x), { radius: 7, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1 }).addTo(m).bindTooltip('Point de référence'); bornes.push(global.L.latLngBounds([centre(x), centre(x)])); }
-  if (bornes.length) { var b = bornes[0]; bornes.slice(1).forEach(function (z) { b.extend(z); }); m.fitBounds(b.pad(0.4), { maxZoom: 18 }); } else { m.setView(centre(x), 13); el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">Champ non localisé</div>'); }
+  var contour = version && version.geojson ? global.L.geoJSON(version.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.3 } }) : null;
+  var b = contour ? contour.getBounds() : null;
+  if (x.latitude != null) { if (b) b.extend(centre(x)); else b = global.L.latLngBounds([centre(x), centre(x)]); }
+  if (b && b.isValid()) m.fitBounds(b.pad(0.4), { maxZoom: 18 }); else { m.setView(centre(x), 13); el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">Champ non localisé</div>'); }
+  if (contour) contour.addTo(m);
+  if (x.latitude != null) global.L.circleMarker(centre(x), { radius: 7, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1 }).addTo(m).bindTooltip('Point de référence');
   setTimeout(function () { m.invalidateSize(); }, 150);
   /* Arbres suivis de l'Observatoire, quand ils ont une position : ils situent les observations,
      ils ne représentent pas toute la parcelle (aucune extrapolation). */
@@ -335,10 +339,10 @@ function construireCarte() {
   carte = global.L.map(el, { zoomControl: true });
   var f = fond(carte); ed.fond = f.nom === 'aucun' ? null : f.nom;
   var zf = document.getElementById('pcFond'); if (zf) zf.innerHTML = avis(f.satellite ? 'info' : 'alerte', esc(f.message));
-  carte._couche = global.L.layerGroup().addTo(carte);
-  if (ed.x.latitude != null) global.L.circleMarker(centre(ed.x), { radius: 6, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1, interactive: false }).addTo(carte);
   if (ed.sommets.length >= 2) carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (s) { return [s[1], s[0]]; })).pad(0.3), { maxZoom: 18 });
   else carte.setView(centre(ed.x), ed.x.latitude != null ? 17 : 13);
+  if (ed.x.latitude != null) global.L.circleMarker(centre(ed.x), { radius: 6, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1, interactive: false }).addTo(carte);
+  carte._couche = global.L.layerGroup().addTo(carte);   // couches ajoutées APRÈS la vue (exigence Leaflet)
   carte.on('click', function (ev) { if (ed.mode !== 'sat') return; modifier(function () { ed.sommets.push([ev.latlng.lng, ev.latlng.lat]); ed.selection = ed.sommets.length - 1; }); });
   dessiner();
   setTimeout(function () { carte && carte.invalidateSize(); }, 200);
@@ -510,8 +514,8 @@ function valider(gid) {
     var el = document.getElementById('pcCarteVal');
     if (el && global.L) {
       var m = global.L.map(el); fond(m);
-      var p = global.L.geoJSON(g.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.35 } }).addTo(m);
-      m.fitBounds(p.getBounds().pad(0.4), { maxZoom: 18 });
+      var p = global.L.geoJSON(g.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.35 } });
+      m.fitBounds(p.getBounds().pad(0.4), { maxZoom: 18 }); p.addTo(m);   // vue d'abord, contour ensuite
       if (ids.length) lire('plot_map_geometries_v', 'id,geojson', function (r) { return r.in('id', ids); }).then(function (v) { v.forEach(function (o) { global.L.geoJSON(o.geojson, { style: { color: '#B45309', weight: 2, dashArray: '5 4', fillColor: '#EE9E00', fillOpacity: 0.25 } }).addTo(m); }); }).catch(function () {});
       setTimeout(function () { m.invalidateSize(); }, 150);
     }

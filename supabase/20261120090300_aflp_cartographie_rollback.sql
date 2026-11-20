@@ -47,6 +47,7 @@ alter table public.farmer_plots drop constraint if exists farmer_plots_mapping_s
 alter table public.farmer_plots drop constraint if exists farmer_plots_mapped_area_method_chk;
 alter table public.farmer_plots drop constraint if exists farmer_plots_mapped_area_chk;
 drop index if exists public.farmer_plots_plot_code_uidx;
+drop sequence if exists private.plot_map_code_seq;
 -- Les parcelles ajoutées par la cartographie restent dans le registre (aucune suppression de parcelle) ;
 -- seules les colonnes propres à la cartographie sont retirées.
 alter table public.farmer_plots drop column if exists split_from_plot_id;

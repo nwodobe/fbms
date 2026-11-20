@@ -50,6 +50,10 @@ do $$ begin
   end if;
 end $$;
 create unique index if not exists farmer_plots_plot_code_uidx on public.farmer_plots(plot_code) where plot_code is not null;
+-- Numéro de parcelle : séquence, pas un extrait d'identifiant (8 caractères d'un UUID entrent en
+-- collision ; constaté au test navigateur du 20/11/2026 sur deux parcelles de même préfixe).
+create sequence if not exists private.plot_map_code_seq as bigint start 1;
+revoke all on sequence private.plot_map_code_seq from public, anon, authenticated;
 
 -- 2. Versions de contour ------------------------------------------------------
 create table if not exists public.farmer_plot_geometries (
