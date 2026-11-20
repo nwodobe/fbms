@@ -93,6 +93,16 @@ language sql stable security definer set search_path = public, private, pg_temp 
     order by c.event_order desc nulls last, c.created_at desc limit 1), false)
 $$;
 
+-- Référence de la décision de consentement utilisée (conservée dans le journal et sur chaque contour).
+-- L'historique des décisions reste dans farmer_consents (événements ordonnés, jamais réécrits par la cartographie).
+create or replace function private.plot_map_consentement_ref(p_producteur text) returns jsonb
+language sql stable security definer set search_path = public, private, pg_temp as $$
+  select (select jsonb_build_object('event_order', c.event_order, 'status', c.status, 'gps', coalesce((c.scopes->>'gps')::boolean, false),
+                                    'text_version', c.text_version, 'consent_at', c.consent_at)
+            from public.farmer_consents c where c.producteur_id = p_producteur
+           order by c.event_order desc nulls last, c.created_at desc limit 1)
+$$;
+
 -- Lecture d'un contour : périmètre du registre + restriction de zone pour un Zonal Head.
 create or replace function private.plot_map_peut_lire(p_producteur text, p_zone text) returns boolean
 language sql stable security definer set search_path = public, private, pg_temp as $$
@@ -116,7 +126,11 @@ $$;
 create or replace function private.plot_map_actif(p_quoi text, p_cluster text) returns boolean
 language sql stable security definer set search_path = public, private, pg_temp as $$
   select case p_quoi
+    -- Correctif 11.2 : localisation ET contours exigent que le cluster figure parmi les clusters pilotes ;
+    -- un booléen seul n'ouvre jamais la fonction à tous les clusters.
     when 'localisation' then coalesce((private.plot_map_param('activation')->>'localisation')::boolean, false)
+      and exists (select 1 from jsonb_array_elements_text(coalesce(private.plot_map_param('activation')->'clusters_pilotes', '[]'::jsonb)) x
+                  where private.plot_map_norm(x) = private.plot_map_norm(p_cluster))
     when 'contours' then coalesce((private.plot_map_param('activation')->>'contours')::boolean, false)
       and exists (select 1 from jsonb_array_elements_text(coalesce(private.plot_map_param('activation')->'clusters_pilotes', '[]'::jsonb)) x
                   where private.plot_map_norm(x) = private.plot_map_norm(p_cluster))
@@ -156,7 +170,7 @@ declare
   v_plot uuid := (p->>'plot_id')::uuid;
   v_lat numeric := (p->>'latitude')::numeric; v_lng numeric := (p->>'longitude')::numeric;
   v_prec numeric := (p->>'precision_m')::numeric; v_le timestamptz := coalesce((p->>'capture_le')::timestamptz, now());
-  cx record; v_avant jsonb; v_max numeric := private.plot_map_seuil('precision_localisation_max_m', 50);
+  cx record; v_avant jsonb; v_meme boolean; v_max numeric := private.plot_map_seuil('precision_localisation_max_m', 50);
 begin
   if auth.uid() is null or private.plot_map_classe() is null then raise exception 'Accès refusé.' using errcode = 'PM001'; end if;
   select * into cx from private.plot_map_contexte(v_plot);
@@ -164,7 +178,7 @@ begin
   if cx.cluster_code is null then raise exception 'Le village de cette parcelle n''est rattaché à aucun cluster AFLP.' using errcode = 'PM002'; end if;
   if not private.plot_map_actif('localisation', cx.cluster_code) then raise exception 'La localisation des champs n''est pas encore activée.' using errcode = 'PM001'; end if;
   if not private.plot_map_peut_saisir(cx.cluster_code, cx.producteur_id) then raise exception 'Cette parcelle est hors de votre périmètre.' using errcode = 'PM001'; end if;
-  if coalesce((private.plot_map_param('consentement')->>'gps_requis')::boolean, true) and not private.plot_map_consentement_gps(cx.producteur_id) then
+  if not private.plot_map_consentement_gps(cx.producteur_id) then   -- toujours exigé (correctif 11.3)
     raise exception 'Le producteur n''a pas donné son accord pour l''enregistrement des données GPS. Recueillez d''abord son consentement.' using errcode = 'PM001'; end if;
   if v_lat is null or v_lng is null or v_lat not between 4 and 11 or v_lng not between -9 and -2 then
     raise exception 'Position hors de la Côte d''Ivoire ou illisible.' using errcode = 'PM002'; end if;
@@ -173,14 +187,24 @@ begin
   if v_le > now() + interval '10 minutes' then raise exception 'Heure du téléphone dans le futur : corrigez l''heure du téléphone.' using errcode = 'PM002'; end if;
   select jsonb_build_object('latitude', latitude, 'longitude', longitude, 'gps_accuracy_m', gps_accuracy_m, 'gps_status', gps_status, 'gps_captured_at', gps_captured_at)
     into v_avant from public.farmer_plots where id = v_plot for update;
+  -- Correctif 11.1 : une position VÉRIFIÉE n'est jamais remplacée en silence, et une nouvelle position
+  -- ne garde jamais le statut vérifié. Remplacer exige une demande explicite ; le champ redevient
+  -- « point capturé » et devra être vérifié de nouveau. Même position (au centimètre) : rien ne change.
+  v_meme := (v_avant->>'latitude')::numeric = round(v_lat, 7) and (v_avant->>'longitude')::numeric = round(v_lng, 7);
+  if v_avant->>'gps_status' = 'GPS_VERIFIED' and not v_meme and not coalesce((p->>'remplacer_point_verifie')::boolean, false) then
+    raise exception 'Ce champ a déjà un point GPS vérifié. Le remplacer annule la vérification : confirmez le remplacement, il faudra le faire vérifier de nouveau.' using errcode = 'PM409'; end if;
   update public.farmer_plots
      set latitude = round(v_lat, 7), longitude = round(v_lng, 7), gps_accuracy_m = round(v_prec, 2), gps_captured_at = v_le,
-         gps_status = case when gps_status = 'GPS_VERIFIED' then 'GPS_VERIFIED' else 'POINT_CAPTURED' end,
+         gps_status = case when gps_status = 'GPS_VERIFIED' and v_meme then 'GPS_VERIFIED' else 'POINT_CAPTURED' end,
          updated_by = auth.uid()
    where id = v_plot;
-  perform private.plot_map_journaliser(v_plot, null, 'LOCALISER', v_avant,
-    jsonb_build_object('latitude', round(v_lat, 7), 'longitude', round(v_lng, 7), 'gps_accuracy_m', round(v_prec, 2), 'capture_le', v_le), null);
-  return jsonb_build_object('statut', 'ACCEPTEE', 'plot_id', v_plot, 'precision_m', round(v_prec, 2), 'recu_serveur_le', now());
+  perform private.plot_map_journaliser(v_plot, null,
+    case when v_avant->>'gps_status' = 'GPS_VERIFIED' and not v_meme then 'LOCALISER_REMPLACE_VERIFIE' else 'LOCALISER' end, v_avant,
+    jsonb_build_object('latitude', round(v_lat, 7), 'longitude', round(v_lng, 7), 'gps_accuracy_m', round(v_prec, 2), 'capture_le', v_le,
+                       'consentement', private.plot_map_consentement_ref(cx.producteur_id)),
+    case when v_avant->>'gps_status' = 'GPS_VERIFIED' and not v_meme then 'Point vérifié remplacé : nouvelle vérification nécessaire' end);
+  return jsonb_build_object('statut', 'ACCEPTEE', 'plot_id', v_plot, 'precision_m', round(v_prec, 2), 'recu_serveur_le', now(),
+                            'verification_annulee', v_avant->>'gps_status' = 'GPS_VERIFIED' and not v_meme);
 end $$;
 
 -- ------------------------------------------------------------ 2. ajouter une parcelle
@@ -246,10 +270,17 @@ begin
   if cx.cluster_code is null then raise exception 'Le village de cette parcelle n''est rattaché à aucun cluster AFLP.' using errcode = 'PM002'; end if;
   if not private.plot_map_actif('contours', cx.cluster_code) then raise exception 'La cartographie des parcelles n''est pas activée pour ce cluster.' using errcode = 'PM001'; end if;
   if not private.plot_map_peut_saisir(cx.cluster_code, cx.producteur_id) then raise exception 'Cette parcelle est hors de votre périmètre.' using errcode = 'PM001'; end if;
-  if coalesce((private.plot_map_param('consentement')->>'gps_requis')::boolean, true) and not private.plot_map_consentement_gps(cx.producteur_id) then
+  if not private.plot_map_consentement_gps(cx.producteur_id) then   -- toujours exigé (correctif 11.3)
     raise exception 'Le producteur n''a pas donné son accord pour l''enregistrement des données GPS. Aucun contour ne peut être enregistré.' using errcode = 'PM001'; end if;
   if v_method is null or v_method not in ('SATELLITE','GPS_POINTS','IMPORT_FICHIER','MIXTE') then raise exception 'Méthode de relevé inconnue.' using errcode = 'PM002'; end if;
   if v_conf is null or v_conf not in ('VISIBLES','PARTIELLES','INCERTAINES','VERIFICATION_TERRAIN') then raise exception 'Indiquez si les limites sont visibles.' using errcode = 'PM002'; end if;
+  -- Niveau 1 (limites visibles) : seulement si le producteur a confirmé les limites sur place.
+  if v_conf = 'VISIBLES' and coalesce(p->>'producer_confirmation', '') <> 'CONFIRMEE_SUR_PLACE' then
+    raise exception 'Niveau 1 « limites visibles et confirmées » : le producteur doit avoir confirmé les limites sur place. Sinon, choisissez le niveau 2 ou 3.' using errcode = 'PM002'; end if;
+  if not coalesce((p->>'identite_confirmee')::boolean, false) then
+    raise exception 'Confirmez d''abord qu''il s''agit bien du champ de ce producteur (identité de la parcelle).' using errcode = 'PM002'; end if;
+  if nullif(p->>'localisation_source', '') is not null and p->>'localisation_source' not in ('GPS_SUR_PLACE','VILLAGE','COORDONNEES','POINT_EXISTANT','CONTOUR_EXISTANT') then
+    raise exception 'Source de localisation inconnue.' using errcode = 'PM002'; end if;
   -- Géométrie : polygone simple, fermé, valide, en WGS84, en Côte d'Ivoire.
   if jsonb_typeof(p->'geometrie') <> 'object' or p->'geometrie'->>'type' <> 'Polygon' then raise exception 'Le contour doit être un polygone.' using errcode = 'PM002'; end if;
   begin
@@ -267,8 +298,8 @@ begin
   v_per := round(extensions.st_perimeter(g::extensions.geography, true)::numeric, 2);
   if v_area < private.plot_map_seuil('superficie_min_m2', 100) then raise exception 'Contour trop petit (% m²) : vérifiez les sommets.', v_area using errcode = 'PM002'; end if;
   if v_area > private.plot_map_seuil('superficie_max_ha', 200) * 10000 then raise exception 'Contour trop grand (% ha) : vérifiez les sommets.', round(v_area / 10000, 2) using errcode = 'PM002'; end if;
-  if v_client_area is not null and abs(v_client_area - v_area) / v_area * 100 > v_tol then
-    raise exception 'Écart de calcul entre le téléphone (% m²) et le serveur (% m²) : mettez à jour l''application.', v_client_area, v_area using errcode = 'PM002'; end if;
+  -- Écart entre le calcul du téléphone et celui du serveur : le contour est gardé (la valeur serveur fait foi)
+  -- mais une anomalie BLOQUANTE est créée plus bas pour que le Chef de Zone le voie avant de décider.
   if v_method = 'GPS_POINTS' and coalesce((p->>'gps_points')::int, 0) < 3 then raise exception 'Mesure GPS : au moins 3 points relevés sont nécessaires.' using errcode = 'PM002'; end if;
 
   -- Version et conflit : la base annoncée doit être la dernière version active.
@@ -281,13 +312,14 @@ begin
   insert into public.farmer_plot_geometries (id, plot_id, producteur_id, village_id, cluster_code, zone_code, version_no, base_geometry_id, method, geom,
     geojson_client, area_m2, perimeter_m, area_m2_client, perimeter_m_client, vertex_count, imagery_source, imagery_date, boundary_confidence,
     gps_points, gps_accuracy_min_m, gps_accuracy_median_m, gps_accuracy_max_m, producer_confirmation, producer_confirmation_note, notes, status,
-    created_by, created_by_role, device_id, client_operation_id, request_hash, created_at_client)
+    created_by, created_by_role, device_id, client_operation_id, request_hash, created_at_client, localisation_source, identite_confirmee, consentement_ref)
   values (v_id, v_plot, cx.producteur_id, cx.village_id, cx.cluster_code, cx.zone_code, v_version, v_base, v_method, g::extensions.geography,
     p->'geometrie', v_area, v_per, v_client_area, nullif(p->>'perimeter_m_client', '')::numeric, v_n, nullif(p->>'imagery_source', ''),
     nullif(p->>'imagery_date', '')::date, v_conf, nullif(p->>'gps_points', '')::int, nullif(p->>'gps_accuracy_min_m', '')::numeric,
     nullif(p->>'gps_accuracy_median_m', '')::numeric, nullif(p->>'gps_accuracy_max_m', '')::numeric,
     coalesce(nullif(p->>'producer_confirmation', ''), 'NON_DEMANDEE'), nullif(btrim(p->>'producer_confirmation_note'), ''), nullif(btrim(p->>'notes'), ''),
-    'SOUMIS', auth.uid(), v_classe, nullif(p->>'device_id', ''), nullif(p->>'client_operation_id', ''), v_hash, nullif(p->>'created_at_client', '')::timestamptz);
+    'SOUMIS', auth.uid(), v_classe, nullif(p->>'device_id', ''), nullif(p->>'client_operation_id', ''), v_hash, nullif(p->>'created_at_client', '')::timestamptz,
+    nullif(p->>'localisation_source', ''), true, private.plot_map_consentement_ref(cx.producteur_id));
 
   -- Une version soumise sur la bonne base remplace les versions encore en cours (jamais une version VALIDE).
   if not v_conflit then
@@ -316,6 +348,12 @@ begin
     end if;
   end loop;
 
+  if v_client_area is not null and abs(v_client_area - v_area) / v_area * 100 > v_tol then
+    insert into public.farmer_plot_anomalies (geometry_id, plot_id, cluster_code, zone_code, type, detail, bloquante)
+    values (v_id, v_plot, cx.cluster_code, cx.zone_code, 'ECART_CALCUL',
+            jsonb_build_object('telephone_m2', v_client_area, 'serveur_m2', v_area, 'ecart_pct', round(abs(v_client_area - v_area) / v_area * 100, 3), 'tolerance_pct', v_tol), true);
+    v_anomalies := v_anomalies + 1;
+  end if;
   -- Écart avec la superficie déclarée (non bloquant).
   if cx.declared_area is not null and cx.declared_area > 0 then
     v_decl_m2 := case upper(coalesce(cx.area_unit, 'HA')) when 'HA' then cx.declared_area * 10000 when 'M2' then cx.declared_area when 'ACRE' then cx.declared_area * 4046.8564224 else null end;
@@ -463,15 +501,26 @@ language plpgsql security definer set search_path = public, private, pg_temp as 
 declare v_avant jsonb;
 begin
   if private.plot_map_classe() is distinct from 'BM' then raise exception 'Paramétrage réservé au Branch Manager.' using errcode = 'PM001'; end if;
-  if p_cle not in ('activation','imagerie','seuils','consentement') or jsonb_typeof(p_valeur) <> 'object' then raise exception 'Paramètre inconnu.' using errcode = 'PM002'; end if;
-  if p_cle = 'imagerie' and coalesce(p_valeur->>'fournisseur', 'aucun') not in ('aucun','osm')
-     and not coalesce((p_valeur->>'licence_confirmee')::boolean, false) then
-    raise exception 'Imagerie satellite : la licence doit être confirmée avant activation.' using errcode = 'PM001'; end if;
+  if p_cle not in ('activation','imagerie','seuils') or jsonb_typeof(p_valeur) <> 'object' then raise exception 'Paramètre inconnu.' using errcode = 'PM002'; end if;
+  -- Imagerie : « aucun », « osm » (plan), « esri » (ArcGIS Location Platform, Static Basemap Tiles arcgis/imagery,
+  -- clé d'API à portée « basemaps » restreinte par référent) ou « tms » (orthophoto dont ANAGROCI détient les droits
+  -- ou sous licence libre, avec attribution). Toute imagerie exige une licence confirmée par le Branch Manager.
+  if p_cle = 'imagerie' then
+    if coalesce(p_valeur->>'fournisseur', 'aucun') not in ('aucun','osm','esri','tms') then raise exception 'Fournisseur d''imagerie inconnu.' using errcode = 'PM002'; end if;
+    if p_valeur->>'fournisseur' in ('esri','tms') and not coalesce((p_valeur->>'licence_confirmee')::boolean, false) then
+      raise exception 'Imagerie satellite : la licence doit être confirmée avant activation.' using errcode = 'PM001'; end if;
+    if p_valeur->>'fournisseur' = 'esri' and length(coalesce(p_valeur->>'cle', '')) < 20 then
+      raise exception 'Esri : collez la clé d''API ArcGIS Location Platform (portée « basemaps », restreinte au site FBMS).' using errcode = 'PM002'; end if;
+    if p_valeur->>'fournisseur' = 'tms' and (coalesce(p_valeur->>'url', '') !~ '^https://[^ ]+\{z\}[^ ]*\{x\}[^ ]*\{y\}' or length(coalesce(p_valeur->>'attribution', '')) < 3 or length(coalesce(p_valeur->>'licence', '')) < 3) then
+      raise exception 'Orthophoto : adresse https avec {z}/{x}/{y}, attribution et licence obligatoires.' using errcode = 'PM002'; end if;
+  end if;
   select valeur into v_avant from public.plot_map_parametres where cle = p_cle for update;
   insert into public.plot_map_parametres (cle, valeur, maj_le, maj_par) values (p_cle, p_valeur, now(), auth.uid())
   on conflict (cle) do update set valeur = excluded.valeur, maj_le = now(), maj_par = auth.uid();
   insert into public.farmer_plot_map_events (plot_id, acteur, acteur_role, action, avant, apres)
-  values ('00000000-0000-0000-0000-000000000000', auth.uid(), 'BM', 'PARAMETRE_' || upper(p_cle), v_avant, p_valeur);
+  values ('00000000-0000-0000-0000-000000000000', auth.uid(), 'BM', 'PARAMETRE_' || upper(p_cle),
+          case when v_avant ? 'cle' then (v_avant - 'cle') || jsonb_build_object('cle_fin', right(v_avant->>'cle', 4)) else v_avant end,
+          case when p_valeur ? 'cle' then (p_valeur - 'cle') || jsonb_build_object('cle_fin', right(p_valeur->>'cle', 4)) else p_valeur end);   -- la clé n'est jamais recopiée dans le journal
   return jsonb_build_object('statut', 'ACCEPTEE');
 end $$;
 
@@ -532,7 +581,7 @@ do $$ declare f text; begin
     'private.plot_map_param(text)','private.plot_map_seuil(text,numeric)','private.plot_map_profil()','private.plot_map_classe()','private.plot_map_norm(text)',
     'private.plot_map_mon_cluster()','private.plot_map_ma_zone()','private.plot_map_contexte(uuid)','private.plot_map_consentement_gps(text)',
     'private.plot_map_peut_lire(text,text)','private.plot_map_peut_saisir(text,text)','private.plot_map_actif(text,text)',
-    'private.plot_map_journaliser(uuid,uuid,text,jsonb,jsonb,text)','private.plot_map_hex(text)'] loop
+    'private.plot_map_journaliser(uuid,uuid,text,jsonb,jsonb,text)','private.plot_map_hex(text)','private.plot_map_consentement_ref(text)'] loop
     execute format('revoke all on function %s from public, anon', f);
   end loop;
   -- Fonctions nécessaires à l'évaluation des politiques RLS et des vues (lecture seule, sans effet).

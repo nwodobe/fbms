@@ -15,6 +15,7 @@ drop view if exists public.plot_map_geometries_v;
 drop view if exists public.plot_map_parcelles_v;
 drop function if exists private.plot_map_nom(uuid);
 drop function if exists public.plot_map_sync_batch(jsonb);
+drop function if exists private.plot_map_consentement_ref(text);
 drop function if exists public.plot_map_parametre_definir(text, jsonb);
 drop function if exists public.plot_map_archiver(uuid, text);
 drop function if exists public.plot_map_classer_anomalie(uuid, text, text);

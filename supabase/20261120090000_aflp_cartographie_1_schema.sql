@@ -83,6 +83,10 @@ create table if not exists public.farmer_plot_geometries (
   producer_confirmation text not null default 'NON_DEMANDEE'
     check (producer_confirmation in ('NON_DEMANDEE','CONFIRMEE_SUR_PLACE','CONTESTEE','PRODUCTEUR_ABSENT')),
   producer_confirmation_note text,
+  -- Comment le champ a été retrouvé, et confirmation explicite qu'il s'agit bien de cette parcelle.
+  localisation_source text check (localisation_source in ('GPS_SUR_PLACE','VILLAGE','COORDONNEES','POINT_EXISTANT','CONTOUR_EXISTANT')),
+  identite_confirmee boolean not null default false,
+  consentement_ref jsonb,
   notes text,
   status text not null check (status in ('SOUMIS','A_CORRIGER','VALIDE','REMPLACE','ARCHIVE')),
   created_by uuid not null,
@@ -117,7 +121,7 @@ create table if not exists public.farmer_plot_anomalies (
   other_plot_id uuid references public.farmer_plots(id),
   cluster_code text not null,
   zone_code text,
-  type text not null check (type in ('CHEVAUCHEMENT','CONFLIT_VERSION','ECART_SUPERFICIE','PRECISION_GPS')),
+  type text not null check (type in ('CHEVAUCHEMENT','CONFLIT_VERSION','ECART_SUPERFICIE','PRECISION_GPS','ECART_CALCUL')),
   overlap_m2 numeric(14,2),
   detail jsonb not null default '{}'::jsonb,
   bloquante boolean not null,
@@ -166,8 +170,9 @@ create table if not exists public.plot_map_parametres (
 insert into public.plot_map_parametres (cle, valeur) values
   ('activation', '{"localisation": false, "contours": false, "clusters_pilotes": []}'::jsonb),
   ('imagerie', '{"fournisseur": "aucun", "licence_confirmee": false, "note": "Aucune imagerie satellite activée tant que la licence n''est pas confirmée par écrit."}'::jsonb),
-  ('seuils', '{"ecart_superficie_pct": 20, "precision_gps_max_m": 30, "precision_localisation_max_m": 50, "tolerance_calcul_pct": 0.5, "chevauchement_min_m2": 1, "superficie_min_m2": 100, "superficie_max_ha": 200}'::jsonb),
-  ('consentement', '{"gps_requis": true}'::jsonb)
+  ('seuils', '{"ecart_superficie_pct": 20, "precision_gps_max_m": 30, "precision_localisation_max_m": 50, "tolerance_calcul_pct": 0.5, "chevauchement_min_m2": 1, "superficie_min_m2": 100, "superficie_max_ha": 200}'::jsonb)
+-- Pas de paramètre « consentement » : l'accord GPS du producteur est TOUJOURS exigé par le serveur
+-- et aucun réglage administratif ne peut le désactiver (correctif 11.3 du 20/11/2026).
 on conflict (cle) do nothing;
 
 -- 7. RLS : tout refusé par défaut, lectures ouvertes par la migration 2 ----------------

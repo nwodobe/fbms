@@ -38,7 +38,7 @@ create or replace view public.plot_map_geometries_v with (security_invoker = tru
 select g.id, g.plot_id, g.producteur_id, g.village_id, g.cluster_code, g.zone_code, g.version_no, g.base_geometry_id, g.method,
        extensions.st_asgeojson(g.geom::extensions.geometry, 7)::jsonb as geojson,
        g.area_m2, g.perimeter_m, g.vertex_count, g.imagery_source, g.imagery_date, g.boundary_confidence, g.gps_points,
-       g.gps_accuracy_min_m, g.gps_accuracy_median_m, g.gps_accuracy_max_m, g.producer_confirmation, g.producer_confirmation_note, g.notes,
+       g.gps_accuracy_min_m, g.gps_accuracy_median_m, g.gps_accuracy_max_m, g.producer_confirmation, g.producer_confirmation_note, g.notes, g.localisation_source, g.identite_confirmee,
        g.status, g.created_by, private.plot_map_nom(g.created_by) as auteur_nom, g.created_by_role, g.created_at, g.created_at_client,
        g.preverified_by, private.plot_map_nom(g.preverified_by) as preverifie_par_nom, g.preverified_at, g.preverification_note,
        g.decided_by, private.plot_map_nom(g.decided_by) as decide_par_nom, g.decided_at, g.decision_comment, g.decision_exception, g.row_version
@@ -114,6 +114,12 @@ begin
     'superficie_cartographiee_ha', (select round(sum(area_m2) / 10000, 2) from act),
     'superficie_validee_somme_ha', (select round(sum(area_m2) / 10000, 2) from val),
     'emprise_unique_validee_ha', (select round((extensions.st_area(extensions.st_union(geom::extensions.geometry)::extensions.geography, true) / 10000)::numeric, 2) from val),
+    -- Fiabilité de la mesure (niveau 1 : limites visibles et confirmées ; 2 : partiellement visibles ; 3 : incertaines).
+    'par_niveau', (select jsonb_build_object(
+        'niveau_1', count(*) filter (where boundary_confidence = 'VISIBLES'),
+        'niveau_2', count(*) filter (where boundary_confidence = 'PARTIELLES'),
+        'niveau_3', count(*) filter (where boundary_confidence in ('INCERTAINES','VERIFICATION_TERRAIN')),
+        'sans_marche_complete', count(*) filter (where method in ('SATELLITE','IMPORT_FICHIER'))) from act),
     'chevauchements_ouverts', (select count(*) from ano where type = 'CHEVAUCHEMENT'),
     'chevauchements_ouverts_ha', (select round(sum(overlap_m2) / 10000, 4) from ano where type = 'CHEVAUCHEMENT'),
     'anomalies_ouvertes', (select coalesce(jsonb_object_agg(type, n), '{}'::jsonb) from (select type, count(*) n from ano group by type) x),

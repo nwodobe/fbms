@@ -104,7 +104,8 @@ def contour(pid, geo, user_dev="dev-fictif", method="SATELLITE", conf="VISIBLES"
     a, per = ref(geo)
     d = {"id": gid or str(uuid.uuid4()), "plot_id": pid, "geometrie": geo, "method": method, "boundary_confidence": conf,
          "base_geometry_id": base, "area_m2_client": round(a, 2) if client_area else None, "perimeter_m_client": round(per, 2),
-         "imagery_source": "AUCUNE (recette)", "device_id": user_dev}
+         "imagery_source": "AUCUNE (recette)", "device_id": user_dev,
+         "producer_confirmation": "CONFIRMEE_SUR_PLACE", "identite_confirmee": True, "localisation_source": "VILLAGE"}
     d.update(extra); return d
 
 # ------------------------------------------------------------------ 0. base sans cartographie + jeu fictif
@@ -121,12 +122,18 @@ setup.append("insert into public.rt (id, data, nom, village_id) values ('RT-FICT
 PL = {}
 PRODS = [("A", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 5.0), ("B", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 2.0), ("C", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", None),
          ("D", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 12.0), ("E", "V-FICTIF-BOT", "RT-FICTIF-BOT", "OUI", 3.0),
-         ("N", "V-FICTIF-BRO", "RT-FICTIF-BRO", "AUCUN", 1.0), ("R", "V-FICTIF-BRO", "RT-FICTIF-BRO", "REFUS_GPS", 1.0), ("V", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 1.5)]
+         ("N", "V-FICTIF-BRO", "RT-FICTIF-BRO", "AUCUN", 1.0), ("R", "V-FICTIF-BRO", "RT-FICTIF-BRO", "REFUS_GPS", 1.0), ("V", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 1.5),
+         ("K", "V-FICTIF-BRO", "RT-FICTIF-BRO", "OUI", 2.0), ("W", "V-FICTIF-BRO", "RT-FICTIF-BRO", "RETIRE", 1.0)]
 for nom, v, rt, cons, decl in PRODS:
     pid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"carto-parcelle-{nom}")); PL[nom] = pid
     setup.append(f"insert into public.producteurs (id, data, nom, village_id, rt_id) values ('P-CARTO-{nom}', '{{}}', 'PRODUCTEUR FICTIF {nom}', '{v}', '{rt}') on conflict do nothing;")
     setup.append(f"insert into public.farmer_plots (id, producteur_id, village_id, local_name, declared_area, tree_count) values ('{pid}', 'P-CARTO-{nom}', '{v}', 'PARCELLE FICTIVE {nom}', {decl if decl else 'null'}, 120) on conflict do nothing;")
-    if cons != "AUCUN":
+    if cons == "RETIRE":   # accord GPS donné puis RETIRÉ : seule la dernière décision compte
+        setup.append(f"insert into public.farmer_consents (producteur_id, status, scopes, consent_at, text_version, method, created_at) values "
+                     f"('P-CARTO-{nom}', 'GRANTED', '{{\"identity\": true, \"gps\": true}}', now() - interval '2 days', 'AFLP-DATA-CONSENT-2026.1', 'VERBAL', now() - interval '2 days');")
+        setup.append(f"insert into public.farmer_consents (producteur_id, status, scopes, consent_at, text_version, method, created_at) values "
+                     f"('P-CARTO-{nom}', 'PARTIAL', '{{\"identity\": true, \"gps\": false}}', now(), 'AFLP-DATA-CONSENT-2026.1', 'VERBAL', now());")
+    elif cons != "AUCUN":
         scopes = '{"identity": true, "gps": %s}' % ("true" if cons == "OUI" else "false")
         setup.append(f"insert into public.farmer_consents (producteur_id, status, scopes, consent_at, text_version, method, created_at) values "
                      f"('P-CARTO-{nom}', '{'GRANTED' if cons == 'OUI' else 'PARTIAL'}', '{scopes}', now(), 'AFLP-DATA-CONSENT-2026.1', 'VERBAL', now());")
@@ -160,12 +167,21 @@ act("A-01", F, "uh_bro", "Localisation refusée tant que la fonction est désact
     f"select public.plot_map_localiser({lit({'plot_id': PL['A'], 'latitude': 7.7, 'longitude': -5.03, 'precision_m': 6})})", False, "pas encore activée")
 act("A-02", F, "uh_bro", "Un Unit Head ne peut pas activer la cartographie",
     f"select public.plot_map_parametre_definir('activation', {lit({'localisation': True})})", False, "réservé")
+act("A-03b", F, "bm", "Correctif 11.3 : le paramètre « consentement » n'existe plus (impossible de neutraliser le contrôle)",
+    f"select public.plot_map_parametre_definir('consentement', {lit({'gps_requis': False})})", False, "inconnu")
+act("A-03c", F, "bm", "Esri sans clé d'API refusé", f"select public.plot_map_parametre_definir('imagerie', {lit({'fournisseur': 'esri', 'licence_confirmee': True})})", False, "clé")
+act("A-03d", F, "bm", "Esri avec licence confirmée et clé : accepté", f"select public.plot_map_parametre_definir('imagerie', {lit({'fournisseur': 'esri', 'licence_confirmee': True, 'cle': 'AAPTfictive_cle_de_recette_0123456789'})})")
+verif("A-03e", F, "La clé d'API n'est jamais recopiée dans le journal (seulement ses 4 derniers caractères)", q("select count(*) from public.farmer_plot_map_events where action='PARAMETRE_IMAGERIE' and apres::text like '%fictive_cle%'") + "|" + q("select apres->>'cle_fin' from public.farmer_plot_map_events where action='PARAMETRE_IMAGERIE' order by created_at desc limit 1"), "0|6789")
+act("A-03f", F, "bm", "Orthophoto (TMS) sans attribution refusée", f"select public.plot_map_parametre_definir('imagerie', {lit({'fournisseur': 'tms', 'licence_confirmee': True, 'url': 'https://tuiles.example.invalid/{z}/{x}/{y}.png'})})", False, "attribution")
+act("A-03g", F, "bm", "Retour à « aucune imagerie »", f"select public.plot_map_parametre_definir('imagerie', {lit({'fournisseur': 'aucun', 'licence_confirmee': False})})")
 act("A-03", F, "bm", "Imagerie satellite refusée sans licence confirmée",
     f"select public.plot_map_parametre_definir('imagerie', {lit({'fournisseur': 'esri', 'licence_confirmee': False})})", False, "licence")
-act("A-04", F, "bm", "Le Branch Manager active la localisation (tous clusters) et les contours (pilote BROBO)",
+act("A-04", F, "bm", "Le Branch Manager active la localisation et les contours pour le pilote BROBO",
     f"select public.plot_map_parametre_definir('activation', {lit({'localisation': True, 'contours': True, 'clusters_pilotes': ['BROBO']})})")
 act("A-05", F, "uh_bot", "Contour refusé hors cluster pilote (BOTRO)",
     f"select public.plot_map_soumettre({lit(contour(PL['E'], poly(RECT, 5000, 5000)))})", False, "pas activée pour ce cluster")
+act("A-05b", F, "uh_bot", "Correctif 11.2 : localisation refusée hors cluster pilote, même avec localisation = vrai",
+    f"select public.plot_map_localiser({lit({'plot_id': PL['E'], 'latitude': 7.9, 'longitude': -5.3, 'precision_m': 6})})", False, "pas encore activée")
 act("A-06", F, "bm", "Le Branch Manager ajoute BOTRO au pilote",
     f"select public.plot_map_parametre_definir('activation', {lit({'localisation': True, 'contours': True, 'clusters_pilotes': ['BROBO', 'BOTRO']})})")
 
@@ -185,9 +201,17 @@ act("L-10", F, "uh_bro", "Producteur sans consentement enregistré : refus", f"s
 act("L-11", F, "uh_bro", "Producteur ayant refusé la portée GPS : refus", f"select public.plot_map_localiser({LOC(PL['R'])})", False, "accord")
 act("L-12", F, "uh_inactif", "Compte inactif refusé", f"select public.plot_map_localiser({LOC(PL['B'])})", False, "refusé")
 act("L-13", F, "auh_bro", "L'assistant localise un champ de son cluster", f"select public.plot_map_localiser({LOC(PL['B'], 8, 7.7031, -5.0262)})")
-act("L-14", F, "uh_bro", "Relocaliser un point VÉRIFIÉ ne le rétrograde pas", f"select public.plot_map_localiser({LOC(PL['V'], 4, 7.7001, -5.0301)})")
-verif("L-15", F, "Le statut GPS_VERIFIED est conservé", q(f"select gps_status from public.farmer_plots where id='{PL['V']}'"), "GPS_VERIFIED")
-verif("L-16", F, "Chaque localisation est journalisée avec l'état précédent", q(f"select count(*) from public.farmer_plot_map_events where plot_id='{PL['V']}' and action='LOCALISER' and avant is not null"), "1")
+act("L-14", F, "uh_bro", "Correctif 11.1 : remplacer un point VÉRIFIÉ sans confirmation explicite est refusé", f"select public.plot_map_localiser({LOC(PL['V'], 4, 7.7001, -5.0301)})", False, "déjà un point gps vérifié")
+verif("L-14b", F, "Refus : coordonnées et statut vérifiés intacts", q(f"select gps_status||'|'||latitude from public.farmer_plots where id='{PL['V']}'"), "GPS_VERIFIED|7.7000000")
+act("L-14c", F, "uh_bro", "Même position (au centimètre) : acceptée, la vérification est conservée", f"select public.plot_map_localiser({LOC(PL['V'], 4, 7.7, -5.03)})")
+verif("L-14d", F, "Même position : statut GPS_VERIFIED conservé", q(f"select gps_status from public.farmer_plots where id='{PL['V']}'"), "GPS_VERIFIED")
+act("L-14e", F, "uh_bro", "Remplacement confirmé explicitement : accepté", f"select public.plot_map_localiser({lit({'plot_id': PL['V'], 'latitude': 7.7001, 'longitude': -5.0301, 'precision_m': 4, 'remplacer_point_verifie': True})})")
+verif("L-15", F, "Correctif 11.1 : nouvelles coordonnées = statut POINT_CAPTURED (nouvelle vérification nécessaire)", q(f"select gps_status||'|'||latitude from public.farmer_plots where id='{PL['V']}'"), "POINT_CAPTURED|7.7001000")
+verif("L-16", F, "Remplacement journalisé avec l'ancienne position vérifiée et le motif", q(f"select count(*) from public.farmer_plot_map_events where plot_id='{PL['V']}' and action='LOCALISER_REMPLACE_VERIFIE' and avant->>'gps_status'='GPS_VERIFIED' and motif like '%nouvelle vérification%'"), "1")
+verif("L-17", F, "Correctif 11.3 : la décision de consentement utilisée est conservée dans le journal", q(f"select count(*) from public.farmer_plot_map_events where plot_id='{PL['A']}' and action='LOCALISER' and (apres->'consentement'->>'gps')::boolean and apres->'consentement'->>'event_order' is not null"), "1")
+act("L-18", F, "uh_bro", "Correctif 11.3 : accord GPS donné puis retiré (dernière décision) : refus", f"select public.plot_map_localiser({LOC(PL['W'])})", False, "accord")
+# Remet V à l'état « vérifié par la supervision » pour le contrôle Observatoire ci-dessous (geste de recette, hors application).
+q(f"select set_config('request.jwt.claim.sub', '{U['bm']}', false); update public.farmer_plots set gps_status = 'GPS_VERIFIED' where id = '{PL['V']}';")
 
 # ------------------------------------------------------------------ 4. Observatoire (migration 6)
 F = "Observatoire"
@@ -219,8 +243,13 @@ act("G-06", F, "auh_bro", "Polygone incomplet (2 sommets) refusé",
     f"select public.plot_map_soumettre({lit(contour(PL['B'], {'type': 'Polygon', 'coordinates': [[pt(0, 0, 6000), pt(50, 0, 6000), pt(0, 0, 6000)]]}, client_area=False))})", False)
 act("G-07", F, "auh_bro", "Contour non fermé refusé",
     f"select public.plot_map_soumettre({lit(contour(PL['B'], {'type': 'Polygon', 'coordinates': [[pt(0, 0, 6000), pt(90, 0, 6000), pt(90, 90, 6000), pt(0, 90, 6000)]]}, client_area=False))})", False, "fermé")
-act("G-08", F, "auh_bro", "Écart de calcul téléphone / serveur au-delà de la tolérance refusé",
-    f"select public.plot_map_soumettre({lit(dict(contour(PL['B'], poly(RECT, 6000, 0)), area_m2_client=51000))})", False, "écart de calcul")
+act("G-08", F, "auh_bro", "Écart de calcul téléphone / serveur : contour gardé (valeur serveur) mais signalé",
+    f"select public.plot_map_soumettre({lit(dict(contour(PL['K'], poly(RECT, 9000, 0)), area_m2_client=51000))})")
+verif("G-08b", F, "Écart de calcul : anomalie ECART_CALCUL bloquante avec les deux valeurs", q(f"select type||'|'||bloquante||'|'||(detail->>'telephone_m2') from public.farmer_plot_anomalies where plot_id='{PL['K']}' and type='ECART_CALCUL'"), "ECART_CALCUL|true|51000")
+act("G-12", F, "auh_bro", "Niveau 1 (limites visibles) sans confirmation du producteur sur place : refus",
+    f"select public.plot_map_soumettre({lit(contour(PL['B'], poly(RECT, 6000, 0), producer_confirmation='PRODUCTEUR_ABSENT'))})", False, "niveau 1")
+act("G-13", F, "auh_bro", "Identité de la parcelle non confirmée : refus", f"select public.plot_map_soumettre({lit(contour(PL['B'], poly(RECT, 6000, 0), identite_confirmee=False))})", False, "identité")
+act("G-14", F, "auh_bro", "Correctif 11.3 : accord GPS retiré : contour refusé", f"select public.plot_map_soumettre({lit(contour(PL['W'], poly(RECT, 7000, 0)))})", False, "accord")
 act("G-09", F, "auh_bro", "Contour minuscule (25 m²) refusé", f"select public.plot_map_soumettre({lit(contour(PL['B'], poly([(0,0),(5,0),(5,5),(0,5)], 6000, 0)))})", False, "trop petit")
 act("G-10", F, "auh_bro", "Mesure GPS avec moins de 3 points refusée",
     f"select public.plot_map_soumettre({lit(contour(PL['B'], poly(RECT, 6000, 0), method='GPS_POINTS', gps_points=2))})", False, "au moins 3 points")
@@ -339,6 +368,9 @@ act("R-02", F, "uh_bot", "Contour BOTRO par le Chef d'Unité de BOTRO", f"select
 verif("R-03", F, "Assistant BROBO : contour BOTRO invisible (accès direct)", nb("auh_bro", "select count(*) from public.farmer_plot_geometries where cluster_code='BOTRO'"), "0")
 verif("R-04", F, "Chef de Zone GBEKE 1 : contours de BOTRO (GBEKE 2) invisibles", nb("zh1", "select count(*) from public.farmer_plot_geometries where zone_code='GBEKE_2'"), "0")
 verif_vrai("R-05", F, "Chef de Zone GBEKE 2 : voit BOTRO", int(nb("zh2", "select count(*) from public.farmer_plot_geometries where zone_code='GBEKE_2'")) >= 1)
+act("R-04b", F, "zh1", "Correctif 11.4 : Chef de Zone GBEKE 1 ne peut pas décider un contour de GBEKE 2", f"select public.plot_map_decider((select id from public.farmer_plot_geometries where zone_code='GBEKE_2' and status='SOUMIS' limit 1), 'VALIDER', null)", False)
+verif("R-04c", F, "Correctif 11.4 : refus sans effet (le contour GBEKE 2 reste SOUMIS)", q("select count(*) from public.farmer_plot_geometries where zone_code='GBEKE_2' and status='SOUMIS'"), "1")
+verif("R-04d", F, "Correctif 11.4 : Chef de Zone GBEKE 1 ne voit aucune anomalie de GBEKE 2", nb("zh1", "select count(*) from public.farmer_plot_anomalies where zone_code='GBEKE_2'"), "0")
 verif("R-06", F, "Chef de Zone sans zone : aucun contour visible", nb("zh_sans", "select count(*) from public.farmer_plot_geometries"), "0")
 verif("R-07", F, "RT : aucun contour", nb("rt", "select count(*) from public.farmer_plot_geometries"), "0")
 verif("R-08", F, "Finance : aucun contour ni coordonnée", nb("fin", "select count(*) from public.farmer_plot_geometries"), "0")
