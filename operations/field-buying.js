@@ -1890,6 +1890,66 @@ function passportTabs() { return [
   ['purchases', TT('Achats', 'Purchases')], ['actions', 'Actions'], ['history', TT('Historique', 'History')]
 ]; }
 
+/* Consentement GPS : une inscription au programme ne suffit pas. Chaque décision est
+   enregistrée en nouvel événement, jamais inférée d'une ancienne attestation BM. */
+var FB_GPS_SCOPES = ['identity','agriculture','gps','photos','training','inspections','transactions'];
+function latestGpsConsent(rows) {
+  return (rows || []).slice().sort(function (a, b) {
+    return Number(b.event_order || 0) - Number(a.event_order || 0) ||
+      new Date(b.created_at || b.consent_at || 0).getTime() - new Date(a.created_at || a.consent_at || 0).getTime();
+  })[0] || null;
+}
+function consentGpsActif(row) {
+  return !!(row && (row.status === 'GRANTED' || row.status === 'PARTIAL')
+    && row.scopes && row.scopes.gps === true);
+}
+function enregistrerDecisionGps(pid, cluster) {
+  var bt = document.getElementById('fbGpsSave'), msg = document.getElementById('fbGpsMsg');
+  var choix = (document.getElementById('fbGpsDecision') || {}).value || '';
+  var methode = (document.getElementById('fbGpsMethod') || {}).value || '';
+  var certifie = document.getElementById('fbGpsAttest');
+  var note = ((document.getElementById('fbGpsNote') || {}).value || '').trim();
+  function message(t, error) { if (msg) { msg.textContent = t; msg.className = error ? 'ops-danger-text' : 'ops-ok-text'; } }
+  if (!['ACCORDE','REFUSE','RETIRE'].includes(choix) || !['VERBAL','WRITTEN','DIGITAL','WITNESSED'].includes(methode) || !certifie || !certifie.checked) {
+    message('Choisissez la décision réellement exprimée, sa méthode et confirmez avoir personnellement constaté cet accord ou refus.', true); return Promise.resolve();
+  }
+  if (global.ANAGROCI_OFFLINE && !global.ANAGROCI_OFFLINE.isOnline()) {
+    message('Connexion obligatoire : aucune décision GPS ne sera présumée ou déclarée enregistrée hors ligne.', true); return Promise.resolve();
+  }
+  if (!canEditTerrain() || !inTerrainScope([cluster])) {
+    message('Ce producteur est hors de votre périmètre de saisie.', true); return Promise.resolve();
+  }
+  if (bt) bt.disabled = true;
+  message('Enregistrement de la décision GPS…', false);
+  return loadProfile().then(function () { return client(); }).then(async function (cl) {
+    if (!cl || !profile.userId) throw new Error('Session agent non disponible. Reconnectez-vous.');
+    var rep = await cl.from('farmer_consents').select('status,scopes,event_order,created_at')
+      .eq('producteur_id', pid).order('event_order', { ascending: false }).limit(1).maybeSingle();
+    if (rep.error) throw new Error(rep.error.message);
+    var previous = rep.data || null;
+    var scopes = previous && (previous.status === 'GRANTED' || previous.status === 'PARTIAL')
+      ? Object.assign({}, previous.scopes || {}) : {};
+    scopes.gps = choix === 'ACCORDE';
+    var auMoinsUn = FB_GPS_SCOPES.some(function (k) { return scopes[k] === true; });
+    var tous = FB_GPS_SCOPES.every(function (k) { return scopes[k] === true; });
+    var statut = choix === 'ACCORDE' ? (tous ? 'GRANTED' : 'PARTIAL')
+      : auMoinsUn ? 'PARTIAL' : choix === 'RETIRE' ? 'WITHDRAWN' : 'REFUSED';
+    var r = await cl.from('farmer_consents').insert({
+      producteur_id: pid, status: statut, scopes: scopes,
+      consent_at: new Date().toISOString(), method: methode,
+      text_version: 'AFLP-DATA-CONSENT-2026.1',
+      agent_id: profile.userId, created_by: profile.userId,
+      source: 'FIELD_GPS_DECISION',
+      notes: 'Décision GPS exprimée et constatée sur la fiche Farmer Passport. ' + (note || 'Aucune référence documentaire saisie.')
+    });
+    if (r.error) throw new Error(r.error.message);
+    FBStore.invalidate('passport:' + pid);
+    FBStore.invalidate('base');
+    return renderFarmerPassport(pid, 'consents');
+  }).catch(function (error) {
+    message('Décision GPS NON enregistrée : ' + (error && error.message || 'erreur'), true);
+  }).finally(function () { if (bt) bt.disabled = false; });
+}
 function renderFarmerPassport(id, tab) {
   tab = passportTabs().some(function (t) { return t[0] === tab; }) ? tab : 'overview';
   paint(head('Farmer Passport', TT('Chargement du producteur…', 'Loading farmer…'),
@@ -2026,13 +2086,44 @@ function renderFarmerPassport(id, tab) {
               editButton(finalisee ? TT('Consulter', 'View') : TT('Modifier', 'Edit'), "openSustainabilityBaselineForm('" + esc(x.id) + "')") + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'consents') {
-        body = '<div class="notice info"><b>' + TT('Consentement historisé :', 'Consent history:') + '</b> ' + TT('un consentement existant ne se réécrit pas. Une nouvelle décision crée un nouvel événement afin de conserver la preuve et l’historique.', 'an existing consent is never rewritten. A new decision creates a new event to keep the evidence and the history.') + '</div>' +
-          '<section class="card">' + table(['Date', TT('Statut', 'Status'), TT('Périmètres', 'Scopes'), TT('Méthode', 'Method'), 'Agent', TT('Version du texte', 'Text version')],
+        var derniereDecision = latestGpsConsent(p.consents);
+        var gpsAutorise = consentGpsActif(derniereDecision);
+        var saisie = canEditTerrain() && inTerrainScope([f.cluster_code]);
+        body = '<div class="notice info"><b>' + TT('Consentement historisé :', 'Consent history:') + '</b> ' +
+          TT('La participation AFLP ne vaut pas automatiquement consentement GPS. Seule la décision explicite du producteur active la cartographie. Les décisions précédentes restent historisées.', 'AFLP participation does not automatically constitute GPS consent. Only the producer’s explicit decision enables mapping. Earlier decisions are preserved.') + '</div>' +
+          '<div class="notice ' + (gpsAutorise ? 'ok' : 'warn') + '"><b>' + (gpsAutorise
+            ? TT('GPS : accord explicite actif.', 'GPS: active explicit consent.')
+            : derniereDecision && ['REFUSED','WITHDRAWN'].includes(derniereDecision.status)
+              ? TT('GPS : dernier consentement refusé ou retiré.', 'GPS: latest consent refused or withdrawn.')
+              : TT('GPS : aucune autorisation active retrouvée dans FBMS.', 'GPS: no active authorisation found in FBMS.')) +
+          '</b> ' + TT('Un accord oral ou papier recueilli mais non saisi doit être confirmé et enregistré individuellement. Ne jamais présumer l’accord à partir de l’enrôlement.', 'Previously collected verbal or paper consent must be confirmed and individually recorded. Do not infer consent from enrollment.') + '</div>' +
+          (saisie ? '<section class="card" id="fbGpsForm"><div class="card-head"><div><h2>' +
+            TT('Enregistrer la décision GPS du producteur', 'Record producer GPS decision') +
+            '</h2><p>' + TT('Saisie actuelle et traçable. Aucun accord présélectionné ; ne pas antidater une décision.', 'Current, auditable entry. No preselected agreement; do not backdate.') + '</p></div></div>' +
+            '<div class="ops-form-grid">' +
+            '<label>' + TT('Décision réellement exprimée', 'Actual decision') +
+            '<select id="fbGpsDecision"><option value="">— Choisir —</option><option value="ACCORDE">' + TT('Accord GPS et limites du champ', 'GPS and plot boundaries consent') +
+            '</option><option value="REFUSE">' + TT('Refus GPS', 'GPS refusal') + '</option><option value="RETIRE">' + TT('Retrait du consentement GPS', 'Withdrawal of GPS consent') + '</option></select></label>' +
+            '<label>' + TT('Méthode de recueil', 'Method') +
+            '<select id="fbGpsMethod"><option value="">— Choisir —</option><option value="VERBAL">' + TT('Verbal', 'Verbal') +
+            '</option><option value="WRITTEN">' + TT('Écrit', 'Written') + '</option><option value="DIGITAL">' + TT('Numérique', 'Digital') +
+            '</option><option value="WITNESSED">' + TT('Avec témoin', 'Witnessed') + '</option></select></label>' +
+            '<label>' + TT('Référence de preuve ou observation (facultatif)', 'Evidence reference or note (optional)') +
+            '<input type="text" maxlength="350" id="fbGpsNote" placeholder="' + TT('Ex. formulaire papier conservé au bureau', 'e.g. paper form kept in the office') + '"></label></div>' +
+            '<label style="display:block;margin:12px 0"><input id="fbGpsAttest" type="checkbox"> ' +
+            TT('Je confirme avoir personnellement constaté cette décision explicite du producteur sur la géolocalisation et le tracé de son champ. Ce n’est pas une simple déduction de son enrôlement.', 'I confirm I personally verified this explicit decision about geolocation and boundary mapping. It is not inferred from enrollment.') +
+            '</label><div class="ops-actions"><button class="btn primary" type="button" id="fbGpsSave">' +
+            TT('Enregistrer la décision GPS', 'Save GPS decision') +
+            '</button></div><p id="fbGpsMsg" class="muted" role="status"></p></section>' : '') +
+          '<section class="card"><div class="card-head"><div><h2>' + TT('Historique des consentements', 'Consent history') + '</h2></div></div>' +
+          table(['Date', TT('Statut', 'Status'), TT('Périmètres autorisés', 'Allowed scopes'), TT('Méthode', 'Method'), 'Agent', TT('Origine', 'Source'), TT('Version du texte', 'Text version')],
           p.consents.map(function (x) {
+            var scopesAutorises = Array.isArray(x.scopes) ? x.scopes
+              : Object.keys(x.scopes || {}).filter(function (k) { return x.scopes[k] === true; });
             return '<tr><td>' + date(x.consent_at) + '</td><td>' + badge(x.status) + '</td>' +
-              '<td>' + esc(Array.isArray(x.scopes) ? x.scopes.join(', ') : (x.scopes || '—')) + '</td>' +
+              '<td>' + esc(scopesAutorises.join(', ') || '—') + '</td>' +
               '<td>' + esc(x.method || '—') + '</td><td>' + esc(x.agent_name || '—') + '</td>' +
-              '<td class="mono">' + esc(x.text_version || '—') + '</td></tr>';
+              '<td>' + esc(x.source || '—') + '</td><td class="mono">' + esc(x.text_version || '—') + '</td></tr>';
           })) + '</section>';
       } else if (tab === 'visits') {
         body = '<section class="card"><div class="card-head"><div><h2>' + TT('Visites', 'Visits') + '</h2><p>' + TT('Une visite est un événement terrain historisé ; on ajoute une nouvelle visite plutôt que réécrire le passé.', 'A visit is a logged field event; add a new visit rather than rewrite the past.') + '</p></div>' +
@@ -2095,6 +2186,10 @@ function renderFarmerPassport(id, tab) {
         (canEditTerrain() && inTerrainScope([f.cluster_code]) ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.openFarmerForm(null,\'' + esc(pid) + '\')">' + TT('Modifier', 'Edit') + '</button>' : '') +
         '<a class="btn secondary" href="#farmers">' + TT('← Producteurs', '← Farmers') + '</a>') +
         tabs() + '<div id="fbFormHost" class="ops-form-card" hidden></div>' + body + '</div>');
+      if (tab === 'consents') {
+        var gpsBt = document.getElementById('fbGpsSave');
+        if (gpsBt) gpsBt.addEventListener('click', function () { enregistrerDecisionGps(pid, f.cluster_code); });
+      }
       if (tab === 'overview' && global.ANAGROCI_COOP && global.ANAGROCI_COOP.fillChannel) global.ANAGROCI_COOP.fillChannel(pid);
     });
   });
