@@ -95,9 +95,11 @@
       var cx=(left+(p[0]-minX)*factor).toFixed(1),cy=(top+(maxY-p[1])*factor).toFixed(1);
       return '<circle cx="'+cx+'" cy="'+cy+'" r="3.1" fill="#ffffff" stroke="#086b38" stroke-width="1.5"/>';
     }).join('');
-    var metres=Math.min(1000,Math.max(10,Math.pow(10,Math.floor(Math.log10(120/factor)))));
-    if (!Number.isFinite(metres)) metres=10;
-    var px=Math.max(15,Math.min(210,metres*factor));
+    // Barre de 120 unités SVG. Sa longueur réelle est déduite de la projection locale
+    // (approximation métrique à la latitude moyenne), jamais artificiellement plafonnée.
+    var px=120;
+    var metres=px/factor;
+    if (!Number.isFinite(metres)||metres<=0) throw new Error('Impossible de calculer l’échelle.');
     return '<svg viewBox="0 0 820 365" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Contour vectoriel de la plantation">'
       + '<rect width="820" height="365" fill="#f0f3eb"/>'
       + Array.from({length:15},function(_,i){return '<path d="M0 '+(i*28)+' H820" stroke="#d5decf" stroke-width=".7"/>';}).join('')
@@ -119,7 +121,7 @@
     return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Carte de plantation '+reference+'</title><style>'
       +'@page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#17392a;margin:0;background:#fafbf8}.page{padding:13px 17px}h1{margin:0;font-size:21px}h2{margin:6px 0 8px;font-size:13px}.muted{color:#485a4d}.top{display:flex;justify-content:space-between;border-bottom:3px solid #075931;padding-bottom:9px}.status{padding:7px 10px;background:#f4e7be;font-weight:bold;border-radius:5px}.cols{display:grid;grid-template-columns:1.9fr 1fr;gap:15px;margin-top:12px}.map svg{display:block;width:100%;height:auto;border:1px solid #b9c9b8}dl{display:grid;grid-template-columns:40% 60%;gap:6px 5px}dt{color:#546457}dd{margin:0;font-weight:600;overflow-wrap:anywhere}p{margin:8px 0}.fine{font-size:10px;color:#52665a}.foot{border-top:1px solid #a4b6a7;margin-top:14px;padding-top:7px}.noprint{margin:14px 0}.noprint button{padding:10px 16px;background:#075931;color:#fff;border:0;border-radius:6px;font-weight:bold} @media print{.noprint{display:none}.page{padding:0}body{background:#fff}}</style></head><body><main class="page">'
       +'<div class="top"><div><div class="muted">ANAGROCI · AFLP 2027 · Registre cartographique</div><h1>CARTE DE PLANTATION</h1><div class="muted">Fiche documentaire liée à une géométrie serveur</div></div><div class="status">'+esc(q)+'</div></div>'
-      +'<div class="cols"><section class="map"><h2>Contour WGS84 · représentation vectorielle</h2>'+svg+'<p class="fine">Cette carte représente le polygone enregistré, sur fond neutre et non satellite. Elle ne constitue ni un bornage cadastral ni une certification Rainforest Alliance. L’imagerie Esri consultée pour le tracé n’est pas reproduite dans le PDF.</p></section>'
+      +'<div class="cols"><section class="map"><h2>Contour WGS84 · représentation vectorielle</h2>'+svg+'<p class="fine">Cette carte représente le polygone enregistré, sur fond neutre et non satellite. L’échelle est indicative (projection locale approximative). Elle ne constitue ni un bornage cadastral ni une certification Rainforest Alliance. L’imagerie Esri consultée pour le tracé n’est pas reproduite dans le PDF.</p></section>'
       +'<section><h2>Identification et mesures</h2><dl>'
       +'<dt>Code parcelle</dt><dd>'+reference+'</dd>'
       +'<dt>Producteur</dt><dd>'+esc((x.producteur_nom||'')+' '+(x.producteur_prenoms||''))+' · '+esc(x.producteur_code||x.producteur_id)+'</dd>'
