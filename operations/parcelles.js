@@ -361,7 +361,7 @@ function tracer(id, mode) {
     peindre('<div class="pc-ed-tete"><div><b>' + esc(titre) + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
       '<span>' + esc(x.village_nom || '') + ' · ' + esc(x.cluster_code || '') + ' · ' + esc(x.local_name || 'Parcelle') + ' · déclarée ' + (x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ha' : '—') + '</span></div>' +
       '<div class="pc-ed-droite"><span id="pcConnexion" class="pc-badge"></span>' + lien('Fermer', 'parcelles/p/' + id, 'secondary pc-mini') + '</div></div>' +
-      '<div id="pcFond"></div>' +
+      '<div id="pcFond"><div id="pcFondImage"></div><div id="pcFondMsg"></div></div>' +
       '<div class="pc-editeur"><div class="pc-carte-zone"><div id="pcCarte" class="pc-carte pc-carte-ed" aria-label="Carte de tracé"></div>' +
       (mode === 'sat' ? '<div class="pc-viseur" aria-hidden="true"></div>' : '') + '</div>' +
       '<div class="pc-barre" id="pcBarre"></div><div class="pc-panneau" id="pcPanneau"></div></div>');
@@ -379,11 +379,12 @@ function construireCarte() {
   if (!global.L) { el.innerHTML = '<div class="ops-empty">Bibliothèque de carte indisponible.</div>'; return; }
   carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12 });
   var f = fond(carte, function (etatFond) {
-    var z = document.getElementById('pcFond'); if (!z) return;
+    var z = document.getElementById('pcFondImage'); if (!z) return;
     z.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible</b> (réseau faible, service ou clé refusés). Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : avis('info', esc(ed.fondInfo || ''));
   });
   ed.fond = f.nom === 'aucun' ? null : f.nom; ed.fondInfo = f.message; ed.couches = f.couches; ed.fondActuel = f.actuelle || null;
-  var zf = document.getElementById('pcFond'); if (zf) zf.innerHTML = avis(f.satellite ? 'info' : 'alerte', esc(f.message));
+  var zi = document.getElementById('pcFondImage'); if (zi) zi.innerHTML = avis(f.satellite ? 'info' : 'alerte', esc(f.message));
+  var zf = document.getElementById('pcFondMsg');
   /* Vue initiale : contour existant > point du champ > village (avec avertissement) > Gbêkê. */
   if (ed.sommets.length >= 2) carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (s) { return [s[1], s[0]]; })).pad(0.3), { maxZoom: 19 });
   else if (ed.x.latitude != null) carte.setView(centre(ed.x), 18);
@@ -502,8 +503,8 @@ function vousEtesIci() {
       carte.setView([b.lat, b.lng], Math.max(carte.getZoom(), 18));
     }
     if (!ed.sommets.length) ed.source = 'GPS_SUR_PLACE';
-    var z = document.getElementById('pcFond'); if (z) z.innerHTML = avis('ok', '<b>Vous êtes ici</b> (précision ' + Math.round(b.precision) + ' m). Agrandissez l\'image jusqu\'à voir les arbres et les limites, puis placez les sommets. Le point bleu sert à retrouver le champ, pas à fixer ses limites.');
-  }).catch(function (e) { var z = document.getElementById('pcFond'); if (z) z.innerHTML = avis('erreur', esc(e.message)); })
+    var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('ok', '<b>Vous êtes ici</b> (précision ' + Math.round(b.precision) + ' m). Agrandissez l\'image jusqu\'à voir les arbres et les limites, puis placez les sommets. Le point bleu sert à retrouver le champ, pas à fixer ses limites.');
+  }).catch(function (e) { var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('erreur', esc(e.message)); })
     .then(function () { peindreBarre(); });
 }
 /* Méthode 3 : coordonnées saisies ou collées (degrés décimaux, « lat, lon »). */
@@ -523,7 +524,7 @@ function importer(f) {
       var t = String(r.result), s = /<kml/i.test(t) ? C.sommetsDepuisKML(t) : C.sommetsDepuisGeoJSON(JSON.parse(t));
       modifier(function () { ed.sommets = s; ed.methode = 'IMPORT_FICHIER'; ed.selection = null; ed.notes = (ed.notes ? ed.notes + ' · ' : '') + 'Import : ' + f.name; });
       if (carte && s.length >= 2) carte.fitBounds(global.L.latLngBounds(s.map(function (z) { return [z[1], z[0]]; })).pad(0.3), { maxZoom: 18 });
-    } catch (e) { var z = document.getElementById('pcFond'); if (z) z.insertAdjacentHTML('beforeend', avis('erreur', 'Fichier non accepté : ' + esc(e.message))); }
+    } catch (e) { var z = document.getElementById('pcFondMsg'); if (z) z.insertAdjacentHTML('beforeend', avis('erreur', 'Fichier non accepté : ' + esc(e.message))); }
   };
   r.readAsText(f);
 }
@@ -534,8 +535,8 @@ function sommetGps() {
     var b = C.combinerLectures(l); if (!b) throw new Error('Aucune position reçue : réessayez à découvert.');
     modifier(function () { ed.sommets.push([b.lng, b.lat]); ed.sommets_gps.push({ precision: b.precision, lectures: b.lectures }); ed.selection = ed.sommets.length - 1; if (ed.methode === 'SATELLITE' && ed.sommets.length > 1) ed.methode = 'MIXTE'; });
     if (carte) carte.setView([b.lat, b.lng], Math.max(carte.getZoom(), 17));
-    if (b.precision > max) { var z = document.getElementById('pcFond'); if (z) z.innerHTML = avis('alerte', 'Sommet ajouté avec une précision faible (' + Math.round(b.precision) + ' m). Il sera signalé au Chef de Zone. Vous pouvez le supprimer et réessayer.'); }
-  }).catch(function (e) { var z = document.getElementById('pcFond'); if (z) z.innerHTML = avis('erreur', esc(e.message)); peindrePanneau(); });
+    if (b.precision > max) { var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('alerte', 'Sommet ajouté avec une précision faible (' + Math.round(b.precision) + ' m). Il sera signalé au Chef de Zone. Vous pouvez le supprimer et réessayer.'); }
+  }).catch(function (e) { var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('erreur', esc(e.message)); peindrePanneau(); });
 }
 function envoyer() {
   var v = C.verifier(ed.sommets, (etat.params || {}).seuils);
@@ -776,7 +777,7 @@ document.addEventListener('click', function (ev) {
   else if (a === 'centrer-contour' && ed && carte && ed.sommets.length) { if (ed.sommets.length === 1) carte.setView([ed.sommets[0][1], ed.sommets[0][0]], Math.max(carte.getZoom(), 18)); else carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (z) { return [z[1], z[0]]; })).pad(0.25), { maxZoom: 20 }); }
   else if (a === 'coord-ouvrir') { var zc = document.getElementById('pcCoord'); if (zc) { zc.hidden = !zc.hidden; var iv = document.getElementById('pcCoordVal'); if (iv && !zc.hidden) iv.focus(); } }
   else if (a === 'coord-aller' && ed && carte) {
-    var cc = lireCoordonnees((document.getElementById('pcCoordVal') || {}).value), zf = document.getElementById('pcFond');
+    var cc = lireCoordonnees((document.getElementById('pcCoordVal') || {}).value), zf = document.getElementById('pcFondMsg');
     if (!cc) { if (zf) zf.innerHTML = avis('erreur', 'Coordonnées illisibles ou hors de Côte d\'Ivoire. Exemple : 7.79512, -5.18245'); }
     else { carte.setView(cc, 18); global.L.circleMarker(cc, { radius: 7, color: '#fff', weight: 2, fillColor: '#DC2626', fillOpacity: 1, interactive: false }).addTo(carte._reperes).bindTooltip('Coordonnées saisies');
       if (!ed.sommets.length) ed.source = 'COORDONNEES';
@@ -788,11 +789,11 @@ document.addEventListener('click', function (ev) {
     var vers = ed.fondActuel === 'plan' ? 'satellite' : 'plan', avant = ed.couches[ed.fondActuel], apres = ed.couches[vers];
     if (apres) { if (avant) carte.removeLayer(avant); apres.addTo(carte); ed.fondActuel = vers; peindreBarre(); }
   }
-  else if (a === 'brouillon' && ed) { sauver().then(function () { var zb = document.getElementById('pcFond'); if (zb) zb.innerHTML = avis('ok', 'Brouillon enregistré sur ce téléphone (' + ed.sommets.length + ' sommet(s)).'); }); }
+  else if (a === 'brouillon' && ed) { sauver().then(function () { var zb = document.getElementById('pcFondMsg'); if (zb) zb.innerHTML = avis('ok', 'Brouillon enregistré sur ce téléphone (' + ed.sommets.length + ' sommet(s)).'); }); }
   else if (a === 'effacer' && ed) { ed.effacer = true; peindreBarre(); }
   else if (a === 'effacer-non' && ed) { ed.effacer = false; peindreBarre(); }
   else if (a === 'effacer-ok' && ed) { modifier(function () { ed.sommets = []; ed.sommets_gps = []; ed.selection = null; }); }
-  else if (a === 'terminer' && ed) { var fin = document.getElementById('pcPanneau'); if (fin) fin.scrollIntoView({ behavior: 'smooth', block: 'start' }); var zt = document.getElementById('pcFond'); if (zt) zt.innerHTML = avis('ok', 'Contour terminé : vérifiez-le avec le producteur, indiquez la fiabilité des limites puis envoyez.'); }
+  else if (a === 'terminer' && ed) { var fin = document.getElementById('pcPanneau'); if (fin) fin.scrollIntoView({ behavior: 'smooth', block: 'start' }); var zt = document.getElementById('pcFondMsg'); if (zt) zt.innerHTML = avis('ok', 'Contour terminé : vérifiez-le avec le producteur, indiquez la fiabilité des limites puis envoyez.'); }
   else if (a === 'supprimer' && ed && ed.selection != null) { modifier(function () { ed.sommets.splice(ed.selection, 1); if (ed.sommets_gps && ed.sommets_gps.length > ed.selection) ed.sommets_gps.splice(ed.selection, 1); ed.selection = null; }); }
   else if (a === 'envoyer' && ed) { b.disabled = true; envoyer(); }
   else if (a === 'ajout-ok') validerAjout();
