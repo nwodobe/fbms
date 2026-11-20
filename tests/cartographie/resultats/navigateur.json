@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:48"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 07:59"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"06f5562b-3ffd-4d5a-84f4-b806c5023c4a\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"03ea5c14-ca2f-4a16-8a0e-5bbc75465bf3\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"9674bd3d-5279-4489-816e-a2b0c0c1c2ad\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"c2d4abef-f4be-44eb-9c7d-d40edbdc06bd\"]]}"
   },
   {
    "id": "E2E-22",
@@ -324,7 +324,7 @@
    "famille": "Parcours terrain",
    "libelle": "Image indisponible : message clair, tracé toujours possible sur fond neutre",
    "resultat": "RÉUSSI",
-   "detail": "4→5 | Image satellite indisponible (réseau faible, service ou clé refusés). Votre contour est conservé et reste modifiable sur fond neutre ; l'image reviendra avec le"
+   "detail": "4→5 | Image satellite indisponible ici (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d'un cran si besoin. Votre contour est c"
   },
   {
    "id": "E2E-I4",

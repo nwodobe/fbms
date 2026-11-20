@@ -30,7 +30,7 @@
     plot_map_parametres: [
       { cle: 'activation', valeur: { localisation: true, contours: true, clusters_pilotes: ['DEMO'] } },
       { cle: 'imagerie', valeur: CLE ? { fournisseur: 'esri', licence_confirmee: true, cle: CLE }
-          : { fournisseur: 'tms', licence_confirmee: true, url: OAM, zoom_max: 22, nom: 'Orthophoto aérienne OpenAerialMap (Bouaké, 2020)',
+          : { fournisseur: 'tms', licence_confirmee: true, url: OAM, zoom_max: 18, nom: 'Orthophoto aérienne OpenAerialMap (Bouaké, 2020)',
               attribution: 'Imagerie © IRD - MIVEGEC, via OpenAerialMap', licence: 'CC BY-SA 4.0' } },
       { cle: 'seuils', valeur: { ecart_superficie_pct: 20, precision_gps_max_m: 30, precision_localisation_max_m: 50, tolerance_calcul_pct: 0.5, chevauchement_min_m2: 1, superficie_min_m2: 100, superficie_max_ha: 200 } }],
     plot_map_parcelles_v: [{ plot_id: PLOT, plot_code: null, producteur_id: 'P-DEMO-001', producteur_code: 'DEMO-001', producteur_nom: 'PRODUCTEUR FICTIF', producteur_prenoms: 'DÉMONSTRATION',

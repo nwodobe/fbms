@@ -260,7 +260,10 @@ function fond(map, surEtat) {
     message: c.satellite ? 'Image : ' + c.nom + '. La date de prise de vue varie selon les secteurs : vérifiez sur place qu\'elle correspond au terrain.' : 'Plan, pas une image satellite : les limites des champs n\'y figurent pas.' };
 }
 function veillerTuiles(couche, surEtat) {
+  /* Compteurs remis à zéro à chaque nouvelle vue (« loading ») : une zone ou un niveau de zoom sans image est
+     signalé même si les vues précédentes s'étaient bien chargées (constaté dans Chrome réel le 20/11/2026). */
   var ok = 0, ko = 0, signale = false;
+  couche.on('loading', function () { ok = 0; ko = 0; });
   couche.on('tileload', function () { ok++; if (signale && surEtat) { signale = false; surEtat('ok'); } });
   couche.on('tileerror', function () { ko++; if (!signale && ko >= 3 && ko > ok && surEtat) { signale = true; surEtat('indisponible'); } });
 }
@@ -380,7 +383,7 @@ function construireCarte() {
   carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12 });
   var f = fond(carte, function (etatFond) {
     var z = document.getElementById('pcFondImage'); if (!z) return;
-    z.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible</b> (réseau faible, service ou clé refusés). Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : avis('info', esc(ed.fondInfo || ''));
+    z.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible ici</b> (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d\'un cran si besoin. Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : avis('info', esc(ed.fondInfo || ''));
   });
   ed.fond = f.nom === 'aucun' ? null : f.nom; ed.fondInfo = f.message; ed.couches = f.couches; ed.fondActuel = f.actuelle || null;
   var zi = document.getElementById('pcFondImage'); if (zi) zi.innerHTML = avis(f.satellite ? 'info' : 'alerte', esc(f.message));
