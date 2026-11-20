@@ -31,7 +31,7 @@ assert.match(migration,/ra_pdf_read/);
 assert.match(migration,/create table if not exists public\.farmer_plot_ra_documents/);
 assert.match(migration,/create table if not exists public\.farmer_plot_ra_units/);
 assert.match(migration,/u\.created_by=auth\.uid\(\)/);
-assert.match(migration,/p_path is distinct from p_plot::text/);
+assert.match(migration,/p_path is distinct from \(p_plot::text/);
 assert.match(migration,/owner_id is distinct from auth\.uid\(\)::text/);
 assert.match(migration,/grant select on public\.farmer_plot_ra_documents to authenticated/);
 assert.doesNotMatch(migration,/grant (all|insert|update|delete) on public\.farmer_plot_ra_documents to authenticated/i);
