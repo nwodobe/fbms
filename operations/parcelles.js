@@ -750,10 +750,21 @@ function journalVue() {
 
 /* ------------------------------------------------------------------ routage et actions */
 function nettoyerCarte() { if (carte) { try { carte.remove(); } catch (e) {} carte = null; } if (gpsVeille != null) { try { navigator.geolocation.clearWatch(gpsVeille); } catch (e) {} gpsVeille = null; } }
+/* Lien direct ou rechargement sur #parcelles : la rubrique peut s'afficher avant la fin de l'authentification.
+   On réaffiche dès que le profil est prêt (constaté en production le 20/11/2026 : écran bloqué sur « Chargement de votre profil »). */
+var attenteProfil = null;
+function attendreProfil() {
+  if (attenteProfil) return;
+  var debut = Date.now();
+  attenteProfil = setInterval(function () {
+    if (global.ANAGROCI_AUTH || Date.now() - debut > 120000) { clearInterval(attenteProfil); attenteProfil = null; if (global.ANAGROCI_AUTH && /^#parcelles/.test(location.hash)) rendre(); }
+  }, 500);
+}
+document.addEventListener('anagroci:authenticated', function () { if (/^#parcelles/.test(location.hash)) rendre(); });
 function rendre() {
   nettoyerCarte();
   var p = parts();
-  if (!global.ANAGROCI_AUTH) { peindre('<div class="ops-empty">Chargement de votre profil…</div>'); return Promise.resolve(); }
+  if (!global.ANAGROCI_AUTH) { peindre('<div class="ops-empty">Chargement de votre profil…</div>'); attendreProfil(); return Promise.resolve(); }
   if (!classe() && !(global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.estBM)) { peindre(tete('Parcelles & cartographie', '') + avis('erreur', 'Cette rubrique est réservée aux équipes AFLP (Chefs d\'Unité, assistants, Chefs de Zone, Branch Manager).')); return Promise.resolve(); }
   var r;
   switch (p[1]) {
