@@ -112,7 +112,7 @@ begin
          and g.status='VALIDE'
          and exists(select 1 from public.farmer_plot_ra_units u where u.plot_id=g.plot_id and u.status='VERIFIE')
          and exists(select 1 from public.plot_map_ra_preparation_v pr
-                    where pr.geometry_id=g.id and pr.statut_preparation='REVUE_DOCUMENTAIRE_RA_REQUISE')));
+                    where pr.geometry_id=g.id and pr.statut_preparation='REVUE_DOCUMENTAIRE_RA_REQUISE'))));
 end $ra$;
 drop policy if exists ra_pdf_insert on storage.objects;
 create policy ra_pdf_insert on storage.objects for insert to authenticated
