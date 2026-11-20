@@ -55,6 +55,6 @@ assert.match(parcelsSource,/ANAGROCI_CARTE_PLANTATION/);
 assert.match(parcelsSource,/peutPiloter\(\) && consent && geomDoc/);
 assert.match(parcelsSource,/plot_id,version_no,status,method/);
 assert.match(html,/carte-plantation\.js\?v=20261120-ra-preuves-2/);
-assert.match(sw,/ops-offline-v29-ra-preuves/);
+assert.match(sw,/ops-offline-v30-ra-docs/);
 assert.match(sw,/operations\/carte-plantation\.js/);
 console.log('PASS: mapping Esri depuis nouvelle parcelle, consentement GPS, statut RA et documents vectoriels.');
