@@ -1680,10 +1680,11 @@ function openFarmerForm(prefill, editId) {
             auditLog(editRow ? 'producteur_modifie' : 'producteur_cree', res.id + ' · ' + name);
             msg.textContent = (editRow ? 'Producteur modifié : ' : 'Producteur créé : ') + name + ' — Opérationnel ✓ · Passport ' + res.pct + ' %' +
               (res.plot ? ' · parcelle enregistrée.' : ' · parcelle à compléter après campagne.') +
-              (res.plotError ? ' (parcelle non enregistrée : ' + res.plotError + ')' : '');
+              (res.plotError ? ' (parcelle non enregistrée : ' + res.plotError + ')' : '') +
+              (editRow ? '' : ' · Étape suivante : confirmer le consentement GPS avec le producteur, dans son Farmer Passport.');
             FBStore.invalidate('base');
             var newId = res.id;
-            setTimeout(function () { closeForm(); location.hash = '#farmers/' + encodeURIComponent(newId); render(); }, 1200);
+            setTimeout(function () { closeForm(); location.hash = '#farmers/' + encodeURIComponent(newId) + (editRow ? '' : '/consents'); render(); }, 1200);
           });
         });
       }).catch(function (err) {
