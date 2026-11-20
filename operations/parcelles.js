@@ -18,7 +18,7 @@
 'use strict';
 var C = global.ANAGROCI_PARCELLES_COEUR, L = global.ANAGROCI_PARCELLES_LOCAL;
 var sb = null, clientPromise = null, carte = null, ed = null, minuterie = null, gpsVeille = null;
-var etat = { filtre: null, recherche: '', village: '', params: null, liste: null, listeLe: null, message: null };
+var etat = { filtre: null, recherche: '', village: '', params: null, liste: null, listeLe: null, message: null, documentFiche: null };
 
 /* ------------------------------------------------------------------ utilitaires */
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -168,7 +168,7 @@ function accueil() {
 function fiche(id) {
   peindre(tete('Parcelle', '') + '<div class="ops-empty">Chargement…</div>');
   return Promise.all([parametres(), parcelle(id), L.file.pourParcelle(id), L.brouillon.lire(id),
-    enLigne() ? lire('plot_map_geometries_v', 'id,version_no,status,method,area_m2,perimeter_m,boundary_confidence,producer_confirmation,auteur_nom,created_by_role,created_at,preverifie_par_nom,decide_par_nom,decided_at,decision_comment,decision_exception,geojson,imagery_source,gps_accuracy_max_m', function (r) { return r.eq('plot_id', id).order('version_no', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
+    enLigne() ? lire('plot_map_geometries_v', 'id,plot_id,version_no,status,method,area_m2,perimeter_m,boundary_confidence,producer_confirmation,producer_confirmation_note,auteur_nom,created_by_role,created_at,preverifie_par_nom,decide_par_nom,decided_at,decision_comment,decision_exception,geojson,imagery_source,imagery_date,gps_points,gps_accuracy_max_m,localisation_source', function (r) { return r.eq('plot_id', id).order('version_no', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
     enLigne() ? lire('farmer_plot_anomalies', 'id,type,statut,bloquante,overlap_m2,detail,classification,justification,geometry_id', function (r) { return r.eq('plot_id', id); }).catch(function () { return []; }) : Promise.resolve([])
   ]).then(function (r) {
     var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [];
@@ -179,6 +179,12 @@ function fiche(id) {
       return;
     }
     var st = statutParcelle(x), consent = x.consentement_gps === true, active = (versions || []).filter(function (v) { return ['SOUMIS', 'A_CORRIGER', 'VALIDE'].indexOf(v.status) >= 0; })[0];
+    var geomDoc = (versions || []).filter(function (v) { return v.status === 'VALIDE' && v.geojson; })[0]
+      || (versions || []).filter(function (v) { return ['SOUMIS','A_CORRIGER'].indexOf(v.status) >= 0 && v.geojson; })[0] || null;
+    var documentApi = global.ANAGROCI_CARTE_PLANTATION;
+    etat.documentFiche = (peutPiloter() && consent && geomDoc && documentApi
+      && documentApi.eligible(x, geomDoc))
+      ? { x: x, geometry: geomDoc } : null;
     var validee = (versions || []).filter(function (v) { return v.status === 'VALIDE'; })[0];
     var actions = '';
     if (peutSaisir()) {
@@ -189,6 +195,15 @@ function fiche(id) {
         else if (actif('localisation', x.cluster_code)) actions += '<p class="pc-note">Tracé des contours non activé pour le cluster ' + esc(x.cluster_code || '—') + '.</p>';
       }
       if (actif('contours', x.cluster_code)) actions += lien('Ajouter une parcelle à ce producteur', 'parcelles/ajouter/' + encodeURIComponent(x.producteur_id) + '/' + id, 'secondary');
+    }
+    if (etat.documentFiche) {
+      actions += '<div class="pc-actions" role="group" aria-label="Documents de plantation">'
+        + bouton('Carte de plantation · Imprimer / PDF', 'carte-pdf', 'secondary')
+        + bouton('GeoJSON de la parcelle', 'carte-geojson', 'secondary')
+        + '</div>'
+        + avis('info', '<b>Documents internes Rainforest Alliance :</b> seuls les contours reçus par le serveur sont exportés. La carte est vectorielle, sans copie des tuiles Esri. Le statut de validation FBMS ne vaut pas acceptation Rainforest Alliance.');
+    } else if (peutPiloter() && !consent) {
+      actions += avis('info', 'Carte PDF et GeoJSON indisponibles sans consentement GPS actif.');
     }
     var decl = x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ' + (x.area_unit || 'HA').toLowerCase() : 'non déclarée';
     var supers = '<div class="pc-superficies">' +
@@ -785,6 +800,16 @@ document.addEventListener('click', function (ev) {
   if (!b || !document.getElementById('opsRouteView') || !/^#parcelles/.test(location.hash)) return;
   var a = b.getAttribute('data-pc'), v = b.getAttribute('data-v'), p = parts();
   if (b.tagName === 'BUTTON') ev.preventDefault();
+  if (a === 'carte-pdf' || a === 'carte-geojson') {
+    try {
+      if (!peutPiloter() || !etat.documentFiche || parts()[2] !== etat.documentFiche.x.plot_id)
+        throw new Error('Document inaccessible ou fiche de parcelle périmée.');
+      var d = etat.documentFiche;
+      if (a === 'carte-pdf') global.ANAGROCI_CARTE_PLANTATION.imprimer(d.x, d.geometry);
+      else global.ANAGROCI_CARTE_PLANTATION.telechargerGeojson(d.x, d.geometry);
+    } catch (e) { alert('Export cartographique refusé : ' + (e.message || e)); }
+    return;
+  }
   if (a === 'filtre') { etat.filtre = v || null; accueil(); }
   else if (a === 'sync') { synchroniser().then(rendre); }
   else if (a === 'reessayer') { L.file.reessayer(v).then(function () { return synchroniser(); }).then(rendre); }

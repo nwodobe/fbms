@@ -45,12 +45,37 @@
   function selectField(label,id,html,extra){return '<label class="fr-op-field">'+esc(label)+'<select id="'+id+'" '+(extra||'')+'>'+html+'</select></label>';}
 
   var gpsTarget=null;
-  function captureGps(target){
-    gpsTarget=target;if(!navigator.geolocation){message('GPS indisponible sur cet appareil.');return;}
-    message('Acquisition GPS haute précision…','info');navigator.geolocation.getCurrentPosition(function(pos){
-      ['lat','lng','acc','at'].forEach(function(k){var e=document.getElementById('frGps_'+k);if(e)e.value=k==='lat'?pos.coords.latitude:k==='lng'?pos.coords.longitude:k==='acc'?pos.coords.accuracy:new Date(pos.timestamp).toISOString();});
-      var status=document.getElementById('frGps_status');if(status&&status.value==='NOT_MAPPED')status.value='POINT_CAPTURED';message('Point GPS capturé avec une précision de '+Math.round(pos.coords.accuracy)+' m.','ok');
-    },function(err){message('Capture GPS impossible : '+err.message);},{enableHighAccuracy:true,timeout:25000,maximumAge:0});
+  async function captureGps(target){
+    gpsTarget=target;
+    if(!navigator.geolocation)return message('GPS indisponible sur cet appareil.');
+    if(target==='plot'){
+      if(!FR.syncEngine||!FR.syncEngine.online())
+        return message('Pour capturer les coordonnées d’une parcelle, vérifiez d’abord le consentement GPS en ligne. Aucun accord n’est présumé hors ligne.');
+      if(typeof SB==='undefined'||!SB)return message('Connexion au registre de consentement indisponible.');
+      try{
+        var rep=await SB.from('farmer_consents').select('status,scopes')
+          .eq('producteur_id',producerId()).order('event_order',{ascending:false}).limit(1).maybeSingle();
+        if(rep.error)throw rep.error;
+        var consent=rep.data;
+        if(!consent||!['GRANTED','PARTIAL'].includes(consent.status)||
+           !consent.scopes||consent.scopes.gps!==true)
+          return message('Aucun consentement GPS actif reconnu pour ce producteur. Ouvrez l’onglet Consentements et enregistrez sa décision avant toute localisation.');
+      }catch(e){
+        return message('Consentement GPS non vérifié : '+(e&&e.message||'connexion indisponible')+'. Aucune capture autorisée.');
+      }
+    }
+    message('Acquisition GPS haute précision…','info');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      ['lat','lng','acc','at'].forEach(function(k){
+        var e=document.getElementById('frGps_'+k);
+        if(e)e.value=k==='lat'?pos.coords.latitude:k==='lng'?pos.coords.longitude:
+          k==='acc'?pos.coords.accuracy:new Date(pos.timestamp).toISOString();
+      });
+      var status=document.getElementById('frGps_status');
+      if(status&&status.value==='NOT_MAPPED')status.value='POINT_CAPTURED';
+      message('Point GPS capturé avec une précision de '+Math.round(pos.coords.accuracy)+' m.','ok');
+    },function(err){message('Capture GPS impossible : '+err.message);},
+       {enableHighAccuracy:true,timeout:25000,maximumAge:0});
   }
 
   function plotForm(id){
@@ -65,13 +90,59 @@
       +'<div class="fr-gps-box"><div class="fr-op-grid">'+field('Latitude','frGps_lat','number',row.latitude,'step="0.0000001" readonly')+field('Longitude','frGps_lng','number',row.longitude,'step="0.0000001" readonly')+field('Précision GPS (m)','frGps_acc','number',row.gps_accuracy_m,'readonly')+field('Horodatage GPS','frGps_at','text',row.gps_captured_at,'readonly')
       +selectField('Statut GPS','frGps_status',selectedOption([['NOT_MAPPED','Non mappé'],['POINT_CAPTURED','Point capturé']].concat(supervisor()?[['GPS_VERIFIED','GPS vérifié'],['REJECTED','Rejeté']]:[['REJECTED','Rejeté']]),row.gps_status))+(supervisor()?field('Superficie GPS vérifiée (ha)','frPlot_verifiedArea','number',row.gps_verified_area,'min="0.01" step="0.01"'):'')+'</div><button class="fr-btn secondary" onclick="captureFarmerGps(\'plot\')">Capturer le point GPS</button></div>'
       +field('Notes parcelle','frPlot_notes','textarea',row.notes);
-    dialog(id?'Modifier la parcelle':'Ajouter une parcelle',body,'<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\')">Enregistrer</button>');
+    body += '<div class="fr-gps-box" role="note"><b>Carte de plantation · Rainforest Alliance</b><p>Après sauvegarde, l\'éditeur Esri vous permet de tracer les limites de ce champ, de vérifier les références terrain et de préparer le dossier cartographique. Le consentement GPS reste obligatoire. Une carte satellite seule n\'est pas une preuve terrain.</p></div>';
+    dialog(id?'Modifier la parcelle':'Ajouter une parcelle',body,
+      '<button class="fr-btn secondary" onclick="saveFarmerPlot(\''+row.id+'\',false)">Enregistrer sans cartographie</button>' +
+      '<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\',true)">Enregistrer puis ouvrir Esri</button>');
   }
-  async function savePlot(id){
-    var old=currentRow(data().plots,id)||{};var lat=numberValue('frGps_lat'),lng=numberValue('frGps_lng'),acc=numberValue('frGps_acc');
-    var row=Object.assign({},old,{id:id,producteur_id:producerId(),village_id:producer().villageId||state().summary.village_id,local_name:value('frPlot_name')||null,declared_area:numberValue('frPlot_area'),area_unit:value('frPlot_unit'),land_tenure_status:value('frPlot_tenure'),orchard_age_years:numberValue('frPlot_age'),tree_count:numberValue('frPlot_trees'),productive_tree_count:numberValue('frPlot_productive'),latitude:lat,longitude:lng,gps_accuracy_m:acc,gps_captured_at:value('frGps_at')||null,gps_status:value('frGps_status'),gps_verified_area:supervisor()?numberValue('frPlot_verifiedArea'):old.gps_verified_area||null,area_source:value('frPlot_areaSource'),evidence_level:value('frPlot_evidence'),notes:value('frPlot_notes')||null,status:value('frPlot_status'),deleted:false});
-    if(!row.declared_area||row.declared_area<=0)return message('Superficie déclarée obligatoire.');if(row.productive_tree_count!=null&&row.tree_count!=null&&row.productive_tree_count>row.tree_count)return message('Les arbres productifs ne peuvent pas dépasser le nombre total.');if(['POINT_CAPTURED','GPS_VERIFIED'].indexOf(row.gps_status)>=0&&(!lat||!lng||!acc))return message('Coordonnées, précision et horodatage GPS obligatoires.');
-    message('Enregistrement de la parcelle…','info');await FR.syncEngine.save('farmer_plots',row,{producteur_id:producerId()});await refresh();
+  async function savePlot(id, ouvrirCarte){
+    if (!FR.syncEngine || !producerId()) return message('Session producteur indisponible. Reconnectez-vous.');
+    var old=currentRow(data().plots,id)||{};
+    var lat=value('frGps_lat') ? numberValue('frGps_lat') : null;
+    var lng=value('frGps_lng') ? numberValue('frGps_lng') : null;
+    var acc=value('frGps_acc') ? numberValue('frGps_acc') : null;
+    var row=Object.assign({},old,{
+      id:id,producteur_id:producerId(),village_id:producer().villageId||state().summary&&state().summary.village_id,
+      local_name:value('frPlot_name')||null,declared_area:value('frPlot_area') ? numberValue('frPlot_area') : null,
+      area_unit:value('frPlot_unit'),land_tenure_status:value('frPlot_tenure'),
+      orchard_age_years:value('frPlot_age')?numberValue('frPlot_age'):null,
+      tree_count:value('frPlot_trees')?numberValue('frPlot_trees'):null,
+      productive_tree_count:value('frPlot_productive')?numberValue('frPlot_productive'):null,
+      latitude:lat,longitude:lng,gps_accuracy_m:acc,gps_captured_at:value('frGps_at')||null,
+      gps_status:value('frGps_status'),
+      gps_verified_area:supervisor()&&value('frPlot_verifiedArea')?numberValue('frPlot_verifiedArea'):old.gps_verified_area||null,
+      area_source:value('frPlot_areaSource'),evidence_level:value('frPlot_evidence'),
+      notes:value('frPlot_notes')||null,status:value('frPlot_status'),deleted:false
+    });
+    if(!row.village_id)return message('Village du producteur absent : corrigez le Farmer Passport avant de créer la parcelle.');
+    if(!row.declared_area||row.declared_area<=0)return message('Superficie déclarée obligatoire.');
+    if(row.productive_tree_count!=null&&row.tree_count!=null&&row.productive_tree_count>row.tree_count)
+      return message('Les arbres productifs ne peuvent pas dépasser le nombre total.');
+    if(['POINT_CAPTURED','GPS_VERIFIED'].indexOf(row.gps_status)>=0&&
+      (!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(acc)||!row.gps_captured_at))
+      return message('Coordonnées, précision et horodatage GPS obligatoires.');
+    var buttons=document.querySelectorAll('#frSubDialog .fr-op-actions button');
+    buttons.forEach(function(button){button.disabled=true;});
+    message('Enregistrement de la parcelle…','info');
+    try{
+      var result=await FR.syncEngine.save('farmer_plots',row,{producteur_id:producerId()});
+      var saved=result&&result._sync_status==='SYNCED';
+      if(!saved){
+        message('Parcelle sauvegardée sur cet appareil, mais pas encore reçue par le serveur. Synchronisez avant de cartographier. Aucun contour ni document n’a été créé.','info');
+        return;
+      }
+      if(ouvrirCarte){
+        close();
+        if(FR.passportUI&&FR.passportUI.close)FR.passportUI.close();
+        global.location.hash='#parcelles/tracer/'+encodeURIComponent(id)+'/sat';
+      }else{
+        await refresh();
+      }
+    }catch(err){
+      message('Enregistrement non confirmé : '+(err&&err.message||'Erreur inconnue'));
+    }finally{
+      buttons.forEach(function(button){button.disabled=false;});
+    }
   }
 
   function productionForm(id){var row=currentRow(data().production,id)||{id:uuid(),producteur_id:producerId(),campaign:campaignDefault(),version:0,data_source:'FIELD_DECLARATION',evidence_level:'DECLARED',status:'DRAFT'};var ro=row.status==='FINAL'?'disabled':'';var body='<div class="fr-op-grid">'+field('Campagne','frProd_campaign','text',row.campaign,ro)+field('Superficie productive (ha)','frProd_area','number',row.productive_area_ha,'min="0.01" step="0.01" '+ro)+field('Production précédente (kg)','frProd_previous','number',row.previous_production_kg,'min="0" step="0.1" '+ro)+field('Prévision campagne (kg)','frProd_forecast','number',row.forecast_kg,'min="0" step="0.1" '+ro)+field('Arbres productifs estimés','frProd_trees','number',row.productive_tree_count,'min="0" step="1" '+ro)+field('Canal de vente précédent','frProd_channel','text',row.previous_sales_channel,ro)+selectField('Déjà fournisseur ANAGROCI','frProd_supplier',selectedOption([['','Non vérifié'],['true','Oui'],['false','Non']],row.already_anagroci_supplier==null?'':String(row.already_anagroci_supplier)),ro)+selectField('Niveau de preuve','frProd_evidence',selectedOption([['DECLARED','Déclaré'],['OBSERVED','Observé'],['DOCUMENTED','Documenté'],['CALCULATED','Calculé'],['VERIFIED','Vérifié'],['AUDITED','Audité']],row.evidence_level),ro)+'</div>'+field('Notes','frProd_notes','textarea',row.notes,ro);var acts=row.status==='FINAL'?'<button class="fr-btn secondary" onclick="closeFarmerOperation()">Fermer</button>':'<button class="fr-btn secondary" onclick="saveProductionBaseline(\''+row.id+'\',false)">Sauvegarder brouillon</button><button class="fr-btn" onclick="saveProductionBaseline(\''+row.id+'\',true)">Finaliser</button>';dialog('Baseline production',body,acts);}

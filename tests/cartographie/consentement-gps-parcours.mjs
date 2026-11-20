@@ -37,6 +37,6 @@ test('cartography still blocks unauthorized GPS and links to Passport',()=>{
   assert.match(pc,/encodeURIComponent\(x\.producteur_id\) \+ '\/consents'/);
 });
 test('browser cache bust after code changes',()=>{
-  assert.match(html,/field-buying\.js\?v=20261120-gps-consent-1/);
-  assert.match(html,/parcelles\.js\?v=20261120-gps-consent-1/);
+  assert.match(html,/field-buying\.js\?v=20261120-ra-parcelle-1/);
+  assert.match(html,/parcelles\.js\?v=20261120-ra-parcelle-1/);
 });
