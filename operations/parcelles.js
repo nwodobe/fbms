@@ -212,6 +212,38 @@ function fiche(id) {
     } else if (peutPiloter() && !consent) {
       actions += avis('info', 'Carte PDF et GeoJSON indisponibles sans consentement GPS actif.');
     }
+    var raActive = (versions || []).filter(function (v) { return ['SOUMIS','VALIDE'].indexOf(v.status) >= 0; })[0] || null;
+    var raPreparation = raActive && (preparations || []).find(function (v) { return v.geometry_id === raActive.id; });
+    var raReferences = (referencesTerrain || []).filter(function (v) { return raActive && v.geometry_id === raActive.id; });
+    etat.raGeometry = raActive && consent ? { geometry_id: raActive.id, plot_id:x.plot_id } : null;
+    var raInfo = '';
+    if (raActive) {
+      raInfo = '<section class="card"><div class="card-head"><div><h2>Preuves terrain · Rainforest Alliance</h2>'
+        + '<p>Relevés GPS proches des limites du champ, soumis puis vérifiés par la supervision. Le compteur de points déclaré dans le tracé ne constitue pas une preuve validée.</p></div></div>'
+        + (raPreparation
+          ? avis('info', '<b>État de préparation interne :</b> ' + esc(raPreparation.statut_preparation)
+            + ' · Confirmés : ' + Number(raPreparation.references_confirmees || 0)
+            + ' · En attente : ' + Number(raPreparation.references_en_attente || 0))
+          : avis('alerte','Contrôle RA non disponible ou non synchronisé. Aucune conformité présumée.'))
+        + (consent && peutSaisir() && enLigne()
+          ? '<div class="pc-actions">' + bouton('Relever un repère GPS sur le terrain', 'ra-relever', 'secondary') + '</div>' : '')
+        + (raReferences.length ? raReferences.map(function (ref) {
+            var info = '<div class="pc-version"><b>Repère ' + esc(ref.id.slice(0, 8)) + '</b> · ' + esc(ref.status)
+              + ' · précision ' + Number(ref.accuracy_m).toFixed(1) + ' m'
+              + '<small>Capturé le ' + esc(heureFr(ref.captured_at_client))
+              + (ref.note ? ' · ' + esc(ref.note) : '') + '</small>'
+              + (ref.review_comment ? '<small>Observation supervision : ' + esc(ref.review_comment) + '</small>' : '');
+            if (consent && peutValider() && ref.status === 'A_VERIFIER' && enLigne()) {
+              info += '<div class="pc-actions"><input type="text" id="pcRaMotif_' + esc(ref.id)
+                + '" maxlength="500" placeholder="Motif de contrôle / exception BM" aria-label="Motif de décision GPS">'
+                + bouton('Confirmer', 'ra-decider', 'secondary',' data-v="' + esc(ref.id) + '" data-decision="CONFIRMER"')
+                + bouton('Rejeter', 'ra-decider', 'secondary',' data-v="' + esc(ref.id) + '" data-decision="REJETER"')
+                + '</div>';
+            }
+            return info + '</div>';
+          }).join('') : '<p class="pc-note">Aucune référence terrain indépendante reçue par le serveur pour cette géométrie.</p>')
+        + '<p class="pc-note">Deux références indépendantes confirmées sont une règle de préparation ANAGROCI, pas une certification Rainforest Alliance.</p></section>';
+    }
     var decl = x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ' + (x.area_unit || 'HA').toLowerCase() : 'non déclarée';
     var supers = '<div class="pc-superficies">' +
       '<div><span>Superficie déclarée par le producteur</span><b>' + esc(decl) + '</b></div>' +
@@ -234,7 +266,7 @@ function fiche(id) {
     var anoH = anos.length ? avis('alerte', '<b>' + anos.length + ' anomalie(s) ouverte(s)</b> : ' + anos.map(function (a) { return esc(libAnomalie(a)); }).join(' ; ')) : '';
     peindre(tete(x.local_name || 'Parcelle sans nom', (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.village_nom || '') + ' · ' + (x.cluster_code || ''), lien('Retour', 'parcelles', 'secondary')) +
       '<div class="pc-fiche-tete">' + badge(st) + (x.plot_code ? '<span class="mono">' + esc(x.plot_code) + '</span>' : '') + '</div>' + anoH +
-      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + envois + hist);
+      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + raInfo + envois + hist);
     miniCarte('pcMiniCarte', x, active || validee);
   });
 }
