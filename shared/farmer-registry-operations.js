@@ -45,12 +45,37 @@
   function selectField(label,id,html,extra){return '<label class="fr-op-field">'+esc(label)+'<select id="'+id+'" '+(extra||'')+'>'+html+'</select></label>';}
 
   var gpsTarget=null;
-  function captureGps(target){
-    gpsTarget=target;if(!navigator.geolocation){message('GPS indisponible sur cet appareil.');return;}
-    message('Acquisition GPS haute précision…','info');navigator.geolocation.getCurrentPosition(function(pos){
-      ['lat','lng','acc','at'].forEach(function(k){var e=document.getElementById('frGps_'+k);if(e)e.value=k==='lat'?pos.coords.latitude:k==='lng'?pos.coords.longitude:k==='acc'?pos.coords.accuracy:new Date(pos.timestamp).toISOString();});
-      var status=document.getElementById('frGps_status');if(status&&status.value==='NOT_MAPPED')status.value='POINT_CAPTURED';message('Point GPS capturé avec une précision de '+Math.round(pos.coords.accuracy)+' m.','ok');
-    },function(err){message('Capture GPS impossible : '+err.message);},{enableHighAccuracy:true,timeout:25000,maximumAge:0});
+  async function captureGps(target){
+    gpsTarget=target;
+    if(!navigator.geolocation)return message('GPS indisponible sur cet appareil.');
+    if(target==='plot'){
+      if(!FR.syncEngine||!FR.syncEngine.online())
+        return message('Pour capturer les coordonnées d’une parcelle, vérifiez d’abord le consentement GPS en ligne. Aucun accord n’est présumé hors ligne.');
+      if(typeof SB==='undefined'||!SB)return message('Connexion au registre de consentement indisponible.');
+      try{
+        var rep=await SB.from('farmer_consents').select('status,scopes')
+          .eq('producteur_id',producerId()).order('event_order',{ascending:false}).limit(1).maybeSingle();
+        if(rep.error)throw rep.error;
+        var consent=rep.data;
+        if(!consent||!['GRANTED','PARTIAL'].includes(consent.status)||
+           !consent.scopes||consent.scopes.gps!==true)
+          return message('Aucun consentement GPS actif reconnu pour ce producteur. Ouvrez l’onglet Consentements et enregistrez sa décision avant toute localisation.');
+      }catch(e){
+        return message('Consentement GPS non vérifié : '+(e&&e.message||'connexion indisponible')+'. Aucune capture autorisée.');
+      }
+    }
+    message('Acquisition GPS haute précision…','info');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      ['lat','lng','acc','at'].forEach(function(k){
+        var e=document.getElementById('frGps_'+k);
+        if(e)e.value=k==='lat'?pos.coords.latitude:k==='lng'?pos.coords.longitude:
+          k==='acc'?pos.coords.accuracy:new Date(pos.timestamp).toISOString();
+      });
+      var status=document.getElementById('frGps_status');
+      if(status&&status.value==='NOT_MAPPED')status.value='POINT_CAPTURED';
+      message('Point GPS capturé avec une précision de '+Math.round(pos.coords.accuracy)+' m.','ok');
+    },function(err){message('Capture GPS impossible : '+err.message);},
+       {enableHighAccuracy:true,timeout:25000,maximumAge:0});
   }
 
   function plotForm(id){
