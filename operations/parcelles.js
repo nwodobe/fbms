@@ -244,7 +244,7 @@ function couchesImagerie() {
     /* Niveau natif 18 : l'image Vantor 0,6 m des clusters s'arrête au niveau 18 (le 19 répond 404, vérifié à Diabo) ;
        au-delà, Leaflet agrandit la tuile du niveau 18 au lieu d'afficher du gris. */
     c.satellite = global.L.tileLayer(ESRI_IMAGERIE + '/tile/{z}/{y}/{x}' + jeton, { maxNativeZoom: 18, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
-    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation/static/tile/{z}/{y}/{x}' + jeton, { tileSize: 512, zoomOffset: -1, maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
+    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation/static/tile/{z}/{y}/{x}' + jeton, { tileSize: 512, zoomOffset: -1, maxNativeZoom: 19, maxZoom: 21, attribution: 'Powered by <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> | Esri, TomTom, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community' });
     c.nom = 'Esri World Imagery (ArcGIS Location Platform)'; c.licence = 'Conditions Esri · ArcGIS Location Platform';
   } else if (f === 'tms' && im.licence_confirmee && im.url) {
     c.satellite = global.L.tileLayer(im.url, { maxNativeZoom: Number(im.zoom_max) || 20, maxZoom: 22, attribution: esc(im.attribution || '') + (im.licence ? ' · ' + esc(im.licence) : '') });
