@@ -238,11 +238,11 @@ function couchesImagerie() {
   if (!global.L) return c;
   if (f === 'esri' && im.licence_confirmee && im.cle) {
     var t = '/static/tile/{z}/{y}/{x}?token=' + encodeURIComponent(im.cle);
-    c.satellite = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/imagery' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION, crossOrigin: true });
-    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION, crossOrigin: true });
+    c.satellite = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/imagery' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
+    c.plan = global.L.tileLayer(ESRI_STATIQUE + 'arcgis/navigation' + t, { maxNativeZoom: 19, maxZoom: 21, attribution: ESRI_ATTRIBUTION });
     c.nom = 'Esri World Imagery (ArcGIS Location Platform)'; c.licence = 'Conditions Esri · ArcGIS Location Platform';
   } else if (f === 'tms' && im.licence_confirmee && im.url) {
-    c.satellite = global.L.tileLayer(im.url, { maxNativeZoom: Number(im.zoom_max) || 20, maxZoom: 22, attribution: esc(im.attribution || '') + (im.licence ? ' · ' + esc(im.licence) : ''), crossOrigin: true });
+    c.satellite = global.L.tileLayer(im.url, { maxNativeZoom: Number(im.zoom_max) || 20, maxZoom: 22, attribution: esc(im.attribution || '') + (im.licence ? ' · ' + esc(im.licence) : '') });
     c.nom = im.nom || 'Orthophoto sous licence'; c.licence = im.licence || null;
   }
   if (f === 'osm' || (f === 'tms' && im.plan_osm)) c.plan = global.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxNativeZoom: 19, maxZoom: 21, attribution: '© contributeurs OpenStreetMap' });
