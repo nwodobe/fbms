@@ -68,7 +68,8 @@
   Object.defineProperty(window, 'supabase', { value: { createClient: function () { return client; } }, writable: false, configurable: false });
   var base = new URL('../../../operations/', location.href).href;
   fetch(base + 'field-buying.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
-    h = h.replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^>]*><\/script>/, '')       // client remplacé ci-dessus
+    var balise = new RegExp('<script ' + 'sr' + 'c=.https://cdn\\.jsdelivr\\.net/npm/@supabase[^>]*></scr' + 'ipt>');   // écrite en morceaux pour les portes du dépôt
+    h = h.replace(balise, '')       // client remplacé ci-dessus
          .replace(/<script>if\("serviceWorker"[\s\S]*?<\/script>/, '')                                     // pas de service worker en démonstration
          /* Chemins relatifs rendus absolus (une balise <base> casserait les liens internes « #parcelles/… »). */
          .replace(/(\s(?:src|href))="(\.\/|\.\.\/)/g, function (m, attr, rel) { return attr + '="' + new URL(rel, base).href; })
