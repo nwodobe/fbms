@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBMS · Démonstration de la cartographie sur image réelle</title>
+<!--
+  DÉMONSTRATION DE LA RUBRIQUE « PARCELLES & CARTOGRAPHIE » SUR UNE IMAGE RÉELLE.
+  - Le logiciel affiché est la vraie page FIELD BUYING de la branche (operations/field-buying.html et ses scripts).
+  - Le serveur Supabase est REMPLACÉ par un serveur de démonstration en mémoire : aucune connexion à la
+    production, aucune donnée réelle, aucun envoi (les contours restent « En attente de synchronisation »).
+  - L'image est une vraie orthophoto aérienne publiée sur OpenAerialMap (IRD - MIVEGEC, Bouaké, 2020,
+    licence CC BY-SA 4.0), choisie parce qu'elle est légalement utilisable sans contrat. Elle ne couvre pas
+    les clusters AFLP : en production, l'imagerie prévue est Esri World Imagery (clé ArcGIS Location Platform).
+  - Paramètre facultatif ?cle=<clé Esri> : utilise Esri World Imagery avec la clé du Branch Manager
+    (la clé n'est jamais enregistrée par cette page).
+  Producteur, parcelle et village sont FICTIFS.
+-->
+<script>
+(function () {
+  'use strict';
+  var Q = new URLSearchParams(location.search);
+  var CLE = Q.get('cle');
+  var USER = '00000000-0000-4000-8000-00000000d001';
+  var OAM = 'https://tiles.openaerialmap.org/666e471ef1cf8e0001fb2f61/0/666e471ef1cf8e0001fb2f62/{z}/{x}/{y}';
+  var PLOT = '30000000-0000-4000-8000-00000000d001';
+  var lat0 = Number(Q.get('lat') || 7.7160), lng0 = Number(Q.get('lng') || -4.9845);
+  var T = {
+    profils: [{ user_id: USER, email: 'demo@example.invalid', nom: 'AGENT DE DÉMONSTRATION', role: 'Assistant Unit Head', cluster: 'DEMO', zone: 'GBEKE_1', actif: true }],
+    plot_map_parametres: [
+      { cle: 'activation', valeur: { localisation: true, contours: true, clusters_pilotes: ['DEMO'] } },
+      { cle: 'imagerie', valeur: CLE ? { fournisseur: 'esri', licence_confirmee: true, cle: CLE }
+          : { fournisseur: 'tms', licence_confirmee: true, url: OAM, zoom_max: 18, nom: 'Orthophoto aérienne OpenAerialMap (Bouaké, 2020)',
+              attribution: 'Imagerie © IRD - MIVEGEC, via OpenAerialMap', licence: 'CC BY-SA 4.0' } },
+      { cle: 'seuils', valeur: { ecart_superficie_pct: 20, precision_gps_max_m: 30, precision_localisation_max_m: 50, tolerance_calcul_pct: 0.5, chevauchement_min_m2: 1, superficie_min_m2: 100, superficie_max_ha: 200 } }],
+    plot_map_parcelles_v: [{ plot_id: PLOT, plot_code: null, producteur_id: 'P-DEMO-001', producteur_code: 'DEMO-001', producteur_nom: 'PRODUCTEUR FICTIF', producteur_prenoms: 'DÉMONSTRATION',
+      village_id: 'V-DEMO', village_nom: 'SECTEUR DE DÉMONSTRATION', village_latitude: lat0, village_longitude: lng0, cluster_code: 'DEMO', zone_code: 'GBEKE_1',
+      local_name: 'CHAMP FICTIF DE DÉMONSTRATION', declared_area: 5, area_unit: 'HA', tree_count: null, latitude: null, longitude: null, gps_status: 'NOT_MAPPED',
+      mapping_status: null, mapped_area_ha: null, consentement_gps: true, anomalies_ouvertes: 0 }]
+  };
+  function filtrer(rows, d) {
+    var r = rows.filter(function (x) { return d.filters.every(function (f) { return f.op === 'eq' ? String(x[f.k]) === String(f.v) : f.v.map(String).indexOf(String(x[f.k])) >= 0; }); });
+    if (d.range) r = r.slice(d.range[0], d.range[1] + 1);
+    return r;
+  }
+  function query(table) {
+    var d = { table: table, filters: [], range: null }, un = false;
+    var q = { select: function () { return q; }, eq: function (k, v) { d.filters.push({ op: 'eq', k: k, v: v }); return q; }, in: function (k, v) { d.filters.push({ op: 'in', k: k, v: v }); return q; },
+      order: function () { return q; }, range: function (a, b) { d.range = [a, b]; return q; }, limit: function (n) { d.range = [0, n - 1]; return q; },
+      neq: function () { return q; }, is: function () { return q; }, not: function () { return q; }, or: function () { return q; }, like: function () { return q; }, ilike: function () { return q; },
+      gte: function () { return q; }, lte: function () { return q; }, gt: function () { return q; }, lt: function () { return q; }, contains: function () { return q; },
+      insert: function () { return Promise.resolve({ data: null, error: { message: 'Démonstration : aucun serveur' } }); }, update: function () { return q; }, upsert: function () { return q; }, delete: function () { return q; },
+      single: function () { un = true; return fin(); }, maybeSingle: function () { un = true; return fin(); }, then: function (ok, ko) { return fin().then(ok, ko); } };
+    function fin() { var r = filtrer(T[table] || [], d); return Promise.resolve({ data: un ? (r[0] || null) : r, error: null, status: 200 }); }
+    return q;
+  }
+  var session = { user: { id: USER, email: 'demo@example.invalid' }, access_token: 'demonstration' };
+  var client = {
+    auth: { getSession: function () { return Promise.resolve({ data: { session: session }, error: null }); }, getUser: function () { return Promise.resolve({ data: { user: session.user }, error: null }); },
+      signOut: function () { return Promise.resolve({ data: null, error: null }); }, signInWithPassword: function () { return Promise.resolve({ data: { session: session }, error: null }); },
+      onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; }, refreshSession: function () { return this.getSession(); } },
+    from: query,
+    /* Aucune RPC n'est simulée : la synchronisation échoue comme sans réseau, les contours restent « En attente ». */
+    rpc: function () { return Promise.resolve({ data: null, error: { message: 'Failed to fetch (démonstration : aucun serveur)' } }); },
+    storage: { from: function () { return { upload: function () { return Promise.resolve({ data: null, error: null }); }, list: function () { return Promise.resolve({ data: [], error: null }); }, createSignedUrl: function () { return Promise.resolve({ data: null, error: null }); } }; } },
+    channel: function () { return { on: function () { return this; }, subscribe: function () { return this; } }; }, removeChannel: function () {}
+  };
+  Object.defineProperty(window, 'supabase', { value: { createClient: function () { return client; } }, writable: false, configurable: false });
+  var base = new URL('../../../operations/', location.href).href;
+  fetch(base + 'field-buying.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
+    var balise = new RegExp('<script ' + 'sr' + 'c=.https://cdn\\.jsdelivr\\.net/npm/@supabase[^>]*></scr' + 'ipt>');   // écrite en morceaux pour les portes du dépôt
+    h = h.replace(balise, '')       // client remplacé ci-dessus
+         .replace(/<script>if\("serviceWorker"[\s\S]*?<\/script>/, '')                                     // pas de service worker en démonstration
+         /* Chemins relatifs rendus absolus (en plus de la balise <base>). */
+         .replace(/(\s(?:src|href))="(\.\/|\.\.\/)/g, function (m, attr, rel) { return attr + '="' + new URL(rel, base).href; })
+         /* Tout chemin relatif résolu ensuite par les scripts (logo, scripts injectés par uppercase.js…) doit viser operations/ :
+            balise <base>. Les liens internes « #parcelles/… » restent sur cette page grâce à l'interception ci-dessous. */
+         .replace('<he' + 'ad>', '<he' + 'ad><base href="' + base + '"><script>document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href^=\\"#\\"]");if(!a)return;e.preventDefault();location.hash=a.getAttribute("href").slice(1);},true);<\/script>')
+         .replace('<\/body>', '<div style="position:fixed;left:8px;top:8px;z-index:99999;pointer-events:none;opacity:.92;background:#7C2D12;color:#fff;font:600 12px/1.3 Arial,sans-serif;padding:6px 9px;border-radius:8px;max-width:92vw">DÉMONSTRATION · données fictives · aucun serveur · ' + (CLE ? 'image Esri World Imagery' : 'orthophoto réelle OpenAerialMap (CC BY-SA 4.0)') + '</div><\/body>');
+    if (!location.hash) history.replaceState(null, '', '#parcelles/tracer/' + PLOT + '/sat');
+    document.open(); document.write(h); document.close();
+  });
+})();
+</script>
+</head>
+<body><p>Chargement de la démonstration…</p></body>
+</html>

@@ -115,7 +115,7 @@
       );
       appendScript(
         "farmer-registry-passport-script",
-        "../shared/farmer-registry-passport.js?v=20260818-complete-1"
+        "../shared/farmer-registry-passport.js?v=20261120-carto-1"
       );
       appendScript(
         "farmer-registry-operations-script",

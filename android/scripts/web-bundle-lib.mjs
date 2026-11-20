@@ -56,6 +56,7 @@ export function fileTable(repo, files = listWebFiles(repo)) {
 export const QUEUE_DBS = [
   ['shared/offline-field.js', 'file Field Buying'],
   ['shared/farmer-registry-sync.js', 'file du registre producteurs (parcelles, Sustainability, inspections)'],
+  ['shared/parcelles-hors-ligne.js', 'file de la cartographie des parcelles (points GPS, contours)'],
 ];
 
 /** Format des files d'opérations locales (IndexedDB) : nom@version de chaque base, joints par « + ». */
