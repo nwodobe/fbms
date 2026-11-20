@@ -248,6 +248,48 @@ function fiche(id) {
           }).join('') : '<p class="pc-note">Aucune référence terrain indépendante reçue par le serveur pour cette géométrie.</p>')
         + '<p class="pc-note">Deux références indépendantes confirmées sont une règle de préparation ANAGROCI, pas une certification Rainforest Alliance.</p></section>';
     }
+    var raCanPrepare = enLigne() && consent && peutPiloter();
+    var raReady = !!(raCanPrepare && raUnit && raUnit.status === 'VERIFIE' && etat.documentFiche
+      && etat.documentFiche.geometry.status === 'VALIDE'
+      && etat.documentFiche.geometry.ra_statut_preparation === 'REVUE_DOCUMENTAIRE_RA_REQUISE');
+    var raDocsHTML = '<section class="card"><div class="card-head"><div><h2>Registre Rainforest Alliance · Cartes archivées</h2>'
+       + '<p>Farm ID et Farm Unit ID exacts du registre officiel. Aucune création automatique d’identifiant ni transmission automatique à la plateforme RA.</p></div></div>';
+    if (!consent) raDocsHTML += avis('alerte','Consentement GPS non actif : saisie et export RA suspendus.');
+    else if (!enLigne()) raDocsHTML += avis('info','Connexion requise pour consulter ou actualiser le registre RA.');
+    else if (!raUnit) raDocsHTML += avis('info','Aucun identifiant Rainforest Alliance saisi pour cette parcelle.');
+    else raDocsHTML += avis(raUnit.status === 'VERIFIE' ? 'ok':'info',
+       'Farm ID : <b>' + esc(raUnit.farm_id) + '</b> · Farm Unit ID : <b>' + esc(raUnit.farm_unit_id)
+       + '</b> · Statut : <b>' + esc(raUnit.status) + '</b> · Référence : ' + esc(raUnit.source_reference));
+    if (raCanPrepare && (!raUnit || raUnit.status !== 'VERIFIE')) {
+       raDocsHTML += '<div class="ops-form-grid">'
+         + '<label>Farm ID exact<input type="text" id="pcRaFarmId" maxlength="128" autocomplete="off" value="' + esc(raUnit&&raUnit.farm_id||'') + '"></label>'
+         + '<label>Farm Unit ID exact<input type="text" id="pcRaFarmUnitId" maxlength="128" autocomplete="off" value="' + esc(raUnit&&raUnit.farm_unit_id||'') + '"></label>'
+         + '<label>Référence du registre officiel<input type="text" id="pcRaSource" maxlength="300" autocomplete="off" value="' + esc(raUnit&&raUnit.source_reference||'') + '"></label>'
+         + '</div><div class="pc-actions">' + bouton('Soumettre les identifiants à vérification','ra-unit-saisir','secondary') + '</div>';
+       if (raUnit && raUnit.status === 'A_VERIFIER' && peutValider()) {
+          raDocsHTML += '<label>Commentaire de rapprochement (12 caractères minimum)<input type="text" id="pcRaUnitComment" maxlength="500" placeholder="Référence et vérification indépendante"></label>'
+           + '<div class="pc-actions">' + bouton('Vérifier les identifiants','ra-unit-verifier','secondary')
+           + bouton('Rejeter les identifiants','ra-unit-rejeter','secondary') + '</div>';
+       }
+    }
+    if (raReady) {
+      raDocsHTML += '<div class="pc-actions">'
+        + bouton('Export GeoJSON RA','ra-export-geojson','secondary')
+        + bouton('Export KML RA','ra-export-kml','secondary')
+        + bouton('Archiver une carte PDF privée','ra-pdf-archiver','primary')
+        + '</div>' + avis('info','Préparation documentaire interne seulement. L’import réel et l’acceptation sur la plateforme Rainforest Alliance restent à confirmer.');
+    } else if (consent) {
+      raDocsHTML += avis('info','Export officiel bloqué tant que le Farm Unit ID, le contour validé et les preuves terrain confirmées ne sont pas réunis.');
+    }
+    if (raDocuments && raDocuments.length) {
+      raDocsHTML += '<h3>Historique des cartes PDF archivées</h3>' + raDocuments.map(function (d) {
+        return '<div class="pc-version"><b>' + esc(d.farm_unit_id) + '</b> · version géométrie ' + esc(d.geometry_version)
+          + ' · ' + esc(dateFr(d.created_at)) + ' · Empreinte SHA-256 déclarée : <span class="mono">' + esc(d.claimed_sha256.slice(0,16)) + '…</span>'
+          + (raCanPrepare ? '<div class="pc-actions">' + bouton('Ouvrir le PDF privé','ra-pdf-lire','secondary',' data-v="'+esc(d.id)+'"') + '</div>' : '')
+          + '</div>';
+      }).join('');
+    }
+    raDocsHTML += '</section>';
     var decl = x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ' + (x.area_unit || 'HA').toLowerCase() : 'non déclarée';
     var supers = '<div class="pc-superficies">' +
       '<div><span>Superficie déclarée par le producteur</span><b>' + esc(decl) + '</b></div>' +
@@ -270,7 +312,7 @@ function fiche(id) {
     var anoH = anos.length ? avis('alerte', '<b>' + anos.length + ' anomalie(s) ouverte(s)</b> : ' + anos.map(function (a) { return esc(libAnomalie(a)); }).join(' ; ')) : '';
     peindre(tete(x.local_name || 'Parcelle sans nom', (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.village_nom || '') + ' · ' + (x.cluster_code || ''), lien('Retour', 'parcelles', 'secondary')) +
       '<div class="pc-fiche-tete">' + badge(st) + (x.plot_code ? '<span class="mono">' + esc(x.plot_code) + '</span>' : '') + '</div>' + anoH +
-      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + raInfo + envois + hist);
+      '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + raInfo + raDocsHTML + envois + hist);
     miniCarte('pcMiniCarte', x, active || validee);
   });
 }
