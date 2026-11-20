@@ -42,8 +42,8 @@
 .pc-carte-mini{height:340px}
 .pc-carte-ed{height:62vh;min-height:340px}
 .pc-carte-voile{position:absolute;inset:auto 10px 10px 10px;background:rgba(255,255,255,.92);border-radius:8px;padding:6px 10px;font-size:13px;z-index:500}
-.pc-editeur{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);grid-template-areas:'carte panneau' 'barre panneau';gap:12px;align-items:start}
-.pc-carte-zone{grid-area:carte;position:relative}.pc-barre{grid-area:barre}.pc-editeur .pc-panneau{grid-area:panneau}
+.pc-editeur{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);grid-template-areas:'carte panneau' 'barre panneau';grid-template-rows:auto 1fr;gap:12px;align-items:start}
+.pc-carte-zone{grid-area:carte;position:relative;z-index:0;isolation:isolate}.pc-barre{grid-area:barre}.pc-editeur .pc-panneau{grid-area:panneau}
 .pc-panneau{background:#fff;border:1px solid #E8E7E7;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .pc-mesure{display:flex;flex-direction:column;gap:3px}
 .pc-etq{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#00712C;font-weight:600}
@@ -92,3 +92,5 @@
 .pc-identite{background:#FFF8E1;border:1px solid #F5C451;border-radius:8px;padding:8px}
 .pc-requis{outline:2px solid #B91C1C;border-radius:6px}
 .leaflet-tooltip.pc-ici{background:#1E6FD9;color:#fff;border:0;font-weight:700}
+.pc-coord[hidden]{display:none}
+.pc-carte{position:relative;z-index:0;isolation:isolate}
