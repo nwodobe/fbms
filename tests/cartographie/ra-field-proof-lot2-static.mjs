@@ -23,7 +23,7 @@ assert.doesNotMatch(migration, /update public\.farmer_plot_geometries/i);
 assert.match(parcels, /plot_map_ra_ref_ajouter/);
 assert.match(parcels, /plot_map_ra_ref_decider/);
 assert.match(parcels, /getCurrentPosition/);
-assert.match(parcels, /reference_id/);
+assert.match(parcels, /p_reference:v/);
 assert.match(parcels, /raPreparation\.references_confirmees/);
 assert.match(maps, /g\.ra_statut_preparation !== 'REVUE_DOCUMENTAIRE_RA_REQUISE'/);
 assert.match(maps, /ground_references_confirmed/);
