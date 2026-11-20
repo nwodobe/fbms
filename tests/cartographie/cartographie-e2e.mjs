@@ -274,7 +274,10 @@ async function main() {
     await verifier('E2E-24', F, 'Insertion d\'un sommet entre deux points (« + »)', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 5);
     await page.locator('[data-pc="supprimer"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-25', F, 'Suppression du sommet sélectionné', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);
+    const posBoutons = async () => page.evaluate(() => ['viseur-sommet', 'viseur-deplacer', 'annuler', 'retablir', 'supprimer', 'terminer', 'ici'].map(k => { const b = document.querySelector('[data-pc="' + k + '"]'); if (!b) return k + ':absent'; const r = b.getBoundingClientRect(); return k + ':' + Math.round(r.left) + ',' + Math.round(r.top - document.getElementById('pcBarre').getBoundingClientRect().top); }).join(' '));
+    const posAvant = await posBoutons();
     await page.locator('[data-pc="annuler"]').click(); await page.waitForTimeout(250);
+    await verifier('E2E-26p', F, 'Boutons de tracé à positions fixes après « Annuler » (régression itel S688LN : « Rétablir » ne doit pas céder sa place)', async () => { const ap = await posBoutons(); return { ok: ap === posAvant && !/absent/.test(ap), detail: ap }; });
     await verifier('E2E-26', F, 'Annulation de la dernière action', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 5);
     await page.locator('[data-pc="retablir"]').click(); await page.waitForTimeout(250);
     await verifier('E2E-26b', F, 'Rétablissement de l\'action annulée', async () => (await page.locator('.pc-sommet:not(.pc-milieu)').count()) === 4);

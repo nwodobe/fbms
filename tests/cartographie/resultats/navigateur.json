@@ -1,6 +1,6 @@
 {
- "total": 68,
- "reussis": 68,
+ "total": 69,
+ "reussis": 69,
  "echoues": 0,
  "erreurs": [],
  "tests": [
@@ -121,7 +121,7 @@
    "famille": "Synchronisation",
    "libelle": "Hors ligne : « En attente de synchronisation », jamais « Reçu »",
    "resultat": "RÉUSSI",
-   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 08:32"
+   "detail": "En attente de synchronisation\nContour 0,99 ha · 9001 · CHAMP FICTIF ALPHA · 20/11 11:23"
   },
   {
    "id": "E2E-17",
@@ -156,7 +156,7 @@
    "famille": "Synchronisation",
    "libelle": "Brouillon effacé après réception par le serveur",
    "resultat": "RÉUSSI",
-   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"ccaba3cb-efeb-43a9-af1c-f8f6f6d1b4ef\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"a5b30a67-4560-4d50-ac05-1370be6b6e55\"]]}"
+   "detail": "{\"br\":null,\"f\":[[\"LOCALISER\",\"RECU\",\"208b15fd-3ba4-4d4c-a08a-d9ff7703cfd4\"],[\"SOUMETTRE_CONTOUR\",\"RECU\",\"061b87c9-098b-4c39-ae5d-ffda94103195\"]]}"
   },
   {
    "id": "E2E-22",
@@ -206,6 +206,13 @@
    "libelle": "Suppression du sommet sélectionné",
    "resultat": "RÉUSSI",
    "detail": "true"
+  },
+  {
+   "id": "E2E-26p",
+   "famille": "Parcours terrain",
+   "libelle": "Boutons de tracé à positions fixes après « Annuler » (régression itel S688LN : « Rétablir » ne doit pas céder sa place)",
+   "resultat": "RÉUSSI",
+   "detail": "viseur-sommet:25,56 viseur-deplacer:198,56 annuler:25,106 retablir:198,106 supprimer:25,156 terminer:198,156 ici:14,221"
   },
   {
    "id": "E2E-26",
@@ -303,7 +310,7 @@
    "famille": "Synchronisation",
    "libelle": "Superficie serveur PostGIS = superficie du téléphone (écart < 0,01 %), aucune anomalie de calcul",
    "resultat": "RÉUSSI",
-   "detail": "2380.13 / 2380.13 / 0"
+   "detail": "2379.89 / 2379.89 / 0"
   },
   {
    "id": "E2E-I1",

@@ -372,7 +372,7 @@ function tracer(id, mode) {
       '<div id="pcFond"><div id="pcFondImage"></div><div id="pcFondMsg"></div></div>' +
       '<div class="pc-editeur"><div class="pc-carte-zone"><div id="pcCarte" class="pc-carte pc-carte-ed" aria-label="Carte de tracé"></div>' +
       (mode === 'sat' ? '<div class="pc-viseur" aria-hidden="true"></div>' : '') + '</div>' +
-      '<div class="pc-barre" id="pcBarre"></div><div class="pc-panneau" id="pcPanneau"></div></div>');
+      '<div class="pc-barre" id="pcBarre"></div><div class="pc-outils" id="pcOutils"></div><div class="pc-panneau" id="pcPanneau"></div></div>');
     connexion(); construireCarte(); peindreBarre(); peindrePanneau();
   });
 }
@@ -438,26 +438,35 @@ function sauver() {
   return L.brouillon.ecrire(ed.x.plot_id, b).then(function () { ed.sauveLe = new Date().toISOString(); var s = document.getElementById('pcSauve'); if (s) s.textContent = C.ETATS.LOCAL + ' · ' + heureFr(ed.sauveLe); })
     .catch(function (e) { var s = document.getElementById('pcSauve'); if (s) s.textContent = 'ATTENTION : brouillon non enregistré (' + e.message + ')'; });
 }
-/* Barre compacte, toujours visible sous la carte : mesure + commandes de tracé. */
+/* Barre compacte (mesure + commandes de tracé), fixée en bas de l'écran du téléphone pendant le tracé.
+   Grille à positions FIXES : un bouton inutilisable reste à sa place, grisé. Sur l'itel S688LN (20/11/2026), la
+   réorganisation des boutons après « Annuler » a fait toucher « Je suis dans mon champ » au lieu de « Rétablir ». */
 function peindreBarre() {
   var p = document.getElementById('pcBarre'); if (!p || !ed) return;
   var v = C.verifier(ed.sommets, (etat.params || {}).seuils), sat = ed.mode === 'sat', sel = ed.selection != null;
   var h = '<div class="pc-mesure-barre"><div><span>Superficie calculée</span><b class="pc-surface">' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b></div>' +
     '<div><span>Périmètre</span><b class="pc-perimetre">' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></div><div><span>Sommets</span><b>' + v.sommets + '</b></div></div>' +
     (v.sommets >= 3 && v.erreurs.length ? '<p class="pc-erreur">' + v.erreurs.map(esc).join('<br>') + '</p>' : '');
-  h += '<div class="pc-cmd">';
-  if (sat) h += bouton('Poser un sommet au viseur', 'viseur-sommet', 'pc-cmd-principal') + (sel ? bouton('Placer le sommet ' + (ed.selection + 1) + ' au viseur', 'viseur-deplacer', 'secondary') : '');
-  if (ed.mode === 'gps') h += bouton('Ajouter ma position comme sommet', 'gps-sommet', 'pc-cmd-principal');
+  h += '<div class="pc-cmd pc-cmd-grille">';
+  if (sat) h += bouton('Poser un sommet au viseur', 'viseur-sommet', 'pc-cmd-principal') + bouton(sel ? 'Placer le sommet ' + (ed.selection + 1) + ' au viseur' : 'Placer le sommet au viseur', 'viseur-deplacer', 'secondary', sel ? '' : ' disabled');
+  else if (ed.mode === 'gps') h += bouton('Ajouter ma position comme sommet', 'gps-sommet', 'pc-cmd-principal pc-cmd-large');
   h += bouton('↶ Annuler', 'annuler', 'secondary', ed.historique.length ? '' : ' disabled') + bouton('↷ Rétablir', 'retablir', 'secondary', ed.retablir.length ? '' : ' disabled') +
-    bouton(sel ? 'Supprimer le sommet ' + (ed.selection + 1) : 'Supprimer le sommet', 'supprimer', 'secondary', sel ? '' : ' disabled') + '</div>';
-  h += '<div class="pc-cmd pc-cmd-sec">' + bouton('Je suis dans mon champ', 'ici', 'secondary') + bouton('Recentrer sur le contour', 'centrer-contour', 'secondary', v.sommets >= 1 ? '' : ' disabled') +
+    bouton(sel ? 'Supprimer le sommet ' + (ed.selection + 1) : 'Supprimer le sommet', 'supprimer', 'secondary', sel ? '' : ' disabled') +
+    bouton('Terminer le contour', 'terminer', '', v.ok ? '' : ' disabled') + '</div>';
+  p.innerHTML = h;
+  peindreOutils(v, sat);
+}
+/* Outils secondaires, sous la barre (hors zone de pouce : ils ne se déclenchent pas par erreur pendant le tracé). */
+function peindreOutils(v, sat) {
+  var p = document.getElementById('pcOutils'); if (!p) return;
+  var coordOuvert = (function () { var c = document.getElementById('pcCoord'); return c && !c.hidden; })(), coordVal = (document.getElementById('pcCoordVal') || {}).value || '';
+  var h = '<div class="pc-cmd pc-cmd-sec">' + bouton('Je suis dans mon champ', 'ici', 'secondary') + bouton('Recentrer sur le contour', 'centrer-contour', 'secondary', v.sommets >= 1 ? '' : ' disabled') +
     bouton('Aller à des coordonnées', 'coord-ouvrir', 'secondary') + bouton(ed.reperes ? 'Masquer les repères' : 'Afficher les repères', 'reperes', 'secondary') +
     (ed.couches && ed.couches.satellite && ed.couches.plan ? bouton(ed.fondActuel === 'plan' ? 'Fond satellite' : 'Fond plan', 'fond', 'secondary') : '') +
     (sat ? bouton(ed.toucher ? 'Ajout au toucher : activé' : 'Ajout au toucher : désactivé', 'toucher', 'secondary' + (ed.toucher ? ' pc-actif' : ''), ' aria-pressed="' + ed.toucher + '"') : '') +
     bouton('Enregistrer le brouillon', 'brouillon', 'secondary') +
-    (ed.effacer ? bouton('Confirmer : effacer tout le tracé', 'effacer-ok', 'danger') + bouton('Garder le tracé', 'effacer-non', 'secondary') : bouton('Effacer le tracé', 'effacer', 'secondary', v.sommets ? '' : ' disabled')) +
-    bouton('Terminer le contour', 'terminer', '', v.ok ? '' : ' disabled') + '</div>' +
-    '<div id="pcCoord" class="pc-coord" hidden><label class="pc-champ"><span>Coordonnées GPS en degrés décimaux (latitude, longitude)</span><input id="pcCoordVal" type="text" inputmode="decimal" placeholder="7.79512, -5.18245"></label>' + bouton('Centrer la carte ici', 'coord-aller', 'secondary') + '</div>' +
+    (ed.effacer ? bouton('Confirmer : effacer tout le tracé', 'effacer-ok', 'danger') + bouton('Garder le tracé', 'effacer-non', 'secondary') : bouton('Effacer le tracé', 'effacer', 'secondary', v.sommets ? '' : ' disabled')) + '</div>' +
+    '<div id="pcCoord" class="pc-coord"' + (coordOuvert ? '' : ' hidden') + '><label class="pc-champ"><span>Coordonnées GPS en degrés décimaux (latitude, longitude)</span><input id="pcCoordVal" type="text" inputmode="decimal" placeholder="7.79512, -5.18245" value="' + esc(coordVal) + '"></label>' + bouton('Centrer la carte ici', 'coord-aller', 'secondary') + '</div>' +
     (sat ? '<p class="pc-note">Déplacez l\'image sous la croix du viseur, puis « Poser un sommet au viseur » : votre doigt ne cache jamais le point visé. Pour corriger un sommet : touchez-le, placez le viseur au bon endroit, puis « Placer le sommet au viseur » (ou faites-le glisser).</p>' : '') +
     (ed.mode === 'gps' ? '<p class="pc-note">Marchez jusqu\'à chaque coin du champ, puis appuyez sur le bouton. Le contour se ferme automatiquement.</p>' : '') +
     (ed.mode === 'import' ? '<label class="pc-champ"><span>Fichier GeoJSON ou KML (un seul contour)</span><input type="file" id="pcFichier" accept=".geojson,.json,.kml,application/geo+json,application/vnd.google-earth.kml+xml"></label>' : '');
