@@ -47,10 +47,14 @@ assert.match(generator.qualification({...geometry,gps_points:3,method:'GPS_POINT
 assert.match(generator.qualification({...geometry,ra_statut_preparation:'REVUE_DOCUMENTAIRE_RA_REQUISE',ra_references_confirmees:2}),/revue documentaire/);
 assert.equal(JSON.parse(JSON.stringify(generator.geojson(plot,{...geometry,ra_statut_preparation:'REVUE_DOCUMENTAIRE_RA_REQUISE',ra_references_confirmees:2}))).features[0].properties.ground_references_confirmed,2);
 assert.doesNotMatch(generator.qualification({...geometry,ra_statut_preparation:'REFERENCES_TERRAIN_A_CONFIRMER',gps_points:99}),/revue documentaire/);
-assert.match(operationsSource,/Enregistrer puis ouvrir Esri/);
-assert.match(operationsSource,/global\.location\.hash='#parcelles\/tracer\/'/);
+/* Parcours Parcelles du 21/11/2026 (demande du Branch Manager) : les deux boutons « Enregistrer sans cartographie » et
+   « Enregistrer puis ouvrir Esri » sont remplacés par UN bouton « Enregistrer », qui ouvre le parcours intégré. */
+assert.doesNotMatch(operationsSource,/Enregistrer puis ouvrir Esri|Enregistrer sans cartographie/);
+assert.match(operationsSource,/saveFarmerPlot\(\\''\+row\.id\+'\\'\)">Enregistrer<\/button>/);
+assert.match(operationsSource,/global\.location\.hash='#parcelles\/parcours\/'/);
 assert.match(operationsSource,/result&&result\._sync_status==='SYNCED'/);
-assert.match(fieldSource,/Carte de plantation · Esri/);
+assert.match(fieldSource,/Cartographie à compléter/);
+assert.match(fieldSource,/#parcelles\/' \+ \(x\.latitude != null \? 'p\/' : 'parcours\/'\)/);
 assert.match(parcelsSource,/ANAGROCI_CARTE_PLANTATION/);
 assert.match(parcelsSource,/peutPiloter\(\) && consent && geomDoc/);
 assert.match(parcelsSource,/plot_id,version_no,status,method/);

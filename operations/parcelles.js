@@ -11,7 +11,9 @@
        aucune n'en écrase une autre ; aucune n'est présentée comme cadastrale ;
      · aucune imagerie satellite sans licence confirmée (paramètre serveur) ;
      · les droits affichés sont indicatifs : le serveur décide (RLS + RPC plot_map_*).
-   Routes : #parcelles · /p/<plot> · /localiser/<plot> · /tracer/<plot>/<sat|gps|import> ·
+   Parcours intégré (21/11/2026) : accord GPS du producteur → capture de la position → carte avec un carré
+     P1-P4 déjà posé autour du point → ajustement au doigt → superficie → enregistrement.
+   Routes : #parcelles · /p/<plot> · /parcours/<plot> · /tracer/<plot>/<sat|gps|import> ·
             /ajouter/<producteur> · /validation · /valider/<contour> · /pilotage · /journal
    Écritures : uniquement par la file locale (plot_map_sync_batch) ou par les RPC de décision. */
 (function (global) {
@@ -136,7 +138,7 @@ function accueil() {
     var bandeau = !a.localisation && !a.contours ? avis('info', '<b>Fonction en préparation.</b> La localisation et le tracé ne sont pas encore activés par le Branch Manager. Vous pouvez consulter les parcelles.')
       : !a.contours ? avis('info', 'La localisation des champs est ouverte. Le tracé des contours n\'est pas encore activé.')
       : avis('info', 'Tracé des contours ouvert en pilote pour : <b>' + esc((a.clusters_pilotes || []).join(', ') || 'aucun cluster') + '</b>.');
-    var tuiles = [['NON_LOCALISEE', 'Non localisées', c.NON_LOCALISEE], ['brouillons', 'Brouillons sur ce téléphone', Object.keys(parBr).length], ['A_CORRIGER', 'À corriger', c.A_CORRIGER], ['SOUMIS', 'Soumises au Chef de Zone', c.SOUMIS], ['VALIDE', 'Validées', c.VALIDE]];
+    var tuiles = [['NON_LOCALISEE', 'Cartographie à compléter', c.NON_LOCALISEE], ['brouillons', 'Brouillons sur ce téléphone', Object.keys(parBr).length], ['A_CORRIGER', 'À corriger', c.A_CORRIGER], ['SOUMIS', 'Soumises au Chef de Zone', c.SOUMIS], ['VALIDE', 'Validées', c.VALIDE]];
     var h = tete('Parcelles & cartographie', 'Localiser les champs, tracer leurs contours, suivre leur validation.',
       (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : peutPreverifier() ? lien('À pré-vérifier', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
       (etat.message ? avis('ok', esc(etat.message)) : '') + bandeau + sync +
@@ -199,12 +201,11 @@ function fiche(id) {
     var validee = (versions || []).filter(function (v) { return v.status === 'VALIDE'; })[0];
     var actions = '';
     if (peutSaisir()) {
-      if (!consent) actions += avis('alerte', '<b>Consentement GPS non enregistré pour ce producteur.</b> Aucun point ni contour ne peut être envoyé sans décision explicite. Confirmez-la avec le producteur et enregistrez-la dans son passeport.') + '<p><a class="btn secondary" href="#farmers/' + encodeURIComponent(x.producteur_id) + '/consents">Ouvrir le consentement du producteur</a></p>';
-      else {
-        if (actif('localisation', x.cluster_code)) actions += bouton(x.latitude != null ? 'Relocaliser mon champ' : 'Localiser mon champ', 'localiser', x.latitude != null ? 'secondary' : '');
-        if (actif('contours', x.cluster_code)) actions += lien(br && br.sommets && br.sommets.length ? 'Reprendre le tracé (' + br.sommets.length + ' sommets)' : 'Tracer sur la carte', 'parcelles/tracer/' + id + '/sat') + lien('Mesurer avec GPS', 'parcelles/tracer/' + id + '/gps', 'secondary') + lien('Importer un fichier', 'parcelles/tracer/' + id + '/import', 'secondary');
-        else if (actif('localisation', x.cluster_code)) actions += '<p class="pc-note">Tracé des contours non activé pour le cluster ' + esc(x.cluster_code || '—') + '.</p>';
-      }
+      if (actif('localisation', x.cluster_code)) {
+        var nbBr = br && br.sommets && !br.gabarit ? br.sommets.length : 0;
+        actions += lien(nbBr ? 'Reprendre le tracé (' + nbBr + ' points)' : x.latitude != null ? 'Poursuivre la cartographie' : 'Cartographier ce champ', 'parcelles/parcours/' + id, 'pc-cmd-principal');
+        if (consent && actif('contours', x.cluster_code)) actions += '<details class="pc-plus"><summary>Autres méthodes</summary><div class="pc-actions">' + lien('Mesurer en marchant (GPS)', 'parcelles/tracer/' + id + '/gps', 'secondary') + lien('Importer un fichier', 'parcelles/tracer/' + id + '/import', 'secondary') + '</div></details>';
+      } else actions += '<p class="pc-note">Cartographie non activée pour le cluster ' + esc(x.cluster_code || '—') + '.</p>';
       if (actif('contours', x.cluster_code)) actions += lien('Ajouter une parcelle à ce producteur', 'parcelles/ajouter/' + encodeURIComponent(x.producteur_id) + '/' + id, 'secondary');
     }
     if (etat.documentFiche) {
@@ -298,7 +299,7 @@ function fiche(id) {
       '<div><span>Superficie productive en anacardiers</span><b>non vérifiée</b><small>Le contour ne mesure pas la surface plantée.</small></div></div>' +
       '<p class="pc-note">Superficie cartographique : estimation pour le suivi AFLP, <b>pas un bornage ni une limite cadastrale</b>.</p>';
     var point = x.latitude != null ? '<div class="pc-point"><b>Point GPS de référence</b><span class="mono">' + Number(x.latitude).toFixed(6) + ' ; ' + Number(x.longitude).toFixed(6) + '</span><small>Précision ' + (x.gps_accuracy_m != null ? Math.round(x.gps_accuracy_m) + ' m' : 'inconnue') + ' · ' + heureFr(x.gps_captured_at) + (x.gps_status === 'GPS_VERIFIED' ? ' · vérifié par la supervision' : '') + '</small><small>Un point localise le champ ; il ne mesure pas sa superficie.</small></div>'
-      : '<div class="pc-point pc-point-vide"><b>Champ non localisé</b><small>Rendez-vous dans la plantation et appuyez sur « Localiser mon champ ».</small></div>';
+      : '<div class="pc-point pc-point-vide"><b>Champ non localisé</b><small>Cartographie à compléter : rendez-vous dans la plantation et appuyez sur « Cartographier ce champ ».</small></div>';
     var envois = ops.length ? '<section class="card"><div class="card-head"><div><h2>Envois depuis ce téléphone</h2></div></div>' + ops.slice().reverse().slice(0, 8).map(function (o) {
       return '<div class="pc-envoi">' + badgeEtat(o.etat) + ' <span>' + esc(o.resume) + ' · ' + heureFr(o.cree_le) + '</span>' + (o.message ? '<small>' + esc(o.message) + '</small>' : '') +
         (o.etat === 'REJETE' && o.code === 'TECHNIQUE' ? bouton('Réessayer', 'reessayer', 'secondary pc-mini', ' data-v="' + esc(o.idempotency_key) + '"') : '') + '</div>';
@@ -362,7 +363,7 @@ function fond(map, surEtat) {
   if (!couche) return { nom: 'aucun', satellite: false, couches: c, message: 'Aucune image satellite activée (licence à confirmer par le Branch Manager). Utilisez « Mesurer avec GPS » ou l\'import de fichier.' };
   couche.addTo(map); veillerTuiles(couche, surEtat);
   return { nom: c.satellite ? c.nom : 'Plan', satellite: !!c.satellite, couches: c, actuelle: c.satellite ? 'satellite' : 'plan',
-    message: c.satellite ? 'Image : ' + c.nom + '. La date de prise de vue varie selon les secteurs : vérifiez sur place qu\'elle correspond au terrain.' : 'Plan, pas une image satellite : les limites des champs n\'y figurent pas.' };
+    message: c.satellite ? 'Fournisseur : Esri World Imagery' : 'Plan, pas une image satellite : les limites des champs n\'y figurent pas.' };
 }
 function veillerTuiles(couche, surEtat) {
   /* Compteurs remis à zéro à chaque nouvelle vue (« loading ») : une zone ou un niveau de zoom sans image est
@@ -413,37 +414,219 @@ function lecturesGps(maxMs, maxLectures, rappel) {
     t = setTimeout(terminer, maxMs);
   });
 }
-function localiser(id) {
-  return Promise.all([parametres(), parcelle(id)]).then(function (r) {
+/* ------------------------------------------------------------------ parcours intégré (21/11/2026) */
+/* Une seule suite d'écrans dans la rubrique Parcelles : accord GPS du producteur → capture de la position → carte.
+   · Le registre des consentements reste farmer_consents (aucune seconde base) : chaque décision y est AJOUTÉE,
+     jamais réécrite ; le serveur relit la dernière décision à chaque envoi (plot_map_consentement_gps).
+   · Aucun accord n'est présélectionné ni présumé. Hors ligne, aucune décision n'est recueillie : un accord non
+     reçu par le serveur ne doit jamais s'afficher comme confirmé. Un accord déjà connu du serveur (liste
+     enregistrée sur le téléphone) permet la capture hors ligne ; le serveur le revérifie à la synchronisation.
+   · Un refus ou un retrait bloque la localisation et la carte ; la parcelle reste enregistrée. */
+var TEXTE_ACCORD_GPS = 'Pour localiser votre plantation et établir sa carte, nous avons besoin de votre accord pour enregistrer ses coordonnées géographiques.';
+var VERSION_TEXTE_GPS = 'AFLP-GPS-CONSENT-2026.2';
+var PORTEES_CONSENTEMENT = ['identity', 'agriculture', 'gps', 'photos', 'training', 'inspections', 'transactions'];
+var METHODES_ACCORD = [['VERBAL', 'Accord dit de vive voix'], ['WRITTEN', 'Écrit (formulaire signé)'], ['DIGITAL', 'Numérique'], ['WITNESSED', 'Devant témoin']];
+
+function pointLocal(id) { return L.cache.lire('point:' + id).catch(function () { return null; }); }
+/* Point capturé sur ce téléphone et pas encore visible dans la liste du serveur : il sert à centrer la carte. */
+function avecPointLocal(x, pl) {
+  if (!x || x.latitude != null || !pl || pl.latitude == null) return x;
+  var y = {}; for (var k in x) y[k] = x[k];
+  y.latitude = pl.latitude; y.longitude = pl.longitude; y.gps_accuracy_m = pl.precision_m; y.gps_captured_at = pl.capture_le; y._pointLocal = true;
+  return y;
+}
+/* Dernière décision GPS du producteur. « confirme » = lue sur le serveur à l'instant. */
+function etatAccord(x) {
+  function depuisListe(motif) { return { etat: x.consentement_gps === true ? 'ACCORDE' : 'INCONNU', confirme: false, motif: motif, ligne: null }; }
+  if (!enLigne()) return Promise.resolve(depuisListe('hors-ligne'));
+  return client().then(function (c) {
+    if (!c) return depuisListe('indisponible');
+    return c.from('farmer_consents').select('status,scopes,consent_at,method,event_order,created_at').eq('producteur_id', x.producteur_id)
+      .order('event_order', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(1).maybeSingle().then(function (rep) {
+        if (rep.error) return depuisListe('indisponible');
+        var d = rep.data; if (!d) return { etat: 'AUCUN', confirme: true, ligne: null };
+        var gps = d.scopes ? d.scopes.gps : undefined;
+        var e = (d.status === 'GRANTED' || d.status === 'PARTIAL') && gps === true ? 'ACCORDE' : d.status === 'WITHDRAWN' ? 'RETIRE' : (d.status === 'REFUSED' || gps === false) ? 'REFUSE' : 'AUCUN';
+        return { etat: e, confirme: true, ligne: d };
+      });
+  }).catch(function () { return depuisListe('indisponible'); });
+}
+function formulaireAccord(retraitPossible) {
+  return '<section class="card pc-accord" id="pcAccord"><p class="pc-accord-texte">« ' + esc(TEXTE_ACCORD_GPS) + ' »</p>' +
+    '<p class="pc-note">Lisez cette phrase au producteur, puis touchez sa réponse. Rien n\'est choisi à l\'avance.</p>' +
+    '<div class="pc-accord-choix" role="group" aria-label="Réponse du producteur">' +
+    bouton('J\'accepte', 'accord-choix', 'secondary pc-accord-oui', ' data-v="ACCORDE" aria-pressed="false"') +
+    bouton('Je refuse', 'accord-choix', 'secondary pc-accord-non', ' data-v="REFUSE" aria-pressed="false"') +
+    (retraitPossible ? bouton('Je retire mon accord', 'accord-choix', 'secondary pc-accord-non', ' data-v="RETIRE" aria-pressed="false"') : '') + '</div>' +
+    '<label class="pc-champ"><span>Comment la réponse a-t-elle été donnée ?</span><select id="pcAccordMethode"><option value="">Choisir…</option>' +
+    METHODES_ACCORD.map(function (m) { return '<option value="' + m[0] + '">' + esc(m[1]) + '</option>'; }).join('') + '</select></label>' +
+    '<label class="pc-champ"><span>Référence de preuve ou observation (facultatif)</span><input id="pcAccordNote" type="text" maxlength="300" placeholder="Ex. formulaire papier conservé au bureau"></label>' +
+    '<label class="pc-case"><input type="checkbox" id="pcAccordAtteste"> Je certifie avoir recueilli moi-même cette réponse auprès du producteur, aujourd\'hui.</label>' +
+    '<div id="pcAccordMsg"></div><div class="pc-actions">' + bouton('Enregistrer la décision', 'accord-enregistrer', 'pc-cmd-principal', ' disabled') + '</div>' +
+    '<p class="pc-note">La décision est datée, rattachée à votre compte et conservée dans l\'historique du producteur. Elle peut être changée à tout moment par une nouvelle décision.</p></section>';
+}
+function parcours(id) {
+  peindre(tete('Cartographier le champ', '') + '<div class="ops-empty">Chargement…</div>');
+  return Promise.all([parametres(), parcelle(id), pointLocal(id), L.brouillon.lire(id)]).then(function (r) {
     var x = r[1]; if (!x) return aller('parcelles/p/' + id);
-    var max = seuil('precision_localisation_max_m', 50);
-    peindre(tete('Localiser mon champ', (x.producteur_code || '') + ' · ' + (x.local_name || ''), lien('Annuler', 'parcelles/p/' + id, 'secondary')) +
-      avis('info', 'Placez-vous <b>dans la plantation</b>, à découvert si possible, puis patientez. Il n\'est pas nécessaire de faire le tour du champ.') +
-      '<div class="pc-gps" id="pcGps"><b>Recherche de la position…</b><span>0 lecture</span></div>');
-    return lecturesGps(20000, 8, function (l) {
-      var b = C.combinerLectures(l), el = document.getElementById('pcGps');
-      if (el && b) el.innerHTML = '<b>Précision actuelle : ' + Math.round(b.precision) + ' m</b><span>' + l.length + ' lecture(s)</span>';
-    }).then(function (l) {
-      var b = C.combinerLectures(l);
-      if (!b) throw new Error('Aucune position reçue : activez le GPS et réessayez.');
-      var bon = b.precision <= max;
-      peindre(tete('Localiser mon champ', (x.producteur_code || '') + ' · ' + (x.local_name || ''), lien('Annuler', 'parcelles/p/' + id, 'secondary')) +
-        (bon ? avis('ok', 'Position obtenue : précision <b>' + Math.round(b.precision) + ' m</b> (' + b.lectures + ' lecture(s) retenue(s)).')
-             : avis('alerte', 'Précision insuffisante : <b>' + Math.round(b.precision) + ' m</b> (maximum ' + max + ' m). Avancez à découvert, loin des grands arbres, puis réessayez.')) +
-        (bon && x.gps_status === 'GPS_VERIFIED' ? '<label class="pc-case"><input type="checkbox" id="pcRemplacer"> Ce champ a déjà un <b>point vérifié</b>. Je confirme le remplacer : la vérification sera annulée et devra être refaite.</label>' : '') +
-        '<div class="pc-actions">' + (bon ? bouton('Enregistrer ce point', 'enregistrer-point') : '') + bouton('Réessayer', 'localiser', bon ? 'secondary' : '') + '</div>');
-      ed = { localisation: { plot_id: id, latitude: b.lat, longitude: b.lng, precision_m: Math.round(b.precision * 100) / 100, capture_le: l[l.length - 1].le }, pointVerifie: x.gps_status === 'GPS_VERIFIED' };
+    x = avecPointLocal(x, r[2]);
+    var br = r[3], sous = (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.local_name || 'Parcelle sans nom');
+    var entete = tete('Cartographier le champ', sous, lien('Fermer', 'parcelles/p/' + id, 'secondary'));
+    if (!peutSaisir()) { peindre(entete + avis('erreur', 'La cartographie est réservée au Chef d\'Unité, à son assistant et au Branch Manager.')); return; }
+    if (!actif('localisation', x.cluster_code)) { peindre(entete + avis('info', 'La cartographie n\'est pas encore activée pour le cluster ' + esc(x.cluster_code || '—') + '. La parcelle reste enregistrée.')); return; }
+    return etatAccord(x).then(function (acc) {
+      ed = { parcours: { plot_id: id, x: x, accord: acc, choix: null } };
+      var etapes = '<ol class="pc-etapes"><li class="' + (acc.etat === 'ACCORDE' ? 'fait' : 'actif') + '">Accord</li><li class="' + (acc.etat !== 'ACCORDE' ? '' : x.latitude != null ? 'fait' : 'actif') + '">Position</li><li class="' + (acc.etat === 'ACCORDE' && x.latitude != null ? 'actif' : '') + '">Carte</li></ol>';
+      var h = entete + (etat.message ? avis('ok', esc(etat.message)) : '') + etapes; etat.message = null;
+      if (acc.etat === 'ACCORDE') {
+        h += '<p class="pc-accord-ok">✓ Consentement GPS accordé' + (acc.confirme ? '' : ' <small>(dernière liste reçue du serveur' + (etat.listeLe ? ' le ' + esc(heureFr(etat.listeLe)) : '') + ' ; revérifié à la synchronisation)</small>') + '</p>';
+        if (x.latitude != null) {
+          var carteOk = actif('contours', x.cluster_code), nb = br && br.sommets && !br.gabarit ? br.sommets.length : 0;
+          h += '<div class="pc-point"><b>Point GPS capturé</b><span class="mono">' + Number(x.latitude).toFixed(6) + ' ; ' + Number(x.longitude).toFixed(6) + '</span><small>Précision ' + (x.gps_accuracy_m != null ? Math.round(x.gps_accuracy_m) + ' m' : 'inconnue') + ' · ' + esc(heureFr(x.gps_captured_at)) + (x._pointLocal ? ' · enregistré sur ce téléphone, en attente du serveur' : '') + '</small></div>' +
+            (carteOk ? (enLigne() ? '' : avis('info', 'Position GPS enregistrée. La carte satellite sera disponible au retour de la connexion.')) : avis('info', 'Le tracé des contours n\'est pas encore activé pour ce cluster.')) +
+            '<div class="pc-actions pc-actions-fin">' + (carteOk && enLigne() ? lien(nb ? 'Reprendre le tracé (' + nb + ' points)' : 'Ouvrir la carte', 'parcelles/tracer/' + id + '/sat', 'pc-cmd-principal') : '') + '</div>' +
+            '<div class="pc-actions">' + bouton('Capturer de nouveau ma position', 'capturer', 'secondary') + '</div>';
+        } else {
+          h += '<div class="pc-actions pc-actions-fin">' + bouton('CAPTURER MA POSITION GPS', 'capturer', 'pc-cmd-principal pc-capture') + '</div>' +
+            '<p class="pc-note">Placez-vous <b>dans la plantation</b>, à découvert si possible. Le GPS du téléphone fonctionne sans réseau mobile.</p>';
+        }
+        h += '<details class="pc-plus"><summary>Le producteur change d\'avis</summary>' + (enLigne() ? formulaireAccord(true) : avis('info', 'Connexion nécessaire pour enregistrer une nouvelle décision du producteur.')) + '</details>';
+      } else if (acc.etat === 'INCONNU') {
+        h += avis('alerte', '<b>Accord GPS du producteur à vérifier.</b> Sans connexion, aucune décision ne peut être enregistrée ni présumée : la position ne sera pas capturée. La parcelle reste enregistrée avec le statut « Cartographie à compléter » ; revenez avec du réseau.');
+      } else {
+        if (acc.etat !== 'AUCUN') h += avis('alerte', '<b>Consentement GPS ' + (acc.etat === 'RETIRE' ? 'retiré' : 'refusé') + (acc.ligne && acc.ligne.consent_at ? ' le ' + esc(heureFr(acc.ligne.consent_at)) : '') + '.</b> La localisation et la carte de ce champ sont bloquées. La parcelle reste enregistrée. Une nouvelle décision ne s\'enregistre que si le producteur la donne lui-même.');
+        h += acc.etat === 'AUCUN' ? formulaireAccord(false) : '<details class="pc-plus"><summary>Enregistrer une nouvelle décision du producteur</summary>' + formulaireAccord(false) + '</details>';
+      }
+      peindre(h);
     });
-  }).catch(function (e) {
-    peindre(tete('Localiser mon champ', '', lien('Retour', 'parcelles/p/' + id, 'secondary')) + avis('erreur', esc(e.message)) + '<div class="pc-actions">' + bouton('Réessayer', 'localiser') + '</div>');
   });
 }
+function majAccord() {
+  var b = document.querySelector('[data-pc="accord-enregistrer"]'), p = ed && ed.parcours; if (!b || !p) return;
+  var m = (document.getElementById('pcAccordMethode') || {}).value, a = (document.getElementById('pcAccordAtteste') || {}).checked;
+  b.disabled = !(p.choix && m && a);
+}
+document.addEventListener('change', function (ev) { if (ev.target && (ev.target.id === 'pcAccordMethode' || ev.target.id === 'pcAccordAtteste')) majAccord(); });
+function enregistrerAccord(b) {
+  var p = ed && ed.parcours, msg = document.getElementById('pcAccordMsg'); if (!p) return;
+  var methode = (document.getElementById('pcAccordMethode') || {}).value, atteste = (document.getElementById('pcAccordAtteste') || {}).checked, note = ((document.getElementById('pcAccordNote') || {}).value || '').trim();
+  function dire(t) { if (msg) msg.innerHTML = avis('erreur', esc(t)); }
+  if (['ACCORDE', 'REFUSE', 'RETIRE'].indexOf(p.choix) < 0 || !methode || !atteste) return dire('Touchez la réponse du producteur, indiquez comment elle a été donnée et cochez l\'attestation.');
+  if (!enLigne()) return dire('Connexion nécessaire : aucune décision GPS n\'est enregistrée ni présumée hors ligne.');
+  var moi = L.compte(); if (!moi || moi === 'inconnu') return dire('Session agent non disponible. Reconnectez-vous.');
+  b.disabled = true;
+  return client().then(function (c) {
+    if (!c) throw new Error('Connexion aux données indisponible.');
+    return c.from('farmer_consents').select('status,scopes').eq('producteur_id', p.x.producteur_id).order('event_order', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(1).maybeSingle().then(function (rep) {
+      if (rep.error) throw new Error(rep.error.message);
+      /* Les autres portées déjà accordées (identité, photos…) sont conservées : seule la portée GPS change. */
+      var prec = rep.data, scopes = {};
+      if (prec && (prec.status === 'GRANTED' || prec.status === 'PARTIAL')) for (var k in (prec.scopes || {})) scopes[k] = prec.scopes[k];
+      scopes.gps = p.choix === 'ACCORDE';
+      var unAuMoins = PORTEES_CONSENTEMENT.some(function (k) { return scopes[k] === true; }), tous = PORTEES_CONSENTEMENT.every(function (k) { return scopes[k] === true; });
+      var statut = p.choix === 'ACCORDE' ? (tous ? 'GRANTED' : 'PARTIAL') : unAuMoins ? 'PARTIAL' : p.choix === 'RETIRE' ? 'WITHDRAWN' : 'REFUSED';
+      return c.from('farmer_consents').insert({ producteur_id: p.x.producteur_id, status: statut, scopes: scopes, consent_at: new Date().toISOString(), method: methode,
+        text_version: VERSION_TEXTE_GPS, agent_id: moi, created_by: moi, source: 'FIELD_GPS_DECISION',
+        notes: 'Décision GPS recueillie dans la rubrique Parcelles (' + (p.choix === 'ACCORDE' ? 'accord' : p.choix === 'RETIRE' ? 'retrait' : 'refus') + '). Texte lu : « ' + TEXTE_ACCORD_GPS + ' » ' + (note || 'Aucune référence documentaire saisie.') });
+    });
+  }).then(function (r) {
+    if (r.error) throw new Error(r.error.message);
+    etat.liste = null;   // la liste porte l'accord calculé par le serveur : on la relit
+    etat.message = p.choix === 'ACCORDE' ? 'Accord GPS enregistré.' : 'Décision enregistrée : la localisation de ce champ est bloquée.';
+    return parcours(p.plot_id);
+  }).catch(function (e) { b.disabled = false; dire('Décision NON enregistrée : ' + (e && e.message || 'erreur')); });
+}
+/* Capture : un seul appui. La position, la précision et l'heure viennent du téléphone ; rien n'est saisi à la main.
+   Le statut posé par le serveur est « Point GPS capturé », jamais « vérifié ». */
+function capturer(id) {
+  var p = ed && ed.parcours; if (!p || p.plot_id !== id) return parcours(id);
+  var x = p.x, max = seuil('precision_localisation_max_m', 50);
+  var entete = tete('Capture de la position', (x.producteur_code || '') + ' · ' + (x.local_name || 'Parcelle sans nom'), lien('Annuler', 'parcelles/parcours/' + id, 'secondary'));
+  if (p.accord.etat !== 'ACCORDE') return parcours(id);
+  peindre(entete + '<div class="pc-gps" id="pcGps"><b>Recherche de la position…</b><span>Restez immobile, à découvert.</span></div>');
+  return lecturesGps(25000, 8, function (l) {
+    var b = C.combinerLectures(l), el = document.getElementById('pcGps');
+    if (el && b) el.innerHTML = '<b>Précision : ' + Math.round(b.precision) + ' m</b><span>' + l.length + ' lecture(s)</span>';
+  }).then(function (l) {
+    var b = C.combinerLectures(l);
+    if (!b) throw new Error('Aucune position reçue : activez la localisation du téléphone, placez-vous à découvert et réessayez.');
+    if (b.precision > max) {
+      peindre(entete + avis('alerte', 'Précision insuffisante : <b>' + Math.round(b.precision) + ' m</b> (maximum ' + max + ' m). Rien n\'a été enregistré. Avancez à découvert, loin des grands arbres, puis réessayez.') + '<div class="pc-actions">' + bouton('Réessayer', 'capturer', 'pc-cmd-principal') + '</div>');
+      return;
+    }
+    var loc = { plot_id: id, latitude: b.lat, longitude: b.lng, precision_m: Math.round(b.precision * 100) / 100, capture_le: l[l.length - 1].le };
+    if (x.gps_status === 'GPS_VERIFIED') {   // un point vérifié n'est jamais remplacé sans confirmation explicite
+      ed.parcours.enAttente = loc;
+      peindre(entete + avis('alerte', 'Ce champ a déjà un <b>point vérifié</b> par la supervision. Le remplacer annule cette vérification.') +
+        '<div class="pc-actions">' + bouton('Remplacer le point vérifié', 'point-remplacer', 'danger') + lien('Garder le point actuel', 'parcelles/parcours/' + id, 'secondary') + '</div>');
+      return;
+    }
+    return enregistrerPoint(loc);
+  }).catch(function (e) {
+    peindre(entete + avis('erreur', esc(e.message)) + '<div class="pc-actions">' + bouton('Réessayer', 'capturer', 'pc-cmd-principal') + '</div>');
+  });
+}
+function enregistrerPoint(loc) {
+  var id = loc.plot_id, x = ed.parcours.x, o = C.operation('LOCALISER', loc, L.appareil());
+  return L.file.ajouter(o, 'Point GPS ' + Math.round(loc.precision_m) + ' m').then(function () { return L.cache.ecrire('point:' + id, loc); })
+    .then(function () { return synchroniser(true).catch(function () { return null; }); })
+    .then(function () { return L.file.pourParcelle(id); })
+    .then(function (ops) {
+      var moi = ops.filter(function (z) { return z.idempotency_key === o.idempotency_key; })[0] || o;
+      if (moi.etat === 'REJETE' || moi.etat === 'CONFLIT') {
+        return L.cache.ecrire('point:' + id, null).then(function () {
+          peindre(tete('Capture de la position', '', lien('Retour', 'parcelles/parcours/' + id, 'secondary')) + avis('erreur', '<b>Position refusée par le serveur.</b> ' + esc(moi.message || '')) + '<div class="pc-actions">' + lien('Retour', 'parcelles/parcours/' + id, 'pc-cmd-principal') + '</div>');
+        });
+      }
+      etat.liste = null;
+      var recu = moi.etat === 'RECU';
+      if (recu && enLigne() && actif('contours', x.cluster_code)) { etat.message = null; return aller('parcelles/tracer/' + id + '/sat'); }
+      etat.message = recu ? 'Point GPS capturé et reçu par le serveur.' : 'Position GPS enregistrée. La carte satellite sera disponible au retour de la connexion.';
+      return parcours(id);
+    });
+}
+
+/* ------------------------------------------------------------------ date et source de l'image (Esri World Imagery) */
+/* Les métadonnées viennent de la couche de citations du service World Imagery (opération « identify »), au point
+   demandé et à l'échelle affichée. La date lue est la date de PRISE DE VUE déclarée par Esri pour cette tuile, pas
+   la date de mise à jour du service. Sans réponse exploitable : « Date de l'image satellite non disponible ».
+   Aucune date n'est déduite, estimée ni inventée ; aucune image n'est copiée ni conservée. */
+function metaImage(lat, lng) {
+  var im = (etat.params || {}).imagerie || {};
+  if (!enLigne() || im.fournisseur !== 'esri' || !im.licence_confirmee || !im.cle) return Promise.resolve(null);
+  var d = 360 / (256 * Math.pow(2, 18)) * 200;
+  var q = 'f=json&geometryType=esriGeometryPoint&sr=4326&layers=visible&tolerance=1&returnGeometry=false&geometry=' + lng + ',' + lat +
+    '&mapExtent=' + [lng - d, lat - d, lng + d, lat + d].join(',') + '&imageDisplay=400,400,96&token=' + encodeURIComponent(im.cle);
+  return fetchBorne(ESRI_IMAGERIE + '/identify?' + q).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return C.metaImagerie(j); }).catch(function () { return null; });
+}
+function peindreMetaImage() {
+  var z = document.getElementById('pcFondImage'); if (!z || !ed || !ed.fondSatellite) return;
+  var m = ed.image_meta, t = 'Fournisseur : Esri World Imagery';
+  if (ed.metaEnCours && !m) t += ' · recherche de la date de l\'image…';
+  else if (m && m.date) t += ' · Image du ' + dateFr(m.date) + (m.source ? ' · Source : ' + m.source : '') + (m.resolution_m ? ' · Résolution : ' + String(m.resolution_m).replace('.', ',') + ' m' : '');
+  else t += ' · Date de l\'image satellite non disponible' + (m && m.source ? ' · Source : ' + m.source : '');
+  z.innerHTML = '<p class="pc-image-meta">' + esc(t) + '</p>';
+}
+function chargerMetaImage(auCentreDuContour) {
+  if (!ed || !ed.fondSatellite) return;
+  var c = auCentreDuContour && ed.sommets.length >= 3 ? C.centroide(ed.sommets) : ed.sommets.length ? C.centroide(ed.sommets) : ed.x.latitude != null ? [Number(ed.x.longitude), Number(ed.x.latitude)] : null;
+  if (!c) { peindreMetaImage(); return; }
+  var cible = ed; ed.metaEnCours = true; peindreMetaImage();
+  metaImage(c[1], c[0]).then(function (m) {
+    if (ed !== cible) return;
+    ed.metaEnCours = false; ed.image_meta = m || null; ed.date_image = m && m.date ? m.date : null;
+    if (ed.fond && m && m.source && ed.fond.indexOf(m.source) < 0) ed.fond = ed.fond.split(' · ')[0] + ' · ' + m.source + (m.resolution_m ? ' · ' + m.resolution_m + ' m' : '');
+    peindreMetaImage();
+  });
+}
+
 
 /* ------------------------------------------------------------------ 3. éditeur de contour */
 /* Principes : le GPS sert à RETROUVER le champ, pas à fixer ses limites ; un sommet ne s'ajoute jamais par
    accident (viseur fixe au centre de la carte, ajout au toucher désactivé par défaut) ; chaque modification est
    enregistrée sur le téléphone ; la superficie vient des coordonnées WGS84 (GeographicLib), jamais des pixels. */
 function nouvelEtatEditeur(x, mode, br, active) {
+  var pt = x.latitude != null ? [Number(x.longitude), Number(x.latitude)] : null;
   var base = active ? active.id : null;
   var e = br && br.sommets ? br : {
     sommets: active && active.geojson ? C.nettoyer(active.geojson.coordinates[0]) : [], sommets_gps: [],
@@ -454,26 +637,38 @@ function nouvelEtatEditeur(x, mode, br, active) {
   if (!br) e.base_geometry_id = base;
   if (br && mode === 'gps' && e.methode === 'SATELLITE' && e.sommets.length) e.methode = 'MIXTE';
   if (br && mode === 'gps' && !e.sommets.length) e.methode = 'GPS_POINTS';
+  /* Carte ouverte sans contour : un carré P1-P4 est posé autour du point capturé. C'est un GABARIT : il n'est
+     ni mesuré ni envoyable tant qu'aucun point n'a été ajusté, et sa taille ne dépend jamais de la superficie déclarée. */
+  if (mode === 'sat' && !e.sommets.length && pt) { e.sommets = C.gabarit(pt); e.gabarit = true; if (!e.source || e.source === 'POINT_EXISTANT') e.source = x._pointLocal ? 'GPS_SUR_PLACE' : 'POINT_EXISTANT'; }
   e.historique = []; e.retablir = []; e.selection = null; e.mode = mode; e.x = x; e.toucher = false; e.reperes = true; e.effacer = false;
+  e.viseur = mode === 'sat' && !e.sommets.length;   // sans point capturé : pose des points au viseur, comme avant
   return e;
 }
 function tracer(id, mode) {
   peindre(tete('Tracé du contour', '') + '<div class="ops-empty">Préparation…</div>');
   return Promise.all([parametres(), parcelle(id), L.brouillon.lire(id),
-    enLigne() ? lire('plot_map_geometries_v', 'id,status,version_no,geojson', function (r) { return r.eq('plot_id', id).in('status', ['SOUMIS', 'A_CORRIGER', 'VALIDE']).order('version_no', { ascending: false }).limit(1); }).catch(function () { return []; }) : Promise.resolve([])
+    enLigne() ? lire('plot_map_geometries_v', 'id,status,version_no,geojson', function (r) { return r.eq('plot_id', id).in('status', ['SOUMIS', 'A_CORRIGER', 'VALIDE']).order('version_no', { ascending: false }).limit(1); }).catch(function () { return []; }) : Promise.resolve([]),
+    pointLocal(id)
   ]).then(function (r) {
     var x = r[1]; if (!x) return aller('parcelles/p/' + id);
-    if (!actif('contours', x.cluster_code) || !peutSaisir() || !x.consentement_gps) return aller('parcelles/p/' + id);
+    if (!actif('contours', x.cluster_code) || !peutSaisir()) return aller('parcelles/p/' + id);
+    if (!x.consentement_gps) return aller('parcelles/parcours/' + id);   // jamais de carte GPS sans accord actif
+    x = avecPointLocal(x, r[4]);
     ed = nouvelEtatEditeur(x, mode, r[2], r[3][0]);
-    var titre = mode === 'gps' ? 'Mesurer en marchant (GPS)' : mode === 'import' ? 'Importer un contour' : 'Tracer sur l\'image satellite';
-    peindre('<div class="pc-ed-tete"><div><b>' + esc(titre) + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
-      '<span>' + esc(x.village_nom || '') + ' · ' + esc(x.cluster_code || '') + ' · ' + esc(x.local_name || 'Parcelle') + ' · déclarée ' + (x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ha' : '—') + '</span></div>' +
+    var titre = mode === 'gps' ? 'Mesurer en marchant (GPS)' : mode === 'import' ? 'Importer un contour' : 'Carte du champ';
+    peindre('<div class="pc-ed-tete" id="pcEdTete"><div><b>' + esc(titre) + ' · ' + esc(x.local_name || 'Parcelle') + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
+      '<span class="pc-ed-detail">' + esc(x.village_nom || '') + ' · ' + esc(x.cluster_code || '') + ' · déclarée ' + (x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ha' : '—') + '</span></div>' +
       '<div class="pc-ed-droite"><span id="pcConnexion" class="pc-badge"></span>' + lien('Fermer', 'parcelles/p/' + id, 'secondary pc-mini') + '</div></div>' +
-      '<div id="pcFond"><div id="pcFondImage"></div><div id="pcFondMsg"></div></div>' +
-      '<div class="pc-editeur"><div class="pc-carte-zone"><div id="pcCarte" class="pc-carte pc-carte-ed" aria-label="Carte de tracé"></div>' +
-      (mode === 'sat' ? '<div class="pc-viseur" aria-hidden="true"></div>' : '') + '</div>' +
+      '<div id="pcFond"><div id="pcFondAlerte"></div><div id="pcFondMsg"></div></div>' +
+      '<div class="pc-editeur"><div class="pc-carte-zone"><div id="pcCarte" class="pc-carte pc-carte-ed" aria-label="Carte de tracé"></div><div id="pcFondImage" class="pc-image-bandeau"></div>' +
+      (mode === 'sat' ? '<div class="pc-viseur" id="pcViseur" aria-hidden="true"' + (ed.viseur ? '' : ' hidden') + '></div>' : '') + '</div>' +
       '<div class="pc-barre" id="pcBarre"></div><div class="pc-outils" id="pcOutils"></div><div class="pc-panneau" id="pcPanneau"></div></div>');
     connexion(); construireCarte(); peindreBarre(); peindrePanneau();
+    var zg = document.getElementById('pcFondMsg');
+    if (zg && mode === 'sat' && !ed.sommets.length && ed.x.latitude == null) zg.insertAdjacentHTML('afterbegin', avis('alerte', 'Aucune position GPS capturée pour ce champ : aucun carré n\'est proposé. Placez les points au viseur, ou revenez capturer votre position dans la plantation.'));
+    if (mode === 'sat') chargerMetaImage();
+    /* Téléphone : l'en-tête de la carte vient en haut de l'écran, la carte prend toute la hauteur libre au-dessus de la barre. */
+    ajusterCarte(true);
   });
 }
 function connexion() {
@@ -488,10 +683,13 @@ function construireCarte() {
   carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12, inertia: false });   // sans inertie : l'image s'arrête où le doigt la lâche (précision du viseur, constaté le 20/11/2026)
   var f = fond(carte, function (etatFond) {
     var z = document.getElementById('pcFondImage'); if (!z) return;
-    z.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible ici</b> (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d\'un cran si besoin. Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : avis('info', esc(ed.fondInfo || ''));
+    var za = document.getElementById('pcFondAlerte');
+    if (za) za.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible ici</b> (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d\'un cran si besoin. Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : '';
+    peindreMetaImage(); ajusterCarte();
   });
   ed.fond = f.nom === 'aucun' ? null : f.nom; ed.fondInfo = f.message; ed.couches = f.couches; ed.fondActuel = f.actuelle || null;
-  var zi = document.getElementById('pcFondImage'); if (zi) zi.innerHTML = avis(f.satellite ? 'info' : 'alerte', esc(f.message));
+  ed.fondSatellite = !!f.satellite;
+  var zi = document.getElementById('pcFondAlerte'); if (f.satellite) peindreMetaImage(); else if (zi) zi.innerHTML = avis('alerte', esc(f.message));
   var zf = document.getElementById('pcFondMsg');
   /* Vue initiale : contour existant > point du champ > village (avec avertissement) > Gbêkê. */
   if (ed.sommets.length >= 2) carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (s) { return [s[1], s[0]]; })).pad(0.3), { maxZoom: 19 });
@@ -511,30 +709,65 @@ function construireCarte() {
   dessiner();
   setTimeout(function () { carte && carte.invalidateSize(); }, 200);
 }
+function instantane() { return JSON.stringify({ s: ed.sommets, g: !!ed.gabarit }); }
+function restaurer(j) { var o = JSON.parse(j); if (Array.isArray(o)) { ed.sommets = o; ed.gabarit = false; } else { ed.sommets = o.s || []; ed.gabarit = !!o.g; } }
 function ajouterSommet(c) { modifier(function () { ed.sommets.push(c); ed.selection = ed.sommets.length - 1; }); }
-function icone(cls, txt) { return global.L.divIcon({ className: 'pc-sommet ' + cls, html: '<span>' + (txt || '') + '</span>', iconSize: [30, 30], iconAnchor: [15, 15] }); }
+/* Repères tactiles : zone de prise de 44 px (itel S688LN), pastille visible plus petite pour ne pas cacher le coin visé. */
+function icone(cls, txt, taille) { var t = taille || 44; return global.L.divIcon({ className: 'pc-sommet ' + cls, html: '<span>' + (txt || '') + '</span>', iconSize: [t, t], iconAnchor: [t / 2, t / 2] }); }
+function milieu(ll, i) { var n = ll[(i + 1) % ll.length]; return [(ll[i][0] + n[0]) / 2, (ll[i][1] + n[1]) / 2]; }
 function dessiner() {
-  if (!carte) return; var g = carte._couche; g.clearLayers();
+  if (!carte) return; var g = carte._couche; g.clearLayers(); ed._poly = null; ed._marques = []; ed._milieux = []; ed._poignee = null;
   var ll = ed.sommets.map(function (s) { return [s[1], s[0]]; });
-  if (ll.length >= 3) global.L.polygon(ll, { color: '#FACC15', weight: 3, fillColor: '#8DC556', fillOpacity: 0.22, interactive: false }).addTo(g);
-  else if (ll.length === 2) global.L.polyline(ll, { color: '#FACC15', weight: 3, dashArray: '6 6', interactive: false }).addTo(g);
+  /* Remplissage léger : le terrain reste visible sous le contour. Pointillés tant que c'est le gabarit provisoire. */
+  if (ll.length >= 3) ed._poly = global.L.polygon(ll, { color: '#FACC15', weight: 3, dashArray: ed.gabarit ? '8 7' : null, fillColor: '#8DC556', fillOpacity: 0.16, interactive: false }).addTo(g);
+  else if (ll.length === 2) ed._poly = global.L.polyline(ll, { color: '#FACC15', weight: 3, dashArray: '6 6', interactive: false }).addTo(g);
   if (!ed.reperes) return;
+  var glisser = ed.mode !== 'gps' || ed.methode === 'MIXTE';
   ll.forEach(function (p, i) {
-    var mk = global.L.marker(p, { draggable: ed.mode !== 'gps' || ed.methode === 'MIXTE', icon: icone(i === ed.selection ? 'pc-sel' : '', i + 1), keyboard: false, title: 'Sommet ' + (i + 1) }).addTo(g);
+    /* Leaflet suspend le déplacement de la carte pendant qu'un repère est tiré : la carte ne bouge pas avec le point. */
+    var mk = global.L.marker(p, { draggable: glisser, icon: icone(i === ed.selection ? 'pc-sel' : '', 'P' + (i + 1)), keyboard: false, title: 'Point P' + (i + 1), zIndexOffset: i === ed.selection ? 600 : 300 }).addTo(g);
+    ed._marques.push(mk);
     mk.on('click', function (ev) { global.L.DomEvent.stopPropagation(ev); ed.selection = i; dessiner(); peindreBarre(); });
-    mk.on('dragstart', function () { ed.historique.push(JSON.stringify(ed.sommets)); ed.retablir = []; });
-    mk.on('dragend', function (ev) { var q = ev.target.getLatLng(); ed.sommets[i] = [q.lng, q.lat]; ed.selection = i; apresModif(); });
+    mk.on('dragstart', function () { ed.historique.push(instantane()); if (ed.historique.length > 200) ed.historique.shift(); ed.retablir = []; ed.selection = i; var el = mk.getElement && mk.getElement(); if (el) el.classList.add('pc-sel'); });
+    mk.on('drag', function (ev) { var q = ev.target.getLatLng(); ed.sommets[i] = [q.lng, q.lat]; ed.gabarit = false; suivre(); });
+    mk.on('dragend', function (ev) { var q = ev.target.getLatLng(); ed.sommets[i] = [q.lng, q.lat]; ed.gabarit = false; ed.selection = i; apresModif(); });
   });
-  if (ll.length >= 3 && ed.mode === 'sat') ll.forEach(function (p, i) {          // milieux : toucher pour insérer un sommet
-    var n = ll[(i + 1) % ll.length], mid = [(p[0] + n[0]) / 2, (p[1] + n[1]) / 2];
-    var mk = global.L.marker(mid, { icon: icone('pc-milieu', '+'), keyboard: false, title: 'Insérer un sommet' }).addTo(g);
-    mk.on('click', function (ev) { global.L.DomEvent.stopPropagation(ev); modifier(function () { ed.sommets.splice(i + 1, 0, [mid[1], mid[0]]); ed.selection = i + 1; }); });
-  });
+  if (ll.length >= 3 && ed.mode === 'sat') {
+    ll.forEach(function (p, i) {          // « + » au milieu de chaque côté : toucher pour insérer un point (champ de forme irrégulière)
+      var mid = milieu(ll, i), mk = global.L.marker(mid, { icon: icone('pc-milieu', '+', 34), keyboard: false, title: 'Ajouter un point ici', zIndexOffset: 100 }).addTo(g);
+      ed._milieux.push(mk);
+      mk.on('click', function (ev) { global.L.DomEvent.stopPropagation(ev); var m2 = mk.getLatLng(); modifier(function () { ed.sommets.splice(i + 1, 0, [m2.lng, m2.lat]); ed.selection = i + 1; }); });
+    });
+    /* Poignée centrale : déplace TOUT le contour sans changer sa forme ni ses dimensions (calcul géodésique). */
+    var c = C.centroide(ed.sommets), origine = null;
+    var pg = global.L.marker([c[1], c[0]], { draggable: true, icon: icone('pc-poignee', '✥'), keyboard: false, title: 'Déplacer tout le contour', zIndexOffset: 200 }).addTo(g);
+    ed._poignee = pg;
+    pg.on('dragstart', function () { ed.historique.push(instantane()); if (ed.historique.length > 200) ed.historique.shift(); ed.retablir = []; origine = ed.sommets.map(function (z) { return z.slice(); }); });
+    pg.on('drag', function (ev) { var q = ev.target.getLatLng(); ed.sommets = C.deplacer(origine, [q.lng, q.lat]); suivre(true); });
+    pg.on('dragend', function (ev) { var q = ev.target.getLatLng(); ed.sommets = C.deplacer(origine, [q.lng, q.lat]); apresModif(); });
+  }
 }
-function modifier(fn) { ed.historique.push(JSON.stringify(ed.sommets)); if (ed.historique.length > 200) ed.historique.shift(); ed.retablir = []; ed.effacer = false; fn(); apresModif(); }
+/* Pendant un glissement : le contour et les mesures suivent le doigt, sans reconstruire les repères. */
+function suivre(ensemble) {
+  var ll = ed.sommets.map(function (s) { return [s[1], s[0]]; });
+  if (ed._poly) { ed._poly.setLatLngs(ll); if (!ed.gabarit && ed._poly.setStyle) ed._poly.setStyle({ dashArray: null }); }
+  if (ensemble) (ed._marques || []).forEach(function (m, i) { if (ll[i]) m.setLatLng(ll[i]); });
+  (ed._milieux || []).forEach(function (m, i) { if (ll.length >= 3 && ll[i]) m.setLatLng(milieu(ll, i)); });
+  if (!ensemble && ed._poignee && ll.length >= 3) { var c = C.centroide(ed.sommets); ed._poignee.setLatLng([c[1], c[0]]); }
+  if (ed.gabarit) return;
+  var m = C.mesurer(ed.sommets), a = document.querySelector('#pcBarre .pc-surface'), p = document.querySelector('#pcBarre .pc-perimetre'), n = document.querySelector('#pcBarre .pc-gabarit');
+  if (a) a.textContent = m.sommets >= 3 ? C.hectares(m.area_m2) + ' ha' : '—';
+  if (p) p.textContent = m.sommets >= 2 ? C.metres(m.perimeter_m) + ' m' : '—';
+  if (n) n.hidden = true;
+}
+/* Modification d'un ou plusieurs points : le contour n'est plus le gabarit. */
+function modifier(fn) { ed.historique.push(instantane()); if (ed.historique.length > 200) ed.historique.shift(); ed.retablir = []; ed.effacer = false; ed.gabarit = false; fn(); apresModif(); }
+/* Modification d'ensemble (agrandir, réduire, recommencer) : ne transforme pas un gabarit en contour mesuré. */
+function modifierEnsemble(fn) { ed.historique.push(instantane()); if (ed.historique.length > 200) ed.historique.shift(); ed.retablir = []; ed.effacer = false; fn(); apresModif(); }
 function apresModif() { sauver(); dessiner(); peindreBarre(); peindrePanneau(); }
+
 function sauver() {
-  var b = {}; ['sommets', 'sommets_gps', 'methode', 'confiance', 'confirmation', 'confirmation_note', 'base_geometry_id', 'geometry_id', 'fond', 'notes', 'op_cle', 'identite', 'source'].forEach(function (k) { b[k] = ed[k]; });
+  var b = {}; ['sommets', 'sommets_gps', 'methode', 'confiance', 'confirmation', 'confirmation_note', 'base_geometry_id', 'geometry_id', 'fond', 'date_image', 'image_meta', 'gabarit', 'notes', 'op_cle', 'identite', 'source'].forEach(function (k) { b[k] = ed[k]; });
   return L.brouillon.ecrire(ed.x.plot_id, b).then(function () { ed.sauveLe = new Date().toISOString(); var s = document.getElementById('pcSauve'); if (s) s.textContent = C.ETATS.LOCAL + ' · ' + heureFr(ed.sauveLe); })
     .catch(function (e) { var s = document.getElementById('pcSauve'); if (s) s.textContent = 'ATTENTION : brouillon non enregistré (' + e.message + ')'; });
 }
@@ -543,36 +776,54 @@ function sauver() {
    réorganisation des boutons après « Annuler » a fait toucher « Je suis dans mon champ » au lieu de « Rétablir ». */
 function peindreBarre() {
   var p = document.getElementById('pcBarre'); if (!p || !ed) return;
-  var v = C.verifier(ed.sommets, (etat.params || {}).seuils), sat = ed.mode === 'sat', sel = ed.selection != null;
-  var h = '<div class="pc-mesure-barre"><div><span>Superficie calculée</span><b class="pc-surface">' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b></div>' +
-    '<div><span>Périmètre</span><b class="pc-perimetre">' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></div><div><span>Sommets</span><b>' + v.sommets + '</b></div></div>' +
-    (v.sommets >= 3 && v.erreurs.length ? '<p class="pc-erreur">' + v.erreurs.map(esc).join('<br>') + '</p>' : '');
+  var v = C.verifier(ed.sommets, (etat.params || {}).seuils), sat = ed.mode === 'sat', sel = ed.selection != null, gab = !!ed.gabarit;
+  /* Tant que le carré est le gabarit de départ, aucune superficie n'est affichée : un gabarit n'est pas une mesure. */
+  var h = '<div class="pc-mesure-barre"><div><span>Superficie cartographique</span><b class="pc-surface">' + (!gab && v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b></div>' +
+    '<div><span>Périmètre</span><b class="pc-perimetre">' + (!gab && v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></div><div><span>Points</span><b>' + v.sommets + '</b></div></div>' +
+    (gab ? '<p class="pc-gabarit"><b>Ajustez les points aux limites de votre champ.</b> Gabarit provisoire : faites glisser P1 à P4 ; ✥ déplace tout.</p>' : '') +
+    (!gab && v.sommets >= 3 && v.erreurs.length ? '<p class="pc-erreur">' + v.erreurs.map(esc).join('<br>') + '</p>' : '');
   h += '<div class="pc-cmd pc-cmd-grille">';
-  if (sat) h += bouton('Poser un sommet au viseur', 'viseur-sommet', 'pc-cmd-principal') + bouton(sel ? 'Placer le sommet ' + (ed.selection + 1) + ' au viseur' : 'Placer le sommet au viseur', 'viseur-deplacer', 'secondary', sel ? '' : ' disabled');
-  else if (ed.mode === 'gps') h += bouton('Ajouter ma position comme sommet', 'gps-sommet', 'pc-cmd-principal pc-cmd-large');
+  if (ed.mode === 'gps') h += bouton('Ajouter ma position comme point', 'gps-sommet', 'pc-cmd-principal pc-cmd-large');
   h += bouton('↶ Annuler', 'annuler', 'secondary', ed.historique.length ? '' : ' disabled') + bouton('↷ Rétablir', 'retablir', 'secondary', ed.retablir.length ? '' : ' disabled') +
-    bouton(sel ? 'Supprimer le sommet ' + (ed.selection + 1) : 'Supprimer le sommet', 'supprimer', 'secondary', sel ? '' : ' disabled') +
-    bouton('Terminer le contour', 'terminer', '', v.ok ? '' : ' disabled') + '</div>';
+    bouton(sel ? 'Supprimer P' + (ed.selection + 1) : 'Supprimer un point', 'supprimer', 'secondary', sel && v.sommets > 3 ? '' : ' disabled') +
+    bouton('Terminer le contour', 'terminer', 'pc-cmd-principal', v.ok && !gab ? '' : ' disabled') + '</div>';
   p.innerHTML = h;
   peindreOutils(v, sat);
+  ajusterCarte();
 }
-/* Outils secondaires, sous la barre (hors zone de pouce : ils ne se déclenchent pas par erreur pendant le tracé). */
+/* Téléphone (≤ 820 px) : la carte occupe la hauteur d'écran restante entre son en-tête et la barre de mesure, quelle
+   que soit la hauteur de cette barre. Au-delà, la mise en page à deux colonnes de la feuille de style s'applique. */
+function ajusterCarte(remonter) {
+  var el = document.getElementById('pcCarte'), t = document.getElementById('pcEdTete'), b = document.getElementById('pcBarre'), f = document.getElementById('pcFond'); if (!el) return;
+  if (global.innerWidth > 820 || global.innerHeight <= 500) { if (el.style.height) { el.style.height = ''; if (carte) carte.invalidateSize(); } return; }
+  var h = Math.max(240, Math.round(global.innerHeight - (t ? t.offsetHeight + 8 : 0) - (f ? f.offsetHeight : 0) - (b ? b.offsetHeight : 0) - 14));
+  if (Math.abs((parseInt(el.style.height, 10) || 0) - h) > 6) { el.style.height = h + 'px'; if (carte) carte.invalidateSize({ pan: false }); }   // sans recentrage : le terrain ne bouge pas sous le doigt
+  if (remonter && t && t.scrollIntoView) setTimeout(function () { try { t.scrollIntoView({ block: 'start' }); } catch (e) { t.scrollIntoView(true); } }, 60);
+}
+global.addEventListener('resize', function () { if (ed && document.getElementById('pcCarte')) ajusterCarte(); });
+/* Outils secondaires, repliés : la carte garde la place. Hors zone de pouce, ils ne se déclenchent pas par erreur. */
 function peindreOutils(v, sat) {
   var p = document.getElementById('pcOutils'); if (!p) return;
   var coordOuvert = (function () { var c = document.getElementById('pcCoord'); return c && !c.hidden; })(), coordVal = (document.getElementById('pcCoordVal') || {}).value || '';
-  var h = '<div class="pc-cmd pc-cmd-sec">' + bouton('Je suis dans mon champ', 'ici', 'secondary') + bouton('Recentrer sur le contour', 'centrer-contour', 'secondary', v.sommets >= 1 ? '' : ' disabled') +
+  var ouvert = !!(document.getElementById('pcPlus') || {}).open || ed.effacer || coordOuvert, sel = ed.selection != null;
+  var h = '<details class="pc-plus" id="pcPlus"' + (ouvert ? ' open' : '') + '><summary>Plus d\'outils</summary><div class="pc-cmd pc-cmd-sec">' +
+    (sat ? bouton('Agrandir le contour', 'agrandir', 'secondary', v.sommets >= 3 ? '' : ' disabled') + bouton('Réduire le contour', 'reduire', 'secondary', v.sommets >= 3 ? '' : ' disabled') : '') +
+    (ed.effacer ? bouton('Confirmer : recommencer', 'effacer-ok', 'danger') + bouton('Garder le tracé', 'effacer-non', 'secondary') : bouton('Recommencer', 'effacer', 'secondary', v.sommets ? '' : ' disabled')) +
+    bouton('Je suis dans mon champ', 'ici', 'secondary') + bouton('Recentrer sur le contour', 'centrer-contour', 'secondary', v.sommets >= 1 ? '' : ' disabled') +
     bouton('Aller à des coordonnées', 'coord-ouvrir', 'secondary') + bouton(ed.reperes ? 'Masquer les repères' : 'Afficher les repères', 'reperes', 'secondary') +
     (ed.couches && ed.couches.satellite && ed.couches.plan ? bouton(ed.fondActuel === 'plan' ? 'Fond satellite' : 'Fond plan', 'fond', 'secondary') : '') +
-    (sat ? bouton(ed.toucher ? 'Ajout au toucher : activé' : 'Ajout au toucher : désactivé', 'toucher', 'secondary' + (ed.toucher ? ' pc-actif' : ''), ' aria-pressed="' + ed.toucher + '"') : '') +
-    bouton('Enregistrer le brouillon', 'brouillon', 'secondary') +
-    (ed.effacer ? bouton('Confirmer : effacer tout le tracé', 'effacer-ok', 'danger') + bouton('Garder le tracé', 'effacer-non', 'secondary') : bouton('Effacer le tracé', 'effacer', 'secondary', v.sommets ? '' : ' disabled')) + '</div>' +
+    (sat ? bouton(ed.viseur ? 'Viseur : activé' : 'Viseur : désactivé', 'viseur', 'secondary' + (ed.viseur ? ' pc-actif' : ''), ' aria-pressed="' + !!ed.viseur + '"') : '') +
+    (sat && ed.viseur ? bouton('Poser un point au viseur', 'viseur-sommet', 'secondary') + bouton(sel ? 'Placer P' + (ed.selection + 1) + ' au viseur' : 'Placer un point au viseur', 'viseur-deplacer', 'secondary', sel ? '' : ' disabled') +
+      bouton(ed.toucher ? 'Ajout au toucher : activé' : 'Ajout au toucher : désactivé', 'toucher', 'secondary' + (ed.toucher ? ' pc-actif' : ''), ' aria-pressed="' + ed.toucher + '"') : '') +
+    bouton('Enregistrer le brouillon', 'brouillon', 'secondary') + '</div>' +
     '<div id="pcCoord" class="pc-coord"' + (coordOuvert ? '' : ' hidden') + '><label class="pc-champ"><span>Coordonnées GPS en degrés décimaux (latitude, longitude)</span><input id="pcCoordVal" type="text" inputmode="decimal" placeholder="7.79512, -5.18245" value="' + esc(coordVal) + '"></label>' + bouton('Centrer la carte ici', 'coord-aller', 'secondary') + '</div>' +
-    (sat ? '<p class="pc-note">Déplacez l\'image sous la croix du viseur, puis « Poser un sommet au viseur » : votre doigt ne cache jamais le point visé. Pour corriger un sommet : touchez-le, placez le viseur au bon endroit, puis « Placer le sommet au viseur » (ou faites-le glisser).</p>' : '') +
+    (sat ? '<p class="pc-note">Touchez un point puis faites-le glisser sur un coin du champ. « + » ajoute un point sur un côté. La poignée ✥ déplace tout le contour.</p>' : '') + '</details>' +
     (ed.mode === 'gps' ? '<p class="pc-note">Marchez jusqu\'à chaque coin du champ, puis appuyez sur le bouton. Le contour se ferme automatiquement.</p>' : '') +
     (ed.mode === 'import' ? '<label class="pc-champ"><span>Fichier GeoJSON ou KML (un seul contour)</span><input type="file" id="pcFichier" accept=".geojson,.json,.kml,application/geo+json,application/vnd.google-earth.kml+xml"></label>' : '');
   p.innerHTML = h;
   var fi = document.getElementById('pcFichier'); if (fi) fi.addEventListener('change', function () { importer(fi.files && fi.files[0]); });
 }
+
 var NIVEAUX = { VISIBLES: 'Niveau 1 · Limites visibles et confirmées par le producteur', PARTIELLES: 'Niveau 2 · Limites partiellement visibles (estimation à vérifier)', INCERTAINES: 'Niveau 3 · Limites incertaines', VERIFICATION_TERRAIN: 'Niveau 3 · Vérification terrain nécessaire' };
 /* Finalisation : fiabilité, confirmation du producteur, identité de la parcelle, envoi. */
 function peindrePanneau() {
@@ -581,10 +832,11 @@ function peindrePanneau() {
   var lim = seuil('ecart_superficie_pct', 20), st = C.statsPrecision((ed.sommets_gps || []).map(function (s) { return s.precision; }));
   var conf = ed.confirmation === 'CONFIRMEE_SUR_PLACE';
   if (ed.confiance === 'VISIBLES' && !conf) ed.confiance = null;   // le niveau 1 exige la confirmation du producteur
-  var pret = v.ok && ed.confiance && ed.identite;
-  var h = '<div class="pc-mesure" id="pcFin"><span class="pc-etq">' + (v.sommets >= 3 ? 'Calcul provisoire sur ce téléphone (vérifié par le serveur à l\'envoi)' : 'Placez au moins 3 sommets') + '</span>' +
-    '<span class="mono">' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha · ' + C.metres(v.area_m2) + ' m² · ' : '') + 'périmètre ' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</span>' +
-    (ecart != null && Math.abs(ecart) > lim ? '<span class="pc-ecart">Écart de ' + (ecart > 0 ? '+' : '') + String(ecart).replace('.', ',') + ' % avec la superficie déclarée : vérifiez les limites avec le producteur.</span>' : '') +
+  var gab = !!ed.gabarit, pret = v.ok && ed.confiance && ed.identite && !gab;
+  var h = '<div class="pc-mesure" id="pcFin"><span class="pc-etq">' + (gab ? 'Ajustez les points aux limites de votre champ' : v.sommets >= 3 ? 'Calcul sur ce téléphone, vérifié par le serveur à l\'enregistrement' : 'Placez au moins 3 points') + '</span>' +
+    (gab ? '<span class="pc-note">Le carré affiché est un gabarit provisoire : il n\'a pas de superficie.</span>' :
+    '<span class="mono"><b>Superficie cartographique : ' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b><br><b>Périmètre : ' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></span>') +
+    (!gab && ecart != null && Math.abs(ecart) > lim ? '<span class="pc-ecart">Écart de ' + (ecart > 0 ? '+' : '') + String(ecart).replace('.', ',') + ' % avec la superficie déclarée : vérifiez les limites avec le producteur.</span>' : '') +
     (st ? '<span class="pc-note">Précision GPS : ' + Math.round(st.min) + ' à ' + Math.round(st.max) + ' m (médiane ' + Math.round(st.mediane) + ' m)</span>' : '') + '</div>';
   h += '<label class="pc-champ"><span>Confirmation des limites par le producteur</span><select id="pcConfirm">' +
     [['NON_DEMANDEE', 'Non demandée'], ['CONFIRMEE_SUR_PLACE', 'Confirmée sur place par le producteur'], ['CONTESTEE', 'Contestée par le producteur'], ['PRODUCTEUR_ABSENT', 'Producteur absent']].map(function (o) {
@@ -598,8 +850,8 @@ function peindrePanneau() {
   h += '<label class="pc-case pc-identite"><input type="checkbox" id="pcIdentite"' + (ed.identite ? ' checked' : '') + '> J\'ai vérifié avec le producteur que ce contour est bien celui de la parcelle « ' + esc(ed.x.local_name || 'sans nom') + ' » de <b>' + esc(ed.x.producteur_code || '') + '</b>, et non celle d\'un voisin.</label>';
   h += '<label class="pc-champ"><span>Observation (facultatif)</span><input id="pcNote" type="text" maxlength="300" value="' + esc(ed.notes || '') + '"></label>';
   h += '<p class="pc-sauve" id="pcSauve">' + (ed.sauveLe ? C.ETATS.LOCAL + ' · ' + heureFr(ed.sauveLe) : 'Brouillon enregistré automatiquement à chaque modification') + '</p>';
-  h += '<div class="pc-actions pc-actions-fin">' + bouton('Envoyer au Chef de Zone', 'envoyer', '', pret ? '' : ' disabled') + '</div>';
-  if (v.ok && !pret) h += '<p class="pc-note">Pour envoyer : indiquez la fiabilité des limites et confirmez l\'identité de la parcelle.</p>';
+  h += '<div class="pc-actions pc-actions-fin">' + bouton('Enregistrer', 'envoyer', 'pc-cmd-principal', pret ? '' : ' disabled') + '</div>';
+  h += '<p class="pc-note">' + (gab ? 'Pour enregistrer : ajustez d\'abord les points du gabarit.' : v.ok && !pret ? 'Pour enregistrer : indiquez la fiabilité des limites et confirmez l\'identité de la parcelle.' : 'Le contour enregistré est transmis au Chef de Zone pour validation. Sans réseau, il part au retour de la connexion.') + '</p>';
   h += '<p class="pc-note">Superficie cartographique : estimation pour le suivi AFLP calculée sur l\'ellipsoïde WGS84, <b>pas une superficie foncière certifiée</b>.</p>';
   p.innerHTML = h;
   Array.prototype.forEach.call(p.querySelectorAll('input[name=pcConf]'), function (r) { r.addEventListener('change', function () { ed.confiance = r.value; sauver(); peindrePanneau(); }); });
@@ -657,12 +909,13 @@ function sommetGps() {
 }
 function envoyer() {
   var v = C.verifier(ed.sommets, (etat.params || {}).seuils);
-  if (!v.ok || !ed.confiance || !ed.identite) return peindrePanneau();
+  if (!v.ok || !ed.confiance || !ed.identite || ed.gabarit) return peindrePanneau();
   var payload = C.soumission(ed.x.plot_id, ed, v, L.appareil());
   var o = C.operation('SOUMETTRE_CONTOUR', payload, L.appareil());
   ed.op_cle = o.idempotency_key;
   return sauver().then(function () { return L.file.ajouter(o, 'Contour ' + C.hectares(v.area_m2) + ' ha · ' + (ed.x.producteur_code || '') + ' · ' + (ed.x.local_name || 'parcelle')); })
-    .then(function () { etat.message = 'Contour enregistré sur ce téléphone. Envoi au serveur…'; return synchroniser(); })
+    .then(function () { return synchroniser(); })
+    .then(function (b) { if (!etat.message || /Rien à envoyer/.test(etat.message)) etat.message = 'Contour enregistré sur ce téléphone.'; return b; })
     .then(function () { aller('parcelles/p/' + ed.x.plot_id); });
 }
 
@@ -869,7 +1122,7 @@ function rendre() {
   var r;
   switch (p[1]) {
     case 'p': r = fiche(p[2]); break;
-    case 'localiser': r = localiser(p[2]); break;
+    case 'parcours': case 'localiser': r = parcours(p[2]); break;
     case 'tracer': r = tracer(p[2], p[3] || 'sat'); break;
     case 'ajouter': r = ajouter(p[2], p[3]); break;
     case 'validation': r = validation(); break;
@@ -994,17 +1247,18 @@ document.addEventListener('click', function (ev) {
   if (a === 'filtre') { etat.filtre = v || null; accueil(); }
   else if (a === 'sync') { synchroniser().then(rendre); }
   else if (a === 'reessayer') { L.file.reessayer(v).then(function () { return synchroniser(); }).then(rendre); }
-  else if (a === 'localiser') aller('parcelles/localiser/' + p[2]);
-  else if (a === 'enregistrer-point' && ed && ed.localisation) {
-    if (ed.pointVerifie) { var rc = document.getElementById('pcRemplacer'); if (!rc || !rc.checked) { if (rc) rc.parentNode.classList.add('pc-requis'); return; } ed.localisation.remplacer_point_verifie = true; }
-    var loc = ed.localisation, o = C.operation('LOCALISER', loc, L.appareil());
-    b.disabled = true;
-    L.file.ajouter(o, 'Point GPS ' + Math.round(loc.precision_m) + ' m').then(function () { etat.message = 'Point enregistré sur ce téléphone. Envoi au serveur…'; return synchroniser(); })
-      .then(function () { etat.liste = null; aller('parcelles/p/' + loc.plot_id); });
+  else if (a === 'localiser') aller('parcelles/parcours/' + p[2]);
+  else if (a === 'capturer' && p[2]) capturer(p[2]);
+  else if (a === 'point-remplacer' && ed && ed.parcours && ed.parcours.enAttente) { b.disabled = true; var lr = ed.parcours.enAttente; lr.remplacer_point_verifie = true; enregistrerPoint(lr); }
+  else if (a === 'accord-choix' && ed && ed.parcours) {
+    ed.parcours.choix = v;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pc="accord-choix"]'), function (z) { var oui = z === b; z.classList.toggle('pc-actif', oui); z.setAttribute('aria-pressed', oui ? 'true' : 'false'); });
+    majAccord();
   }
+  else if (a === 'accord-enregistrer' && ed && ed.parcours) enregistrerAccord(b);
   else if (a === 'gps-sommet') sommetGps();
-  else if (a === 'annuler' && ed && ed.historique && ed.historique.length) { ed.retablir.push(JSON.stringify(ed.sommets)); ed.sommets = JSON.parse(ed.historique.pop()); ed.selection = null; apresModif(); }
-  else if (a === 'retablir' && ed && ed.retablir && ed.retablir.length) { ed.historique.push(JSON.stringify(ed.sommets)); ed.sommets = JSON.parse(ed.retablir.pop()); ed.selection = null; apresModif(); }
+  else if (a === 'annuler' && ed && ed.historique && ed.historique.length) { ed.retablir.push(instantane()); restaurer(ed.historique.pop()); ed.selection = null; apresModif(); }
+  else if (a === 'retablir' && ed && ed.retablir && ed.retablir.length) { ed.historique.push(instantane()); restaurer(ed.retablir.pop()); ed.selection = null; apresModif(); }
   else if (a === 'viseur-sommet' && ed && carte) { var c0 = carte.getCenter(); ajouterSommet([c0.lng, c0.lat]); }
   else if (a === 'viseur-deplacer' && ed && carte && ed.selection != null) { var c1 = carte.getCenter(), i1 = ed.selection; modifier(function () { ed.sommets[i1] = [c1.lng, c1.lat]; ed.selection = i1; }); }
   else if (a === 'ici' && ed) vousEtesIci();
@@ -1026,9 +1280,20 @@ document.addEventListener('click', function (ev) {
   else if (a === 'brouillon' && ed) { sauver().then(function () { var zb = document.getElementById('pcFondMsg'); if (zb) zb.innerHTML = avis('ok', 'Brouillon enregistré sur ce téléphone (' + ed.sommets.length + ' sommet(s)).'); }); }
   else if (a === 'effacer' && ed) { ed.effacer = true; peindreBarre(); }
   else if (a === 'effacer-non' && ed) { ed.effacer = false; peindreBarre(); }
-  else if (a === 'effacer-ok' && ed) { modifier(function () { ed.sommets = []; ed.sommets_gps = []; ed.selection = null; }); }
-  else if (a === 'terminer' && ed) { var fin = document.getElementById('pcPanneau'); if (fin) fin.scrollIntoView({ behavior: 'smooth', block: 'start' }); var zt = document.getElementById('pcFondMsg'); if (zt) zt.innerHTML = avis('ok', 'Contour terminé : vérifiez-le avec le producteur, indiquez la fiabilité des limites puis envoyez.'); }
-  else if (a === 'supprimer' && ed && ed.selection != null) { modifier(function () { ed.sommets.splice(ed.selection, 1); if (ed.sommets_gps && ed.sommets_gps.length > ed.selection) ed.sommets_gps.splice(ed.selection, 1); ed.selection = null; }); }
+  else if (a === 'effacer-ok' && ed) {   // Recommencer : retour au gabarit autour du point capturé (ou contour vide sans point)
+    modifierEnsemble(function () { var pt = ed.mode === 'sat' && ed.x.latitude != null ? [Number(ed.x.longitude), Number(ed.x.latitude)] : null; ed.sommets = pt ? C.gabarit(pt) : []; ed.gabarit = !!pt; ed.sommets_gps = []; ed.selection = null; });
+    if (carte && ed.sommets.length) carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (z) { return [z[1], z[0]]; })).pad(0.3), { maxZoom: 19 });
+  }
+  else if ((a === 'agrandir' || a === 'reduire') && ed && ed.sommets.length >= 3) { modifierEnsemble(function () { ed.sommets = C.echelle(ed.sommets, a === 'agrandir' ? 1.15 : 1 / 1.15); }); }
+  else if (a === 'viseur' && ed) { ed.viseur = !ed.viseur; var zv = document.getElementById('pcViseur'); if (zv) zv.hidden = !ed.viseur; peindreBarre(); }
+  else if (a === 'terminer' && ed) {
+    var vt = C.verifier(ed.sommets, (etat.params || {}).seuils), zt = document.getElementById('pcFondMsg');
+    if (ed.gabarit || !vt.ok) { if (zt) zt.innerHTML = avis('alerte', ed.gabarit ? 'Ajustez d\'abord les points aux limites de votre champ.' : vt.erreurs.map(esc).join('<br>')); return; }
+    ed.selection = null; dessiner(); chargerMetaImage(true);
+    var fin = document.getElementById('pcPanneau'); if (fin) fin.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (zt) zt.innerHTML = avis('ok', '<b>Superficie cartographique : ' + C.hectares(vt.area_m2) + ' ha</b> · Périmètre : ' + C.metres(vt.perimeter_m) + ' m. Vérifiez le contour avec le producteur, puis enregistrez.');
+  }
+  else if (a === 'supprimer' && ed && ed.selection != null && ed.sommets.length > 3) { modifier(function () { ed.sommets.splice(ed.selection, 1); if (ed.sommets_gps && ed.sommets_gps.length > ed.selection) ed.sommets_gps.splice(ed.selection, 1); ed.selection = null; }); }
   else if (a === 'envoyer' && ed) { b.disabled = true; envoyer(); }
   else if (a === 'ajout-ok') validerAjout();
   else if (a === 'classer') {

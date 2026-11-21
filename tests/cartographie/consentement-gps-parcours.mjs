@@ -31,12 +31,32 @@ test('enrollment leads agent to the consent tab',()=>{
   assert.match(fb,/editRow \? '' : '\/consents'/);
   assert.match(fb,/confirmer le consentement GPS avec le producteur/);
 });
-test('cartography still blocks unauthorized GPS and links to Passport',()=>{
-  assert.match(pc,/if \(!consent\) actions \+= avis/);
-  assert.match(pc,/Ouvrir le consentement du producteur/);
-  assert.match(pc,/encodeURIComponent\(x\.producteur_id\) \+ '\/consents'/);
+/* Parcours Parcelles du 21/11/2026 : l'accord GPS se recueille DANS la rubrique Parcelles (plus de renvoi vers le
+   passeport). Les garanties restent les mêmes : décision explicite, ajoutée à l'historique, jamais hors ligne. */
+test('cartography collects the GPS decision inside Parcelles, never presumed',()=>{
+  assert.doesNotMatch(pc,/Ouvrir le consentement du producteur/);
+  assert.match(pc,/Pour localiser votre plantation et établir sa carte, nous avons besoin de votre accord pour enregistrer ses coordonnées géographiques\./);
+  assert.match(pc,/data-v="ACCORDE" aria-pressed="false"/);
+  assert.match(pc,/data-v="REFUSE" aria-pressed="false"/);
+  assert.match(pc,/\.from\('farmer_consents'\)\.insert\(/);
+  assert.doesNotMatch(pc,/\.from\('farmer_consents'\)\.(update|delete|upsert)\(/);
+  assert.match(pc,/source: 'FIELD_GPS_DECISION'/);
+  assert.match(pc,/agent_id: moi, created_by: moi/);
+  assert.match(pc,/consent_at: new Date\(\)\.toISOString\(\)/);
+  assert.match(pc,/if \(!enLigne\(\)\) return dire\('Connexion nécessaire : aucune décision GPS n\\'est enregistrée ni présumée hors ligne\.'\)/);
+});
+test('refusal or withdrawal blocks capture and the map',()=>{
+  assert.match(pc,/if \(p\.accord\.etat !== 'ACCORDE'\) return parcours\(id\);/);
+  assert.match(pc,/if \(!x\.consentement_gps\) return aller\('parcelles\/parcours\/' \+ id\);/);
+  assert.match(pc,/La localisation et la carte de ce champ sont bloquées\. La parcelle reste enregistrée\./);
+});
+test('a captured point is never auto-verified',()=>{
+  assert.doesNotMatch(pc,/gps_status\s*[:=]\s*'GPS_VERIFIED'/);
+  assert.doesNotMatch(pc,/gps_verified_area/);
 });
 test('browser cache bust after code changes',()=>{
-  assert.match(html,/field-buying\.js\?v=20261120-ra-parcelle-1/);
-  assert.match(html,/parcelles\.js\?v=20261120-ra-parcelle-1/);
+  assert.match(html,/field-buying\.js\?v=20261122-parcours-1/);
+  assert.match(html,/parcelles\.js\?v=20261122-parcours-1/);
+  assert.match(html,/parcelles-coeur\.js\?v=20261122-parcours-1/);
+  assert.match(html,/parcelles\.css\?v=20261122-parcours-1/);
 });

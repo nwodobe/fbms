@@ -1,0 +1,274 @@
+{
+ "execute_le": "2026-11-21T22:16:59.355Z",
+ "nature": "Chromium + doublure serveur en mémoire : ne prouve ni la RLS, ni PostGIS, ni le fonctionnement Android",
+ "reussis": 38,
+ "total": 38,
+ "resultats": [
+  {
+   "id": "PG-01",
+   "test": "A",
+   "libelle": "Fiche : une seule action « Cartographier ce champ », plus de renvoi vers le passeport",
+   "resultat": "RÉUSSI",
+   "detail": "CHAMP FICTIF ALPHA\n\n9101 · PRODUCTEUR FICTIF ALPHA · VILLAGE FICTIF · BROBO\n\nRetour\nCartographie à compléter\nChamp non localisé\nCartographie à compléter : rendez-vous dans la plantation et appuyez sur"
+  },
+  {
+   "id": "PG-02",
+   "test": "A",
+   "libelle": "Aucune décision : phrase d'accord exacte, « J'accepte » et « Je refuse », rien de présélectionné, enregistrement désactivé, aucun bouton de capture",
+   "resultat": "RÉUSSI",
+   "detail": "Cartographier le champ\n\n9101 · PRODUCTEUR FICTIF ALPHA · CHAMP FICTIF ALPHA\n\nFermer\nAccord\nPosition\nCarte\n\n« Pour localiser votre plantation et établir sa carte, nous avons besoin de votre accord pour enregistrer ses coordonnées géographiques. »\n\nLisez cette phrase au producteur, puis touchez sa rép"
+  },
+  {
+   "id": "PG-03",
+   "test": "A",
+   "libelle": "Refus : décision historisée (REFUSED, gps=false, méthode, agent, date du jour, texte lu) et localisation bloquée",
+   "resultat": "RÉUSSI",
+   "detail": "{\"producteur_id\":\"P-FICTIF-A\",\"status\":\"REFUSED\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T22:15:18.516Z\",\"method\":\"VERBAL\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-0000-4000-8000-0000000000d1\",\"created_by\":\"00000000-0000-4"
+  },
+  {
+   "id": "PG-04",
+   "test": "A",
+   "libelle": "Refus : la carte n'est pas accessible (retour au parcours)",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "PG-05",
+   "test": "A",
+   "libelle": "Nouvelle décision « J'accepte » : ajoutée à l'historique (la précédente est conservée), mention discrète, bouton de capture unique",
+   "resultat": "RÉUSSI",
+   "detail": "Cartographier le champ\n\n9101 · PRODUCTEUR FICTIF ALPHA · CHAMP FICTIF ALPHA\n\nFermer\nAccord GPS enregistré.\nAccord\nPosition\nCarte\n\n✓ Consentement GPS accordé\n\nCAPTURER MA POSITION GPS\n\nPlacez-vous dans la plantation, à découvert si possible. Le GPS du"
+  },
+  {
+   "id": "PG-06",
+   "test": "B",
+   "libelle": "Un seul appui : latitude, longitude, précision et heure envoyées sans saisie ; aucun statut « vérifié » demandé",
+   "resultat": "RÉUSSI",
+   "detail": "{\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T22:15:16.807Z\"}"
+  },
+  {
+   "id": "PG-07",
+   "test": "C",
+   "libelle": "La carte s'ouvre toute seule après la capture reçue par le serveur",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "PG-08",
+   "test": "D",
+   "libelle": "Quatre repères P1 à P4 et un polygone fermé apparaissent sans aucun geste",
+   "resultat": "RÉUSSI",
+   "detail": "P1,P2,P3,P4"
+  },
+  {
+   "id": "PG-09",
+   "test": "D",
+   "libelle": "Gabarit identifié comme provisoire : consigne exacte, aucune superficie, « Terminer » et « Enregistrer » désactivés, rien d'enregistré",
+   "resultat": "RÉUSSI",
+   "detail": "— / brouillon null"
+  },
+  {
+   "id": "PG-10",
+   "test": "D",
+   "libelle": "Le carré ne dépend pas de la superficie déclarée : côté fixe de 70 m (0,49 ha) pour 1,2 ha déclarés",
+   "resultat": "RÉUSSI",
+   "detail": "4899.929927557707 m²"
+  },
+  {
+   "id": "PG-11",
+   "test": "D",
+   "libelle": "Repères tactiles de 44 px au moins",
+   "resultat": "RÉUSSI",
+   "detail": "44 px"
+  },
+  {
+   "id": "PG-12",
+   "test": "E",
+   "libelle": "Glisser P1 : le contour suit, la superficie s'affiche, le gabarit devient un contour, le brouillon est enregistré",
+   "resultat": "RÉUSSI",
+   "detail": "0,63 ha attendu 0,63 ha"
+  },
+  {
+   "id": "PG-13",
+   "test": "E",
+   "libelle": "Glisser un repère ne déplace pas la carte (P3 reste au même endroit de l'écran)",
+   "resultat": "RÉUSSI",
+   "detail": "[{\"x\":254,\"y\":386,\"l\":44},{\"x\":254,\"y\":386,\"l\":44}]"
+  },
+  {
+   "id": "PG-14",
+   "test": "E",
+   "libelle": "Repère sélectionné mis en évidence",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "PG-15",
+   "test": "E",
+   "libelle": "Les quatre points se déplacent (P4 au doigt, événements tactiles) ; superficie et périmètre recalculés sur les coordonnées",
+   "resultat": "RÉUSSI",
+   "detail": "1,16 ha · 432 m · tous déplacés=true"
+  },
+  {
+   "id": "PG-16",
+   "test": "F",
+   "libelle": "La poignée ✥ déplace tout le contour sans changer ses dimensions (écart < 0,01 %)",
+   "resultat": "RÉUSSI",
+   "detail": "déplacé de 35.6 m ; 11620.22 → 11620.22 m²"
+  },
+  {
+   "id": "PG-17",
+   "test": "G",
+   "libelle": "Cinquième et sixième points ajoutés sur les côtés ; calcul juste sur 6 points",
+   "resultat": "RÉUSSI",
+   "detail": "P1,P2,P3,P4,P5,P6 · 1,28 ha"
+  },
+  {
+   "id": "PG-18",
+   "test": "G",
+   "libelle": "Supprimer un point ; Annuler puis Rétablir",
+   "resultat": "RÉUSSI",
+   "detail": "5 → 6 → 5"
+  },
+  {
+   "id": "PG-19",
+   "test": "G",
+   "libelle": "Impossible de descendre sous trois points",
+   "resultat": "RÉUSSI",
+   "detail": "3 points"
+  },
+  {
+   "id": "PG-20",
+   "test": "F",
+   "libelle": "Agrandir : même forme, superficie × 1,15² ; Réduire revient à la taille d'origine",
+   "resultat": "RÉUSSI",
+   "detail": "1.3225 puis 1.0000"
+  },
+  {
+   "id": "PG-21",
+   "test": "H",
+   "libelle": "Terminer : « Superficie cartographique : X,XX ha » et « Périmètre : XXX m », en hectares et en mètres",
+   "resultat": "RÉUSSI",
+   "detail": "1,28 ha · 439 m"
+  },
+  {
+   "id": "PG-22",
+   "test": "D",
+   "libelle": "Imagerie : fournisseur, date de prise de vue, source et résolution lus dans la réponse du service (réponse d'essai)",
+   "resultat": "RÉUSSI",
+   "detail": "Fournisseur : Esri World Imagery · Image du 14/02/2023 · Source : SOURCE FICTIVE DE TEST · Résolution : 0,6 m"
+  },
+  {
+   "id": "PG-23",
+   "test": "K",
+   "libelle": "Enregistrer reste désactivé tant que la fiabilité et l'identité de la parcelle ne sont pas confirmées",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "PG-24",
+   "test": "J",
+   "libelle": "Un seul bouton « Enregistrer » : contour reçu par le serveur avec superficie, périmètre, date et source d'image ; jamais de statut vérifié",
+   "resultat": "RÉUSSI",
+   "detail": "{\"id\":\"6f52152c-6e47-4d79-bc98-93cc231feb70\",\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"geometrie\":{\"type\":\"Polygon\",\"coordinates\":[[[-5.02997607,7.70098434],[-5.02943158,7.70114648],[-5.02895683,7.70094181],[-5.02892465,7.70000087],[-5.02993316,7.7000434],[-5.02997607,7.7"
+  },
+  {
+   "id": "PG-25",
+   "test": "K",
+   "libelle": "Aucun doublon : une seule opération de point et une seule de contour ont été envoyées pour cette parcelle",
+   "resultat": "RÉUSSI",
+   "detail": "LOCALISER,SOUMETTRE_CONTOUR"
+  },
+  {
+   "id": "PG-26",
+   "test": "D",
+   "libelle": "Service sans date exploitable (code 99999) : « Date de l'image satellite non disponible », aucune date inventée",
+   "resultat": "RÉUSSI",
+   "detail": "Fournisseur : Esri World Imagery · Date de l'image satellite non disponible · Source : SOURCE FICTIVE DE TEST"
+  },
+  {
+   "id": "PG-27",
+   "test": "D",
+   "libelle": "Recommencer (après confirmation) : retour au gabarit provisoire, sans superficie",
+   "resultat": "RÉUSSI",
+   "detail": "[[-5.03001725,7.70061647],[-5.02938275,7.70061647],[-5.02938275,7.69998353],[-5.03001725,7.69998353]]"
+  },
+  {
+   "id": "PG-28",
+   "test": "D",
+   "libelle": "Agrandir un gabarit ne le transforme pas en mesure (toujours provisoire, toujours sans superficie)",
+   "resultat": "RÉUSSI",
+   "detail": "—"
+  },
+  {
+   "id": "PG-29",
+   "test": "A",
+   "libelle": "Retrait : historisé (WITHDRAWN), capture et carte bloquées, la parcelle n'est pas supprimée",
+   "resultat": "RÉUSSI",
+   "detail": "{\"producteur_id\":\"P-FICTIF-B\",\"status\":\"WITHDRAWN\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T22:16:22.098Z\",\"method\":\"WITNESSED\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-000"
+  },
+  {
+   "id": "PG-30",
+   "test": "I",
+   "libelle": "Hors ligne, accord déjà connu : il n'est pas présenté comme confirmé par le serveur à l'instant",
+   "resultat": "RÉUSSI",
+   "detail": "Cartographier le champ\n\n9103 · PRODUCTEUR FICTIF CHARLIE · CHAMP FICTIF CHARLIE\n\nFermer\nAccord\nPosition\nCarte\n\n✓ Consentement GPS accordé (dernière liste reçue du serveur le 21/11 22:16 ; revérifié à la synchronisation)\n\nCAPTURER MA POSITION GPS\n\nPlacez-vous d"
+  },
+  {
+   "id": "PG-31",
+   "test": "I",
+   "libelle": "Hors ligne : position, précision et heure conservées sur le téléphone, rattachées à la parcelle ; message exact ; aucune carte satellite prétendue",
+   "resultat": "RÉUSSI",
+   "detail": "[{\"type\":\"LOCALISER\",\"etat\":\"ATTENTE\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T22:15:16.807Z\"},\"message\":null}]"
+  },
+  {
+   "id": "PG-32",
+   "test": "I",
+   "libelle": "Hors ligne, accord inconnu : aucune capture, aucune décision recueillie",
+   "resultat": "RÉUSSI",
+   "detail": "Cartographier le champ\n\n9102 · PRODUCTEUR FICTIF BRAVO · CHAMP FICTIF BRAVO\n\nFermer\nAccord\nPosition\nCarte\nAccord GPS du producteur à vérifier. Sans connexion, aucune décision ne peut être enregistrée ni présumée : la pos"
+  },
+  {
+   "id": "PG-33",
+   "test": "J",
+   "libelle": "Page fermée puis rouverte, réseau revenu : le point en attente est reçu par le serveur ; un renvoi garde la même clé d'idempotence (une seule écriture)",
+   "resultat": "RÉUSSI",
+   "detail": "état RECU · 1 envoi(s), 1 clé(s) d'idempotence, 0 rejeu(x) sans effet"
+  },
+  {
+   "id": "PG-34",
+   "test": "A",
+   "libelle": "Point envoyé sans accord actif : refusé par le serveur, signalé à l'agent, non conservé comme repère",
+   "resultat": "RÉUSSI",
+   "detail": "{\"idempotency_key\":\"b863ac2b-dc6f-40d6-8cc5-64fdb74f7df8\",\"type\":\"LOCALISER\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_"
+  },
+  {
+   "id": "PG-35-390",
+   "test": "Affichage",
+   "libelle": "Carte du champ à 390×844 : pas de défilement horizontal, boutons de la barre non superposés, carte ≥ 260 px",
+   "resultat": "RÉUSSI",
+   "detail": "{\"debord\":0,\"chevauche\":false,\"carte\":525,\"hmin\":44}"
+  },
+  {
+   "id": "PG-35-768",
+   "test": "Affichage",
+   "libelle": "Carte du champ à 768×1024 : pas de défilement horizontal, boutons de la barre non superposés, carte ≥ 260 px",
+   "resultat": "RÉUSSI",
+   "detail": "{\"debord\":0,\"chevauche\":false,\"carte\":755,\"hmin\":44}"
+  },
+  {
+   "id": "PG-35-1440",
+   "test": "Affichage",
+   "libelle": "Carte du champ à 1440×900 : pas de défilement horizontal, boutons de la barre non superposés, carte ≥ 260 px",
+   "resultat": "RÉUSSI",
+   "detail": "{\"debord\":0,\"chevauche\":false,\"carte\":558,\"hmin\":44}"
+  },
+  {
+   "id": "PG-36",
+   "test": "Affichage",
+   "libelle": "Aucune erreur JavaScript pendant tout le parcours",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}

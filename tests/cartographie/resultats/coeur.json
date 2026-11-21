@@ -1,6 +1,6 @@
 {
- "total": 24,
- "reussis": 24,
+ "total": 42,
+ "reussis": 42,
  "echoues": 0,
  "tests": [
   {
@@ -144,6 +144,114 @@
   {
    "id": "JS-24",
    "libelle": "Contour hors Côte d'Ivoire signalé",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-25",
+   "libelle": "Gabarit : 4 sommets, carré de 70 m de côté (4 900 m², 280 m) autour du point",
+   "resultat": "RÉUSSI",
+   "detail": "4899.929927557707 m² · 279.99799792013187 m"
+  },
+  {
+   "id": "JS-26",
+   "libelle": "Gabarit : côtés égaux et diagonales égales au centimètre (vrai carré sur l'ellipsoïde)",
+   "resultat": "RÉUSSI",
+   "detail": "[69.99944553149078,69.99950149469316,69.99954939925476,69.99950149469316,98.9942415245563,98.9942415245563]"
+  },
+  {
+   "id": "JS-27",
+   "libelle": "Gabarit : ordre P1 nord-ouest, P2 nord-est, P3 sud-est, P4 sud-ouest ; centré sur le point",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-28",
+   "libelle": "Gabarit : contour valide (fermé, sans croisement, en Côte d'Ivoire)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-29",
+   "libelle": "Gabarit : la taille ne dépend d'aucune superficie déclarée (fonction sans paramètre de superficie)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-30",
+   "libelle": "Gabarit : point illisible → aucun carré fabriqué",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-31",
+   "libelle": "estGabarit : vrai pour le carré intact, faux dès qu'un sommet bouge",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-32",
+   "libelle": "Déplacer : centre à l'endroit demandé (500 m plus loin), superficie et périmètre conservés à 0,01 % près",
+   "resultat": "RÉUSSI",
+   "detail": "32820.66975954175 → 32820.71426180005"
+  },
+  {
+   "id": "JS-33",
+   "libelle": "Déplacer : chaque côté garde sa longueur au centimètre",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-34",
+   "libelle": "Échelle × 2 : superficie × 4, périmètre × 2, centre inchangé",
+   "resultat": "RÉUSSI",
+   "detail": "19599.71971051395"
+  },
+  {
+   "id": "JS-35",
+   "libelle": "Échelle : agrandir puis réduire du même facteur revient au contour d'origine (au centimètre)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-36",
+   "libelle": "Échelle : facteur nul ou négatif refusé (contour inchangé)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-37",
+   "libelle": "Libellés : « Cartographie à compléter » et « Point GPS capturé » ; aucun libellé « vérifié » pour un simple point",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-38",
+   "libelle": "Imagerie : date AAAAMMJJ, résolution et source lues (noms de champs ou alias)",
+   "resultat": "RÉUSSI",
+   "detail": "[{\"fournisseur\":\"Esri World Imagery\",\"date\":\"2023-02-14\",\"source\":\"Source d'essai\",\"resolution_m\":0.6,\"precision_m\":null},{\"fournisseur\":\"Esri World Imagery\",\"date\":\"2022-11-05\",\"source\":\"Autre essai\""
+  },
+  {
+   "id": "JS-39",
+   "libelle": "Imagerie : code Esri 99999, zéro, date future ou impossible → aucune date (jamais inventée)",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-40",
+   "libelle": "Imagerie : réponse vide, erreur ou absente → null",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-41",
+   "libelle": "Imagerie : entre plusieurs couches, celle qui porte une date est retenue",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  },
+  {
+   "id": "JS-42",
+   "libelle": "Soumission : date et source de l'image transmises avec le contour",
    "resultat": "RÉUSSI",
    "detail": ""
   }

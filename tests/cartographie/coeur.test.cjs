@@ -57,6 +57,31 @@ t('JS-22', 'Soumission : précision GPS, méthode et confiance transmises', () =
 t('JS-23', 'Export CSV : séparateur point-virgule, décimales à la française, BOM UTF-8', () => { const x = C.csv([{ a: 'Brobo', b: 2.5 }], [['a', 'Cluster'], ['b', 'Ha']]); return x.charCodeAt(0) === 0xfeff && x.includes('Cluster;Ha') && x.includes('Brobo;2,5'); });
 t('JS-24', 'Contour hors Côte d\'Ivoire signalé', () => !C.verifier([[2.35, 48.85], [2.36, 48.85], [2.36, 48.86]]).ok);
 
+/* ---- Gabarit de départ et transformations d'ensemble (parcours Parcelles du 21/11/2026) ---- */
+const CENTRE = [-5.0297, 7.7003], GAB = C.gabarit(CENTRE);
+t('JS-25', 'Gabarit : 4 sommets, carré de 70 m de côté (4 900 m², 280 m) autour du point', () => { const m = C.mesurer(GAB); return { ok: GAB.length === 4 && pres(m.area_m2, 4900, 1e-4) && pres(m.perimeter_m, 280, 1e-4), detail: m.area_m2 + ' m² · ' + m.perimeter_m + ' m' }; });
+t('JS-26', 'Gabarit : côtés égaux et diagonales égales au centimètre (vrai carré sur l\'ellipsoïde)', () => { const c = [0, 1, 2, 3].map(i => C.distance(GAB[i], GAB[(i + 1) % 4])), d = [C.distance(GAB[0], GAB[2]), C.distance(GAB[1], GAB[3])]; return { ok: Math.max(...c) - Math.min(...c) < 0.01 && Math.abs(d[0] - d[1]) < 0.01 && Math.abs(c[0] - 70) < 0.01, detail: JSON.stringify(c.concat(d)) }; });
+t('JS-27', 'Gabarit : ordre P1 nord-ouest, P2 nord-est, P3 sud-est, P4 sud-ouest ; centré sur le point', () => { const c = C.centroide(GAB); return GAB[0][0] < CENTRE[0] && GAB[0][1] > CENTRE[1] && GAB[1][0] > CENTRE[0] && GAB[1][1] > CENTRE[1] && GAB[2][0] > CENTRE[0] && GAB[2][1] < CENTRE[1] && GAB[3][0] < CENTRE[0] && GAB[3][1] < CENTRE[1] && C.distance(c, CENTRE) < 0.01; });
+t('JS-28', 'Gabarit : contour valide (fermé, sans croisement, en Côte d\'Ivoire)', () => C.verifier(GAB).ok);
+t('JS-29', 'Gabarit : la taille ne dépend d\'aucune superficie déclarée (fonction sans paramètre de superficie)', () => C.gabarit.length === 2 && JSON.stringify(C.gabarit(CENTRE)) === JSON.stringify(C.gabarit(CENTRE, undefined)));
+t('JS-30', 'Gabarit : point illisible → aucun carré fabriqué', () => C.gabarit([NaN, 7]).length === 0);
+t('JS-31', 'estGabarit : vrai pour le carré intact, faux dès qu\'un sommet bouge', () => { const m = GAB.map(p => p.slice()); m[2] = [m[2][0] + 0.00001, m[2][1]]; return C.estGabarit(GAB, CENTRE) && !C.estGabarit(m, CENTRE); });
+t('JS-32', 'Déplacer : centre à l\'endroit demandé (500 m plus loin), superficie et périmètre conservés à 0,01 % près', () => {
+  const irr = [[-5.0300, 7.7000], [-5.0285, 7.7002], [-5.0280, 7.7012], [-5.0292, 7.7018], [-5.0303, 7.7010]], a = C.mesurer(irr), cible = [-5.0252, 7.7030], d = C.deplacer(irr, cible), b = C.mesurer(d);
+  return { ok: d.length === 5 && C.distance(C.centroide(d), cible) < 0.05 && pres(b.area_m2, a.area_m2, 1e-4) && pres(b.perimeter_m, a.perimeter_m, 1e-4), detail: a.area_m2 + ' → ' + b.area_m2 };
+});
+t('JS-33', 'Déplacer : chaque côté garde sa longueur au centimètre', () => { const irr = [[-5.0300, 7.7000], [-5.0285, 7.7002], [-5.0280, 7.7012], [-5.0303, 7.7010]], d = C.deplacer(irr, [-5.0260, 7.7040]); return irr.every((p, i) => Math.abs(C.distance(p, irr[(i + 1) % 4]) - C.distance(d[i], d[(i + 1) % 4])) < 0.01); });
+t('JS-34', 'Échelle × 2 : superficie × 4, périmètre × 2, centre inchangé', () => { const e = C.echelle(GAB, 2), m = C.mesurer(e); return { ok: pres(m.area_m2, 19600, 1e-4) && pres(m.perimeter_m, 560, 1e-4) && C.distance(C.centroide(e), CENTRE) < 0.01, detail: m.area_m2 }; });
+t('JS-35', 'Échelle : agrandir puis réduire du même facteur revient au contour d\'origine (au centimètre)', () => { const r = C.echelle(C.echelle(GAB, 1.15), 1 / 1.15); return r.every((p, i) => C.distance(p, GAB[i]) < 0.01); });
+t('JS-36', 'Échelle : facteur nul ou négatif refusé (contour inchangé)', () => JSON.stringify(C.echelle(GAB, 0)) === JSON.stringify(C.nettoyer(GAB)) && JSON.stringify(C.echelle(GAB, -2)) === JSON.stringify(C.nettoyer(GAB)));
+t('JS-37', 'Libellés : « Cartographie à compléter » et « Point GPS capturé » ; aucun libellé « vérifié » pour un simple point', () => C.STATUTS.NON_LOCALISEE === 'Cartographie à compléter' && /^Point GPS capturé/.test(C.STATUTS.LOCALISEE) && !/vérifi/i.test(C.STATUTS.LOCALISEE));
+/* ---- Métadonnées d'imagerie Esri (réponses d'essai) ---- */
+t('JS-38', 'Imagerie : date AAAAMMJJ, résolution et source lues (noms de champs ou alias)', () => { const a = C.metaImagerie({ results: [{ attributes: { SRC_DATE: 20230214, SRC_RES: 0.6, NICE_DESC: 'Source d\'essai' } }] }), b = C.metaImagerie({ results: [{ attributes: { 'DATE (YYYYMMDD)': '20221105', 'RESOLUTION (M)': '0.5', 'SOURCE': 'Autre essai' } }] }); return { ok: a.date === '2023-02-14' && a.resolution_m === 0.6 && a.source === 'Source d\'essai' && b.date === '2022-11-05' && b.resolution_m === 0.5 && a.fournisseur === 'Esri World Imagery', detail: JSON.stringify([a, b]) }; });
+t('JS-39', 'Imagerie : code Esri 99999, zéro, date future ou impossible → aucune date (jamais inventée)', () => [99999, 0, '20991231', '20231345', 'null', '', null, '2023'].every(v => C.metaImagerie({ results: [{ attributes: { SRC_DATE: v, NICE_DESC: 'x' } }] }).date === null));
+t('JS-40', 'Imagerie : réponse vide, erreur ou absente → null', () => C.metaImagerie(null) === null && C.metaImagerie({}) === null && C.metaImagerie({ results: [] }) === null && C.metaImagerie({ error: { code: 498 } }) === null);
+t('JS-41', 'Imagerie : entre plusieurs couches, celle qui porte une date est retenue', () => C.metaImagerie({ results: [{ attributes: { SRC_DATE: 99999, NICE_DESC: 'sans date' } }, { attributes: { SRC_DATE: 20240301, SRC_RES: 0.3, NICE_DESC: 'avec date' } }] }).date === '2024-03-01');
+t('JS-42', 'Soumission : date et source de l\'image transmises avec le contour', () => { const s = C.soumission('p', { methode: 'SATELLITE', confiance: 'VISIBLES', fond: 'Esri World Imagery', date_image: '2023-02-14' }, C.verifier(RECT), 'dev'); return s.imagery_date === '2023-02-14' && s.imagery_source === 'Esri World Imagery'; });
+
 const ok = R.filter(r => r.resultat === 'RÉUSSI').length;
 fs.mkdirSync(path.join(__dirname, 'resultats'), { recursive: true });
 fs.writeFileSync(path.join(__dirname, 'resultats', 'coeur.json'), JSON.stringify({ total: R.length, reussis: ok, echoues: R.length - ok, tests: R }, null, 1));
