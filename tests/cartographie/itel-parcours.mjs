@@ -129,7 +129,14 @@ let ws, n = 0; const attente = {};
 async function connecter() {
   adb('forward', 'tcp:' + PCDP, 'localabstract:chrome_devtools_remote');
   const url = `http://127.0.0.1:${PORT}/operations/field-buying.html#parcelles/p/${PL.A}`;
-  const cible = await (await fetch(`http://127.0.0.1:${PCDP}/json/new?${encodeURI(url.replace('127.0.0.1', 'localhost'))}`, { method: 'PUT' })).json();
+  /* L'onglet est ouvert par « am start » (intention Android) ; on s'y attache. */
+  let cible = null;
+  for (let i = 0; i < 20 && !cible; i++) {
+    const l = await (await fetch(`http://127.0.0.1:${PCDP}/json/list`)).json().catch(() => []);
+    cible = (Array.isArray(l) ? l : []).find(t => t.type === 'page' && t.url.indexOf('localhost:' + PORT) >= 0) || null;
+    if (!cible) await pause(1000);
+  }
+  if (!cible) throw new Error('onglet Chrome de l\'essai introuvable sur le téléphone');
   ws = new WebSocket(cible.webSocketDebuggerUrl);
   await new Promise((ok, ko) => { ws.onopen = ok; ws.onerror = ko; });
   ws.onmessage = m => { const d = JSON.parse(m.data); if (d.id && attente[d.id]) { attente[d.id](d); delete attente[d.id]; } };
@@ -230,7 +237,6 @@ async function main() {
     await verifier('IT-16', 'Affichage', 'Aucun défilement horizontal sur l\'écran de l\'itel', async () => { const d = await ev('document.documentElement.scrollWidth-document.documentElement.clientWidth'); return { ok: d <= 1, detail: d + ' px' }; });
   } catch (e) { note('IT-ARRET', 'Déroulé', 'Essai interrompu', false, e.message); }
   finally {
-    try { if (cible) await fetch(`http://127.0.0.1:${PCDP}/json/close/${cible.id}`); } catch (e) {}
     try { adb('reverse', '--remove', 'tcp:' + PORT); adb('forward', '--remove', 'tcp:' + PCDP); } catch (e) {}
     srv.close();
     writeFileSync(join(OUT, 'itel-parcours.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
