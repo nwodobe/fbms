@@ -1932,11 +1932,25 @@ function passportSnapshotRead(pid) {
   }).catch(function () { return null; });
 }
 function passportPendingPlots(pid) {
+  return passportLocalPlots(pid).then(function (x) { return x.pending; });
+}
+/* Écriture itel 21/11/2026 : une parcelle créée EN LIGNE par ce téléphone
+   (TEST_PARCELLE_A, 04:55) n'apparaissait pas hors ligne, car l'instantané du
+   passeport datait de la lecture précédente (04:54). L'agent voyait « Aucune
+   parcelle » et pouvait la recréer : un doublon a été produit à 05:03.
+   Le registre local (synchronisation) garde pourtant les lignes que CE
+   téléphone a envoyées et que le serveur a confirmées : hors ligne, elles
+   complètent l'instantané. En ligne, la liste serveur reste seule autorité. */
+function passportLocalPlots(pid) {
   var fr = global.AFLP_FARMER_REGISTRY && global.AFLP_FARMER_REGISTRY.syncEngine;
-  if (!fr || !fr.listCache) return Promise.resolve([]);
+  if (!fr || !fr.listCache) return Promise.resolve({ pending: [], synced: [] });
   return fr.listCache('farmer_plots', pid).then(function (rows) {
-    return (rows || []).filter(function (r) { return r && r.id && r._sync_status && r._sync_status !== 'SYNCED' && !r.deleted; });
-  }).catch(function () { return []; });
+    var ok = (rows || []).filter(function (r) { return r && r.id && !r.deleted && r.producteur_id === pid; });
+    return {
+      pending: ok.filter(function (r) { return r._sync_status && r._sync_status !== 'SYNCED'; }),
+      synced: ok.filter(function (r) { return r._sync_status === 'SYNCED'; })
+    };
+  }).catch(function () { return { pending: [], synced: [] }; });
 }
 function mergePlotLists(server, pending) {
   var map = {}, out = [];
@@ -1974,9 +1988,9 @@ function passportData(pid) {
       }).catch(function () { return []; }),
       strict('producteurs', 'id,data,sexe,birth_year,telephone_alt,id_document_type,id_document_number,consent_status,consent_date', 'id', 1)
         .then(function (r) { return { ok: true, row: (r || [])[0] || null }; }, function () { return { ok: false, row: null }; }),
-      passportPendingPlots(pid)
+      passportLocalPlots(pid)
     ]).then(function (rs) {
-      var plotsRes = rs[0], prodRes = rs[9], pending = rs[10];
+      var plotsRes = rs[0], prodRes = rs[9], local = rs[10], pending = local.pending;
       var base = { baselines: rs[1], sustainability: rs[2], consents: rs[3], visits: rs[4],
                    inspections: rs[5], actions: rs[6], changes: rs[7], catalog: rs[8] };
       if (plotsRes.ok) {
@@ -1989,9 +2003,14 @@ function passportData(pid) {
         /* Un état local n'est jamais gardé en mémoire comme s'il était frais :
            au retour du réseau, le passeport relit le serveur. */
         setTimeout(function () { FBStore.invalidate(key); }, 0);
-        if (snap) return Object.assign(base, { plots: mergePlotLists(snap.plots, pending), plotsState: 'cache', plotsAt: snap.at,
+        /* Priorité : modification en attente, puis copie confirmée gardée par ce
+           téléphone (plus récente que l'instantané), puis instantané. */
+        var locales = mergePlotLists(local.synced, pending);
+        if (snap) return Object.assign(base, { plots: mergePlotLists(snap.plots, locales), plotsState: 'cache', plotsAt: snap.at,
           producteur: prodRes.ok ? prodRes.row : snap.producteur });
-        return Object.assign(base, { plots: pending, plotsState: 'unknown', plotsAt: null, producteur: prodRes.row });
+        /* Sans instantané, la liste reste « inconnue » (création bloquée) même si
+           quelques parcelles locales sont connues : elles ne prouvent pas l'absence d'autres. */
+        return Object.assign(base, { plots: locales, plotsState: 'unknown', plotsAt: null, producteur: prodRes.row });
       });
     });
   });

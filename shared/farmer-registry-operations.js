@@ -95,6 +95,15 @@
       '<button class="fr-btn secondary" onclick="saveFarmerPlot(\''+row.id+'\',false)">Enregistrer sans cartographie</button>' +
       '<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\',true)">Enregistrer puis ouvrir Esri</button>');
   }
+  function plotNameKey(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,'');}
+  function similarPlot(plots,row){
+    var nom=plotNameKey(row.local_name);
+    return (plots||[]).filter(function(p){
+      if(!p||p.id===row.id||p.deleted||p.status==='INACTIVE')return false;
+      if(nom)return plotNameKey(p.local_name)===nom;
+      return !plotNameKey(p.local_name)&&Number(p.declared_area)===Number(row.declared_area)&&String(p.area_unit||'HA')===String(row.area_unit||'HA');
+    })[0]||null;
+  }
   async function savePlot(id, ouvrirCarte){
     if (!FR.syncEngine || !producerId()) return message('Session producteur indisponible. Reconnectez-vous.');
     var old=currentRow(data().plots,id)||{};
@@ -121,6 +130,17 @@
     if(['POINT_CAPTURED','GPS_VERIFIED'].indexOf(row.gps_status)>=0&&
       (!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(acc)||!row.gps_captured_at))
       return message('Coordonnées, précision et horodatage GPS obligatoires.');
+    /* Écriture itel 21/11/2026 : deux parcelles « TEST_PARCELLE_A » de 1,2 ha ont été
+       créées pour le même producteur sans aucun avertissement. Pour une NOUVELLE
+       parcelle, même nom local (casse et espaces ignorés) ou même superficie sans
+       nom : l'agent doit confirmer par un second appui qu'il s'agit d'un champ distinct. */
+    if(!old.id){
+      var doublon=similarPlot(data().plots,row);
+      if(doublon&&global.__frPlotDupOk!==id){
+        global.__frPlotDupOk=id;
+        return message('Parcelle peut-être déjà enregistrée : « '+(doublon.local_name||'sans nom')+' » · '+(doublon.declared_area||'—')+' '+(doublon.area_unit||'HA')+'. S’il s’agit bien d’un AUTRE champ, appuyez de nouveau sur Enregistrer ; sinon fermez ce formulaire.');
+      }
+    }
     var buttons=document.querySelectorAll('#frSubDialog .fr-op-actions button');
     buttons.forEach(function(button){button.disabled=true;});
     message('Enregistrement de la parcelle…','info');

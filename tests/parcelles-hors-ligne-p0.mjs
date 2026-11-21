@@ -171,3 +171,68 @@ test('P2 : libellés terrain, la valeur technique reste inchangée en base', () 
   assert.match(src, /\['overview', TT\('Vue d’ensemble', 'Overview'\)\]/);
   assert.doesNotMatch(src, /\.update\(\{ *gps_status: *'Champ/);
 });
+
+/* Écriture itel 21/11/2026 (producteur TEST autorisé) : parcelle créée en ligne
+   après la dernière lecture du passeport, puis consultation hors ligne. */
+test('hors ligne : une parcelle confirmée par ce téléphone après l’instantané reste visible', async () => {
+  const env = makeEnv({ serverPlots: [] });
+  await env.ctx.passportData('P1');                     // instantané : 0 parcelle
+  env.ctx.FBStore.clear();
+  env.pending = [{ ...PLOT, _sync_status: 'SYNCED' }];   // créée et confirmée ensuite
+  env.online = false;
+  const p = await env.ctx.passportData('P1');
+  assert.equal(p.plotsState, 'cache');
+  assert.equal(p.plots.length, 1, 'la parcelle confirmée ne doit pas disparaître hors ligne');
+  assert.equal(p.plots[0].id, PLOT.id);
+});
+
+test('en ligne : la liste serveur reste seule autorité (copie locale confirmée ignorée)', async () => {
+  const env = makeEnv({ serverPlots: [], pending: [{ ...PLOT, _sync_status: 'SYNCED' }] });
+  const p = await env.ctx.passportData('P1');
+  assert.equal(p.plotsState, 'server');
+  assert.equal(p.plots.length, 0, 'une parcelle supprimée côté serveur ne doit pas réapparaître en ligne');
+});
+
+test('sans instantané : des parcelles locales ne rendent pas la liste « complète »', async () => {
+  const env = makeEnv({ online: false, pending: [{ ...PLOT, _sync_status: 'SYNCED' }] });
+  const p = await env.ctx.passportData('P1');
+  assert.equal(p.plotsState, 'unknown');
+  assert.equal(env.ctx.plotsUnknown(p), true, 'création toujours bloquée');
+  assert.equal(p.plots.length, 1);
+});
+
+test('hors ligne : une ligne locale d’un autre producteur n’est jamais mélangée', async () => {
+  const env = makeEnv({ serverPlots: [] });
+  await env.ctx.passportData('P1');
+  env.ctx.FBStore.clear();
+  env.pending = [{ ...PLOT, id: 'X', producteur_id: 'P2', _sync_status: 'SYNCED' }];
+  env.online = false;
+  const p = await env.ctx.passportData('P1');
+  assert.equal(p.plots.length, 0);
+});
+
+/* Doublon : même nom local (casse, accents, espaces ignorés) => confirmation. */
+const ops = readFileSync(new URL('../shared/farmer-registry-operations.js', import.meta.url), 'utf8');
+function opsFn(name, next) {
+  const a = ops.indexOf('function ' + name + '('); const b = ops.indexOf(next, a);
+  assert.ok(a >= 0 && b > a, 'fonction introuvable : ' + name);
+  return ops.slice(a, b);
+}
+const dupCtx = vm.createContext({ String, Number });
+vm.runInContext(opsFn('plotNameKey', 'function similarPlot') + opsFn('similarPlot', 'async function savePlot') +
+  '\nthis.similarPlot = similarPlot;', dupCtx);
+
+test('doublon : nom identique (casse et séparateurs ignorés) détecté', () => {
+  const plots = [{ id: 'A', local_name: 'TEST_PARCELLE_A', declared_area: 1.2, area_unit: 'HA' }];
+  assert.equal(dupCtx.similarPlot(plots, { id: 'B', local_name: 'test parcelle a', declared_area: 1.2, area_unit: 'HA' }).id, 'A');
+});
+test('doublon : noms différents non signalés ; la parcelle elle-même jamais comparée', () => {
+  const plots = [{ id: 'A', local_name: 'Champ du bas', declared_area: 1.2 }];
+  assert.equal(dupCtx.similarPlot(plots, { id: 'B', local_name: 'Champ du haut', declared_area: 1.2 }), null);
+  assert.equal(dupCtx.similarPlot(plots, { id: 'A', local_name: 'Champ du bas', declared_area: 1.2 }), null);
+});
+test('doublon : sans nom, même superficie et même unité signalée ; parcelle inactive ignorée', () => {
+  const plots = [{ id: 'A', local_name: '', declared_area: 2, area_unit: 'HA' }, { id: 'C', local_name: 'X', status: 'INACTIVE', declared_area: 2 }];
+  assert.equal(dupCtx.similarPlot(plots, { id: 'B', local_name: null, declared_area: 2, area_unit: 'HA' }).id, 'A');
+  assert.equal(dupCtx.similarPlot([plots[1]], { id: 'B', local_name: 'X', declared_area: 2 }), null);
+});
