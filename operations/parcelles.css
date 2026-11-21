@@ -123,9 +123,11 @@
 /* P1-2 : la pastille de version de l'APK (bridge natif, .anx-btn) ne doit jamais
    recouvrir un formulaire. Elle est masquée tant qu'un formulaire est ouvert ;
    la barre d'actions reste collée en bas, au-dessus des zones système. */
-body:has(#frSubDialog) .anx-btn,
-body:has(.pc-editeur) .anx-btn,
-body:has(.fb-modal-open) .anx-btn { display: none !important; }
+/* Le pont natif (android/native-web/bridge.js) accroche la pastille à <html>,
+   PAS à <body> : le sélecteur part donc de :root. Vérifié sur l'itel le 21/11. */
+:root:has(#frSubDialog) .anx-btn,
+:root:has(.pc-editeur) .anx-btn,
+:root:has(.fb-modal-open) .anx-btn { display: none !important; }
 #frSubDialog .fr-op-box { max-height: 100dvh; }
 @media (max-width: 620px) { #frSubDialog .fr-op-box { height: 100dvh; max-height: 100dvh; } }
 #frSubDialog .fr-op-actions { position: sticky; bottom: 0; z-index: 3; background: #F4F4F3;
@@ -133,4 +135,4 @@ body:has(.fb-modal-open) .anx-btn { display: none !important; }
 #frSubDialog .fr-op-actions .btn, #frSubDialog .fr-op-actions button { min-height: 44px; }
 /* Hors formulaire, la pastille reste disponible mais une marge basse évite
    qu'elle recouvre le dernier élément de la page. */
-body:has(.anx-btn) .ops-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+:root:has(.anx-btn) .ops-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }

@@ -149,7 +149,10 @@ test('P1-1 : actions des parcelles visibles sur mobile (cartes sous 640 px)', ()
 });
 
 test('P1-2 : pastille de version masquée pendant un formulaire, actions collées en bas', () => {
-  assert.match(css, /body:has\(#frSubDialog\) \.anx-btn/);
+  assert.match(css, /:root:has\(#frSubDialog\) \.anx-btn/);
+  // La pastille est un enfant de <html> (bridge.js) : un sélecteur body:has(...) ne la vise jamais.
+  assert.doesNotMatch(css, /body:has\([^)]*\) \.anx-btn/);
+  assert.match(readFileSync(new URL('../android/native-web/bridge.js', import.meta.url), 'utf8'), /document\.documentElement\.appendChild\(btn\)/);
   assert.match(css, /#frSubDialog \.fr-op-actions \{ position: sticky; bottom: 0/);
 });
 
