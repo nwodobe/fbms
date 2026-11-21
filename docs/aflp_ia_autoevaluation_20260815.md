@@ -145,6 +145,64 @@ et l'écran le dit, plutôt que de le masquer.
 
 ---
 
+---
+
+## Cycle 3 — après la mise en production du 15/08/2026
+
+Le lot a été fusionné, publié, **et la migration a été appliquée** sur le projet
+Supabase, sur instruction expresse du propriétaire. Trois domaines changent de
+note, parce que trois choses ont cessé d'être théoriques.
+
+### A-03 — la migration n'était appliquée nulle part : **FERMÉ**
+
+C'était le seul P0 restant, et il bloquait toute la boucle d'apprentissage.
+Appliquée, vérifiée 15/15 en structure, 8/8 en politiques jouées rôle par rôle
+sur la base réelle, 0 alerte d'advisor imputable au lot.
+
+### Ce que l'application réelle a révélé — et que 43/43 sur PGlite n'avait pas vu
+
+| Défaut | Pourquoi le banc l'avait manqué |
+|---|---|
+| La **vue** `aflp_ia_metriques` accordait tous les droits à `anon` | Le banc ne regardait que les tables. `alter default privileges … on tables` s'applique aussi aux vues |
+| `search_path` non figé sur quatre fonctions de déclencheur | PGlite n'exécute pas les advisors Supabase |
+| Politiques réévaluant `auth.uid()` à chaque ligne | Sur des tables vides, aucune conséquence mesurable |
+| Le script de contrôle annonçait « 12/6 déclencheurs » sur une base conforme | `information_schema.triggers` renvoie une ligne **par événement** — le contrôle comptait les lignes |
+
+Les trois premiers sont corrigés dans le fichier de migration lui-même ; le
+quatrième dans le script de contrôle. Trois contrôles ont été ajoutés au banc
+PGlite, qui passe de 43/43 à **46/46**.
+
+**La leçon vaut d'être écrite : un banc vert n'est pas une base saine.** PGlite
+exécute du vrai PostgreSQL, mais il ne connaît ni les privilèges par défaut du
+projet, ni les advisors, ni le coût d'un prédicat sur une table pleine. Ce que
+les 43 contrôles prouvaient reste vrai ; ce qu'ils ne couvraient pas ne l'était
+pas devenu.
+
+### Notes révisées
+
+| Domaine | Max | Cycle 2 | **Cycle 3** | Motif |
+|---|---:|---:|---:|---|
+| Journalisation et feedback | 1,00 | 0,95 | **1,00** | Tables en place, politiques vérifiées sur la base réelle, idempotence et écriture unique constatées en production |
+| Métriques | 1,00 | 0,85 | **0,90** | La vue existe et respecte la RLS — vérifié par différence de visibilité entre deux rôles réels. Reste : aucune mesure réelle tant qu'aucune question n'a été posée |
+| Sécurité, tests, doc, déploiement | 1,25 | 1,05 | **1,15** | Fusion, publication, migration, advisors, tout vérifié par exécution. Reste A-02 (bancs hors CI) et A-11 (aucun téléphone) |
+| Administration et versionnement | 1,25 | 1,05 | **1,10** | Le workflow est désormais exerçable : le figement du catalogue publié a été constaté sur la vraie base |
+| **Total** | **10,00** | **9,05** | **9,25** | |
+
+### Angles morts encore ouverts
+
+| Réf | Angle mort | Classe | Pourquoi il reste |
+|---|---|---|---|
+| A-01 | Corpus écrit par l'auteur du moteur | P1 | Exige des formulations du terrain. Le journal les collectera |
+| A-02 | Bancs hors intégration continue | P1 | `.github/workflows/**` interdit aux agents. Une ligne humaine (§11.2) |
+| A-05 | Aucune mesure d'exactitude | P1 | Exige une revue humaine. Structurellement impossible avant |
+| A-11 | Aucun test sur téléphone réel | P1 | Aucun appareil accessible |
+| A-15 | Les cinq questions n'ont pas été posées **connecté**, sur les vraies données | **P1, nouveau** | Le portail exige un mot de passe, que je ne saisis pas. 125 équipes RT et 76 villages n'ont jamais été soumis au moteur |
+| A-06 · A-07 · A-08 · A-09 · A-10 | inchangés | P2 | — |
+
+**A-15 est le plus important des cinq.** Le moteur n'a jamais vu les données
+réelles. Rien ne dit qu'il s'y comporte mal — mais rien ne prouve encore qu'il
+s'y comporte bien.
+
 ## Ce que la note ne dit pas
 
 **9,05 ne signifie pas « prêt et en service ».** Elle signifie : *le lot livré est
