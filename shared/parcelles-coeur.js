@@ -141,7 +141,7 @@
     res.forEach(function (r) {
       var a = r && r.attributes; if (!a) return;
       var o = { fournisseur: 'Esri World Imagery', date: date(champ(a, ['SRC_DATE', 'DATE (YYYYMMDD)', 'SRC_DATE2'])),
-        source: champ(a, ['NICE_DESC', 'SRC_DESC', 'SOURCE', 'NICE_NAME', 'SOURCE_INFO']), resolution_m: nombre(champ(a, ['SRC_RES', 'RESOLUTION (M)'])),
+        source: champ(a, ['SOURCE', 'NICE_DESC', 'SRC_DESC', 'NICE_NAME', 'SOURCE_INFO']), resolution_m: nombre(champ(a, ['SRC_RES', 'RESOLUTION (M)'])),
         precision_m: nombre(champ(a, ['SRC_ACC', 'ACCURACY (M)'])) };
       if (o.source != null) o.source = String(o.source).trim().slice(0, 80);
       if (!meilleur || (o.date && !meilleur.date) || (o.date && meilleur.date && o.resolution_m && (!meilleur.resolution_m || o.resolution_m < meilleur.resolution_m))) meilleur = o;

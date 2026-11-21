@@ -195,11 +195,11 @@ async function sessionManuelle(modele, android, vue) {
     if (!rec) lancerVideo();
     let e = null;
     try {
-      e = await ev(`(async function(){ var r=document.getElementById('opsRouteView'), b=null, pid=(location.hash.match(/(31000000-[0-9a-f-]+)/)||[])[1];
+      e = await ev(`(async function(){ var r=document.getElementById('opsRouteView'), b=null, i0=location.hash.indexOf('31000000-'), pid=i0>=0?location.hash.slice(i0,i0+36):null;
         if (pid && window.ANAGROCI_PARCELLES_LOCAL) b=await ANAGROCI_PARCELLES_LOCAL.brouillon.lire(pid);
         var q=function(s){var x=document.querySelector(s);return x?x.innerText.trim():null;};
-        var tu=performance.getEntriesByType('resource').filter(function(x){return /ibasemaps-api\.arcgis\.com.*\/tile\//.test(x.name);}).length;
-        return {h:location.hash.replace(/31000000-0000-4000-8000-0000000000/,'P'), titre:q('#opsRouteView h1')||q('.pc-ed-tete b'), sommets:b&&b.sommets?b.sommets.length:null, gabarit:b?!!b.gabarit:null,
+        var tu=performance.getEntriesByType('resource').filter(function(x){return x.name.indexOf('ibasemaps-api.arcgis.com')>=0 && x.name.indexOf('/tile/')>=0;}).length;
+        return {h:location.hash.split('31000000-0000-4000-8000-0000000000').join('P'), titre:q('#opsRouteView h1')||q('.pc-ed-tete b'), sommets:b&&b.sommets?b.sommets.length:null, gabarit:b?!!b.gabarit:null,
           surface:q('#pcBarre .pc-surface'), perimetre:q('#pcBarre .pc-perimetre'), image:q('#pcFondImage'), alerte:q('#pcFondAlerte'), tuiles:tu, zoom:window.L&&document.querySelector('#pcCarte')?null:null};})()`);
     } catch (x) { e = { erreur: x.message }; }
     const cle = JSON.stringify(e);
@@ -228,6 +228,10 @@ async function main() {
   try {
     cible = await connecter();
     await cdp('Browser.grantPermissions', { origin: `http://localhost:${PORT}`, permissions: ['geolocation'] }).catch(() => {});
+    /* Origine d'essai remise à neuf : sans cela, un point ou un brouillon d'une session précédente (même origine)
+       est réutilisé (constaté le 21/11/2026 : la carte s'est ouverte sur le point fictif de 22:45). */
+    await cdp('Storage.clearDataForOrigin', { origin: `http://localhost:${PORT}`, storageTypes: 'all' });
+    await ev('location.reload();true').catch(() => {}); await pause(4000);
     await attendre("!!(window.ANAGROCI_AUTH && window.ANAGROCI_PARCELLES && document.querySelector('#opsRouteView .ops-route-head'))", 60000);
     await pause(1500);
     const ua = await ev('navigator.userAgent'), vue = await ev('({w:innerWidth,h:innerHeight,dpr:devicePixelRatio})');

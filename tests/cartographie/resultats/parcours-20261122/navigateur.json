@@ -1,5 +1,5 @@
 {
- "execute_le": "2026-11-21T22:16:59.355Z",
+ "execute_le": "2026-11-21T23:26:53.134Z",
  "nature": "Chromium + doublure serveur en mémoire : ne prouve ni la RLS, ni PostGIS, ni le fonctionnement Android",
  "reussis": 38,
  "total": 38,
@@ -23,7 +23,7 @@
    "test": "A",
    "libelle": "Refus : décision historisée (REFUSED, gps=false, méthode, agent, date du jour, texte lu) et localisation bloquée",
    "resultat": "RÉUSSI",
-   "detail": "{\"producteur_id\":\"P-FICTIF-A\",\"status\":\"REFUSED\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T22:15:18.516Z\",\"method\":\"VERBAL\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-0000-4000-8000-0000000000d1\",\"created_by\":\"00000000-0000-4"
+   "detail": "{\"producteur_id\":\"P-FICTIF-A\",\"status\":\"REFUSED\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T23:25:12.121Z\",\"method\":\"VERBAL\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-0000-4000-8000-0000000000d1\",\"created_by\":\"00000000-0000-4"
   },
   {
    "id": "PG-04",
@@ -44,7 +44,7 @@
    "test": "B",
    "libelle": "Un seul appui : latitude, longitude, précision et heure envoyées sans saisie ; aucun statut « vérifié » demandé",
    "resultat": "RÉUSSI",
-   "detail": "{\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T22:15:16.807Z\"}"
+   "detail": "{\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T23:25:10.475Z\"}"
   },
   {
    "id": "PG-07",
@@ -170,7 +170,7 @@
    "test": "J",
    "libelle": "Un seul bouton « Enregistrer » : contour reçu par le serveur avec superficie, périmètre, date et source d'image ; jamais de statut vérifié",
    "resultat": "RÉUSSI",
-   "detail": "{\"id\":\"6f52152c-6e47-4d79-bc98-93cc231feb70\",\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"geometrie\":{\"type\":\"Polygon\",\"coordinates\":[[[-5.02997607,7.70098434],[-5.02943158,7.70114648],[-5.02895683,7.70094181],[-5.02892465,7.70000087],[-5.02993316,7.7000434],[-5.02997607,7.7"
+   "detail": "{\"id\":\"d0064f53-5818-4c37-8f1d-3baff7b92d59\",\"plot_id\":\"31000000-0000-4000-8000-000000000001\",\"geometrie\":{\"type\":\"Polygon\",\"coordinates\":[[[-5.02997607,7.70098434],[-5.02943158,7.70114648],[-5.02895683,7.70094181],[-5.02892465,7.70000087],[-5.02993316,7.7000434],[-5.02997607,7.7"
   },
   {
    "id": "PG-25",
@@ -205,21 +205,21 @@
    "test": "A",
    "libelle": "Retrait : historisé (WITHDRAWN), capture et carte bloquées, la parcelle n'est pas supprimée",
    "resultat": "RÉUSSI",
-   "detail": "{\"producteur_id\":\"P-FICTIF-B\",\"status\":\"WITHDRAWN\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T22:16:22.098Z\",\"method\":\"WITNESSED\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-000"
+   "detail": "{\"producteur_id\":\"P-FICTIF-B\",\"status\":\"WITHDRAWN\",\"scopes\":{\"gps\":false},\"consent_at\":\"2026-11-21T23:26:15.702Z\",\"method\":\"WITNESSED\",\"text_version\":\"AFLP-GPS-CONSENT-2026.2\",\"agent_id\":\"00000000-000"
   },
   {
    "id": "PG-30",
    "test": "I",
    "libelle": "Hors ligne, accord déjà connu : il n'est pas présenté comme confirmé par le serveur à l'instant",
    "resultat": "RÉUSSI",
-   "detail": "Cartographier le champ\n\n9103 · PRODUCTEUR FICTIF CHARLIE · CHAMP FICTIF CHARLIE\n\nFermer\nAccord\nPosition\nCarte\n\n✓ Consentement GPS accordé (dernière liste reçue du serveur le 21/11 22:16 ; revérifié à la synchronisation)\n\nCAPTURER MA POSITION GPS\n\nPlacez-vous d"
+   "detail": "Cartographier le champ\n\n9103 · PRODUCTEUR FICTIF CHARLIE · CHAMP FICTIF CHARLIE\n\nFermer\nAccord\nPosition\nCarte\n\n✓ Consentement GPS accordé (dernière liste reçue du serveur le 21/11 23:26 ; revérifié à la synchronisation)\n\nCAPTURER MA POSITION GPS\n\nPlacez-vous d"
   },
   {
    "id": "PG-31",
    "test": "I",
    "libelle": "Hors ligne : position, précision et heure conservées sur le téléphone, rattachées à la parcelle ; message exact ; aucune carte satellite prétendue",
    "resultat": "RÉUSSI",
-   "detail": "[{\"type\":\"LOCALISER\",\"etat\":\"ATTENTE\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T22:15:16.807Z\"},\"message\":null}]"
+   "detail": "[{\"type\":\"LOCALISER\",\"etat\":\"ATTENTE\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_le\":\"2026-11-21T23:25:10.475Z\"},\"message\":null}]"
   },
   {
    "id": "PG-32",
@@ -240,7 +240,7 @@
    "test": "A",
    "libelle": "Point envoyé sans accord actif : refusé par le serveur, signalé à l'agent, non conservé comme repère",
    "resultat": "RÉUSSI",
-   "detail": "{\"idempotency_key\":\"b863ac2b-dc6f-40d6-8cc5-64fdb74f7df8\",\"type\":\"LOCALISER\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_"
+   "detail": "{\"idempotency_key\":\"3f1e6f42-09ea-49d0-b9da-042c269cafc0\",\"type\":\"LOCALISER\",\"payload\":{\"plot_id\":\"31000000-0000-4000-8000-000000000003\",\"latitude\":7.7003,\"longitude\":-5.0297,\"precision_m\":6,\"capture_"
   },
   {
    "id": "PG-35-390",

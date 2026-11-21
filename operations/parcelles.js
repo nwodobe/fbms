@@ -587,17 +587,21 @@ function enregistrerPoint(loc) {
 }
 
 /* ------------------------------------------------------------------ date et source de l'image (Esri World Imagery) */
-/* Les métadonnées viennent de la couche de citations du service World Imagery (opération « identify »), au point
-   demandé et à l'échelle affichée. La date lue est la date de PRISE DE VUE déclarée par Esri pour cette tuile, pas
-   la date de mise à jour du service. Sans réponse exploitable : « Date de l'image satellite non disponible ».
-   Aucune date n'est déduite, estimée ni inventée ; aucune image n'est copiée ni conservée. */
+/* Les métadonnées viennent du service de CITATIONS public d'Esri World Imagery (opération « identify »), au point
+   demandé et à l'échelle affichée. Le service de tuiles de l'ArcGIS Location Platform (ibasemaps-api) ne propose pas
+   cette opération : il répond 404 (constaté sur l'itel le 21/11/2026, alors que le service de citations donnait la
+   date). Aucune clé n'est envoyée au service de citations : il ne reçoit qu'un point et une emprise, et ne renvoie
+   que des métadonnées (date de prise de vue, source, résolution), jamais d'image.
+   La date lue est la date de PRISE DE VUE déclarée par Esri pour la zone, pas la date de mise à jour du service.
+   Sans réponse exploitable : « Date de l'image satellite non disponible ». Aucune date n'est déduite ni inventée. */
+var ESRI_CITATIONS = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer';
 function metaImage(lat, lng) {
   var im = (etat.params || {}).imagerie || {};
-  if (!enLigne() || im.fournisseur !== 'esri' || !im.licence_confirmee || !im.cle) return Promise.resolve(null);
+  if (!enLigne() || im.fournisseur !== 'esri' || !im.licence_confirmee) return Promise.resolve(null);
   var d = 360 / (256 * Math.pow(2, 18)) * 200;
   var q = 'f=json&geometryType=esriGeometryPoint&sr=4326&layers=visible&tolerance=1&returnGeometry=false&geometry=' + lng + ',' + lat +
-    '&mapExtent=' + [lng - d, lat - d, lng + d, lat + d].join(',') + '&imageDisplay=400,400,96&token=' + encodeURIComponent(im.cle);
-  return fetchBorne(ESRI_IMAGERIE + '/identify?' + q).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return C.metaImagerie(j); }).catch(function () { return null; });
+    '&mapExtent=' + [lng - d, lat - d, lng + d, lat + d].join(',') + '&imageDisplay=400,400,96';
+  return fetchBorne(ESRI_CITATIONS + '/identify?' + q).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return C.metaImagerie(j); }).catch(function () { return null; });
 }
 function peindreMetaImage() {
   var z = document.getElementById('pcFondImage'); if (!z || !ed || !ed.fondSatellite) return;

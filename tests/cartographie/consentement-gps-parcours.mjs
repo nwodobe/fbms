@@ -56,7 +56,15 @@ test('a captured point is never auto-verified',()=>{
 });
 test('browser cache bust after code changes',()=>{
   assert.match(html,/field-buying\.js\?v=20261122-parcours-1/);
-  assert.match(html,/parcelles\.js\?v=20261122-parcours-1/);
-  assert.match(html,/parcelles-coeur\.js\?v=20261122-parcours-1/);
+  assert.match(html,/parcelles\.js\?v=20261122-citations-1/);
+  assert.match(html,/parcelles-coeur\.js\?v=20261122-citations-1/);
   assert.match(html,/parcelles\.css\?v=20261122-parcours-1/);
+});
+test('imagery date comes from the public Esri citation service, never with the key',()=>{
+  /* Régression constatée sur l'itel le 21/11/2026 : « identify » sur ibasemaps-api répond 404, la date restait « non disponible ». */
+  const f = pc.slice(pc.indexOf('function metaImage('), pc.indexOf('function peindreMetaImage('));
+  assert.match(pc,/ESRI_CITATIONS = 'https:\/\/services\.arcgisonline\.com\/arcgis\/rest\/services\/World_Imagery\/MapServer'/);
+  assert.match(f,/ESRI_CITATIONS \+ '\/identify\?'/);
+  assert.doesNotMatch(f,/token/);
+  assert.doesNotMatch(f,/ESRI_IMAGERIE/);
 });
