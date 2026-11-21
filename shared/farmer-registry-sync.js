@@ -138,7 +138,7 @@
   async function idbPut(storeName, value) {
     var db = await openDb();
     return new Promise(function (resolve, reject) {
-      var tx = db.transaction(storeName, 'readwrite');
+      var tx = db.transaction(storeName, 'readwrite', { durability: 'strict' });   // écriture confirmée sur le disque (voir offline-field.js)
       tx.objectStore(storeName).put(value);
       tx.oncomplete = function () { resolve(value); };
       tx.onerror = function () { reject(tx.error); };
@@ -147,7 +147,7 @@
   async function idbDelete(storeName, key) {
     var db = await openDb();
     return new Promise(function (resolve, reject) {
-      var tx = db.transaction(storeName, 'readwrite');
+      var tx = db.transaction(storeName, 'readwrite', { durability: 'strict' });   // écriture confirmée sur le disque (voir offline-field.js)
       tx.objectStore(storeName).delete(key);
       tx.oncomplete = function () { resolve(true); };
       tx.onerror = function () { reject(tx.error); };
