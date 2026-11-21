@@ -2,24 +2,24 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1793686204,
- "web_version": "2026.11.03-0610.fb56a68",
- "git_commit": "fb56a68ad0aec0bcb17364ec423c4b35f3deb623",
- "bundle_label": "fb56a68",
- "published_at": "2026-11-03T06:10:16.131Z",
- "created_at": "2026-11-03T06:10:16.131Z",
+ "sequence": 1795299796,
+ "web_version": "2026.11.21-2223.e476474",
+ "git_commit": "e4764745d597bd121484b7a2f4ad81d7acba1a88",
+ "bundle_label": "e476474",
+ "published_at": "2026-11-21T22:31:30.064Z",
+ "created_at": "2026-11-21T22:31:30.064Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Correctif page FIELD BUYING (marques de conflit)",
+ "release_notes": "Parcours Parcelles 22/11 : essai canal test",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 4,
-  "latest_version_name": "1.2.1",
+  "latest_version_code": 9,
+  "latest_version_name": "1.4.2",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261105090100",
- "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1",
+ "supabase_compat": "20261120231000",
+ "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
   "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css",
@@ -40,6 +40,18 @@
   "assets/logo-pjs-transparent.png": {
    "sha256": "f7f41b490b3f4471a07efc5a085a694f8ad3f19686a280e2ba035c6ff33ff16f",
    "size": 24843
+  },
+  "assets/operations/modules/aflp-achats-rt-adultes-v24.webp": {
+   "sha256": "8da31f801da8d95e0f525011cc48e23a7ee818a880dd9186d18b3be5594a46bc",
+   "size": 80674
+  },
+  "assets/operations/modules/aflp-reseau-terrain-20261113.webp": {
+   "sha256": "99416ee347fb2034cafc1d95ef22a8ddf4ca966b0e3f8039121148e37f3a0813",
+   "size": 4504
+  },
+  "assets/operations/modules/aflp-reseau-terrain-v24-800.webp": {
+   "sha256": "33b28fca168b87da817989183c75e2b7e116a52d1d0f01ba4574e1e993de4e4e",
+   "size": 84846
   },
   "assets/operations/modules/factory.webp": {
    "sha256": "9433a97b3e4763dba5b2bb908b7d829e9411e419156361e64be6c7c08e8755dd",
@@ -85,6 +97,14 @@
    "sha256": "f313d8b1ec34147020df5c35c08a711a71bb68d0ec01e15cb6088cdd30bd2e1d",
    "size": 41100
   },
+  "assets/operations/modules/observatoire-agronomique-aflp.svg": {
+   "sha256": "b1a0ba160a6dcb5b4c13c16a0d5c99257d467d236363e588e44f520b5f641093",
+   "size": 19229
+  },
+  "assets/operations/modules/observatoire-agronomique-terrain.webp": {
+   "sha256": "d91eb65a28f81a6ff497f0aa22bde2891c2b94648a7417595d5146e8539a7fad",
+   "size": 183800
+  },
   "assets/operations/modules/reports.webp": {
    "sha256": "e35636d0a73b770b4e7b6fee270e9bd4086aa15014c5592eadb257136d411d69",
    "size": 45872
@@ -122,8 +142,8 @@
    "size": 25054
   },
   "fbms/index.html": {
-   "sha256": "f081dd0a59a1758a408d2a4a61290feac081e0bc966fa2d0b8b29df7a899de42",
-   "size": 349991
+   "sha256": "272c62749da535788444de4f02d97ab092b2c6bd3bb129b04ab5e759b641444a",
+   "size": 352190
   },
   "fbms/rt_cluster_enhancer.js": {
    "sha256": "b91b82c6472882acecc6b6cd42378a071251175ef5e8da0ea203f3605c4057ff",
@@ -132,6 +152,34 @@
   "fbms/test_small.txt": {
    "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
    "size": 4
+  },
+  "fieldproof/fp-app.js": {
+   "sha256": "3e12defdc4dc01d1f5ab105417547bc21f205171b3c38af257302682c2947498",
+   "size": 82036
+  },
+  "fieldproof/fp-capture.js": {
+   "sha256": "04e91d7d6e943d598896b2148eedf9d5728f0f775f913b491fced71bc0fcf180",
+   "size": 25163
+  },
+  "fieldproof/fp-core.js": {
+   "sha256": "b6d6b366eaff72b64c1da01c21a44a2a1172aeb62df0014677b16d70a4f39381",
+   "size": 38547
+  },
+  "fieldproof/fp-store.js": {
+   "sha256": "e08df80030b8575ad6df37db54dbe8afe083e32790e3e5c59866a068b0ca4ab5",
+   "size": 11244
+  },
+  "fieldproof/fp.css": {
+   "sha256": "6bf0ca845823a98616c91bd9baf69db1c271159e3e714d2d0b088986e911a689",
+   "size": 15445
+  },
+  "fieldproof/index.html": {
+   "sha256": "d52b89a46aeb488c04f6329e265c830057e3127ef0172c47c7d71b80c936ffa1",
+   "size": 3861
+  },
+  "fieldproof/portal-fieldproof.css": {
+   "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
+   "size": 1123
   },
   "icon-192.png": {
    "sha256": "8bb6eefb738f88492b8c96b7ae42b58a2715cae2af2fb0d3245891c2ff0966dd",
@@ -142,8 +190,8 @@
    "size": 23738
   },
   "index.html": {
-   "sha256": "ae4fe28056c81c3972a909f17fb2450c36d2dda63f7fa8c5d647158d9d8649e7",
-   "size": 7571
+   "sha256": "dc47194c62204f358b10af8f3d0c02980f9ada2699f0c6fe656fcdbb96c3b6e1",
+   "size": 12411
   },
   "logistique.html": {
    "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
@@ -165,21 +213,77 @@
    "sha256": "2f311ee507cceea2ae40fc7e17642d16bdb1075090f75abb3c80b9faa6810b81",
    "size": 601
   },
+  "moto/index.html": {
+   "sha256": "8c15eb8100c1203168ba63be9631f677a3e2315fac748bae52e7f514f8fecdf2",
+   "size": 3927
+  },
+  "moto/moto-app.js": {
+   "sha256": "b1b6fa49f46df6f2a2e833a043d6824f0129a3e4bfb5fa5bc26b0b61c4ac58f2",
+   "size": 212655
+  },
+  "moto/moto-carburant-previsionnel.js": {
+   "sha256": "f27fcc7f3a0cde6b616b96269077101eebf3fddaa027b7b78cb177cadc2c838e",
+   "size": 31502
+  },
+  "moto/moto-carnet.js": {
+   "sha256": "dc5d543a4d17817ca0163df7a5bcd3a7c5b002b891b979a6622df6656195e11c",
+   "size": 10786
+  },
+  "moto/moto-core.js": {
+   "sha256": "bc5653e9b12beea0152beb1495c4051900043ccac684fea35c43f4cf14b2b4e5",
+   "size": 37503
+  },
+  "moto/moto-formation.js": {
+   "sha256": "552c115fe1cf0cc1974238c58ec3e562a627360e198f5aa12465cf2e1dcdd2aa",
+   "size": 6423
+  },
+  "moto/moto-maintenance.js": {
+   "sha256": "fc8681bcdf01f260b56f76fd4f8d157f60c0a1486113fd010ee91af7312bd7a0",
+   "size": 63839
+  },
+  "moto/moto-mission.js": {
+   "sha256": "793a92ca5039b8e23fd704f61f8e577f2495a462e9fb57c184f752d8c6ea2b86",
+   "size": 46067
+  },
+  "moto/moto-ocr.js": {
+   "sha256": "37855ad070441900a525856eef239bf914c79e76741d09f41e83df821116a625",
+   "size": 12765
+  },
+  "moto/moto-offline.js": {
+   "sha256": "3a340d50c14cc55e97c7aa9457fe28d672b19aba8481defa51ef6d242936430d",
+   "size": 13714
+  },
+  "moto/moto-permis.js": {
+   "sha256": "680df7059070fbdcc56e6cf3424c3933b1a5cd9392dca9d18a8c676a9e7ff104",
+   "size": 20178
+  },
+  "moto/moto-scan.js": {
+   "sha256": "322c8568e7a2050bbbef9234c758d0f7d75e4f99fd7f3b336b73463c5bad1a36",
+   "size": 18484
+  },
+  "moto/moto.css": {
+   "sha256": "7de8ee932c5767b3a5002c6c68114c84dbb0352f08afb3000205923781a40242",
+   "size": 31863
+  },
+  "moto/portal-moto.css": {
+   "sha256": "44fa29a69dc0af3e54b4888ab308a0c324099fd30b7b96220040ad096a5ade8c",
+   "size": 715
+  },
   "operations/activity-report.css": {
    "sha256": "7829fcd20fc256a2e83024f1d1a60a8776f6319640535e766211891c5f6afeca",
    "size": 2333
   },
   "operations/activity-report.html": {
-   "sha256": "a9c5065dc63d3b97e297fe317cc748451cc356384ddb10edc92582b8c120e16e",
-   "size": 1811
+   "sha256": "a20d9fdb4bd423b3528de2f20945c5dc6f8f85046eebb7555f8c1c41459bf18c",
+   "size": 1826
   },
   "operations/activity-report.js": {
    "sha256": "b1dcd8e6bea673b02814092adcb5922aaef612fafc712717a97234805861173e",
    "size": 46145
   },
   "operations/aflp-cooperatives-enrolement.js": {
-   "sha256": "e44e128be2cf0c9cdee27e65a0151953720aecbb715c3fbbd821c43f26ef5030",
-   "size": 46069
+   "sha256": "79b0454f2839f668e7b4ac53c25317ee06f1aa63d04331207c1d7e583a2b588f",
+   "size": 46067
   },
   "operations/aflp-cooperatives.js": {
    "sha256": "06e781634970774ebb4c6f4e3a754963442fe77460f236439529d2fc9cb6502b",
@@ -190,8 +294,8 @@
    "size": 1742
   },
   "operations/aflp-data.html": {
-   "sha256": "a666cacefa9916965a4432dd63f1332cf60e3467df30d7aadd40dae205278d50",
-   "size": 1933
+   "sha256": "0f90fc1b55b6418c736bdf21ec4cf37912f0aa92e4f3f9c7e03d7e27f27ef597",
+   "size": 2177
   },
   "operations/aflp-data.js": {
    "sha256": "41865de50c73e74fad8290c7f762c6c14e89e15bf7cd2c50841ec94062a9317b",
@@ -202,24 +306,52 @@
    "size": 8139
   },
   "operations/campaigns.html": {
-   "sha256": "ddcf448db51dccb1aec4f2e30aa8971db83e244fbf0649a902545bc728005f2c",
-   "size": 1500
+   "sha256": "c3683a3709c9104818346ed5b5f1ea08c24053e4974ea5c2c0dc6d12b99bd138",
+   "size": 1754
   },
   "operations/campaigns.js": {
-   "sha256": "93ebbc8374576a872aca05d3bbbb1002d517fff3c8b6cad338be16ab56064a9d",
-   "size": 73402
+   "sha256": "cacf4d8dabcc8c9d2839f8a894284bfb16557da1e4ebf0cabbc7dc71b162881b",
+   "size": 76242
+  },
+  "operations/carte-plantation.js": {
+   "sha256": "9735cae443a6525ef884c2113287656f72607f6631e44c17ccf22b8142f47fc4",
+   "size": 11950
   },
   "operations/cooperatives.css": {
    "sha256": "0808f7f8e40266ac5bafff50407afa340e26bb227a427a5b0289b359464c30c0",
    "size": 15421
   },
+  "operations/espaces.css": {
+   "sha256": "8d0f8acb0ec975523078bc4e2929c33847a64c5a282e1da34ef4d66e73675e90",
+   "size": 3641
+  },
+  "operations/espaces.html": {
+   "sha256": "d123ccb51f5946badf3dd89216707efae83a6b49777d55d52f8d16678e7caa0c",
+   "size": 1146
+  },
+  "operations/espaces.js": {
+   "sha256": "c2c3bcbfae8ccdcd5412dc68ee444322b3e5b5ed68059b86854c3b72860d542a",
+   "size": 12723
+  },
   "operations/factory.html": {
-   "sha256": "14f896aa48bda1303bc68a09c39ced468a3e86a342f286b9c0bb1dc25c7cb997",
-   "size": 1665
+   "sha256": "dfa0fcfca5c70673ea2571e9c46e3bc6989102c46103d0f2d8e8260f3c5c19b7",
+   "size": 1680
   },
   "operations/farmer-passport-edit-bridge.js": {
    "sha256": "bc0d9a78992e8ce73d741df2919c86a10f0c065944beaa8701ac5c32b9b7e99e",
    "size": 4035
+  },
+  "operations/fbms-unified-nav-v22.css": {
+   "sha256": "46f41018bb2f8d8f1c4773c889e19457aadb970721681663bd05f205bd5c5081",
+   "size": 7584
+  },
+  "operations/fbms-unified-nav-v22.js": {
+   "sha256": "24699d7fb13e6d39d3bb00455a1a037ca4553945e266186fe2d4b1b3f6c1a8d7",
+   "size": 13439
+  },
+  "operations/fbms-v23-visual.css": {
+   "sha256": "ce5357de08ab1ae591bae32aefedb8b5a3832cae8ba55858029a11683081a5b9",
+   "size": 5862
   },
   "operations/field-buying-performance-bootstrap.js": {
    "sha256": "5a8652e74312bca9d55d2a4862d9744043b585591526ca0cf42efcf066919019",
@@ -242,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "dc2676b1497a1c5e67f101dafd07d53bec755748bbd2e1b210fac9d08b2b7676",
-   "size": 3412
+   "sha256": "936a70f8ecf72b1eb2b0318861d839a795b3cf3ae1b93ce4f26c9a31b24668d5",
+   "size": 4635
   },
   "operations/field-buying.js": {
-   "sha256": "fefdeac8165f92a1bd0fd77bcf8e3dc8ff51ec353f3bdd2f37e155a4d6bc6d95",
-   "size": 334081
+   "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
+   "size": 366709
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -258,8 +390,8 @@
    "size": 24150
   },
   "operations/lba-purchase.html": {
-   "sha256": "93f6210c4f17f047f503f7f3fc85fc683124881d3c124b2be1056e10e1e583f9",
-   "size": 1703
+   "sha256": "18e21d813cda1ff336a530e5be85e5f0c452b288846b1250a95472d1ac795463",
+   "size": 1718
   },
   "operations/lba-purchase.js": {
    "sha256": "64953098a931af307d0ef17c3c418cdfdf8d8311ccb295e2663a9fc29f03f576",
@@ -270,16 +402,32 @@
    "size": 11956
   },
   "operations/navigation-v2.js": {
-   "sha256": "19c53fdf0ce84213c4a6fd22f981c0e1cf57370cbba5c6cba6319eef372c1f75",
-   "size": 7636
+   "sha256": "a82d965bdec570ac0d0bf4c6cd5a173a8329ab3c503d2cd81b440c9106d22375",
+   "size": 7856
+  },
+  "operations/observatoire.css": {
+   "sha256": "9d41ae2fcac9e5437ad220077b927cda92887fa1183108bbb97053aa0a782952",
+   "size": 10406
+  },
+  "operations/observatoire.js": {
+   "sha256": "3ad07413b6faee2e76e74fea4a4cb356ff792903faf05c708f2bdf5ec3887b3b",
+   "size": 113711
   },
   "operations/operations-v2.css": {
-   "sha256": "4083bf86b17b5942a0695f25664e3e5f79d947fb683ff85a2dacb222ad7d4bf9",
-   "size": 24616
+   "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
+   "size": 24830
   },
   "operations/operations.css": {
    "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
    "size": 12611
+  },
+  "operations/parcelles.css": {
+   "sha256": "cfa44560d2ca0f4adada6d6c94fa9c788af55fb288258546c84210017239e141",
+   "size": 17464
+  },
+  "operations/parcelles.js": {
+   "sha256": "2bfb6eddcd9eb03bd246b26fdb86b52bc1ef67db59c780f66703bb57d195d7b4",
+   "size": 138504
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -290,12 +438,16 @@
    "size": 5986
   },
   "operations/procurement.html": {
-   "sha256": "65acac2a7d012e94cc0ffb5d50dd556b2c14f535fb658dce0e4858285c5b3be4",
-   "size": 1730
+   "sha256": "6ae518e5db25343a39d865a966aacba5b8b800446e6dac6a82ce63c961fec42d",
+   "size": 1976
   },
   "operations/procurement.js": {
-   "sha256": "87d1bd8e9d3686ee1d11fa0c64cfe60eba7959763eade90a2e9eb6dce31dae7f",
-   "size": 81617
+   "sha256": "2e9cfe8e54363fb1eb02d8f24ede4c683e6895ad0678eb7b59c124a21d3cfb1c",
+   "size": 82356
+  },
+  "operations/ra-documents-lot3.js": {
+   "sha256": "70068d53a9b320689d496c3827b907f6e31a8766405429c992764efeed9587b5",
+   "size": 8027
   },
   "operations/reports-cooperatives.js": {
    "sha256": "9d455306ea00597b037e3aeeb7bdd9aa22d5ad5fe80f9ddc7a633bad2f83c951",
@@ -306,48 +458,52 @@
    "size": 5329
   },
   "operations/reports.html": {
-   "sha256": "ec5fa6dc66b7e62ca32c51d3ae6b136a22c3bd6941d4b5e34a47df8fe57298f4",
-   "size": 5473
+   "sha256": "4c422540a15f3622ed208bc87ffb11481ebccf6a7142633aa9bfb95bda1d9fa2",
+   "size": 5717
   },
   "operations/rt-farmer-rights.js": {
    "sha256": "3d5311ddbf35738077eeaf9d9b8c38f3d309985eacc72a68963686628b71dfaf",
    "size": 13723
+  },
+  "operations/rt-sop-weekly-print.html": {
+   "sha256": "4b20eba56693b7650980cb22e484ea53de0ee0b9f8a09cecf608362c45b20941",
+   "size": 7333
   },
   "operations/sacherie-operational-p1.js": {
    "sha256": "9c42b45cb68ac83582cc41c1b3ee513c8240e6104256e7c0dafad1a2aff50400",
    "size": 32518
   },
   "operations/stock-transfer.html": {
-   "sha256": "2b2c140587173b43cd579694b6aec52dd6b0d612b83a7ce29e1c4ab44de20233",
-   "size": 1754
+   "sha256": "011886b27cbae99ed69b185fd9c14cc5a73d5bf2b14b9a70adf861e572b9ac1d",
+   "size": 1775
   },
   "operations/stock-transfer.js": {
-   "sha256": "433481a14dd8d220336c2a67c7e51014916ec64b8ea7280e347e6ec4843c0c05",
-   "size": 40838
+   "sha256": "fe8276511002a5fa098a66c20aa527a08cd5bd6bcfb04c53c0491a174e342381",
+   "size": 41165
   },
   "operations/traceability-search.js": {
    "sha256": "3f0def9ee6417943749e42e0b26d676f8916cba2bd3cbdb793f6b2fa181ec4ad",
    "size": 12262
   },
   "operations/traceability.html": {
-   "sha256": "990ca6a832250d6202bd042eac20bb9f8980e9a177a0a17206be5ec8e18ff403",
-   "size": 3147
+   "sha256": "662a0dc5433332fd0c635f8e6b7f99b0d2a2b46f39f70c5105028f5e37d26473",
+   "size": 3391
   },
   "operations/warehouse-lot-origin.js": {
    "sha256": "19baa86dba65bad176cc61c38d1a706115967543cdcb3a4f2d749c08fe380888",
    "size": 3638
   },
   "operations/warehouse.html": {
-   "sha256": "6cf91fc8983a72f340a2833310a2eeac00de1b9903e37c4e24b05c9ddfcf01f8",
-   "size": 1812
+   "sha256": "767f391902782794de7abda983147be304ea0f561b27a71c062e9cee88636178",
+   "size": 1833
   },
   "operations/warehouse.js": {
-   "sha256": "f9887e3f5f43f61981d4a10dae41effcb69a0ece9ccfd65d2a26bb4d1fc4fde6",
-   "size": 144762
+   "sha256": "ff761fb3c3f530ad53ab13c5d775d5524921a3b566c4920aeb587eb1dc54ae76",
+   "size": 145065
   },
   "operations/workspace.js": {
-   "sha256": "fd81ead40c0e0880406b9212130e19f66b90306ca21ec07925cc53a4db2eca46",
-   "size": 44244
+   "sha256": "e2d64bf0b49c6109087c95f6a5131bebdeea6c0dc8b16f813553839f92a390d4",
+   "size": 44451
   },
   "rcntrace/ci-geo.js": {
    "sha256": "b435c64f6b009ea49c34a8bfa06f230fdbe8efa14cd2ee24074b111118e8f3f6",
@@ -522,8 +678,8 @@
    "size": 3702
   },
   "shared/auth-gate.js": {
-   "sha256": "af34e4e01cfa113c98337133a315249941947aab42a177f6b24a8fc148911e16",
-   "size": 19634
+   "sha256": "c11fcea56b943f173a8e2ed1cc67d379a9966a704eea535d3f7222e77e84772b",
+   "size": 24898
   },
   "shared/auth-ui-patch.js": {
    "sha256": "ee4516d82e167eff204fc19934d47430929b0016d13cb12d6826daf6a17cf734",
@@ -546,12 +702,12 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "41c7916a9a6473063994ca11787502e6f4b50e979c55ff8ea222d86bf03c288e",
-   "size": 33110
+   "sha256": "b07a7f4fecd6b266aba7dfd128cdeb0cb81327a586213bad4a20daf981793575",
+   "size": 39129
   },
   "shared/farmer-registry-passport.js": {
-   "sha256": "3895c3fd462dcc3d8cfbd1e4ddda398d3cfc3a17d5521f24b018e66568d65efd",
-   "size": 36340
+   "sha256": "bb7fb0012bf04d1167ef96a59691a06283efed883fa7b3c8bffb078afd2b5f7d",
+   "size": 36868
   },
   "shared/farmer-registry-privacy-phase1.js": {
    "sha256": "16933a841c58d8753c1a1285c7bde60b5bc715e1bfad4b6691d3cf371b49f0a5",
@@ -589,13 +745,33 @@
    "sha256": "384a47110802570484aba2ec0b93bc1a02d6f6ca5f7fff2fdd81cb9e1f8e61ca",
    "size": 67063
   },
+  "shared/observatoire-coeur.js": {
+   "sha256": "fd45561b34237f034700da4f52510e6402cc927f479930098911f48e1c80b9d4",
+   "size": 19839
+  },
+  "shared/observatoire-hors-ligne.js": {
+   "sha256": "dcf11b2eed67b23b698ac31008bf97de4cd820dc1346f73e70eb77942e7c300c",
+   "size": 25460
+  },
   "shared/offline-field.js": {
-   "sha256": "e3f4c5cc7068d512c35db9a8088fbbd99f54c929c271b8366bb93298723eb83c",
-   "size": 33912
+   "sha256": "cc46bb870ec4966537da88847af4a33fb1942fea2e2ff4be633d608bdf34776f",
+   "size": 54840
   },
   "shared/ops-premium.css": {
    "sha256": "d2d77fdfd31984e4cf1e7883f859e10268de56deca4e828cc048d12c87bd2f15",
    "size": 14907
+  },
+  "shared/ota-suivi.js": {
+   "sha256": "21bf0d23b2452507d5c844e77cb568badcbe553ac1898cb6ec6bbb52be8c2204",
+   "size": 17887
+  },
+  "shared/parcelles-coeur.js": {
+   "sha256": "640bee066f178dcc92906d7b2506738945d9a0987c7753975c0b01af0d7fce78",
+   "size": 17577
+  },
+  "shared/parcelles-hors-ligne.js": {
+   "sha256": "54d9462f5bd2184c91a5cbea27084880a0f3b492114eae6077122f0f17be3338",
+   "size": 10536
   },
   "shared/password-reset.html": {
    "sha256": "91bc4131bda0d758c1c1de1a6baa6086a64a536f77a84c6a62036b5ccecc9972",
@@ -609,6 +785,10 @@
    "sha256": "2d25e026666ca40c9efd12174e1fbd4b01aac973d6d7c073694896ad78f23792",
    "size": 1895
   },
+  "shared/rt-sop-ledger.js": {
+   "sha256": "f027eaf4923e5db81d8c27791505fbcbcdd7f904c3183e747c25d7a297f87f3b",
+   "size": 3307
+  },
   "shared/rt-to-producer.js": {
    "sha256": "883156752bae4264eaf7f4331939e9d4e2c6cfa521aa00c928547cf86535158a",
    "size": 8714
@@ -618,8 +798,16 @@
    "size": 10627
   },
   "shared/uppercase.js": {
-   "sha256": "a33e456690fa080da85e0390948a18e608d9f5105be52ba7a912231f6cb516f1",
-   "size": 6312
+   "sha256": "0b215cabf998a3298c703d2c20afa479e29ea37c5031482868439bc33edb0849",
+   "size": 6309
+  },
+  "shared/vendor/geographiclib-LICENSE.txt": {
+   "sha256": "8df0455c90f6bb3efbabf3e225122654c438a09c2be5635cdd79472a0970247e",
+   "size": 1089
+  },
+  "shared/vendor/geographiclib-geodesic-2.2.0.min.js": {
+   "sha256": "06e3512904b346575f475f14d0b27ea0979dbcd2b0eddebf5f1eeefd234395b5",
+   "size": 32204
   },
   "suite/index.html": {
    "sha256": "ed5e670a304c16e9e9887acac0616402996ca280dd2e52bfe98cca9d083dccbf",
