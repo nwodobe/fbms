@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795299796,
- "web_version": "2026.11.21-2223.e476474",
- "git_commit": "e4764745d597bd121484b7a2f4ad81d7acba1a88",
- "bundle_label": "e476474",
- "published_at": "2026-11-21T22:31:30.064Z",
- "created_at": "2026-11-21T22:31:30.064Z",
+ "sequence": 1795302884,
+ "web_version": "2026.11.21-2314.528dfb3",
+ "git_commit": "528dfb3021e53729a6e449d38f0b6c4d06f40560",
+ "bundle_label": "528dfb3",
+ "published_at": "2026-11-21T23:16:21.754Z",
+ "created_at": "2026-11-21T23:16:21.754Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Parcours Parcelles 22/11 : essai canal test",
+ "release_notes": "Essai OTA 2 (commit candidat)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -174,8 +174,8 @@
    "size": 15445
   },
   "fieldproof/index.html": {
-   "sha256": "d52b89a46aeb488c04f6329e265c830057e3127ef0172c47c7d71b80c936ffa1",
-   "size": 3861
+   "sha256": "a0d25636bf2660c7df5a3c5de412ac55a5dfa711b2e0b2cfacad4736df1a2f43",
+   "size": 3864
   },
   "fieldproof/portal-fieldproof.css": {
    "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
@@ -190,8 +190,8 @@
    "size": 23738
   },
   "index.html": {
-   "sha256": "dc47194c62204f358b10af8f3d0c02980f9ada2699f0c6fe656fcdbb96c3b6e1",
-   "size": 12411
+   "sha256": "e363325acbc656279d819983b79442e89529844a3307e2e171631626560d35d2",
+   "size": 12414
   },
   "logistique.html": {
    "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
@@ -214,8 +214,8 @@
    "size": 601
   },
   "moto/index.html": {
-   "sha256": "8c15eb8100c1203168ba63be9631f677a3e2315fac748bae52e7f514f8fecdf2",
-   "size": 3927
+   "sha256": "588cb2618980606c37ed8f6cb58505a3dd9a5e8132f5a5c785d5fb5ee401f62a",
+   "size": 3930
   },
   "moto/moto-app.js": {
    "sha256": "b1b6fa49f46df6f2a2e833a043d6824f0129a3e4bfb5fa5bc26b0b61c4ac58f2",
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "936a70f8ecf72b1eb2b0318861d839a795b3cf3ae1b93ce4f26c9a31b24668d5",
-   "size": 4635
+   "sha256": "0017550b6fd6aafad62856520130f8ddf3244c1d40e08792eb8a94a083c4c575",
+   "size": 4663
   },
   "operations/field-buying.js": {
    "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
@@ -722,8 +722,8 @@
    "size": 1521
   },
   "shared/farmer-registry-sync.js": {
-   "sha256": "fd3427cf5926f2b63e422538b27621f3b7061326a7e239efaadfcad007ad7404",
-   "size": 17565
+   "sha256": "739ea55c2b60c405d7c556721a765719737d8cd4e88db6ce8f34cb9ae5987f44",
+   "size": 17745
   },
   "shared/fbms-dashboard-audit.js": {
    "sha256": "636c0e3a61e712593b38a8d384ca01b3cd1b54c1043df2a28b44ef1301235a41",
@@ -754,24 +754,24 @@
    "size": 25460
   },
   "shared/offline-field.js": {
-   "sha256": "cc46bb870ec4966537da88847af4a33fb1942fea2e2ff4be633d608bdf34776f",
-   "size": 54840
+   "sha256": "4ae7689fa5b7a1ee676315eb34a4247f53a7c9c11c73a53733822b1df478b998",
+   "size": 55474
   },
   "shared/ops-premium.css": {
    "sha256": "d2d77fdfd31984e4cf1e7883f859e10268de56deca4e828cc048d12c87bd2f15",
    "size": 14907
   },
   "shared/ota-suivi.js": {
-   "sha256": "21bf0d23b2452507d5c844e77cb568badcbe553ac1898cb6ec6bbb52be8c2204",
-   "size": 17887
+   "sha256": "8b9bda183d4ca668da73114667739d278437eb0971e89c0cc20e647fa28349c6",
+   "size": 18360
   },
   "shared/parcelles-coeur.js": {
    "sha256": "640bee066f178dcc92906d7b2506738945d9a0987c7753975c0b01af0d7fce78",
    "size": 17577
   },
   "shared/parcelles-hors-ligne.js": {
-   "sha256": "54d9462f5bd2184c91a5cbea27084880a0f3b492114eae6077122f0f17be3338",
-   "size": 10536
+   "sha256": "9d0e8837c015c1fe4b602a9ead84431502c38b3eaa1fe8c304c4a401e1610d23",
+   "size": 11161
   },
   "shared/password-reset.html": {
    "sha256": "91bc4131bda0d758c1c1de1a6baa6086a64a536f77a84c6a62036b5ccecc9972",
