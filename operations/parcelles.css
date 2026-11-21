@@ -102,3 +102,35 @@
 .ops-main:has(.pc-editeur){overflow-x:clip}
 /* Téléphone à l'horizontale : trop peu de hauteur pour coller la barre sans masquer la carte. */
 @media(max-width:1023px) and (max-height:500px){.pc-barre{position:static;box-shadow:none}.pc-carte-ed{height:78svh;min-height:220px}}
+
+/* ---- Audit itel 20/11/2026 ------------------------------------------------ */
+/* P1-1 : sous 640 px, chaque parcelle devient une carte ; Modifier et la carte
+   Esri restent visibles sans défilement horizontal. */
+@media (max-width: 640px) {
+  .fb-plots-wrap { overflow-x: visible; }
+  .fb-plots-table, .fb-plots-table tbody, .fb-plots-table tr, .fb-plots-table td { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+  .fb-plots-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .fb-plots-table tr { border: 1px solid var(--line, #DDE3DE); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; background: #fff; }
+  .fb-plots-table td { border: 0; padding: 4px 0; display: flex; gap: 10px; justify-content: space-between; align-items: baseline; text-align: right; word-break: normal; overflow-wrap: anywhere; }
+  .fb-plots-table td[data-l]::before { content: attr(data-l); flex: 0 0 42%; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted, #5F6F64); text-transform: uppercase; letter-spacing: .04em; }
+  .fb-plots-table td.fb-plot-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 10px; }
+  .fb-plots-table td.fb-plot-actions .btn { width: 100%; min-height: 44px; justify-content: center; }
+}
+/* P0 : provenance des parcelles (état local daté, inconnu hors ligne). */
+.fb-plots-source { margin: 10px 0; }
+[data-plot-add="blocked"] { opacity: .55; cursor: not-allowed; }
+
+/* P1-2 : la pastille de version de l'APK (bridge natif, .anx-btn) ne doit jamais
+   recouvrir un formulaire. Elle est masquée tant qu'un formulaire est ouvert ;
+   la barre d'actions reste collée en bas, au-dessus des zones système. */
+body:has(#frSubDialog) .anx-btn,
+body:has(.pc-editeur) .anx-btn,
+body:has(.fb-modal-open) .anx-btn { display: none !important; }
+#frSubDialog .fr-op-box { max-height: 100dvh; }
+@media (max-width: 620px) { #frSubDialog .fr-op-box { height: 100dvh; max-height: 100dvh; } }
+#frSubDialog .fr-op-actions { position: sticky; bottom: 0; z-index: 3; background: #F4F4F3;
+  padding-bottom: calc(13px + env(safe-area-inset-bottom, 0px)); }
+#frSubDialog .fr-op-actions .btn, #frSubDialog .fr-op-actions button { min-height: 44px; }
+/* Hors formulaire, la pastille reste disponible mais une marge basse évite
+   qu'elle recouvre le dernier élément de la page. */
+body:has(.anx-btn) .ops-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
