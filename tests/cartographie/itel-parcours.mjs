@@ -297,7 +297,7 @@ async function main() {
   finally {
     try { adb('reverse', '--remove', 'tcp:' + PORT); adb('forward', '--remove', 'tcp:' + PCDP); } catch (e) {}
     srv.close();
-    writeFileSync(join(OUT, MANUEL ? 'session-manuelle-resultats.json' : process.env.POSITION_ESSAI === '1' ? 'itel-parcours-position-essai.json' : 'itel-parcours-gps-reel.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
+    writeFileSync(join(OUT, MANUEL ? 'session-manuelle-resultats.json' : process.env.POSITION_ESSAI === '1' ? 'itel-parcours-position-essai.json' : 'itel-parcours-gps-reel.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, ' + (process.env.POSITION_ESSAI === '1' ? 'position d\'essai' : 'GPS réel') + ', doublure serveur en mémoire (aucune écriture Supabase), ' + (CLE_ESRI ? 'imagerie Esri World Imagery réelle' : 'sans image satellite'), resultats: R }, null, 1));
     const ok = R.filter(x => x.resultat === 'RÉUSSI').length; console.log('\n' + ok + ' / ' + R.length + ' réussis'); process.exit(0);
   }
 }
