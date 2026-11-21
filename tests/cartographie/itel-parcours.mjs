@@ -200,11 +200,16 @@ async function main() {
     await verifier('IT-04', 'A', 'Accord enregistré (historique : refus puis accord), bouton CAPTURER MA POSITION GPS', async () => ({ ok: etat.insertions.length === 2 && etat.insertions[1].scopes.gps === true && (await ev("document.querySelectorAll('[data-pc=capturer]').length")) === 1, detail: etat.insertions.map(x => x.status + '/gps=' + x.scopes.gps).join(' → ') }));
     capture('13-itel-accord-donne');
     /* Test B : capture avec le VRAI GPS du téléphone */
+    /* POSITION_ESSAI=1 : position fictive fournie au navigateur (outil de test, annoncée dans le rapport) quand le
+       GPS réel ne peut pas atteindre la précision exigée (intérieur, nuit). Sans cette variable : GPS réel du téléphone. */
+    const essai = process.env.POSITION_ESSAI === '1';
+    if (essai) await cdp('Emulation.setGeolocationOverride', { latitude: 7.7003, longitude: -5.0297, accuracy: 6 });
+    note('IT-04b', 'B', 'Source de la position pour la suite de l\'essai', true, essai ? 'POSITION D\'ESSAI FICTIVE (7.7003, -5.0297, 6 m) injectée dans Chrome : le GPS réel n\'est PAS testé dans ce passage' : 'GPS réel du téléphone');
     const t0 = Date.now(); await clic('[data-pc="capturer"]'); await pause(1500); capture('14-itel-capture-en-cours');
     let issue = 'inconnue';
     try { await attendre("!!document.querySelector('.pc-ed-tete') || /Précision insuffisante|Aucune position|refusée|ne répond pas|introuvable/.test((document.getElementById('opsRouteView')||{}).innerText)", 60000); issue = await ev("document.querySelector('.pc-ed-tete')?'carte':(document.getElementById('opsRouteView').innerText.slice(0,300))"); } catch (e) { issue = 'délai : ' + e.message; }
     const loc = etat.lots.flat().find(o => o.type === 'LOCALISER');
-    await verifier('IT-05', 'B', 'Capture avec le GPS réel de l\'itel : latitude, longitude, précision et heure renseignées seules', async () => ({ ok: !!loc && loc.payload.precision_m > 0 && !!loc.payload.capture_le, detail: loc ? 'précision ' + loc.payload.precision_m + ' m · heure ' + loc.payload.capture_le + ' · durée ' + Math.round((Date.now() - t0) / 1000) + ' s (coordonnées non recopiées dans ce rapport)' : String(issue).slice(0, 250) }));
+    await verifier('IT-05', 'B', (process.env.POSITION_ESSAI === '1' ? 'Capture (position d\'essai) : ' : 'Capture avec le GPS réel de l\'itel : ') + 'latitude, longitude, précision et heure renseignées seules', async () => ({ ok: !!loc && loc.payload.precision_m > 0 && !!loc.payload.capture_le, detail: loc ? 'précision ' + loc.payload.precision_m + ' m · heure ' + loc.payload.capture_le + ' · durée ' + Math.round((Date.now() - t0) / 1000) + ' s (coordonnées non recopiées dans ce rapport)' : String(issue).slice(0, 250) }));
     if (issue !== 'carte') { capture('15-itel-capture-issue'); throw new Error('Arrêt : pas de carte après la capture (' + String(issue).slice(0, 160) + ')'); }
     await pause(1500);
     await verifier('IT-06', 'C', 'La carte s\'ouvre seule après la capture', async () => (await ev("location.hash")).indexOf('tracer/') >= 0);
@@ -239,7 +244,7 @@ async function main() {
   finally {
     try { adb('reverse', '--remove', 'tcp:' + PORT); adb('forward', '--remove', 'tcp:' + PCDP); } catch (e) {}
     srv.close();
-    writeFileSync(join(OUT, 'itel-parcours.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
+    writeFileSync(join(OUT, process.env.POSITION_ESSAI === '1' ? 'itel-parcours-position-essai.json' : 'itel-parcours-gps-reel.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
     const ok = R.filter(x => x.resultat === 'RÉUSSI').length; console.log('\n' + ok + ' / ' + R.length + ' réussis'); process.exit(0);
   }
 }
