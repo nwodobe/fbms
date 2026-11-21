@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795234140,
- "web_version": "2026.11.21-0409.ae04680",
- "git_commit": "ae04680b5de9f33ef049f489d4162932a4ad54ee",
- "bundle_label": "ae04680",
- "published_at": "2026-11-21T04:09:22.157Z",
- "created_at": "2026-11-21T04:09:22.157Z",
+ "sequence": 1795239403,
+ "web_version": "2026.11.21-0536.2420346",
+ "git_commit": "242034672c6f18b83dbacb0fcf9cb0ddba018f4c",
+ "bundle_label": "2420346",
+ "published_at": "2026-11-21T05:37:36.137Z",
+ "created_at": "2026-11-21T05:37:36.137Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Pastille de version masquee pendant les formulaires : bouton Enregistrer accessible",
+ "release_notes": "Parcelles : parcelle créée en ligne visible hors ligne, alerte doublon (PR #358)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "038f7a4b2007a4f83abc04f6b81821ef99e7739df1d2e5a71e2e7fa174631158",
-   "size": 4562
+   "sha256": "664dc63321b7bcf1a7d1db8de717445d737c6620ff20ee05353d2252bb72228a",
+   "size": 4552
   },
   "operations/field-buying.js": {
-   "sha256": "7edea12ded999c540c216d578f83988944c4d6513711786ca95dfbcccb0f3605",
-   "size": 364889
+   "sha256": "d412a0520a3119cb984b5fcd7663b43ebb88f8b9dc32fac6e551e20c54a37c69",
+   "size": 366212
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -702,8 +702,8 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "c603f2c4e1cceefb3cc41991f6fc01d6923d43a4fb087364b0758cc3f156fca4",
-   "size": 36362
+   "sha256": "1bbc934d75e9ebe91471b5b714b575146c6c6347f8c4ca9c033cb137a3c1d51c",
+   "size": 37720
   },
   "shared/farmer-registry-passport.js": {
    "sha256": "85acf9d5c568a0996da68d0098a0820595cc41db0f9e878fffc01e9bbd8c45fc",
