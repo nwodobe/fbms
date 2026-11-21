@@ -1,10 +1,10 @@
 {
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795303357,
- "web_version": "2026.11.21-2314.528dfb3",
- "git_commit": "528dfb3021e53729a6e449d38f0b6c4d06f40560",
- "published_at": "2026-11-21T23:22:37.619Z",
+ "sequence": 1795303622,
+ "web_version": "2026.11.21-2327.db61ddd",
+ "git_commit": "db61ddd34c860bcb068d9012da8fa313b0a30d28",
+ "published_at": "2026-11-21T23:29:40.509Z",
  "status": "published",
  "update_policy": "recommended",
  "min_native_version_code": 3,
@@ -15,7 +15,7 @@
  },
  "supabase_compat": "20261120231000",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
- "rollback_of": 1795302884,
+ "rollback_of": null,
  "revoked_sequences": [
   1795302886
  ]
