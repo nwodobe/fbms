@@ -180,8 +180,9 @@ async function sessionManuelle(modele, android, vue) {
   const journal = [], videos = [], t0 = Date.now();
   note('MAN-00', 'Contexte', 'Session manuelle ouverte dans Chrome sur le téléphone', true, modele + ' · Android ' + android + ' · ' + JSON.stringify(vue) + ' · imagerie ' + (CLE_ESRI ? 'Esri (clé réelle, gardée en mémoire)' : 'aucune'));
   /* Sonde Esri : une vraie tuile World Imagery demandée par le navigateur du téléphone, depuis la page d'essai. */
-  const sonde = await ev(`new Promise(function(ok){ var p=(window.ANAGROCI_PARCELLES&&true); var u='https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/16/32210/32253?token='+encodeURIComponent(${JSON.stringify(CLE_ESRI || '')}); var i=new Image(), t=setTimeout(function(){ok('délai');},15000); i.onload=function(){clearTimeout(t);ok('tuile reçue '+i.naturalWidth+'x'+i.naturalHeight);}; i.onerror=function(){clearTimeout(t);ok('tuile refusée');}; i.src=u; })`);
+  const sonde = await ev(`new Promise(function(ok){ var p=(window.ANAGROCI_PARCELLES&&true); var u='https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/16/31364/31852?token='+encodeURIComponent(${JSON.stringify(CLE_ESRI || '')}); var i=new Image(), t=setTimeout(function(){ok('délai');},15000); i.onload=function(){clearTimeout(t);ok('tuile reçue '+i.naturalWidth+'x'+i.naturalHeight);}; i.onerror=function(){clearTimeout(t);ok('tuile refusée');}; i.src=u; })`);
   note('MAN-01', 'Esri', 'Tuile World Imagery réelle chargée par le téléphone (zone de Bouaké, niveau 16)', /reçue 256x256/.test(sonde), sonde);
+  if (process.env.SONDE_SEULEMENT === '1') return;
   let n = 0, enCours = null;
   const { spawn } = await import('node:child_process');
   let rec = null;
