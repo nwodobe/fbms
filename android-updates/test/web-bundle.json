@@ -2,16 +2,16 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795302886,
+ "sequence": 1795303357,
  "web_version": "2026.11.21-2314.528dfb3",
  "git_commit": "528dfb3021e53729a6e449d38f0b6c4d06f40560",
  "bundle_label": "528dfb3",
- "published_at": "2026-11-21T23:21:56.941Z",
- "created_at": "2026-11-21T23:21:56.941Z",
+ "published_at": "2026-11-21T23:22:37.619Z",
+ "created_at": "2026-11-21T23:22:37.619Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Essai OTA 4 (signature correcte)",
- "rollback_of": null,
+ "release_notes": "Essai retour arrière",
+ "rollback_of": 1795302884,
  "min_native_version_code": 3,
  "native": {
   "latest_version_code": 9,
@@ -26,7 +26,9 @@
   "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js",
   "https://fonts.googleapis.com/css"
  ],
- "revoked_sequences": [],
+ "revoked_sequences": [
+  1795302886
+ ],
  "objects_path": "objects/",
  "files": {
   "assets/logo-anagroci-access.svg": {
