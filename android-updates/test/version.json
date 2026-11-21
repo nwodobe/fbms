@@ -1,10 +1,10 @@
 {
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795302884,
+ "sequence": 1795302885,
  "web_version": "2026.11.21-2314.528dfb3",
  "git_commit": "528dfb3021e53729a6e449d38f0b6c4d06f40560",
- "published_at": "2026-11-21T23:16:21.754Z",
+ "published_at": "2026-11-21T23:19:49.654Z",
  "status": "published",
  "update_policy": "recommended",
  "min_native_version_code": 3,
