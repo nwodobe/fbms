@@ -9,7 +9,10 @@
 --   * une table public.app_installations : UNE ligne par installation de l'APK, tenue à jour par
 --     le téléphone lui-même via la RPC public.ota_installation_signaler ;
 --   * aucune écriture directe possible depuis un client (ni insert, ni update, ni delete) ;
---   * lecture réservée au Branch Manager et à son assistant (RLS) ;
+--   * lecture limitée par la RLS : Branch Manager et assistant = tout le parc ; Chef de Zone = sa zone ;
+--     Chef d'Unité = son cluster ; tout compte = ses propres installations (et rien d'autre) ;
+--   * garde-fous : au plus un signalement utile toutes les 30 s par installation, au plus 10
+--     installations actives par compte (60 jours), purge manuelle des installations muettes ;
 --   * une vue public.ota_installations_v (security_invoker) pour l'écran de suivi.
 -- Ce qu'elle ne fait pas : elle ne modifie aucune table existante, aucune politique existante,
 -- aucune donnée producteur, parcelle ou consentement.
@@ -23,6 +26,25 @@
 --   Aucune position, aucun modèle d'appareil, aucun numéro de téléphone, aucune donnée métier.
 -- Retour arrière : 20261122090100_ota_suivi_installations_rollback.sql
 -- ============================================================================================
+
+-- ------------------------------------------------------------ périmètre (relu dans profils, jamais cru sur parole)
+-- Cluster canonique du compte connecté (codes de public.aflp_clusters), et sa zone : celle du cluster, sinon celle
+-- déclarée dans le profil (Chef de Zone), rapprochée de public.aflp_zones.
+create or replace function private.ota_mon_cluster() returns text
+language sql stable security definer set search_path = public, pg_temp as $$
+  select c.code from public.profils p join public.aflp_clusters c
+      on upper(c.code) = upper(btrim(p.cluster)) or upper(c.label) = upper(btrim(p.cluster))
+   where p.user_id = auth.uid() and p.actif limit 1
+$$;
+create or replace function private.ota_ma_zone() returns text
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce(
+    (select c.zone_code from public.aflp_clusters c where c.code = private.ota_mon_cluster()),
+    (select z.code from public.aflp_zones z join public.profils p on p.user_id = auth.uid() and p.actif
+      where upper(z.code) = upper(btrim(p.zone)) or upper(z.label) = upper(btrim(p.zone)) limit 1))
+$$;
+revoke all on function private.ota_mon_cluster(), private.ota_ma_zone() from public, anon;
+grant execute on function private.ota_mon_cluster(), private.ota_ma_zone() to authenticated;
 
 create table if not exists public.app_installations (
   installation_id      uuid primary key,
@@ -58,6 +80,8 @@ create table if not exists public.app_installations (
 comment on table public.app_installations is
   'Une ligne par installation de l''APK FBMS, écrite uniquement par public.ota_installation_signaler. Identifiant aléatoire, sans lien avec le matériel.';
 create index if not exists app_installations_last_seen_idx on public.app_installations (last_seen_at desc);
+create index if not exists app_installations_user_idx on public.app_installations (user_id, last_seen_at desc);
+create index if not exists app_installations_perimetre_idx on public.app_installations (zone, cluster);
 
 alter table public.app_installations enable row level security;
 revoke all on public.app_installations from anon, authenticated;
@@ -66,8 +90,14 @@ grant select on public.app_installations to authenticated;
 drop policy if exists app_installations_select_pilotage on public.app_installations;
 create policy app_installations_select_pilotage on public.app_installations
   for select to authenticated
-  using (public.est_actif()
-         and public.mon_role() in ('Branch Manager', 'Branch Manager / Head of Programme', 'Assistant Branch Manager'));
+  using (
+    (select public.est_actif())
+    and (
+      user_id = (select auth.uid())                                                    -- son propre appareil
+      or (select public.mon_role()) in ('Branch Manager', 'Branch Manager / Head of Programme', 'Assistant Branch Manager')
+      or ((select public.mon_role()) = 'Zonal Head' and zone = (select private.ota_ma_zone()))
+      or ((select public.mon_role()) = 'Unit Head' and cluster = (select private.ota_mon_cluster()))
+    ));
 -- Aucune politique insert / update / delete : toute écriture passe par la RPC ci-dessous.
 
 create or replace function public.ota_installation_signaler(p jsonb) returns jsonb
@@ -75,6 +105,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_id uuid;
   v_profil record;
+  v_cluster text; v_zone text; v_dernier timestamptz; v_autres integer;
   v_maintenant timestamptz := now();
   v_check timestamptz; v_activation timestamptz;
 begin
@@ -82,10 +113,19 @@ begin
   select pr.nom, pr.role, pr.cluster, pr.zone into v_profil
     from public.profils pr where pr.user_id = auth.uid() and pr.actif = true limit 1;
   if not found then raise exception 'Compte inactif ou inconnu.' using errcode = '42501'; end if;
+  v_cluster := private.ota_mon_cluster(); v_zone := private.ota_ma_zone();
   begin v_id := (p->>'installation_id')::uuid; exception when others then v_id := null; end;
   if v_id is null then raise exception 'Identifiant d''installation illisible.' using errcode = '22023'; end if;
   if coalesce(p->>'app_id', '') <> 'ci.anagroci.fieldbuying' then
     raise exception 'Application non suivie.' using errcode = '22023'; end if;
+  -- Garde-fous : un signalement utile toutes les 30 s par installation ; 10 installations actives au plus par compte.
+  select last_seen_at into v_dernier from public.app_installations where installation_id = v_id;
+  if v_dernier > v_maintenant - interval '30 seconds' then
+    return jsonb_build_object('statut', 'IGNORE', 'motif', 'signalement trop rapproché', 'recu_serveur_le', v_maintenant); end if;
+  select count(*) into v_autres from public.app_installations
+   where user_id = auth.uid() and installation_id <> v_id and last_seen_at > v_maintenant - interval '60 days';
+  if v_dernier is null and v_autres >= 10 then
+    raise exception 'Trop d''installations actives pour ce compte.' using errcode = '54000'; end if;
   -- Dates du téléphone : gardées seulement si lisibles et pas dans le futur (horloge déréglée).
   begin v_check := nullif(p->>'last_check_at', '')::timestamptz; exception when others then v_check := null; end;
   begin v_activation := nullif(p->>'last_activation_at', '')::timestamptz; exception when others then v_activation := null; end;
@@ -99,7 +139,7 @@ begin
     ota_latest_sequence, ota_latest_version, ota_pending_sequence, deferred_reason,
     phase, last_check_at, last_activation_at, last_error, queue_open, first_seen_at, last_seen_at, signalements)
   values (
-    v_id, 'ci.anagroci.fieldbuying', auth.uid(), left(v_profil.nom, 120), v_profil.role, v_profil.cluster, v_profil.zone,
+    v_id, 'ci.anagroci.fieldbuying', auth.uid(), left(v_profil.nom, 120), v_profil.role, v_cluster, v_zone,
     left(p->>'native_version_name', 40),
     case when (p->>'native_version_code') ~ '^\d{1,9}$' then (p->>'native_version_code')::integer end,
     left(p->>'android_release', 20),
@@ -134,8 +174,23 @@ end $$;
 revoke all on function public.ota_installation_signaler(jsonb) from public, anon;
 grant execute on function public.ota_installation_signaler(jsonb) to authenticated;
 
+-- Rétention : une installation muette depuis plus de p_jours (180 par défaut) peut être retirée du tableau par le
+-- Branch Manager. Rien n'est supprimé automatiquement ; un téléphone qui se signale de nouveau réapparaît.
+create or replace function public.ota_installations_purger(p_jours integer default 180) returns integer
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare n integer;
+begin
+  if public.mon_role() not in ('Branch Manager', 'Branch Manager / Head of Programme') then
+    raise exception 'Réservé au Branch Manager.' using errcode = '42501'; end if;
+  if p_jours is null or p_jours < 90 then raise exception 'Délai minimal : 90 jours.' using errcode = '22023'; end if;
+  delete from public.app_installations where last_seen_at < now() - make_interval(days => p_jours);
+  get diagnostics n = row_count; return n;
+end $$;
+revoke all on function public.ota_installations_purger(integer) from public, anon;
+grant execute on function public.ota_installations_purger(integer) to authenticated;
+
 create or replace view public.ota_installations_v with (security_invoker = true) as
-  select installation_id, compte_nom, role, cluster, zone, native_version_name, native_version_code, android_release,
+  select installation_id, (user_id = auth.uid()) as mon_appareil, compte_nom, role, cluster, zone, native_version_name, native_version_code, android_release,
          updates_enabled, channel, web_active_sequence, web_active_version, web_active_origin,
          ota_latest_sequence, ota_latest_version, ota_pending_sequence, deferred_reason, phase,
          last_check_at, last_activation_at, last_error, queue_open, first_seen_at, last_seen_at, signalements

@@ -10,6 +10,12 @@ import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'no
 import { extname, join, normalize } from 'node:path';
 import { execFileSync } from 'node:child_process';
 const [ROOT, OUT, SERIE] = process.argv.slice(2);
+/* ESRI_CLE_FICHIER : chemin d'un fichier contenant la clé Esri (hors dépôt). Elle n'est gardée qu'en mémoire,
+   servie à la page d'essai, jamais écrite dans un résultat ni dans un journal. Sans elle : fond neutre.
+   MODE=MANUEL : aucun geste automatique. La personne manipule le téléphone de ses doigts ; le script enregistre
+   l'écran (screenrecord) et relève l'état toutes les 3 s jusqu'à l'enregistrement du contour (ou 20 min). */
+const CLE_ESRI = process.env.ESRI_CLE_FICHIER && existsSync(process.env.ESRI_CLE_FICHIER) ? readFileSync(process.env.ESRI_CLE_FICHIER, 'utf8').trim() : null;
+const MANUEL = process.env.MODE === 'MANUEL';
 const ADB = 'C:\\Dev\\tools\\android-sdk\\platform-tools\\adb.exe';
 const PORT = 4371, PCDP = 9446;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -58,7 +64,7 @@ function pont(d) {
   if (d.kind === 'select') {
     let l = [];
     if (d.table === 'profils') l = [{ user_id: UH, id: UH, email: 'uh@example.invalid', nom: 'UH FICTIF', role: 'Unit Head', cluster: 'BROBO', zone: null, actif: true }];
-    else if (d.table === 'plot_map_parametres') l = [{ cle: 'activation', valeur: { localisation: true, contours: true, clusters_pilotes: ['BROBO'] } }, { cle: 'imagerie', valeur: { fournisseur: 'aucun' } },
+    else if (d.table === 'plot_map_parametres') l = [{ cle: 'activation', valeur: { localisation: true, contours: true, clusters_pilotes: ['BROBO'] } }, { cle: 'imagerie', valeur: CLE_ESRI ? { fournisseur: 'esri', licence_confirmee: true, cle: CLE_ESRI } : { fournisseur: 'aucun' } },
       { cle: 'seuils', valeur: { superficie_max_ha: 200, superficie_min_m2: 100, precision_gps_max_m: 30, ecart_superficie_pct: 20, precision_localisation_max_m: 50 } }];
     else if (d.table === 'plot_map_parcelles_v') l = etat.parcelles.map(p => ({ ...p, consentement_gps: accordGps(p.producteur_id) }));
     else if (d.table === 'farmer_consents') l = etat.consentements.slice();
@@ -169,6 +175,47 @@ function note(id, test, lib, ok, detail) { R.push({ id, test, libelle: lib, resu
 async function verifier(id, test, lib, fn) { try { const r = await fn(); note(id, test, lib, r === true || (r && r.ok), r && r.detail !== undefined ? r.detail : r); } catch (e) { note(id, test, lib, false, e.message); } }
 const brouillon = id => ev(`ANAGROCI_PARCELLES_LOCAL.brouillon.lire('${id}')`);
 
+/* ---------- session manuelle (doigts réels, vidéo de l'écran) ---------- */
+async function sessionManuelle(modele, android, vue) {
+  const journal = [], videos = [], t0 = Date.now();
+  note('MAN-00', 'Contexte', 'Session manuelle ouverte dans Chrome sur le téléphone', true, modele + ' · Android ' + android + ' · ' + JSON.stringify(vue) + ' · imagerie ' + (CLE_ESRI ? 'Esri (clé réelle, gardée en mémoire)' : 'aucune'));
+  /* Sonde Esri : une vraie tuile World Imagery demandée par le navigateur du téléphone, depuis la page d'essai. */
+  const sonde = await ev(`new Promise(function(ok){ var p=(window.ANAGROCI_PARCELLES&&true); var u='https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/16/32210/32253?token='+encodeURIComponent(${JSON.stringify(CLE_ESRI || '')}); var i=new Image(), t=setTimeout(function(){ok('délai');},15000); i.onload=function(){clearTimeout(t);ok('tuile reçue '+i.naturalWidth+'x'+i.naturalHeight);}; i.onerror=function(){clearTimeout(t);ok('tuile refusée');}; i.src=u; })`);
+  note('MAN-01', 'Esri', 'Tuile World Imagery réelle chargée par le téléphone (zone de Bouaké, niveau 16)', /reçue 256x256/.test(sonde), sonde);
+  let n = 0, enCours = null;
+  const { spawn } = await import('node:child_process');
+  let rec = null;
+  function lancerVideo() { const f = '/sdcard/fbms-essai-' + (++n) + '.mp4'; videos.push(f); rec = spawn(ADB, ['-s', SERIE, 'shell', 'screenrecord', '--time-limit', '170', '--bit-rate', '4000000', f]); rec.on('exit', () => { rec = null; }); }
+  lancerVideo();
+  console.log('ESSAI MANUEL EN COURS : la personne manipule le téléphone. Fin automatique à l\'enregistrement du contour (20 min max).');
+  let fini = false, dernier = '';
+  while (!fini && Date.now() - t0 < 20 * 60000) {
+    await pause(3000);
+    if (!rec) lancerVideo();
+    let e = null;
+    try {
+      e = await ev(`(async function(){ var r=document.getElementById('opsRouteView'), b=null, pid=(location.hash.match(/(31000000-[0-9a-f-]+)/)||[])[1];
+        if (pid && window.ANAGROCI_PARCELLES_LOCAL) b=await ANAGROCI_PARCELLES_LOCAL.brouillon.lire(pid);
+        var q=function(s){var x=document.querySelector(s);return x?x.innerText.trim():null;};
+        var tu=performance.getEntriesByType('resource').filter(function(x){return /ibasemaps-api\.arcgis\.com.*\/tile\//.test(x.name);}).length;
+        return {h:location.hash.replace(/31000000-0000-4000-8000-0000000000/,'P'), titre:q('#opsRouteView h1')||q('.pc-ed-tete b'), sommets:b&&b.sommets?b.sommets.length:null, gabarit:b?!!b.gabarit:null,
+          surface:q('#pcBarre .pc-surface'), perimetre:q('#pcBarre .pc-perimetre'), image:q('#pcFondImage'), alerte:q('#pcFondAlerte'), tuiles:tu, zoom:window.L&&document.querySelector('#pcCarte')?null:null};})()`);
+    } catch (x) { e = { erreur: x.message }; }
+    const cle = JSON.stringify(e);
+    if (cle !== dernier) { dernier = cle; journal.push({ t: Math.round((Date.now() - t0) / 1000), ...e }); console.log('[' + Math.round((Date.now() - t0) / 1000) + ' s] ' + cle.slice(0, 260)); }
+    if (etat.lots.flat().some(o => o.type === 'SOUMETTRE_CONTOUR')) { fini = true; await pause(4000); }
+  }
+  if (rec) { try { execFileSync(ADB, ['-s', SERIE, 'shell', 'pkill', '-INT', 'screenrecord']); } catch (e) {} await pause(3000); }
+  const vid = [];
+  for (const f of videos) { const local = join(OUT, f.split('/').pop()); try { execFileSync(ADB, ['-s', SERIE, 'pull', f, local], { timeout: 120000 }); execFileSync(ADB, ['-s', SERIE, 'shell', 'rm', '-f', f]); vid.push(f.split('/').pop()); } catch (e) {} }
+  const loc = etat.lots.flat().find(o => o.type === 'LOCALISER'), cont = etat.lots.flat().find(o => o.type === 'SOUMETTRE_CONTOUR');
+  note('MAN-02', 'B', 'Capture GPS réelle (doigt de la personne, GPS du téléphone)', !!loc, loc ? 'précision ' + loc.payload.precision_m + ' m · heure ' + loc.payload.capture_le + ' (coordonnées non recopiées)' : 'aucune capture acceptée');
+  note('MAN-03', 'J', 'Contour enregistré après ajustement aux doigts', !!cont, cont ? Math.round(cont.payload.area_m2_client) + ' m² · ' + Math.round(cont.payload.perimeter_m_client) + ' m · ' + (cont.payload.geometrie.coordinates[0].length - 1) + ' sommets · image ' + (cont.payload.imagery_date || 'date non disponible') + ' · ' + (cont.payload.imagery_source || '') : 'pas de contour');
+  /* Géométrie gardée HORS des résultats (fichier séparé, à ne pas diffuser) pour la seule comparaison PostGIS. */
+  if (cont) writeFileSync(join(OUT, 'NE-PAS-DIFFUSER-geometrie-essai.json'), JSON.stringify({ geojson: cont.payload.geometrie, area_m2_client: cont.payload.area_m2_client, perimeter_m_client: cont.payload.perimeter_m_client }));
+  writeFileSync(join(OUT, 'session-manuelle-journal.json'), JSON.stringify({ duree_s: Math.round((Date.now() - t0) / 1000), videos: vid, consentements: etat.insertions.map(x => ({ status: x.status, gps: x.scopes.gps, method: x.method, consent_at: x.consent_at })), journal }, null, 1));
+}
+
 async function main() {
   const srv = serveur(); await new Promise(r => srv.listen(PORT, '127.0.0.1', r));
   adb('reverse', 'tcp:' + PORT, 'tcp:' + PORT);
@@ -183,6 +230,7 @@ async function main() {
     await attendre("!!(window.ANAGROCI_AUTH && window.ANAGROCI_PARCELLES && document.querySelector('#opsRouteView .ops-route-head'))", 60000);
     await pause(1500);
     const ua = await ev('navigator.userAgent'), vue = await ev('({w:innerWidth,h:innerHeight,dpr:devicePixelRatio})');
+    if (MANUEL) { await sessionManuelle(modele, android, vue); return; }
     note('IT-00', 'Contexte', 'Page FBMS (commit e476474) ouverte dans Chrome sur le téléphone', true, modele + ' · Android ' + android + ' · ' + JSON.stringify(vue) + ' · ' + ua.slice(0, 120));
     capture('10-itel-fiche-parcelle');
     await verifier('IT-01', 'A', 'Fiche : une seule action « Cartographier ce champ »', async () => (await ev(`document.querySelectorAll('a[href="#parcelles/parcours/${PL.A}"]').length`)) === 1);
@@ -244,7 +292,7 @@ async function main() {
   finally {
     try { adb('reverse', '--remove', 'tcp:' + PORT); adb('forward', '--remove', 'tcp:' + PCDP); } catch (e) {}
     srv.close();
-    writeFileSync(join(OUT, process.env.POSITION_ESSAI === '1' ? 'itel-parcours-position-essai.json' : 'itel-parcours-gps-reel.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
+    writeFileSync(join(OUT, MANUEL ? 'session-manuelle-resultats.json' : process.env.POSITION_ESSAI === '1' ? 'itel-parcours-position-essai.json' : 'itel-parcours-gps-reel.json'), JSON.stringify({ execute_le: new Date().toISOString(), appareil: SERIE.slice(0, 4) + '…', nature: 'Chrome réel sur itel S688LN, GPS réel, doublure serveur en mémoire (aucune écriture Supabase), sans image satellite', resultats: R }, null, 1));
     const ok = R.filter(x => x.resultat === 'RÉUSSI').length; console.log('\n' + ok + ' / ' + R.length + ' réussis'); process.exit(0);
   }
 }

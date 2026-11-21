@@ -124,7 +124,15 @@
   function quand(v) { if (!v) return '—'; try { var d = new Date(v); return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); } catch (e) { return v; } }
   function racine() { return document.getElementById('opsRouteView'); }
   function tete(sous, actions) { return '<div class="ops-route-head"><div><h1>Mises à jour des téléphones</h1><p>' + esc(sous || '') + '</p></div><div class="ops-route-actions">' + (actions || '') + '</div></div>'; }
-  function estPilote() { var r = global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile && global.ANAGROCI_AUTH.profile.role; return ['Branch Manager', 'Branch Manager / Head of Programme', 'Assistant Branch Manager'].indexOf(r) >= 0; }
+  function role() { return global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile && global.ANAGROCI_AUTH.profile.role; }
+  /* Périmètre affiché : indicatif. C'est la RLS de public.app_installations qui filtre réellement les lignes. */
+  function perimetre() {
+    var r = role(), p = (global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile) || {};
+    if (['Branch Manager', 'Branch Manager / Head of Programme', 'Assistant Branch Manager'].indexOf(r) >= 0) return 'tout le parc AFLP';
+    if (r === 'Zonal Head') return 'votre zone' + (p.zone ? ' (' + p.zone + ')' : '');
+    if (r === 'Unit Head') return 'votre cluster' + (p.cluster ? ' (' + p.cluster + ')' : '');
+    return 'votre propre appareil';
+  }
   function csv(lignes) {
     var col = [['etat', 'État'], ['installation', 'Installation'], ['cluster', 'Cluster'], ['compte', 'Dernier compte'], ['natif', 'Version Android (APK)'], ['web', 'Version Web active'], ['origine', 'Origine'], ['dispo', 'Version OTA vue par le téléphone'], ['verif', 'Dernière vérification'], ['activation', 'Dernière activation réussie'], ['vu', 'Dernier signalement'], ['erreur', 'Dernière erreur']];
     function c(v) { v = v == null ? '' : String(v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
@@ -133,7 +141,6 @@
   var derniereVue = [];
   function render() {
     var r = racine(); if (!r) return Promise.resolve();
-    if (!estPilote()) { r.innerHTML = tete('') + '<div class="notice warn">Réservé au Branch Manager et à son assistant.</div>'; return Promise.resolve(); }
     r.innerHTML = tete('Lecture en cours…') + '<div class="ops-empty">Chargement…</div>';
     var c = client(); if (!c) { r.innerHTML = tete('') + '<div class="notice danger">Connexion aux données indisponible.</div>'; return Promise.resolve(); }
     var publie = fetch(CANAL_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(function (x) { return x.ok ? x.json() : null; }).catch(function () { return null; });
@@ -151,7 +158,7 @@
         var e = classer(i, pub, maintenant);
         return { code: e, etat: LIB[e], installation: String(i.installation_id || '').slice(0, 8), cluster: i.cluster || '—', compte: i.compte_nom || '—',
           natif: (i.native_version_name || '?') + (i.native_version_code != null ? ' (' + i.native_version_code + ')' : ''), web: i.web_active_version || (i.web_active_sequence || '—'), origine: i.web_active_origin === 'OTA' ? 'Mise à jour signée' : 'Intégrée à l\'APK',
-          dispo: i.ota_latest_version || '—', verif: quand(i.last_check_at), activation: quand(i.last_activation_at), vu: quand(i.last_seen_at), erreur: i.last_error || (i.deferred_reason ? 'Activation différée : ' + i.deferred_reason : '') };
+          mien: i.mon_appareil === true, dispo: i.ota_latest_version || '—', verif: quand(i.last_check_at), activation: quand(i.last_activation_at), vu: quand(i.last_seen_at), erreur: i.last_error || (i.deferred_reason ? 'Activation différée : ' + i.deferred_reason : '') };
       });
       derniereVue = lignes;
       var n = { A_JOUR: 0, EN_ATTENTE: 0, ERREUR: 0, INCOMPATIBLE: 0, NON_CONFIRME: 0 }; lignes.forEach(function (l) { n[l.code]++; });
@@ -159,11 +166,11 @@
       function k(lib, val, note) { return '<div class="kpi"><span>' + esc(lib) + '</span><b>' + esc(val) + '</b>' + (note ? '<small>' + esc(note) + '</small>' : '') + '</div>'; }
       var h = tete(pub && pub.sequence ? 'Version publiée sur le canal stable : ' + (pub.web_version || pub.sequence) + ' · le ' + quand(pub.published_at) + ' · APK minimum : versionCode ' + (pub.min_native_version_code || '?') : 'Version publiée illisible pour l\'instant : les états ci-dessous reposent sur le seul signalement des téléphones.',
         '<button type="button" class="btn secondary" data-ota="rafraichir">Actualiser</button><button type="button" class="btn secondary" data-ota="csv"' + (lignes.length ? '' : ' disabled') + '>Export CSV</button>') +
-        '<div class="notice info"><b>Lecture honnête :</b> une mise à jour publiée n\'est pas une mise à jour installée. Seules les installations qui se sont signalées depuis moins de ' + FRAIS_H + ' h comptent comme confirmées. Un téléphone éteint, hors réseau ou jamais ouvert depuis la publication reste « Non confirmé récemment ». Les téléphones qui n\'ont jamais ouvert une version contenant ce suivi n\'apparaissent pas du tout.</div>' +
+        '<div class="notice info"><b>Périmètre :</b> ' + esc(perimetre()) + '. </div><div class="notice info"><b>Lecture honnête :</b> une mise à jour publiée n\'est pas une mise à jour installée. Seules les installations qui se sont signalées depuis moins de ' + FRAIS_H + ' h comptent comme confirmées. Un téléphone éteint, hors réseau ou jamais ouvert depuis la publication reste « Non confirmé récemment ». Les téléphones qui n\'ont jamais ouvert une version contenant ce suivi n\'apparaissent pas du tout.</div>' +
         '<div class="kpi-grid">' + k('Installations connues', lignes.length, confirmes + ' signalée(s) depuis moins de ' + FRAIS_H + ' h') + k('À jour (confirmé)', n.A_JOUR, taux == null ? '' : String(taux).replace('.', ',') + ' % des installations connues') +
         k('En attente', n.EN_ATTENTE) + k('Erreur', n.ERREUR) + k('Incompatible (nouvel APK)', n.INCOMPATIBLE) + k('Non confirmé récemment', n.NON_CONFIRME) + '</div>' +
         (lignes.length ? '<div class="table-wrap"><table><thead><tr><th>État</th><th>Installation</th><th>Cluster</th><th>Dernier compte</th><th>Android (APK)</th><th>Web active</th><th>OTA vue</th><th>Dernière vérification</th><th>Dernière activation</th><th>Dernier signalement</th><th>Dernière erreur</th></tr></thead><tbody>' +
-          lignes.map(function (l) { return '<tr><td><span class="badge ' + COULEUR[l.code] + '">' + esc(l.etat) + '</span></td><td class="mono">' + esc(l.installation) + '</td><td>' + esc(l.cluster) + '</td><td>' + esc(l.compte) + '</td><td>' + esc(l.natif) + '</td><td>' + esc(l.web) + '<br><small>' + esc(l.origine) + '</small></td><td>' + esc(l.dispo) + '</td><td>' + esc(l.verif) + '</td><td>' + esc(l.activation) + '</td><td>' + esc(l.vu) + '</td><td>' + esc(l.erreur) + '</td></tr>'; }).join('') + '</tbody></table></div>'
+          lignes.map(function (l) { return '<tr' + (l.mien ? ' style="font-weight:600"' : '') + '><td><span class="badge ' + COULEUR[l.code] + '">' + esc(l.etat) + '</span></td><td class="mono">' + esc(l.installation) + '</td><td>' + esc(l.cluster) + '</td><td>' + esc(l.compte) + '</td><td>' + esc(l.natif) + '</td><td>' + esc(l.web) + '<br><small>' + esc(l.origine) + '</small></td><td>' + esc(l.dispo) + '</td><td>' + esc(l.verif) + '</td><td>' + esc(l.activation) + '</td><td>' + esc(l.vu) + '</td><td>' + esc(l.erreur) + '</td></tr>'; }).join('') + '</tbody></table></div>'
           : '<div class="ops-empty">Aucune installation ne s\'est encore signalée. Aucun téléphone n\'est donc confirmé à jour.</div>') +
         '<p class="ops-note" style="font-size:13px;color:#5E5C5C">Identifiant d\'installation : numéro tiré au hasard par l\'application, sans lien avec le matériel du téléphone. Aucune position ni donnée personnelle n\'est collectée par ce suivi.</p>';
       r.innerHTML = h;
