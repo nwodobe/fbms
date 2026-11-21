@@ -28,8 +28,20 @@ for(const file of ['index.html','operations/field-buying.html','operations/procu
                    'operations/traceability.html','moto/index.html','fieldproof/index.html']){
  const html=read(file);
  assert.ok(html.includes('fbms-unified-nav-v22.css?v=20261118-sync-journal-1'), file+' must reload new menu style');
- assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261120-carto-1'), file+' must reload new menu controller');
+ assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261122-parcours-1'), file+' must reload new menu controller');
 }
+/* Une seule version du contrôleur de menu sur toutes les pages : une page restée sur l'ancienne version
+   servirait un menu périmé (constaté sur la PR n° 360 : index, moto et fieldproof en retard). */
+{
+ const versions=new Set();
+ for(const file of ['index.html','operations/field-buying.html','operations/procurement.html','operations/reports.html','operations/aflp-data.html',
+                    'operations/campaigns.html','operations/traceability.html','moto/index.html','fieldproof/index.html']){
+   const m=read(file).match(/fbms-unified-nav-v22\.js\?v=([^"']+)/); assert.ok(m, file+' must load the menu controller'); versions.add(m[1]);
+ }
+ assert.equal(versions.size,1,'every page must load the same menu controller version: '+[...versions].join(', '));
+}
+/* Le menu porte l'entrée du suivi des mises à jour (Pilotage, E5). */
+assert.ok(read('operations/fbms-unified-nav-v22.js').includes("'field-buying.html#mises-a-jour'"), 'menu must expose phone update tracking');
 
 
 
@@ -47,7 +59,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261120-carto-1'),'Home must load the refreshed navigation JS');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261122-parcours-1'),'Home must load the refreshed navigation JS');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 
