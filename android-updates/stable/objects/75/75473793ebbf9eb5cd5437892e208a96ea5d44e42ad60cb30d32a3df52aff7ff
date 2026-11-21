@@ -1,0 +1,138 @@
+/* FIELD BUYING · Parcelles & cartographie — mobile d'abord, cibles tactiles ≥ 44 px, palette PJS. */
+.pc-avis{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;line-height:1.45;border:1px solid}
+.pc-avis-info{background:#F1F9EF;border-color:#B6DC8E;color:#053B23}
+.pc-avis-ok{background:#E0F3DE;border-color:#8DC556;color:#053B23}
+.pc-avis-alerte{background:#FDEFCE;border-color:#EAD9A6;color:#5C4300}
+.pc-avis-erreur{background:#FBEAE7;border-color:#E7B7B0;color:#7A2418}
+.pc-sync{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:#fff;border:1px solid #E8E7E7;border-left:4px solid #8DC556;border-radius:10px;padding:8px 12px;margin:0 0 12px;font-size:14px}
+.pc-sync-attente{border-left-color:#EE9E00}.pc-sync-alerte{border-left-color:#B3261E}
+.pc-sync-act{display:flex;gap:6px;flex-wrap:wrap}
+.pc-tuiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.pc-tuile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:10px;border:1px solid #E8E7E7;border-radius:10px;background:#fff;color:#323131;font:inherit;text-align:left;cursor:pointer}
+.pc-tuile b{font-family:'IBM Plex Mono',monospace;font-size:20px;color:#053B23}.pc-tuile span{font-size:12px;color:#5E5C5C}
+.pc-tuile.actif{border:2px solid #008F37;background:#E0F3DE}
+.pc-filtres{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:0 0 8px}
+.pc-champ{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;flex:1 1 200px}
+.pc-champ small{font-weight:400;color:#5E5C5C}
+.pc-champ input,.pc-champ select,.pc-champ textarea{min-height:44px;border:1px solid #D2D0D0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:400;background:#fff;box-sizing:border-box;width:100%}
+.pc-compte{font-size:13px;color:#5E5C5C;margin:4px 0 8px}
+.pc-liste{display:flex;flex-direction:column;gap:8px}
+.pc-ligne{display:flex;justify-content:space-between;gap:10px;align-items:center;min-height:56px;padding:10px 12px;background:#fff;border:1px solid #E8E7E7;border-radius:10px;color:#323131;text-decoration:none}
+.pc-ligne:hover,.pc-ligne:focus{border-color:#008F37}
+.pc-ligne small{display:block;color:#5E5C5C;font-size:12px;margin-top:2px}
+.pc-ligne-d{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right;flex-shrink:0}
+.pc-badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:600;background:#F4F4F3;color:#323131;white-space:nowrap}
+.pc-st-non_localisee{background:#F4F4F3;color:#5E5C5C}.pc-st-localisee{background:#E7F1FB;color:#0B4F8A}
+.pc-st-soumis{background:#FDEFCE;color:#6B4600}.pc-st-a_corriger{background:#FBEAE7;color:#7A2418}
+.pc-st-valide{background:#E0F3DE;color:#053B23}.pc-st-remplace,.pc-st-archive{background:#F4F4F3;color:#5E5C5C}
+.pc-et-local{background:#E7F1FB;color:#0B4F8A}.pc-et-attente,.pc-et-envoi{background:#FDEFCE;color:#6B4600}
+.pc-et-recu{background:#E0F3DE;color:#053B23}.pc-et-conflit,.pc-et-rejete{background:#FBEAE7;color:#7A2418}
+.pc-fiche-tete{display:flex;gap:10px;align-items:center;margin:0 0 10px;flex-wrap:wrap}
+.pc-grille{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;margin-bottom:14px}
+.pc-point{display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid #E8E7E7;border-left:4px solid #1E6FD9;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.pc-point small{color:#5E5C5C}.pc-point-vide{border-left-color:#D2D0D0}
+.pc-superficies{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.pc-superficies>div{background:#fff;border:1px solid #E8E7E7;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.pc-superficies span{font-size:12px;color:#5E5C5C}.pc-superficies b{font-family:'IBM Plex Mono',monospace;font-size:17px;color:#053B23}.pc-superficies small{font-size:12px;color:#5E5C5C}
+.pc-note{font-size:13px;color:#5E5C5C;margin:6px 0}
+.pc-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.pc-actions .btn,.pc-outils .btn{min-height:46px}
+.pc-mini{min-height:36px!important;padding:4px 10px!important;font-size:13px!important}
+.pc-carte{background:#E9EFE3;border:1px solid #E8E7E7;border-radius:12px;overflow:hidden;position:relative}
+.pc-carte-mini{height:340px}
+.pc-carte-ed{height:62vh;min-height:340px}
+.pc-carte-voile{position:absolute;inset:auto 10px 10px 10px;background:rgba(255,255,255,.92);border-radius:8px;padding:6px 10px;font-size:13px;z-index:500}
+.pc-editeur{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);grid-template-areas:'carte panneau' 'barre panneau' 'outils panneau';grid-template-rows:auto auto 1fr;gap:12px;align-items:start}
+.pc-carte-zone{grid-area:carte;position:relative;z-index:0;isolation:isolate}.pc-barre{grid-area:barre}.pc-outils{grid-area:outils;display:flex;flex-direction:column;gap:8px}.pc-editeur .pc-panneau{grid-area:panneau}
+.pc-panneau{background:#fff;border:1px solid #E8E7E7;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.pc-mesure{display:flex;flex-direction:column;gap:3px}
+.pc-etq{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#00712C;font-weight:600}
+.pc-surface{font-family:'IBM Plex Mono',monospace;font-size:30px;color:#053B23}
+.pc-ecart{font-size:13px;color:#6B4600;background:#FDEFCE;border-radius:6px;padding:4px 8px}
+.pc-erreur{font-size:13px;color:#7A2418;background:#FBEAE7;border-radius:6px;padding:4px 8px}
+.pc-outils{display:flex;flex-wrap:wrap;gap:8px}
+.pc-choix{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.pc-choix legend{font-size:13px;font-weight:600;margin-bottom:6px}
+.pc-puce{display:flex;align-items:center;gap:6px;min-height:44px;border:1px solid #D2D0D0;border-radius:8px;padding:6px 8px;font-size:13px;cursor:pointer}
+.pc-puce.actif{border:2px solid #008F37;background:#E0F3DE;font-weight:600}
+.pc-case{display:flex;gap:8px;align-items:flex-start;font-size:13px;min-height:44px}
+.pc-sauve{font-size:12px;color:#00712C;margin:0}
+.pc-actions-fin .btn{flex:1 1 auto}
+.pc-sommet{background:transparent;border:0}
+.pc-sommet span{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid #053B23;color:#053B23;font:600 12px 'IBM Plex Mono',monospace;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.pc-sommet.pc-sel span{background:#8DC556;border-color:#fff;width:30px;height:30px}
+.pc-sommet.pc-milieu span{width:22px;height:22px;margin:4px;background:rgba(255,255,255,.85);border:1px dashed #053B23;font-size:14px}
+.pc-gps{display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;min-height:120px;background:#fff;border:1px dashed #8DC556;border-radius:12px;font-size:16px}
+.pc-envoi,.pc-version,.pc-ano{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-top:1px solid #F0EFEF;font-size:14px}
+.pc-envoi small,.pc-version small,.pc-ano small{color:#5E5C5C;font-size:12px}
+.pc-ano-form{display:flex;flex-wrap:wrap;gap:6px}.pc-ano-form select,.pc-ano-form input{min-height:40px;border:1px solid #D2D0D0;border-radius:8px;padding:4px 8px;font:inherit;flex:1 1 160px}
+.pc-form{padding:14px;display:flex;flex-direction:column;gap:10px}
+.pc-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pc-kpi .kpi span{display:block;font-size:12px;color:#5E5C5C}.pc-kpi .kpi b{display:block;font-family:'IBM Plex Mono',monospace;font-size:20px;color:#053B23;margin:4px 0}.pc-kpi .kpi small{font-size:12px;color:#5E5C5C}
+@media(max-width:1023px){.pc-tuiles{grid-template-columns:repeat(3,minmax(0,1fr))}.pc-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){.pc-grille,.pc-editeur{grid-template-columns:1fr}.pc-editeur{grid-template-areas:'carte' 'barre' 'outils' 'panneau'}
+/* Téléphone : carte + barre tiennent ensemble à l'écran (constaté sur itel S688LN : le contour passait sous l'en-tête). */
+.pc-carte-ed{height:max(260px,calc(100svh - 380px));min-height:260px}
+.pc-barre{position:sticky;bottom:0;z-index:500;box-shadow:0 -4px 14px rgba(0,0,0,.12);padding:6px 8px;gap:6px}
+.pc-mesure-barre{gap:12px}.pc-mesure-barre b{font-size:18px}.pc-cmd-grille .btn{min-height:44px;font-size:13px;padding:6px 8px}}
+@media(max-width:480px){.pc-tuiles{grid-template-columns:repeat(2,minmax(0,1fr))}.pc-superficies,.pc-choix{grid-template-columns:1fr}.pc-ligne{flex-direction:column;align-items:flex-start}.pc-ligne-d{align-items:flex-start;text-align:left}.pc-kpi{grid-template-columns:1fr}}
+
+/* Éditeur satellite (20/11/2026) */
+.pc-ed-tete{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 10px;margin-bottom:8px;background:#053B23;color:#fff;border-radius:12px}
+.pc-ed-tete>div:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.pc-ed-tete span{font-size:12px;opacity:.92;overflow-wrap:anywhere}
+.pc-ed-droite{display:flex;gap:6px;align-items:center;flex-shrink:0}.pc-ed-tete .btn{background:#fff;color:#053B23}
+.pc-viseur{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none;z-index:450}
+.pc-viseur:before,.pc-viseur:after{content:'';position:absolute;background:#FACC15;box-shadow:0 0 0 1px rgba(0,0,0,.65)}
+.pc-viseur:before{left:21px;top:0;width:2px;height:44px}.pc-viseur:after{top:21px;left:0;height:2px;width:44px}
+.pc-barre{background:#fff;border:1px solid #E8E7E7;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.pc-mesure-barre{display:flex;gap:16px;flex-wrap:wrap}.pc-mesure-barre div{display:flex;flex-direction:column}.pc-mesure-barre span{font-size:11px;color:#5B6B60;text-transform:none}
+.pc-mesure-barre b{font:700 22px 'IBM Plex Mono',monospace;color:#053B23}
+.pc-cmd{display:flex;flex-wrap:wrap;gap:6px}.pc-cmd-grille{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.pc-cmd-grille .btn{width:100%;margin:0;white-space:normal;line-height:1.15}.pc-cmd-large{grid-column:1/-1}.pc-cmd .btn{min-height:44px}.pc-cmd-sec .btn{min-height:40px;font-size:13px}
+.pc-cmd-principal{background:#053B23;color:#fff;font-weight:700}.pc-actif{outline:2px solid #8DC556}
+.btn.danger{background:#B91C1C;color:#fff}
+.pc-coord{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end}
+.pc-puce.pc-off{opacity:.5}.pc-niveaux small{display:block;margin-top:4px}
+.pc-identite{background:#FFF8E1;border:1px solid #F5C451;border-radius:8px;padding:8px}
+.pc-requis{outline:2px solid #B91C1C;border-radius:6px}
+.leaflet-tooltip.pc-ici{background:#1E6FD9;color:#fff;border:0;font-weight:700}
+.pc-coord[hidden]{display:none}
+.pc-carte{position:relative;z-index:0;isolation:isolate}
+/* La barre collante exige qu'aucun ancêtre ne soit conteneur de défilement : .ops-main{overflow-x:hidden} (operations-v2.css)
+   en faisait un, et la barre ne collait pas (constaté sur itel S688LN). « clip » rogne sans créer de conteneur. */
+.ops-main:has(.pc-editeur){overflow-x:clip}
+/* Téléphone à l'horizontale : trop peu de hauteur pour coller la barre sans masquer la carte. */
+@media(max-width:1023px) and (max-height:500px){.pc-barre{position:static;box-shadow:none}.pc-carte-ed{height:78svh;min-height:220px}}
+
+/* ---- Audit itel 20/11/2026 ------------------------------------------------ */
+/* P1-1 : sous 640 px, chaque parcelle devient une carte ; Modifier et la carte
+   Esri restent visibles sans défilement horizontal. */
+@media (max-width: 640px) {
+  .fb-plots-wrap { overflow-x: visible; }
+  .fb-plots-table, .fb-plots-table tbody, .fb-plots-table tr, .fb-plots-table td { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+  .fb-plots-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .fb-plots-table tr { border: 1px solid var(--line, #DDE3DE); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; background: #fff; }
+  .fb-plots-table td { border: 0; padding: 4px 0; display: flex; gap: 10px; justify-content: space-between; align-items: baseline; text-align: right; word-break: normal; overflow-wrap: anywhere; }
+  .fb-plots-table td[data-l]::before { content: attr(data-l); flex: 0 0 42%; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted, #5F6F64); text-transform: uppercase; letter-spacing: .04em; }
+  .fb-plots-table td.fb-plot-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 10px; }
+  .fb-plots-table td.fb-plot-actions .btn { width: 100%; min-height: 44px; justify-content: center; }
+}
+/* P0 : provenance des parcelles (état local daté, inconnu hors ligne). */
+.fb-plots-source { margin: 10px 0; }
+[data-plot-add="blocked"] { opacity: .55; cursor: not-allowed; }
+
+/* P1-2 : la pastille de version de l'APK (bridge natif, .anx-btn) ne doit jamais
+   recouvrir un formulaire. Elle est masquée tant qu'un formulaire est ouvert ;
+   la barre d'actions reste collée en bas, au-dessus des zones système. */
+/* Le pont natif (android/native-web/bridge.js) accroche la pastille à <html>,
+   PAS à <body> : le sélecteur part donc de :root. Vérifié sur l'itel le 21/11. */
+:root:has(#frSubDialog) .anx-btn,
+:root:has(.pc-editeur) .anx-btn,
+:root:has(.fb-modal-open) .anx-btn { display: none !important; }
+#frSubDialog .fr-op-box { max-height: 100dvh; }
+@media (max-width: 620px) { #frSubDialog .fr-op-box { height: 100dvh; max-height: 100dvh; } }
+#frSubDialog .fr-op-actions { position: sticky; bottom: 0; z-index: 3; background: #F4F4F3;
+  padding-bottom: calc(13px + env(safe-area-inset-bottom, 0px)); }
+#frSubDialog .fr-op-actions .btn, #frSubDialog .fr-op-actions button { min-height: 44px; }
+/* Hors formulaire, la pastille reste disponible mais une marge basse évite
+   qu'elle recouvre le dernier élément de la page. */
+:root:has(.anx-btn) .ops-main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }

@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795232444,
- "web_version": "2026.11.21-0340.0c7e9cb",
- "git_commit": "0c7e9cb1216bd1ed7234a88c671a6bc32677682c",
- "bundle_label": "0c7e9cb",
- "published_at": "2026-11-21T03:41:10.459Z",
- "created_at": "2026-11-21T03:41:10.459Z",
+ "sequence": 1795234140,
+ "web_version": "2026.11.21-0409.ae04680",
+ "git_commit": "ae04680b5de9f33ef049f489d4162932a4ad54ee",
+ "bundle_label": "ae04680",
+ "published_at": "2026-11-21T04:09:22.157Z",
+ "created_at": "2026-11-21T04:09:22.157Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Parcelles conservees hors ligne (etat local date, par compte), creation bloquee si liste inconnue, cartes mobiles, bouton Enregistrer degage, KPI hors ligne, liste producteurs complete, libelles terrain",
+ "release_notes": "Pastille de version masquee pendant les formulaires : bouton Enregistrer accessible",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "77438fddf914a7761862c81b9953e41f8a52a160c8fb0791bf15ab033657725d",
-   "size": 4567
+   "sha256": "038f7a4b2007a4f83abc04f6b81821ef99e7739df1d2e5a71e2e7fa174631158",
+   "size": 4562
   },
   "operations/field-buying.js": {
    "sha256": "7edea12ded999c540c216d578f83988944c4d6513711786ca95dfbcccb0f3605",
@@ -422,8 +422,8 @@
    "size": 12611
   },
   "operations/parcelles.css": {
-   "sha256": "e64651359e3c5c8d68a018621d62126efef26cba49de64aa35d850bcdca5a6e8",
-   "size": 13737
+   "sha256": "75473793ebbf9eb5cd5437892e208a96ea5d44e42ad60cb30d32a3df52aff7ff",
+   "size": 13908
   },
   "operations/parcelles.js": {
    "sha256": "6f11731984d8ff047ba3506f6908c3f5f32d4807f45e86f697dd182380d76e75",
