@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795207193,
- "web_version": "2026.11.20-2039.c055911",
- "git_commit": "c0559112c3c06a380d615f8823c9c5ad9d831e81",
- "bundle_label": "c055911",
- "published_at": "2026-11-20T21:22:57.593Z",
- "created_at": "2026-11-20T21:22:57.593Z",
+ "sequence": 1795232444,
+ "web_version": "2026.11.21-0340.0c7e9cb",
+ "git_commit": "0c7e9cb1216bd1ed7234a88c671a6bc32677682c",
+ "bundle_label": "0c7e9cb",
+ "published_at": "2026-11-21T03:41:10.459Z",
+ "created_at": "2026-11-21T03:41:10.459Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Rainforest Alliance Lots 1 a 3 : carte de plantation depuis Parcelles, revue terrain des references GPS par Chef de Zone, Farm ID / Farm Unit ID, PDF vectoriel, KML, GeoJSON et archive privee",
+ "release_notes": "Parcelles conservees hors ligne (etat local date, par compte), creation bloquee si liste inconnue, cartes mobiles, bouton Enregistrer degage, KPI hors ligne, liste producteurs complete, libelles terrain",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "8524c5db2a24127270d6e186d8630f56d4dbb7db53b7e61f6074969cbf2ef22f",
-   "size": 4553
+   "sha256": "77438fddf914a7761862c81b9953e41f8a52a160c8fb0791bf15ab033657725d",
+   "size": 4567
   },
   "operations/field-buying.js": {
-   "sha256": "46290acdcb5d470cd206764a4cca0f529d118285704a572ced6831c66d61841a",
-   "size": 353303
+   "sha256": "7edea12ded999c540c216d578f83988944c4d6513711786ca95dfbcccb0f3605",
+   "size": 364889
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -414,16 +414,16 @@
    "size": 113711
   },
   "operations/operations-v2.css": {
-   "sha256": "4083bf86b17b5942a0695f25664e3e5f79d947fb683ff85a2dacb222ad7d4bf9",
-   "size": 24616
+   "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
+   "size": 24830
   },
   "operations/operations.css": {
    "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
    "size": 12611
   },
   "operations/parcelles.css": {
-   "sha256": "5bbecfee60957e6e5057b10bf46db193f02b01a00c08ef56196fcfd1a0d98dd7",
-   "size": 11227
+   "sha256": "e64651359e3c5c8d68a018621d62126efef26cba49de64aa35d850bcdca5a6e8",
+   "size": 13737
   },
   "operations/parcelles.js": {
    "sha256": "6f11731984d8ff047ba3506f6908c3f5f32d4807f45e86f697dd182380d76e75",
