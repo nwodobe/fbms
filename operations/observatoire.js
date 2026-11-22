@@ -70,14 +70,29 @@ function dialogue(titre, corps, boutons) {
     h.innerHTML = '<div class="obs-dialogue" role="dialog" aria-modal="true"><h3>' + esc(titre) + '</h3><div class="obs-dialogue-corps">' + corps + '</div><div class="obs-dialogue-actions">' +
       boutons.map(function (b, i) { return '<button type="button" class="btn ' + (b[2] || 'secondary') + '" data-i="' + i + '">' + esc(b[0]) + '</button>'; }).join('') + '</div></div>';
     document.body.appendChild(h);
+    h.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('.obs-code-ligne [data-choix=code]')) { noterChangementCode(e.target); verifierCodesDialogue(h); } });
     h.addEventListener('click', function (e) {
+      var ech = e.target.closest('[data-act=echanger-code]'); if (ech) { echangerCode(h, ech.getAttribute('data-de'), ech.getAttribute('data-avec')); verifierCodesDialogue(h); return; }
       var b = e.target.closest('button[data-i]'); if (!b) return;
       var v = boutons[+b.getAttribute('data-i')][1], champ = h.querySelector('[data-champ]');
       if (v && champ && !String(champ.value).trim()) { champ.classList.add('obs-erreur'); champ.focus(); return; }
+      if (v && etat.dialogueValider) { var refus = etat.dialogueValider(h), zoneErr = h.querySelector('[data-dialogue-erreur]'); if (refus) { if (zoneErr) zoneErr.textContent = refus; return; } }
+      etat.dialogueValider = null;
       var ef = h.querySelector('[data-effet]'); etat.dialogueEffet = ef ? ef.value : null;
       document.body.removeChild(h); ok(v ? (champ ? String(champ.value).trim() : true) : null);
     });
   });
+}
+function verifierCodesDialogue(h) {
+  var lignes = [].slice.call(h.querySelectorAll('.obs-code-ligne')), par = {};
+  lignes.forEach(function (l) { var v = l.querySelector('select').value; (par[v] = par[v] || []).push(l); });
+  lignes.forEach(function (l) {
+    var v = l.querySelector('select').value, autre = (par[v] || []).filter(function (x) { return x !== l; })[0], ancien = l.getAttribute('data-ancien');
+    l.querySelector('[data-choix-erreur]').textContent = autre ? 'Le code ' + v + ' est déjà attribué à « ' + autre.getAttribute('data-libelle') + ' ».' : '';
+    l.querySelector('[data-choix-echange]').innerHTML = autre && ancien != null ? '<button type="button" class="btn secondary" data-act="echanger-code" data-de="' + l.getAttribute('data-rang') + '" data-avec="' + autre.getAttribute('data-rang') + '">Échanger : l’autre arbre prend ' + esc(ancien || 'aucun code') + '</button>' : '';
+    l.classList.toggle('obs-choix-invalide', !!autre);
+  });
+  var z = h.querySelector('[data-dialogue-erreur]'); if (z) z.textContent = '';
 }
 function confirmer(titre, texte, libelle) { return dialogue(titre, '<p>' + texte + '</p>', [['Annuler', false], [libelle || 'Confirmer', true, 'primary']]); }
 function demanderMotif(titre, texte) { return dialogue(titre, '<p>' + texte + '</p><textarea data-champ rows="3" class="obs-zone" placeholder="Motif (obligatoire)"></textarea>', [['Annuler', false], ['Enregistrer', true, 'primary']]); }
@@ -395,32 +410,65 @@ function vueChamp(id) {
       return '<tr class="' + (b.tire ? 'obs-tire' : '') + '"><td data-l="Bloc"><b>B' + nb(b.numero) + '</b></td><td data-l="Repère">' + esc(b.repere) + '</td><td data-l="' + (desig ? 'Suivi' : 'Tirage') + '">' +
         (b.tire ? badge(desig ? 'Bloc suivi' : 'Tiré (rang ' + b.rang_tirage + ') · ' + b.nb_titulaires_prevus + ' titulaires' + (b.nb_reserves_prevues ? ' + ' + b.nb_reserves_prevues + ' réserve' : ''), 'ok') : badge(desig ? 'Non suivi' : 'Non tiré')) + '</td><td data-l="Arbres comptés">' + inv + '</td></tr>';
     }).join('') + '</tbody></table></div>';
-    var arbres = (p.arbres || []).slice().sort(function (a, b) { return (a.role === b.role ? 0 : a.role === 'TITULAIRE' ? -1 : 1) || a.rang - b.rang; });
+    var arbres = (p.arbres || []).slice().sort(function (a, b) {
+      if (a.code_suivi && b.code_suivi) return a.code_suivi < b.code_suivi ? -1 : 1;
+      return (a.role === b.role ? 0 : a.role === 'TITULAIRE' ? -1 : 1) || a.rang - b.rang;
+    });
+    var codesSuivi = !!(etat.protocole && etat.protocole.codes_suivi) && desig, sansCode = codesSuivi && arbres.length && arbres.every(function (a) { return !a.code_suivi; });
+    var peutCoder = codesSuivi && arbres.length && !p.local && (classe() === 'UH' || classe() === 'BM');
     /* S09 · Boutons séparés : marquer le GPS (geste courant) et remplacer un arbre (acte rare, motivé)
        ne sont plus côte à côte. Alerte si deux arbres ont exactement la même position. */
     var memesGps = {}; arbres.forEach(function (a) { if (a.latitude != null) { var k = a.latitude + ',' + a.longitude; memesGps[k] = (memesGps[k] || 0) + 1; } });
     var peutRemplacer = !p.local && (peutPiloter() || (desig && classe() === 'UH'));
-    var liste = arbres.length ? '<div class="table-wrap"><table class="obs-table"><thead><tr><th>N°</th><th>Code terrain</th><th>Rôle</th><th>Repère GPS</th>' + (peutRemplacer ? '<th>Remplacement</th>' : '') + '</tr></thead><tbody>' + arbres.map(function (a) {
+    var liste = arbres.length ? '<div class="table-wrap"><table class="obs-table"><thead><tr>' + (codesSuivi ? '<th>Code de suivi</th>' : '') + '<th>Rôle</th><th>Arbre physique</th><th>Statut</th><th>Repère GPS</th>' + (peutRemplacer ? '<th>Remplacement</th>' : '') + '</tr></thead><tbody>' + arbres.map(function (a) {
       var st = { ACTIF: ['Arbre suivi', 'ok'], RESERVE_EN_ATTENTE: ['Réserve (non observée)', ''], RESERVE_ACTIVEE: ['Réserve devenue suivie', 'info'], REMPLACE: ['Remplacé' + (a.date_effet ? ' le ' + dateFr(a.date_effet) : ''), 'warn'] }[a.statut] || [a.statut, ''];
       var dbl = a.latitude != null && memesGps[a.latitude + ',' + a.longitude] > 1;
-      return '<tr><td data-l="N°"><b>' + (a.role === 'TITULAIRE' ? nb(a.rang) : 'R' + a.rang) + '</b></td><td data-l="Code"><b>' + esc(a.code) + '</b></td><td data-l="Rôle">' + badge(st[0], st[1]) + '</td><td data-l="Repère GPS">' +
+      return '<tr>' + (codesSuivi ? '<td data-l="Code de suivi"><b class="obs-code-suivi">' + esc(a.code_suivi || '—') + '</b></td>' : '') +
+        '<td data-l="Rôle"><b>' + (a.role === 'TITULAIRE' ? 'Suivi ' + nb(a.rang) : 'Réserve R' + a.rang) + '</b></td><td data-l="Arbre physique">' + esc(a.code) + '</td><td data-l="Statut">' + badge(st[0], st[1]) + '</td><td data-l="Repère GPS">' +
         (a.latitude != null ? (dbl ? badge('Même position qu’un autre arbre : à refaire près de cet arbre', 'warn') + ' ' : 'Position enregistrée ') : '') +
         (peutCollecter() && a.statut !== 'REMPLACE' && (a.latitude == null || dbl) ? '<button type="button" class="btn secondary" data-act="marquer" data-arbre="' + esc(a.id) + '" data-panel="' + esc(p.id) + '">Enregistrer la position près de cet arbre</button>' : (a.latitude == null ? '—' : '')) + '</td>' +
-        (peutRemplacer ? '<td data-l="Remplacement">' + ((a.statut === 'ACTIF' || a.statut === 'RESERVE_ACTIVEE') ? '<button type="button" class="btn danger-outline obs-loin" data-act="reserve" data-arbre="' + esc(a.id) + '" data-code="' + esc(a.code) + '">Remplacer…</button>' : '') + '</td>' : '') + '</tr>';
-    }).join('') + '</tbody></table></div><p class="obs-info">Marquez chaque arbre de façon durable (peinture, étiquette) avec son code terrain, exactement comme sur la fiche papier (ex. B03/A010).</p>' : '';
-    /* D2 · Choix libre des arbres par le Chef d'Unité, quand tous les blocs suivis sont comptés. */
+        (peutRemplacer ? '<td data-l="Remplacement">' + ((a.statut === 'ACTIF' || a.statut === 'RESERVE_ACTIVEE') ? '<button type="button" class="btn danger-outline obs-loin" data-act="reserve" data-arbre="' + esc(a.id) + '" data-code="' + esc(C.libelleArbre(a)) + '">Remplacer…</button>' : '') + '</td>' : '') + '</tr>';
+    }).join('') + '</tbody></table></div>' +
+      (sansCode ? note('Ce champ a été installé avant les codes de suivi : <b>les codes A001 à A012 ne sont pas encore attribués.</b>' + (peutCoder ? '' : ' Le Chef d’Unité doit les attribuer (réseau nécessaire).'), 'warn') : '') +
+      (peutCoder ? '<div class="obs-actions"><button type="button" class="btn secondary" data-act="codes-modifier" data-panel="' + esc(p.id) + '">' + (sansCode ? 'Attribuer les codes A001 à A012' : 'Modifier les codes de suivi…') + '</button></div>' : '') +
+      '<p class="obs-info">' + (codesSuivi ? 'Marquez chaque arbre de façon durable avec son <b>code de suivi</b> (ex. A004) et gardez le repère physique du bloc (ex. B02/A001), exactement comme sur la fiche papier.' : 'Marquez chaque arbre de façon durable (peinture, étiquette) avec son code terrain, exactement comme sur la fiche papier (ex. B03/A010).') + '</p>' : '';
+    /* D2 · Choix libre des arbres par le Chef d'Unité, quand tous les blocs suivis sont comptés.
+       Mandat du 22/11/2026 : chaque ligne porte aussi un CODE DE SUIVI A001..A012, libre,
+       indépendant du bloc, unique dans le champ (contrôlé ici puis par le serveur). */
     var choixArbres = '';
     if (desig && statut === 'TIRAGE_VERROUILLE' && invFaits && !arbres.length) {
       var proto = etat.protocole || { titulaires: 10, reserves: 2 }, T = proto.titulaires || 10, R = proto.reserves == null ? 2 : proto.reserves;
+      var avecCodes = !!proto.codes_suivi && T + R <= 12;
       if (classe() === 'UH' || classe() === 'BM') {
-        var opts = tires.map(function (b) { return '<option value="' + esc(b.id) + '">B' + nb(b.numero) + ' (' + b.nb_arbres_inventories + ' arbres)</option>'; }).join('');
-        var ligne = function (k, role) { var lab = role === 'TITULAIRE' ? 'Arbre suivi ' + nb(k) : 'Réserve R' + k;
-          return '<div class="obs-choix-arbre" data-role="' + role + '"><span class="obs-choix-nom">' + lab + '</span><select aria-label="' + lab + ' : bloc" data-choix="bloc">' + opts + '</select><input type="number" inputmode="numeric" min="1" aria-label="' + lab + ' : numéro de l’arbre dans le bloc" placeholder="N° dans le bloc" data-choix="num"></div>'; };
-        var lignes = ''; for (var k = 1; k <= T; k++) lignes += ligne(k, 'TITULAIRE'); for (k = 1; k <= R; k++) lignes += ligne(k, 'RESERVE');
-        choixArbres = '<section class="card obs-form" id="obsChoixArbres"><div class="card-head"><h2>Choisir les ' + T + ' arbres suivis et les ' + R + ' réserves</h2></div>' +
-          note('Pour chaque arbre : choisissez son bloc, puis écrivez son numéro (l’ordre dans lequel vous avez compté les arbres du bloc). Un même arbre ne peut pas être choisi deux fois. <b>Suivi d’arbres désignés : ce n’est pas un échantillon statistiquement représentatif.</b>', 'info') +
-          lignes + '<div id="obsChoixErr" aria-live="polite"></div><div class="obs-actions"><button type="button" class="btn primary" data-act="designer" data-panel="' + esc(p.id) + '">Enregistrer le choix des arbres</button></div></section>';
-      } else choixArbres = note('Tous les blocs suivis sont comptés. <b>Le Chef d’Unité doit maintenant choisir les ' + T + ' arbres suivis et les ' + R + ' réserves</b> sur ce champ.', 'warn');
+        var choixPossible = C.proposerChoixArbres(p, T, R), totalDisponible = choixPossible.capacite;
+        var opts = '<option value="">Choisir le bloc…</option>' + tires.map(function (b) {
+          return '<option data-nb="' + b.nb_arbres_inventories + '" value="' + esc(b.id) + '">B' + nb(b.numero) + ' (' + b.nb_arbres_inventories + ' arbres)</option>';
+        }).join('');
+        var optsCodes = '<option value="">—</option>' + C.codesParDefaut(T, R).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+        var ligne = function (k, role) {
+          var rang = role === 'TITULAIRE' ? k : T + k;
+          var lab = role === 'TITULAIRE' ? 'Arbre suivi ' + nb(k) : 'Réserve R' + k;
+          return '<div class="obs-choix-arbre" data-role="' + role + '" data-rang="' + rang + '" data-libelle="' + esc(lab) + '"><span class="obs-choix-nom">' + lab + '</span>' +
+            '<label class="obs-choix-champ"><span>Bloc</span><select aria-label="' + lab + ' : bloc" data-choix="bloc">' + opts + '</select></label>' +
+            '<label class="obs-choix-champ"><span>Arbre physique (n° dans le bloc)</span><input type="number" inputmode="numeric" min="1" aria-label="' + lab + ' : numéro de l’arbre dans le bloc" placeholder="Ex. 1, 2, 3" data-choix="num"></label>' +
+            (avecCodes ? '<label class="obs-choix-champ obs-choix-code"><span>Code de suivi</span><select aria-label="' + lab + ' : code de suivi" data-choix="code" data-courant="">' + optsCodes + '</select></label>' : '') +
+            '<small class="obs-choix-erreur" data-choix-erreur aria-live="polite"></small><div class="obs-choix-echange" data-choix-echange></div></div>';
+        };
+        var lignes = ''; for (var k = 1; k <= T; k++) lignes += ligne(k, 'TITULAIRE');
+        for (var k = 1; k <= R; k++) lignes += ligne(k, 'RESERVE');
+        choixArbres = '<section class="card obs-form" id="obsChoixArbres" data-panel="' + esc(p.id) + '" data-codes="' + (avecCodes ? 1 : 0) + '"><div class="card-head"><h2>Désigner les ' + T + ' arbres suivis et les ' + R + ' réserves</h2></div>' +
+          note(avecCodes
+            ? '<b>Trois informations par ligne :</b> le bloc, le numéro physique de l’arbre dans ce bloc (il recommence à 1 dans chaque bloc : B01/A001 et B02/A001 sont deux arbres différents) et le <b>code de suivi A001 à A' + ('00' + (T + R)).slice(-3) + '</b> que vous choisissez librement. Chaque code s’utilise une seule fois dans ce champ ; il sera peint sur l’arbre et repris à chaque visite.'
+            : '<b>Rangs 01 à ' + nb(T + R) + ' :</b> chaque ligne correspond à un arbre distinct, mais le numéro physique recommence à 1 dans chaque bloc. Exemple : B01/A001 et B02/A001 sont deux arbres différents.', 'info') +
+          (choixPossible.erreurs.length ? note('<b>Inventaire à vérifier :</b> ' + esc(choixPossible.erreurs.join(' ')), 'warn') :
+            note('<b>Capacité :</b> ' + totalDisponible + ' arbres dans les blocs suivis pour ' + (T + R) + ' choix distincts. Vérifiez physiquement chaque arbre avant l’enregistrement.', 'info')) +
+          (proto.codes_suivi ? '' : note('Les codes de suivi A001 à A012 seront disponibles après la mise à jour du serveur FBMS. En attendant, le choix des arbres fonctionne comme avant.', 'warn')) +
+          '<div class="obs-actions"><button type="button" class="btn secondary" data-act="auto-designer" data-panel="' + esc(p.id) + '">Proposer les ' + (T + R) + ' arbres physiques sans doublon</button>' +
+          (avecCodes ? '<button type="button" class="btn secondary" data-act="auto-codes">Attribuer automatiquement A001 à A' + ('00' + (T + R)).slice(-3) + '</button>' : '') + '</div>' +
+          '<p class="obs-info">Les propositions remplissent seulement ce formulaire : vous pouvez ensuite changer chaque bloc, chaque numéro et chaque code. Aucun arbre inventorié n’est ajouté ni modifié. Votre saisie est gardée sur ce téléphone si l’application se ferme.</p>' +
+          lignes + '<div id="obsChoixCompteur" class="obs-compteur" aria-live="polite">0/' + (T + R) + ' arbres identifiés, 0 doublon.</div>' +
+          '<div id="obsChoixErr" aria-live="polite"></div><div class="obs-actions"><button type="button" class="btn primary" id="obsChoixEnregistrer" data-act="designer" data-panel="' + esc(p.id) + '" disabled>Enregistrer les ' + (T + R) + ' arbres</button></div></section>';
+      } else choixArbres = note('Tous les blocs suivis sont comptés. <b>Le Chef d’Unité doit maintenant désigner les ' + T + ' arbres suivis et les ' + R + ' réserves</b> sur ce champ.', 'warn');
     }
     var vis = r[2].sort(function (a, b) { return a.date_observation < b.date_observation ? 1 : -1; });
     var qui = classe() === 'UH' ? 'votre Chef de Zone' : classe() === 'BM' ? 'l’équipe du cluster' : 'votre Chef d’Unité';
@@ -435,6 +483,7 @@ function vueChamp(id) {
       '<section class="card"><div class="card-head"><h2>Visites</h2></div>' + (vis.length ? '<div class="table-wrap"><table class="obs-table"><thead><tr><th>Semaine</th><th>Observée le</th><th>Statut</th><th>Envoi</th><th></th></tr></thead><tbody>' + vis.map(function (v) {
         return '<tr><td data-l="Semaine">' + esc(C.semaineIso(v.date_observation)) + '</td><td data-l="Observée le">' + dateFr(v.date_observation) + '</td><td data-l="Statut">' + badge(C.LIBELLES.statut_visite[v.statut_serveur || 'LOCAL'], tonStatut(v.statut_serveur)) + '</td><td data-l="Envoi">' + (v.etat_envoi === 'RECU' ? 'Reçue par le serveur le ' + esc(heureFr(v.recu_serveur_le)) : v.etat_envoi ? esc(C.LIBELLES.statut_envoi[v.etat_envoi] || v.etat_envoi) : 'Sur ce téléphone uniquement') + '</td><td><a class="btn secondary" href="#observatoire/visite/' + p.id + '/' + v.id + '">Ouvrir</a></td></tr>';
       }).join('') + '</tbody></table></div>' : '<div class="ops-empty">Aucune visite sur cet appareil.</div>') + '</section>');
+    if (document.getElementById('obsChoixArbres')) restaurerChoix(p.id);
     barreEnvoi();
   });
 }
@@ -466,27 +515,177 @@ function marquerArbre(panelId, arbreId) {
   position().then(function (g) {
     if (!g) { etat.message = ['warn', 'Position GPS indisponible. Activez la localisation puis réessayez près de l’arbre.']; rendre(); return; }
     return L.panel(panelId).then(function (p) {
-      var code = ''; (p.arbres || []).forEach(function (a) { if (a.id === arbreId) { a.latitude = g.latitude; a.longitude = g.longitude; code = a.code; } });
+      var code = ''; (p.arbres || []).forEach(function (a) { if (a.id === arbreId) { a.latitude = g.latitude; a.longitude = g.longitude; code = C.libelleArbre(a); } });
       return L.enregistrerPanel(p).then(function () { return L.mettreEnFile('ARBRE_MARQUER', { arbre_id: arbreId, latitude: g.latitude, longitude: g.longitude, precision_m: g.precision_m }, { entite: 'ARBRE', entite_id: arbreId, libelle: 'Marquage GPS de l’arbre ' + code }); });
     }).then(function () { etat.message = ['ok', 'Position enregistrée sur ce téléphone (précision ' + g.precision_m + ' m).']; synchroniser(false); rendre(); });
   }).catch(echec);
+}
+/* Formulaire des 12 arbres : rôle (suivi 01..10, réserves R1/R2), arbre physique (bloc +
+   numéro propre au bloc, jamais remplacé) et code de suivi A001..A012 choisi librement.
+   Les mêmes contrôles sont refaits par le serveur avant acceptation définitive. */
+function lignesChoix(zone) { return [].slice.call(zone.querySelectorAll('.obs-choix-arbre')); }
+function lireChoixArbres(zone) {
+  return lignesChoix(zone).map(function (l) {
+    var c = l.querySelector('[data-choix=code]');
+    return { role: l.getAttribute('data-role'), bloc_id: l.querySelector('[data-choix=bloc]').value, numero: l.querySelector('[data-choix=num]').value, code_suivi: c ? c.value : undefined };
+  });
+}
+function verifierChoixArbres() {
+  var zone = document.getElementById('obsChoixArbres'); if (!zone) return null;
+  var lignes = lignesChoix(zone), deja = {}, parCode = {}, identifies = 0, doublons = 0, erreurs = 0, avecCodes = zone.getAttribute('data-codes') === '1';
+  lignes.forEach(function (l) { var c = l.querySelector('[data-choix=code]'); if (c && c.value) (parCode[c.value] = parCode[c.value] || []).push(l); });
+  Object.keys(parCode).forEach(function (k) { if (parCode[k].length > 1) doublons += parCode[k].length - 1; });
+  lignes.forEach(function (ligne) {
+    var bloc = ligne.querySelector('[data-choix=bloc]'), numero = ligne.querySelector('[data-choix=num]'), code = ligne.querySelector('[data-choix=code]');
+    var msg = ligne.querySelector('[data-choix-erreur]'), echange = ligne.querySelector('[data-choix-echange]'), valeur = String(numero.value || '').trim(), cle = bloc.value + ':' + valeur;
+    var option = bloc.selectedOptions && bloc.selectedOptions[0], maximum = option && option.getAttribute('data-nb');
+    var probleme = '', nombre = +valeur, physiqueOk = false, codeOk = !avecCodes, proposition = '';
+    if (bloc.value || valeur) {
+      if (!bloc.value) probleme = 'Choisissez le bloc de cet arbre.';
+      else if (!valeur || !Number.isInteger(nombre) || nombre < 1) probleme = 'Indiquez un numéro entier supérieur à 0.';
+      else if (maximum != null && maximum !== '' && nombre > +maximum) probleme = 'Ce bloc ne contient que ' + maximum + ' arbres. Corrigez le numéro ou le comptage réel.';
+      else if (deja[cle]) { probleme = 'Cet arbre physique est déjà désigné sur la ligne « ' + deja[cle] + ' ».'; doublons++; }
+      else { deja[cle] = ligne.getAttribute('data-libelle'); physiqueOk = true; }
+    }
+    if (avecCodes && code.value) {
+      var autres = parCode[code.value].filter(function (x) { return x !== ligne; });
+      if (!C.codeSuiviValide(code.value)) probleme = probleme || 'Code ' + code.value + ' refusé : seuls A001 à A012 sont autorisés.';
+      else if (autres.length) {
+        var autre = autres[0], ancien = ligne.getAttribute('data-ancien');
+        probleme = (probleme ? probleme + ' ' : '') + 'Le code ' + code.value + ' est déjà attribué à « ' + autre.getAttribute('data-libelle') + ' ».';
+        if (ancien != null) proposition = '<button type="button" class="btn secondary" data-act="echanger-code" data-de="' + ligne.getAttribute('data-rang') + '" data-avec="' + autre.getAttribute('data-rang') + '">Échanger : ' + esc(autre.getAttribute('data-libelle')) + ' prend ' + esc(ancien || 'aucun code') + '</button>';
+      } else codeOk = true;
+    }
+    if (physiqueOk && codeOk) identifies++;
+    if (probleme) erreurs++;
+    if (msg) msg.textContent = probleme;
+    if (echange) echange.innerHTML = proposition;
+    ligne.classList.toggle('obs-choix-invalide', !!probleme);
+  });
+  var total = lignes.length, compteur = document.getElementById('obsChoixCompteur'), pret = identifies === total && doublons === 0 && erreurs === 0;
+  if (compteur) { compteur.textContent = identifies + '/' + total + ' arbres identifiés, ' + doublons + ' doublon' + (doublons > 1 ? 's' : '') + '.'; compteur.classList.toggle('obs-compteur-ok', pret); }
+  var bouton = document.getElementById('obsChoixEnregistrer'); if (bouton) bouton.disabled = !pret;
+  return { identifies: identifies, doublons: doublons, erreurs: erreurs, pret: pret };
+}
+/* Brouillon : gardé sur le téléphone à chaque saisie, restauré à la réouverture. */
+function sauverChoix() {
+  var zone = document.getElementById('obsChoixArbres'); if (!zone || !L.enregistrerBrouillonChoix) return;
+  L.enregistrerBrouillonChoix(zone.getAttribute('data-panel'), lireChoixArbres(zone)).catch(function (e) { console.error('[OBSERVATOIRE] brouillon', e); });
+}
+function restaurerChoix(panelId) {
+  var zone = document.getElementById('obsChoixArbres'); if (!zone) return;
+  verifierChoixArbres();
+  if (!L.brouillonChoix) return;
+  L.brouillonChoix(panelId).then(function (b) {
+    zone = document.getElementById('obsChoixArbres');
+    if (!b || !b.lignes || !zone || zone.getAttribute('data-panel') !== panelId || (b.user_id && b.user_id !== L.utilisateur())) return;
+    var lignes = lignesChoix(zone);
+    if (b.lignes.length !== lignes.length) return;
+    lignes.forEach(function (l, i) {
+      var x = b.lignes[i], bloc = l.querySelector('[data-choix=bloc]'), code = l.querySelector('[data-choix=code]');
+      if ([].some.call(bloc.options, function (o) { return o.value === x.bloc_id; })) bloc.value = x.bloc_id || '';
+      l.querySelector('[data-choix=num]').value = x.numero || '';
+      if (code && x.code_suivi && C.codeSuiviValide(x.code_suivi)) { code.value = x.code_suivi; code.setAttribute('data-courant', x.code_suivi); }
+    });
+    var err = document.getElementById('obsChoixErr');
+    if (err && b.lignes.some(function (x) { return x.bloc_id || x.numero || x.code_suivi; })) err.innerHTML = note('Saisie en cours retrouvée sur ce téléphone (' + esc(heureFr(b.le)) + '). Vérifiez puis enregistrez.', 'info');
+    verifierChoixArbres();
+  }).catch(function (e) { console.error('[OBSERVATOIRE] brouillon', e); });
+}
+function proposerChoixArbres(panelId) {
+  var zone = document.getElementById('obsChoixArbres'), err = document.getElementById('obsChoixErr'); if (!zone) return;
+  L.panel(panelId).then(function (p) {
+    var proto = etat.protocole || {}, proposition = C.proposerChoixArbres(p, proto.titulaires, proto.reserves);
+    if (proposition.erreurs.length) {
+      err.innerHTML = note(proposition.erreurs.map(esc).join(' '), 'danger');
+      err.scrollIntoView({ block: 'center' }); return;
+    }
+    var lignes = lignesChoix(zone);
+    if (lignes.length !== proposition.choix.length) throw new Error('Nombre de lignes inattendu : recharger le formulaire avant de recommencer.');
+    lignes.forEach(function (ligne, i) {
+      ligne.querySelector('[data-choix=bloc]').value = proposition.choix[i].bloc_id;
+      ligne.querySelector('[data-choix=num]').value = proposition.choix[i].numero;
+    });
+    err.innerHTML = note(lignes.length + ' arbres physiques proposés sans doublon. Vérifiez que chaque numéro correspond bien à l’arbre compté et marqué sur le terrain.', 'info');
+    verifierChoixArbres(); sauverChoix();
+  }).catch(echec);
+}
+function attribuerCodesAuto() {
+  var zone = document.getElementById('obsChoixArbres'), err = document.getElementById('obsChoixErr'); if (!zone) return;
+  var lignes = lignesChoix(zone), codes = C.codesParDefaut(lignes.length - lignes.filter(function (l) { return l.getAttribute('data-role') === 'RESERVE'; }).length, lignes.filter(function (l) { return l.getAttribute('data-role') === 'RESERVE'; }).length);
+  lignes.forEach(function (l, i) { var c = l.querySelector('[data-choix=code]'); if (c) { c.value = codes[i]; c.setAttribute('data-courant', codes[i]); l.removeAttribute('data-ancien'); } });
+  if (err) err.innerHTML = note(codes[0] + ' à ' + codes[codes.length - 1] + ' attribués dans l’ordre des lignes. Vous pouvez changer chaque code : un code déjà pris vous proposera un échange.', 'info');
+  verifierChoixArbres(); sauverChoix();
+}
+/* Échange proposé quand un code déjà utilisé est choisi : la ligne garde le code choisi,
+   l'autre ligne reçoit l'ancien code de cette ligne. */
+function echangerCode(conteneur, de, avec) {
+  var l1 = conteneur.querySelector('[data-rang="' + de + '"]'), l2 = conteneur.querySelector('[data-rang="' + avec + '"]'); if (!l1 || !l2) return;
+  var c1 = l1.querySelector('[data-choix=code]'), c2 = l2.querySelector('[data-choix=code]'), ancien = l1.getAttribute('data-ancien') || '';
+  c2.value = ancien; c2.setAttribute('data-courant', ancien); c1.setAttribute('data-courant', c1.value);
+  l1.removeAttribute('data-ancien'); l2.removeAttribute('data-ancien');
+}
+/* Mémorise l'ancien code d'une ligne au moment où l'on en choisit un autre. */
+function noterChangementCode(sel) {
+  var l = sel.closest('.obs-choix-arbre'); if (!l) return;
+  l.setAttribute('data-ancien', sel.getAttribute('data-courant') || '');
+  sel.setAttribute('data-courant', sel.value);
 }
 /* D2 · Désignation par le Chef d'Unité : enregistrée sur le téléphone (hors ligne possible),
    puis envoyée ; le serveur refait tous les contrôles et refuse les doublons. */
 function designer(panelId) {
   var zone = document.getElementById('obsChoixArbres'), err = document.getElementById('obsChoixErr'); if (!zone) return;
-  var choix = [].map.call(zone.querySelectorAll('.obs-choix-arbre'), function (l) { return { role: l.getAttribute('data-role'), bloc_id: l.querySelector('[data-choix=bloc]').value, numero: l.querySelector('[data-choix=num]').value }; });
+  var etatForm = verifierChoixArbres();
+  if (etatForm && !etatForm.pret) { err.innerHTML = note('Le formulaire n’est pas complet : ' + etatForm.identifies + ' arbre(s) identifié(s), ' + etatForm.doublons + ' doublon(s).', 'danger'); return; }
+  var choix = lireChoixArbres(zone), avecCodes = zone.getAttribute('data-codes') === '1';
   L.panel(panelId).then(function (p) {
     var proto = etat.protocole || {}, res = C.designerArbres(p, choix, proto.titulaires, proto.reserves);
     if (res.erreurs.length) { err.innerHTML = note(res.erreurs.map(esc).join('<br>'), 'danger'); err.scrollIntoView({ block: 'center' }); return; }
-    var resume = res.arbres.map(function (a) { return (a.role === 'TITULAIRE' ? 'suivi ' : 'réserve ') + a.code; }).join(', ');
-    return confirmer('Enregistrer le choix des arbres ?', 'Vous avez choisi : <b>' + esc(resume) + '</b>. Après confirmation, un arbre ne pourra être changé que par un remplacement motivé et daté.', 'Enregistrer').then(function (oui) {
+    if (!avecCodes) res.arbres.forEach(function (a) { a.code_suivi = null; });
+    var resume = res.arbres.slice().sort(function (x, y) { return x.code_suivi && y.code_suivi ? (x.code_suivi < y.code_suivi ? -1 : 1) : 0; })
+      .map(function (a) { return (a.code_suivi ? a.code_suivi + ' = ' : '') + a.code + ' (' + (a.role === 'TITULAIRE' ? 'suivi ' + ('0' + a.rang).slice(-2) : 'réserve R' + a.rang) + ')'; }).join(', ');
+    return confirmer('Enregistrer les arbres et leurs codes ?', 'Vous avez désigné : <b>' + esc(resume) + '</b>. Après confirmation, un arbre ne pourra être changé que par un remplacement motivé, et un code que par une modification motivée.', 'Enregistrer').then(function (oui) {
       if (!oui) return;
       p.arbres = res.arbres; p.statut_local = 'ACTIF';
       return L.enregistrerPanel(p).then(function () {
-        return L.mettreEnFile('ARBRES_DESIGNER', { panel_id: p.id, arbres: res.arbres.map(function (a) { return { bloc_id: a.bloc_id, numero: a.numero_inventaire, role: a.role }; }) },
+        return L.mettreEnFile('ARBRES_DESIGNER', { panel_id: p.id, arbres: res.arbres.map(function (a) { var x = { bloc_id: a.bloc_id, numero: a.numero_inventaire, role: a.role }; if (avecCodes) x.code_suivi = a.code_suivi; return x; }) },
           { entite: 'PANEL', entite_id: p.id, libelle: 'Choix des arbres : ' + (p.producteur_nom || 'champ') });
-      }).then(function () { etat.message = ['ok', 'Arbres choisis et enregistrés sur ce téléphone. Marquez-les sur le terrain avec leur code.']; synchroniser(false); rendre(); });
+      }).then(function () { return L.effacerBrouillonChoix ? L.effacerBrouillonChoix(p.id) : null; })
+        .then(function () { etat.message = ['ok', 'Arbres et codes enregistrés sur ce téléphone. Marquez chaque arbre avec son code de suivi.']; synchroniser(false); rendre(); });
+    });
+  }).catch(echec);
+}
+/* Attribution (champ ancien) ou modification motivée des codes A001..A012 : réseau
+   nécessaire, version du champ contrôlée par le serveur, journal immuable. */
+function modifierCodes(panelId) {
+  L.panel(panelId).then(function (p) {
+    if (!p || !(p.arbres || []).length) return;
+    var arbres = p.arbres.slice().sort(function (a, b) { return (a.role === b.role ? 0 : a.role === 'TITULAIRE' ? -1 : 1) || a.rang - b.rang; });
+    var defaut = C.codesParDefaut(arbres.filter(function (a) { return a.role === 'TITULAIRE'; }).length, arbres.filter(function (a) { return a.role === 'RESERVE'; }).length);
+    var init = arbres.every(function (a) { return !a.code_suivi; });
+    var optsCodes = function (v) { return defaut.map(function (c) { return '<option value="' + c + '"' + (c === v ? ' selected' : '') + '>' + c + '</option>'; }).join(''); };
+    var lignes = arbres.map(function (a, i) {
+      var v = a.code_suivi || defaut[i], lab = (a.role === 'TITULAIRE' ? 'Suivi ' + ('0' + a.rang).slice(-2) : 'Réserve R' + a.rang) + ' · ' + a.code + (a.statut === 'REMPLACE' ? ' (remplacé)' : '');
+      return '<div class="obs-choix-arbre obs-code-ligne" data-rang="' + (i + 1) + '" data-libelle="' + esc(lab) + '" data-arbre="' + esc(a.id) + '"><span class="obs-choix-nom">' + esc(lab) + '</span>' +
+        '<label class="obs-choix-champ obs-choix-code"><span>Code de suivi</span><select data-choix="code" data-courant="' + v + '">' + optsCodes(v) + '</select></label>' +
+        '<small class="obs-choix-erreur" data-choix-erreur aria-live="polite"></small><div class="obs-choix-echange" data-choix-echange></div></div>';
+    }).join('');
+    etat.dialogueValider = function (h) {
+      var codes = [].map.call(h.querySelectorAll('.obs-code-ligne'), function (l) { return { arbre_id: l.getAttribute('data-arbre'), code_suivi: l.querySelector('select').value }; });
+      var c = C.controlerCodesSuivi(codes.map(function (x) { return x.code_suivi; }), codes.length);
+      if (c.erreurs.length || c.manquants.length) return c.erreurs.concat(c.manquants.length ? ['Codes non attribués : ' + c.manquants.join(', ') + '.'] : []).join(' ');
+      etat.dialogueCodes = codes; return null;
+    };
+    return dialogue(init ? 'Attribuer les codes A001 à A012' : 'Modifier les codes de suivi',
+      '<div class="obs-codes-dialogue">' + note(init ? 'Choisissez le code peint sur chaque arbre. Proposition par défaut : ordre des arbres suivis puis des réserves.' : 'Changez un code : s’il est déjà pris, un échange vous est proposé. Les visites passées gardent leur code d’origine. Réseau nécessaire.', 'info') + lignes +
+      '<textarea data-champ rows="2" class="obs-zone" placeholder="Motif (obligatoire)">' + (init ? 'Attribution initiale des codes A001 à A012' : '') + '</textarea><p class="obs-dialogue-erreur" data-dialogue-erreur aria-live="polite"></p></div>',
+      [['Annuler', false], ['Enregistrer', true, 'primary']]).then(function (motif) {
+      var codes = etat.dialogueCodes; etat.dialogueCodes = null;
+      if (!motif || !codes) return;
+      return rpc('pheno_arbres_codes_modifier', { p: { panel_id: p.id, base_version: p.row_version == null ? null : p.row_version, motif: motif, codes: codes, device_id: L.appareil() } }).then(function (r) {
+        etat.message = ['ok', r && r.inchange ? 'Aucun code n’a changé.' : 'Codes de suivi enregistrés par FBMS. Repeignez les codes modifiés sur les arbres concernés.'];
+        var camp = campagne(); return client().then(function (c) { return L.preparer(c, camp.id); });
+      }).catch(function (e) { etat.message = ['danger', e.message]; }).then(rendre);
     });
   }).catch(echec);
 }
@@ -520,7 +719,8 @@ function chargerVisite(panelId, visiteId) {
     if (!v && visiteId === 'nouvelle') v = r[2].filter(function (x) { return C.semaineIso(x.date_observation) === semaine; })[0] || null;
     if (!v) v = { id: /^[0-9a-f-]{36}$/i.test(visiteId) ? visiteId : C.uuid(), panel_id: p.id, date_observation: C.aujourdhui(), mode_saisie: 'DIRECT', ramassage: null, anomalies: null, observations: [], statut_serveur: null, etat_envoi: null, cree_le: new Date().toISOString() };
     var arbres = C.arbresObserves(p.arbres), par = {}; (v.observations || []).forEach(function (o) { par[o.arbre_id] = o; });
-    v.observations = arbres.map(function (a) { return par[a.id] || C.observationVide(a.id); });
+    /* Code de suivi en vigueur au début de l'observation : une visite garde son code même si le code change ensuite. */
+    v.observations = arbres.map(function (a) { var ob = par[a.id] || C.observationVide(a.id); if (!ob.code_suivi && a.code_suivi) ob.code_suivi = a.code_suivi; return ob; });
     /* S18 · Reprise après interruption : on revient au premier arbre non terminé, pas à l'arbre 1. */
     var k = v.observations.findIndex(function (o) { return !C.observationComplete(o); });
     brouillon = { panel: p, visite: v, arbres: arbres }; etat.idx = k < 0 ? Math.max(0, arbres.length - 1) : k; return brouillon;
@@ -560,7 +760,7 @@ function vueVisite(panelId, visiteId, ecran) {
       var etatPhoto = o.photo_ref ? (etat.photosEtat && etat.photosEtat[o.photo_ref] === 'RECU' ? badge('Photo reçue par FBMS', 'ok') : badge('Photo enregistrée sur ce téléphone, pas encore envoyée', 'warn')) + (o.photo_prise_le ? ' <span class="obs-detail">prise le ' + esc(heureFr(o.photo_prise_le)) + '</span>' : '') : '';
       corps += o.retrouve === true
         ? '<div class="obs-q obs-q-photo"><h3>Photo de cet arbre (obligatoire)</h3>' + (o.photo_exception ? note('Photo impossible : ' + esc(o.photo_exception) + '. Votre responsable verra cette exception.', 'warn') : '') + etatPhoto +
-          '<label class="btn primary obs-photo">' + (o.photo_ref ? 'Reprendre la photo de l’arbre ' + esc(a.code) : 'Prendre la photo de l’arbre ' + esc(a.code)) + '<input type="file" accept="image/*" capture="environment" data-photo hidden></label>' +
+          '<label class="btn primary obs-photo">' + (o.photo_ref ? 'Reprendre la photo de l’arbre ' + esc(a.code_suivi || a.code) : 'Prendre la photo de l’arbre ' + esc(a.code_suivi || a.code)) + '<input type="file" accept="image/*" capture="environment" data-photo hidden></label>' +
           (o.photo_ref ? '' : '<button type="button" class="btn secondary obs-loin" data-act="photo_exception">Impossible de photographier ?</button>') + '</div>'
         : '<div class="obs-q obs-q-photo"><h3>Photo du repère ou de l’emplacement (facultatif)</h3><p class="obs-info">Cette photo montre l’endroit où l’arbre devrait être. Elle ne remplace pas une photo de l’arbre.</p>' + etatPhoto +
           '<label class="btn secondary obs-photo">' + (o.photo_ref ? 'Reprendre la photo de l’emplacement' : 'Photographier l’emplacement') + '<input type="file" accept="image/*" capture="environment" data-photo hidden></label></div>';
@@ -569,7 +769,7 @@ function vueVisite(panelId, visiteId, ecran) {
     peindre('<div class="obs-visite"><div class="obs-visite-tete"><a href="#observatoire" class="obs-retour">← Mes champs</a><div><b>' + esc(n.producteur) + '</b><span>' + esc(n.parcelle) + ' · observée le ' + dateFr(v.date_observation) + '</span></div></div>' +
       (v.statut_serveur === 'CORRECTION_DEMANDEE' ? note('<b>Correction demandée :</b> ' + esc(v.correction_motif || ''), 'warn') : '') +
       '<div class="obs-pastilles">' + b.arbres.map(function (x, k) { var oo = v.observations[k]; return '<button type="button" data-act="aller" data-i="' + k + '" class="' + (k === i ? 'courant ' : '') + (C.observationComplete(oo) ? 'fait' : oo.retrouve != null ? 'partiel' : '') + '" aria-label="Arbre ' + (k + 1) + '">' + ('0' + (k + 1)).slice(-2) + '</button>'; }).join('') + '</div>' +
-      '<div class="obs-arbre"><div class="obs-arbre-tete"><span class="obs-numero">' + ('0' + (i + 1)).slice(-2) + '</span><div><b>Arbre ' + (i + 1) + ' sur ' + b.arbres.length + '</b><span>Code ' + esc(a.code) + ' · bloc ' + esc(bloc.numero || a.bloc_numero || '') + (bloc.repere ? ' (' + esc(bloc.repere) + ')' : '') + '</span></div></div>' + corps + '</div>' +
+      '<div class="obs-arbre"><div class="obs-arbre-tete"><span class="obs-numero">' + ('0' + (i + 1)).slice(-2) + '</span><div><b>Arbre ' + (i + 1) + ' sur ' + b.arbres.length + '</b><span>' + (a.code_suivi ? 'Code de suivi <b class="obs-code-suivi">' + esc(a.code_suivi) + '</b> · arbre physique ' + esc(a.code) : 'Code ' + esc(a.code)) + ' · bloc ' + esc(bloc.numero || a.bloc_numero || '') + (bloc.repere ? ' (' + esc(bloc.repere) + ')' : '') + '</span></div></div>' + corps + '</div>' +
       '<div class="obs-pied"><button type="button" class="btn secondary" data-act="prec"' + (i === 0 ? ' disabled' : '') + '>Précédent</button>' +
       (i < b.arbres.length - 1 ? '<button type="button" class="btn primary" data-act="suiv">Arbre suivant</button>' : '<button type="button" class="btn primary" data-act="resume">Voir le résumé</button>') + '</div>' +
       '<p class="obs-info centre">Chaque réponse est enregistrée sur ce téléphone au fur et à mesure.</p></div>');
@@ -587,7 +787,7 @@ function ecranResume(b, n, lecture) {
   var v = b.visite, erreurs = lecture ? [] : C.controlerVisite(v, b.arbres), val = function (x) { return x == null ? '<span class="obs-manque">—</span>' : esc({ OUI: 'Oui', NON: 'Non', PAS_VU: 'Pas vu' }[x] || x); };
   var lignes = b.arbres.map(function (a, k) { var o = v.observations[k], so = o.retrouve === false;
     val = function (x) { return so ? '<span class="obs-gris">sans objet</span>' : x == null ? '<span class="obs-manque">—</span>' : esc({ OUI: 'Oui', NON: 'Non', PAS_VU: 'Pas vu' }[x] || x); };
-    return '<tr><td data-l="Arbre"><b>' + ('0' + (k + 1)).slice(-2) + '</b> ' + esc(a.code) + '</td><td data-l="Retrouvé">' + (o.retrouve == null ? '<span class="obs-manque">—</span>' : o.retrouve ? 'Oui' : 'Non') + '</td><td data-l="F">' + val(o.f) + '</td><td data-l="N">' + val(o.n) + '</td><td data-l="P">' + val(o.p) + '</td><td data-l="Chute">' + (o.chute ? esc(C.LIBELLES.chute[o.chute]) + (o.chute_preuve ? ' · ' + esc(C.LIBELLES.preuve[o.chute_preuve]) : '') : val(null)) + '</td><td data-l="Remarque">' + esc(o.pas_vu_motif || '') + (o.anomalie ? ' ' + esc(o.anomalie) : '') + '</td><td data-l="Photo">' +
+    return '<tr><td data-l="Arbre"><b>' + ('0' + (k + 1)).slice(-2) + '</b> ' + esc(C.libelleArbre(a, o.code_suivi)) + '</td><td data-l="Retrouvé">' + (o.retrouve == null ? '<span class="obs-manque">—</span>' : o.retrouve ? 'Oui' : 'Non') + '</td><td data-l="F">' + val(o.f) + '</td><td data-l="N">' + val(o.n) + '</td><td data-l="P">' + val(o.p) + '</td><td data-l="Chute">' + (o.chute ? esc(C.LIBELLES.chute[o.chute]) + (o.chute_preuve ? ' · ' + esc(C.LIBELLES.preuve[o.chute_preuve]) : '') : val(null)) + '</td><td data-l="Remarque">' + esc(o.pas_vu_motif || '') + (o.anomalie ? ' ' + esc(o.anomalie) : '') + '</td><td data-l="Photo">' +
       (o.photo_ref ? (etat.photosEtat && etat.photosEtat[o.photo_ref] === 'RECU' ? badge('Reçue', 'ok') : badge('Sur le téléphone', 'warn')) : o.photo_exception ? badge('Exception : ' + o.photo_exception, 'warn') : so ? '<span class="obs-gris">sans objet</span>' : '<span class="obs-manque">manquante</span>') + '</td>' + (lecture ? '' : '<td><button type="button" class="btn secondary" data-act="aller" data-i="' + k + '">Modifier</button></td>') + '</tr>'; }).join('');
   var envoi = v.etat_envoi === 'RECU' ? note('Envoyée et reçue par le serveur le ' + esc(heureFr(v.recu_serveur_le)) + '. Statut : <b>' + esc(C.LIBELLES.statut_visite[v.statut_serveur] || '') + '</b>.', 'ok')
     : v.etat_envoi === 'EN_ATTENTE' ? note('Votre visite est enregistrée sur ce téléphone. <b>Elle n’est pas encore envoyée.</b>', 'warn')
@@ -653,7 +853,7 @@ function joindrePhoto(fichier) {
     var chemin = camp.id + '/' + brouillon.panel.id + '/' + u + '/' + C.nomPhoto(visiteId, a.id, blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg');
     return L.ajouterFichier(chemin, blob, { visite_id: visiteId, arbre_id: a.id, prise_le: prise }).then(function () {
       var o = brouillon.visite.observations[idx]; o.photo_ref = chemin; o.photo_prise_le = prise; o.photo_exception = null;
-      etat.message = ['ok', 'Photo de l’arbre ' + a.code + ' enregistrée sur ce téléphone (' + Math.round(blob.size / 1024) + ' Ko).'];
+      etat.message = ['ok', 'Photo de l’arbre ' + C.libelleArbre(a) + ' enregistrée sur ce téléphone (' + Math.round(blob.size / 1024) + ' Ko).'];
       return sauverBrouillon();
     }).then(function () {
       /* Position au moment de la photo, si le GPS répond vite ; sinon la photo reste valable sans position. */
@@ -732,11 +932,11 @@ function vueDecision(id) {
     var v = r[0][0]; if (!v) { peindre(entete('Visite introuvable dans votre périmètre.', 'validation')); return; }
     var info = (r[3] || []).filter(function (x) { return x.visite_id === id; })[0] || {};
     etat.decision = { id: id, droit: info.droit || null, exceptions: info.photos_exceptions || 0, temporalite: v.temporalite };
-    return lireTable('pheno_arbres', 'id,code,role,rang,statut', function (q) { return q.eq('panel_id', v.panel_id); }).then(function (arbres) {
+    return lireTable('pheno_arbres', '*', function (q) { return q.eq('panel_id', v.panel_id); }).then(function (arbres) {
       var par = {}; arbres.forEach(function (a) { par[a.id] = a; });
       var t = function (x) { return x == null ? '—' : esc({ OUI: 'Oui', NON: 'Non', PAS_VU: 'Pas vu' }[x] || x); };
       var lignes = r[1].sort(function (a, b) { return (par[a.arbre_id] || {}).rang - (par[b.arbre_id] || {}).rang; }).map(function (o) { var a = par[o.arbre_id] || {};
-        return '<tr><td data-l="Arbre">' + esc(a.code || '') + '</td><td data-l="Retrouvé">' + (o.retrouve == null ? '—' : o.retrouve ? 'Oui' : 'Non') + '</td><td data-l="F">' + t(o.f) + '</td><td data-l="N">' + t(o.n) + '</td><td data-l="P">' + t(o.p) + '</td><td data-l="Chute">' + (o.chute ? esc(C.LIBELLES.chute[o.chute]) : '—') + '</td><td data-l="Preuve">' + (o.chute_preuve ? esc(C.LIBELLES.preuve[o.chute_preuve]) : '—') + '</td><td data-l="Remarque">' + esc(o.pas_vu_motif || '') + ' ' + esc(o.anomalie || '') + '</td><td data-l="Photo">' +
+        return '<tr><td data-l="Arbre">' + esc(C.libelleArbre(a, o.code_suivi) || '') + '</td><td data-l="Retrouvé">' + (o.retrouve == null ? '—' : o.retrouve ? 'Oui' : 'Non') + '</td><td data-l="F">' + t(o.f) + '</td><td data-l="N">' + t(o.n) + '</td><td data-l="P">' + t(o.p) + '</td><td data-l="Chute">' + (o.chute ? esc(C.LIBELLES.chute[o.chute]) : '—') + '</td><td data-l="Preuve">' + (o.chute_preuve ? esc(C.LIBELLES.preuve[o.chute_preuve]) : '—') + '</td><td data-l="Remarque">' + esc(o.pas_vu_motif || '') + ' ' + esc(o.anomalie || '') + '</td><td data-l="Photo">' +
           (o.photo_ref ? '<button type="button" class="btn secondary" data-act="voir_photo" data-ref="' + esc(o.photo_ref) + '">' + (o.retrouve === false ? 'Voir l’emplacement' : 'Voir la photo') + '</button>' + (o.photo_prise_le ? ' <span class="obs-detail">' + esc(heureFr(o.photo_prise_le)) + (o.photo_latitude != null ? ' · GPS' : '') + '</span>' : '')
             : o.photo_exception ? badge('Exception : ' + o.photo_exception, 'warn') : o.retrouve ? badge('Manquante', 'danger') : '—') + '</td></tr>'; }).join('');
       var hist = r[2].map(function (j) { return '<li><b>' + esc(heureFr(j.le)) + '</b> · ' + esc(j.action.replace(/_/g, ' ').toLowerCase()) + (j.motif ? ' — ' + esc(j.motif) : '') + '</li>'; }).join('');
@@ -868,6 +1068,10 @@ function surClic(e) {
   else if (act === 'inventaire') enregistrerInventaire(b.getAttribute('data-bloc'), b.getAttribute('data-num'));
   else if (act === 'marquer') marquerArbre(b.getAttribute('data-panel'), b.getAttribute('data-arbre'));
   else if (act === 'reserve') activerReserve(b.getAttribute('data-arbre'), b.getAttribute('data-code'));
+  else if (act === 'auto-designer') proposerChoixArbres(b.getAttribute('data-panel'));
+  else if (act === 'auto-codes') attribuerCodesAuto();
+  else if (act === 'echanger-code') { var zc = document.getElementById('obsChoixArbres'); if (zc) { echangerCode(zc, b.getAttribute('data-de'), b.getAttribute('data-avec')); verifierChoixArbres(); sauverChoix(); } }
+  else if (act === 'codes-modifier') modifierCodes(b.getAttribute('data-panel'));
   else if (act === 'designer') designer(b.getAttribute('data-panel'));
   else if (act === 'photo_exception') exceptionPhoto();
   else if (act === 'voir_photo') voirPhoto(b.getAttribute('data-ref'));
@@ -887,6 +1091,11 @@ function surClic(e) {
 }
 function surSaisie(e) {
   if (parts()[0] !== 'observatoire') return; var t = e.target;
+  if (t.closest && t.closest('#obsChoixArbres')) {
+    if (e.type === 'change' && t.getAttribute('data-choix') === 'code') noterChangementCode(t);
+    if (e.type === 'change' || t.getAttribute('data-choix') !== 'code') { verifierChoixArbres(); sauverChoix(); }
+    return;
+  }
   if (t.id === 'obsB') { clearTimeout(etat.minuteB); etat.minuteB = setTimeout(majReperes, e.type === 'change' ? 0 : 700); return; }
   if (t.id === 'obsb' || /^obsRep|^obsSuivi/.test(t.id || '')) { var er = document.getElementById('obsInstallErr'); if (er) er.innerHTML = ''; }
   if (t.id === 'obsFiltreCluster' || t.id === 'obsFiltreVillage' || t.id === 'obsFiltreTexte') return filtrerParcelles(e);

@@ -390,9 +390,9 @@ function miniCarte(idEl, x, version) {
      ils ne représentent pas toute la parcelle (aucune extrapolation). */
   if (enLigne()) lire('pheno_panels', 'id', function (r) { return r.eq('plot_id', x.plot_id); }).then(function (pa) {
     if (!pa.length) return;
-    return lire('pheno_arbres', 'code,latitude,longitude,statut', function (r) { return r.in('panel_id', pa.map(function (z) { return z.id; })); }).then(function (ar) {
+    return lire('pheno_arbres', '*', function (r) { return r.in('panel_id', pa.map(function (z) { return z.id; })); }).then(function (ar) {
       var n = 0;
-      ar.forEach(function (a) { if (a.latitude == null || a.statut === 'REMPLACE') return; n++; global.L.circleMarker([Number(a.latitude), Number(a.longitude)], { radius: 4, color: '#7C2D12', weight: 1, fillColor: '#EE9E00', fillOpacity: 0.9 }).addTo(m).bindTooltip('Arbre suivi ' + a.code); });
+      ar.forEach(function (a) { if (a.latitude == null || a.statut === 'REMPLACE') return; n++; global.L.circleMarker([Number(a.latitude), Number(a.longitude)], { radius: 4, color: '#7C2D12', weight: 1, fillColor: '#EE9E00', fillOpacity: 0.9 }).addTo(m).bindTooltip('Arbre suivi ' + (a.code_suivi ? a.code_suivi + ' (' + a.code + ')' : a.code)); });
       if (n) el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">' + n + ' arbre(s) suivi(s) par l\'Observatoire (points orange)</div>');
     });
   }).catch(function () {});

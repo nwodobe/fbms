@@ -1,0 +1,288 @@
+{
+ "base": "fbms_obs_codes",
+ "le": "2026-11-22T13:42:51.488893+00:00",
+ "reussis": 40,
+ "echoues": 0,
+ "tests": [
+  {
+   "id": "PREP-01",
+   "action": "Parcelles fictives complètes (installables)",
+   "attendu": "vide",
+   "obtenu": ";;;;",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-01",
+   "action": "A001 à A012 attribués automatiquement (ordre par défaut) : accepté",
+   "attendu": "OK (A012)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"0db85a75-e572-0144-1a20-560bebceaa26\", \"code\": \"B01/A001\", \"rang\": 1, \"role\": \"TITULAIRE\", \"code_suivi\": \"A001\"}, {\"id\": \"2f6b1b73-787f-5d7c-3f9d-2546af677d0f\", \"code\": \"B01/A002\", \"rang\": 2, \"role\": \"TITULAIRE\", \"code_suivi\": \"A002\"}, {\"id\": \"790245e2-7e54-a9ea-3286-3a47b37",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-02",
+   "action": "Exemple du mandat : B01/A001=A001 … B04/A002=A011, B04/A003=A012",
+   "attendu": "B01/A001=A001,B01/A002=A002,B01/A003=A003,B02/A001=A004,B02/A002=A005,B02/A003=A006,B03/A001=A007,B03/A002=A008,B03/A003=A009,B04/A001=A010,B04/A002=A011,B04/A003=A012",
+   "obtenu": "B01/A001=A001,B01/A002=A002,B01/A003=A003,B02/A001=A004,B02/A002=A005,B02/A003=A006,B03/A001=A007,B03/A002=A008,B03/A003=A009,B04/A001=A010,B04/A002=A011,B04/A003=A012",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-03",
+   "action": "Codes physiques B00/A000 conservés, inventaires inchangés (4 × 3)",
+   "attendu": "12|3,3,3,3",
+   "obtenu": "12|3,3,3,3",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-04",
+   "action": "A001 à A012 dans un autre ordre (A008 au suivi 01, A001 au suivi 08) : accepté",
+   "attendu": "OK (A008)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"a60cc17c-1974-a745-7df3-fc26e405251a\", \"code\": \"B01/A001\", \"rang\": 1, \"role\": \"TITULAIRE\", \"code_suivi\": \"A008\"}, {\"id\": \"ef340818-2681-db05-0fd8-3072a024c842\", \"code\": \"B01/A002\", \"rang\": 2, \"role\": \"TITULAIRE\", \"code_suivi\": \"A002\"}, {\"id\": \"aba2f7b0-d668-dd3a-2622-43ef811",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-05",
+   "action": "Suivi 01 (B01/A001) porte A008, suivi 08 (B03/A002) porte A001",
+   "attendu": "B01/A001=A008,B03/A002=A001",
+   "obtenu": "B01/A001=A008,B03/A002=A001",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-06",
+   "action": "Deux arbres portant A005 : refusé",
+   "attendu": "REFUS (A005)",
+   "obtenu": "REFUS : Le code de suivi A005 est attribué à deux arbres : chaque code ne s'utilise qu'une fois par champ.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-07",
+   "action": "Deux lignes désignant le même arbre physique : refusé",
+   "attendu": "REFUS (deux fois)",
+   "obtenu": "REFUS : L'arbre B01/A001 est choisi deux fois.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-08",
+   "action": "Code A013 : refusé",
+   "attendu": "REFUS (A013)",
+   "obtenu": "REFUS : Code de suivi A013 refusé : seuls A001 à A012 sont autorisés.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-09",
+   "action": "Code A000 : refusé",
+   "attendu": "REFUS (A000)",
+   "obtenu": "REFUS : Code de suivi A000 refusé : seuls A001 à A012 sont autorisés.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-10",
+   "action": "Codes incomplets (11 sur 12) : refusé",
+   "attendu": "REFUS (chacun)",
+   "obtenu": "REFUS : Attribuez un code de suivi à chacun des 12 arbres (reçu : 11).",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-11",
+   "action": "Désignation par un Assistant Unit Head : refusée",
+   "attendu": "REFUS (Chef d)",
+   "obtenu": "REFUS : Le choix des arbres est réservé au Chef d'Unité du cluster DIABO.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-12",
+   "action": "Aucun arbre créé par les tentatives refusées",
+   "attendu": "0",
+   "obtenu": "0",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-13",
+   "action": "Synchronisation après coupure : envoi, renvoi même clé, renvoi nouvelle clé = acceptés",
+   "attendu": "ACCEPTEE×3",
+   "obtenu": "['ACCEPTEE', 'ACCEPTEE', 'ACCEPTEE', None, None]",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-14",
+   "action": "Aucun doublon après synchronisation (12 arbres, 12 codes distincts)",
+   "attendu": "12|12",
+   "obtenu": "12|12",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-15",
+   "action": "Deux appareils attribuent des codes différents au même champ en même temps : le second reçoit un CONFLIT serveur",
+   "attendu": "ACCEPTEE puis CONFLIT",
+   "obtenu": "[{'arbres': [{'id': 'b20c4f78-b16f-5882-ceec-8c60287f8b39', 'code': 'B01/A001', 'rang': 1, 'role': 'TITULAIRE', 'code_suivi': 'A001'}, {'id': 'ae1af162-4b34-d7d6-83cc-2066a45f1d2c', 'code': 'B01/A002', 'rang': 2, 'role': 'TITULAIRE', 'code_suivi': 'A002'}, {'id': 'fa68c6ac-93bb-088f-8900-385730d72fb",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-16",
+   "action": "Le champ garde la seule attribution du premier appareil",
+   "attendu": "A001,A002,A003,A004,A005,A006,A007,A008,A009,A010,A011,A012",
+   "obtenu": "A001,A002,A003,A004,A005,A006,A007,A008,A009,A010,A011,A012",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-17",
+   "action": "Contrainte de base : un doublon de code dans un champ est impossible même en écriture directe",
+   "attendu": "REFUS",
+   "obtenu": "refusé par la contrainte",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-18",
+   "action": "Unicité par champ : A001 existe dans plusieurs champs",
+   "attendu": "4",
+   "obtenu": "4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-19",
+   "action": "Écriture directe d'un code par un utilisateur (hors RPC) : refusée",
+   "attendu": "REFUS",
+   "obtenu": "REFUS : permission denied for table pheno_arbres",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-20",
+   "action": "Visite de la semaine précédente enregistrée sur le champ B",
+   "attendu": "ACCEPTEE",
+   "obtenu": "{'statut': 'ACCEPTEE', 'preuves': {'recues': 0, 'attendues': 10, 'exceptions': 0, 'manquantes': 'B01/A001, B01/A002, B01/A003, B02/A001, B02/A002, B02/A003, B03/A001, B03/A002, B03/A003, B04/A001'}, 'visite_id': '1bef61ce-cc18-4b6e-b446-24ae13e00d6f', 'row_version': 1, 'temporalite': 'INCOHERENTE', ",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-21",
+   "action": "Chaque observation conserve le code de suivi en vigueur (suivi 01 = A008)",
+   "attendu": "A008",
+   "obtenu": "A008",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-22",
+   "action": "Modification après validation sans motif : refusée",
+   "attendu": "REFUS (Motif)",
+   "obtenu": "REFUS : Motif obligatoire pour attribuer ou modifier les codes de suivi.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-23",
+   "action": "Modification avec une version périmée (autre appareil) : conflit",
+   "attendu": "REFUS (modifié depuis)",
+   "obtenu": "REFUS : Le champ a été modifié depuis votre lecture (autre appareil). Actualisez puis recommencez.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-24",
+   "action": "Modification créant un doublon : refusée",
+   "attendu": "REFUS (deux arbres)",
+   "obtenu": "REFUS : Le code de suivi A001 est attribué à deux arbres.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-25",
+   "action": "Modification par le Chef d'Unité d'un autre cluster : refusée",
+   "attendu": "REFUS (Chef d)",
+   "obtenu": "REFUS : Les codes de suivi sont attribués par le Chef d'Unité du cluster DIABO.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-26",
+   "action": "Modification par un Assistant Unit Head : refusée",
+   "attendu": "REFUS (Chef d)",
+   "obtenu": "REFUS : Les codes de suivi sont attribués par le Chef d'Unité du cluster DIABO.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-27",
+   "action": "Échange A001 ⇄ A008 justifié par le Chef d'Unité : accepté",
+   "attendu": "OK (row_version)",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"a60cc17c-1974-a745-7df3-fc26e405251a\", \"code\": \"B01/A001\", \"code_suivi\": \"A001\"}, {\"id\": \"ef340818-2681-db05-0fd8-3072a024c842\", \"code\": \"B01/A002\", \"code_suivi\": \"A002\"}, {\"id\": \"aba2f7b0-d668-dd3a-2622-43ef811c5b18\", \"code\": \"B01/A003\", \"code_suivi\": \"A003\"}, {\"id\": \"0a1ac",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-28",
+   "action": "Après échange : B01/A001 porte A001, B03/A002 porte A008",
+   "attendu": "B01/A001=A001,B03/A002=A008",
+   "obtenu": "B01/A001=A001,B03/A002=A008",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-29",
+   "action": "Identifiants techniques et codes physiques inchangés par l'échange",
+   "attendu": "0a1acc46-29d6-095c-89fa-e1562600519eB02/A001,3ea6e79a-ecb9-082c-1b7c-885ba3523804B04/A002,77fa2a34-316c-c0b9-2ef6-65fe1e5f947bB04/A001,84ae4903-4114-be10-b6ac-f1c084863282B02/A003,8a5bad80-d8f1-06cb-b960-de96bc688a4bB03/A003,97e31fa0-fcb0-19a0-915a-101cdbe19fcaB02/A002,a60cc17c-1974-a745-7df3-fc26e405251aB01/A001,aba2f7b0-d668-dd3a-2622-43ef811c5b18B01/A003,e0b925d4-80ad-cc89-cb9f-7cb06c11c504B04/A003,e6b260f1-8cab-c90c-48bf-c0ad11be89c2B03/A001,ef340818-2681-db05-0fd8-3072a024c842B01/A002,f772bdda-1a02-bcb5-fb6c-d66cb19ccbffB03/A002",
+   "obtenu": "0a1acc46-29d6-095c-89fa-e1562600519eB02/A001,3ea6e79a-ecb9-082c-1b7c-885ba3523804B04/A002,77fa2a34-316c-c0b9-2ef6-65fe1e5f947bB04/A001,84ae4903-4114-be10-b6ac-f1c084863282B02/A003,8a5bad80-d8f1-06cb-b960-de96bc688a4bB03/A003,97e31fa0-fcb0-19a0-915a-101cdbe19fcaB02/A002,a60cc17c-1974-a745-7df3-fc26e4",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-30",
+   "action": "Historisation : journal immuable avec ancien code, nouveau code et motif",
+   "attendu": "CODES_SUIVI_MODIFIES|A008>A001|Étiquettes inversées sur le terrain (fictif)",
+   "obtenu": "CODES_SUIVI_MODIFIES|A008>A001|Étiquettes inversées sur le terrain (fictif)",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-31",
+   "action": "Visite antérieure : le code d'origine (A008) est conservé après l'échange",
+   "attendu": "A008",
+   "obtenu": "A008",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-32a",
+   "action": "Visite de la semaine en cours enregistrée après l'échange",
+   "attendu": "ACCEPTEE",
+   "obtenu": "{'statut': 'ACCEPTEE', 'preuves': {'recues': 0, 'attendues': 10, 'exceptions': 0, 'manquantes': 'B01/A001, B01/A002, B01/A003, B02/A001, B02/A002, B02/A003, B03/A001, B03/A002, B03/A003, B04/A001'}, 'visite_id': '9fbe5354-a9ce-4820-9590-b1a5038e283c', 'row_version': 1, 'temporalite': 'NORMALE', 'sta",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-32",
+   "action": "Visite suivante : le nouveau code (A001) est enregistré",
+   "attendu": "A001",
+   "obtenu": "A001",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-33",
+   "action": "Rejouer la désignation d'origine (ancien téléphone, anciens codes) après l'échange : conflit",
+   "attendu": "REFUS (autres codes)",
+   "obtenu": "REFUS : Les arbres de ce champ sont déjà désignés avec d'autres codes de suivi (autre appareil ?). Pour changer un code, utilisez la modification motivée.",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-34",
+   "action": "Ancien téléphone (aucun code envoyé) : accepté, ordre par défaut attribué par le serveur",
+   "attendu": "ACCEPTEE",
+   "obtenu": "{'arbres': [{'id': 'a91d33e8-98b1-69bd-c05f-2098ff6b547f', 'code': 'B01/A001', 'rang': 1, 'role': 'TITULAIRE', 'code_suivi': 'A001'}, {'id': '801d9e83-4ddd-eda4-4c7f-8474f1175d21', 'code': 'B01/A002', 'rang': 2, 'role': 'TITULAIRE', 'code_suivi': 'A002'}, {'id': '415bf146-263f-a367-b639-c5225d7f9f31",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-35",
+   "action": "Ordre par défaut : suivis 01..10 = A001..A010, R1 = A011, R2 = A012",
+   "attendu": "01=A001,02=A002,03=A003,04=A004,05=A005,06=A006,07=A007,08=A008,09=A009,10=A010,R1=A011,R2=A012",
+   "obtenu": "01=A001,02=A002,03=A003,04=A004,05=A005,06=A006,07=A007,08=A008,09=A009,10=A010,R1=A011,R2=A012",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-36",
+   "action": "Champ déjà installé sans code : attribution initiale motivée acceptée",
+   "attendu": "OK",
+   "obtenu": "OK : {\"arbres\": [{\"id\": \"a91d33e8-98b1-69bd-c05f-2098ff6b547f\", \"code\": \"B01/A001\", \"code_suivi\": \"A001\"}, {\"id\": \"801d9e83-4ddd-eda4-4c7f-8474f1175d21\", \"code\": \"B01/A002\", \"code_suivi\": \"A002\"}, {\"id\": \"415bf146-263f-a367-b639-c5225d7f9f31\", \"code\": \"B01/A003\", \"code_suivi\": \"A003\"}, {\"id\": \"25582",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-37",
+   "action": "Journal : attribution initiale tracée",
+   "attendu": "1",
+   "obtenu": "1",
+   "resultat": "RÉUSSI"
+  },
+  {
+   "id": "CS-38",
+   "action": "Aucune observation existante modifiée ni supprimée par la migration (colonnes ajoutées seulement)",
+   "attendu": "4",
+   "obtenu": "4",
+   "resultat": "RÉUSSI"
+  }
+ ]
+}

@@ -1,0 +1,170 @@
+{
+ "le": "2026-11-22T13:53:06.555Z",
+ "base": "fbms_obs_codes",
+ "reussis": 27,
+ "echoues": 0,
+ "tests": [
+  {
+   "id": "NAV-390x844-01",
+   "libelle": "[390x844] Formulaire : 12 lignes (Arbre suivi 01..10, Réserve R1, R2) avec bloc, arbre physique et code de suivi",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12], obtenu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12]"
+  },
+  {
+   "id": "NAV-390x844-02",
+   "libelle": "[390x844] Avant saisie : enregistrement désactivé, compteur 0/12",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [false,\"0/12 arbres identifiés, 0 doublon.\"], obtenu [false,\"0/12 arbres identifiés, 0 doublon.\"]"
+  },
+  {
+   "id": "NAV-390x844-03",
+   "libelle": "[390x844] « Attribuer automatiquement A001 à A012 » : 12/12 arbres identifiés, 0 doublon ; enregistrement actif",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"12/12 arbres identifiés, 0 doublon.\",true], obtenu [\"12/12 arbres identifiés, 0 doublon.\",true]"
+  },
+  {
+   "id": "NAV-390x844-04",
+   "libelle": "[390x844] Aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "NAV-05",
+   "libelle": "Code déjà utilisé (A008) : erreur immédiate sur la ligne, échange proposé, enregistrement bloqué",
+   "resultat": "RÉUSSI",
+   "detail": "Arbre suivi 01\nBloc\nChoisir le bloc…\nB01 (3 arbres)\nB02 (3 arbres)\nB03 (3 arbres)\nB04 (3 arbres)\nArbre physique (n° dans le bloc)\nCode de suivi\n—\nA001\nA002\nA003\nA004\nA005\nA006\nA007\nA008\nA009\nA010\nA011\nA012\nLe code A008 est déjà attribué à « Arbre suivi 08 ».\nÉchanger : Arbre suivi 08 prend A001 | 10"
+  },
+  {
+   "id": "NAV-06",
+   "libelle": "Échange accepté : suivi 01 = A008, suivi 08 = A001, 12/12 et 0 doublon",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"A008\",\"A001\",\"12/12 arbres identifiés, 0 doublon.\",true], obtenu [\"A008\",\"A001\",\"12/12 arbres identifiés, 0 doublon.\",true]"
+  },
+  {
+   "id": "NAV-07",
+   "libelle": "Deux lignes sur le même arbre physique (B01/1) : erreur, enregistrement bloqué",
+   "resultat": "RÉUSSI",
+   "detail": "Arbre suivi 02\nBloc\nChoisir le bloc…\nB01 (3 arbres)\nB02 (3 arbres)\nB03 (3 arbres)\nB04 (3 arbres)\nArbre physique (n° dans le bloc)\nCode de suivi\n—\nA001\nA002\nA003\nA004\nA005\nA006\nA007\nA008\nA009\nA010\nA011\nA012\nCet arbre physique est déjà désigné sur la ligne « Arbre suivi 01 »."
+  },
+  {
+   "id": "NAV-08",
+   "libelle": "Numéro hors inventaire (4 dans un bloc de 3 arbres) : refusé",
+   "resultat": "RÉUSSI",
+   "detail": "Arbre suivi 02\nBloc\nChoisir le bloc…\nB01 (3 arbres)\nB02 (3 arbres)\nB03 (3 arbres)\nB04 (3 arbres)\nArbre physique (n° dans le bloc)\nCode de suivi\n—\nA001\nA002\nA003\nA004\nA005\nA006\nA007\nA008\nA009\nA010\nA011\nA012\nCe bloc ne contient que 3 arbres. Corrigez le numéro ou le comptage réel."
+  },
+  {
+   "id": "NAV-09",
+   "libelle": "Fermeture puis réouverture pendant la saisie : brouillon conservé (codes et arbres)",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"A008\",\"A001\",\"12/12 arbres identifiés, 0 doublon.\"], obtenu [\"A008\",\"A001\",\"12/12 arbres identifiés, 0 doublon.\"]"
+  },
+  {
+   "id": "NAV-10",
+   "libelle": "Confirmation : récapitulatif code → arbre physique",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "NAV-11",
+   "libelle": "Hors connexion : enregistré sur le téléphone, rien sur le serveur",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"0\", obtenu \"0\""
+  },
+  {
+   "id": "NAV-12",
+   "libelle": "Retour du réseau : 12 arbres reçus, 12 codes distincts, aucun doublon",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"12|12\", obtenu \"12|12\""
+  },
+  {
+   "id": "NAV-13",
+   "libelle": "Codes conservés après synchronisation : B01/A001 = A008, B03/A002 = A001",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"B01/A001=A008,B03/A002=A001\", obtenu \"B01/A001=A008,B03/A002=A001\""
+  },
+  {
+   "id": "NAV-14",
+   "libelle": "Fiche du champ : codes affichés de A001 à A012 avec l’arbre physique",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"A001\",\"A002\",\"A003\",\"A004\",\"A005\",\"A006\",\"A007\",\"A008\",\"A009\",\"A010\",\"A011\",\"A012\"], obtenu [\"A001\",\"A002\",\"A003\",\"A004\",\"A005\",\"A006\",\"A007\",\"A008\",\"A009\",\"A010\",\"A011\",\"A012\"]"
+  },
+  {
+   "id": "NAV-15",
+   "libelle": "Modification motivée : code déjà pris signalé et échange proposé",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "NAV-16",
+   "libelle": "Modification historisée : journal immuable avec motif",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"CODES_SUIVI_MODIFIES|Étiquettes inversées (essai fictif)\", obtenu \"CODES_SUIVI_MODIFIES|Étiquettes inversées (essai fictif)\""
+  },
+  {
+   "id": "NAV-17",
+   "libelle": "Après modification : B01/A001 = A001, B03/A002 = A008",
+   "resultat": "RÉUSSI",
+   "detail": "attendu \"B01/A001=A001,B03/A002=A008\", obtenu \"B01/A001=A001,B03/A002=A008\""
+  },
+  {
+   "id": "NAV-18",
+   "libelle": "Visite hebdomadaire : l’arbre 1 est A001, avec son arbre physique",
+   "resultat": "RÉUSSI",
+   "detail": "← Mes champs\nPRODUCTEUR FICTIF NAVIGATEUR F-564cfb\nPARCELLE FICTIVE NAV F-564cfb · observée le 22/11/2026\n01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n01\nArbre 1 sur 10\nCode de suivi A001 · arbre physique B01/A001 · bloc 1 (REPÈRE FICTIF 1)\nAvez-vous retrouvé cet arbre marqué ?\nOui\nNon\nPrécédent\nArbre suivant\n\nCha"
+  },
+  {
+   "id": "NAV-768x1024-01",
+   "libelle": "[768x1024] Formulaire : 12 lignes (Arbre suivi 01..10, Réserve R1, R2) avec bloc, arbre physique et code de suivi",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12], obtenu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12]"
+  },
+  {
+   "id": "NAV-768x1024-02",
+   "libelle": "[768x1024] Avant saisie : enregistrement désactivé, compteur 0/12",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [false,\"0/12 arbres identifiés, 0 doublon.\"], obtenu [false,\"0/12 arbres identifiés, 0 doublon.\"]"
+  },
+  {
+   "id": "NAV-768x1024-03",
+   "libelle": "[768x1024] « Attribuer automatiquement A001 à A012 » : 12/12 arbres identifiés, 0 doublon ; enregistrement actif",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"12/12 arbres identifiés, 0 doublon.\",true], obtenu [\"12/12 arbres identifiés, 0 doublon.\",true]"
+  },
+  {
+   "id": "NAV-768x1024-04",
+   "libelle": "[768x1024] Aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "NAV-1440x900-01",
+   "libelle": "[1440x900] Formulaire : 12 lignes (Arbre suivi 01..10, Réserve R1, R2) avec bloc, arbre physique et code de suivi",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12], obtenu [12,\"Arbre suivi 01\",\"Arbre suivi 10\",\"Réserve R1\",\"Réserve R2\",12]"
+  },
+  {
+   "id": "NAV-1440x900-02",
+   "libelle": "[1440x900] Avant saisie : enregistrement désactivé, compteur 0/12",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [false,\"0/12 arbres identifiés, 0 doublon.\"], obtenu [false,\"0/12 arbres identifiés, 0 doublon.\"]"
+  },
+  {
+   "id": "NAV-1440x900-03",
+   "libelle": "[1440x900] « Attribuer automatiquement A001 à A012 » : 12/12 arbres identifiés, 0 doublon ; enregistrement actif",
+   "resultat": "RÉUSSI",
+   "detail": "attendu [\"12/12 arbres identifiés, 0 doublon.\",true], obtenu [\"12/12 arbres identifiés, 0 doublon.\",true]"
+  },
+  {
+   "id": "NAV-1440x900-04",
+   "libelle": "[1440x900] Aucun débordement horizontal",
+   "resultat": "RÉUSSI",
+   "detail": "true"
+  },
+  {
+   "id": "NAV-99",
+   "libelle": "Aucune erreur JavaScript du module pendant les parcours",
+   "resultat": "RÉUSSI",
+   "detail": ""
+  }
+ ]
+}

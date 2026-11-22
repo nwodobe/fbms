@@ -244,7 +244,9 @@
       /* Mode de sélection du protocole actif (désignation libre ou tirage), pour l'installation hors ligne. */
       return sb.from('pheno_protocoles').select('code,version,parametres').eq('actif', true).limit(1).then(function (x) {
         var p = x && !x.error && x.data && x.data[0]; res.protocole = p ? { code: p.code, version: p.version, mode_selection: (p.parametres || {}).mode_selection || 'TIRAGE',
-          titulaires: (p.parametres || {}).titulaires || 10, reserves: (p.parametres || {}).reserves == null ? 2 : p.parametres.reserves } : null;
+          titulaires: (p.parametres || {}).titulaires || 10, reserves: (p.parametres || {}).reserves == null ? 2 : p.parametres.reserves,
+          /* Codes de suivi A001..A012 : seulement si le serveur porte la migration 7 (sinon formulaire d'avant). */
+          codes_suivi: !!(p.parametres || {}).codes_suivi } : null;
         return res.protocole ? ecrire('meta', res.protocole, 'protocole') : null;
       });
     }).then(function () { return pages(function () { return sb.from('pheno_panels').select('*').eq('campaign_id', campaignId).order('id'); }); }).then(function (p) {
@@ -299,7 +301,7 @@
             correction_motif: v.correction_motif, etat_envoi: 'RECU', proprietaire: v.transcripteur_id || v.observateur_id,
             temporalite: v.temporalite, justification_retro: v.justification_retro,
             observations: obs.length ? obs.map(function (o) { return { arbre_id: o.arbre_id, retrouve: o.retrouve, f: o.f, n: o.n, p: o.p, pas_vu_motif: o.pas_vu_motif, chute: o.chute, chute_preuve: o.chute_preuve, anomalie: o.anomalie, photo_ref: o.photo_ref,
-              photo_exception: o.photo_exception, photo_prise_le: o.photo_prise_le, photo_latitude: o.photo_latitude, photo_longitude: o.photo_longitude }; })
+              photo_exception: o.photo_exception, photo_prise_le: o.photo_prise_le, photo_latitude: o.photo_latitude, photo_longitude: o.photo_longitude, code_suivi: o.code_suivi || null }; })
               : (local && local.observations) || [] }));
         });
         if (res.plots) ecritures.push(ecrire('ref', { le: new Date().toISOString(), plots: res.plots, villages: res.villages || [], producteurs: producteurs }, 'parcelles'));
@@ -314,6 +316,13 @@
   function graine(campaignId) { return lire('meta', 'graine:' + campaignId); }
   function protocole() { return lire('meta', 'protocole').then(function (p) { return p || { mode_selection: 'DESIGNATION', titulaires: 10, reserves: 2 }; }); }
 
+  /* Brouillon du formulaire « 12 arbres et codes A001 à A012 » : conservé sur l'appareil à
+     chaque saisie, pour qu'une fermeture de l'application ne fasse rien perdre. Effacé
+     seulement après l'enregistrement du choix. */
+  function brouillonChoix(panelId) { return lire('meta', 'choix:' + panelId); }
+  function enregistrerBrouillonChoix(panelId, lignes) { return ecrire('meta', { le: new Date().toISOString(), user_id: utilisateur(), lignes: lignes }, 'choix:' + panelId); }
+  function effacerBrouillonChoix(panelId) { return tx('meta', 'readwrite', function (s) { return s.delete('choix:' + panelId); }); }
+
   /* Au démarrage : un envoi interrompu redevient « à renvoyer » (même clé, donc sans doublon). */
   function reprendre() {
     return tout('file').then(function (l) { return Promise.all(l.filter(function (o) { return o.statut === 'ENVOI'; }).map(function (o) { o.statut = 'ECHEC_RESEAU'; return ecrire('file', o); })); }).catch(function () {});
@@ -324,7 +333,8 @@
     panels: panels, panel: panel, enregistrerPanel: enregistrerPanel, visites: visites, visite: visite, enregistrerVisite: enregistrerVisite,
     envoyerVisite: envoyerVisite, ajouterFichier: ajouterFichier, preparer: preparer, referentiel: referentiel, dernierePreparation: derniereePreparation,
     reprendre: reprendre, graine: graine, utilisateur: utilisateur, appareil: appareil, surChangement: function (f) { ecouteurs.push(f); }, BUCKET: BUCKET,
-    compter: compter, espace: espace, fichiersDe: fichiersDe, protocole: protocole
+    compter: compter, espace: espace, fichiersDe: fichiersDe, protocole: protocole,
+    brouillonChoix: brouillonChoix, enregistrerBrouillonChoix: enregistrerBrouillonChoix, effacerBrouillonChoix: effacerBrouillonChoix
   };
   reprendre();
 })(window);

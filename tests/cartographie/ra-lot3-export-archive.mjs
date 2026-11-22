@@ -39,5 +39,5 @@ assert.match(parcelles,/plot_map_ra_unite_saisir/);
 assert.match(parcelles,/plot_map_ra_unite_verifier/);
 assert.match(parcelles,/ra-pdf-archiver/);
 assert.match(html,/ra-documents-lot3\.js\?v=20261120-ra-lot3-1/);
-assert.match(sw,/ops-offline-v30-ra-docs/);
+assert.match(sw,/ops-offline-v33-codes-a001/);
 console.log('RA Lot 3 : real vector PDF, KML, GeoJSON and secure archive controls PASS');
