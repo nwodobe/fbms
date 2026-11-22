@@ -335,6 +335,15 @@ async function main() {
       return { ok: f.length === 1 && f[0].etat === 'ATTENTE' && f[0].payload.precision_m === 6 && !!f[0].payload.capture_le && etat.lots.length === lotsAvant && (await page.locator('a[href*="/tracer/"]').count()) === 0 && /en attente du serveur/.test(await texte()), detail: JSON.stringify(f).slice(0, 220) };
     });
     await capture('07-hors-ligne-390');
+    /* 22/11/2026 : hors ligne, point en attente du serveur. La carte du champ reste un BROUILLON : accord non relu,
+       point non confirmé, bouton Enregistrer désactivé, aucun envoi de contour dans la file. */
+    await page.evaluate(id => { location.hash = '#parcelles/tracer/' + id + '/sat'; }, PL.C); await page.waitForTimeout(2500);
+    await verifier('PG-39', 'I', 'Hors ligne, point en attente : la carte s\'ouvre en brouillon uniquement, sans accord présumé ni envoi possible', async () => {
+      const t = await texte(), b = page.locator('[data-pc="envoyer"]');
+      const contours = (await file()).filter(o => o.type === 'SOUMETTRE_CONTOUR' && o.payload.plot_id === PL.C).length;
+      return { ok: /Brouillon uniquement/.test(t) && (await b.count()) === 1 && await b.isDisabled() && contours === 0, detail: t.slice(0, 200) + ' · contours en file : ' + contours };
+    });
+    await aller('parcelles/parcours/' + PL.C, 'Cartographier le champ');
     await verifier('PG-32', 'I', 'Hors ligne, accord inconnu : aucune capture, aucune décision recueillie', async () => {
       await page.evaluate(async () => { const l = await ANAGROCI_PARCELLES_LOCAL.cache.lire('parcelles'); l.forEach(x => { if (/BRAVO/.test(x.producteur_prenoms)) x.consentement_gps = false; }); await ANAGROCI_PARCELLES_LOCAL.cache.ecrire('parcelles', l); });
       await aller('parcelles', 'parcelle(s)'); await aller('parcelles/parcours/' + PL.B, 'Cartographier le champ'); const t = await texte();

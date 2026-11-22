@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795326060,
- "web_version": "2026.11.22-0541.6c39e0d",
- "git_commit": "6c39e0d9efe37ef5528cf43ae8d95aa4d2bfc590",
- "bundle_label": "6c39e0d",
- "published_at": "2026-11-22T10:50:56.761Z",
- "created_at": "2026-11-22T10:50:56.761Z",
+ "sequence": 1795347255,
+ "web_version": "2026.11.22-1134.269a8be",
+ "git_commit": "269a8be15ea4c01b6f7a613d258ddd4fbc997a3c",
+ "bundle_label": "269a8be",
+ "published_at": "2026-11-22T11:34:53.043Z",
+ "created_at": "2026-11-22T11:34:53.043Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Parcours Parcelles intégré : accord GPS dans la parcelle, carte ouverte automatiquement après capture, carré P1-P4, date Esri (PR #360)",
+ "release_notes": "Observatoire : tous les champs du périmètre proposés à l'installation, avec ce qui manque (PR #366)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "1adabbc41df2b12fa087c258a2574f1b721a8d85d60108ed271707ec4b3509db",
-   "size": 4665
+   "sha256": "8190cd1a1f242abdef05db8aded464b48a02d229f1535479bc06c11e32daedfe",
+   "size": 4670
   },
   "operations/field-buying.js": {
    "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
@@ -410,8 +410,8 @@
    "size": 10406
   },
   "operations/observatoire.js": {
-   "sha256": "3ad07413b6faee2e76e74fea4a4cb356ff792903faf05c708f2bdf5ec3887b3b",
-   "size": 113711
+   "sha256": "f3aefbe95cac9a38e22f7c42dfd73781d2ca8ae43be69087d1595381b92d8f3b",
+   "size": 116560
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
@@ -702,8 +702,8 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "b07a7f4fecd6b266aba7dfd128cdeb0cb81327a586213bad4a20daf981793575",
-   "size": 39129
+   "sha256": "22fcbbb745c2ed3ce8983a83045dea070fc133a057b5e55b1843bc1cfa1e37c3",
+   "size": 42289
   },
   "shared/farmer-registry-passport.js": {
    "sha256": "bb7fb0012bf04d1167ef96a59691a06283efed883fa7b3c8bffb078afd2b5f7d",

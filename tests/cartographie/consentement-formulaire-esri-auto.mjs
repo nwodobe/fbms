@@ -26,6 +26,6 @@ assert.match(parcelles,/!ed\.pointNonRecu/);
 assert.match(parcelles,/var accord = await etatAccord\(ed\.x\)/);
 assert.match(parcelles,/return etatAccord\(x\)\.then\(function \(accord\)/);
 assert.match(html,/farmer-registry-operations\.js\?v=20261122-consentement-1/);
-assert.match(html,/parcelles\.js\?v=20261122-gps-autoesri-1/);
+assert.match(html,/parcelles\.js\?v=20261122-gps-autoesri-2/);
 assert.match(sw,/ops-offline-v31-gps-autoesri/);
 console.log('PASS: Consentement GPS visible, ouverture automatique Esri et brouillons GPS securises.');

@@ -673,8 +673,12 @@ function tracer(id, mode) {
     // Un booléen éventuellement périmé dans la liste ne suffit jamais.
     // Vérifier la toute dernière décision GPS avant d'ouvrir le tracé.
     return etatAccord(x).then(function (accord) {
-      if (!accord.confirme || accord.etat !== 'ACCORDE')
-        return aller('parcelles/parcours/' + id);
+      /* Décision relue en ligne et différente d'un accord : jamais de carte. Décision illisible (hors connexion ou
+         serveur indisponible) : le dernier accord connu du serveur (liste) permet de reprendre le BROUILLON, mais
+         aucun envoi tant que l'accord n'a pas été relu. Sans accord connu : retour au parcours, rien n'est présumé. */
+      if (accord.confirme && accord.etat !== 'ACCORDE') return aller('parcelles/parcours/' + id);
+      if (!accord.confirme && x.consentement_gps !== true) return aller('parcelles/parcours/' + id);
+      var accordNonRelu = !accord.confirme;
       x = Object.assign({}, x, { consentement_gps: true });
       x = avecPointLocal(x, r[4]);
       var opsPoint = (r[5] || []).filter(function(o){return o.type === 'LOCALISER';})
@@ -686,6 +690,7 @@ function tracer(id, mode) {
       // Le statut de la dernière opération GPS prime sur l'ancienne position serveur.
       ed.pointNonRecu = !!(dernierPoint && ['ATTENTE','ENVOI'].indexOf(dernierPoint.etat) >= 0);
       ed.pointOperation = dernierPoint ? dernierPoint.idempotency_key : null;
+      ed.accordNonRelu = accordNonRelu;
     var titre = mode === 'gps' ? 'Mesurer en marchant (GPS)' : mode === 'import' ? 'Importer un contour' : 'Carte du champ';
     peindre('<div class="pc-ed-tete" id="pcEdTete"><div><b>' + esc(titre) + ' · ' + esc(x.local_name || 'Parcelle') + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
       '<span class="pc-ed-detail">' + esc(x.village_nom || '') + ' · ' + esc(x.cluster_code || '') + ' · déclarée ' + (x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ha' : '—') + '</span></div>' +
@@ -864,7 +869,7 @@ function peindrePanneau() {
   var lim = seuil('ecart_superficie_pct', 20), st = C.statsPrecision((ed.sommets_gps || []).map(function (s) { return s.precision; }));
   var conf = ed.confirmation === 'CONFIRMEE_SUR_PLACE';
   if (ed.confiance === 'VISIBLES' && !conf) ed.confiance = null;   // le niveau 1 exige la confirmation du producteur
-  var gab = !!ed.gabarit, pret = v.ok && ed.confiance && ed.identite && !gab && !ed.pointNonRecu;
+  var gab = !!ed.gabarit, pret = v.ok && ed.confiance && ed.identite && !gab && !ed.pointNonRecu && !ed.accordNonRelu && enLigne();
   var h = '<div class="pc-mesure" id="pcFin"><span class="pc-etq">' + (gab ? 'Ajustez les points aux limites de votre champ' : v.sommets >= 3 ? 'Calcul sur ce téléphone, vérifié par le serveur à l\'enregistrement' : 'Placez au moins 3 points') + '</span>' +
     (gab ? '<span class="pc-note">Le carré affiché est un gabarit provisoire : il n\'a pas de superficie.</span>' :
     '<span class="mono"><b>Superficie cartographique : ' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b><br><b>Périmètre : ' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></span>') +
@@ -883,7 +888,8 @@ function peindrePanneau() {
   h += '<label class="pc-champ"><span>Observation (facultatif)</span><input id="pcNote" type="text" maxlength="300" value="' + esc(ed.notes || '') + '"></label>';
   h += '<p class="pc-sauve" id="pcSauve">' + (ed.sauveLe ? C.ETATS.LOCAL + ' · ' + heureFr(ed.sauveLe) : 'Brouillon enregistré automatiquement à chaque modification') + '</p>';
   h += '<div class="pc-actions pc-actions-fin">' + bouton('Enregistrer', 'envoyer', 'pc-cmd-principal', pret ? '' : ' disabled') + '</div>';
-  h += '<p class="pc-note">' + (gab ? 'Pour enregistrer : ajustez d\'abord les points du gabarit.' : v.ok && !pret ? 'Pour enregistrer : indiquez la fiabilité des limites et confirmez l\'identité de la parcelle.' : 'Le contour enregistré est transmis au Chef de Zone pour validation. Sans réseau, il part au retour de la connexion.') + '</p>';
+  h += '<p class="pc-note">' + (gab ? 'Pour enregistrer : ajustez d\'abord les points du gabarit.' : v.ok && !pret ? 'Pour enregistrer : indiquez la fiabilité des limites et confirmez l\'identité de la parcelle.' : 'Le contour enregistré est transmis au Chef de Zone pour validation. Sans réseau, il reste en brouillon sur ce téléphone ; vous l\'enregistrerez au retour de la connexion.') + '</p>';
+  if (ed.accordNonRelu || !enLigne()) h += avis('alerte', '<b>Brouillon uniquement.</b> Sans connexion, l’accord GPS du producteur ne peut pas être relu : vous pouvez ajuster et conserver le contour sur ce téléphone ; l’enregistrement sera possible au retour du réseau, après relecture de l’accord.');
   if(ed.pointNonRecu) h += avis('alerte','<b>Brouillon uniquement.</b> Le point GPS est conservé sur cet appareil, mais n’a pas encore été accepté par le serveur. Vous pouvez ajuster les repères ; l’envoi du contour reste bloqué jusqu’à la synchronisation et à la vérification du consentement.');
   h += '<p class="pc-note">Superficie cartographique : estimation pour le suivi AFLP calculée sur l\'ellipsoïde WGS84, <b>pas une superficie foncière certifiée</b>.</p>';
   p.innerHTML = h;
@@ -943,7 +949,7 @@ function sommetGps() {
 async function envoyer() {
   var v = C.verifier(ed.sommets, (etat.params || {}).seuils);
   if (!v.ok || !ed.confiance || !ed.identite || ed.gabarit) return peindrePanneau();
-  if (!enLigne() || ed.pointNonRecu) {
+  if (!enLigne() || ed.pointNonRecu) {   // ed.accordNonRelu : relu juste dessous, en ligne
     var enAttente = document.getElementById('pcFondMsg');
     if (enAttente) enAttente.innerHTML = avis('alerte', 'Contour conservé en brouillon : attendez la confirmation serveur du point GPS et du consentement avant tout envoi.');
     return sauver();
