@@ -2,16 +2,16 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795304452,
+ "sequence": 1795305910,
  "web_version": "2026.11.21-2340.fcccb00",
  "git_commit": "fcccb0053c8ed42d6495cb3fa72e3311cc71f36c",
  "bundle_label": "fcccb00",
- "published_at": "2026-11-21T23:57:53.114Z",
- "created_at": "2026-11-21T23:57:53.114Z",
+ "published_at": "2026-11-22T00:05:10.703Z",
+ "created_at": "2026-11-22T00:05:10.703Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Essai OTA C (signature correcte)",
- "rollback_of": null,
+ "release_notes": "Essai retour arrière série 3",
+ "rollback_of": 1795304450,
  "min_native_version_code": 3,
  "native": {
   "latest_version_code": 9,
@@ -27,7 +27,8 @@
   "https://fonts.googleapis.com/css"
  ],
  "revoked_sequences": [
-  1795302886
+  1795302886,
+  1795304452
  ],
  "objects_path": "objects/",
  "files": {
