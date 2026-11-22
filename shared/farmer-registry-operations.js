@@ -31,6 +31,7 @@
       '.fr-op-body{padding:15px}.fr-op-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px}.fr-op-field{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:750;color:#4F4E4E}.fr-op-field input,.fr-op-field select,.fr-op-field textarea{width:100%;border:1px solid #CBD4C8;border-radius:7px;padding:9px;font:13px IBM Plex Sans,Arial;background:#fff}.fr-op-field textarea{min-height:70px;resize:vertical}',
       '.fr-op-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;border-top:1px solid #DDD;padding-top:13px}.fr-op-msg{display:none;border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:12px;background:#FDECE9;color:#8F2D22}.fr-op-msg.ok{background:#E3F5E8;color:#1C7A3F}.fr-op-msg.info{background:#E9F1FB;color:#2B5F9E}',
       '.fr-gps-box{border:1px dashed #8DC556;border-radius:10px;background:#F1F9EF;padding:11px;margin:12px 0}.fr-gps-box b{color:#053B23}.fr-assessment-preview{border-radius:9px;padding:10px;margin:10px 0;background:#E9F1FB;color:#2B5F9E;font-size:12px;font-weight:700}',
+      '.fr-consent-gps{border:2px solid #008F37;border-radius:10px;background:#F1F9EF;padding:12px;margin:12px 0;font-size:15px}.fr-consent-gps b{color:#053B23}.fr-consent-ok{color:#008F37;font-weight:700}.fr-consent-ko{color:#C0392B;font-weight:700}.fr-consent-action{margin-top:8px}.fr-btn-consent{min-height:48px;width:100%;font-size:15px}',
       '@media(max-width:620px){.fr-op-body{padding:10px}.fr-op-grid{grid-template-columns:1fr}#frSubDialog{padding:0}.fr-op-box{height:100vh;max-height:100vh;border-radius:0}}'
     ].join('');document.head.appendChild(s);
   }
@@ -92,9 +93,43 @@
          plus ici : les valeurs déjà enregistrées sont conservées telles quelles dans des champs masqués. */
       +hidden('frGps_lat',row.latitude)+hidden('frGps_lng',row.longitude)+hidden('frGps_acc',row.gps_accuracy_m)+hidden('frGps_at',row.gps_captured_at)+hidden('frGps_status',row.gps_status||'NOT_MAPPED')
       +'<p class="fr-meta" data-plot-carto>'+(row.latitude!=null?'Point GPS capturé · précision '+Math.round(Number(row.gps_accuracy_m)||0)+' m.':'Cartographie à compléter.')+' Après l’enregistrement, la position et la carte se font dans la plantation, depuis cette même rubrique.</p>'
+      /* 22/11/2026 : statut et bouton du consentement GPS affichés directement dans le formulaire Parcelles. Le
+         statut est lu en ligne dans farmer_consents (jamais présumé) ; le bouton ouvre le parcours de la plantation,
+         qui recueille l'accord, capture la position puis ouvre la carte Esri sans nouveau clic. */
+      +'<div class="fr-consent-gps" id="frPlotConsent" data-plot-existe="'+(id?'1':'0')+'" data-plot-id="'+esc(row.id)+'"><b>Consentement GPS du producteur :</b> <span id="frPlotConsentStatut">vérification…</span><div id="frPlotConsentAction" class="fr-consent-action"></div></div>'
       +(supervisor()?'<details class="fr-supervision"><summary>Supervision</summary><div class="fr-op-grid">'+field('Superficie vérifiée après contrôle terrain (ha)','frPlot_verifiedArea','number',row.gps_verified_area,'min="0.01" step="0.01"')+'</div></details>':'');
     dialog(id?'Modifier la parcelle':'Ajouter une parcelle',body,
       '<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\')">Enregistrer</button>');
+    peindreConsentementParcelle(!!id,row.id);
+  }
+  var LIBELLES_CONSENTEMENT={GRANTED:'Accordé',PARTIAL:'Accordé (partiel)',REFUSED:'Refusé',WITHDRAWN:'Retiré',PENDING:'En attente'};
+  async function peindreConsentementParcelle(existe,plotId){
+    var st=document.getElementById('frPlotConsentStatut'),ac=document.getElementById('frPlotConsentAction');
+    if(!st||!ac)return;
+    var gpsOk=false,texte;
+    if(!navigator.onLine||typeof SB==='undefined'||!SB){texte='non vérifiable hors connexion (aucun accord n’est présumé)';}
+    else{
+      try{
+        var rep=await SB.from('farmer_consents').select('status,scopes')
+          .eq('producteur_id',producerId()).order('event_order',{ascending:false}).limit(1).maybeSingle();
+        if(rep.error)throw rep.error;
+        var c=rep.data;
+        gpsOk=!!(c&&['GRANTED','PARTIAL'].indexOf(c.status)>=0&&c.scopes&&c.scopes.gps===true);
+        texte=!c?'non recueilli':(gpsOk?'accordé pour la localisation':((LIBELLES_CONSENTEMENT[c.status]||c.status)+(c.scopes&&c.scopes.gps===false?' : localisation refusée':' : localisation non accordée')));
+      }catch(e){texte='non vérifié ('+(e&&e.message||'connexion indisponible')+')';}
+    }
+    if(!document.getElementById('frPlotConsentStatut'))return;
+    st.textContent=texte;
+    st.className=gpsOk?'fr-consent-ok':'fr-consent-ko';
+    if(!peutCartographier()){ac.innerHTML='<p class="fr-meta">Votre rôle ne permet pas de recueillir l’accord ni de cartographier.</p>';return;}
+    if(!existe){ac.innerHTML='<p class="fr-meta">Après « Enregistrer », l’accord GPS est demandé tout de suite, puis la position est capturée et la carte s’ouvre seule.</p>';return;}
+    ac.innerHTML='<button type="button" class="fr-btn fr-btn-consent" onclick="ouvrirConsentementParcelle(\''+esc(plotId)+'\')">'
+      +(gpsOk?'Localiser la parcelle et ouvrir la carte':'Recueillir ou modifier l’accord GPS')+'</button>';
+  }
+  function ouvrirConsentementParcelle(plotId){
+    close();
+    if(FR.passportUI&&FR.passportUI.close)FR.passportUI.close();
+    global.location.hash='#parcelles/parcours/'+encodeURIComponent(plotId);
   }
   function hidden(id,v){return '<input type="hidden" id="'+id+'" value="'+String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">';}
   /* Rôles qui cartographient (même règle que parcelles.js ; le serveur décide de toute façon). */
@@ -207,6 +242,6 @@
   function verificationForm(){var s=state().summary||{};var body='<div class="fr-op-grid">'+selectField('Décision','frVerify_status',selectedOption([['APPROVED','Approuvé'],['REJECTED','Rejeté'],['REVOKED','Révoqué']],'APPROVED'))+selectField('Méthode','frVerify_method',selectedOption([['FIELD_REVIEW','Revue terrain'],['DOCUMENT_REVIEW','Revue documentaire'],['AUDIT','Audit'],['SUPERVISOR_REVIEW','Revue superviseur']],'FIELD_REVIEW'))+'</div><div class="fr-gps-box"><label><input id="frVerify_identity" type="checkbox"> Identité vérifiée</label><br><label><input id="frVerify_plot" type="checkbox"> Parcelles et GPS vérifiés</label><br><label><input id="frVerify_baseline" type="checkbox"> Baselines production et Sustainability vérifiées</label></div>'+field('Notes de vérification','frVerify_notes','textarea','');dialog('Vérification Farmer Passport · '+(s.farmer_id||producer().code||''),body,'<button class="fr-btn" onclick="saveFarmerVerification()">Enregistrer la décision</button>');}
   async function saveVerification(){if(!supervisor())return message('Action réservée à la supervision.');var status=value('frVerify_status'),checks={identity_checked:checked('frVerify_identity'),plot_checked:checked('frVerify_plot'),baseline_checked:checked('frVerify_baseline')};if(status==='APPROVED'&&(!checks.identity_checked||!checks.plot_checked||!checks.baseline_checked))return message('Les trois contrôles sont obligatoires pour approuver.');var row={id:uuid(),producteur_id:producerId(),status:status,verification_method:value('frVerify_method'),checks:checks,notes:value('frVerify_notes')||null,verifier_name:profile().nom||profile().email||null};message('Enregistrement de la vérification…','info');await FR.syncEngine.save('farmer_verifications',row,{producteur_id:producerId()});await refresh();}
 
-  function install(){if(!FR.syncEngine||!FR.assessment||!FR.passportUI)return false;injectStyle();global.closeFarmerOperation=close;global.captureFarmerGps=captureGps;global.openFarmerPlotForm=plotForm;global.saveFarmerPlot=savePlot;global.openProductionBaselineForm=productionForm;global.saveProductionBaseline=saveProduction;global.openSustainabilityBaselineForm=sustainabilityForm;global.saveSustainabilityBaseline=saveSustainability;global.openFarmerInspectionForm=inspectionForm;global.saveFarmerInspection=saveInspection;global.openFarmerActionForm=actionForm;global.saveFarmerAction=saveAction;global.openFarmerVisitForm=visitForm;global.saveFarmerVisit=saveVisit;global.openFarmerTrainingForm=trainingForm;global.saveFarmerTraining=saveTraining;global.openFarmerDocumentForm=documentForm;global.saveFarmerDocument=saveDocument;global.openFarmerVerificationForm=verificationForm;global.saveFarmerVerification=saveVerification;FR.operations={version:'1.0.0'};return true;}
+  function install(){if(!FR.syncEngine||!FR.assessment||!FR.passportUI)return false;injectStyle();global.closeFarmerOperation=close;global.captureFarmerGps=captureGps;global.ouvrirConsentementParcelle=ouvrirConsentementParcelle;global.openFarmerPlotForm=plotForm;global.saveFarmerPlot=savePlot;global.openProductionBaselineForm=productionForm;global.saveProductionBaseline=saveProduction;global.openSustainabilityBaselineForm=sustainabilityForm;global.saveSustainabilityBaseline=saveSustainability;global.openFarmerInspectionForm=inspectionForm;global.saveFarmerInspection=saveInspection;global.openFarmerActionForm=actionForm;global.saveFarmerAction=saveAction;global.openFarmerVisitForm=visitForm;global.saveFarmerVisit=saveVisit;global.openFarmerTrainingForm=trainingForm;global.saveFarmerTraining=saveTraining;global.openFarmerDocumentForm=documentForm;global.saveFarmerDocument=saveDocument;global.openFarmerVerificationForm=verificationForm;global.saveFarmerVerification=saveVerification;FR.operations={version:'1.0.0'};return true;}
   var attempts=0,timer=setInterval(function(){attempts+=1;if(install()||attempts>140)clearInterval(timer);},100);
 })(window);
