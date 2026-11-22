@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795347255,
- "web_version": "2026.11.22-1134.269a8be",
- "git_commit": "269a8be15ea4c01b6f7a613d258ddd4fbc997a3c",
- "bundle_label": "269a8be",
- "published_at": "2026-11-22T11:34:53.043Z",
- "created_at": "2026-11-22T11:34:53.043Z",
+ "sequence": 1795359754,
+ "web_version": "2026.11.22-1502.681455e",
+ "git_commit": "681455e81f8841408475eebc2bf840b5aa75b604",
+ "bundle_label": "681455e",
+ "published_at": "2026-11-22T15:03:23.876Z",
+ "created_at": "2026-11-22T15:03:23.876Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Observatoire : tous les champs du périmètre proposés à l'installation, avec ce qui manque (PR #366)",
+ "release_notes": "Observatoire : codes de suivi A001 a A012 (PR #370, inclut #369). Migration 7 appliquee.",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -18,7 +18,7 @@
   "latest_version_name": "1.4.3",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261120231000",
+ "supabase_compat": "20261122140000",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "8190cd1a1f242abdef05db8aded464b48a02d229f1535479bc06c11e32daedfe",
-   "size": 4670
+   "sha256": "ca443549280e119d255131a1d4d1e7d73ce3ceac8ae7d28425b69b7379725d59",
+   "size": 4696
   },
   "operations/field-buying.js": {
    "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
@@ -406,12 +406,12 @@
    "size": 7856
   },
   "operations/observatoire.css": {
-   "sha256": "9d41ae2fcac9e5437ad220077b927cda92887fa1183108bbb97053aa0a782952",
-   "size": 10406
+   "sha256": "d79e6def0b858970a6743b5ae798b60286409c516929e903e5c608377755d39f",
+   "size": 12453
   },
   "operations/observatoire.js": {
-   "sha256": "f3aefbe95cac9a38e22f7c42dfd73781d2ca8ae43be69087d1595381b92d8f3b",
-   "size": 116560
+   "sha256": "e298bf3c709d1666175d84bc24c1d093540695ba2967ec11414ce6a24fcbdfcb",
+   "size": 136987
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
@@ -426,8 +426,8 @@
    "size": 17464
   },
   "operations/parcelles.js": {
-   "sha256": "fe421309ef19225782129afa9f8f914c75634f205d2646e0d7a3af12ef58ec2b",
-   "size": 138911
+   "sha256": "e49f696d32010ddb471df4dc4a6e0b75d6b487564b8e0d160c1edaa9b6e5cda2",
+   "size": 138936
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -746,12 +746,12 @@
    "size": 67063
   },
   "shared/observatoire-coeur.js": {
-   "sha256": "fd45561b34237f034700da4f52510e6402cc927f479930098911f48e1c80b9d4",
-   "size": 19839
+   "sha256": "cc7651d790ed18877a57fbea58c97ba707b8c1f23c4ced1bcc4fe746868d96ae",
+   "size": 25098
   },
   "shared/observatoire-hors-ligne.js": {
-   "sha256": "dcf11b2eed67b23b698ac31008bf97de4cd820dc1346f73e70eb77942e7c300c",
-   "size": 25460
+   "sha256": "a30a5e6702d0dddd0e37115e7eb7fbc8ced45a792e8cbaa943bb1a7bd628f1c3",
+   "size": 26433
   },
   "shared/offline-field.js": {
    "sha256": "4ae7689fa5b7a1ee676315eb34a4247f53a7c9c11c73a53733822b1df478b998",
