@@ -1,5 +1,5 @@
 /* ANAGROCI Operations — Service Worker Offline First */
-var CACHE_VERSION = 'ops-offline-v30-ra-docs';
+var CACHE_VERSION = 'ops-offline-v31-gps-autoesri';
 var SHELL_CACHE = 'anagroci-shell-' + CACHE_VERSION;
 var RUNTIME_CACHE = 'anagroci-runtime-' + CACHE_VERSION;
 var OWN_PREFIXES = ['anagroci-', 'fbms-'];
