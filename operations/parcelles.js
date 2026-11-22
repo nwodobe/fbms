@@ -430,7 +430,12 @@ var METHODES_ACCORD = [['VERBAL', 'Accord dit de vive voix'], ['WRITTEN', 'Écri
 function pointLocal(id) { return L.cache.lire('point:' + id).catch(function () { return null; }); }
 /* Point capturé sur ce téléphone et pas encore visible dans la liste du serveur : il sert à centrer la carte. */
 function avecPointLocal(x, pl) {
-  if (!x || x.latitude != null || !pl || pl.latitude == null) return x;
+  if (!x || !pl || pl.latitude == null) return x;
+  // Un relevé local plus récent doit prévaloir pour l'affichage du brouillon,
+  // même si la vue Supabase contient une ancienne position du même champ.
+  var serveurLe = Date.parse(x.gps_captured_at || '') || 0;
+  var localLe = Date.parse(pl.capture_le || '') || 0;
+  if (x.latitude != null && (localLe <= serveurLe || !localLe)) return x;
   var y = {}; for (var k in x) y[k] = x[k];
   y.latitude = pl.latitude; y.longitude = pl.longitude; y.gps_accuracy_m = pl.precision_m; y.gps_captured_at = pl.capture_le; y._pointLocal = true;
   return y;
@@ -678,7 +683,8 @@ function tracer(id, mode) {
       if (dernierPoint && ['REJETE','CONFLIT'].indexOf(dernierPoint.etat) >= 0
           && x._pointLocal) return aller('parcelles/parcours/' + id);
       ed = nouvelEtatEditeur(x, mode, r[2], r[3][0]);
-      ed.pointNonRecu = !!(x._pointLocal && dernierPoint && dernierPoint.etat !== 'RECU');
+      // Le statut de la dernière opération GPS prime sur l'ancienne position serveur.
+      ed.pointNonRecu = !!(dernierPoint && ['ATTENTE','ENVOI'].indexOf(dernierPoint.etat) >= 0);
       ed.pointOperation = dernierPoint ? dernierPoint.idempotency_key : null;
     var titre = mode === 'gps' ? 'Mesurer en marchant (GPS)' : mode === 'import' ? 'Importer un contour' : 'Carte du champ';
     peindre('<div class="pc-ed-tete" id="pcEdTete"><div><b>' + esc(titre) + ' · ' + esc(x.local_name || 'Parcelle') + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
