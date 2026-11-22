@@ -272,7 +272,7 @@
           + (x.latitude != null ? fmt(x.latitude, 6) + ', ' + fmt(x.longitude, 6) + ' · précision ' + fmt(x.gps_accuracy_m, 0) + ' m' : 'non capturé')
           + '</div><div class="fr-actions">' + actionButton('Modifier','openFarmerPlotForm(\'' + x.id + '\')','secondary')
           /* Cartographie des parcelles : localiser le champ et tracer son contour (rubrique Parcelles & cartographie). */
-          + (x._sync_status && String(x._sync_status).toUpperCase() !== 'SYNCED' ? '' : ' <a class="fr-btn secondary" href="' + (location.pathname.indexOf('/operations/') >= 0 ? '' : '../operations/') + 'field-buying.html#parcelles/p/' + encodeURIComponent(x.id) + '">Cartographier</a>')
+          + (x._sync_status && String(x._sync_status).toUpperCase() !== 'SYNCED' ? '' : ' <a class="fr-btn secondary" href="' + (location.pathname.indexOf('/operations/') >= 0 ? '' : '../operations/') + 'field-buying.html#parcelles/' + (x.latitude != null ? 'p/' : 'parcours/') + encodeURIComponent(x.id) + '">' + (x.latitude != null ? 'Carte du champ' : 'Cartographie à compléter') + '</a>')
           + '</div></article>';
       }).join('') : '<div class="fr-empty">Aucune parcelle. Le passeport ne peut pas atteindre MAPPED sans parcelle et point GPS.</div>')
       + (rows.some(function (x) { return x.latitude != null && x.longitude != null; }) ? '<div id="frPlotMap" class="fr-map"></div>' : '');

@@ -87,13 +87,20 @@
       +selectField('Source superficie','frPlot_areaSource',selectedOption([['DECLARED','Déclarée'],['OBSERVED','Observée'],['DOCUMENTED','Documentée'],['GPS_ESTIMATED','Estimée GPS'],['GPS_VERIFIED','Vérifiée GPS']],row.area_source))
       +selectField('Niveau de preuve','frPlot_evidence',selectedOption([['DECLARED','Déclaré'],['OBSERVED','Observé'],['DOCUMENTED','Documenté'],['GPS_VERIFIED','GPS vérifié'],['AUDITED','Audité']],row.evidence_level))
       +selectField('Statut parcelle','frPlot_status',selectedOption([['ACTIVE','Active'],['INACTIVE','Inactive'],['REVIEW_REQUIRED','À revoir']],row.status))+'</div>'
-      +'<div class="fr-gps-box"><div class="fr-op-grid">'+field('Latitude','frGps_lat','number',row.latitude,'step="0.0000001" readonly')+field('Longitude','frGps_lng','number',row.longitude,'step="0.0000001" readonly')+field('Précision GPS (m)','frGps_acc','number',row.gps_accuracy_m,'readonly')+field('Horodatage GPS','frGps_at','text',row.gps_captured_at,'readonly')
-      +selectField('Statut GPS','frGps_status',selectedOption([['NOT_MAPPED','Non mappé'],['POINT_CAPTURED','Point capturé']].concat(supervisor()?[['GPS_VERIFIED','GPS vérifié'],['REJECTED','Rejeté']]:[['REJECTED','Rejeté']]),row.gps_status))+(supervisor()?field('Superficie GPS vérifiée (ha)','frPlot_verifiedArea','number',row.gps_verified_area,'min="0.01" step="0.01"'):'')+'</div><button class="fr-btn secondary" onclick="captureFarmerGps(\'plot\')">Capturer le point GPS</button></div>'
-      +field('Notes parcelle','frPlot_notes','textarea',row.notes);
-    body += '<div class="fr-gps-box" role="note"><b>Carte de plantation · Rainforest Alliance</b><p>Après sauvegarde, l\'éditeur Esri vous permet de tracer les limites de ce champ, de vérifier les références terrain et de préparer le dossier cartographique. Le consentement GPS reste obligatoire. Une carte satellite seule n\'est pas une preuve terrain.</p></div>';
+      /* Parcours Parcelles du 21/11/2026 : la position, la précision, l'heure et le statut GPS sont renseignés par la
+         capture automatique de la rubrique Parcelles (accord du producteur → position → carte). Ils ne se saisissent
+         plus ici : les valeurs déjà enregistrées sont conservées telles quelles dans des champs masqués. */
+      +hidden('frGps_lat',row.latitude)+hidden('frGps_lng',row.longitude)+hidden('frGps_acc',row.gps_accuracy_m)+hidden('frGps_at',row.gps_captured_at)+hidden('frGps_status',row.gps_status||'NOT_MAPPED')
+      +'<p class="fr-meta" data-plot-carto>'+(row.latitude!=null?'Point GPS capturé · précision '+Math.round(Number(row.gps_accuracy_m)||0)+' m.':'Cartographie à compléter.')+' Après l’enregistrement, la position et la carte se font dans la plantation, depuis cette même rubrique.</p>'
+      +(supervisor()?'<details class="fr-supervision"><summary>Supervision</summary><div class="fr-op-grid">'+field('Superficie vérifiée après contrôle terrain (ha)','frPlot_verifiedArea','number',row.gps_verified_area,'min="0.01" step="0.01"')+'</div></details>':'');
     dialog(id?'Modifier la parcelle':'Ajouter une parcelle',body,
-      '<button class="fr-btn secondary" onclick="saveFarmerPlot(\''+row.id+'\',false)">Enregistrer sans cartographie</button>' +
-      '<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\',true)">Enregistrer puis ouvrir Esri</button>');
+      '<button class="fr-btn" onclick="saveFarmerPlot(\''+row.id+'\')">Enregistrer</button>');
+  }
+  function hidden(id,v){return '<input type="hidden" id="'+id+'" value="'+String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">';}
+  /* Rôles qui cartographient (même règle que parcelles.js ; le serveur décide de toute façon). */
+  function peutCartographier(){
+    var r=global.ANAGROCI_AUTH&&global.ANAGROCI_AUTH.profile&&global.ANAGROCI_AUTH.profile.role;
+    return ['Branch Manager','Branch Manager / Head of Programme','Unit Head','Assistant Unit Head'].indexOf(r)>=0&&!!global.ANAGROCI_PARCELLES;
   }
   function plotNameKey(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,'');}
   function similarPlot(plots,row){
@@ -121,7 +128,8 @@
       gps_status:value('frGps_status'),
       gps_verified_area:supervisor()&&value('frPlot_verifiedArea')?numberValue('frPlot_verifiedArea'):old.gps_verified_area||null,
       area_source:value('frPlot_areaSource'),evidence_level:value('frPlot_evidence'),
-      notes:value('frPlot_notes')||null,status:value('frPlot_status'),deleted:false
+      /* Le champ « Notes parcelle » n'est plus affiché : la note historique (dont FBMS-AUTO-PROVISOIRE) est conservée telle quelle. */
+      notes:old.notes!=null?old.notes:null,status:value('frPlot_status'),deleted:false
     });
     if(!row.village_id)return message('Village du producteur absent : corrigez le Farmer Passport avant de créer la parcelle.');
     if(!row.declared_area||row.declared_area<=0)return message('Superficie déclarée obligatoire.');
@@ -141,6 +149,11 @@
         return message('Parcelle peut-être déjà enregistrée : « '+(doublon.local_name||'sans nom')+' » · '+(doublon.declared_area||'—')+' '+(doublon.area_unit||'HA')+'. S’il s’agit bien d’un AUTRE champ, appuyez de nouveau sur Enregistrer ; sinon fermez ce formulaire.');
       }
     }
+    /* Parcelle déjà connue du serveur : sa position, son statut GPS et son état de cartographie appartiennent au
+       parcours Parcelles (plot_map_*). Ce formulaire ne les renvoie plus : une fiche restée ouverte sur un téléphone
+       ne peut donc pas effacer un point GPS ou un contour enregistré entre-temps. */
+    var sansPoint=row.latitude==null;
+    if(old.id)['latitude','longitude','gps_accuracy_m','gps_captured_at','gps_status','plot_code','mapping_status','current_geometry_id','mapped_area_ha','mapped_area_method','split_from_plot_id'].forEach(function(k){delete row[k];});
     var buttons=document.querySelectorAll('#frSubDialog .fr-op-actions button');
     buttons.forEach(function(button){button.disabled=true;});
     message('Enregistrement de la parcelle…','info');
@@ -148,13 +161,16 @@
       var result=await FR.syncEngine.save('farmer_plots',row,{producteur_id:producerId()});
       var saved=result&&result._sync_status==='SYNCED';
       if(!saved){
-        message('Parcelle sauvegardée sur cet appareil, mais pas encore reçue par le serveur. Synchronisez avant de cartographier. Aucun contour ni document n’a été créé.','info');
+        message('Parcelle enregistrée sur cet appareil, pas encore reçue par le serveur. Statut : cartographie à compléter. La position et la carte seront possibles après la synchronisation ; ne recréez pas la parcelle.','info');
         return;
       }
-      if(ouvrirCarte){
+      /* Un seul bouton : la parcelle est enregistrée, puis le parcours de cartographie s'ouvre tout seul quand il
+         reste à faire (aucun point GPS) et que le compte peut cartographier. Sinon la fiche est simplement rafraîchie ;
+         la parcelle garde le statut « Cartographie à compléter » et se reprend plus tard, sans doublon (même identifiant). */
+      if(ouvrirCarte!==false&&sansPoint&&peutCartographier()){
         close();
         if(FR.passportUI&&FR.passportUI.close)FR.passportUI.close();
-        global.location.hash='#parcelles/tracer/'+encodeURIComponent(id)+'/sat';
+        global.location.hash='#parcelles/parcours/'+encodeURIComponent(id);
       }else{
         await refresh();
       }

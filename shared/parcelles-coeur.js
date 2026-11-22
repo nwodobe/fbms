@@ -48,6 +48,40 @@
   }
   function distance(a, b) { return WGS84.Inverse(a[1], a[0], b[1], b[0]).s12; }
 
+  /* ---- Gabarit de départ et transformations d'ensemble (parcours Parcelles du 21/11/2026) ----
+     Tout est calculé sur l'ellipsoïde (problèmes direct et inverse de la géodésie) : un contour déplacé
+     garde ses longueurs, un contour agrandi garde ses angles. Rien ne dépend des pixels de l'écran. */
+  var COTE_GABARIT_M = 70;                 // côté du carré de départ : un repère visible, PAS une superficie attendue
+  function destination(p, azimut, d) { var r = WGS84.Direct(p[1], p[0], azimut, d); return [arrondi(r.lon2), arrondi(r.lat2)]; }
+  /* Carré orienté au nord autour d'un point [lng, lat]. Ordre : P1 nord-ouest, P2 nord-est, P3 sud-est, P4 sud-ouest.
+     La taille est fixe : elle ne dépend jamais de la superficie déclarée (un gabarit n'est pas une mesure). */
+  function gabarit(centre, cote) {
+    var c = [Number(centre[0]), Number(centre[1])];
+    if (!isFinite(c[0]) || !isFinite(c[1])) return [];
+    var diag = (Number(cote) > 0 ? Number(cote) : COTE_GABARIT_M) / 2 * Math.SQRT2;
+    return [315, 45, 135, 225].map(function (a) { return destination(c, a, diag); });
+  }
+  function centroide(sommets) {
+    var s = nettoyer(sommets); if (!s.length) return null;
+    var x = 0, y = 0; s.forEach(function (p) { x += p[0]; y += p[1]; });
+    return [x / s.length, y / s.length];
+  }
+  function transformer(sommets, vers, facteur) {
+    var s = nettoyer(sommets), c = centroide(s); if (!c) return [];
+    var cible = vers ? [Number(vers[0]), Number(vers[1])] : c, f = facteur == null ? 1 : Number(facteur);
+    if (!isFinite(cible[0]) || !isFinite(cible[1]) || !(f > 0)) return s;
+    return s.map(function (p) { var i = WGS84.Inverse(c[1], c[0], p[1], p[0]); return destination(cible, i.azi1, i.s12 * f); });
+  }
+  /* Déplace tout le contour : son centre va en « vers » [lng, lat], la forme et les dimensions sont conservées. */
+  function deplacer(sommets, vers) { return transformer(sommets, vers, 1); }
+  /* Agrandit (> 1) ou réduit (< 1) le contour autour de son centre, sans le déformer. */
+  function echelle(sommets, facteur) { return transformer(sommets, null, facteur); }
+  /* Vrai si le contour est encore exactement le gabarit posé autour de ce centre (aucun point ajusté). */
+  function estGabarit(sommets, centre, cote) {
+    var a = nettoyer(sommets), b = gabarit(centre, cote);
+    return a.length === 4 && b.length === 4 && a.every(function (p, i) { return p[0] === b[i][0] && p[1] === b[i][1]; });
+  }
+
   /* Croisement de deux segments (calcul plan, suffisant à l'échelle d'une parcelle). */
   function orient(a, b, c) { var v = (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1]); return v > 1e-15 ? 1 : (v < -1e-15 ? 2 : 0); }
   function surSegment(a, b, c) { return Math.min(a[0], c[0]) <= b[0] && b[0] <= Math.max(a[0], c[0]) && Math.min(a[1], c[1]) <= b[1] && b[1] <= Math.max(a[1], c[1]); }
@@ -86,6 +120,34 @@
     }
     return { ok: erreurs.length === 0, erreurs: erreurs, area_m2: m.area_m2, perimeter_m: m.perimeter_m, sommets: s.length, geojson: geojson(s) };
   }
+  /* Métadonnées d'imagerie : réponse « identify » de la couche de citations Esri World Imagery.
+     Ne renvoie une date que si le service en déclare une, plausible (AAAAMMJJ, 1990 → aujourd'hui) ;
+     99999 et 0 sont les codes Esri « non disponible ». Aucune valeur n'est estimée. */
+  function metaImagerie(reponse) {
+    var res = reponse && reponse.results; if (!res || !res.length) return null;
+    function champ(a, noms) {
+      var cles = Object.keys(a || {});
+      for (var i = 0; i < noms.length; i++) for (var j = 0; j < cles.length; j++) if (cles[j].toUpperCase() === noms[i]) { var v = a[cles[j]]; if (v != null && String(v).trim() !== '' && String(v).trim().toLowerCase() !== 'null') return v; }
+      return null;
+    }
+    function date(v) {
+      var m = String(v == null ? '' : v).trim().match(/^(\d{4})(\d{2})(\d{2})$/); if (!m) return null;
+      var a = Number(m[1]), mo = Number(m[2]), j = Number(m[3]), t = new Date(Date.UTC(a, mo - 1, j));
+      if (a < 1990 || mo < 1 || mo > 12 || j < 1 || j > 31 || t.getUTCMonth() !== mo - 1 || t.getTime() > Date.now() + 864e5) return null;
+      return m[1] + '-' + m[2] + '-' + m[3];
+    }
+    function nombre(v) { var n = Number(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) && n > 0 && n < 99999 ? n : null; }
+    var meilleur = null;
+    res.forEach(function (r) {
+      var a = r && r.attributes; if (!a) return;
+      var o = { fournisseur: 'Esri World Imagery', date: date(champ(a, ['SRC_DATE', 'DATE (YYYYMMDD)', 'SRC_DATE2'])),
+        source: champ(a, ['SOURCE', 'NICE_DESC', 'SRC_DESC', 'NICE_NAME', 'SOURCE_INFO']), resolution_m: nombre(champ(a, ['SRC_RES', 'RESOLUTION (M)'])),
+        precision_m: nombre(champ(a, ['SRC_ACC', 'ACCURACY (M)'])) };
+      if (o.source != null) o.source = String(o.source).trim().slice(0, 80);
+      if (!meilleur || (o.date && !meilleur.date) || (o.date && meilleur.date && o.resolution_m && (!meilleur.resolution_m || o.resolution_m < meilleur.resolution_m))) meilleur = o;
+    });
+    return meilleur;
+  }
   function hectares(m2, dec) { return (Number(m2) / 10000).toFixed(dec == null ? 2 : dec).replace('.', ','); }
   function metres(v) { return Math.round(Number(v)).toLocaleString('fr-FR').replace(/ | /g, ' '); }
   /* Écart (%) entre superficie calculée et superficie déclarée ; null si la déclaration manque. */
@@ -118,7 +180,7 @@
     RECU: 'Reçu par le serveur', CONFLIT: 'Conflit à résoudre', REJETE: 'Refusé par le serveur'
   };
   var STATUTS = {
-    NON_LOCALISEE: 'Non localisée', LOCALISEE: 'Localisée (point GPS)', SOUMIS: 'Soumis au Chef de Zone',
+    NON_LOCALISEE: 'Cartographie à compléter', LOCALISEE: 'Point GPS capturé · contour à tracer', SOUMIS: 'Soumis au Chef de Zone',
     A_CORRIGER: 'À corriger', VALIDE: 'Validé', REMPLACE: 'Remplacé', ARCHIVE: 'Archivé'
   };
   /* Fiabilité de la mesure, en trois niveaux (le calcul de l'aire peut être exact alors que le tracé est faux). */
@@ -173,7 +235,7 @@
     })).join('\n');
   }
   return {
-    nettoyer: nettoyer, geojson: geojson, mesurer: mesurer, distance: distance, croisements: croisements, verifier: verifier,
+    nettoyer: nettoyer, geojson: geojson, mesurer: mesurer, distance: distance, gabarit: gabarit, centroide: centroide, deplacer: deplacer, echelle: echelle, estGabarit: estGabarit, COTE_GABARIT_M: COTE_GABARIT_M, metaImagerie: metaImagerie, croisements: croisements, verifier: verifier,
     hectares: hectares, metres: metres, ecartDeclare: ecartDeclare, combinerLectures: combinerLectures, statsPrecision: statsPrecision,
     ETATS: ETATS, STATUTS: STATUTS, CONFIANCE: CONFIANCE, SOURCES: SOURCES, METHODES: METHODES, SUPERFICIES: SUPERFICIES,
     uuid: uuid, operation: operation, soumission: soumission, sommetsDepuisGeoJSON: sommetsDepuisGeoJSON, sommetsDepuisKML: sommetsDepuisKML, csv: csv

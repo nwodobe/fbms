@@ -41,6 +41,7 @@ var MENU=[
   ['Tableau de bord','Dashboard','field-buying.html#overview'],
   ['Carte des parcelles','Plot map','field-buying.html#parcelles/pilotage'],
   ['Alertes terrain','Field alerts','field-buying.html#command'],
+  ['Mises à jour des téléphones','Phone updates','field-buying.html#mises-a-jour'],
   ['Rapports et exports','Reports & export','reports.html'],
   ['AFLP DATA','AFLP DATA','aflp-data.html'],
   ['Campagnes','Campaigns','campaigns.html'],
@@ -78,7 +79,7 @@ function pathId(){
  if(file==='procurement.html')return 'E4';
  if(file==='reports.html'||file==='aflp-data.html'||file==='campaigns.html'||file==='traceability.html')return 'E5';
  if(file==='field-buying.html'){
-  if(/#parcelles\/pilotage(\/|$)/.test(hash))return 'E5';
+  if(/#(parcelles\/pilotage|mises-a-jour)(\/|$)/.test(hash))return 'E5';
   if(/#(farmers|rt|census|cooperatives|hubs|parcelles)/.test(hash))return 'E1';
   if(/#(sustainability|observatoire)(\/|$)/.test(hash))return 'E2';
   if(/#(purchases|cash|bags)/.test(hash))return 'E3';

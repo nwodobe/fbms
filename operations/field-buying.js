@@ -2197,7 +2197,7 @@ function renderFarmerPassport(id, tab) {
             [TT('Paiement préféré', 'Preferred payment'), extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
         body = '<div class="notice ok"><b>' + TT('Règle de campagne :', 'Campaign rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
-          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur. Après enregistrement, ouvrez Esri pour tracer les limites et préparer la carte de plantation. Aucun tracé satellite seul ne prouve une vérification terrain.', 'Each plot stays separate. After saving, open Esri to map its boundaries and prepare the plantation map; satellite drawing alone is not ground evidence.') + '</p></div>' +
+          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur. Enregistrez-la, puis cartographiez-la dans la plantation : accord du producteur, position GPS, contour.', 'Each plot stays separate. Save it, then map it in the field: producer consent, GPS position, boundary.') + '</p></div>' +
           '<div class="ops-route-actions">' + (plotsUnknown(p)
             ? '<button class="btn secondary" type="button" disabled aria-disabled="true" data-plot-add="blocked" title="' + esc(TT('Reconnectez-vous pour vérifier les parcelles existantes', 'Reconnect to check existing plots')) + '">' + esc(TT('+ Ajouter une parcelle', '+ Add a plot')) + '</button>'
             : editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()')) + '</div></div>' + plotsNotice +
@@ -2215,8 +2215,8 @@ function renderFarmerPassport(id, tab) {
               '<td class="fb-plot-actions">' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") +
               (attente
                 ? '<small>' + esc(TT('En attente serveur : carte indisponible', 'Pending server: map unavailable')) + '</small>'
-                : '<a class="btn secondary" href="#parcelles/p/' + encodeURIComponent(x.id) + '">' +
-                  TT('Carte de plantation · Esri', 'Plantation map · Esri') + '</a>') + '</td></tr>';
+                : '<a class="btn secondary" href="#parcelles/' + (x.latitude != null ? 'p/' : 'parcours/') + encodeURIComponent(x.id) + '">' +
+                  (x.latitude != null ? TT('Carte du champ', 'Plot map') : TT('Cartographie à compléter', 'Mapping to complete')) + '</a>') + '</td></tr>';
           }))) + '</section>';
       } else if (tab === 'production') {
         body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>' + TT('Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.', 'A FINAL baseline is kept in history and never rewritten; a correction goes through a new version.') + '</p></div>' +
@@ -5437,6 +5437,13 @@ var ROUTES = {
         setTimeout(attendre, 300);
       })();
     });
+  },
+  /* Suivi des mises à jour des téléphones (Branch Manager) : moteur dans ../shared/ota-suivi.js.
+     Lecture seule ; ce que les téléphones ont réellement signalé, jamais une supposition. */
+  'mises-a-jour': function (p) {
+    if (global.ANAGROCI_OTA_SUIVI && global.ANAGROCI_OTA_SUIVI.render) return global.ANAGROCI_OTA_SUIVI.render(p);
+    paint(head('Mises à jour des téléphones', '') + '<div class="notice warn">Module de suivi non chargé. Rechargez la page.</div>');
+    return null;
   }
 };
 

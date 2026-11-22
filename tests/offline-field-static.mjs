@@ -18,7 +18,7 @@ assert.match(off,/addEventListener\('online'/,'reprise au retour réseau requise
 assert.match(off,/prepareDeviceLease/,'lease appareil RT requis pour la caisse offline');
 assert.match(off,/navigator\.storage\.persist/,'demande stockage persistant requise');
 
-assert.match(html,/offline-field\.js\?v=20261118-sync-journal-1/);
+assert.match(html,/offline-field\.js\?v=20261122-ecriture-stricte-1/);
 assert.match(html,/navigator\.serviceWorker\.register\("\.\.\/sw\.js"/,'Service Worker Operations requis');
 assert.match(sw,/offline-field\.js/,'shell terrain doit précacher le moteur offline');
 assert.match(sw,/field-buying\.html/,'shell terrain requis');
@@ -46,3 +46,10 @@ assert.match(fb,/leaseAllows\(row\.rt_id\)/,'garde appareil RT côté client');
 assert.match(coop,/COOP_FARMER_ENROLL/,'enrôlement coop offline');
 
 console.log('Offline FIELD BUYING static: PASS');
+/* Files métier : écriture IndexedDB « stricte » (données sur le disque avant l'acquittement), 21/11/2026. */
+{
+  const files = { 'shared/offline-field.js': /db\.transaction\(store, mode, ECRITURE_STRICTE\)/, 'shared/parcelles-hors-ligne.js': /d\.transaction\(store, mode, ECRITURE_STRICTE\)/ };
+  for (const [f, re] of Object.entries(files)) { const src = fs.readFileSync(f, 'utf8'); assert.match(src, /durability: 'strict'/, f + ' : écriture stricte'); assert.match(src, re, f + ' : écriture stricte sur les transactions en écriture'); }
+  assert.equal((fs.readFileSync('shared/farmer-registry-sync.js', 'utf8').match(/'readwrite', \{ durability: 'strict' \}/g) || []).length, 2, 'registre : écriture stricte sur put et delete');
+  assert.match(fs.readFileSync('shared/offline-field.js', 'utf8'), /db\.transaction\(STORE_OPS, 'readwrite', ECRITURE_STRICTE\)/, 'mise à jour des opérations : écriture stricte');
+}
