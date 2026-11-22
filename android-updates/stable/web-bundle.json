@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795345899,
- "web_version": "2026.11.22-1111.aee45a6",
- "git_commit": "aee45a632dfb72a8e720b1d81afb3c327843bd0c",
- "bundle_label": "aee45a6",
- "published_at": "2026-11-22T11:12:25.261Z",
- "created_at": "2026-11-22T11:12:25.261Z",
+ "sequence": 1795347255,
+ "web_version": "2026.11.22-1134.269a8be",
+ "git_commit": "269a8be15ea4c01b6f7a613d258ddd4fbc997a3c",
+ "bundle_label": "269a8be",
+ "published_at": "2026-11-22T11:34:53.043Z",
+ "created_at": "2026-11-22T11:34:53.043Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Consentement GPS visible dans le formulaire Parcelles (PR #363)",
+ "release_notes": "Observatoire : tous les champs du périmètre proposés à l'installation, avec ce qui manque (PR #366)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "98ed873c03d4a91410bc549cf675ae61735914b3467daa9fc53ecab8a645e3d4",
-   "size": 4669
+   "sha256": "8190cd1a1f242abdef05db8aded464b48a02d229f1535479bc06c11e32daedfe",
+   "size": 4670
   },
   "operations/field-buying.js": {
    "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
@@ -410,8 +410,8 @@
    "size": 10406
   },
   "operations/observatoire.js": {
-   "sha256": "3ad07413b6faee2e76e74fea4a4cb356ff792903faf05c708f2bdf5ec3887b3b",
-   "size": 113711
+   "sha256": "f3aefbe95cac9a38e22f7c42dfd73781d2ca8ae43be69087d1595381b92d8f3b",
+   "size": 116560
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
