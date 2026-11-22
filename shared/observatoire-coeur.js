@@ -181,6 +181,36 @@
     });
     return { erreurs: e, arbres: e.length ? [] : arbres };
   }
+  /* Assistant de saisie : 01..10 sont les rangs de suivi, 11..12 les reserves.
+     Les numeros de l'inventaire restent propres a chaque bloc (B01/A001 etc.).
+     Aucune fabrication d'arbres si le total reel inventorie est insuffisant. */
+  function proposerChoixArbres(panel, titulaires, reserves) {
+    var T = titulaires == null ? 10 : +titulaires, R = reserves == null ? 2 : +reserves;
+    if (!(T > 0) || !(R >= 0) || T !== Math.floor(T) || R !== Math.floor(R)) {
+      return { erreurs: ['Nombre d’arbres suivis ou de réserves invalide.'], choix: [], capacite: 0, requis: T + R };
+    }
+    var blocs = (panel && panel.blocs || []).filter(function (b) { return b.tire; })
+      .sort(function (a, b) { return a.numero - b.numero; });
+    var capacite = 0, mauvais = [];
+    blocs.forEach(function (b) {
+      var n = +b.nb_arbres_inventories;
+      if (b.nb_arbres_inventories == null || n < 0 || n !== Math.floor(n)) mauvais.push('B' + ('0' + b.numero).slice(-2));
+      else capacite += n;
+    });
+    if (mauvais.length) return { erreurs: ['Comptage manquant ou invalide dans : ' + mauvais.join(', ') + '.'], choix: [], capacite: capacite, requis: T + R };
+    if (capacite < T + R) {
+      return { erreurs: ['Seulement ' + capacite + ' arbre(s) inventorie(s) dans les blocs suivis pour ' + (T + R) + ' arbres a designer. Verifiez l’inventaire reel avec le Chef d’Unite ; ne creez pas de numeros fictifs.'],
+        choix: [], capacite: capacite, requis: T + R };
+    }
+    var choix = [];
+    blocs.forEach(function (b) {
+      for (var n = 1; n <= b.nb_arbres_inventories && choix.length < T + R; n++) {
+        choix.push({ role: choix.length < T ? 'TITULAIRE' : 'RESERVE', bloc_id: b.id, numero: n });
+      }
+    });
+    return { erreurs: [], choix: choix, capacite: capacite, requis: T + R };
+  }
+
   /* Nom de fichier d'une photo : visite + arbre + horodatage (aucune barre oblique). */
   function nomPhoto(visiteId, arbreId_, ext) { return String(visiteId).slice(0, 8) + '_' + String(arbreId_).replace(/-/g, '') + '_' + Date.now() + '.' + (ext || 'jpg'); }
 
@@ -258,7 +288,7 @@
   };
 
   return { sha256: sha256, tirage: tirage, arbreId: arbreId, uuid: uuid, repartition: repartition, installer: installer, tirerArbres: tirerArbres,
-    codeArbre: codeArbre, installerDesignation: installerDesignation, designerArbres: designerArbres, nomPhoto: nomPhoto,
+    codeArbre: codeArbre, installerDesignation: installerDesignation, designerArbres: designerArbres, proposerChoixArbres: proposerChoixArbres, nomPhoto: nomPhoto,
     semaineIso: semaineIso, aujourdhui: aujourdhui, observationVide: observationVide, arbresObserves: arbresObserves, observationComplete: observationComplete,
     controlerVisite: controlerVisite, chargeVisite: chargeVisite, LIBELLES: LIBELLES, PROTOCOLE: 'AFLP2027-OBS v0.9' };
 });
