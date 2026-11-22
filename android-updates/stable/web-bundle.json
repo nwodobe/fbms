@@ -2,20 +2,20 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795239403,
- "web_version": "2026.11.21-0536.2420346",
- "git_commit": "242034672c6f18b83dbacb0fcf9cb0ddba018f4c",
- "bundle_label": "2420346",
- "published_at": "2026-11-21T05:37:36.137Z",
- "created_at": "2026-11-21T05:37:36.137Z",
+ "sequence": 1795326060,
+ "web_version": "2026.11.22-0541.6c39e0d",
+ "git_commit": "6c39e0d9efe37ef5528cf43ae8d95aa4d2bfc590",
+ "bundle_label": "6c39e0d",
+ "published_at": "2026-11-22T10:50:56.761Z",
+ "created_at": "2026-11-22T10:50:56.761Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Parcelles : parcelle créée en ligne visible hors ligne, alerte doublon (PR #358)",
+ "release_notes": "Parcours Parcelles intégré : accord GPS dans la parcelle, carte ouverte automatiquement après capture, carré P1-P4, date Esri (PR #360)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 9,
-  "latest_version_name": "1.4.2",
+  "latest_version_code": 10,
+  "latest_version_name": "1.4.3",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
  "supabase_compat": "20261120231000",
@@ -174,8 +174,8 @@
    "size": 15445
   },
   "fieldproof/index.html": {
-   "sha256": "d52b89a46aeb488c04f6329e265c830057e3127ef0172c47c7d71b80c936ffa1",
-   "size": 3861
+   "sha256": "a0d25636bf2660c7df5a3c5de412ac55a5dfa711b2e0b2cfacad4736df1a2f43",
+   "size": 3864
   },
   "fieldproof/portal-fieldproof.css": {
    "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
@@ -190,8 +190,8 @@
    "size": 23738
   },
   "index.html": {
-   "sha256": "dc47194c62204f358b10af8f3d0c02980f9ada2699f0c6fe656fcdbb96c3b6e1",
-   "size": 12411
+   "sha256": "e363325acbc656279d819983b79442e89529844a3307e2e171631626560d35d2",
+   "size": 12414
   },
   "logistique.html": {
    "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
@@ -214,8 +214,8 @@
    "size": 601
   },
   "moto/index.html": {
-   "sha256": "8c15eb8100c1203168ba63be9631f677a3e2315fac748bae52e7f514f8fecdf2",
-   "size": 3927
+   "sha256": "588cb2618980606c37ed8f6cb58505a3dd9a5e8132f5a5c785d5fb5ee401f62a",
+   "size": 3930
   },
   "moto/moto-app.js": {
    "sha256": "b1b6fa49f46df6f2a2e833a043d6824f0129a3e4bfb5fa5bc26b0b61c4ac58f2",
@@ -294,8 +294,8 @@
    "size": 1742
   },
   "operations/aflp-data.html": {
-   "sha256": "5488b126541e869c2333d5937484196bc73a79857b979103da7faf818cfd6047",
-   "size": 2174
+   "sha256": "0f90fc1b55b6418c736bdf21ec4cf37912f0aa92e4f3f9c7e03d7e27f27ef597",
+   "size": 2177
   },
   "operations/aflp-data.js": {
    "sha256": "41865de50c73e74fad8290c7f762c6c14e89e15bf7cd2c50841ec94062a9317b",
@@ -306,8 +306,8 @@
    "size": 8139
   },
   "operations/campaigns.html": {
-   "sha256": "ab9355fcf108c13d0576b97ae5aac0852a292ba7b065f5e94db27e44311ea082",
-   "size": 1751
+   "sha256": "c3683a3709c9104818346ed5b5f1ea08c24053e4974ea5c2c0dc6d12b99bd138",
+   "size": 1754
   },
   "operations/campaigns.js": {
    "sha256": "cacf4d8dabcc8c9d2839f8a894284bfb16557da1e4ebf0cabbc7dc71b162881b",
@@ -346,8 +346,8 @@
    "size": 7584
   },
   "operations/fbms-unified-nav-v22.js": {
-   "sha256": "c89c86f8810271fab8d0bda80a49473f7781b95cbbce1afc761f50c30d36186d",
-   "size": 13337
+   "sha256": "24699d7fb13e6d39d3bb00455a1a037ca4553945e266186fe2d4b1b3f6c1a8d7",
+   "size": 13439
   },
   "operations/fbms-v23-visual.css": {
    "sha256": "ce5357de08ab1ae591bae32aefedb8b5a3832cae8ba55858029a11683081a5b9",
@@ -374,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "664dc63321b7bcf1a7d1db8de717445d737c6620ff20ee05353d2252bb72228a",
-   "size": 4552
+   "sha256": "1adabbc41df2b12fa087c258a2574f1b721a8d85d60108ed271707ec4b3509db",
+   "size": 4665
   },
   "operations/field-buying.js": {
-   "sha256": "d412a0520a3119cb984b5fcd7663b43ebb88f8b9dc32fac6e551e20c54a37c69",
-   "size": 366212
+   "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
+   "size": 366709
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -422,12 +422,12 @@
    "size": 12611
   },
   "operations/parcelles.css": {
-   "sha256": "75473793ebbf9eb5cd5437892e208a96ea5d44e42ad60cb30d32a3df52aff7ff",
-   "size": 13908
+   "sha256": "cfa44560d2ca0f4adada6d6c94fa9c788af55fb288258546c84210017239e141",
+   "size": 17464
   },
   "operations/parcelles.js": {
-   "sha256": "6f11731984d8ff047ba3506f6908c3f5f32d4807f45e86f697dd182380d76e75",
-   "size": 112569
+   "sha256": "fe421309ef19225782129afa9f8f914c75634f205d2646e0d7a3af12ef58ec2b",
+   "size": 138911
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -438,8 +438,8 @@
    "size": 5986
   },
   "operations/procurement.html": {
-   "sha256": "50ec641aa19656c69a00353f591ea4100eee27eb3e1abd53a2a6560bbcf38246",
-   "size": 1973
+   "sha256": "6ae518e5db25343a39d865a966aacba5b8b800446e6dac6a82ce63c961fec42d",
+   "size": 1976
   },
   "operations/procurement.js": {
    "sha256": "2e9cfe8e54363fb1eb02d8f24ede4c683e6895ad0678eb7b59c124a21d3cfb1c",
@@ -458,8 +458,8 @@
    "size": 5329
   },
   "operations/reports.html": {
-   "sha256": "3e68ef263c3891d9d892ee03bdd6d5c36eb89c03fc5ca60e3addf958a6c83305",
-   "size": 5714
+   "sha256": "4c422540a15f3622ed208bc87ffb11481ebccf6a7142633aa9bfb95bda1d9fa2",
+   "size": 5717
   },
   "operations/rt-farmer-rights.js": {
    "sha256": "3d5311ddbf35738077eeaf9d9b8c38f3d309985eacc72a68963686628b71dfaf",
@@ -486,8 +486,8 @@
    "size": 12262
   },
   "operations/traceability.html": {
-   "sha256": "4f8d585387878350da2c79d94a6f365935f32d181b76e63ee3d45aa493226169",
-   "size": 3388
+   "sha256": "662a0dc5433332fd0c635f8e6b7f99b0d2a2b46f39f70c5105028f5e37d26473",
+   "size": 3391
   },
   "operations/warehouse-lot-origin.js": {
    "sha256": "19baa86dba65bad176cc61c38d1a706115967543cdcb3a4f2d749c08fe380888",
@@ -702,12 +702,12 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "1bbc934d75e9ebe91471b5b714b575146c6c6347f8c4ca9c033cb137a3c1d51c",
-   "size": 37720
+   "sha256": "b07a7f4fecd6b266aba7dfd128cdeb0cb81327a586213bad4a20daf981793575",
+   "size": 39129
   },
   "shared/farmer-registry-passport.js": {
-   "sha256": "85acf9d5c568a0996da68d0098a0820595cc41db0f9e878fffc01e9bbd8c45fc",
-   "size": 36761
+   "sha256": "bb7fb0012bf04d1167ef96a59691a06283efed883fa7b3c8bffb078afd2b5f7d",
+   "size": 36868
   },
   "shared/farmer-registry-privacy-phase1.js": {
    "sha256": "16933a841c58d8753c1a1285c7bde60b5bc715e1bfad4b6691d3cf371b49f0a5",
@@ -722,8 +722,8 @@
    "size": 1521
   },
   "shared/farmer-registry-sync.js": {
-   "sha256": "fd3427cf5926f2b63e422538b27621f3b7061326a7e239efaadfcad007ad7404",
-   "size": 17565
+   "sha256": "739ea55c2b60c405d7c556721a765719737d8cd4e88db6ce8f34cb9ae5987f44",
+   "size": 17745
   },
   "shared/fbms-dashboard-audit.js": {
    "sha256": "636c0e3a61e712593b38a8d384ca01b3cd1b54c1043df2a28b44ef1301235a41",
@@ -754,20 +754,24 @@
    "size": 25460
   },
   "shared/offline-field.js": {
-   "sha256": "cc46bb870ec4966537da88847af4a33fb1942fea2e2ff4be633d608bdf34776f",
-   "size": 54840
+   "sha256": "4ae7689fa5b7a1ee676315eb34a4247f53a7c9c11c73a53733822b1df478b998",
+   "size": 55474
   },
   "shared/ops-premium.css": {
    "sha256": "d2d77fdfd31984e4cf1e7883f859e10268de56deca4e828cc048d12c87bd2f15",
    "size": 14907
   },
+  "shared/ota-suivi.js": {
+   "sha256": "8b9bda183d4ca668da73114667739d278437eb0971e89c0cc20e647fa28349c6",
+   "size": 18360
+  },
   "shared/parcelles-coeur.js": {
-   "sha256": "e6671a082af620680a705d2cfe4576b643518245a710b2ac6e6ebd3c75b5cee3",
-   "size": 12860
+   "sha256": "40c453fdc003fdec437737aae078b9a2b6fef516f339762b5f02a640290bd40f",
+   "size": 17577
   },
   "shared/parcelles-hors-ligne.js": {
-   "sha256": "54d9462f5bd2184c91a5cbea27084880a0f3b492114eae6077122f0f17be3338",
-   "size": 10536
+   "sha256": "9d0e8837c015c1fe4b602a9ead84431502c38b3eaa1fe8c304c4a401e1610d23",
+   "size": 11161
   },
   "shared/password-reset.html": {
    "sha256": "91bc4131bda0d758c1c1de1a6baa6086a64a536f77a84c6a62036b5ccecc9972",
