@@ -413,13 +413,28 @@ function vueChamp(id) {
     if (desig && statut === 'TIRAGE_VERROUILLE' && invFaits && !arbres.length) {
       var proto = etat.protocole || { titulaires: 10, reserves: 2 }, T = proto.titulaires || 10, R = proto.reserves == null ? 2 : proto.reserves;
       if (classe() === 'UH' || classe() === 'BM') {
-        var opts = tires.map(function (b) { return '<option value="' + esc(b.id) + '">B' + nb(b.numero) + ' (' + b.nb_arbres_inventories + ' arbres)</option>'; }).join('');
-        var ligne = function (k, role) { var lab = role === 'TITULAIRE' ? 'Arbre suivi ' + nb(k) : 'Réserve R' + k;
-          return '<div class="obs-choix-arbre" data-role="' + role + '"><span class="obs-choix-nom">' + lab + '</span><select aria-label="' + lab + ' : bloc" data-choix="bloc">' + opts + '</select><input type="number" inputmode="numeric" min="1" aria-label="' + lab + ' : numéro de l’arbre dans le bloc" placeholder="N° dans le bloc" data-choix="num"></div>'; };
-        var lignes = ''; for (var k = 1; k <= T; k++) lignes += ligne(k, 'TITULAIRE'); for (k = 1; k <= R; k++) lignes += ligne(k, 'RESERVE');
+        var choixPossible = C.proposerChoixArbres(p, T, R), totalDisponible = choixPossible.capacite;
+        var opts = '<option value="">Choisir le bloc…</option>' + tires.map(function (b) {
+          return '<option data-nb="' + b.nb_arbres_inventories + '" value="' + esc(b.id) + '">B' + nb(b.numero) + ' (' + b.nb_arbres_inventories + ' arbres)</option>';
+        }).join('');
+        var ligne = function (k, role) {
+          var rang = role === 'TITULAIRE' ? k : T + k;
+          var lab = role === 'TITULAIRE' ? 'Arbre suivi ' + nb(k) : 'Réserve R' + k + ' (rang ' + nb(rang) + ')';
+          return '<div class="obs-choix-arbre" data-role="' + role + '" data-rang="' + rang + '"><span class="obs-choix-nom">' + lab + '</span>' +
+            '<label class="obs-choix-champ"><span>Bloc suivi</span><select aria-label="' + lab + ' : bloc" data-choix="bloc">' + opts + '</select></label>' +
+            '<label class="obs-choix-champ"><span>N° réel dans ce bloc</span><input type="number" inputmode="numeric" min="1" aria-label="' + lab + ' : numéro de l’arbre dans le bloc" placeholder="Ex. 1, 2, 3" data-choix="num"></label>' +
+            '<small class="obs-choix-erreur" data-choix-erreur aria-live="polite"></small></div>';
+        };
+        var lignes = ''; for (var k = 1; k <= T; k++) lignes += ligne(k, 'TITULAIRE');
+        for (var k = 1; k <= R; k++) lignes += ligne(k, 'RESERVE');
         choixArbres = '<section class="card obs-form" id="obsChoixArbres"><div class="card-head"><h2>Choisir les ' + T + ' arbres suivis et les ' + R + ' réserves</h2></div>' +
-          note('Pour chaque arbre : choisissez son bloc, puis écrivez son numéro (l’ordre dans lequel vous avez compté les arbres du bloc). Un même arbre ne peut pas être choisi deux fois. <b>Suivi d’arbres désignés : ce n’est pas un échantillon statistiquement représentatif.</b>', 'info') +
-          lignes + '<div id="obsChoixErr" aria-live="polite"></div><div class="obs-actions"><button type="button" class="btn primary" data-act="designer" data-panel="' + esc(p.id) + '">Enregistrer le choix des arbres</button></div></section>';
+          note('<b>Rangs 01 à ' + nb(T + R) + ' :</b> chaque ligne correspond à un arbre distinct, mais le numéro physique recommence à 1 dans chaque bloc. Exemple : B01/A001 et B02/A001 sont deux arbres différents. Une numérotation de 1 à 12 dans B01 est impossible si B01 ne contient réellement que 3 arbres. Les arbres sont désignés par le Chef d’Unité, sans prétention de représentativité statistique.', 'info') +
+          (choixPossible.erreurs.length ? note('<b>Inventaire à vérifier :</b> ' + esc(choixPossible.erreurs.join(' ')), 'warn') :
+            note('<b>Capacité :</b> ' + totalDisponible + ' arbres dans les blocs suivis pour ' + (T + R) + ' choix distincts. Vérifiez physiquement chaque arbre avant l’enregistrement.', 'info')) +
+          '<div class="obs-actions"><button type="button" class="btn secondary" data-act="auto-designer" data-panel="' + esc(p.id) + '">Proposer les ' + (T + R) + ' arbres sans doublon</button></div>' +
+          '<p class="obs-info">La proposition remplit uniquement ce formulaire. Vous pouvez changer les arbres avant de valider. Aucun arbre inventorié n’est ajouté ni modifié.</p>' +
+          lignes + '<div id="obsChoixProgression" class="obs-info" aria-live="polite">0 / ' + (T + R) + ' arbres renseignés</div>' +
+          '<div id="obsChoixErr" aria-live="polite"></div><div class="obs-actions"><button type="button" class="btn primary" data-act="designer" data-panel="' + esc(p.id) + '">Enregistrer le choix des arbres</button></div></section>';
       } else choixArbres = note('Tous les blocs suivis sont comptés. <b>Le Chef d’Unité doit maintenant choisir les ' + T + ' arbres suivis et les ' + R + ' réserves</b> sur ce champ.', 'warn');
     }
     var vis = r[2].sort(function (a, b) { return a.date_observation < b.date_observation ? 1 : -1; });
@@ -471,11 +486,58 @@ function marquerArbre(panelId, arbreId) {
     }).then(function () { etat.message = ['ok', 'Position enregistrée sur ce téléphone (précision ' + g.precision_m + ' m).']; synchroniser(false); rendre(); });
   }).catch(echec);
 }
+/* Sépare le rang 01..12 (affichage) du numéro physique propre au bloc (stock).
+   Les mêmes contrôles sont exécutés au serveur avant acceptation définitive. */
+function lireChoixArbres(zone) {
+  return [].map.call(zone.querySelectorAll('.obs-choix-arbre'), function (l) {
+    return { role: l.getAttribute('data-role'), bloc_id: l.querySelector('[data-choix=bloc]').value, numero: l.querySelector('[data-choix=num]').value };
+  });
+}
+function verifierChoixArbres() {
+  var zone = document.getElementById('obsChoixArbres'); if (!zone) return;
+  var lignes = [].slice.call(zone.querySelectorAll('.obs-choix-arbre')), deja = {}, n = 0, erreur = 0;
+  lignes.forEach(function (ligne) {
+    var bloc = ligne.querySelector('[data-choix=bloc]'), numero = ligne.querySelector('[data-choix=num]');
+    var msg = ligne.querySelector('[data-choix-erreur]'), valeur = String(numero.value || '').trim(), cle = bloc.value + ':' + valeur;
+    var option = bloc.selectedOptions && bloc.selectedOptions[0], maximum = option && option.getAttribute('data-nb');
+    var probleme = '', nombre = +valeur;
+    if (bloc.value || valeur) {
+      if (!bloc.value) probleme = 'Choisissez le bloc de cet arbre.';
+      else if (!valeur || !Number.isInteger(nombre) || nombre < 1) probleme = 'Indiquez un numéro entier supérieur à 0.';
+      else if (maximum != null && maximum !== '' && nombre > +maximum) probleme = 'Ce bloc ne contient que ' + maximum + ' arbres. Corrigez le numéro ou le comptage réel.';
+      else if (deja[cle]) probleme = 'Cet arbre est déjà choisi au rang ' + deja[cle] + '.';
+      else { deja[cle] = ligne.getAttribute('data-rang'); n++; }
+    }
+    if (probleme) erreur++;
+    if (msg) msg.textContent = probleme;
+    ligne.classList.toggle('obs-choix-invalide', !!probleme);
+  });
+  var progression = document.getElementById('obsChoixProgression');
+  if (progression) progression.textContent = n + ' / ' + lignes.length + ' arbres distincts renseignés' + (erreur ? ' · ' + erreur + ' ligne(s) à corriger' : '');
+}
+function proposerChoixArbres(panelId) {
+  var zone = document.getElementById('obsChoixArbres'), err = document.getElementById('obsChoixErr'); if (!zone) return;
+  L.panel(panelId).then(function (p) {
+    var proto = etat.protocole || {}, proposition = C.proposerChoixArbres(p, proto.titulaires, proto.reserves);
+    if (proposition.erreurs.length) {
+      err.innerHTML = note(proposition.erreurs.map(esc).join(' '), 'danger');
+      err.scrollIntoView({ block: 'center' }); return;
+    }
+    var lignes = zone.querySelectorAll('.obs-choix-arbre');
+    if (lignes.length !== proposition.choix.length) throw new Error('Nombre de lignes inattendu : recharger le formulaire avant de recommencer.');
+    [].forEach.call(lignes, function (ligne, i) {
+      ligne.querySelector('[data-choix=bloc]').value = proposition.choix[i].bloc_id;
+      ligne.querySelector('[data-choix=num]').value = proposition.choix[i].numero;
+    });
+    err.innerHTML = note('12 rangs remplis sans doublon. Vérifiez que chaque numéro correspond bien à l’arbre compté et marqué sur le terrain, puis enregistrez.', 'info');
+    verifierChoixArbres();
+  }).catch(echec);
+}
 /* D2 · Désignation par le Chef d'Unité : enregistrée sur le téléphone (hors ligne possible),
    puis envoyée ; le serveur refait tous les contrôles et refuse les doublons. */
 function designer(panelId) {
   var zone = document.getElementById('obsChoixArbres'), err = document.getElementById('obsChoixErr'); if (!zone) return;
-  var choix = [].map.call(zone.querySelectorAll('.obs-choix-arbre'), function (l) { return { role: l.getAttribute('data-role'), bloc_id: l.querySelector('[data-choix=bloc]').value, numero: l.querySelector('[data-choix=num]').value }; });
+  var choix = lireChoixArbres(zone);
   L.panel(panelId).then(function (p) {
     var proto = etat.protocole || {}, res = C.designerArbres(p, choix, proto.titulaires, proto.reserves);
     if (res.erreurs.length) { err.innerHTML = note(res.erreurs.map(esc).join('<br>'), 'danger'); err.scrollIntoView({ block: 'center' }); return; }
@@ -868,6 +930,7 @@ function surClic(e) {
   else if (act === 'inventaire') enregistrerInventaire(b.getAttribute('data-bloc'), b.getAttribute('data-num'));
   else if (act === 'marquer') marquerArbre(b.getAttribute('data-panel'), b.getAttribute('data-arbre'));
   else if (act === 'reserve') activerReserve(b.getAttribute('data-arbre'), b.getAttribute('data-code'));
+  else if (act === 'auto-designer') proposerChoixArbres(b.getAttribute('data-panel'));
   else if (act === 'designer') designer(b.getAttribute('data-panel'));
   else if (act === 'photo_exception') exceptionPhoto();
   else if (act === 'voir_photo') voirPhoto(b.getAttribute('data-ref'));
@@ -887,6 +950,7 @@ function surClic(e) {
 }
 function surSaisie(e) {
   if (parts()[0] !== 'observatoire') return; var t = e.target;
+  if (t.closest && t.closest('#obsChoixArbres')) { verifierChoixArbres(); return; }
   if (t.id === 'obsB') { clearTimeout(etat.minuteB); etat.minuteB = setTimeout(majReperes, e.type === 'change' ? 0 : 700); return; }
   if (t.id === 'obsb' || /^obsRep|^obsSuivi/.test(t.id || '')) { var er = document.getElementById('obsInstallErr'); if (er) er.innerHTML = ''; }
   if (t.id === 'obsFiltreCluster' || t.id === 'obsFiltreVillage' || t.id === 'obsFiltreTexte') return filtrerParcelles(e);
