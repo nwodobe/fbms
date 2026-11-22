@@ -92,10 +92,18 @@
 .obs-choix-arbre{display:grid;grid-template-columns:minmax(110px,1fr) 1.2fr 1fr;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line,#D9E4DA)}
 .obs-choix-arbre select,.obs-choix-arbre input{min-height:44px}
 .obs-choix-nom{font-weight:800}
+/* Rang 01..12 et identifiant physique Bxx/Axxx restent visuellement distincts. */
+.obs-choix-champ{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:11px;font-weight:700;color:var(--muted,#5F6F64)}
+.obs-choix-champ select,.obs-choix-champ input{width:100%;box-sizing:border-box;min-width:0;padding:8px;border:1px solid var(--line,#D9E4DA);border-radius:8px;background:#fff;font-size:15px;color:var(--ink,#323131)}
+.obs-choix-erreur{grid-column:1/-1;color:var(--danger,#B3261E);font-size:12px;font-weight:700}
+.obs-choix-erreur:empty{display:none}
+.obs-choix-invalide{background:#FFF2F2;border-radius:8px;padding:8px}
+.obs-choix-invalide input,.obs-choix-invalide select{border-color:var(--danger,#B3261E)}
+
 .obs-champ-dialogue{display:flex;flex-direction:column;gap:6px;margin:8px 0;font-weight:700}
 .obs-a-completer summary{cursor:pointer;padding:6px 0}
 .obs-liste{margin:8px 0 0;padding-left:18px}.obs-liste li{margin:6px 0}
-@media (max-width:640px){.obs-choix-arbre{grid-template-columns:1fr 1fr}.obs-choix-nom{grid-column:1/-1}.obs-bloc-ligne{grid-template-columns:1fr}}
+@media (max-width:640px){.obs-choix-arbre{grid-template-columns:1fr 1fr}.obs-choix-nom{grid-column:1/-1}.obs-choix-champ{min-width:0}.obs-bloc-ligne{grid-template-columns:1fr}}
 
 .obs-photo-vue{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:8px;object-fit:contain}
 
