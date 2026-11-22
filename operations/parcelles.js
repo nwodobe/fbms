@@ -580,8 +580,17 @@ function enregistrerPoint(loc) {
       }
       etat.liste = null;
       var recu = moi.etat === 'RECU';
-      if (recu && enLigne() && actif('contours', x.cluster_code)) { etat.message = null; return aller('parcelles/tracer/' + id + '/sat'); }
-      etat.message = recu ? 'Point GPS capturé et reçu par le serveur.' : 'Position GPS enregistrée. La carte satellite sera disponible au retour de la connexion.';
+      // Ne pas attendre la réponse du serveur pour ouvrir Esri : un point GPS durablement
+      // sauvegardé dans IndexedDB suffit à préparer le tracé, mais jamais à le valider.
+      // L'accord reste vérifié auprès du serveur avant l'ouverture de la carte.
+      if (enLigne() && actif('contours', x.cluster_code)
+          && ed && ed.parcours && ed.parcours.accord
+          && ed.parcours.accord.etat === 'ACCORDE' && ed.parcours.accord.confirme) {
+        etat.message = recu ? null : 'Point GPS conservé sur le téléphone. Contour provisoire : envoi interdit jusqu’à confirmation du point par le serveur.';
+        return aller('parcelles/tracer/' + id + '/sat');
+      }
+      etat.message = recu ? 'Point GPS capturé et reçu par le serveur.'
+        : 'Point GPS conservé sur le téléphone. La carte Esri sera disponible quand la connexion et les autorisations seront vérifiées.';
       return parcours(id);
     });
 }
@@ -652,13 +661,25 @@ function tracer(id, mode) {
   peindre(tete('Tracé du contour', '') + '<div class="ops-empty">Préparation…</div>');
   return Promise.all([parametres(), parcelle(id), L.brouillon.lire(id),
     enLigne() ? lire('plot_map_geometries_v', 'id,status,version_no,geojson', function (r) { return r.eq('plot_id', id).in('status', ['SOUMIS', 'A_CORRIGER', 'VALIDE']).order('version_no', { ascending: false }).limit(1); }).catch(function () { return []; }) : Promise.resolve([]),
-    pointLocal(id)
+    pointLocal(id), L.file.pourParcelle(id)
   ]).then(function (r) {
     var x = r[1]; if (!x) return aller('parcelles/p/' + id);
     if (!actif('contours', x.cluster_code) || !peutSaisir()) return aller('parcelles/p/' + id);
-    if (!x.consentement_gps) return aller('parcelles/parcours/' + id);   // jamais de carte GPS sans accord actif
-    x = avecPointLocal(x, r[4]);
-    ed = nouvelEtatEditeur(x, mode, r[2], r[3][0]);
+    // Un booléen éventuellement périmé dans la liste ne suffit jamais.
+    // Vérifier la toute dernière décision GPS avant d'ouvrir le tracé.
+    return etatAccord(x).then(function (accord) {
+      if (!accord.confirme || accord.etat !== 'ACCORDE')
+        return aller('parcelles/parcours/' + id);
+      x = Object.assign({}, x, { consentement_gps: true });
+      x = avecPointLocal(x, r[4]);
+      var opsPoint = (r[5] || []).filter(function(o){return o.type === 'LOCALISER';})
+        .sort(function(a,b){return String(b.cree_le||'').localeCompare(String(a.cree_le||''));});
+      var dernierPoint = opsPoint[0] || null;
+      if (dernierPoint && ['REJETE','CONFLIT'].indexOf(dernierPoint.etat) >= 0
+          && x._pointLocal) return aller('parcelles/parcours/' + id);
+      ed = nouvelEtatEditeur(x, mode, r[2], r[3][0]);
+      ed.pointNonRecu = !!(x._pointLocal && dernierPoint && dernierPoint.etat !== 'RECU');
+      ed.pointOperation = dernierPoint ? dernierPoint.idempotency_key : null;
     var titre = mode === 'gps' ? 'Mesurer en marchant (GPS)' : mode === 'import' ? 'Importer un contour' : 'Carte du champ';
     peindre('<div class="pc-ed-tete" id="pcEdTete"><div><b>' + esc(titre) + ' · ' + esc(x.local_name || 'Parcelle') + '</b><span><b class="mono">' + esc(x.producteur_code || '') + '</b> ' + esc((x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '')) + '</span>' +
       '<span class="pc-ed-detail">' + esc(x.village_nom || '') + ' · ' + esc(x.cluster_code || '') + ' · déclarée ' + (x.declared_area != null ? String(x.declared_area).replace('.', ',') + ' ha' : '—') + '</span></div>' +
@@ -673,6 +694,7 @@ function tracer(id, mode) {
     if (mode === 'sat') chargerMetaImage();
     /* Téléphone : l'en-tête de la carte vient en haut de l'écran, la carte prend toute la hauteur libre au-dessus de la barre. */
     ajusterCarte(true);
+    }); // vérification de la dernière décision GPS
   });
 }
 function connexion() {
@@ -836,7 +858,7 @@ function peindrePanneau() {
   var lim = seuil('ecart_superficie_pct', 20), st = C.statsPrecision((ed.sommets_gps || []).map(function (s) { return s.precision; }));
   var conf = ed.confirmation === 'CONFIRMEE_SUR_PLACE';
   if (ed.confiance === 'VISIBLES' && !conf) ed.confiance = null;   // le niveau 1 exige la confirmation du producteur
-  var gab = !!ed.gabarit, pret = v.ok && ed.confiance && ed.identite && !gab;
+  var gab = !!ed.gabarit, pret = v.ok && ed.confiance && ed.identite && !gab && !ed.pointNonRecu;
   var h = '<div class="pc-mesure" id="pcFin"><span class="pc-etq">' + (gab ? 'Ajustez les points aux limites de votre champ' : v.sommets >= 3 ? 'Calcul sur ce téléphone, vérifié par le serveur à l\'enregistrement' : 'Placez au moins 3 points') + '</span>' +
     (gab ? '<span class="pc-note">Le carré affiché est un gabarit provisoire : il n\'a pas de superficie.</span>' :
     '<span class="mono"><b>Superficie cartographique : ' + (v.sommets >= 3 ? C.hectares(v.area_m2) + ' ha' : '—') + '</b><br><b>Périmètre : ' + (v.sommets >= 2 ? C.metres(v.perimeter_m) + ' m' : '—') + '</b></span>') +
@@ -856,6 +878,7 @@ function peindrePanneau() {
   h += '<p class="pc-sauve" id="pcSauve">' + (ed.sauveLe ? C.ETATS.LOCAL + ' · ' + heureFr(ed.sauveLe) : 'Brouillon enregistré automatiquement à chaque modification') + '</p>';
   h += '<div class="pc-actions pc-actions-fin">' + bouton('Enregistrer', 'envoyer', 'pc-cmd-principal', pret ? '' : ' disabled') + '</div>';
   h += '<p class="pc-note">' + (gab ? 'Pour enregistrer : ajustez d\'abord les points du gabarit.' : v.ok && !pret ? 'Pour enregistrer : indiquez la fiabilité des limites et confirmez l\'identité de la parcelle.' : 'Le contour enregistré est transmis au Chef de Zone pour validation. Sans réseau, il part au retour de la connexion.') + '</p>';
+  if(ed.pointNonRecu) h += avis('alerte','<b>Brouillon uniquement.</b> Le point GPS est conservé sur cet appareil, mais n’a pas encore été accepté par le serveur. Vous pouvez ajuster les repères ; l’envoi du contour reste bloqué jusqu’à la synchronisation et à la vérification du consentement.');
   h += '<p class="pc-note">Superficie cartographique : estimation pour le suivi AFLP calculée sur l\'ellipsoïde WGS84, <b>pas une superficie foncière certifiée</b>.</p>';
   p.innerHTML = h;
   Array.prototype.forEach.call(p.querySelectorAll('input[name=pcConf]'), function (r) { r.addEventListener('change', function () { ed.confiance = r.value; sauver(); peindrePanneau(); }); });
@@ -911,9 +934,20 @@ function sommetGps() {
     if (b.precision > max) { var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('alerte', 'Sommet ajouté avec une précision faible (' + Math.round(b.precision) + ' m). Il sera signalé au Chef de Zone. Vous pouvez le supprimer et réessayer.'); }
   }).catch(function (e) { var z = document.getElementById('pcFondMsg'); if (z) z.innerHTML = avis('erreur', esc(e.message)); peindrePanneau(); });
 }
-function envoyer() {
+async function envoyer() {
   var v = C.verifier(ed.sommets, (etat.params || {}).seuils);
   if (!v.ok || !ed.confiance || !ed.identite || ed.gabarit) return peindrePanneau();
+  if (!enLigne() || ed.pointNonRecu) {
+    var enAttente = document.getElementById('pcFondMsg');
+    if (enAttente) enAttente.innerHTML = avis('alerte', 'Contour conservé en brouillon : attendez la confirmation serveur du point GPS et du consentement avant tout envoi.');
+    return sauver();
+  }
+  var accord = await etatAccord(ed.x);
+  if (!accord.confirme || accord.etat !== 'ACCORDE') {
+    var avertissement = document.getElementById('pcFondMsg');
+    if (avertissement) avertissement.innerHTML = avis('erreur', 'Le consentement GPS ne peut pas être confirmé auprès du serveur. Aucun contour envoyé.');
+    return;
+  }
   var payload = C.soumission(ed.x.plot_id, ed, v, L.appareil());
   var o = C.operation('SOUMETTRE_CONTOUR', payload, L.appareil());
   ed.op_cle = o.idempotency_key;
