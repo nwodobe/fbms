@@ -239,12 +239,18 @@ function vueInstaller() {
     (ref.producteurs || []).forEach(function (x) { pros[x.id] = x; });
     (ref.villages || []).forEach(function (x) { vils[x.id] = x; });
     var libres = (ref.plots || []).filter(function (p) { return !pris[p.id]; });
-    var options = libres.filter(function (p) { return p.eligible !== false; }).map(function (p) {
-      var pr = pros[p.producteur_id] || {}, vi = vils[p.village_id] || {};
+    /* 22/11/2026 (Branch Manager) : tous les champs du périmètre sont proposés. Un champ incomplet reste
+       choisissable : l'écran dit ce qui manque et ouvre directement de quoi le compléter. Le serveur garde sa règle
+       (pheno_parcelle_manques) : aucune installation d'un champ incomplet n'est envoyée. */
+    var options = libres.map(function (p) {
+      var pr = pros[p.producteur_id] || {}, vi = vils[p.village_id] || {}, incomplet = p.eligible === false;
       /* La liste vient du serveur (pheno_parcelles_disponibles) : seules les parcelles de son périmètre y figurent. */
       var txt = (pr.nom || 'Producteur') + (pr.code ? ' (' + pr.code + ')' : '') + ' — ' + (p.local_name || 'Parcelle') + ' — ' + (vi.village || '') + (p.tree_count ? ' (' + p.tree_count + ' arbres déclarés)' : '');
-      return { id: p.id, txt: txt, cl: vi.cluster_code || '', vil: p.village_id || '', vilNom: vi.village || '', q: sansAccent(txt) };
-    }).sort(function (a, b) { return a.txt.localeCompare(b.txt); });
+      if (incomplet) txt += ' — À COMPLÉTER';
+      return { id: p.id, txt: txt, cl: vi.cluster_code || '', vil: p.village_id || '', vilNom: vi.village || '', q: sansAccent(txt),
+        incomplet: incomplet, manques: p.manques || [], producteur_id: p.producteur_id };
+    }).sort(function (a, b) { return (a.incomplet - b.incomplet) || a.txt.localeCompare(b.txt); });
+    var nbPrets = options.filter(function (o) { return !o.incomplet; }).length;
     /* D3 · Parcelles à compléter dans le registre FBMS : visibles, jamais modifiées ici. */
     var incompletes = libres.filter(function (p) { return p.eligible === false; }).map(function (p) {
       var pr = pros[p.producteur_id] || {}, vi = vils[p.village_id] || {};
@@ -257,8 +263,9 @@ function vueInstaller() {
     var lienRegistre = ['BM', 'UH'].indexOf(classe()) >= 0 ? ' <a href="#farmers">Ouvrir le registre des producteurs</a>' : ' Prévenez votre Chef d’Unité.';
     peindre(entete(designation ? 'Installer un champ : blocs, blocs suivis, puis choix des arbres.' : 'Installation d’un champ : blocs, tirage, verrouillage.', '', '<a class="btn secondary" href="#observatoire">Retour</a>') +
       (camp ? '' : note('Aucune campagne sélectionnée.', 'warn')) +
-      (options.length ? '' : note('Aucun champ prêt pour l’Observatoire sur ce téléphone. Revenez à « Mes champs » et touchez « Préparer le hors-ligne » avec du réseau. Le champ doit être complet dans le registre FBMS.', 'warn')) +
-      (incompletes.length ? '<details class="card obs-a-completer"><summary><b>' + incompletes.length + ' champ(s) à compléter dans le registre FBMS</b> avant de commencer l’Observatoire</summary><p class="obs-info">Ces champs ne peuvent pas être installés : il manque des informations dans le registre. À corriger par le RT ou le Chef d’Unité dans le registre des producteurs.' + lienRegistre + '</p><ul class="obs-liste">' + incompletes.join('') + '</ul></details>' : '') +
+      (options.length ? '' : note('Aucun champ de votre périmètre sur ce téléphone. Revenez à « Mes champs » et touchez « Préparer le hors-ligne » avec du réseau.', 'warn')) +
+      (options.length && !nbPrets ? note('<b>' + options.length + ' champ(s) dans la liste, aucun encore complet.</b> Choisissez votre champ : l’écran indique ce qui manque (position GPS, nombre d’arbres…) et ouvre de quoi le compléter.', 'warn') : '') +
+      (incompletes.length ? '<details class="card obs-a-completer"><summary><b>' + incompletes.length + ' champ(s) à compléter dans le registre FBMS</b> (aussi proposés dans la liste ci-dessous)</summary><p class="obs-info">Ces champs ne peuvent pas être installés : il manque des informations dans le registre. À corriger par le RT ou le Chef d’Unité dans le registre des producteurs.' + lienRegistre + '</p><ul class="obs-liste">' + incompletes.join('') + '</ul></details>' : '') +
       '<form id="obsInstall" class="card obs-form" autocomplete="off" novalidate>' +
       (options.length ? '<fieldset class="obs-filtres"><legend>Trouver la parcelle</legend><div class="obs-duo">' +
         (listeClusters.length > 1 ? '<div class="field"><label for="obsFiltreCluster">Cluster</label><select id="obsFiltreCluster"><option value="">Tous les clusters</option>' +
@@ -267,6 +274,7 @@ function vueInstaller() {
         '<div class="field"><label for="obsFiltreTexte">Producteur (nom ou code)</label><input id="obsFiltreTexte" type="search" inputmode="search" maxlength="80" placeholder="Ex. Kouakou ou SAK-0012"></div>' +
         '<p class="obs-info" id="obsFiltreCompte" aria-live="polite"></p></fieldset>' : '') +
       '<div class="field"><label for="obsPlot">1. Quel champ installez-vous ?</label><select id="obsPlot">' + optionsParcelles(options) + '</select></div>' +
+      '<div id="obsACompleter" aria-live="polite"></div>' +
       '<div class="obs-duo"><div class="field"><label for="obsB">2. Combien de blocs compte ce champ ?</label><input id="obsB" type="number" inputmode="numeric" min="1" max="60"></div>' +
       '<div class="field"><label for="obsb">3. Combien de blocs allons-nous suivre ?</label><input id="obsb" type="number" inputmode="numeric" min="1" max="10"></div></div>' +
       '<p class="obs-info">Découpez le champ en blocs qui ne se chevauchent pas, délimités par des repères visibles (piste, termitière, gros arbre, borne).' +
@@ -274,8 +282,28 @@ function vueInstaller() {
       '<div id="obsReperes"></div><div id="obsInstallErr" aria-live="polite"></div>' +
       '<div class="obs-actions"><button type="submit" class="btn primary">' + (designation ? 'Enregistrer l’installation' : 'Tirer les blocs et verrouiller') + '</button></div></form>');
     filtrerParcelles();
+    majCompletude();
     barreEnvoi();
   });
+}
+/* Champ choisi incomplet : ce qui manque, et les raccourcis pour le compléter sans quitter le terrain. */
+function champChoisi() {
+  var sel = document.getElementById('obsPlot'), id = sel ? sel.value : '';
+  return (etat.parcellesInstall || []).filter(function (o) { return o.id === id; })[0] || null;
+}
+function majCompletude() {
+  var h = document.getElementById('obsACompleter'); if (!h) return;
+  var o = champChoisi(), btn = document.querySelector('#obsInstall button[type=submit]');
+  if (btn) btn.disabled = !!(o && o.incomplet);
+  if (!o || !o.incomplet) { h.innerHTML = ''; return; }
+  var m = o.manques || [], gps = m.some(function (x) { return /position GPS/.test(x); }), arbres = m.some(function (x) { return /arbres/.test(x); }),
+    ident = m.some(function (x) { return /producteur|nom et prénoms/.test(x); });
+  var liens = (gps ? '<a class="btn primary" href="#parcelles/parcours/' + encodeURIComponent(o.id) + '">Relever la position (accord GPS, puis carte)</a>' : '') +
+    (arbres || ident ? '<a class="btn secondary" href="#farmers/' + encodeURIComponent(o.producteur_id) + '">' + (arbres ? 'Saisir le nombre d’arbres' : 'Compléter le producteur') + ' (fiche du producteur, onglet Parcelles)</a>' : '');
+  h.innerHTML = '<div class="card obs-a-completer"><p><b>Ce champ n’est pas encore installable.</b> Il manque : ' + esc(m.join(', ')) + '.</p>' +
+    '<div class="obs-actions">' + liens + '</div>' +
+    '<p class="obs-info">Une fois complété, revenez ici et touchez « Actualiser la liste » (avec du réseau) : le champ deviendra installable.</p>' +
+    '<div class="obs-actions"><button type="button" class="btn secondary" data-act="preparer">Actualiser la liste</button></div></div>';
 }
 /* Filtre de la liste des parcelles : cluster → village → nom ou code du producteur.
    La liste est reconstruite (et non masquée) : masquer une <option> ne marche pas sur iPhone. */
@@ -303,6 +331,7 @@ function filtrerParcelles(e) {
   var c = document.getElementById('obsFiltreCompte');
   if (c) c.textContent = liste.length === tout.length ? tout.length + ' parcelle(s) disponibles.'
     : liste.length + ' parcelle(s) sur ' + tout.length + (liste.length ? '.' : ' : aucune ne correspond, modifiez le filtre.');
+  majCompletude();
 }
 /* Lignes des blocs : générées quand le nombre est valide (pas à chaque frappe d'un chiffre
    intermédiaire), avec la case « Suivre ce bloc » en mode désignation. */
@@ -325,6 +354,8 @@ function soumettreInstallation(form) {
   var blocs = []; for (var i = 1; i <= B; i++) blocs.push({ id: C.uuid(), repere: (form.querySelector('#obsRep' + i) || {}).value, suivi: !!(form.querySelector('#obsSuivi' + i) || {}).checked });
   err.innerHTML = '';
   if (!camp) { err.innerHTML = note('Aucune campagne sélectionnée.', 'danger'); return; }
+  var choix = champChoisi();
+  if (choix && choix.incomplet) { err.innerHTML = note('Ce champ est incomplet (' + esc(choix.manques.join(', ')) + ') : complétez-le avant de l’installer.', 'danger'); return; }
   Promise.all([L.graine(camp.id), L.protocole()]).then(function (r) { installerAvecGraine(form, err, camp, plot, B, b, blocs, r[0], r[1]); }).catch(echec);
 }
 function installerAvecGraine(form, err, camp, plot, B, b, blocs, graineCampagne, proto) {
@@ -876,6 +907,7 @@ document.addEventListener('change', function (e) {
   if (parts()[0] !== 'observatoire') return;
   if (e.target.hasAttribute && e.target.hasAttribute('data-photo')) return joindrePhoto(e.target.files && e.target.files[0]);
   surSaisie(e);
+  if (e.target.id === 'obsPlot') majCompletude();
 });
 document.addEventListener('submit', function (e) {
   if (e.target.id === 'obsInstall') { e.preventDefault(); soumettreInstallation(e.target); }
