@@ -159,8 +159,43 @@
         tire: rang > 0, rang_tirage: rang > 0 ? rang : null, nb_titulaires_prevus: rang > 0 ? rep[rang - 1].titulaires : 0, nb_reserves_prevues: rang > 0 ? rep[rang - 1].reserves : 0, nb_arbres_inventories: null };
     }) };
   }
+  /* ---------- codes de suivi A001 à A012 (mandat du Branch Manager, 22/11/2026) ----------
+     Code PERSONNALISÉ, indépendant des blocs, choisi par le Chef d'Unité pour les 10 arbres
+     suivis et les 2 réserves. Unique PAR CHAMP. Le code physique d'inventaire (B01/A001) et
+     l'identifiant technique (id) ne changent jamais. Mêmes règles que le serveur
+     (supabase/20261122140000_aflp_observatoire_7_codes_suivi.sql). */
+  var CODES_SUIVI = ['A001', 'A002', 'A003', 'A004', 'A005', 'A006', 'A007', 'A008', 'A009', 'A010', 'A011', 'A012'];
+  function codeSuivi(rang) { return 'A' + ('00' + rang).slice(-3); }
+  function codeSuiviValide(code, total) {
+    var t = total == null ? 12 : Math.min(12, +total), c = String(code == null ? '' : code).trim().toUpperCase();
+    return /^A0(0[1-9]|1[0-2])$/.test(c) && +c.slice(1) <= t;
+  }
+  /* Ordre par défaut : suivis 01..T = A001..A00T, réserves R1..RR = A(T+1)..A(T+R). */
+  function codesParDefaut(T, R) { var l = [], i; T = T || 10; R = R == null ? 2 : R; for (i = 1; i <= T + R; i++) l.push(codeSuivi(i)); return l; }
+  /* Contrôle d'une liste de codes (une entrée par arbre). Résout { erreurs, doublons, manquants, valides }. */
+  function controlerCodesSuivi(codes, total) {
+    var t = total == null ? codes.length : total, vus = {}, erreurs = [], doublons = {}, valides = 0;
+    codes.forEach(function (c, i) {
+      var x = String(c == null ? '' : c).trim().toUpperCase();
+      if (!x) return;
+      if (!codeSuiviValide(x, t)) { erreurs.push('Code ' + x + ' refusé : seuls A001 à ' + codeSuivi(t) + ' sont autorisés.'); return; }
+      if (vus[x] != null) { doublons[x] = true; return; }
+      vus[x] = i; valides++;
+    });
+    Object.keys(doublons).forEach(function (x) { erreurs.push('Le code ' + x + ' est attribué à deux arbres.'); });
+    var manquants = []; for (var k = 1; k <= t; k++) if (vus[codeSuivi(k)] == null) manquants.push(codeSuivi(k));
+    return { erreurs: erreurs, doublons: Object.keys(doublons), manquants: manquants, valides: valides };
+  }
+  /* Libellé d'un arbre à l'écran : code de suivi d'abord, code physique ensuite. */
+  function libelleArbre(a, codeHistorique) {
+    if (!a) return '';
+    var cs = codeHistorique || a.code_suivi;
+    return cs ? cs + ' (' + a.code + ')' : a.code;
+  }
+
   /* Désignation de 10 arbres suivis et 2 réserves : contrôle puis construction des arbres
-     (identifiants identiques à ceux du serveur, donc sans doublon à la synchronisation). */
+     (identifiants identiques à ceux du serveur, donc sans doublon à la synchronisation).
+     Chaque choix peut porter code_suivi : tous ou aucun (aucun = ordre par défaut). */
   function designerArbres(panel, choix, T, R) {
     T = T || 10; R = R == null ? 2 : R;
     var e = [], vus = {}, blocs = {}, arbres = [], rt = 0, rr = 0;
@@ -168,6 +203,11 @@
     var nt = choix.filter(function (c) { return c.role === 'TITULAIRE'; }).length, nr = choix.filter(function (c) { return c.role === 'RESERVE'; }).length;
     if (nt !== T) e.push('Choisissez ' + T + ' arbres suivis (vous en avez ' + nt + ').');
     if (nr !== R) e.push('Choisissez ' + R + ' arbres de réserve (vous en avez ' + nr + ').');
+    var avecCode = choix.filter(function (c) { return String(c.code_suivi || '').trim(); }).length;
+    if (avecCode) {
+      if (avecCode !== choix.length) e.push('Attribuez un code de suivi à chacun des ' + choix.length + ' arbres (' + avecCode + ' attribués).');
+      e = e.concat(controlerCodesSuivi(choix.map(function (c) { return c.code_suivi; }), T + R).erreurs);
+    }
     choix.forEach(function (c) {
       var b = blocs[c.bloc_id], n = +c.numero;
       if (!b || !b.tire) { e.push('Un arbre est rattaché à un bloc non suivi.'); return; }
@@ -175,14 +215,16 @@
       var k = b.id + ':' + n;
       if (vus[k]) { e.push('L’arbre ' + codeArbre(b.numero, n) + ' est choisi deux fois.'); return; }
       vus[k] = 1;
-      var tit = c.role === 'TITULAIRE';
+      var tit = c.role === 'TITULAIRE', rang = tit ? ++rt : ++rr;
       arbres.push({ id: arbreId(b.id, n), bloc_id: b.id, bloc_numero: b.numero, numero_inventaire: n, code: codeArbre(b.numero, n), role: c.role,
-        rang: tit ? ++rt : ++rr, statut: tit ? 'ACTIF' : 'RESERVE_EN_ATTENTE', proba_dans_champ: null });
+        rang: rang, statut: tit ? 'ACTIF' : 'RESERVE_EN_ATTENTE', proba_dans_champ: null,
+        code_suivi: avecCode ? String(c.code_suivi).trim().toUpperCase() : (T + R <= 12 ? codeSuivi(tit ? rang : T + rang) : null) });
     });
     return { erreurs: e, arbres: e.length ? [] : arbres };
   }
-  /* Assistant de saisie : 01..10 sont les rangs de suivi, 11..12 les reserves.
+  /* Assistant de saisie : 01..10 sont les arbres suivis, R1/R2 les réserves.
      Les numeros de l'inventaire restent propres a chaque bloc (B01/A001 etc.).
+     Les codes de suivi proposés suivent l'ordre par défaut (A001..A012), modifiables.
      Aucune fabrication d'arbres si le total reel inventorie est insuffisant. */
   function proposerChoixArbres(panel, titulaires, reserves) {
     var T = titulaires == null ? 10 : +titulaires, R = reserves == null ? 2 : +reserves;
@@ -205,7 +247,7 @@
     var choix = [];
     blocs.forEach(function (b) {
       for (var n = 1; n <= b.nb_arbres_inventories && choix.length < T + R; n++) {
-        choix.push({ role: choix.length < T ? 'TITULAIRE' : 'RESERVE', bloc_id: b.id, numero: n });
+        choix.push({ role: choix.length < T ? 'TITULAIRE' : 'RESERVE', bloc_id: b.id, numero: n, code_suivi: T + R <= 12 ? codeSuivi(choix.length + 1) : null });
       }
     });
     return { erreurs: [], choix: choix, capacite: capacite, requis: T + R };
@@ -230,7 +272,10 @@
   }
   function arbresObserves(arbres) {
     return (arbres || []).filter(function (a) { return a.statut === 'ACTIF' || a.statut === 'RESERVE_ACTIVEE'; })
-      .sort(function (x, y) { return (x.role === y.role ? 0 : x.role === 'TITULAIRE' ? -1 : 1) || x.rang - y.rang; });
+      .sort(function (x, y) {
+        if (x.code_suivi && y.code_suivi) return x.code_suivi < y.code_suivi ? -1 : x.code_suivi > y.code_suivi ? 1 : 0;
+        return (x.role === y.role ? 0 : x.role === 'TITULAIRE' ? -1 : 1) || x.rang - y.rang;
+      });
   }
   function observationComplete(o) {
     if (!o || o.retrouve == null) return false;
@@ -250,13 +295,13 @@
       e.push('Visite enregistrée après le jour de l’observation : écrivez pourquoi.');
     if (!visite.ramassage) e.push('Répondez à la question sur le ramassage.');
     arbresObserves(arbres).forEach(function (a) {
-      var o = obs[a.id];
-      if (!o || o.retrouve == null) { e.push('Arbre ' + a.code + ' : « Retrouvé » non renseigné.'); return; }
-      if (o.retrouve === false) { if (!String(o.pas_vu_motif || '').trim()) e.push('Arbre ' + a.code + ' : indiquez pourquoi il n’a pas été retrouvé.'); return; }
-      if (!o.f || !o.n || !o.p || !o.chute) e.push('Arbre ' + a.code + ' : fleurs, jeunes noix, pommes ou chute non renseignés.');
-      if ([o.f, o.n, o.p, o.chute].indexOf('PAS_VU') >= 0 && !String(o.pas_vu_motif || '').trim()) e.push('Arbre ' + a.code + ' : raison du « Pas vu » obligatoire.');
-      if ((o.chute === 'MURE' || o.chute === 'PREMATUREE') && !o.chute_preuve) e.push('Arbre ' + a.code + ' : source de preuve de la chute obligatoire.');
-      if (!o.photo_ref && !String(o.photo_exception || '').trim()) e.push('Arbre ' + a.code + ' : prenez la photo de l’arbre (ou indiquez pourquoi c’est impossible).');
+      var o = obs[a.id], lib = libelleArbre(a);
+      if (!o || o.retrouve == null) { e.push('Arbre ' + lib + ' : « Retrouvé » non renseigné.'); return; }
+      if (o.retrouve === false) { if (!String(o.pas_vu_motif || '').trim()) e.push('Arbre ' + lib + ' : indiquez pourquoi il n’a pas été retrouvé.'); return; }
+      if (!o.f || !o.n || !o.p || !o.chute) e.push('Arbre ' + lib + ' : fleurs, jeunes noix, pommes ou chute non renseignés.');
+      if ([o.f, o.n, o.p, o.chute].indexOf('PAS_VU') >= 0 && !String(o.pas_vu_motif || '').trim()) e.push('Arbre ' + lib + ' : raison du « Pas vu » obligatoire.');
+      if ((o.chute === 'MURE' || o.chute === 'PREMATUREE') && !o.chute_preuve) e.push('Arbre ' + lib + ' : source de preuve de la chute obligatoire.');
+      if (!o.photo_ref && !String(o.photo_exception || '').trim()) e.push('Arbre ' + lib + ' : prenez la photo de l’arbre (ou indiquez pourquoi c’est impossible).');
     });
     return e;
   }
@@ -288,7 +333,8 @@
   };
 
   return { sha256: sha256, tirage: tirage, arbreId: arbreId, uuid: uuid, repartition: repartition, installer: installer, tirerArbres: tirerArbres,
-    codeArbre: codeArbre, installerDesignation: installerDesignation, designerArbres: designerArbres, proposerChoixArbres: proposerChoixArbres, nomPhoto: nomPhoto,
+    codeArbre: codeArbre, CODES_SUIVI: CODES_SUIVI, codeSuivi: codeSuivi, codeSuiviValide: codeSuiviValide, codesParDefaut: codesParDefaut,
+    controlerCodesSuivi: controlerCodesSuivi, libelleArbre: libelleArbre, installerDesignation: installerDesignation, designerArbres: designerArbres, proposerChoixArbres: proposerChoixArbres, nomPhoto: nomPhoto,
     semaineIso: semaineIso, aujourdhui: aujourdhui, observationVide: observationVide, arbresObserves: arbresObserves, observationComplete: observationComplete,
     controlerVisite: controlerVisite, chargeVisite: chargeVisite, LIBELLES: LIBELLES, PROTOCOLE: 'AFLP2027-OBS v0.9' };
 });

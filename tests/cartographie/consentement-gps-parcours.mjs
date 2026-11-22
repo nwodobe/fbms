@@ -56,7 +56,7 @@ test('a captured point is never auto-verified',()=>{
 });
 test('browser cache bust after code changes',()=>{
   assert.match(html,/field-buying\.js\?v=20261122-parcours-1/);
-  assert.match(html,/parcelles\.js\?v=20261122-citations-1/);
+  assert.match(html,/parcelles\.js\?v=20261122-codes-a001-1/);
   assert.match(html,/parcelles-coeur\.js\?v=20261122-citations-1/);
   assert.match(html,/parcelles\.css\?v=20261122-parcours-1/);
 });
