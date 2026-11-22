@@ -46,7 +46,7 @@ $sql
 commit;
 SQL
 )
-  out=$(echo "$out" | grep -v "^$uid$" | tr '\n' ' ')
+  out=$(echo "$out" | { grep -v "^$uid$" || true; } | tr '\n' ' ')   # résultat vide : un échec lisible, pas un arrêt du script
   if echo "$out" | grep -Eq "$att"; then ok=$((ok+1)); echo "RÉUSSI  $lib"; else ko=$((ko+1)); echo "ÉCHOUÉ  $lib — obtenu : $out"; fi
 }
 UH=00000000-0000-4000-8000-0000000000b2; BM=00000000-0000-4000-8000-0000000000b1; IN=00000000-0000-4000-8000-0000000000b3; ABM=00000000-0000-4000-8000-0000000000b4
@@ -90,6 +90,19 @@ t "SQL-27 Plafond : au-delà de 10 installations actives, une 11e est refusée" 
 t "SQL-28 Purge : refusée à un Chef de Zone" "Réservé au Branch Manager" $ZH1 "select public.ota_installations_purger(180);"
 t "SQL-29 Purge : délai minimal 90 jours" "minimal" $BM "select public.ota_installations_purger(30);"
 t "SQL-30 Purge : seules les installations muettes depuis plus de 180 jours partent" "^1\|" $BM "set local role postgres; update public.app_installations set last_seen_at = now() - interval '200 days' where installation_id='$I2'; set local role authenticated; select public.ota_installations_purger(180)||'|';"
+# ---- Tests négatifs de sécurité (audit du 22/11/2026) : détournement d'une installation dont on connaît l'identifiant.
+# $I1 appartient au Chef d'Unité BROBO. L'assistant de BROBO puis le Chef d'Unité de BOTRO signalent avec CE MÊME identifiant.
+recul
+t "SQL-33 Usurpation : un autre compte signale avec l'identifiant d'autrui, accepté seulement comme SA propre ligne" "RECU" $UHB "select public.ota_installation_signaler(jsonb_set(jsonb_set('$PAY'::jsonb,'{web_active_sequence}','1'),'{web_active_version}','\"FALSIFIE\"'))->>'statut';"
+t "SQL-34 Usurpation : la ligne du propriétaire garde son compte, son cluster et ses versions" "^UH FICTIF\|BROBO\|false " $BM "set local role postgres; select compte_nom||'|'||cluster||'|'||(web_active_version='FALSIFIE') from public.app_installations where installation_id='$I1' and user_id='$UH';"
+t "SQL-35 Usurpation : le propriétaire voit toujours son appareil" "^1 " $UH "select count(*) from public.ota_installations_v where installation_id='$I1' and mon_appareil;"
+t "SQL-36 Usurpation : la ligne de l'usurpateur reste dans SON périmètre (BOTRO), sous SON nom" "^UH BOTRO FICTIF\|BOTRO " $BM "set local role postgres; select compte_nom||'|'||cluster from public.app_installations where installation_id='$I1' and user_id='$UHB';"
+t "SQL-37 Appareil partagé : signalé comme tel au pilotage (2 comptes sur le même identifiant)" "^2\|true " $BM "select count(*)||'|'||bool_and(appareil_partage) from public.ota_installations_v where installation_id='$I1';"
+t "SQL-38 Appareil partagé : le Chef d'Unité BROBO ne voit pas la ligne BOTRO" "^0 " $UH "select count(*) from public.ota_installations_v where installation_id='$I1' and cluster='BOTRO';"
+t "SQL-39 Anti-rafale par compte : le signalement d'un tiers ne bloque pas celui du propriétaire" "RECU" $UH "select public.ota_installation_signaler('$PAY'::jsonb)->>'statut';"
+t "SQL-40 Fonctions de périmètre : non appelables par l'API (schéma private), ni par anon" "^false\|false " $BM "set local role postgres; select has_function_privilege('anon','private.ota_mon_cluster()','execute')||'|'||has_function_privilege('anon','public.ota_installation_signaler(jsonb)','execute');"
+t "SQL-41 Table : aucun droit d'écriture pour authenticated ni anon" "^false\|false\|false\|false " $BM "set local role postgres; select has_table_privilege('authenticated','public.app_installations','insert')||'|'||has_table_privilege('authenticated','public.app_installations','update')||'|'||has_table_privilege('authenticated','public.app_installations','delete')||'|'||has_table_privilege('anon','public.app_installations','select');"
+t "SQL-42 Purge : appelable par le seul Branch Manager, jamais par anon" "^f " $BM "set local role postgres; select has_function_privilege('anon','public.ota_installations_purger(integer)','execute');"
 out=$(psql -h /tmp -p $PORT -U postgres -d ota -X -q -At -c "begin; set local role anon; select count(*) from public.ota_installations_v;" 2>&1 || true)
 if echo "$out" | grep -q "permission denied"; then ok=$((ok+1)); echo "RÉUSSI  SQL-31 Rôle anonyme : aucune lecture"; else ko=$((ko+1)); echo "ÉCHOUÉ  SQL-31 — $out"; fi
 $P -d ota -f $R/supabase/20261122090100_ota_suivi_installations_rollback.sql
