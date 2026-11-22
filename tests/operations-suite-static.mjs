@@ -21,8 +21,8 @@ assert.ok(noSidebarScript.includes("side.removeAttribute('inert')"), 'Open Modul
 assert.ok(noSidebarScript.includes("btn.setAttribute('aria-controls','opsSidebar')"), 'Modules toggle must control the single menu');
 const menuItemCount=(noSidebarScript.match(/id:'E[0-5]'/g)||[]).length;
 assert.equal(menuItemCount,6,'Six spaces must remain');
-const swV30=read('sw.js');
-assert.ok(swV30.includes('ops-offline-v30-ra-docs'), 'Service worker must invalidate stale offline shell');
+const swV31=read('sw.js');
+assert.ok(swV31.includes('ops-offline-v31-gps-autoesri'), 'Service worker must invalidate stale offline shell');
 for(const file of ['index.html','operations/field-buying.html','operations/procurement.html',
                    'operations/reports.html','operations/aflp-data.html','operations/campaigns.html',
                    'operations/traceability.html','moto/index.html','fieldproof/index.html']){
@@ -502,3 +502,5 @@ await import('./cartographie/carte-plantation-ra-static.mjs');
 await import('./cartographie/ra-field-proof-lot2-static.mjs');
 
 await import('./cartographie/ra-lot3-export-archive.mjs');
+
+await import('./cartographie/consentement-formulaire-esri-auto.mjs');
