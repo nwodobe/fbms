@@ -47,7 +47,11 @@ test('cartography collects the GPS decision inside Parcelles, never presumed',()
 });
 test('refusal or withdrawal blocks capture and the map',()=>{
   assert.match(pc,/if \(p\.accord\.etat !== 'ACCORDE'\) return parcours\(id\);/);
-  assert.match(pc,/if \(!x\.consentement_gps\) return aller\('parcelles\/parcours\/' \+ id\);/);
+  /* 22/11/2026 : le booléen de la liste ne suffit plus. La décision est relue en ligne avant la carte ; un accord
+     différent ferme la carte ; sans relecture possible ni accord connu, rien n'est présumé. */
+  assert.match(pc,/if \(accord\.confirme && accord\.etat !== 'ACCORDE'\) return aller\('parcelles\/parcours\/' \+ id\);/);
+  assert.match(pc,/if \(!accord\.confirme && x\.consentement_gps !== true\) return aller\('parcelles\/parcours\/' \+ id\);/);
+  assert.match(pc,/!ed\.pointNonRecu && !ed\.accordNonRelu && enLigne\(\)/);
   assert.match(pc,/La localisation et la carte de ce champ sont bloquées\. La parcelle reste enregistrée\./);
 });
 test('a captured point is never auto-verified',()=>{
@@ -56,7 +60,7 @@ test('a captured point is never auto-verified',()=>{
 });
 test('browser cache bust after code changes',()=>{
   assert.match(html,/field-buying\.js\?v=20261122-parcours-1/);
-  assert.match(html,/parcelles\.js\?v=20261122-citations-1/);
+  assert.match(html,/parcelles\.js\?v=20261122-gps-autoesri-2/);
   assert.match(html,/parcelles-coeur\.js\?v=20261122-citations-1/);
   assert.match(html,/parcelles\.css\?v=20261122-parcours-1/);
 });
