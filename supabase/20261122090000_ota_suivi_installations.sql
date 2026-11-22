@@ -47,7 +47,7 @@ revoke all on function private.ota_mon_cluster(), private.ota_ma_zone() from pub
 grant execute on function private.ota_mon_cluster(), private.ota_ma_zone() to authenticated;
 
 create table if not exists public.app_installations (
-  installation_id      uuid primary key,
+  installation_id      uuid not null,
   app_id               text not null,
   user_id              uuid not null,
   compte_nom           text,
@@ -74,11 +74,16 @@ create table if not exists public.app_installations (
   first_seen_at        timestamptz not null default now(),
   last_seen_at         timestamptz not null default now(),
   signalements         integer not null default 1,
+  -- Clé = (installation, compte). Audit de sécurité du 22/11/2026 : avec l'identifiant seul pour clé, tout compte
+  -- connaissant l'identifiant d'un autre téléphone (visible par son encadrement) pouvait s'approprier sa ligne
+  -- (compte, cluster, versions) par un simple signalement. Désormais un signalement ne touche QUE la ligne du
+  -- compte appelant ; un téléphone partagé entre deux comptes donne deux lignes, une par compte.
+  constraint app_installations_pkey primary key (installation_id, user_id),
   constraint app_installations_origin_chk check (web_active_origin is null or web_active_origin in ('OTA', 'APK')),
   constraint app_installations_app_chk check (app_id = 'ci.anagroci.fieldbuying')
 );
 comment on table public.app_installations is
-  'Une ligne par installation de l''APK FBMS, écrite uniquement par public.ota_installation_signaler. Identifiant aléatoire, sans lien avec le matériel.';
+  'Une ligne par installation de l''APK FBMS ET par compte, écrite uniquement par public.ota_installation_signaler, qui ne modifie jamais la ligne d''un autre compte. Identifiant aléatoire, sans lien avec le matériel.';
 create index if not exists app_installations_last_seen_idx on public.app_installations (last_seen_at desc);
 create index if not exists app_installations_user_idx on public.app_installations (user_id, last_seen_at desc);
 create index if not exists app_installations_perimetre_idx on public.app_installations (zone, cluster);
@@ -119,7 +124,7 @@ begin
   if coalesce(p->>'app_id', '') <> 'ci.anagroci.fieldbuying' then
     raise exception 'Application non suivie.' using errcode = '22023'; end if;
   -- Garde-fous : un signalement utile toutes les 30 s par installation ; 10 installations actives au plus par compte.
-  select last_seen_at into v_dernier from public.app_installations where installation_id = v_id;
+  select last_seen_at into v_dernier from public.app_installations where installation_id = v_id and user_id = auth.uid();
   if v_dernier > v_maintenant - interval '30 seconds' then
     return jsonb_build_object('statut', 'IGNORE', 'motif', 'signalement trop rapproché', 'recu_serveur_le', v_maintenant); end if;
   select count(*) into v_autres from public.app_installations
@@ -155,8 +160,8 @@ begin
     left(p->>'phase', 30), v_check, v_activation, left(p->>'last_error', 300),
     case when (p->>'queue_open') ~ '^\d{1,7}$' then (p->>'queue_open')::integer end,
     v_maintenant, v_maintenant, 1)
-  on conflict (installation_id) do update set
-    user_id = excluded.user_id, compte_nom = excluded.compte_nom, role = excluded.role,
+  on conflict (installation_id, user_id) do update set   -- jamais la ligne d'un autre compte : user_id n'est pas modifiable
+    compte_nom = excluded.compte_nom, role = excluded.role,
     cluster = excluded.cluster, zone = excluded.zone,
     native_version_name = excluded.native_version_name, native_version_code = excluded.native_version_code,
     android_release = excluded.android_release, updates_enabled = excluded.updates_enabled, channel = excluded.channel,
@@ -189,8 +194,19 @@ end $$;
 revoke all on function public.ota_installations_purger(integer) from public, anon;
 grant execute on function public.ota_installations_purger(integer) to authenticated;
 
-create or replace view public.ota_installations_v with (security_invoker = true) as
-  select installation_id, (user_id = auth.uid()) as mon_appareil, compte_nom, role, cluster, zone, native_version_name, native_version_code, android_release,
+-- Nombre de comptes ayant signalé le même identifiant d'installation (téléphone partagé, ou identifiant recopié).
+-- Ne renvoie qu'un nombre : aucune ligne hors périmètre n'est révélée.
+create or replace function private.ota_comptes_sur_installation(p_id uuid) returns integer
+language sql stable security definer set search_path = public, pg_temp as $$
+  select count(*)::integer from public.app_installations where installation_id = p_id
+$$;
+revoke all on function private.ota_comptes_sur_installation(uuid) from public, anon;
+grant execute on function private.ota_comptes_sur_installation(uuid) to authenticated;
+
+drop view if exists public.ota_installations_v;
+create view public.ota_installations_v with (security_invoker = true) as
+  select installation_id, (user_id = auth.uid()) as mon_appareil,
+         (private.ota_comptes_sur_installation(installation_id) > 1) as appareil_partage, compte_nom, role, cluster, zone, native_version_name, native_version_code, android_release,
          updates_enabled, channel, web_active_sequence, web_active_version, web_active_origin,
          ota_latest_sequence, ota_latest_version, ota_pending_sequence, deferred_reason, phase,
          last_check_at, last_activation_at, last_error, queue_open, first_seen_at, last_seen_at, signalements

@@ -6,5 +6,6 @@ drop view if exists public.ota_installations_v;
 drop function if exists public.ota_installation_signaler(jsonb);
 drop function if exists public.ota_installations_purger(integer);
 drop table if exists public.app_installations;   -- avant les fonctions de périmètre : sa politique RLS les utilise
+drop function if exists private.ota_comptes_sur_installation(uuid);
 drop function if exists private.ota_ma_zone();
 drop function if exists private.ota_mon_cluster();

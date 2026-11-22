@@ -1,0 +1,53 @@
+﻿ID|Exigence|Environnement|Appareil|Version|Précondition|Résultat attendu|Résultat constaté|Statut|Preuve|Anomalie
+GH-01|5 workflows verts sur la tête de #360|GitHub Actions|-|87f9231|-|5 réussis|5 réussis|REUSSI|Exécutions 44990093505, 44990093450, 44990093519, 44990093465, 44990093548|
+GH-02|5 workflows verts sur #363|GitHub Actions|-|bc9eeae|-|5 réussis|5 réussis|REUSSI|45015689393, 45015689611, 45015689374, 45015689351, 45015689355|
+GH-03|5 workflows verts sur #366|GitHub Actions|-|33c6094|-|5 réussis|5 réussis|REUSSI|45017554808, 45017554775, 45017554799, 45017554791, 45017554773|
+GH-04|5 workflows verts sur #364 mise à jour|GitHub Actions|-|4991f0a|-|5 réussis|5 réussis|REUSSI|45019218556, 45019218558, 45019218538, 45019218537, 45019218560|
+GH-05|Cause des 2 échecs initiaux identifiée|GitHub Actions|-|e476474 puis ca63a09|-|Cause et commit correcteur|Épingles de version ; corrigé par ca63a09|REUSSI|Échecs 44956568612 et 44956568615 ; vert 44960367070|
+GH-06|Contrôle protégé non contourné|GitHub Actions|-|4991f0a|-|Échec de protection conservé|Échec attendu (denylist)|REUSSI|Éligibilité à la correction automatique|
+ES-01|Statut du consentement visible dans le formulaire|Test statique|-|main dca07df|-|Bloc consentement présent|Présent|REUSSI|formulaire-parcelle-simplifie-static.mjs 7/7|
+ES-02|Consentement non présumé hors connexion|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|Hors ligne|Aucune décision présumée|Conforme|REUSSI|PG-30, PG-32|
+ES-03|Refus bloquant|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Capture et carte bloquées|Conforme|REUSSI|PG-03, PG-04|
+ES-04|Retrait bloquant|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Capture et carte bloquées|Conforme|REUSSI|PG-29|
+ES-05|Ouverture automatique d'Esri après capture|Navigateur du téléphone, GPS réel|ITEL S688LN Android 15|db61ddd|Extérieur, en ligne|Carte ouverte sans clic|Conforme|REUSSI|RECETTE_ITEL.md § 3 ; vidéo|
+ES-06|Gabarit P1 à P4 provisoire, sans superficie|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Aucune superficie tant que non ajusté|Conforme|REUSSI|PG-08, PG-09|
+ES-07|Déplacement des points et recalcul immédiat|Navigateur du téléphone|ITEL S688LN Android 15|db61ddd|-|Surface recalculée|0,52 → 0,41 → 0,40 ha|REUSSI|Journal de séance du 21/11|
+ES-08|Contour non soumis si point en attente serveur|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|Hors ligne, point en attente|Brouillon uniquement|Bouton désactivé, 0 contour en file|REUSSI|PG-39|
+ES-09|Conservation et reprise du brouillon|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Brouillon retrouvé|Conforme|REUSSI|PG-25|
+ES-10|Relecture du consentement avant soumission|Test statique|-|4991f0a|-|etatAccord appelé avant envoi|Présent|REUSSI|consentement-formulaire-esri-auto.mjs|Non vérifié par un essai dynamique dédié
+ES-11|Parcours complet, 3 largeurs|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Tous les cas réussis|39/39|REUSSI|parcours-gabarit-navigateur.mjs|
+IT-01|Capture GPS réelle|Navigateur du téléphone|ITEL S688LN Android 15|db61ddd|Extérieur|Point capturé, précision enregistrée|1,72 m|REUSSI|MAN-02 du 21/11|
+IT-02|Date de l'image Esri|Navigateur du téléphone|ITEL S688LN Android 15|db61ddd|En ligne|Date lue chez Esri ou « non disponible »|11/02/2025, Vantor, 0,34 m|REUSSI|MAN-03 du 21/11|
+IT-03|Superficie comparée à PostGIS|Supabase lecture seule|-|PostGIS 3.3|Contour de l'essai|Écart mesuré|4 048,17 m² des deux côtés ; 0,00 %|REUSSI|ST_Area(geography), WGS 84|
+IT-04|Refus, retrait, absence d'accord au doigt|APK officielle|ITEL S688LN Android 15|1.4.3 (10)|Producteur consentant|Blocages constatés||NON_EXECUTE||Protocole dans RECETTE_ITEL.md § 5
+IT-05|Carré entier, annuler, rétablir au doigt|APK officielle|ITEL S688LN Android 15|1.4.3 (10)|-|Fonctionnels||NON_EXECUTE|PG-16, PG-18 (automatique)|
+IT-06|Réseau coupé avant Esri, brouillon après fermeture|APK officielle|ITEL S688LN Android 15|1.4.3 (10)|Mode avion|Comportement honnête, brouillon retrouvé||NON_EXECUTE|PG-31, PG-25 (automatique)|
+IT-07|Parcours complet sur l'APK officielle|APK officielle|ITEL S688LN Android 15|1.4.3 (10)|Données réelles|Parcours réussi||NON_EXECUTE||Téléphone en cours d'utilisation par le BM
+AP-01|APK officielle : paquet, version, certificat|Lecture seule ADB|ITEL S688LN Android 15|1.4.3 (10)|-|Certificat ANAGROCI|SHA-256 1f70f69e…a64f1b41|REUSSI|apksigner du 22/11 11:52|
+AP-02|APK officielle non réinstallée|Lecture seule ADB|ITEL S688LN Android 15|1.4.3 (10)|-|firstInstallTime inchangé|firstInstallTime = 22/11 11:48:12|ECHEC|dumpsys package|Application désinstallée puis réinstallée ; données locales effacées
+AP-03|Version Web active sur l'APK officielle|Capture d'écran|ITEL S688LN Android 15|1.4.3 (10)|-|Séquence lue|Nouveau parcours visible ; séquence non lue|BLOQUE|officiel-ecran.png|Application non débogable ; migration de suivi absente
+TA-01|Test A : hors ligne et persistance|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Modifications retrouvées|Conforme|REUSSI|PG-25, PG-31, PG-33|Pas sur l'APK officielle
+TB-01|Test B : synchronisation sans doublon|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|Coupure puis retour|Une seule écriture|Même clé d'idempotence, 1 écriture|REUSSI|PG-33 ; workflow Offline Field Buying|Doublure, pas Supabase
+TC-01|Test C : manifeste, empreintes, signature, activation|Émulateur Android 15|FB MAJ TEST|canal test|-|Vérifié puis activé au redémarrage|Conforme|REUSSI|Série 3 A3, A4 du 21/11|
+TD-01|Test D : deux OTA successives|Émulateur Android 15|FB MAJ TEST|canal test|-|Séquences croissantes|1795304450 puis 1795304452|REUSSI|Série 3 C1 à C3|
+TE-01|Test E : coupure réseau|Émulateur Android 15|FB MAJ TEST|canal test|-|Rien d'activé à moitié|Conforme|REUSSI|Série 3 A1|Coupure avant le téléchargement, pas pendant
+TE-02|Test E : coupure en plein téléchargement|JVM|-|main dca07df|-|Aucune version partielle|Conforme|REUSSI|E2E-08 ; 22/22 le 22/11|
+TE-03|Test E : application tuée après téléchargement|Émulateur Android 15|FB MAJ TEST|canal test|-|Démarrage sain|Conforme|REUSSI|Série 3 A2|1 répétition
+TF-01|Test F : paquet mal signé refusé|Émulateur Android 15|FB MAJ TEST|canal test|-|Refus|« refusée : signature invalide »|REUSSI|Série 3 B1 ; E2E-09|
+TF-02|Test F : retour arrière, données conservées|Émulateur Android 15|FB MAJ TEST|canal test|-|Version révoquée quittée|Conforme|REUSSI|Série 3 D1, D2 ; E2E-13, E2E-22|
+TG-01|Test G : IndexedDB après arrêt brutal|Émulateur Android 15|WebView|-|5 répétitions × 3 délais|Écritures confirmées retrouvées|15/15 (défaut) et 15/15 (strict)|REUSSI|persistance-emulateur.json du 21/11|
+TG-02|Test G : localStorage après arrêt brutal|Émulateur Android 15|WebView|-|Arrêt à 300 ms|Retrouvé|0/5 à 300 ms ; 5/5 à 2 s|ECHEC|persistance-emulateur.json|Session et identifiants seulement ; aucune opération métier
+TG-03|Test G : sur l'APK officielle|APK officielle|ITEL S688LN Android 15|1.4.3 (10)|-|Aucune perte||NON_EXECUTE||Interdit sur des données de production
+SE-01|Migration : détournement impossible|PostgreSQL 16 local|-|branche recette|-|Ligne du propriétaire intacte|Conforme après correction (échec avant)|REUSSI|SQL-33 à SQL-39|
+SE-02|Migration : RLS par rôle|PostgreSQL 16 local|-|branche recette|7 comptes fictifs|Périmètres respectés|Conforme|REUSSI|SQL-16 à SQL-22|
+SE-03|Migration : écriture directe et accès anonyme refusés|PostgreSQL 16 local|-|branche recette|-|Refus|Conforme|REUSSI|SQL-23 à SQL-25, SQL-31, SQL-40 à SQL-42|
+SE-04|Migration : retour arrière|PostgreSQL 16 local|-|branche recette|-|Objets supprimés|Conforme|REUSSI|SQL-32|
+SE-05|Migration : RLS avec comptes réels|Supabase|-|-|Migration appliquée|Périmètres respectés||BLOQUE||Attend le GO du Branch Manager
+SE-06|Suivi : classement des états|Node|-|branche recette|-|20 cas|20/20|REUSSI|suivi-coeur.test.cjs|
+CO-01|Version du texte en service|Code et production|-|main dca07df|-|AFLP-GPS-CONSENT-2026.2|Conforme ; 2 décisions en production|REUSSI|parcelles.js l. 425-426 ; requête de comptage|
+CO-02|Refus serveur sans accord actif|Navigateur, doublure serveur|Chromium 390/768/1440|4991f0a|-|Erreur PM001|Conforme|REUSSI|PG-34|
+CO-03|Validation juridique du texte|-|-|-|-|Validation écrite||BLOQUE||Personne habilitée à désigner
+OB-01|Observatoire : champs incomplets proposés|Chromium, composant isolé|Chromium 390/768/1440|33c6094|-|Manques et raccourcis affichés|Conforme|REUSSI|PR #366|
+OB-02|Observatoire : parcours e2e navigateur|Réplique locale|Chromium 390/768/1440|33c6094|-|Suite complète|Non démarré (CDN bloqué), y compris sur main|BLOQUE||Environnement
+PI-01|Pilote 3 téléphones, 2 clusters|Terrain|-|-|Participants désignés|Critères de sortie atteints||NON_EXECUTE|RECETTE_PILOTE.md|
+RB-01|Procédure de restauration|-|-|-|-|Retour arrière vérifié|OTA : testé sur émulateur ; migration : testé en local ; canal stable : non testé|BLOQUE||Révocation stable interdite sans accord
