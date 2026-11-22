@@ -22,7 +22,7 @@ assert.ok(noSidebarScript.includes("btn.setAttribute('aria-controls','opsSidebar
 const menuItemCount=(noSidebarScript.match(/id:'E[0-5]'/g)||[]).length;
 assert.equal(menuItemCount,6,'Six spaces must remain');
 const swV30=read('sw.js');
-assert.ok(swV30.includes('ops-offline-v30-ra-docs'), 'Service worker must invalidate stale offline shell');
+assert.ok(swV30.includes('ops-offline-v32-arbres-12'), 'Service worker must invalidate stale offline shell');
 for(const file of ['index.html','operations/field-buying.html','operations/procurement.html',
                    'operations/reports.html','operations/aflp-data.html','operations/campaigns.html',
                    'operations/traceability.html','moto/index.html','fieldproof/index.html']){
@@ -502,3 +502,6 @@ await import('./cartographie/carte-plantation-ra-static.mjs');
 await import('./cartographie/ra-field-proof-lot2-static.mjs');
 
 await import('./cartographie/ra-lot3-export-archive.mjs');
+
+// Verification metier du choix 01..12 et des capacites des blocs
+import './observatoire/selection-12-static.mjs';
