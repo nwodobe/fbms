@@ -255,3 +255,7 @@ details.ops-camp[open]>summary{background:rgba(255,255,255,.14)}
 .camp-banner.sim{background:#FFF3D6;border-color:#F2B233;color:#5C3D00}
 .camp-banner.closed.sim{background:repeating-linear-gradient(135deg,#FFF3D6 0 14px,#F1F3F2 14px 28px)}
 @media(max-width:560px){.ops-camp .camp-lbl{display:none}.ops-camp-menu{left:0;right:auto;min-width:240px}}
+
+/* P2 audit itel : voyant de connexion cohérent avec le libellé (vert seulement en ligne). */
+.ops-pill[data-state="off"] .dot { background: #E5533D; }
+.ops-pill[data-state="wait"] .dot { background: #C9B458; }

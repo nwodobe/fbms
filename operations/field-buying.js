@@ -132,6 +132,25 @@ function table(headers, rows) {
     headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
     '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
 }
+/* Tableau des parcelles : sous 640 px chaque ligne devient une carte (parcelles.css,
+   .fb-plots-table) ; le bouton Modifier reste visible sans défilement horizontal. */
+function plotTable(headers, rows) {
+  if (!rows.length) return empty('Aucune parcelle enregistrée pour ce producteur.');
+  return '<div class="table-wrap fb-plots-wrap"><table class="fb-plots-table"><thead><tr>' +
+    headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+    '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
+}
+/* Libellés terrain des codes techniques. La valeur en base ne change pas. */
+var FB_CODE_FR = {
+  NOT_MAPPED: 'Champ non cartographié', DEFERRED: 'À compléter après campagne', POINT_CAPTURED: 'Point GPS relevé',
+  POLYGON_CAPTURED: 'Contour relevé', MAPPED: 'Champ cartographié', VERIFIED: 'Vérifié',
+  DECLARED: 'Superficie déclarée', GPS_POINT: 'Point GPS', GPS_POLYGON: 'Contour GPS', MEASURED: 'Mesurée',
+  NOT_ASSESSED: 'Non encore évalué', REVIEW_REQUIRED: 'Revue requise', LOW: 'Faible', MEDIUM: 'Moyen', HIGH: 'Élevé'
+};
+/* Même code, sens différent selon la colonne : DECLARED comme niveau de preuve = déclaratif, non vérifié. */
+var FB_EVIDENCE_FR = { DECLARED: 'Déclaratif (non vérifié)' };
+function codeLabel(v) { if (v == null || v === '') return '—'; var k = String(v).toUpperCase(); return FB_CODE_FR[k] || String(v); }
+function badgeLabel(v) { var b = badge(v); return b.replace('>' + esc(v || '—') + '<', '>' + esc(codeLabel(v)) + '<'); }
 function kpis(items) {
   /* x = [libelle, valeur, detail, ton, href]. Le 5e element rend la tuile
      cliquable : un KPI qui ne mene nulle part oblige a chercher ailleurs. */
@@ -1749,10 +1768,25 @@ function farmerExtras() {
       var ch = {}, ql = {};
       rs[0].forEach(function (x) { if (!x.campaign || String(x.campaign) === campCode() || !ch[x.producer_id]) ch[x.producer_id] = x; });
       rs[1].forEach(function (x) { ql[x.producer_id] = x; });
-      return { ch: ch, ql: ql, ok: rs[0].length > 0 || rs[1].length > 0 };
+      var ok = rs[0].length > 0 || rs[1].length > 0, off = global.ANAGROCI_OFFLINE;
+      /* P1-3 : en ligne, on garde un état local daté (par compte) ; hors ligne on
+         le relit. Sans lui, qualityKnown=false et le KPI affiche « Indisponible
+         hors ligne » au lieu de 0. */
+      if (ok && rs[1].length && off && off.setBundle && passportUid()) {
+        off.setBundle('farmer_quality', { uid: passportUid(), at: new Date().toISOString(), ch: ch, ql: ql }, { campaign_id: null }).catch(function () {});
+        return { ch: ch, ql: ql, ok: true, qualityKnown: true, qualityAt: null };
+      }
+      if (ok) return { ch: ch, ql: ql, ok: true, qualityKnown: rs[1].length > 0, qualityAt: null };
+      if (!off || !off.getBundle || !passportUid()) return { ch: ch, ql: ql, ok: false, qualityKnown: false, qualityAt: null };
+      return off.getBundle('farmer_quality', { campaign_id: null }).then(function (x) {
+        setTimeout(function () { FBStore.invalidate('farmerExtras'); }, 0);
+        if (x && x.uid === passportUid() && x.ql) return { ch: x.ch || {}, ql: x.ql, ok: true, qualityKnown: true, qualityAt: x.at };
+        return { ch: ch, ql: ql, ok: false, qualityKnown: false, qualityAt: null };
+      }).catch(function () { return { ch: ch, ql: ql, ok: false, qualityKnown: false, qualityAt: null }; });
     });
   });
 }
+var PF_PAGE = 300;
 var CONSENT_FR = { GRANTED: 'Recueilli', PARTIAL: 'Partiel', REFUSED: 'Refusé', NOT_RECORDED: 'Non recueilli', WITHDRAWN: 'Retiré' };
 function renderFarmers(id, tab) {
   if (id) return renderFarmerPassport(id, tab);
@@ -1778,7 +1812,7 @@ function renderFarmers(id, tab) {
       kpis([
         ['Producteurs', String(c.farmers.length), 'au référentiel'],
         ['Membres de coopérative', String(nCoop), 'canal Coopérative ' + campCode()],
-        ['Complétude < 50 %', String(nLow), 'dossiers à compléter'],
+        ['Complétude < 50 %', X.qualityKnown ? String(nLow) : 'Indisponible hors ligne', !X.qualityKnown ? 'données de complétude non disponibles sur ce téléphone' : X.qualityAt ? 'état local du ' + new Date(X.qualityAt).toLocaleString('fr-FR') : 'dossiers à compléter', X.qualityKnown ? '' : 'warn'],
         ['À vérifier', String(c.farmers.filter(function (f) { return f.review_required; }).length), 'doublon possible / identité'],
         ['Sans RT', String(noRt.length), noRtDetail, noRt.length ? 'attn' : '']
       ]) +
@@ -1819,11 +1853,16 @@ function renderFarmers(id, tab) {
         return normName(f.nom + ' ' + (f.prenoms || '') + ' ' + (f.farmer_id || '') + ' ' + (ch.member_number || '')).indexOf(k) >= 0 ||
                (t.length >= 4 && normPhone(f.telephone).indexOf(t) >= 0);
       });
-      document.getElementById('pfCount').textContent = '· ' + list.length + (list.length > 300 ? ' (300 premiers affichés)' : '');
+      /* P1-6 : plus de troncature silencieuse à 300. Affichage progressif par
+         tranches de 300 (mémoire des téléphones d'entrée de gamme), compteur
+         exact et bouton « Afficher les suivants ». La recherche porte toujours
+         sur la liste complète. */
+      var shown = Math.min(list.length, farmerFilter._shown || PF_PAGE);
+      document.getElementById('pfCount').textContent = '· ' + list.length + (list.length > shown ? ' (' + shown + ' affichés)' : '');
       if (!list.length) { document.getElementById('farmerTable').innerHTML = empty('Aucun producteur pour ces filtres.'); return; }
       document.getElementById('farmerTable').innerHTML = '<div class="table-wrap"><table class="pf-table"><thead><tr>' +
         ['Farmer ID', 'Nom', 'Village', 'RT', 'Canal ' + campCode(), 'Coopérative principale', 'Member ID', 'Complétude', 'Consentement', 'Statut'].map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
-        '</tr></thead><tbody>' + list.slice(0, 300).map(function (f) {
+        '</tr></thead><tbody>' + list.slice(0, shown).map(function (f) {
           var rr = c.rm[f.rt_id], vv = c.vm[f.village_id], ch = X.ch[f.producteur_id] || {}, ql = X.ql[f.producteur_id] || {};
           var coop = ch.primary_cooperative_id, cp = ql.completeness_pct == null ? null : n(ql.completeness_pct);
           var canal = coop ? badge('Coopérative') : (f.rt_id ? badge('Direct RT') : '<span class="muted">Non rattaché</span>');
@@ -1839,12 +1878,16 @@ function renderFarmers(id, tab) {
             '<td data-l="Complétude">' + (cp == null ? '—' : '<span class="badge ' + (cp === 100 ? 'ok' : cp < 50 ? 'danger' : 'warn') + '">' + cp + ' %</span>') + '</td>' +
             '<td data-l="Consentement" class="pf-lo">' + '<span class="badge ' + (consent === 'GRANTED' ? 'ok' : 'warn') + '">' + esc(CONSENT_FR[consent] || consent) + '</span></td>' +
             '<td data-l="Statut" class="pf-lo">' + badge(f.operational_status || 'Enrôlé') + '</td></tr>';
-        }).join('') + '</tbody></table></div>';
+        }).join('') + '</tbody></table></div>' +
+        (list.length > shown ? '<div class="ops-route-actions pf-more"><button class="btn secondary" type="button" id="pfMore">' +
+          'Afficher les ' + Math.min(PF_PAGE, list.length - shown) + ' suivants (' + (list.length - shown) + ' restants)</button></div>' : '');
+      var more = document.getElementById('pfMore');
+      if (more) more.addEventListener('click', function () { farmerFilter._shown = shown + PF_PAGE; apply(); });
     }
     var t = null;
-    document.getElementById('pfQ').addEventListener('input', function () { var v = this.value; clearTimeout(t); t = setTimeout(function () { F.q = v; apply(); }, 200); });
+    document.getElementById('pfQ').addEventListener('input', function () { var v = this.value; clearTimeout(t); t = setTimeout(function () { F.q = v; F._shown = 0; apply(); }, 200); });
     [['pfCanal', 'canal'], ['pfCoop', 'coop'], ['pfVillage', 'village'], ['pfCluster', 'cluster'], ['pfRt', 'rt'], ['pfCompl', 'compl'], ['pfFlag', 'flag']].forEach(function (x) {
-      document.getElementById(x[0]).addEventListener('change', function () { F[x[1]] = this.value; apply(); });
+      document.getElementById(x[0]).addEventListener('change', function () { F[x[1]] = this.value; F._shown = 0; apply(); });
     });
     document.getElementById('pfReset').addEventListener('click', function () { Object.keys(F).forEach(function (k) { F[k] = ''; }); renderFarmers(); });
     apply();
@@ -1856,36 +1899,134 @@ function renderFarmers(id, tab) {
    sustainability, visites, inspections, consentements, actions, historique)
    ne se charge que lorsqu'on ouvre le passeport, en un seul Promise.all. */
 
+/* P0 audit itel 20/11/2026 : hors ligne, chaque requête échouait en « [] » et
+   l'onglet Parcelles affichait « Aucune donnée » avec l'ajout actif (risque de
+   doublon). Désormais :
+   - en ligne, la liste serveur des parcelles (et la ligne producteur) est
+     enregistrée dans un instantané local RATTACHÉ AU COMPTE (ANAGROCI_OFFLINE,
+     clé :u:<uid>) ; un autre compte du téléphone ne le lit jamais ;
+   - hors ligne ou en échec réseau, on relit cet instantané (plotsState 'cache',
+     plotsAt = date de l'état local) ;
+   - sans instantané fiable, plotsState 'unknown' : la liste n'est PAS présentée
+     comme vide et la création est bloquée jusqu'à la reconnexion ;
+   - les parcelles créées sur ce téléphone et pas encore confirmées par le
+     serveur (file du registre) restent visibles, marquées en attente. */
+function passportUid() {
+  var a = global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.profile;
+  return a ? (a.user_id || a.userId || null) : null;
+}
+function passportSnapshotKey(pid) { return 'passport_plots:' + pid; }
+function passportSnapshotSave(pid, plots, producteur) {
+  var off = global.ANAGROCI_OFFLINE;
+  if (!off || !off.setBundle || !passportUid()) return Promise.resolve(false);
+  return off.setBundle(passportSnapshotKey(pid),
+    { pid: pid, uid: passportUid(), at: new Date().toISOString(), plots: plots || [], producteur: producteur || null },
+    { campaign_id: null }).then(function () { return true; }).catch(function () { return false; });
+}
+function passportSnapshotRead(pid) {
+  var off = global.ANAGROCI_OFFLINE, uid = passportUid();
+  if (!off || !off.getBundle || !uid) return Promise.resolve(null);
+  return off.getBundle(passportSnapshotKey(pid), { campaign_id: null }).then(function (x) {
+    /* Double garde : clé par compte ET propriétaire inscrit dans la valeur. */
+    return x && x.pid === pid && x.uid === uid && Array.isArray(x.plots) ? x : null;
+  }).catch(function () { return null; });
+}
+function passportPendingPlots(pid) {
+  return passportLocalPlots(pid).then(function (x) { return x.pending; });
+}
+/* Écriture itel 21/11/2026 : une parcelle créée EN LIGNE par ce téléphone
+   (TEST_PARCELLE_A, 04:55) n'apparaissait pas hors ligne, car l'instantané du
+   passeport datait de la lecture précédente (04:54). L'agent voyait « Aucune
+   parcelle » et pouvait la recréer : un doublon a été produit à 05:03.
+   Le registre local (synchronisation) garde pourtant les lignes que CE
+   téléphone a envoyées et que le serveur a confirmées : hors ligne, elles
+   complètent l'instantané. En ligne, la liste serveur reste seule autorité. */
+function passportLocalPlots(pid) {
+  var fr = global.AFLP_FARMER_REGISTRY && global.AFLP_FARMER_REGISTRY.syncEngine;
+  if (!fr || !fr.listCache) return Promise.resolve({ pending: [], synced: [] });
+  return fr.listCache('farmer_plots', pid).then(function (rows) {
+    var ok = (rows || []).filter(function (r) { return r && r.id && !r.deleted && r.producteur_id === pid; });
+    return {
+      pending: ok.filter(function (r) { return r._sync_status && r._sync_status !== 'SYNCED'; }),
+      synced: ok.filter(function (r) { return r._sync_status === 'SYNCED'; })
+    };
+  }).catch(function () { return { pending: [], synced: [] }; });
+}
+function mergePlotLists(server, pending) {
+  var map = {}, out = [];
+  /* La modification locale en attente prime sur la copie serveur du même id. */
+  (pending || []).forEach(function (x) { if (x && x.id && !map[x.id]) { map[x.id] = 1; out.push(x); } });
+  (server || []).forEach(function (x) { if (x && x.id && !map[x.id]) { map[x.id] = 1; out.push(x); } });
+  return out;
+}
 function passportData(pid) {
-  return FBStore.get('passport:' + pid, function () {
-    function tq(tableName, cols, col) {
-      return q(tableName, cols, 200, function (r) { return r.eq(col || 'producteur_id', pid); })
-        .catch(function () { return []; });
+  var key = 'passport:' + pid;
+  return FBStore.get(key, function () {
+    var off = global.ANAGROCI_OFFLINE, offline = !!(off && off.isOnline && !off.isOnline());
+    /* strict : une erreur reste une erreur (pas de « [] » silencieux). */
+    function strict(tableName, cols, col, limit) {
+      if (offline) return Promise.reject(new Error('offline'));
+      return client().then(function (c) {
+        if (!c) throw new Error('client indisponible');
+        return q(tableName, cols, limit || 200, function (r) { return r.eq(col || 'producteur_id', pid); });
+      });
     }
+    function tq(tableName, cols, col) { return strict(tableName, cols, col).catch(function () { return []; }); }
     return Promise.all([
-      tq('farmer_plots', '*'),
+      strict('farmer_plots', '*').then(function (r) { return { ok: true, rows: r }; }, function () { return { ok: false, rows: [] }; }),
       tq('farmer_production_baselines', '*'),
       tq('farmer_sustainability_baselines', '*'),
       tq('farmer_consents', '*'),
       tq('farmer_visits', '*'),
       tq('farmer_inspections', '*'),
       tq('farmer_action_plans_effective_v', '*'),
-      q('farmer_change_log', 'id,table_name,record_id,operation,actor_email,actor_role,reason,created_at', 100,
+      offline ? Promise.resolve([]) : q('farmer_change_log', 'id,table_name,record_id,operation,actor_email,actor_role,reason,created_at', 100,
         function (r) { return r.eq('record_id', pid).order('created_at', { ascending: false }); })
         .catch(function () { return []; }),
-      q('sustainability_question_catalog', '*', 200, function (r) {
+      offline ? Promise.resolve([]) : q('sustainability_question_catalog', '*', 200, function (r) {
         return r.eq('active', true).order('sequence_no', { ascending: true });
-      }).catch(function () { return []; })
+      }).catch(function () { return []; }),
+      strict('producteurs', 'id,data,sexe,birth_year,telephone_alt,id_document_type,id_document_number,consent_status,consent_date', 'id', 1)
+        .then(function (r) { return { ok: true, row: (r || [])[0] || null }; }, function () { return { ok: false, row: null }; }),
+      passportLocalPlots(pid)
     ]).then(function (rs) {
-      return { plots: rs[0].filter(function (x) { return !x.deleted; }), baselines: rs[1],
-               sustainability: rs[2], consents: rs[3], visits: rs[4],
-               inspections: rs[5], actions: rs[6], changes: rs[7], catalog: rs[8] };
+      var plotsRes = rs[0], prodRes = rs[9], local = rs[10], pending = local.pending;
+      var base = { baselines: rs[1], sustainability: rs[2], consents: rs[3], visits: rs[4],
+                   inspections: rs[5], actions: rs[6], changes: rs[7], catalog: rs[8] };
+      if (plotsRes.ok) {
+        var live = plotsRes.rows.filter(function (x) { return !x.deleted; });
+        passportSnapshotSave(pid, live, prodRes.ok ? prodRes.row : null);
+        return Object.assign(base, { plots: mergePlotLists(live, pending), plotsState: 'server', plotsAt: new Date().toISOString(),
+          producteur: prodRes.row });
+      }
+      return passportSnapshotRead(pid).then(function (snap) {
+        /* Un état local n'est jamais gardé en mémoire comme s'il était frais :
+           au retour du réseau, le passeport relit le serveur. */
+        setTimeout(function () { FBStore.invalidate(key); }, 0);
+        /* Priorité : modification en attente, puis copie confirmée gardée par ce
+           téléphone (plus récente que l'instantané), puis instantané. */
+        var locales = mergePlotLists(local.synced, pending);
+        if (snap) return Object.assign(base, { plots: mergePlotLists(snap.plots, locales), plotsState: 'cache', plotsAt: snap.at,
+          producteur: prodRes.ok ? prodRes.row : snap.producteur });
+        /* Sans instantané, la liste reste « inconnue » (création bloquée) même si
+           quelques parcelles locales sont connues : elles ne prouvent pas l'absence d'autres. */
+        return Object.assign(base, { plots: locales, plotsState: 'unknown', plotsAt: null, producteur: prodRes.row });
+      });
     });
   });
 }
+/* P2 (E4/I1) : un formulaire de sous-dossier (#frSubDialogRoot) restait ouvert
+   derrière la navigation et « réapparaissait » plus tard avec des saisies non
+   enregistrées. On le ferme quand l'agent change de rubrique. */
+if (global.addEventListener) global.addEventListener('hashchange', function () {
+  var root = document.getElementById('frSubDialogRoot');
+  if (root && root.innerHTML) root.innerHTML = '';
+});
+function plotsUnknown(p) { return p && p.plotsState === 'unknown'; }
+global.ANAGROCI_FB_PLOTS_STATE = function () { return global.__fbPlotsState || null; };
 
 function passportTabs() { return [
-  ['overview', 'Overview'], ['identity', TT('Identité', 'Identity')], ['farm', TT('Exploitation', 'Farm')],
+  ['overview', TT('Vue d’ensemble', 'Overview')], ['identity', TT('Identité', 'Identity')], ['farm', TT('Exploitation', 'Farm')],
   ['plots', TT('Parcelles', 'Plots')], ['production', 'Production'], ['sustainability', 'Sustainability'],
   ['consents', TT('Consentements', 'Consents')], ['visits', TT('Visites', 'Visits')], ['inspections', 'Inspections'],
   ['purchases', TT('Achats', 'Purchases')], ['actions', 'Actions'], ['history', TT('Historique', 'History')]
@@ -1964,12 +2105,10 @@ function renderFarmerPassport(id, tab) {
       return;
     }
     var pid = f.producteur_id;
-    return Promise.all([passportData(pid),
-      q('producteurs', 'id,data,sexe,birth_year,telephone_alt,id_document_type,id_document_number,consent_status,consent_date', 1,
-        function (r) { return r.eq('id', pid); }).catch(function () { return []; })
-    ]).then(function (rs) {
+    return Promise.all([passportData(pid)]).then(function (rs) {
       var p = rs[0];
-      var row = (rs[1] || [])[0] || {};
+      var row = p.producteur || {};
+      global.__fbPlotsState = { pid: pid, state: p.plotsState, at: p.plotsAt };
       var extra = row.data || {};
       var mine = c.achats.filter(function (a) { return a.producteur_id === pid || a.producteur_code === f.farmer_id; });
       var kg = mine.reduce(function (t, a) { return t + n(a.poids_net); }, 0);
@@ -1995,18 +2134,31 @@ function renderFarmerPassport(id, tab) {
           return '<div><small>' + esc(d[0]) + '</small><b>' + esc(d[1] == null || d[1] === '' ? '—' : d[1]) + '</b></div>';
         }).join('') + '</div>';
       }
-      var parcelleEtat = p.plots.length
+      function dtLocal(iso) { try { var d = new Date(iso); return d.toLocaleDateString('fr-FR') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch (e) { return '—'; } }
+      var parcelleEtat = plotsUnknown(p)
+        ? TT('Inconnu hors ligne', 'Unknown offline')
+        : p.plots.length
         ? p.plots.length + TT(' parcelle(s)', ' plot(s)') + (p.plots.some(function (x) { return x.latitude != null; }) ? ' · GPS' : '')
         : TT('À compléter après campagne', 'To complete after the campaign');
+      /* Bandeau de provenance : serveur, état local daté ou inconnu. */
+      var plotsNotice = p.plotsState === 'cache'
+        ? '<div class="notice warn fb-plots-source" data-plots-state="cache"><b>' + TT('Hors ligne :', 'Offline:') + '</b> ' +
+          TT('dernier état local enregistré sur ce téléphone le ', 'last local state saved on this phone on ') + esc(dtLocal(p.plotsAt)) +
+          TT('. Les changements faits depuis par d’autres agents ne sont pas visibles.', '. Changes made since by other agents are not shown.') + '</div>'
+        : plotsUnknown(p)
+        ? '<div class="notice danger fb-plots-source" data-plots-state="unknown"><b>' +
+          TT('Impossible de vérifier les parcelles existantes hors ligne. Reconnectez-vous avant de créer une nouvelle parcelle.',
+             'Existing plots cannot be checked offline. Reconnect before creating a new plot.') + '</b></div>'
+        : '';
 
       var body = '';
       if (tab === 'overview') {
         body = kpis([
           [TT('Statut', 'Status'), TT('Opérationnel ✓', 'Operational ✓'), esc(f.operational_status || TT('Enrôlé', 'Enrolled'))],
           ['Farmer Passport', n(f.passport_completion) + ' %', esc(f.passport_stage || 'BASIC')],
-          [TT('Parcelle', 'Plot'), parcelleEtat, TT('jamais bloquante (règle de campagne)', 'never blocking (campaign rule)'), p.plots.length ? '' : 'warn'],
+          [TT('Parcelle', 'Plot'), parcelleEtat, plotsUnknown(p) ? TT('liste non vérifiable sans réseau', 'list not verifiable offline') : TT('jamais bloquante (règle de campagne)', 'never blocking (campaign rule)'), p.plots.length && !plotsUnknown(p) ? '' : 'warn'],
           [TT('Achats campagne', 'Campaign purchases'), mt(kg), mine.length + TT(' achat(s) · ', ' purchase(s) · ') + money(valAch)],
-          [TT('Risque', 'Risk'), esc(f.risk_profile || TT('NON ÉVALUÉ', 'NOT ASSESSED')), f.review_required ? TT('revue requise', 'review required') : '', f.review_required ? 'warn' : ''],
+          [TT('Risque', 'Risk'), esc(f.risk_profile ? codeLabel(f.risk_profile) : TT('Non encore évalué', 'Not yet assessed')), f.review_required ? TT('revue requise', 'review required') : '', f.review_required ? 'warn' : ''],
           [TT('Actions ouvertes', 'Open actions'), String(p.actions.filter(function (a) { return /OPEN|IN_PROGRESS|OVERDUE/i.test(String(a.status || '')); }).length), TT('plans correctifs', 'corrective plans')]
         ]) +
         '<section class="card"><div class="card-head"><div><h2>' + TT('Résumé', 'Summary') + '</h2></div></div>' +
@@ -2045,18 +2197,27 @@ function renderFarmerPassport(id, tab) {
             [TT('Paiement préféré', 'Preferred payment'), extra.paiementMode]]) + '</section>';
       } else if (tab === 'plots') {
         body = '<div class="notice ok"><b>' + TT('Règle de campagne :', 'Campaign rule:') + '</b> ' + TT('la parcelle et son GPS sont facultatifs — « à compléter après campagne ».', 'the plot and its GPS are optional — “to complete after the campaign”.') + '</div>' +
-          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur.', 'Each plot stays a separate entity from the farmer.') + '</p></div>' +
-          '<div class="ops-route-actions">' + editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()') + '</div></div>' +
-          table([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
+          '<section class="card"><div class="card-head"><div><h2>' + TT('Parcelles', 'Plots') + '</h2><p>' + TT('Chaque parcelle reste une entité distincte du producteur. Après enregistrement, ouvrez Esri pour tracer les limites et préparer la carte de plantation. Aucun tracé satellite seul ne prouve une vérification terrain.', 'Each plot stays separate. After saving, open Esri to map its boundaries and prepare the plantation map; satellite drawing alone is not ground evidence.') + '</p></div>' +
+          '<div class="ops-route-actions">' + (plotsUnknown(p)
+            ? '<button class="btn secondary" type="button" disabled aria-disabled="true" data-plot-add="blocked" title="' + esc(TT('Reconnectez-vous pour vérifier les parcelles existantes', 'Reconnect to check existing plots')) + '">' + esc(TT('+ Ajouter une parcelle', '+ Add a plot')) + '</button>'
+            : editButton(TT('+ Ajouter une parcelle', '+ Add a plot'), 'openFarmerPlotForm()')) + '</div></div>' + plotsNotice +
+          (plotsUnknown(p) && !p.plots.length ? '<div class="ops-empty" data-plots-state="unknown">' + esc(TT('Liste des parcelles indisponible hors ligne (inconnue, pas vide).', 'Plot list unavailable offline (unknown, not empty).')) + '</div>' :
+          plotTable([TT('Parcelle', 'Plot'), TT('Superficie', 'Area'), TT('Arbres', 'Trees'), 'GPS', TT('Statut GPS', 'GPS status'), 'Source', TT('Niveau de preuve', 'Evidence level'), ''],
           p.plots.map(function (x) {
-            return '<tr><td><b>' + esc(x.local_name || '—') + '</b></td>' +
-              '<td>' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
-              '<td>' + (x.tree_count != null ? num(x.tree_count) : '—') + '</td>' +
-              '<td>' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
-              '<td>' + badge(x.gps_status || 'DEFERRED') + '</td>' +
-              '<td>' + esc(x.area_source || '—') + '</td><td>' + esc(x.evidence_level || '—') + '</td>' +
-              '<td>' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") + '</td></tr>';
-          })) + '</section>';
+            var attente = x._sync_status && x._sync_status !== 'SYNCED';
+            return '<tr data-plot-id="' + esc(x.id) + '"><td data-l="' + esc(TT('Parcelle', 'Plot')) + '"><b>' + esc(x.local_name || '—') + '</b>' +
+                (attente ? ' <span class="badge warn">' + esc(TT('En attente serveur', 'Pending server')) + '</span>' : '') + '</td>' +
+              '<td data-l="' + esc(TT('Superficie', 'Area')) + '">' + (x.declared_area != null ? num(x.declared_area, 2) + ' ' + (x.area_unit || 'ha') : '—') + '</td>' +
+              '<td data-l="' + esc(TT('Arbres', 'Trees')) + '">' + (x.tree_count != null ? num(x.tree_count) : '—') + '</td>' +
+              '<td data-l="GPS">' + (x.latitude != null ? num(x.latitude, 5) + ', ' + num(x.longitude, 5) : '—') + '</td>' +
+              '<td data-l="' + esc(TT('Statut GPS', 'GPS status')) + '">' + badgeLabel(x.gps_status || 'DEFERRED') + '</td>' +
+              '<td data-l="Source">' + esc(codeLabel(x.area_source)) + '</td><td data-l="' + esc(TT('Niveau de preuve', 'Evidence level')) + '">' + esc(FB_EVIDENCE_FR[String(x.evidence_level || '').toUpperCase()] || codeLabel(x.evidence_level)) + '</td>' +
+              '<td class="fb-plot-actions">' + editButton(TT('Modifier', 'Edit'), "openFarmerPlotForm('" + esc(x.id) + "')") +
+              (attente
+                ? '<small>' + esc(TT('En attente serveur : carte indisponible', 'Pending server: map unavailable')) + '</small>'
+                : '<a class="btn secondary" href="#parcelles/p/' + encodeURIComponent(x.id) + '">' +
+                  TT('Carte de plantation · Esri', 'Plantation map · Esri') + '</a>') + '</td></tr>';
+          }))) + '</section>';
       } else if (tab === 'production') {
         body = '<section class="card"><div class="card-head"><div><h2>Production</h2><p>' + TT('Une baseline FINAL est historisée et ne se réécrit pas ; une correction passe par une nouvelle version.', 'A FINAL baseline is kept in history and never rewritten; a correction goes through a new version.') + '</p></div>' +
           '<div class="ops-route-actions">' + editButton(TT('+ Nouvelle baseline', '+ New baseline'), 'openProductionBaselineForm()') + '</div></div>' +

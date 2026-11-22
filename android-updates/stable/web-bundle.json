@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795188839,
- "web_version": "2026.11.20-1533.a8e2a0f",
- "git_commit": "a8e2a0f93709c6cb40915d99e8d2c843a803c9c7",
- "bundle_label": "a8e2a0f",
- "published_at": "2026-11-20T18:40:51.977Z",
- "created_at": "2026-11-20T18:40:51.977Z",
+ "sequence": 1795239403,
+ "web_version": "2026.11.21-0536.2420346",
+ "git_commit": "242034672c6f18b83dbacb0fcf9cb0ddba018f4c",
+ "bundle_label": "2420346",
+ "published_at": "2026-11-21T05:37:36.137Z",
+ "created_at": "2026-11-21T05:37:36.137Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Parcelles et cartographie (rubrique désactivée par défaut), décision GPS du producteur liée à l'enrôlement et à la carte des parcelles",
+ "release_notes": "Parcelles : parcelle créée en ligne visible hors ligne, alerte doublon (PR #358)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -18,7 +18,7 @@
   "latest_version_name": "1.4.2",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261120150500",
+ "supabase_compat": "20261120231000",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
@@ -313,6 +313,10 @@
    "sha256": "cacf4d8dabcc8c9d2839f8a894284bfb16557da1e4ebf0cabbc7dc71b162881b",
    "size": 76242
   },
+  "operations/carte-plantation.js": {
+   "sha256": "9735cae443a6525ef884c2113287656f72607f6631e44c17ccf22b8142f47fc4",
+   "size": 11950
+  },
   "operations/cooperatives.css": {
    "sha256": "0808f7f8e40266ac5bafff50407afa340e26bb227a427a5b0289b359464c30c0",
    "size": 15421
@@ -370,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "d9c1cc2e2ed73bafe915154f6780f87e70776250f3cfb74d63d45006b12d44d3",
-   "size": 4401
+   "sha256": "664dc63321b7bcf1a7d1db8de717445d737c6620ff20ee05353d2252bb72228a",
+   "size": 4552
   },
   "operations/field-buying.js": {
-   "sha256": "2df8bb0c2238d078a9762a5a230a95fc0940f80d51723a18b40e2575513f0615",
-   "size": 352712
+   "sha256": "d412a0520a3119cb984b5fcd7663b43ebb88f8b9dc32fac6e551e20c54a37c69",
+   "size": 366212
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -410,20 +414,20 @@
    "size": 113711
   },
   "operations/operations-v2.css": {
-   "sha256": "4083bf86b17b5942a0695f25664e3e5f79d947fb683ff85a2dacb222ad7d4bf9",
-   "size": 24616
+   "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
+   "size": 24830
   },
   "operations/operations.css": {
    "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
    "size": 12611
   },
   "operations/parcelles.css": {
-   "sha256": "5bbecfee60957e6e5057b10bf46db193f02b01a00c08ef56196fcfd1a0d98dd7",
-   "size": 11227
+   "sha256": "75473793ebbf9eb5cd5437892e208a96ea5d44e42ad60cb30d32a3df52aff7ff",
+   "size": 13908
   },
   "operations/parcelles.js": {
-   "sha256": "58daa26fb356a36c6bca36f338f6200d395cf19df149aa8ac03882bab26cfc50",
-   "size": 96913
+   "sha256": "6f11731984d8ff047ba3506f6908c3f5f32d4807f45e86f697dd182380d76e75",
+   "size": 112569
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -440,6 +444,10 @@
   "operations/procurement.js": {
    "sha256": "2e9cfe8e54363fb1eb02d8f24ede4c683e6895ad0678eb7b59c124a21d3cfb1c",
    "size": 82356
+  },
+  "operations/ra-documents-lot3.js": {
+   "sha256": "70068d53a9b320689d496c3827b907f6e31a8766405429c992764efeed9587b5",
+   "size": 8027
   },
   "operations/reports-cooperatives.js": {
    "sha256": "9d455306ea00597b037e3aeeb7bdd9aa22d5ad5fe80f9ddc7a633bad2f83c951",
@@ -694,8 +702,8 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "41c7916a9a6473063994ca11787502e6f4b50e979c55ff8ea222d86bf03c288e",
-   "size": 33110
+   "sha256": "1bbc934d75e9ebe91471b5b714b575146c6c6347f8c4ca9c033cb137a3c1d51c",
+   "size": 37720
   },
   "shared/farmer-registry-passport.js": {
    "sha256": "85acf9d5c568a0996da68d0098a0820595cc41db0f9e878fffc01e9bbd8c45fc",
