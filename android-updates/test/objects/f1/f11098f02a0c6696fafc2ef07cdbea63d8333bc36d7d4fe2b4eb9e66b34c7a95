@@ -1,0 +1,90 @@
+/* REPÈRES GPS AFLP · styles de la rubrique #reperes.
+   Pensé d'abord pour un téléphone de terrain (360 px) : une colonne, cibles tactiles
+   d'au moins 44 px, texte lisible en plein soleil. Préfixe rg- : aucune classe partagée. */
+.rg-avis{border-radius:12px;padding:12px 14px;margin:10px 0;font-size:15px;line-height:1.45;border:1px solid #D6DED8;background:#F4F7F5;color:#12261B}
+.rg-avis-info{background:#EEF4FB;border-color:#B9D2EE;color:#0B3A6B}
+.rg-avis-succes{background:#EAF6EC;border-color:#9FD2A8;color:#0B4A1F}
+.rg-avis-alerte{background:#FFF5E0;border-color:#E9BE62;color:#5C3A00}
+.rg-avis-erreur{background:#FDECEC;border-color:#E4A3A3;color:#7A1414}
+.rg-note{font-size:14px;line-height:1.45;color:#3B4A41;margin:8px 0}
+.rg-vide{color:#5A655E;font-style:italic}
+.rg-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.btn.rg-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.rg-actions-choix .btn{flex:1 1 220px;min-height:52px;font-size:16px}
+.rg-actions-fin .btn.rg-grand{flex:1 1 100%;min-height:54px;font-size:17px}
+.btn.rg-mini{min-height:44px;padding:6px 12px;font-size:14px}
+
+.rg-sync{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-radius:12px;padding:10px 14px;margin:10px 0;background:#EAF6EC;border:1px solid #9FD2A8;color:#0B4A1F;font-size:15px}
+.rg-sync-attente{background:#FFF5E0;border-color:#E9BE62;color:#5C3A00}
+.rg-sync-alerte{background:#FDECEC;border-color:#E4A3A3;color:#7A1414}
+.rg-sync-act{display:flex;gap:8px;flex-wrap:wrap}
+
+.rg-recherche{display:block;margin:6px 0 12px}
+.rg-recherche span,.rg-champ-saisie span{display:block;font-weight:600;font-size:15px;margin-bottom:4px;color:#12261B}
+.rg-recherche input,.rg-champ-saisie input{width:100%;min-height:48px;font-size:17px;padding:8px 12px;border:1px solid #8A968E;border-radius:10px;background:#fff;color:#12261B;box-sizing:border-box}
+.rg-champ-saisie input:focus,.rg-recherche input:focus{outline:3px solid #1E6FD9;outline-offset:1px}
+.rg-champ-saisie{display:block;margin:10px 0}
+.rg-champ-saisie small{display:block;font-size:13px;color:#4A564E;margin-top:3px}
+.rg-champ-saisie small.rg-erreur{color:#A11616;font-weight:600}
+.rg-champ-saisie small.rg-erreur:empty{display:none}
+.rg-deux{display:grid;grid-template-columns:1fr;gap:4px 14px}
+.rg-plus{margin:10px 0;border:1px solid #D6DED8;border-radius:10px;padding:6px 12px;background:#FAFBFA}
+.rg-plus summary{min-height:44px;display:flex;align-items:center;font-weight:600;cursor:pointer}
+.rg-case{display:flex;gap:10px;align-items:center;min-height:44px;margin-top:8px;font-weight:600}
+.rg-case input{width:24px;height:24px;flex:0 0 24px}
+
+.rg-liste{display:flex;flex-direction:column;gap:8px}
+a.rg-champ{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;min-height:56px;padding:10px 12px;border:1px solid #D6DED8;border-radius:12px;background:#fff;color:#12261B;text-decoration:none}
+a.rg-champ:focus-visible{outline:3px solid #1E6FD9;outline-offset:2px}
+.rg-champ-nom b{display:block;font-size:16px}
+.rg-champ-nom small{display:block;font-size:13px;color:#4A564E}
+.rg-champ-etat{display:flex;flex-wrap:wrap;gap:4px}
+
+.rg-pastille{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12.5px;font-weight:600;line-height:1.5;border:1px solid transparent;white-space:nowrap}
+.rg-p-neutre{background:#EEF1EF;color:#3B4A41;border-color:#CCD5CF}
+.rg-p-ok{background:#E2F3E5;color:#0B4A1F;border-color:#9FD2A8}
+.rg-p-attente{background:#FFF0CC;color:#5C3A00;border-color:#E9BE62}
+.rg-p-alerte{background:#FBDDDD;color:#7A1414;border-color:#E4A3A3}
+.rg-p-gps{background:#E1EDFB;color:#0B3A6B;border-color:#B9D2EE}
+.rg-p-manuel{background:#F1E6FA;color:#48216B;border-color:#CDB1E6}
+
+.rg-titre-groupe{font-size:15px;margin:14px 0 6px;color:#053B23;text-transform:uppercase;letter-spacing:.03em}
+.rg-objet{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 12px;border:1px solid #D6DED8;border-left-width:5px;border-radius:10px;margin:6px 0;background:#fff}
+.rg-objet-parcelle{border-left-color:#1E6FD9}
+.rg-objet-bloc{border-left-color:#7A3FB0}
+.rg-objet-arbre{border-left-color:#C96A00}
+.rg-objet-inactif{opacity:.75}
+.rg-objet-id b{font-size:16px;margin-left:6px}
+.rg-objet-id small,.rg-objet-pos small{display:block;font-size:13px;color:#4A564E;margin-top:2px}
+.rg-objet-pos .rg-coord,.rg-actuel .rg-coord{font-size:16px;font-weight:700;color:#12261B;display:inline-block;margin-right:4px}
+.rg-objet-pos small.rg-alerte-ligne,.rg-journal-ligne small.rg-alerte-ligne{color:#8A4B00;font-weight:600}
+.rg-existant{color:#0B3A6B!important}
+.rg-actuel{border:1px solid #D6DED8;border-radius:10px;padding:10px 12px;margin:8px 0;background:#FAFBFA}
+.rg-actuel b{display:block;margin-bottom:4px}
+.rg-actuel small{display:block;font-size:13px;color:#4A564E;margin-top:3px}
+.rg-actuel-existant{background:#EEF4FB;border-color:#B9D2EE}
+.rg-capture{border:2px solid #1E6FD9;border-radius:10px;padding:10px 12px;margin:10px 0;background:#EEF4FB}
+.rg-capture b,.rg-capture span,.rg-capture small{display:block}
+.rg-capture span{font-size:18px;font-weight:700;margin:4px 0}
+.rg-compare{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.rg-compare>div{background:#fff;border:1px solid #E9BE62;border-radius:8px;padding:8px 10px}
+.rg-compare b,.rg-compare span,.rg-compare small{display:block}
+.rg-journal-ligne{padding:10px 0;border-bottom:1px solid #E3E8E5}
+.rg-journal-ligne small{display:block;font-size:13px;color:#4A564E;margin-top:3px}
+
+/* Symboles : trois formes ET trois couleurs (lisible sans distinguer les couleurs). */
+.rg-symbole{display:inline-block;width:14px;height:14px;vertical-align:-2px;box-sizing:border-box;border:2px solid #fff;box-shadow:0 0 0 1px #12261B}
+.rg-sym-parcelle{background:#1E6FD9;border-radius:2px}
+.rg-sym-bloc{background:#7A3FB0;transform:rotate(45deg);border-radius:1px}
+.rg-sym-arbre{background:#EE9E00;border-radius:50%}
+.rg-sym-existant{background:#fff;border:3px solid #1E6FD9;border-radius:50%;box-shadow:none}
+.rg-legende{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:#3B4A41;margin:8px 0}
+.rg-carte{height:58vh;min-height:300px;max-height:560px;border-radius:12px;border:1px solid #B8C4BC;background:#E9EEEA;margin:8px 0;z-index:0}
+.rg-marqueur{background:transparent;border:0;white-space:nowrap}
+.rg-marqueur span{position:absolute;left:16px;top:-4px;background:rgba(255,255,255,.92);color:#12261B;border:1px solid #12261B;border-radius:4px;padding:0 4px;font:700 12px/1.5 system-ui,sans-serif}
+
+@media (min-width:640px){
+  .rg-deux{grid-template-columns:1fr 1fr}
+  .rg-compare{grid-template-columns:1fr 1fr}
+  .rg-objet{grid-template-columns:minmax(150px,1fr) 2fr auto;align-items:center}
+}
