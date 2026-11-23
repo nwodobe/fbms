@@ -3,7 +3,7 @@
   "short_name": "ANAGROCI",
   "description": "ANAGROCI Operations — Field Buying, traçabilité et opérations multi-campagnes avec mode terrain hors ligne.",
   "lang": "fr",
-  "start_url": "./operations/field-buying.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
