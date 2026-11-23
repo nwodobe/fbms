@@ -115,3 +115,29 @@ Avant de partir : avec du réseau, « Préparer mes champs », et « Préparer l
 - **Paquet OTA défectueux** : `node android/scripts/publish-web-update.mjs --channel stable --key <clé> --rollback-to <séquence saine> --revoke <séquence fautive> --write-root-version`. Les repères en attente restent dans `aflp_reperes_gps_db`, que l'ancienne version ne lit ni n'efface ; ils repartent dès que la nouvelle version revient.
 - **Serveur** : `supabase/20261123100100_aflp_reperes_gps_1_rollback.sql` retire seulement l'écriture. La table et ses lignes sont conservées ; les téléphones gardent leurs repères « en attente ».
 - Ne jamais désinstaller l'application ni vider ses données : la file locale serait perdue.
+
+## 9. Publication stable et réception sur l'APK officielle (23/11/2026)
+
+Statut : **LIVRÉ AVEC VÉRIFICATION APPAREIL INCOMPLÈTE** — « émulateur ; réception sur ITEL non vérifiée ».
+
+| Élément | Valeur constatée |
+|---|---|
+| Code | PR #374, fusion `58e61e8` · publication PR #375, fusion `bceb05b` |
+| Serveur | Migration `aflp_reperes_gps_1` appliquée en production avant l'OTA ; empreintes des fonctions, colonnes et contraintes identiques à la recette ; données existantes inchangées |
+| Bundle | Séquence `1795470423` · `2026.11.23-2147.58e61e8` · 215 fichiers · canal `stable` · `min_native_version_code` 3 |
+| Signature | ECDSA P-256, vérifiée par le script et par `openssl` avec la clé publique embarquée `d5b70040…73f0` ; manifeste servi `2ad21187…1b61` identique au manifeste signé |
+| Paquet testé | Identique au paquet du pilote (séquence test `1795469206`) pour 213 fichiers sur 215 ; seuls `shared/auth-gate.js` et `shared/anagroci-config.js` diffèrent (serveur de production) |
+| APK de vérification | Officielle `ci.anagroci.fieldbuying` 1.4.3 (code 10), SHA-256 `752fc324…be8e82`, certificat `1f70f69e…1b41`, installée par-dessus la 1.4.1 sur émulateur Android 15 |
+| Publié | 23/11/2026, servi par GitHub Pages |
+| Téléchargé | `21:55:37Z`, 17 fichiers, signature et empreintes vérifiées par l'application |
+| Activé | `21:56:04Z` au redémarrage ; version précédente `1795359754` gardée pour le retour arrière |
+| Démarrage confirmé | `21:56:07Z` |
+| Fichier actif | `operations/reperes-gps.js` sur l'appareil : empreinte `6c6c83cf…ddaf8`, égale à celle du manifeste |
+| Binaire et stockage | APK non remplacée (date de mise à jour du paquet inchangée) ; IndexedDB et stockage local : même nombre de fichiers et même taille avant et après |
+
+Ce qui n'a **pas** été vérifié :
+
+- **Téléphone physique** : aucun appareil n'était branché. La réception sur l'itel S688LN reste à constater (écran « Version et mises à jour », ou tableau « Mises à jour des téléphones »).
+- **Parcours connecté sur l'APK officielle** : elle ne parle qu'à la production, où aucun compte de test n'existe et où aucune donnée fictive ne doit être créée. Le scénario « données en attente avant l'OTA, conservées après » a donc été prouvé sur l'application pilote (natif 1.4.2 débogable, canal test, base de recette), pas sur le binaire officiel.
+- **Téléchargement interrompu / paquet refusé** : non rejoué pour cette livraison (mécanisme inchangé, prouvé les 25/10 et 21–22/11).
+- **Fond satellite** : la recette n'a pas d'imagerie configurée ; la carte a été vue sur fond neutre.
