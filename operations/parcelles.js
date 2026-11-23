@@ -311,7 +311,7 @@ function fiche(id) {
     }).join('') + '</section>' : '';
     var anos = anomalies.filter(function (a) { return a.statut === 'OUVERTE'; });
     var anoH = anos.length ? avis('alerte', '<b>' + anos.length + ' anomalie(s) ouverte(s)</b> : ' + anos.map(function (a) { return esc(libAnomalie(a)); }).join(' ; ')) : '';
-    peindre(tete(x.local_name || 'Parcelle sans nom', (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.village_nom || '') + ' · ' + (x.cluster_code || ''), lien('Retour', 'parcelles', 'secondary')) +
+    peindre(tete(x.local_name || 'Parcelle sans nom', (x.producteur_code || '') + ' · ' + (x.producteur_nom || '') + ' ' + (x.producteur_prenoms || '') + ' · ' + (x.village_nom || '') + ' · ' + (x.cluster_code || ''), lien('Repères GPS', 'reperes/champ/' + id, 'secondary') + lien('Retour', 'parcelles', 'secondary')) +
       '<div class="pc-fiche-tete">' + badge(st) + (x.plot_code ? '<span class="mono">' + esc(x.plot_code) + '</span>' : '') + '</div>' + anoH +
       '<div class="pc-grille"><div>' + point + supers + '<div class="pc-actions">' + actions + '</div></div><div id="pcMiniCarte" class="pc-carte pc-carte-mini" aria-label="Carte de la parcelle"></div></div>' + raInfo + raDocsHTML + envois + hist);
     miniCarte('pcMiniCarte', x, active || validee);
@@ -488,7 +488,9 @@ function parcours(id) {
             '<div class="pc-actions">' + bouton('Capturer de nouveau ma position', 'capturer', 'secondary') + '</div>';
         } else {
           h += '<div class="pc-actions pc-actions-fin">' + bouton('CAPTURER MA POSITION GPS', 'capturer', 'pc-cmd-principal pc-capture') + '</div>' +
-            '<p class="pc-note">Placez-vous <b>dans la plantation</b>, à découvert si possible. Le GPS du téléphone fonctionne sans réseau mobile.</p>';
+            '<p class="pc-note">Placez-vous <b>dans la plantation</b>, à découvert si possible. Le GPS du téléphone fonctionne sans réseau mobile.</p>' +
+            '<div class="pc-actions">' + lien('Saisir les coordonnées GPS', 'reperes/objet/PARCELLE/' + id, 'secondary') + '</div>' +
+            '<p class="pc-note">GPS indisponible, ou coordonnées relevées avec un autre appareil : saisissez-les à la main. Elles sont enregistrées comme <b>repère saisi</b>, pas comme une capture sur le champ.</p>';
         }
         h += '<details class="pc-plus"><summary>Le producteur change d\'avis</summary>' + (enLigne() ? formulaireAccord(true) : avis('info', 'Connexion nécessaire pour enregistrer une nouvelle décision du producteur.')) + '</details>';
       } else if (acc.etat === 'INCONNU') {
