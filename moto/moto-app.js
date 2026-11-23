@@ -1475,11 +1475,18 @@
     return res;
   }
   /* Historique local anti-doublon (une notification par moto, statut et jour). */
+  /* Une même tablette peut être utilisée successivement par plusieurs agents.
+     Les notifications restent donc isolées par utilisateur authentifié. */
+  function carbCleJournal() {
+    var u = S.profil && S.profil.user_id;
+    return u ? CARB_JOURNAL + ':' + String(u) : null;
+  }
   function carbHistoriser(res) {
-    var journal = {};
-    try { journal = JSON.parse(g.localStorage.getItem(CARB_JOURNAL) || '{}'); } catch (e) { journal = {}; }
+    var cle = carbCleJournal(), journal = {};
+    if (!cle) return; // ne pas créer de journal partagé sans utilisateur
+    try { journal = JSON.parse(g.localStorage.getItem(cle) || '{}'); } catch (e) { journal = {}; }
     var h = CARB.historiserAlertes(journal, res.lignes, new Date().toISOString(), 14);
-    try { g.localStorage.setItem(CARB_JOURNAL, JSON.stringify(h.journal)); } catch (e) {}
+    try { g.localStorage.setItem(cle, JSON.stringify(h.journal)); } catch (e) {}
     res.nouvelles = h.nouvelles.length;
     if (h.nouvelles.length) toast(h.nouvelles.length + ' nouvelle(s) alerte(s) carburant : voir Pilotage.', 'info');
   }
