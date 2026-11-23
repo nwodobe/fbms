@@ -1,0 +1,69 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banc Repères GPS (données fictives)</title>
+<link rel="stylesheet" href="../../operations/operations.css"><link rel="stylesheet" href="../../operations/operations-v2.css">
+<link rel="stylesheet" href="../../operations/reperes-gps.css">
+<script>
+/* Doublures : identité, client Supabase et références préparées. AUCUNE donnée réelle. */
+(function () {
+  var q = new URLSearchParams(location.search);
+  window.ANAGROCI_SUPABASE_URL = 'https://banc.invalid'; window.ANAGROCI_SUPABASE_ANON = 'banc';
+  if (q.get('reseau') === 'non') Object.defineProperty(navigator, 'onLine', { get: function () { return false; } });
+  var compte = q.get('compte') || 'u-uh';
+  window.ANAGROCI_AUTH = compte === 'aucun' ? { profile: null, user: null } : { profile: { user_id: compte, role: q.get('role') || 'Unit Head', cluster: 'BROBO', actif: true }, user: { id: compte } };
+  /* Serveur simulé, état gardé dans localStorage pour survivre aux rechargements du banc. */
+  function etat() { try { return JSON.parse(localStorage.getItem('banc_srv') || '{}'); } catch (e) { return {}; } }
+  function ecrire(s) { localStorage.setItem('banc_srv', JSON.stringify(s)); }
+  window.BANC = {
+    mode: function (m) { var s = etat(); s.mode = m; ecrire(s); },
+    serveur: etat,
+    poser: function (cle, valeur) { var s = etat(); s.actifs = s.actifs || {}; s.actifs[cle] = valeur; ecrire(s); }
+  };
+  function lot(ops) {
+    var s = etat(); s.appels = (s.appels || 0) + 1; s.recus = s.recus || {}; s.actifs = s.actifs || {}; s.lignes = s.lignes || [];
+    var res = ops.map(function (o) {
+      if (s.recus[o.idempotency_key]) return Object.assign({}, s.recus[o.idempotency_key], { rejoue: true });
+      var p = o.payload, cle = p.objet_type + ':' + p.objet_id, cur = s.actifs[cle], r;
+      if (s.mode === 'refus') r = { statut: 'REJETEE', code: 'GR001', message: 'Le producteur n\'a pas donné son accord pour l\'enregistrement des données GPS. Recueillez d\'abord son consentement.' };
+      else if (cur && cur.version_no !== (p.version_base || 0)) r = { statut: 'CONFLIT', code: 'GR409', message: 'Ce repère a été modifié depuis un autre appareil (version ' + cur.version_no + ' sur le serveur).', serveur: cur };
+      else if (cur && !p.motif) r = { statut: 'REJETEE', code: 'GR002', message: 'Indiquez le motif de la correction du repère.' };
+      else {
+        var v = { version_no: (cur ? cur.version_no : 0) + 1, latitude: p.latitude, longitude: p.longitude, origine: p.origine, source_externe: p.source_externe, releve_le: p.releve_le, precision_m: p.precision_m, created_at: new Date().toISOString() };
+        s.actifs[cle] = v; s.lignes.push({ cle: cle, compte: window.ANAGROCI_AUTH.profile.user_id, payload: p, version_no: v.version_no });
+        r = { statut: 'ACCEPTEE', version_no: v.version_no, inchange: false, recu_serveur_le: v.created_at };
+        s.recus[o.idempotency_key] = Object.assign({ idempotency_key: o.idempotency_key }, r);
+      }
+      return Object.assign({ idempotency_key: o.idempotency_key }, r);
+    });
+    ecrire(s); return { resultats: res };
+  }
+  function requete() { var r = { select: f, eq: f, in: f, order: f, range: f, limit: f, then: function (ok) { return Promise.resolve({ data: [], error: null }).then(ok); } }; function f() { return r; } return r; }
+  window.supabase = { createClient: function () { return {
+    rpc: function (nom, args) {
+      var m = etat().mode;
+      if (m === 'muet') return Promise.reject(new TypeError('Failed to fetch'));
+      if (m === 'absent') return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.geo_reperes_sync_batch in the schema cache' } });
+      return Promise.resolve({ data: lot(args.p_operations), error: null });
+    },
+    from: function () { return requete(); } }; } };
+  /* Références « préparées » : un champ suivi par l'Observatoire, un champ simple, un champ sans accord. */
+  var P1 = '11111111-1111-4111-8111-111111111111', P2 = '22222222-2222-4222-8222-222222222222', P3 = '33333333-3333-4333-8333-333333333333';
+  var parcelles = [
+    { plot_id: P1, plot_code: 'PCL-BANC-01', producteur_id: 'PR1', producteur_code: 'F-BANC-1', producteur_nom: 'TESTEUR', producteur_prenoms: 'Un', village_nom: 'Village Banc', cluster_code: 'BROBO', zone_code: 'Z1', local_name: 'Champ du banc A', latitude: 7.6892, longitude: -5.0312, gps_accuracy_m: 8, gps_captured_at: '2026-11-20T09:00:00Z', gps_status: 'POINT_CAPTURED', current_geometry_id: null, consentement_gps: true },
+    { plot_id: P2, plot_code: 'PCL-BANC-02', producteur_id: 'PR2', producteur_code: 'F-BANC-2', producteur_nom: 'TESTEUR', producteur_prenoms: 'Deux', village_nom: 'Village Banc', cluster_code: 'BROBO', zone_code: 'Z1', local_name: 'Champ éloigné B', latitude: null, longitude: null, gps_status: 'NOT_MAPPED', consentement_gps: true },
+    { plot_id: P3, plot_code: 'PCL-BANC-03', producteur_id: 'PR3', producteur_code: 'F-BANC-3', producteur_nom: 'TESTEUR', producteur_prenoms: 'Trois', village_nom: 'Village Banc', cluster_code: 'BROBO', zone_code: 'Z1', local_name: 'Champ sans accord C', latitude: null, longitude: null, gps_status: 'NOT_MAPPED', consentement_gps: false }];
+  var arbres = []; for (var i = 1; i <= 12; i++) arbres.push({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-0000000000' + ('0' + i).slice(-2), panel_id: 'pan-1', bloc_id: i <= 6 ? 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001' : 'bbbbbbbb-bbbb-4bbb-8bbb-000000000002', bloc_numero: i <= 6 ? 1 : 2, code: 'B0' + (i <= 6 ? 1 : 2) + '/A0' + ('0' + (i <= 6 ? i : i - 6)).slice(-2), code_suivi: 'A0' + ('0' + i).slice(-2), role: i <= 10 ? 'TITULAIRE' : 'RESERVE', rang: i, statut: i === 12 ? 'REMPLACE' : 'ACTIF', latitude: i === 1 ? 7.6891 : null, longitude: i === 1 ? -5.0311 : null, gps_precision_m: i === 1 ? 9 : null });
+  var horsLigne = q.get('prepare') === 'non';
+  window.ANAGROCI_PARCELLES_LOCAL = { cache: { lire: function (cle) { return Promise.resolve(cle === 'parcelles' ? (horsLigne ? null : parcelles) : null); } } };
+  window.ANAGROCI_OBS_LOCAL = {
+    panels: function () { return Promise.resolve(horsLigne ? [] : [{ id: 'pan-1', plot_id: P1, cluster_code: 'BROBO', local: q.get('panelLocal') === 'oui', blocs: [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001', numero: 1, repere: 'entrée nord' }, { id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000002', numero: 2, repere: 'manguier' }], arbres: arbres }]); },
+    referentiel: function () { return Promise.resolve({ plots: [], villages: [], producteurs: [] }); } };
+})();
+</script>
+<script src="../../shared/reperes-gps-coeur.js"></script>
+<script src="../../shared/reperes-gps-hors-ligne.js"></script>
+<script src="../../operations/reperes-gps.js"></script>
+</head><body data-workspace="field"><main class="ops-main"><div id="opsRouteView" class="ops-route-view"></div></main>
+<script>
+function router() { if (!/^#reperes/.test(location.hash)) location.hash = 'reperes'; else window.ANAGROCI_REPERES.render(location.hash.slice(1).split('/')); }
+window.addEventListener('hashchange', router); router();
+</script></body></html>

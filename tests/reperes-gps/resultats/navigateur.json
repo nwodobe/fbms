@@ -1,0 +1,248 @@
+{
+ "le": "2026-11-23T21:25:32.508Z",
+ "environnement": "Chromium (Playwright), serveur simulé, données fictives",
+ "total": 48,
+ "echecs": 0,
+ "resultats": [
+  {
+   "nom": "A1 hors ligne : la liste des champs préparés s'affiche sans réseau ni carte",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A2 fiche : les quatre libellés attendus sont présents",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A3 « Enregistrer » est inactif tant qu'aucune coordonnée n'est fournie",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A4 deux champs distincts Latitude et Longitude",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A5 message après sauvegarde effective",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A6 le point affiché est celui saisi (virgule acceptée, longitude négative préservée)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A7 compteur exact : 1 repère en attente",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A8 transmission et validation affichées séparément",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "A9 petit écran 360 px : aucun débordement horizontal",
+   "ok": true,
+   "detail": "360 / 360"
+  },
+  {
+   "nom": "A10 cibles tactiles d'au moins 44 px",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "B1 après fermeture et réouverture : coordonnées, origine et attente conservées",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "B2 formulaire non enregistré : les valeurs tapées sont retrouvées après fermeture",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C1 latitude hors bornes : erreur expliquée, rien d'enregistré",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C2 format degrés-minutes refusé avec le format accepté annoncé",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C3 0 ; 0 refusé",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C4 signe oublié : alerte, valeur NON modifiée, confirmation exigée",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C5 bouton ± : le signe est changé par un geste explicite de l'agent",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "C6 arbre A002 enregistré ; compteur à 2",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "D1 un arbre sans coordonnées reste listé « Position non renseignée » (aucune position inventée)",
+   "ok": true,
+   "detail": "14 objets sans repère sur 15 (parcelle, 2 blocs, 12 arbres ; seul A002 a un repère saisi)"
+  },
+  {
+   "nom": "D2 identifiants et rattachements visibles (A001…A012, B01/B02, arbre physique)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "D3 le point déjà capturé par Parcelles/Observatoire est montré à part, non remplacé",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "D4 aucune superficie déduite d'un point",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "D5 carte indisponible (aucune bibliothèque, hors ligne) : message, la liste reste complète",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "E1 GPS refusé ou indisponible : message clair, saisie manuelle toujours proposée",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "F1 accord GPS non enregistré : aucune saisie proposée, renvoi vers le recueil de l'accord",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "G1 serveur muet : rien n'est perdu, toujours 2 en attente",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "G2 serveur pas encore mis à jour (ancienne base) : repères conservés, message explicite",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "H1 transmission confirmée par accusé : 2 transmis, 0 en attente",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "H2 reprises répétées : aucun doublon côté serveur",
+   "ok": true,
+   "detail": "2 ligne(s)"
+  },
+  {
+   "nom": "H3 chaque repère est relié au bon objet",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "H4 après synchronisation : « Transmis au serveur » et toujours « Non vérifié »",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "I1 correction : le motif est obligatoire",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "I2 conflit détecté : les DEUX positions sont montrées, rien n'est écrasé",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "I3 côté serveur : la version de l'autre appareil est intacte",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "I4 résolution explicite : version 3 sur le serveur, historique complet",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "J1 refus du serveur : motif affiché, saisie conservée, relance proposée",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "J2 journal : erreurs consultables, compteur « à traiter » exact",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "J3 relance après correction de la cause : transmis, sans seconde saisie",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "K1 autre compte : il ne voit ni le repère ni la file du premier agent",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "K2 autre compte : rien n'est transmis sous son identité",
+   "ok": true,
+   "detail": "4 = 4"
+  },
+  {
+   "nom": "K3 aucun compte connecté : aucune saisie possible (l'absence d'utilisateur ne vaut pas autorisation)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "K4 profil sans droit de saisie : consultation seule",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "K5 retour du premier agent : son repère en attente est intact puis transmis",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "L1 rien de préparé : l'écran dit ce qui manque et comment le préparer",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "nom": "M  largeur 390 × 844 : aucun débordement horizontal",
+   "ok": true,
+   "detail": "390 / 390"
+  },
+  {
+   "nom": "M  largeur 768 × 1024 : aucun débordement horizontal",
+   "ok": true,
+   "detail": "768 / 768"
+  },
+  {
+   "nom": "M  largeur 1440 × 900 : aucun débordement horizontal",
+   "ok": true,
+   "detail": "1440 / 1440"
+  },
+  {
+   "nom": "N  aucune erreur JavaScript pendant tout le parcours",
+   "ok": true,
+   "detail": ""
+  }
+ ]
+}

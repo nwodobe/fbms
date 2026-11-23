@@ -20,6 +20,7 @@ var MENU=[
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
   ['Producteurs','Farmers','field-buying.html#farmers'],
   ['Parcelles & cartographie','Plots & mapping','field-buying.html#parcelles'],
+  ['Repères GPS (saisie hors réseau)','GPS waypoints (offline entry)','field-buying.html#reperes'],
   ['Représentants RT','RT representatives','field-buying.html#rt'],
   ['Villages & clusters','Villages & clusters','field-buying.html#census'],
   ['Coopératives','Cooperatives','field-buying.html#cooperatives'],

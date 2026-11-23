@@ -5438,6 +5438,21 @@ var ROUTES = {
       })();
     });
   },
+  /* Repères GPS (AFLP 2027) : coordonnées capturées ou saisies à la main pour une parcelle, un bloc ou
+     un arbre suivi. Moteur dans reperes-gps.js (table geo_reperes, base locale et file dédiées). */
+  reperes: function (p) {
+    if (global.ANAGROCI_REPERES && global.ANAGROCI_REPERES.render) return global.ANAGROCI_REPERES.render(p);
+    paint(head('Repères GPS', 'Module en cours de chargement…') + skeletonPage(4));
+    return new Promise(function (resolve) {
+      var debut = Date.now();
+      (function attendre() {
+        if (!/^#reperes/.test(location.hash || '')) return resolve(null);
+        if (global.ANAGROCI_REPERES && global.ANAGROCI_REPERES.render) return resolve(global.ANAGROCI_REPERES.render(p));
+        if (Date.now() - debut > 30000) { paint(head('Repères GPS', '') + '<div class="notice warn">Module non chargé. Rouvrez la rubrique.</div>'); return resolve(null); }
+        setTimeout(attendre, 300);
+      })();
+    });
+  },
   /* Suivi des mises à jour des téléphones (Branch Manager) : moteur dans ../shared/ota-suivi.js.
      Lecture seule ; ce que les téléphones ont réellement signalé, jamais une supposition. */
   'mises-a-jour': function (p) {
