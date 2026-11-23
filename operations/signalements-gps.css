@@ -1,0 +1,40 @@
+/* SIGNALEMENTS GPS AFLP · styles du module partagé (fiche parcelle, Repères GPS).
+   Préfixe sg- : aucune classe partagée. Téléphone d'abord : une colonne, cibles de 44 px. */
+.sg-section{margin:10px 0;display:block}
+/* Les blocs hôtes (.rg-actuel, .pc-point) affichent leurs <b> et <small> en bloc : on rétablit l'affichage en ligne. */
+.sg-section b{display:inline}
+.sg-section small{display:inline}
+.sg-section .sg-item b,.sg-section .sg-item small{display:block}
+.sg-avis{border-radius:12px;padding:12px 14px;margin:10px 0;font-size:15px;line-height:1.45;border:1px solid #D6DED8;background:#F4F7F5;color:#12261B}
+.sg-avis-alerte{background:#FFF5E0;border-color:#E9BE62;color:#5C3A00}
+.sg-avis-succes{background:#EAF6EC;border-color:#9FD2A8;color:#0B4A1F}
+.sg-avis-erreur{background:#FDECEC;border-color:#E4A3A3;color:#7A1414}
+.sg-ligne{margin:8px 0 4px;overflow-wrap:anywhere}
+.sg-meta{margin:4px 0;font-size:13px;color:#4A564E;overflow-wrap:anywhere}
+.sg-note{font-size:14px;line-height:1.45;color:#3B4A41;margin:8px 0}
+.sg-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.btn.sg-btn{min-height:44px;font-size:14px;box-sizing:border-box}
+.sg-form{border:1px solid #E9BE62;border-radius:12px;padding:12px 14px;background:#FFFBF2;margin:10px 0}
+.sg-form h3{margin:0 0 6px;font-size:16px}
+.sg-motifs,.sg-resoudre{border:1px solid #D6DED8;border-radius:10px;padding:6px 12px;margin:10px 0;background:#fff;min-width:0}
+.sg-motifs legend,.sg-resoudre legend{font-weight:700;padding:0 4px}
+.sg-radio{display:flex;gap:10px;align-items:center;min-height:44px;font-size:15px;cursor:pointer}
+.sg-radio input{width:22px;height:22px;flex:0 0 22px}
+.sg-champ{display:block;margin:10px 0}
+.sg-champ span{display:block;font-weight:600;font-size:15px;margin-bottom:4px;color:#12261B}
+.sg-champ textarea{width:100%;min-height:72px;font-size:16px;padding:8px 12px;border:1px solid #8A968E;border-radius:10px;background:#fff;color:#12261B;box-sizing:border-box;font-family:inherit}
+.sg-champ textarea:focus{outline:3px solid #1E6FD9;outline-offset:1px}
+.sg-journal{margin:8px 0 0;padding-left:18px;font-size:14px}
+.sg-journal li{margin:4px 0;overflow-wrap:anywhere}
+.sg-historique{margin:10px 0;border:1px solid #D6DED8;border-radius:10px;padding:4px 12px;background:#FAFBFA}
+.sg-historique summary{min-height:44px;display:flex;align-items:center;font-weight:600;cursor:pointer}
+.sg-clos{border-top:1px solid #E3E8E4;padding:8px 0}
+.sg-pastille{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;background:#EEF1EF;color:#24352B}
+.sg-p-ouvert{background:#FFF0CC;color:#5C3A00}
+.sg-p-repondu{background:#E3EEFB;color:#0B3A6B}
+.sg-p-resolu{background:#DFF2E3;color:#0B4A1F}
+.sg-p-classe{background:#EEF1EF;color:#24352B}
+.sg-liste .sg-item{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;min-height:56px;padding:10px 12px;margin:8px 0;border:1px solid #E9BE62;border-radius:12px;background:#fff;color:#12261B;text-decoration:none}
+.sg-liste .sg-item:focus-visible{outline:3px solid #1E6FD9;outline-offset:2px}
+.sg-item b{display:block;font-size:16px}
+.sg-item small{display:block;font-size:13px;color:#4A564E}

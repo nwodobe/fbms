@@ -68,7 +68,9 @@ function lireServeur(table, cols, mod) {
 }
 
 /* ------------------------------------------------------------------ références préparées */
-var COLS_PARCELLES = 'plot_id,plot_code,producteur_id,producteur_code,producteur_nom,producteur_prenoms,village_id,village_nom,cluster_code,zone_code,local_name,tree_count,latitude,longitude,gps_accuracy_m,gps_captured_at,gps_status,current_geometry_id,consentement_gps';
+/* Signalements GPS (module partagé, facultatif : son absence n'empêche rien). */
+function SG() { return global.ANAGROCI_SIGNALEMENTS_GPS || null; }
+var COLS_PARCELLES = 'plot_id,plot_code,producteur_id,producteur_code,producteur_nom,producteur_prenoms,village_id,village_nom,village_latitude,village_longitude,cluster_code,zone_code,local_name,tree_count,latitude,longitude,gps_accuracy_m,gps_captured_at,gps_status,current_geometry_id,consentement_gps';
 function parcellesPreparees() {
   var P = global.ANAGROCI_PARCELLES_LOCAL;
   return L.cache.lire('parcelles').then(function (x) {
@@ -203,8 +205,11 @@ function ligneRepere(r) {
 
 /* ------------------------------------------------------------------ 1. accueil */
 function vueAccueil() {
-  return Promise.all([champs(), indexReperes(), barreSync()]).then(function (r) {
+  var S = SG();
+  return Promise.all([champs(), indexReperes(), barreSync(), S && enLigne() ? S.ouverts(lireServeur) : Promise.resolve(null)]).then(function (r) {
     var cs = r[0], idx = r[1], q = etat.recherche.trim().toLowerCase();
+    var signales = S && r[3] ? S.listeOuverts({ hote: 'rg', classe: classe(), donnees: r[3], lien: function (s) {
+      return s.cible_type === 'REPERE' ? 'reperes/objet/' + s.repere_objet_type + '/' + s.repere_objet_id : 'reperes/objet/PARCELLE/' + s.plot_id; } }) : '';
     var filtres = cs.liste.filter(function (ch) {
       if (!q) return true; var n = nomChamp(ch), x = ch.parcelle || {};
       return [n.producteur, n.champ, n.village, n.cluster, x.producteur_code].join(' ').toLowerCase().indexOf(q) >= 0;
@@ -221,7 +226,7 @@ function vueAccueil() {
       'Avec une connexion, touchez « Préparer mes champs » : la liste de vos parcelles est copiée sur le téléphone. Pour les blocs et les arbres, ouvrez l\'Observatoire et touchez « Préparer le hors-ligne ». Ensuite, la saisie fonctionne sans réseau et sans carte.</p>' +
       '<div class="rg-actions">' + bouton('Préparer mes champs', 'preparer', enLigne() ? 'primary' : 'secondary', enLigne() ? '' : ' disabled') + lien('Ouvrir l\'Observatoire', 'observatoire') + '</div>' +
       (enLigne() ? '' : '<p class="rg-note">Hors ligne : la préparation attend le retour du réseau. Les champs déjà préparés restent utilisables.</p>') + '</section>';
-    peindre(tete('Repères GPS', 'Capturer ou saisir les coordonnées d\'une parcelle, d\'un bloc ou d\'un arbre suivi') + messageEtat() + r[2] +
+    peindre(tete('Repères GPS', 'Capturer ou saisir les coordonnées d\'une parcelle, d\'un bloc ou d\'un arbre suivi') + messageEtat() + r[2] + signales +
       (enLigne() ? '' : avis('info', 'Carte indisponible. Vous pouvez enregistrer les coordonnées sur ce téléphone.')) +
       (peutSaisir() ? '' : avis('info', 'Votre profil consulte les repères. La saisie est réservée au Chef d\'Unité, à son assistant et au Branch Manager.')) +
       (vide ? '' : '<section class="card"><div class="card-head"><div><h2>1. Choisir le champ</h2></div></div>' +
@@ -349,7 +354,10 @@ function champSaisie(id, libelle, valeur, aide, attrs) {
 }
 function vueObjet(type, id) {
   if (!C.TYPES[type]) { peindre(tete('Repère introuvable', '', lien('← Repères GPS', 'reperes'))); return Promise.resolve(); }
-  return Promise.all([trouverObjet(type, id), L.repere(type, id), L.brouillon(type, id), barreSync(), L.file()]).then(function (r) {
+  var S = SG();
+  return Promise.all([trouverObjet(type, id), L.repere(type, id), L.brouillon(type, id), barreSync(), L.file(),
+    S && enLigne() ? trouverObjet(type, id).then(function (x) { return x ? S.charger(lireServeur, x.ch.plot_id) : null; }) : Promise.resolve(null),
+    S && enLigne() ? S.repereServeur(lireServeur, type, id) : Promise.resolve(null)]).then(function (r) {
     var t = r[0];
     if (!t) { peindre(tete('Objet introuvable sur ce téléphone', '', lien('← Repères GPS', 'reperes')) + avis('alerte', 'Cet objet n\'est pas préparé sur ce téléphone. Avec une connexion, revenez à « Repères GPS » et préparez vos champs.')); return; }
     var o = t.objet, ch = t.ch, rp = r[1], br = (r[2] && r[2].champs) || {}, n = nomChamp(ch), consent = ch.parcelle.consentement_gps;
@@ -389,11 +397,19 @@ function vueObjet(type, id) {
     var alertes = etat.alertes && etat.alertes.length ? avis('alerte', etat.alertes.map(esc).join('<br>') + (etat.horsZone ? '<label class="rg-case"><input type="checkbox" id="rgConfirmer"' + (etat.confirmerHorsZone ? ' checked' : '') + '> <span>Je confirme que ces coordonnées sont exactes</span></label>' : '')) : '';
     var motif = correction && saisieOuverte && (mode === 'manuel' || (cap && !cap.erreur && !cap.attente)) ? champSaisie('rgMotif', 'Motif de la correction (obligatoire)', br.motif, 'L\'ancienne position reste dans l\'historique.', 'maxlength="300" data-rg-champ="motif"') : '';
     var pretAEnregistrer = saisieOuverte && (mode === 'manuel' || (cap && !cap.erreur && !cap.attente));
+    /* Signaler ce point (supervision) : ni le repère ni le point de référence ne sont modifiés. */
+    var sigRepere = '', sigPoint = '', rs = r[6];
+    if (S && rs && rp && rp.etat === 'RECU' && Number(rs.latitude) === Number(rp.latitude) && Number(rs.longitude) === Number(rp.longitude))
+      sigRepere = S.section({ hote: 'rg', classe: classe(), enLigne: enLigne(), donnees: r[5],
+        cible: { type: 'REPERE', plot_id: ch.plot_id, repere_id: rs.id, objet_type: type, objet_id: id, latitude: Number(rs.latitude), longitude: Number(rs.longitude), village_latitude: ch.parcelle.village_latitude, village_longitude: ch.parcelle.village_longitude } });
+    if (S && type === 'PARCELLE' && o.existant)
+      sigPoint = S.section({ hote: 'rg', classe: classe(), enLigne: enLigne(), donnees: r[5],
+        cible: { type: 'POINT_PARCELLE', plot_id: ch.plot_id, latitude: o.existant.latitude, longitude: o.existant.longitude, village_latitude: ch.parcelle.village_latitude, village_longitude: ch.parcelle.village_longitude } });
     peindre(tete(o.titre + ' ' + o.identifiant, n.producteur + ' · ' + n.champ, lien('← Positions du champ', 'reperes/champ/' + ch.plot_id)) + messageEtat() + r[3] + bandeau +
       '<section class="card"><div class="card-head"><div><h2>' + esc(o.titre) + ' ' + esc(o.identifiant) + '</h2></div></div>' +
       '<p class="rg-note">Rattachement : ' + esc(o.rattachement) + ' · village ' + esc(n.village) + ' · cluster ' + esc(n.cluster) + '</p>' +
-      '<div class="rg-actuel"><b>Repère enregistré</b>' + ligneRepere(rp) + '</div>' +
-      (o.existant ? '<div class="rg-actuel rg-actuel-existant"><b>' + esc(o.existant.nom) + '</b><span class="mono">' + esc(C.fmt(o.existant.latitude)) + ' ; ' + esc(C.fmt(o.existant.longitude)) + '</span><small>Précision ' + (o.existant.precision_m != null ? Math.round(o.existant.precision_m) + ' m' : 'inconnue') + '. Ce point n\'est pas modifié par le repère.</small></div>' : '') + '</section>' +
+      '<div class="rg-actuel"><b>Repère enregistré</b>' + ligneRepere(rp) + sigRepere + '</div>' +
+      (o.existant ? '<div class="rg-actuel rg-actuel-existant"><b>' + esc(o.existant.nom) + '</b><span class="mono">' + esc(C.fmt(o.existant.latitude)) + ' ; ' + esc(C.fmt(o.existant.longitude)) + '</span><small>Précision ' + (o.existant.precision_m != null ? Math.round(o.existant.precision_m) + ' m' : 'inconnue') + '. Ce point n\'est pas modifié par le repère.</small>' + sigPoint + '</div>' : '') + '</section>' +
       (consent === false ? avis('alerte', '<b>Accord GPS non enregistré pour ce producteur.</b> Aucune coordonnée ne peut être enregistrée. ' + lien('Recueillir l\'accord', 'parcelles/parcours/' + ch.plot_id, 'secondary rg-mini')) : '') +
       (consent == null && peutSaisir() ? avis('info', 'Accord GPS non connu sur ce téléphone : vous pouvez préparer la saisie, le serveur le vérifiera à la synchronisation.') : '') +
       (o.remplace ? avis('info', 'Cet arbre a été remplacé : son repère est consultable, mais plus modifiable.') : '') +
@@ -576,5 +592,6 @@ global.addEventListener('offline', function () { if (surRubrique() && !document.
 setInterval(function () { if (enLigne()) synchroniser(true); }, 120000);
 setTimeout(function () { if (enLigne()) synchroniser(true); }, 6000);
 
+if (SG()) SG().brancher('rg', { rpc: rpcBrut, apres: function () { return surRubrique() ? rendre() : null; } });
 global.ANAGROCI_REPERES = { render: render, synchroniser: synchroniser, preparer: preparer };
 })(window);

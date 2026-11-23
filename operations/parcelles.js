@@ -22,6 +22,10 @@ var C = global.ANAGROCI_PARCELLES_COEUR, L = global.ANAGROCI_PARCELLES_LOCAL;
 var sb = null, clientPromise = null, carte = null, ed = null, minuterie = null, gpsVeille = null;
 var etat = { filtre: null, recherche: '', village: '', params: null, liste: null, listeLe: null, message: null, documentFiche: null };
 
+/* Signalements GPS (module partagé, facultatif : son absence n'empêche rien). */
+function SG() { return global.ANAGROCI_SIGNALEMENTS_GPS || null; }
+function brancherSignalements() { var m = SG(); if (m) m.brancher('pc', { rpc: rpcBrut, apres: function () { return rendre(); } }); }
+
 /* ------------------------------------------------------------------ utilitaires */
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function root() { return document.getElementById('opsRouteView'); }
@@ -120,8 +124,9 @@ function barreSync() {
 /* ------------------------------------------------------------------ 1. accueil */
 function accueil() {
   peindre(tete('Parcelles & cartographie', 'Localiser les champs, tracer leurs contours, suivre leur validation.') + '<div class="ops-empty">Chargement des parcelles…</div>');
-  return Promise.all([parametres(), chargerListe(), barreSync(), L.brouillon.tous()]).then(function (r) {
+  return Promise.all([parametres(), chargerListe(), barreSync(), L.brouillon.tous(), enLigne() && SG() ? SG().ouverts(lire) : Promise.resolve(null)]).then(function (r) {
     var liste = r[1], sync = r[2], brouillons = r[3], parBr = {};
+    var signales = r[4] && SG() ? SG().listeOuverts({ hote: 'pc', classe: classe(), donnees: r[4], lien: function (s) { return 'parcelles/p/' + s.plot_id; } }) : '';
     brouillons.forEach(function (b) { if (b.sommets && b.sommets.length) parBr[b.plot_id] = b; });
     var c = { NON_LOCALISEE: 0, A_CORRIGER: 0, SOUMIS: 0, VALIDE: 0 };
     liste.forEach(function (x) { var s = statutParcelle(x); if (c[s] != null) c[s]++; });
@@ -141,7 +146,7 @@ function accueil() {
     var tuiles = [['NON_LOCALISEE', 'Cartographie à compléter', c.NON_LOCALISEE], ['brouillons', 'Brouillons sur ce téléphone', Object.keys(parBr).length], ['A_CORRIGER', 'À corriger', c.A_CORRIGER], ['SOUMIS', 'Soumises au Chef de Zone', c.SOUMIS], ['VALIDE', 'Validées', c.VALIDE]];
     var h = tete('Parcelles & cartographie', 'Localiser les champs, tracer leurs contours, suivre leur validation.',
       (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : peutPreverifier() ? lien('À pré-vérifier', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
-      (etat.message ? avis('ok', esc(etat.message)) : '') + bandeau + sync +
+      (etat.message ? avis('ok', esc(etat.message)) : '') + bandeau + sync + signales +
       (etat.listeHorsLigne ? avis('info', 'Hors ligne : liste enregistrée sur ce téléphone' + (etat.listeLe ? ' le ' + heureFr(etat.listeLe) : '') + '.') : '') +
       '<div class="pc-tuiles">' + tuiles.map(function (t) {
         return '<button type="button" class="pc-tuile' + (etat.filtre === t[0] ? ' actif' : '') + '" data-pc="filtre" data-v="' + t[0] + '"><b>' + t[2] + '</b><span>' + esc(t[1]) + '</span></button>';
@@ -175,9 +180,10 @@ function fiche(id) {
     enLigne() ? lire('farmer_plot_ra_field_references', 'id,geometry_id,plot_id,status,accuracy_m,captured_at_client,recorded_at,created_by,note,reviewed_at,review_comment', function (r) { return r.eq('plot_id', id).order('recorded_at', { ascending: false }); }).catch(function () { return null; }) : Promise.resolve(null),
     enLigne() ? lire('plot_map_ra_preparation_v', 'geometry_id,plot_id,contour_status,references_en_attente,references_confirmees,references_rejetees,statut_preparation', function (r) { return r.eq('plot_id', id); }).catch(function () { return null; }) : Promise.resolve(null),
     enLigne() ? lire('farmer_plot_ra_units', 'plot_id,farm_id,farm_unit_id,source_reference,status,created_by,verified_at,review_comment', function (r) { return r.eq('plot_id', id).maybeSingle(); }).catch(function () { return null; }) : Promise.resolve(null),
-    enLigne() ? lire('farmer_plot_ra_documents', 'id,plot_id,geometry_id,storage_path,claimed_sha256,created_at,geometry_version,farm_unit_id', function (r) { return r.eq('plot_id', id).order('created_at', { ascending: false }).limit(20); }).catch(function () { return null; }) : Promise.resolve(null)
+    enLigne() ? lire('farmer_plot_ra_documents', 'id,plot_id,geometry_id,storage_path,claimed_sha256,created_at,geometry_version,farm_unit_id', function (r) { return r.eq('plot_id', id).order('created_at', { ascending: false }).limit(20); }).catch(function () { return null; }) : Promise.resolve(null),
+    enLigne() && SG() ? SG().charger(lire, id) : Promise.resolve(null)
   ]).then(function (r) {
-    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [], referencesTerrain = r[6], preparations = r[7], raUnit = r[8], raDocuments = r[9];
+    var x = r[1], ops = r[2], br = r[3], versions = r[4], anomalies = r[5] || [], referencesTerrain = r[6], preparations = r[7], raUnit = r[8], raDocuments = r[9], signalements = r[10];
     if (!x) {
       var ajout = ops.filter(function (o) { return o.type === 'AJOUTER_PARCELLE' && o.payload.id === id; })[0];
       if (!ajout) { peindre(tete('Parcelle introuvable', '') + avis('erreur', 'Cette parcelle n\'est pas dans votre périmètre ou n\'existe plus.') + lien('Retour aux parcelles', 'parcelles', 'secondary')); return; }
@@ -300,6 +306,9 @@ function fiche(id) {
       '<p class="pc-note">Superficie cartographique : estimation pour le suivi AFLP, <b>pas un bornage ni une limite cadastrale</b>.</p>';
     var point = x.latitude != null ? '<div class="pc-point"><b>Point GPS de référence</b><span class="mono">' + Number(x.latitude).toFixed(6) + ' ; ' + Number(x.longitude).toFixed(6) + '</span><small>Précision ' + (x.gps_accuracy_m != null ? Math.round(x.gps_accuracy_m) + ' m' : 'inconnue') + ' · ' + heureFr(x.gps_captured_at) + (x.gps_status === 'GPS_VERIFIED' ? ' · vérifié par la supervision' : '') + '</small><small>Un point localise le champ ; il ne mesure pas sa superficie.</small></div>'
       : '<div class="pc-point pc-point-vide"><b>Champ non localisé</b><small>Cartographie à compléter : rendez-vous dans la plantation et appuyez sur « Cartographier ce champ ».</small></div>';
+    /* Signaler ce point (supervision) : le point de référence n'est jamais modifié par un signalement. */
+    if (x.latitude != null && SG()) point = point.replace(/<\/div>$/, '') + SG().section({ hote: 'pc', classe: classe(), enLigne: enLigne(), donnees: signalements,
+      cible: { type: 'POINT_PARCELLE', plot_id: id, latitude: Number(x.latitude), longitude: Number(x.longitude), village_latitude: x.village_latitude, village_longitude: x.village_longitude } }) + '</div>';
     var envois = ops.length ? '<section class="card"><div class="card-head"><div><h2>Envois depuis ce téléphone</h2></div></div>' + ops.slice().reverse().slice(0, 8).map(function (o) {
       return '<div class="pc-envoi">' + badgeEtat(o.etat) + ' <span>' + esc(o.resume) + ' · ' + heureFr(o.cree_le) + '</span>' + (o.message ? '<small>' + esc(o.message) + '</small>' : '') +
         (o.etat === 'REJETE' && o.code === 'TECHNIQUE' ? bouton('Réessayer', 'reessayer', 'secondary pc-mini', ' data-v="' + esc(o.idempotency_key) + '"') : '') + '</div>';
@@ -1348,9 +1357,11 @@ function alerteDecision(m) { var z = document.querySelector('.pc-decision'); if 
 global.addEventListener('online', function () { if (/^#parcelles/.test(location.hash)) synchroniser(true); });
 function demarrer() {
   if (minuterie) return;
+  brancherSignalements();
   minuterie = setInterval(function () { if (enLigne()) synchroniser(true); }, 120000);
   setTimeout(function () { if (enLigne()) synchroniser(true); }, 4000);
 }
 if (global.ANAGROCI_AUTH) demarrer(); else { var att = setInterval(function () { if (global.ANAGROCI_AUTH) { clearInterval(att); demarrer(); } }, 1000); setTimeout(function () { clearInterval(att); }, 120000); }
+brancherSignalements();
 global.ANAGROCI_PARCELLES = { render: rendre, synchroniser: synchroniser };
 })(window);
