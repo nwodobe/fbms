@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-23T23:34:50.702Z",
+  "total": 30,
+  "echecs": 0,
+  "resultats": [
+    {
+      "nom": "A1 BM : « Signaler ce point » visible sous le point GPS de référence",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A2 formulaire : point concerné, distance au village calculée, « pas modifié » annoncé",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A3 sans motif choisi : refus à l'écran, rien envoyé",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A4 motif trop court : refus à l'écran",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A5 envoyé : message de succès, signalement ouvert affiché",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A6 demande envoyée : cible, motif, point vu à l'écran",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A7 le point n'est jamais modifié : aucun envoi de repère ni de point",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A8 un signalement ouvert : plus de bouton « Signaler ce point », formulaire de résolution présent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "A9 390 px : aucun débordement horizontal, cibles ≥ 44 px",
+      "ok": true,
+      "detail": "390 / 390"
+    },
+    {
+      "nom": "B1 Chef d'Unité : liste « Points GPS signalés à faire vérifier (1) »",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "B2 la fiche s'ouvre sur le signalement, motif lisible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "B3 Chef d'Unité : peut répondre, ne peut ni résoudre ni signaler",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "B4 réponse trop courte : refus à l'écran",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "B5 réponse enregistrée, visible dans le journal, signalement toujours ouvert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "C1 résolution non choisie : refus à l'écran",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "C2 « Point corrigé » alors que le point n'a pas changé : refus du serveur affiché",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "C3 point confirmé : signalement classé, historique « Signalements clos (1) », bouton de nouveau signalement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "C4 historique : résolution motivée, rôle et motif d'origine",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "D1 fiche parcelle : « Signaler ce point » sous le point GPS de référence",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "D2 fiche parcelle : signalement ouvert affiché",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "D3 accueil Parcelles du Chef d'Unité : liste des points signalés",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "D4 point réellement repris : « Point corrigé » accepté, signalement résolu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "D5 fiche parcelle 768 px : aucun débordement horizontal, cibles ≥ 44 px",
+      "ok": true,
+      "detail": "768 / 768"
+    },
+    {
+      "nom": "D5 fiche parcelle 1440 px : aucun débordement horizontal, cibles ≥ 44 px",
+      "ok": true,
+      "detail": "1440 / 1440"
+    },
+    {
+      "nom": "E1 repère reçu et point de référence : deux boutons « Signaler ce point »",
+      "ok": true,
+      "detail": "2"
+    },
+    {
+      "nom": "E2 repère signalé : cible REPERE avec l'identifiant du serveur",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "F1 hors ligne : aucun bouton, message clair, la fiche reste utilisable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "F2 serveur sans la migration : « indisponible », pas de bouton, fiche intacte",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "F3 parcelle sans point : rien à signaler",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "G1 aucune erreur de console",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

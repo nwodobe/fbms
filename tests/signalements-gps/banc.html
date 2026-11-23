@@ -1,0 +1,107 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banc Signalements GPS (données fictives)</title>
+<link rel="stylesheet" href="../../operations/operations.css"><link rel="stylesheet" href="../../operations/operations-v2.css">
+<link rel="stylesheet" href="../../operations/reperes-gps.css"><link rel="stylesheet" href="../../operations/signalements-gps.css">
+<script>
+/* Doublures : identité, client Supabase (serveur simulé) et champs préparés. AUCUNE donnée réelle.
+   Le serveur simulé reprend les règles de supabase/20261124090000_aflp_signalements_gps_1.sql
+   (droits par rôle, motif, unicité, « point corrigé » seulement si le point a changé) : il
+   prouve l'écran, pas le serveur réel (voir serveur_signalements.sql, joué sur la recette). */
+(function () {
+  var q = new URLSearchParams(location.search);
+  window.ANAGROCI_SUPABASE_URL = 'https://banc.invalid'; window.ANAGROCI_SUPABASE_ANON = 'banc';
+  if (q.get('reseau') === 'non') Object.defineProperty(navigator, 'onLine', { get: function () { return false; } });
+  var role = q.get('role') || 'Branch Manager', compte = 'u-' + role.replace(/\W+/g, '').toLowerCase();
+  window.ANAGROCI_AUTH = { profile: { user_id: compte, role: role, nom: 'COMPTE BANC', cluster: 'BROBO', zone: 'Z1', actif: true }, user: { id: compte } };
+  var CL = { 'Branch Manager': 'BM', 'Zonal Head': 'ZH', 'Unit Head': 'UH', 'Assistant Unit Head': 'AUH' }[role];
+  function etat() { try { return JSON.parse(localStorage.getItem('banc_sg') || '{}'); } catch (e) { return {}; } }
+  function ecrire(s) { localStorage.setItem('banc_sg', JSON.stringify(s)); }
+  window.BANC = { serveur: etat, mode: function (m) { var s = etat(); s.mode = m; ecrire(s); }, deplacerPoint: function () { var s = etat(); s.pointDeplace = true; ecrire(s); } };
+  var P1 = '11111111-1111-4111-8111-111111111111', P2 = '22222222-2222-4222-8222-222222222222';
+  var POINT = { lat: 7.6892, lng: -5.0312 }, VILLAGE = { lat: 7.6900, lng: -5.0318 };
+  function erreur(code, message) { return Promise.resolve({ data: null, error: { code: code, message: message } }); }
+  function rpc(nom, a) {
+    var s = etat(); s.appels = s.appels || []; s.appels.push({ nom: nom, args: a }); s.liste = s.liste || []; ecrire(s);
+    if (s.mode === 'muet') return Promise.reject(new TypeError('Failed to fetch'));
+    if (/^geo_signalement/.test(nom) && s.mode === 'absent') return erreur('PGRST202', 'Could not find the function public.' + nom + ' in the schema cache');
+    if (nom === 'geo_reperes_sync_batch') return Promise.resolve({ data: { resultats: [] }, error: null });
+    var now = new Date().toISOString(), t;
+    if (nom === 'geo_signalement_creer') {
+      var p = a.p;
+      if (CL !== 'BM' && CL !== 'ZH') return erreur('GS001', 'Le signalement d\'un point GPS est réservé au Branch Manager et aux Chefs de Zone.');
+      if (!p.motif_code) return erreur('GS002', 'Choisissez le motif du signalement.');
+      if (String(p.motif || '').trim().length < 10) return erreur('GS002', 'Décrivez le motif en quelques mots (10 caractères au moins).');
+      var cle = p.cible_type === 'REPERE' ? 'R:' + p.repere_id : 'P:' + p.plot_id;
+      if (s.liste.some(function (x) { return x.cle === cle && x.statut === 'OUVERT'; })) return erreur('GS409', 'Ce point est déjà signalé et le signalement est ouvert. Complétez-le plutôt que d\'en créer un second.');
+      var rep = p.cible_type === 'REPERE' ? (s.reperes || {})[p.repere_id] : null;
+      var sg = { id: 'sg-' + (s.liste.length + 1), cle: cle, cible_type: p.cible_type, plot_id: rep ? rep.plot_id : p.plot_id, repere_id: p.repere_id || null, repere_objet_type: rep ? rep.objet_type : null, repere_objet_id: rep ? rep.objet_id : null,
+        cluster_code: 'BROBO', zone_code: 'Z1', point_latitude: p.point_latitude, point_longitude: p.point_longitude, distance_village_m: 97, motif_code: p.motif_code, motif: String(p.motif).trim(), statut: 'OUVERT',
+        signale_role: CL, signale_par_nom: 'SUPERVISION BANC', signale_le: now, plot_code: 'PCL-BANC-01', local_name: 'Champ du banc A', village_nom: 'Village Banc', producteur_nom: 'TESTEUR', producteur_prenoms: 'Un',
+        journal: [{ action: 'SIGNALER', texte: String(p.motif).trim(), role: CL, nom: 'SUPERVISION BANC', le: now }] };
+      s.liste.push(sg); ecrire(s);
+      return Promise.resolve({ data: { statut: 'OUVERT', signalement_id: sg.id, distance_village_m: 97 }, error: null });
+    }
+    t = s.liste.filter(function (x) { return x.id === a.p_signalement; })[0];
+    if (!t) return erreur('GS002', 'Signalement introuvable.');
+    if (nom === 'geo_signalement_repondre') {
+      if (['BM', 'UH', 'AUH'].indexOf(CL) < 0) return erreur('GS001', 'La réponse est réservée au Chef d\'Unité du cluster et à son assistant.');
+      if (t.statut !== 'OUVERT') return erreur('GS409', 'Ce signalement est déjà clos.');
+      if (String(a.p_texte || '').trim().length < 10) return erreur('GS002', 'Votre réponse doit compter de 10 à 1 000 caractères.');
+      t.journal.push({ action: 'REPONDRE', texte: a.p_texte.trim(), role: CL, nom: 'COMPTE BANC', le: now }); ecrire(s);
+      return Promise.resolve({ data: { statut: 'OUVERT' }, error: null });
+    }
+    if (nom === 'geo_signalement_resoudre') {
+      if (CL !== 'BM' && CL !== 'ZH') return erreur('GS001', 'La résolution est réservée au Branch Manager et au Chef de Zone de la zone.');
+      if (t.statut !== 'OUVERT') return erreur('GS409', 'Ce signalement est déjà clos.');
+      if (String(a.p_motif || '').trim().length < 10) return erreur('GS002', 'Motivez la résolution (10 à 1 000 caractères).');
+      if (a.p_resolution === 'POINT_CORRIGE' && !s.pointDeplace) return erreur('GS002', 'Le point n\'a pas changé depuis le signalement : il ne peut pas être déclaré corrigé. Faites d\'abord reprendre le point sur le champ.');
+      t.statut = a.p_resolution === 'POINT_CORRIGE' ? 'RESOLU' : 'CLASSE'; t.resolution_code = a.p_resolution; t.resolution_motif = a.p_motif.trim(); t.resolu_role = CL; t.resolu_par_nom = 'COMPTE BANC'; t.resolu_le = now;
+      t.journal.push({ action: 'RESOUDRE', texte: a.p_motif.trim(), role: CL, nom: 'COMPTE BANC', le: now }); ecrire(s);
+      return Promise.resolve({ data: { statut: t.statut, resolution_code: a.p_resolution }, error: null });
+    }
+    return erreur('PGRST202', 'fonction inconnue ' + nom);
+  }
+  /* Requête PostgREST simulée : eq / order / limit / range, filtrage par statut et parcelle. */
+  function requete(table) {
+    var filtres = [], r = {
+      select: function () { return r; }, maybeSingle: function () { return r; }, order: function () { return r; }, limit: function () { return r; }, range: function () { return r; }, in: function () { return r; },
+      eq: function (c, v) { filtres.push([c, v]); return r; },
+      then: function (ok, ko) {
+        var s = etat(), data;
+        if (/^geo_signalements/.test(table) && s.mode === 'absent') return Promise.resolve({ data: null, error: { code: 'PGRST205', message: 'Could not find the table \'public.geo_signalements_v\' in the schema cache' } }).then(ok, ko);
+        if (s.mode === 'muet') return Promise.reject(new TypeError('Failed to fetch')).then(ok, ko);
+        if (table === 'geo_signalements_v') data = (s.liste || []).map(function (x) { var y = Object.assign({}, x); delete y.cle; return y; });
+        else if (table === 'plot_map_parcelles_v') data = parcelles.map(function (x) { var y = Object.assign({}, x); if (y.plot_id === P1 && s.pointDeplace) y.latitude = 7.7221; return y; });
+        else if (table === 'geo_reperes') data = Object.keys(s.reperes || {}).map(function (k) { return s.reperes[k]; });
+        else data = [];
+        data = data.filter(function (x) { return filtres.every(function (f) { return x[f[0]] === undefined || x[f[0]] === f[1]; }); });
+        return Promise.resolve({ data: data, error: null }).then(ok, ko);
+      } };
+    return r;
+  }
+  window.supabase = { createClient: function () { return { rpc: rpc, from: requete }; } };
+  /* Un repère reçu par le serveur pour la parcelle P1 (si demandé). */
+  if (q.get('repere') === 'oui') { var s0 = etat(); s0.reperes = { 'rep-1': { id: 'rep-1', objet_type: 'PARCELLE', objet_id: P1, plot_id: P1, panel_id: null, bloc_id: null, latitude: 7.7101, longitude: -5.0402, origine: 'SAISIE_MANUELLE', precision_m: null, version_no: 1, statut: 'BROUILLON', actif: true, created_at: '2026-11-23T10:00:00Z' } }; ecrire(s0); }
+  var parcelles = [
+    { plot_id: P1, plot_code: 'PCL-BANC-01', producteur_id: 'PR1', producteur_code: 'F-BANC-1', producteur_nom: 'TESTEUR', producteur_prenoms: 'Un', village_nom: 'Village Banc', village_latitude: VILLAGE.lat, village_longitude: VILLAGE.lng, cluster_code: 'BROBO', zone_code: 'Z1', local_name: 'Champ du banc A', latitude: POINT.lat, longitude: POINT.lng, gps_accuracy_m: 8, gps_captured_at: '2026-11-20T09:00:00Z', gps_status: 'POINT_CAPTURED', consentement_gps: true },
+    { plot_id: P2, plot_code: 'PCL-BANC-02', producteur_id: 'PR2', producteur_code: 'F-BANC-2', producteur_nom: 'TESTEUR', producteur_prenoms: 'Deux', village_nom: 'Village Banc', cluster_code: 'BROBO', zone_code: 'Z1', local_name: 'Champ sans point B', latitude: null, longitude: null, gps_status: 'NOT_MAPPED', consentement_gps: true }];
+  window.ANAGROCI_PARCELLES_LOCAL = { cache: { lire: function (cle) { return Promise.resolve(cle === 'parcelles' ? parcelles : null); } } };
+  window.ANAGROCI_OBS_LOCAL = { panels: function () { return Promise.resolve([]); }, referentiel: function () { return Promise.resolve({ plots: [], villages: [], producteurs: [] }); } };
+})();
+</script>
+<script src="../../shared/signalements-gps.js"></script>
+<script>
+/* page=parcelles : fiche parcelle réelle (operations/parcelles.js) ; sinon rubrique Repères GPS. */
+window.BANC_PAGE = new URLSearchParams(location.search).get('page') === 'parcelles' ? 'parcelles' : 'reperes';
+function charger(l) { document.write(l.map(function (u) { return /\.css$/.test(u) ? '<link rel="stylesheet" href="' + u + '">' : '<script src="' + u + '"><' + '/script>'; }).join('')); }
+if (window.BANC_PAGE === 'parcelles') { delete window.ANAGROCI_PARCELLES_LOCAL; charger(['../../operations/parcelles.css', '../../shared/parcelles-coeur.js', '../../shared/parcelles-hors-ligne.js', '../../operations/parcelles.js']); }
+else charger(['../../shared/reperes-gps-coeur.js', '../../shared/reperes-gps-hors-ligne.js', '../../operations/reperes-gps.js']);
+</script>
+</head><body data-workspace="field"><main class="ops-main"><div id="opsRouteView" class="ops-route-view"></div></main>
+<script>
+function router() {
+  if (window.BANC_PAGE === 'parcelles') { if (!/^#parcelles/.test(location.hash)) location.hash = 'parcelles'; else window.ANAGROCI_PARCELLES.render(); return; }
+  if (!/^#reperes/.test(location.hash)) location.hash = 'reperes'; else window.ANAGROCI_REPERES.render(location.hash.slice(1).split('/'));
+}
+window.addEventListener('hashchange', router); router();
+</script></body></html>
