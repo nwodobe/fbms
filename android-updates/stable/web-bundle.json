@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795359754,
- "web_version": "2026.11.22-1502.681455e",
- "git_commit": "681455e81f8841408475eebc2bf840b5aa75b604",
- "bundle_label": "681455e",
- "published_at": "2026-11-22T15:03:23.876Z",
- "created_at": "2026-11-22T15:03:23.876Z",
+ "sequence": 1795470423,
+ "web_version": "2026.11.23-2147.58e61e8",
+ "git_commit": "58e61e848ff8494a088636c0d71f193160874dc9",
+ "bundle_label": "58e61e8",
+ "published_at": "2026-11-23T21:47:56.969Z",
+ "created_at": "2026-11-23T21:47:56.969Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Observatoire : codes de suivi A001 a A012 (PR #370, inclut #369). Migration 7 appliquee.",
+ "release_notes": "Repères GPS : saisie manuelle et capture des coordonnées d'une parcelle, d'un bloc ou d'un arbre, hors réseau (PR #374)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -18,7 +18,7 @@
   "latest_version_name": "1.4.3",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261122140000",
+ "supabase_compat": "20261123100100",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
@@ -174,8 +174,8 @@
    "size": 15445
   },
   "fieldproof/index.html": {
-   "sha256": "a0d25636bf2660c7df5a3c5de412ac55a5dfa711b2e0b2cfacad4736df1a2f43",
-   "size": 3864
+   "sha256": "c27d8f43d798cd0d78a678e9dcf8216fa3e7b57b291e0bac47731f12b1e20b1a",
+   "size": 3867
   },
   "fieldproof/portal-fieldproof.css": {
    "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
@@ -190,8 +190,8 @@
    "size": 23738
   },
   "index.html": {
-   "sha256": "e363325acbc656279d819983b79442e89529844a3307e2e171631626560d35d2",
-   "size": 12414
+   "sha256": "57d188c44bc49a1da852c5e5db4c3747fe40208946bbcf010e7b15f2edcb8f14",
+   "size": 12417
   },
   "logistique.html": {
    "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
@@ -214,8 +214,8 @@
    "size": 601
   },
   "moto/index.html": {
-   "sha256": "588cb2618980606c37ed8f6cb58505a3dd9a5e8132f5a5c785d5fb5ee401f62a",
-   "size": 3930
+   "sha256": "611f51f255d66bfe402d244f808a4aa07b69083cb1432db1e42b084ba7ddc0ff",
+   "size": 3933
   },
   "moto/moto-app.js": {
    "sha256": "b1b6fa49f46df6f2a2e833a043d6824f0129a3e4bfb5fa5bc26b0b61c4ac58f2",
@@ -294,8 +294,8 @@
    "size": 1742
   },
   "operations/aflp-data.html": {
-   "sha256": "0f90fc1b55b6418c736bdf21ec4cf37912f0aa92e4f3f9c7e03d7e27f27ef597",
-   "size": 2177
+   "sha256": "b4535271438f06ba78476662206c861e74984f78241e9f095e60f6dbbb3d6b57",
+   "size": 2180
   },
   "operations/aflp-data.js": {
    "sha256": "41865de50c73e74fad8290c7f762c6c14e89e15bf7cd2c50841ec94062a9317b",
@@ -306,8 +306,8 @@
    "size": 8139
   },
   "operations/campaigns.html": {
-   "sha256": "c3683a3709c9104818346ed5b5f1ea08c24053e4974ea5c2c0dc6d12b99bd138",
-   "size": 1754
+   "sha256": "6e0bc5cadb56501453c91a0291088934fb1c6d0b50dcfc5f1af309d6408ca141",
+   "size": 1757
   },
   "operations/campaigns.js": {
    "sha256": "cacf4d8dabcc8c9d2839f8a894284bfb16557da1e4ebf0cabbc7dc71b162881b",
@@ -346,8 +346,8 @@
    "size": 7584
   },
   "operations/fbms-unified-nav-v22.js": {
-   "sha256": "24699d7fb13e6d39d3bb00455a1a037ca4553945e266186fe2d4b1b3f6c1a8d7",
-   "size": 13439
+   "sha256": "9a86e99be18a5c631c2ab92a273bb72eadffd5250aff2be31d771a6c090cac9e",
+   "size": 13541
   },
   "operations/fbms-v23-visual.css": {
    "sha256": "ce5357de08ab1ae591bae32aefedb8b5a3832cae8ba55858029a11683081a5b9",
@@ -374,12 +374,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "ca443549280e119d255131a1d4d1e7d73ce3ceac8ae7d28425b69b7379725d59",
-   "size": 4696
+   "sha256": "34ea2d310a051d00463b0666b4df14a16666b4185d009990c745a416c0f463b8",
+   "size": 5026
   },
   "operations/field-buying.js": {
-   "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
-   "size": 366709
+   "sha256": "99808c2395f21c0f4c2e027c268b74fb2a20443dcd6e647147803d82f3c32f5a",
+   "size": 367676
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -410,8 +410,8 @@
    "size": 12453
   },
   "operations/observatoire.js": {
-   "sha256": "e298bf3c709d1666175d84bc24c1d093540695ba2967ec11414ce6a24fcbdfcb",
-   "size": 136987
+   "sha256": "eb6dc0207ff176710506c46c15fa9868efae5c8a04f8bff8872524606ea1f5e3",
+   "size": 137115
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
@@ -426,8 +426,8 @@
    "size": 17464
   },
   "operations/parcelles.js": {
-   "sha256": "e49f696d32010ddb471df4dc4a6e0b75d6b487564b8e0d160c1edaa9b6e5cda2",
-   "size": 138936
+   "sha256": "d31ecbc6e1d192f8c7df0c124b6c9b46e6343e8b707829e130ea3133724d9b84",
+   "size": 139353
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -438,8 +438,8 @@
    "size": 5986
   },
   "operations/procurement.html": {
-   "sha256": "6ae518e5db25343a39d865a966aacba5b8b800446e6dac6a82ce63c961fec42d",
-   "size": 1976
+   "sha256": "90f6e918acde156a15e3e701c1bcd67e5a628a4847ba7a42578815ff245aba1c",
+   "size": 1979
   },
   "operations/procurement.js": {
    "sha256": "2e9cfe8e54363fb1eb02d8f24ede4c683e6895ad0678eb7b59c124a21d3cfb1c",
@@ -448,6 +448,14 @@
   "operations/ra-documents-lot3.js": {
    "sha256": "70068d53a9b320689d496c3827b907f6e31a8766405429c992764efeed9587b5",
    "size": 8027
+  },
+  "operations/reperes-gps.css": {
+   "sha256": "f11098f02a0c6696fafc2ef07cdbea63d8333bc36d7d4fe2b4eb9e66b34c7a95",
+   "size": 6778
+  },
+  "operations/reperes-gps.js": {
+   "sha256": "6c6c83cf6841a476969ad8419748b208e48cd12f8bab713c1168088874cddaf8",
+   "size": 56669
   },
   "operations/reports-cooperatives.js": {
    "sha256": "9d455306ea00597b037e3aeeb7bdd9aa22d5ad5fe80f9ddc7a633bad2f83c951",
@@ -458,8 +466,8 @@
    "size": 5329
   },
   "operations/reports.html": {
-   "sha256": "4c422540a15f3622ed208bc87ffb11481ebccf6a7142633aa9bfb95bda1d9fa2",
-   "size": 5717
+   "sha256": "4ce40310979e76536b0c4423ea729ed270957a248b362350ca182a6445f7fb78",
+   "size": 5720
   },
   "operations/rt-farmer-rights.js": {
    "sha256": "3d5311ddbf35738077eeaf9d9b8c38f3d309985eacc72a68963686628b71dfaf",
@@ -486,8 +494,8 @@
    "size": 12262
   },
   "operations/traceability.html": {
-   "sha256": "662a0dc5433332fd0c635f8e6b7f99b0d2a2b46f39f70c5105028f5e37d26473",
-   "size": 3391
+   "sha256": "53b935609d307185a752bedd6e05fccda7140aa7dc1de544d0e65eae951bdf68",
+   "size": 3394
   },
   "operations/warehouse-lot-origin.js": {
    "sha256": "19baa86dba65bad176cc61c38d1a706115967543cdcb3a4f2d749c08fe380888",
@@ -784,6 +792,14 @@
   "shared/pjs-theme.css": {
    "sha256": "2d25e026666ca40c9efd12174e1fbd4b01aac973d6d7c073694896ad78f23792",
    "size": 1895
+  },
+  "shared/reperes-gps-coeur.js": {
+   "sha256": "815eefd7bcdb6a69b5171389d8727cb2ddffa888c3b97fbea14928226898db5c",
+   "size": 10786
+  },
+  "shared/reperes-gps-hors-ligne.js": {
+   "sha256": "c239212e752ef3107b7d86a253a0e11eb196e056b8e5972fd134ca40f084dfd1",
+   "size": 18959
   },
   "shared/rt-sop-ledger.js": {
    "sha256": "f027eaf4923e5db81d8c27791505fbcbcdd7f904c3183e747c25d7a297f87f3b",
