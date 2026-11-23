@@ -141,3 +141,27 @@ Ce qui n'a **pas** été vérifié :
 - **Parcours connecté sur l'APK officielle** : elle ne parle qu'à la production, où aucun compte de test n'existe et où aucune donnée fictive ne doit être créée. Le scénario « données en attente avant l'OTA, conservées après » a donc été prouvé sur l'application pilote (natif 1.4.2 débogable, canal test, base de recette), pas sur le binaire officiel.
 - **Téléchargement interrompu / paquet refusé** : non rejoué pour cette livraison (mécanisme inchangé, prouvé les 25/10 et 21–22/11).
 - **Fond satellite** : la recette n'a pas d'imagerie configurée ; la carte a été vue sur fond neutre.
+
+## 10. Réception sur l'itel S688LN réel (23/11/2026, 22:25–22:45)
+
+Environnement : **appareil physique, modèle et version vérifiés** — itel S688LN, Android 15 (API 35), branché en USB (série `1537725595004689`).
+
+| Élément | Constat sur le téléphone |
+|---|---|
+| APK | `ci.anagroci.fieldbuying` 1.4.3 (code 10), SHA-256 `752fc324…be8e82` (identique à l'APK officielle), certificat affiché `1F:70:F6:9E…4F:1B:41` |
+| Installation | Installée le 22/11/2026 11:48, **non réinstallée** depuis : la nouvelle version est arrivée par OTA |
+| Version Web active | `2026.11.23-2147.58e61e8`, « mise à jour signée · n° 1795470423 », commit `58e61e848ff8` |
+| Canal et source | `stable`, `nwodobe.github.io` |
+| Mise à jour | « Dernière mise à jour réussie 23/11/2026 22:15 », « Statut : À jour », 186 fichiers mis à jour |
+| Files locales | Format inchangé (`anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1`) ; 0 opération en attente, 0 échec, 0 conflit |
+| Nouvel écran | Lien « Repères GPS » présent sur la fiche d'une parcelle ; la fiche du champ et le formulaire Latitude / Longitude s'affichent ; « Aucun repère en attente » |
+
+Preuves : `preuves-20261123/itel-01-version-et-mises-a-jour.png`, `itel-02-details-techniques.png` (sans donnée de producteur).
+
+Limites de ce constat :
+
+- **Aucune saisie n'a été enregistrée sur l'itel** : le téléphone parle à la production, et le mandat interdit d'y créer des données fictives. Le formulaire a été ouvert puis quitté sans rien taper.
+- L'itel s'est mis à jour à 22:15, **avant** d'être branché : l'état de ses données juste avant l'OTA n'a pas été observé. La conservation de données en attente pendant une OTA est prouvée sur l'émulateur (§5), pas sur ce téléphone.
+- Un tracé de contour en cours (gabarit de 4 points, non terminé) était ouvert à l'arrivée ; il a été fermé par « Fermer » sans être modifié.
+
+Statut après ce constat : **LIVRÉ AVEC VÉRIFICATION APPAREIL INCOMPLÈTE**, réduite au seul parcours de saisie réel sur le téléphone. Réception et activation : vérifiées sur appareil physique. Point de reprise : une saisie hors réseau sur l'itel par un agent, puis le contrôle du repère reçu dans `geo_reperes`.
