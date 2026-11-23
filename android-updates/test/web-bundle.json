@@ -2,23 +2,23 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795305910,
- "web_version": "2026.11.21-2340.fcccb00",
- "git_commit": "fcccb0053c8ed42d6495cb3fa72e3311cc71f36c",
- "bundle_label": "fcccb00",
- "published_at": "2026-11-22T00:05:10.703Z",
- "created_at": "2026-11-22T00:05:10.703Z",
+ "sequence": 1795469205,
+ "web_version": "2026.11.23-2126.6e1e0b7",
+ "git_commit": "6e1e0b7d8ffbf9ac6adfdfced64ec38b995251b6",
+ "bundle_label": "6e1e0b7",
+ "published_at": "2026-11-23T21:27:07.459Z",
+ "created_at": "2026-11-23T21:27:07.459Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Essai retour arrière série 3",
- "rollback_of": 1795304450,
+ "release_notes": "Pilote repères GPS · étape 1 : version AVANT (main 2e67cd9) sur base de recette",
+ "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
-  "latest_version_code": 9,
-  "latest_version_name": "1.4.2",
+  "latest_version_code": 10,
+  "latest_version_name": "1.4.3",
   "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
  },
- "supabase_compat": "20261120231000",
+ "supabase_compat": "20261122140100",
  "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
  "required_vendor": [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
@@ -377,8 +377,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "1adabbc41df2b12fa087c258a2574f1b721a8d85d60108ed271707ec4b3509db",
-   "size": 4665
+   "sha256": "ca443549280e119d255131a1d4d1e7d73ce3ceac8ae7d28425b69b7379725d59",
+   "size": 4696
   },
   "operations/field-buying.js": {
    "sha256": "3c4cb2d0ecc3fca5cc8313b77a2f7dc5a4402f13b043f72f5d5ef1a210dd7f7b",
@@ -409,12 +409,12 @@
    "size": 7856
   },
   "operations/observatoire.css": {
-   "sha256": "9d41ae2fcac9e5437ad220077b927cda92887fa1183108bbb97053aa0a782952",
-   "size": 10406
+   "sha256": "d79e6def0b858970a6743b5ae798b60286409c516929e903e5c608377755d39f",
+   "size": 12453
   },
   "operations/observatoire.js": {
-   "sha256": "3ad07413b6faee2e76e74fea4a4cb356ff792903faf05c708f2bdf5ec3887b3b",
-   "size": 113711
+   "sha256": "e298bf3c709d1666175d84bc24c1d093540695ba2967ec11414ce6a24fcbdfcb",
+   "size": 136987
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
@@ -429,8 +429,8 @@
    "size": 17464
   },
   "operations/parcelles.js": {
-   "sha256": "fe421309ef19225782129afa9f8f914c75634f205d2646e0d7a3af12ef58ec2b",
-   "size": 138911
+   "sha256": "e49f696d32010ddb471df4dc4a6e0b75d6b487564b8e0d160c1edaa9b6e5cda2",
+   "size": 138936
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -653,7 +653,7 @@
    "size": 20679
   },
   "shared/anagroci-config.js": {
-   "sha256": "155ca9d6a2c0c8590ec526ab65bc08ab8051fd738d26a21300a3a8cdee0b8b17",
+   "sha256": "18ef0a5c8ae83e999e5070d2198a18eaf28e1e0b12a7d7a358decea09320c0cd",
    "size": 6858
   },
   "shared/anagroci-sacherie-control-actions.js": {
@@ -681,7 +681,7 @@
    "size": 3702
   },
   "shared/auth-gate.js": {
-   "sha256": "c11fcea56b943f173a8e2ed1cc67d379a9966a704eea535d3f7222e77e84772b",
+   "sha256": "9116e9eed9dcf75489abb7f6130101eec91622748eedf99ad11078b58a6f9285",
    "size": 24898
   },
   "shared/auth-ui-patch.js": {
@@ -705,8 +705,8 @@
    "size": 2754
   },
   "shared/farmer-registry-operations.js": {
-   "sha256": "b07a7f4fecd6b266aba7dfd128cdeb0cb81327a586213bad4a20daf981793575",
-   "size": 39129
+   "sha256": "22fcbbb745c2ed3ce8983a83045dea070fc133a057b5e55b1843bc1cfa1e37c3",
+   "size": 42289
   },
   "shared/farmer-registry-passport.js": {
    "sha256": "bb7fb0012bf04d1167ef96a59691a06283efed883fa7b3c8bffb078afd2b5f7d",
@@ -749,12 +749,12 @@
    "size": 67063
   },
   "shared/observatoire-coeur.js": {
-   "sha256": "fd45561b34237f034700da4f52510e6402cc927f479930098911f48e1c80b9d4",
-   "size": 19839
+   "sha256": "cc7651d790ed18877a57fbea58c97ba707b8c1f23c4ced1bcc4fe746868d96ae",
+   "size": 25098
   },
   "shared/observatoire-hors-ligne.js": {
-   "sha256": "dcf11b2eed67b23b698ac31008bf97de4cd820dc1346f73e70eb77942e7c300c",
-   "size": 25460
+   "sha256": "a30a5e6702d0dddd0e37115e7eb7fbc8ced45a792e8cbaa943bb1a7bd628f1c3",
+   "size": 26433
   },
   "shared/offline-field.js": {
    "sha256": "4ae7689fa5b7a1ee676315eb34a4247f53a7c9c11c73a53733822b1df478b998",
