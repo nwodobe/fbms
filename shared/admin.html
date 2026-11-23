@@ -35,7 +35,20 @@
   .err{background:#fff1f1;border:1px solid #e7b7b0;color:#8f2d22}
   .warn{background:#fff8e8;border:1px solid #ead9a6;color:#8a6a12}
   .muted{color:var(--muted);font-size:12.5px;line-height:1.55}
-  @media(max-width:720px){.row{grid-template-columns:1fr}}
+  fieldset.mode{border:1px solid var(--line);border-radius:10px;margin:14px 0 0;padding:6px 12px 10px}
+  fieldset.mode legend{font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);padding:0 4px}
+  label.choix{display:flex;gap:8px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--ink);margin:8px 0}
+  label.choix input{width:auto;margin-top:2px}
+  .droits{margin-top:12px}
+  .droits:empty{display:none}
+  .droits .grille{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .droits h3{font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.4px}
+  .droits ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.5}
+  .droits .oui{background:var(--mist);border:1px solid #bfe3b6;border-radius:10px;padding:10px 12px}
+  .droits .non{background:#fff1f1;border:1px solid #e7b7b0;border-radius:10px;padding:10px 12px}
+  td details summary{cursor:pointer;font-size:12px;color:var(--emerald);font-weight:700;margin-top:4px}
+  td details .droits .grille{grid-template-columns:1fr}
+  @media(max-width:720px){.row,.droits .grille{grid-template-columns:1fr}}
 </style></head><body>
 
 <div class="top">
@@ -54,13 +67,24 @@
         <div><label for="nEmail">Email</label><input id="nEmail" type="email" maxlength="254" autocomplete="email" placeholder="awa@anagroci.ci"></div>
       </div>
       <div class="row">
-        <div><label for="nPass">Mot de passe provisoire</label><input id="nPass" type="password" autocomplete="new-password" maxlength="1024" placeholder="min. 8 caractères"><button type="button" id="togglePass" class="btn ghost sm" style="margin-top:6px" aria-controls="nPass" aria-pressed="false" onclick="afficherMotDePasse()">Afficher</button></div>
         <div><label for="nRole">Rôle</label><select id="nRole"></select></div>
+        <div><label for="nStatut">Statut</label><select id="nStatut"><option value="actif">Actif</option><option value="inactif">Inactif (accès créé mais bloqué)</option></select></div>
       </div>
       <div class="row">
+        <div><label for="nZone">Zone</label><select id="nZone"></select></div>
         <div><label for="nCluster">Cluster d'affectation</label><select id="nCluster"></select></div>
-        <div><p class="muted" id="nRoleNote" style="margin-top:30px"></p></div>
       </div>
+      <p class="muted" id="nRoleNote"></p>
+      <fieldset class="mode">
+        <legend>Remise de l'accès</legend>
+        <label class="choix"><input type="radio" name="nMode" value="lien" checked> Lien d'activation envoyé à l'adresse email (recommandé) : la personne choisit elle-même son mot de passe, que personne d'autre ne connaît.</label>
+        <label class="choix"><input type="radio" name="nMode" value="mdp"> Mot de passe provisoire saisi par vous (si l'email n'est pas consulté sur le terrain)</label>
+        <div id="zonePass" hidden>
+          <label for="nPass">Mot de passe provisoire</label><input id="nPass" type="password" autocomplete="new-password" maxlength="1024" placeholder="min. 8 caractères"><button type="button" id="togglePass" class="btn ghost sm" style="margin-top:6px" aria-controls="nPass" aria-pressed="false" onclick="afficherMotDePasse()">Afficher</button>
+          <p class="muted">Transmettez-le de vive voix ou par un canal séparé de l'email, jamais dans un groupe de messagerie. Il n'est ni enregistré ni journalisé par l'application.</p>
+        </div>
+      </fieldset>
+      <div id="nDroits" class="droits" aria-live="polite"></div>
       <p><button class="btn" id="btnCreate" onclick="createUser()">Créer l'accès</button></p>
       <div id="cMsg" class="alert" role="status"></div>
     </div>
@@ -89,8 +113,40 @@ const SUPABASE_ANON="sb_publishable_Gu5j0VV4ymP-I9t3JriQXg_VlTJqV2d";
 /* Référentiel des rôles : fourni par le SERVEUR (public.fbms_roles_attribuables,
    dérivé de la contrainte profils_role_check). Plus aucune liste locale : un
    libellé affiché ne peut plus diverger de la valeur acceptée par la base. */
-let ROLES=[], CLUSTERS=[];
+let ROLES=[], CLUSTERS=[], ZONES=[];
 const $=i=>document.getElementById(i);
+const RECOVERY_URL="https://nwodobe.github.io/fbms/shared/password-reset.html";
+/* Lecture compréhensible des droits. Pour l'Assistant Unit Head, chaque ligne
+   correspond à une règle VÉRIFIÉE CÔTÉ SERVEUR (migration
+   20261103120000_aflp_assistant_unit_head_acces.sql, banc
+   tests/sql/assistant-unit-head) : cet affichage n'accorde rien. */
+const DROITS={
+  "Assistant Unit Head":{
+    oui:["Consulter, créer et modifier les villages de SON cluster","Valider sur le terrain : village Brouillon / À corriger → Soumis",
+      "Enregistrer, corriger et enrôler les producteurs (Identifié → Enrôlé), parcelles et superficies",
+      "Enregistrer et modifier les RT ; confirmer un RT (Pressenti → Confirmé) qu'il n'a pas lui-même enregistré",
+      "Saisir les achats RCN de son cluster (toujours « À valider »), y compris hors ligne",
+      "Consulter avances, sacs, réconciliations, dépenses et tableaux de bord de son cluster",
+      "Signaler des anomalies dans son cluster ; demander des sacs (lecture Sacherie du cluster)"],
+    non:["Toute donnée d'un autre cluster (lecture comprise)","Validation hiérarchique : Approuvé BM, Rejeté, À corriger, RT Actif ou Écarté, producteur Actif ou Inactif",
+      "Valider un achat, engager ou modifier une avance, approuver une dépense ou un paiement",
+      "Supprimer un village, un producteur ou un RT","Créer ou modifier des comptes, changer son rôle ou son cluster",
+      "Mouvementer physiquement les emplacements Sacherie","AFLP FLEET : aucune affectation ni transfert de moto"]
+  }
+};
+
+function droitsHTML(role){
+  const d=DROITS[role], r=roleDe(role);
+  if(d) return '<div class="grille"><div class="oui"><h3>Autorisé (son cluster)</h3><ul>'+d.oui.map(x=>'<li>'+esc(x)+'</li>').join("")+
+    '</ul></div><div class="non"><h3>Refusé par le serveur</h3><ul>'+d.non.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div></div>';
+  return r&&r.note?'<p class="muted">'+esc(r.note)+'</p>':"";
+}
+/* Secret jetable pour le mode « lien d'activation » : jamais affiché, jamais
+   stocké ; la personne le remplace via le lien reçu par email. */
+function secretJetable(){
+  const b=new Uint8Array(24); crypto.getRandomValues(b);
+  return btoa(String.fromCharCode.apply(null,b)).replace(/[+/=]/g,"")+"Aa9!";
+}
 let SB, ME=null;
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -120,33 +176,49 @@ function optionsRoles(courant){
   if(courant&&!roleDe(courant)) h='<option selected disabled>'+esc(courant)+' (inconnu du serveur)</option>'+h;
   return h;
 }
-function optionsClusters(courant){
+function optionsClusters(courant,zone){
   const norm=x=>String(x||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   const c=CLUSTERS.find(k=>norm(k.code)===norm(courant)||norm(k.label)===norm(courant));
-  return '<option value="">— aucun —</option>'+CLUSTERS.map(k=>'<option value="'+esc(k.code)+'"'+(c&&c.code===k.code?' selected':'')+'>'+esc(k.label)+'</option>').join("")
+  const liste=zone?CLUSTERS.filter(k=>k.zone_code===zone||(c&&c.code===k.code)):CLUSTERS;
+  return '<option value="">— aucun —</option>'+liste.map(k=>'<option value="'+esc(k.code)+'"'+(c&&c.code===k.code?' selected':'')+'>'+esc(k.label)+'</option>').join("")
     +(courant&&!c?'<option selected value="'+esc(courant)+'">'+esc(courant)+' (inconnu)</option>':'');
 }
+function optionsZones(courant){
+  return '<option value="">— toutes —</option>'+ZONES.map(z=>'<option value="'+esc(z.code)+'"'+(z.code===courant?' selected':'')+'>'+esc(z.label)+'</option>').join("");
+}
+function zoneDuCluster(code){const k=CLUSTERS.find(c=>c.code===code);return k?k.zone_code:"";}
+function libelleZone(code){const z=ZONES.find(x=>x.code===code);return z?z.label:(code||"");}
 function noteRole(v){const r=roleDe(v);return r?(r.note||"")+(r.cluster_requis?" Cluster obligatoire.":""):"";}
 
 document.addEventListener("anagroci:authenticated",async function(e){
   ME=e.detail.profile;
   SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
-  const [r,c]=await Promise.all([SB.rpc("fbms_roles_attribuables"),SB.from("aflp_clusters").select("code,label,active").order("label")]);
+  const [r,c,z]=await Promise.all([SB.rpc("fbms_roles_attribuables"),
+    SB.from("aflp_clusters").select("code,label,active,zone_code").order("label"),
+    SB.from("aflp_zones").select("code,label").order("code")]);
   if(r.error){msg($("uMsg"),"Référentiel des rôles indisponible : "+humain(r.error)+" (migration serveur 20260918b non appliquée ?)","err",r.error.message);ROLES=[];}
   else ROLES=r.data||[];
   CLUSTERS=(c.data||[]).filter(k=>k.active!==false);
+  /* Référentiel des zones : table aflp_zones ; à défaut, déduit des clusters. */
+  ZONES=(z.data&&z.data.length?z.data:[...new Set(CLUSTERS.map(k=>k.zone_code).filter(Boolean))].map(code=>({code,label:code.replace(/_/g," ")})));
   $("nRole").innerHTML=optionsRoles(null);
   const defaut=ROLES.find(x=>x.valeur==="Consultation uniquement")||ROLES.find(x=>x.attribuable);
   if(defaut)$("nRole").value=defaut.valeur;
-  $("nCluster").innerHTML=optionsClusters(null);
-  const sync=()=>{$("nRoleNote").textContent=noteRole($("nRole").value);};
+  $("nZone").innerHTML=optionsZones("");
+  $("nCluster").innerHTML=optionsClusters(null,"");
+  const sync=()=>{const v=$("nRole").value;$("nRoleNote").textContent=noteRole(v);$("nDroits").innerHTML=droitsHTML(v);};
   $("nRole").addEventListener("change",sync); sync();
+  /* Zone et cluster restent cohérents : le cluster impose sa zone ; la zone
+     filtre les clusters proposés. Le serveur déduit lui-même la zone. */
+  $("nZone").addEventListener("change",()=>{const cl=$("nCluster").value;$("nCluster").innerHTML=optionsClusters(cl&&zoneDuCluster(cl)===$("nZone").value?cl:null,$("nZone").value);});
+  $("nCluster").addEventListener("change",()=>{const zc=zoneDuCluster($("nCluster").value);if(zc&&$("nZone").value!==zc){$("nZone").value=zc;$("nCluster").innerHTML=optionsClusters($("nCluster").value||null,zc);}});
+  document.querySelectorAll('input[name="nMode"]').forEach(e=>e.addEventListener("change",()=>{$("zonePass").hidden=modeAcces()!=="mdp";}));
   loadProfils();
 });
 
 async function loadProfils(){
   const box=$("rows");
-  const r=await SB.from("profils").select("user_id,nom,email,role,actif,cluster,authority_level").order("nom");
+  const r=await SB.from("profils").select("user_id,nom,email,role,actif,cluster,zone,authority_level").order("nom");
   if(r.error){box.innerHTML='<tr><td colspan="6" class="muted">'+esc(humain(r.error))+'</td></tr>';return;}
   const rows=r.data||[];
   if(!rows.length){box.innerHTML='<tr><td colspan="6" class="muted">Aucun compte.</td></tr>';return;}
@@ -158,11 +230,13 @@ async function loadProfils(){
     const manque=ro&&ro.cluster_requis&&!p.cluster&&p.authority_level!=="GLOBAL"
       ?'<div class="badge off" style="margin-top:4px">Affectation manquante : aucune action physique possible</div>':'';
     const glob=p.authority_level==="GLOBAL"&&ro&&ro.cluster_requis?'<div class="badge on" style="margin-top:4px">Portée globale explicite</div>':'';
+    const zon=p.cluster&&(p.zone||zoneDuCluster(p.cluster))?'<div class="muted" style="margin-top:4px">Zone : '+esc(libelleZone(p.zone||zoneDuCluster(p.cluster)))+'</div>':'';
+    const det=DROITS[p.role]?'<details><summary>Détail des droits</summary><div class="droits">'+droitsHTML(p.role)+'</div></details>':'';
     const stat=p.actif?'<span class="badge on">Actif</span>':'<span class="badge off">Désactivé</span>';
     const actions=self?'<span class="muted">— vous —</span>':
       '<button class="btn sm" onclick="enregistrer(\''+uid+'\')">Enregistrer</button> '+
       '<button class="btn sm '+(p.actif?'danger':'')+'" onclick="setActif(\''+uid+'\','+(!p.actif)+')">'+(p.actif?'Désactiver':'Activer')+'</button>';
-    return '<tr><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+'</td><td>'+clSel+manque+glob+'</td><td>'+stat+'</td><td>'+actions+'</td></tr>';
+    return '<tr data-cluster="'+esc(p.cluster||"")+'"><td><b>'+esc(p.nom||"")+'</b></td><td>'+esc(p.email||"—")+'</td><td>'+roleSel+det+'</td><td>'+clSel+zon+manque+glob+'</td><td>'+stat+'</td><td>'+actions+'</td></tr>';
   }).join("");
 }
 
@@ -179,9 +253,14 @@ async function ecrire(uid,patch,ok){
 }
 function enregistrer(uid){
   const role=$("r_"+uid).value, cluster=$("c_"+uid).value||null, ro=roleDe(role);
+  if(role==="Assistant Unit Head"&&!cluster)
+    return msg($("uMsg"),"Un Assistant Unit Head doit être affecté à un cluster (un seul).","err");
   if(ro&&ro.cluster_requis&&!cluster){
     if(!confirm("Ce rôle exige un cluster. Sans cluster, le compte ne pourra réaliser aucune action physique. Enregistrer quand même ?")) return;
   }
+  const ligne=$("c_"+uid).closest("tr"), avant=ligne?ligne.getAttribute("data-cluster"):"";
+  if(avant&&cluster&&avant!==cluster&&!confirm("Changer l'affectation de "+avant+" vers "+cluster+" ?\nL'accès à l'ancien cluster cesse immédiatement côté serveur. L'ancienne et la nouvelle affectation sont conservées dans le journal des habilitations."))
+    return;
   ecrire(uid,{role,cluster},"Rôle et affectation enregistrés (changement journalisé).");
 }
 function setActif(uid,actif){ ecrire(uid,{actif},actif?"Compte activé.":"Compte désactivé : toutes ses actions sont refusées par le serveur."); }
@@ -212,12 +291,15 @@ function afficherMotDePasse(){
   champ.type=visible?"text":"password";bouton.textContent=visible?"Masquer":"Afficher";
   bouton.setAttribute("aria-pressed",String(visible));
 }
+function modeAcces(){const e=document.querySelector('input[name="nMode"]:checked');return e?e.value:"lien";}
 async function createUser(){
   if(creationEnCours)return;
   const btn=$("btnCreate"),m=$("cMsg");hide(m);
+  const mode=modeAcces(), inactif=$("nStatut").value==="inactif";
   const nom=$("nNom").value.trim(),email=$("nEmail").value.trim().toLowerCase(),
-    pass=$("nPass").value,role=$("nRole").value,cluster=$("nCluster").value||null,ro=roleDe(role);
-  if(!nom||!email||!$("nEmail").checkValidity()||pass.length<8)return msg(m,"Nom, email valide et mot de passe (8+ caract\u00e8res) requis.","err");
+    pass=mode==="lien"?secretJetable():$("nPass").value,role=$("nRole").value,cluster=$("nCluster").value||null,ro=roleDe(role);
+  if(!nom||!email||!$("nEmail").checkValidity()||pass.length<8)return msg(m,mode==="lien"?"Nom et email valide requis.":"Nom, email valide et mot de passe (8+ caract\u00e8res) requis.","err");
+  if(cluster&&$("nZone").value&&zoneDuCluster(cluster)!==$("nZone").value)return msg(m,"Le cluster choisi n'appartient pas \u00e0 la zone s\u00e9lectionn\u00e9e.","err");
   if(!SB||!ME||ME.actif!==true||ME.role!=="Branch Manager")return msg(m,MESSAGES_CREATION.ACCES_REFUSE,"err");
   if(!ro||ro.attribuable!==true)return msg(m,MESSAGES_CREATION.ROLE_NON_ATTRIBUABLE,"err");
   if(ro.cluster_requis&&!cluster)return msg(m,MESSAGES_CREATION.CLUSTER_REQUIS,"err");
@@ -256,7 +338,18 @@ async function createUser(){
        out.email!==email||out.role!==role||(out.cluster||null)!==cluster){
       return msg(m,MESSAGES_CREATION.CREATION_INCERTAINE,"err",technique+" / REPONSE_INCOMPLETE");
     }
-    msg(m,"Acc\u00e8s cr\u00e9\u00e9 pour "+nom+". Profil enregistr\u00e9. R\u00f4le : "+ro.libelle+". Affectation : "+(cluster||"aucun cluster requis")+".","ok",reference?"R\u00e9f. "+reference:null);
+    let suite="";
+    /* Statut \u00ab inactif \u00bb : le serveur cr\u00e9e toujours un profil actif ; on le
+       d\u00e9sactive aussit\u00f4t, avec la session du BM (garde + journal serveur). */
+    if(inactif){
+      const d=await SB.from("profils").update({actif:false}).eq("user_id",out.user_id).select("user_id");
+      suite+=(d.error||!d.data||!d.data.length)?" ATTENTION : la d\u00e9sactivation a \u00e9chou\u00e9, d\u00e9sactivez le compte dans la liste.":" Compte cr\u00e9\u00e9 d\u00e9sactiv\u00e9.";
+    }
+    if(mode==="lien"){
+      const l=await SB.auth.resetPasswordForEmail(email,{redirectTo:RECOVERY_URL});
+      suite+=l.error?" Le lien d'activation n'a pas pu \u00eatre envoy\u00e9 : utilisez \u00ab Mot de passe oubli\u00e9 \u00bb depuis l'\u00e9cran de connexion.":" Lien d'activation envoy\u00e9 \u00e0 "+email+".";
+    }
+    msg(m,"Acc\u00e8s cr\u00e9\u00e9 pour "+nom+". Profil enregistr\u00e9. R\u00f4le : "+ro.libelle+". Affectation : "+(cluster?cluster+" ("+libelleZone(zoneDuCluster(cluster))+")":"aucun cluster requis")+"."+suite,"ok",reference?"R\u00e9f. "+reference:null);
     $("nNom").value="";$("nEmail").value="";$("nPass").value="";$("nPass").type="password";
     $("togglePass").textContent="Afficher";$("togglePass").setAttribute("aria-pressed","false");
     // Un echec du rafraichissement de liste ne transforme pas une creation reussie en echec.

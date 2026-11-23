@@ -56,6 +56,8 @@ async def main():
                     await page.evaluate('(c)=>window.__cas=c',cas)
                     await page.fill('#nNom','Agent fictif')
                     await page.fill('#nEmail','agent@example.invalid')
+                    # Depuis le 03/11/2026 le mode par defaut est le lien d'activation : ce test couvre le mode mot de passe.
+                    await page.check('input[name="nMode"][value="mdp"]')
                     await page.fill('#nPass','Mot-Fictif-123!')
                     await page.select_option('#nRole','Unit Head' if cas=='cluster-requis' else 'Zonal Head')
                     if cas=='masque':
