@@ -19,6 +19,8 @@ Date : 24 novembre 2026. Base inspectée : `a52bc440015c48df977b19512a142d66adf3
 | Diff Git | **Conforme** | Pas d'erreur d'espacement, aucun fichier de politique, base métier ou code natif modifié |
 | Inclusion OTA et analyse statique du runtime | **Aucune alerte de l'analyse existante** | Les trois nouveaux fichiers `shared/cartes-hors-ligne*` sont inclus ; aucun fichier de `cartes-hors-ligne/` n'entre dans le bundle |
 | CORS du site existant | **HTTP 200, `Access-Control-Allow-Origin: *`** | Contrôle HEAD de l'image publique existante `icon-192.png` ; ne prouve pas la publication du nouveau catalogue |
+| Architecture métier Operations Suite | **Conforme après actualisation des attentes de cache** | Le contrôle a détecté des tests figés sur les anciennes versions des scripts Observatoire et Parcelles. Les trois tests concernés attendent désormais les versions exactes chargées ; leurs assertions métier sont conservées. |
+| Consentement GPS, parcours existant | **10 / 10** | Enregistrement explicite, absence de présomption, refus/retrait, version de cache et provenance Esri conservés |
 
 ### Scénarios de stockage simulés
 
@@ -55,6 +57,8 @@ Le répertoire `FBMS_TEST_MODULES` doit contenir `fake-indexeddb@6.2.4`. Cette d
 | Gratuité de l'exploitation à l'échelle des missions | **NON DÉMONTRÉE.** Pilote préparé sans dépense ; capacité restante, trafic et adéquation de l'hébergement existant à confirmer. |
 
 Ces portes restent bloquantes même si les tests Node sont verts. Le navigateur de bureau ne remplacera pas la [recette Android](RECETTE_ANDROID.md). Une nouvelle APK de développement ne remplace pas le binaire déjà distribué.
+
+Le contrôle GitHub « Éligibilité à la correction automatique » refuse les modifications HTML/JS métier selon les listes du dépôt. Cette PR porte le label `human-review` et reste en brouillon ; aucune liste, règle, exigence ou valeur de référence n'a été modifiée pour contourner cette revue. Les résultats des autres contrôles GitHub sont visibles dans la PR.
 
 ## Reprise sans recommencer le développement
 

@@ -44,6 +44,14 @@
       "pages": 40,
       "casses_nouveaux": 0,
       "casses_historiques": 4
+    },
+    "consentement_gps_statique": {
+      "reussis": 10,
+      "echecs": 0
+    },
+    "operations_suite_statique": {
+      "resultat": "reussi",
+      "attentes_versions_cache": "actualisées exactement, assertions métier conservées"
     }
   },
   "non_executes": [
@@ -140,6 +148,23 @@
     "tests/cartes-hors-ligne/valider-paquet.py": {
       "sha256": "cc7119d145ec90f2afe08fad925d7b902085ebd9c3ddfe84f28a4e02df7d3d78",
       "octets": 5479
+    },
+    "tests/observatoire/selection-12-static.mjs": {
+      "sha256": "b9305a5429509d449bf38d969238bc27dd754b0025e67b779b24c84a21ca8186",
+      "octets": 2719
+    },
+    "tests/observatoire/codes-suivi-a001-a012.mjs": {
+      "sha256": "52e7a1e223cca16dbaa2bf6eff92c8ae8ccb8fbe356304a9508fa64ef2a3c638",
+      "octets": 7214
+    },
+    "tests/cartographie/consentement-gps-parcours.mjs": {
+      "sha256": "5c932df4b02c5a9d411a33c37910fffb5c5fc32b1201777b5e598c0403c25045",
+      "octets": 4318
     }
+  },
+  "revue_humaine": {
+    "label": "human-review",
+    "requise": true,
+    "politique_modifiee": false
   }
 }
