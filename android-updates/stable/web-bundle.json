@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795530552,
- "web_version": "2026.11.24-1429.626d545",
- "git_commit": "626d5450b1764fb9d19cc312ff962660d49c4ca0",
- "bundle_label": "626d545",
- "published_at": "2026-11-24T14:30:30.358Z",
- "created_at": "2026-11-24T14:30:30.358Z",
+ "sequence": 1795559069,
+ "web_version": "2026.11.24-2224.7c810c4",
+ "git_commit": "7c810c483f8fbd746ec35e07b54ebec70795a966",
+ "bundle_label": "7c810c4",
+ "published_at": "2026-11-24T22:25:10.852Z",
+ "created_at": "2026-11-24T22:25:10.852Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Réseau : Nouveau village / Nouveau RT accessibles, recherche transversale, carte des villages hors ligne (PR #384)",
+ "release_notes": "Réseau (itel) : carte sous l'en-tête, marge sous la pastille de version (PR #386)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,7 +374,7 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "1e548935d7eda60e4b248e461cf3c418efde5aefa1cccdd121e0bbe2c0425912",
+   "sha256": "eb6be8c2c7f0e72c3e7aa57ac2a8ab9e617e57ff7bdf8e5139af789b567c64ac",
    "size": 5308
   },
   "operations/field-buying.js": {
@@ -414,8 +414,8 @@
    "size": 137512
   },
   "operations/operations-v2.css": {
-   "sha256": "d6ae2860e19a9498313f3d63de98a1c412f165ef3b01c7dcfa62935d4ee9030d",
-   "size": 26528
+   "sha256": "5acfa297024b54abb1e5d5f1d3580adfd0052cca794fdd5c5c87fbaa246e4882",
+   "size": 27082
   },
   "operations/operations.css": {
    "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
