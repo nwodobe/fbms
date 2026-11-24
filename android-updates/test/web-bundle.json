@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795501640,
- "web_version": "2026.11.24-0627.18e392b",
- "git_commit": "18e392b1b5020a999a4721dd338edf9d9c4df7a7",
- "bundle_label": "18e392b",
- "published_at": "2026-11-24T06:44:24.057Z",
- "created_at": "2026-11-24T06:44:24.057Z",
+ "sequence": 1795503108,
+ "web_version": "2026.11.24-0651.1ff3103",
+ "git_commit": "1ff3103914196036dbae4615399eec2393cad7e0",
+ "bundle_label": "1ff3103",
+ "published_at": "2026-11-24T06:51:55.580Z",
+ "created_at": "2026-11-24T06:51:55.580Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Recette cartes hors ligne : candidate 058ef88, base et cartes de recette",
+ "release_notes": "Recette cartes hors ligne : OTA suivante (conservation des cartes)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -705,8 +705,8 @@
    "size": 2817
   },
   "shared/cartes-hors-ligne.js": {
-   "sha256": "f1bd1529408ff1e8c3f67b29075f0636bf1387a8a3fadb435530eda52df346a7",
-   "size": 34371
+   "sha256": "5032c81b5716d8faea61347fe3b7e03fedfcc7c243da6d819bace3d48ba185b7",
+   "size": 34433
   },
   "shared/farmer-enrollment-phase1.js": {
    "sha256": "8db3d65d6dd9fec0221599d13f97953fb58c88d9a578579687e87c4c8f504516",
