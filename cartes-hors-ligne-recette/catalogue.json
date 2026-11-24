@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "zones": [
+    {
+      "id": "bouake-pilote-sentinel2",
+      "name": "Bouaké • zone pilote publique",
+      "version": "2026-02-20",
+      "manifest": "bouake-pilote-sentinel2/2026-02-20/manifest.json",
+      "manifestSha256": "48791b18e5caf1aa2f440d27fd718838fcb91d114bb08347baeb217471ec9bec",
+      "bounds": [
+        -5.06,
+        7.67,
+        -5.04,
+        7.69
+      ],
+      "minZoom": 12,
+      "maxZoom": 14,
+      "totalBytes": 184144,
+      "resolutionMetres": 10,
+      "acquiredAt": "2026-02-20T10:59:00.073000Z"
+    },
+    {
+      "id": "recette-image-corrompue",
+      "name": "RECETTE • image volontairement corrompue",
+      "version": "2026-02-20",
+      "manifest": "recette-image-corrompue/2026-02-20/manifest.json",
+      "manifestSha256": "f11f48d393eb79e4e3b72a3867a66aa168c685aacd3ba0fad984727415c225ed",
+      "bounds": [
+        -5.06,
+        7.67,
+        -5.04,
+        7.69
+      ],
+      "minZoom": 12,
+      "maxZoom": 14,
+      "totalBytes": 184144,
+      "resolutionMetres": 10,
+      "acquiredAt": "2026-02-20T10:59:00.073000Z"
+    }
+  ]
+}

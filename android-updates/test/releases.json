@@ -699,7 +699,7 @@
    "web_version": "2026.11.23-2126.0a01929",
    "git_commit": "0a0192989ae06d8c3ba38b07100b6f290987e2a4",
    "published_at": "2026-11-23T21:32:16.251Z",
-   "status": "published",
+   "status": "superseded",
    "update_policy": "recommended",
    "min_native_version_code": 3,
    "native": {
@@ -746,6 +746,63 @@
      "at": "2026-11-23T21:32:16.531Z",
      "step": "signature",
      "detail": "manifeste 1795469206 signé et revérifié (215 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1795501640,
+   "web_version": "2026.11.24-0627.18e392b",
+   "git_commit": "18e392b1b5020a999a4721dd338edf9d9c4df7a7",
+   "published_at": "2026-11-24T06:44:24.057Z",
+   "status": "published",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 10,
+    "latest_version_name": "1.4.3",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261123100100",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [
+    1795302886,
+    1795304452
+   ],
+   "files": 218,
+   "objects_written": 7,
+   "steps": [
+    {
+     "at": "2026-11-24T06:44:17.137Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-11-24T06:44:23.704Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-11-24T06:44:23.840Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-11-24T06:44:23.918Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-11-24T06:44:24.056Z",
+     "step": "objets",
+     "detail": "7 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-11-24T06:44:24.159Z",
+     "step": "signature",
+     "detail": "manifeste 1795501640 signé et revérifié (218 fichiers)"
     }
    ]
   }
