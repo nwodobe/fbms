@@ -195,6 +195,8 @@ try {
     let notice = await page.locator('#chlCarte .chl-couverture').innerText();
     verdict('D' + t.width + ' aperçu à ' + t.width + '×' + t.height + ' : image Sentinel-2 réellement peinte, attribution et résolution affichées',
       /Copernicus Sentinel/.test(attribution) && /Satellite téléchargé/.test(tt) && /10 m\/pixel/.test(notice + tt), notice.replace(/\s+/g, ' '));
+    verdict('D' + t.width + '-empilement la carte garde ses couches dans son propre contexte (elle ne recouvre pas le bandeau au défilement)',
+      (await page.evaluate(() => getComputedStyle(document.getElementById('chlCarte')).isolation)) === 'isolate');
     await page.screenshot({ path: path.join(captures, '05-apercu-satellite-' + t.width + '.png'), fullPage: true });
     if (t.width === 390) {
       for (let i = 0; i < 4; i++) await page.locator('#chlCarte .leaflet-control-zoom-out').click();
