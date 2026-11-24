@@ -576,13 +576,86 @@ figure pas n'a pas été fait.
 | 2026-08-15 | CI — « Structure, liens et syntaxe » | **PASS** |
 | 2026-08-15 | CI — « Exécution des pages, console et accessibilité » | **PASS** (2 min 29 s) |
 | 2026-08-15 | CI — « Éligibilité à la correction automatique » | **FAIL, attendu** : 8 fichiers en liste d'interdiction ⇒ revue humaine obligatoire. C'est la politique qui fonctionne, pas un défaut |
-| 2026-08-15 | Fusion sur `main` | **NON** — pousser sur `main` est interdit à un agent |
-| 2026-08-15 | Migration appliquée sur Supabase | **NON** — interdit à un agent |
-| 2026-08-15 | Smoke production | **NON** — exige la fusion préalable |
+| 2026-08-15 18:11 | **Fusion sur `main` par le Branch Manager** | Commit `b22d723`, squash |
+| 2026-08-15 18:11 | **Publication GitHub Pages** | `pages build and deployment` — **succès**, 29 s |
+| 2026-08-15 18:12 | Smoke production (workflow du dépôt) | **16/18**, identique au relevé d'avant fusion |
+| 2026-08-15 | **Migration appliquée sur Supabase** | `jmbdgpdthzpszfnddwzi`, PostgreSQL 17.6 |
+| 2026-08-15 | Contrôles structurels sur la base réelle | **15/15 CONFORME** |
+| 2026-08-15 | Politiques RLS jouées rôle par rôle, transaction annulée | **8/8 CONFORME** |
+| 2026-08-15 | Advisors Security et Performance | **0 alerte imputable à ce lot** |
 | 2026-08-15 | Couche linguistique | **Livrée désactivée**, aucun fournisseur configuré |
+
+### La migration a été appliquée — et ce qu'elle a révélé
+
+Sur instruction expresse du Branch Manager, propriétaire du projet.
+`agent-policy.yml` interdit ce geste à un agent ; la levée est consignée dans
+l'en-tête du fichier SQL, pour qu'elle ne se perde pas dans un fil de
+conversation.
+
+**Trois défauts que le banc PGlite ne pouvait pas voir**, tous corrigés dans le
+fichier de migration lui-même :
+
+1. la **vue** `aflp_ia_metriques` naissait avec tous les droits pour `anon` —
+   `alter default privileges … on tables` s'applique aussi aux vues, et le banc
+   ne regardait que les tables ;
+2. les quatre fonctions de déclencheur de `public` n'avaient pas de
+   `search_path` figé — quatre alertes d'advisor ;
+3. les politiques réévaluaient `auth.uid()` **à chaque ligne** — huit alertes
+   `auth_rls_initplan`, sans conséquence mesurable sur des tables vides, mais
+   réelle sur un journal destiné à grossir.
+
+Trois contrôles ont été ajoutés au banc PGlite, qui passe désormais à **46/46**.
+
+**Vérifié sur la base réelle, rôle par rôle, dans une transaction annulée :**
+`anon` refusé en lecture · un profil actif journalise pour lui · journaliser au
+nom d'un autre refusé · rejeu de la même clé d'idempotence refusé · réécrire une
+question refusée par le déclencheur · un profil hors supervision voit **0**
+question du Branch Manager · un non-BM ne peut pas retirer une version ·
+modifier une version publiée refusé. **Rien n'a été laissé en base.**
+
+### Vérification de la production, après publication
+
+| Contrôle | Comment | Résultat |
+|---|---|---|
+| Les 8 fichiers du lot sont servis | `fetch` sur `nwodobe.github.io/fbms` | **200 partout** |
+| Aucun secret dans les fichiers livrés | 5 motifs recherchés dans le code servi | **aucun** |
+| `command.html` charge les 4 nouveaux modules | lecture du HTML servi | **oui**, plus le lien d'administration |
+| Requêtes en échec sur `command.html` | Chromium sur l'URL réelle | **0**, dont **0** imputable à ce lot |
+| Erreurs de console | idem | **0** |
+| Version du moteur déployé | exécution du JS téléchargé | moteur 1.0.0 · catalogue 1.0.0 · **30 intentions · 188 formulations** |
+| Couche linguistique | `AFLP_IA_LANGUE.etat()` sur le code servi | **désactivée**, `activee() === false` |
+| Les 5 questions de contrôle | posées au moteur **réellement déployé**, sur le jeu d'essai | **5/5 conformes** |
+| Le refus sur les personnes ne glisse aucun chiffre | idem | **conforme** |
+
+Les 5 questions ont été posées au code téléchargé depuis la production, avec le
+jeu d'essai du dépôt. **Cela prouve que le code déployé est le bon et qu'il
+répond ce qu'il doit répondre.** Cela ne remplace pas la vérification connectée,
+sur les données réelles : elle appartient au Branch Manager (§13).
+
+Le smoke test conserve son unique défaut, **antérieur à ce lot** :
+`HTTP 404 https://nwodobe.github.io/shared/anagroci-audit.js` — un chemin absolu
+qui oublie le préfixe `/fbms/`, sur `index.html`, page que ce lot ne touche pas.
 
 ### Statut final du lot
 
-**`PRÊT À DÉPLOYER`** — tout ce qu'un agent pouvait faire l'a été et est vérifié.
-La mise en ligne demande deux gestes humains : appliquer la migration (§11.1) et
-fusionner la pull request (§3.2 du document de déploiement).
+**`DÉPLOYÉ SANS LLM`** — le frontend est en ligne et vérifié, la base est
+migrée et vérifiée, la boucle d'apprentissage est ouverte. La couche
+linguistique est livrée **désactivée**, aucun fournisseur n'étant configuré :
+c'est un choix, pas un manque.
+
+L'assistant **répond** mieux et **enregistre** désormais ce qu'il comprend.
+Les mesures se rempliront au fil des questions réelles ; l'exactitude, elle,
+restera « à établir » jusqu'à la première revue humaine — et c'est délibéré.
+
+### Ce qui ne peut pas être vérifié sans être connecté
+
+Le Command Center est derrière le portail d'authentification. Les cinq
+questions de contrôle ont été posées **au code téléchargé depuis la
+production**, sur le jeu d'essai du dépôt : cela prouve que le bon code est
+déployé et qu'il répond correctement, **pas** ce qu'il répondra sur les données
+réelles (125 équipes RT, 76 villages au 15/08). Cette vérification-là appartient
+au Branch Manager, connecté — voir §13.
+
+Restent également hors de portée d'ici : le test sur un téléphone réel, et le
+branchement des bancs dans l'intégration continue (§11.2), qui demande une
+ligne dans un fichier interdit aux agents.
