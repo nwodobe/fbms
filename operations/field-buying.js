@@ -2438,6 +2438,143 @@ function rtClusterResolver(c) {
   };
 }
 
+var rtTab = 'recherche';
+var rtFilter = { cluster: '', statut: '', q: '' };
+
+var RT_LIST_TABS = ['recherche', 'villages', 'rts', 'assign', 'anomalies'];
+function renderRt(sub, fichTab) {
+  /* #rt/villages … = vues de gestion ; #rt/<id> = fiche RT 360°. */
+  if (sub && RT_LIST_TABS.indexOf(sub) < 0) return renderRtFiche(sub, fichTab);
+  if (sub) rtTab = sub;
+  paint(head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
+    censusActions()) + createHost() + skeletonPage(4));
+
+  return base().then(function (c) {
+    var d = derive(c);
+    function tabs() {
+      return '<div class="ops-actions rt-onglets" style="margin-bottom:14px">' +
+        [['recherche', 'Rechercher'], ['villages', 'Villages'], ['rts', 'RT'], ['assign', 'Producteurs par RT'], ['anomalies', 'Anomalies']].map(function (t) {
+          return '<a class="btn ' + (rtTab === t[0] ? 'primary' : 'secondary') + '" href="#rt/' + t[0] + '"' + (rtTab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + '</a>';
+        }).join('') + '</div>';
+    }
+    var clusterOf = rtClusterResolver(c);
+    rtFilter.cluster = clusterOf(rtFilter.cluster);
+    function inCluster(row) { return !rtFilter.cluster || clusterOf(row) === rtFilter.cluster; }
+    var clusterOpts = selOptions(c.clusters.map(function (x) { return [clusterOf(x.code), x.label]; }), rtFilter.cluster);
+    var html = head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
+      censusActions()) + createHost() + tabs() +
+      (rtTab === 'recherche' ? '' :
+      '<section class="card"><div class="card-head"><div><h2>Filtres</h2></div></div><div class="ops-form-grid">' +
+      field('Recherche', '<input id="rtQ" type="search" value="' + esc(rtFilter.q) + '" placeholder="Nom, code, village, téléphone…">') +
+      field('Cluster', '<select id="rtCluster"><option value="">Tous</option>' + clusterOpts + '</select>') +
+      '</div></section>') + '<div id="rtBody"></div>';
+    paint(html);
+
+    /* Même tolérance que la recherche transversale (accents, apostrophes, espaces). */
+    function match(txt) {
+      if (!rtFilter.q) return true;
+      if (normPhone(rtFilter.q).length >= 4 && normPhone(txt).indexOf(normPhone(rtFilter.q)) >= 0) return true;
+      return rsCorrespond(txt, rtFilter.q, false);
+    }
+    function draw() {
+      var body = document.getElementById('rtBody'), out = '';
+      if (rtTab === 'recherche') { drawRecherche(body, c, clusterOf); return; }
+      if (rtTab === 'villages') {
+        var list = c.villages.filter(function (v) {
+          return inCluster(v) && match(v.village + ' ' + (v.cluster || '') + ' ' + (v.farmer_code_prefix || ''));
+        });
+        out = '<section class="card">' + table(
+          ['Village', 'Cluster', 'Région', 'Statut', 'RT', 'Producteurs', 'Potentiel', 'Acheté', 'GPS'],
+          list.map(function (v) {
+            var s3 = (v.data && v.data.s3) || {};
+            return '<tr><td>' + villageLink(v) + '</td><td>' + esc(v.cluster || '—') + '</td>' +
+              '<td>' + esc(v.region || '—') + '</td><td>' + badge(v.statut) + '</td>' +
+              '<td>' + (d.rtByVillage[v.id] || []).map(function (r) { return esc(r.nom); }).join(', ') + '</td>' +
+              '<td>' + (d.farmersByVillage[v.id] || 0) + '</td>' +
+              '<td>' + (s3.potentielMT != null ? num(s3.potentielMT, 1) + ' MT' : '—') + '</td>' +
+              '<td>' + mt(d.byVillageBuy[v.id] || 0) + '</td>' +
+              '<td>' + (v.gps_lat != null ? badge('GPS') : '—') + '</td></tr>';
+          })) + '</section>';
+      } else if (rtTab === 'rts') {
+        var list2 = c.rts.filter(function (r) {
+          return inCluster(r) && match(r.nom + ' ' + (r.id_rt || '') + ' ' + (r.village_nom || '') + ' ' + (r.telephone || ''));
+        });
+        out = '<section class="card">' + table(
+          ['RT ID', 'Nom', 'Téléphone', 'Village', 'Cluster', 'Activité', 'Statut', 'Producteurs', 'Achats', 'Dernière activité', ''],
+          list2.map(function (r) {
+            var act = (r.data && r.data.activite) || '—';
+            var isProd = /producteur/i.test(String(act)) || (r.data && r.data.estProducteur === 'OUI');
+            var vv = c.vm[r.village_id];
+            return '<tr><td class="mono">' + esc(r.id_rt || '—') + '</td><td>' + rtLink(r) + '</td>' +
+              '<td>' + esc(r.telephone || '—') + '</td><td>' + (vv ? villageLink(vv) : esc(r.village_nom || '—')) + '</td>' +
+              '<td>' + esc(r.cluster || '—') + '</td><td>' + esc(act) + '</td><td>' + badge(r.statut) + '</td>' +
+              '<td>' + (d.farmersByRt[r.id] || 0) + '</td><td>' + mt(d.byRtBuy[r.id] || 0) + '</td>' +
+              '<td>' + date(d.lastRtBuy[r.id]) + '</td>' +
+              '<td>' + (isProd ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">Enrôler comme producteur</button>' : '') + '</td></tr>';
+          })) + '</section>';
+      } else if (rtTab === 'assign') {
+        var rows = c.rts.filter(function (r) { return inCluster(r) && match(r.nom + ' ' + (r.village_nom || '') + ' ' + (r.telephone || '')); })
+          .map(function (r) {
+            var mine = c.farmers.filter(function (f) { return f.rt_id === r.id; });
+            return '<tr><td><b>' + esc(r.nom) + '</b><br><span class="muted">' + esc(r.village_nom || '—') + '</span></td>' +
+              '<td>' + mine.length + '</td><td>' + mine.slice(0, 6).map(function (f) {
+                return '<a href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' + esc(f.farmer_id || f.nom) + '</a>';
+              }).join(' · ') + (mine.length > 6 ? ' · …' : '') + '</td></tr>';
+          });
+        out = '<section class="card">' + table(['RT', 'Producteurs', 'Rattachés'], rows) + '</section>';
+      } else {
+        var an = [];
+        c.villages.filter(function (v) { return inCluster(v) && match(v.village + ' ' + (v.cluster || '')); }).forEach(function (v) {
+          if (!(d.rtByVillage[v.id] || []).length) an.push(['Village sans RT', v.village, '#rt/villages', 'danger']);
+        });
+        c.rts.filter(function (r) { return inCluster(r) && match(r.nom + ' ' + (r.village_nom || '') + ' ' + (r.telephone || '')); }).forEach(function (r) {
+          if (!r.village_id) an.push(['RT sans village', r.nom, '#rt/rts', 'danger']);
+          var last = d.lastRtBuy[r.id];
+          if (!last || daysSince(last) > 14) an.push(['RT sans activité récente', r.nom + ' · ' + (r.village_nom || '—'), '#rt/rts', 'warn']);
+        });
+        c.farmers.filter(function (f) { return inCluster(f) && match((f.farmer_id || '') + ' ' + (f.nom || '') + ' ' + (f.prenoms || '') + ' ' + (f.village_nom || '') + ' ' + (f.telephone || '')); }).forEach(function (f) {
+          if (f.possible_duplicate) an.push(['Doublon producteur possible', (f.farmer_id || '') + ' · ' + f.nom, '#farmers/' + encodeURIComponent(f.producteur_id), 'warn']);
+        });
+        out = '<section class="card">' + table(['Anomalie', 'Objet', ''], an.map(function (a) {
+          return '<tr><td>' + badge(a[0]) + '</td><td>' + esc(a[1]) + '</td>' +
+            '<td><a class="btn secondary" href="' + a[2] + '">Ouvrir</a></td></tr>';
+        })) + '</section>';
+      }
+      body.innerHTML = out;
+    }
+    if (rtTab !== 'recherche') {
+      document.getElementById('rtQ').addEventListener('input', function () { rtFilter.q = this.value; draw(); });
+      document.getElementById('rtCluster').addEventListener('change', function () { rtFilter.cluster = clusterOf(this.value); draw(); });
+    }
+    draw();
+  });
+}
+
+/* Pont RT → Producteur : préremplit le Farmer Registry depuis la fiche RT. */
+function rtToFarmer(rtId) {
+  base().then(function (c) {
+    var r = c.rm[rtId];
+    if (!r) return;
+    /* Même règle que shared/rt-to-producer.js : si la personne existe déjà
+       (même RT source, ou même village + même téléphone + même nom), on OUVRE
+       sa fiche au lieu de recréer une deuxième personne. */
+    var t = normPhone(r.telephone), k = normName(r.nom);
+    var existing = c.farmers.filter(function (f) {
+      var fd = null;
+      return (f.village_id === r.village_id && t && t.length >= 8 && normPhone(f.telephone) === t && normName(f.nom + ' ' + (f.prenoms || '')) === k);
+    })[0];
+    if (existing) {
+      location.hash = '#farmers/' + encodeURIComponent(existing.producteur_id);
+      return;
+    }
+    location.hash = '#farmers';
+    setTimeout(function () {
+      openFarmerForm({ nom: r.nom, telephone: r.telephone, village_id: r.village_id, rt_id: r.id,
+        sourceRtId: r.id, id_rt: r.id_rt, activite: (r.data && r.data.activite) || '' });
+    }, 250);
+  });
+}
+
 /* ===================== Réseau : recherche transversale (24/11/2026) =====================
    Une seule zone de recherche pour les clusters, villages, RT et producteurs, avec des
    filtres combinables. Règles :
@@ -2683,143 +2820,6 @@ function drawRecherche(body, c, clusterOf) {
     });
   });
   resultats();
-}
-
-var rtTab = 'recherche';
-var rtFilter = { cluster: '', statut: '', q: '' };
-
-var RT_LIST_TABS = ['recherche', 'villages', 'rts', 'assign', 'anomalies'];
-function renderRt(sub, fichTab) {
-  /* #rt/villages … = vues de gestion ; #rt/<id> = fiche RT 360°. */
-  if (sub && RT_LIST_TABS.indexOf(sub) < 0) return renderRtFiche(sub, fichTab);
-  if (sub) rtTab = sub;
-  paint(head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
-    censusActions()) + createHost() + skeletonPage(4));
-
-  return base().then(function (c) {
-    var d = derive(c);
-    function tabs() {
-      return '<div class="ops-actions rt-onglets" style="margin-bottom:14px">' +
-        [['recherche', 'Rechercher'], ['villages', 'Villages'], ['rts', 'RT'], ['assign', 'Producteurs par RT'], ['anomalies', 'Anomalies']].map(function (t) {
-          return '<a class="btn ' + (rtTab === t[0] ? 'primary' : 'secondary') + '" href="#rt/' + t[0] + '"' + (rtTab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + '</a>';
-        }).join('') + '</div>';
-    }
-    var clusterOf = rtClusterResolver(c);
-    rtFilter.cluster = clusterOf(rtFilter.cluster);
-    function inCluster(row) { return !rtFilter.cluster || clusterOf(row) === rtFilter.cluster; }
-    var clusterOpts = selOptions(c.clusters.map(function (x) { return [clusterOf(x.code), x.label]; }), rtFilter.cluster);
-    var html = head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
-      censusActions()) + createHost() + tabs() +
-      (rtTab === 'recherche' ? '' :
-      '<section class="card"><div class="card-head"><div><h2>Filtres</h2></div></div><div class="ops-form-grid">' +
-      field('Recherche', '<input id="rtQ" type="search" value="' + esc(rtFilter.q) + '" placeholder="Nom, code, village, téléphone…">') +
-      field('Cluster', '<select id="rtCluster"><option value="">Tous</option>' + clusterOpts + '</select>') +
-      '</div></section>') + '<div id="rtBody"></div>';
-    paint(html);
-
-    /* Même tolérance que la recherche transversale (accents, apostrophes, espaces). */
-    function match(txt) {
-      if (!rtFilter.q) return true;
-      if (normPhone(rtFilter.q).length >= 4 && normPhone(txt).indexOf(normPhone(rtFilter.q)) >= 0) return true;
-      return rsCorrespond(txt, rtFilter.q, false);
-    }
-    function draw() {
-      var body = document.getElementById('rtBody'), out = '';
-      if (rtTab === 'recherche') { drawRecherche(body, c, clusterOf); return; }
-      if (rtTab === 'villages') {
-        var list = c.villages.filter(function (v) {
-          return inCluster(v) && match(v.village + ' ' + (v.cluster || '') + ' ' + (v.farmer_code_prefix || ''));
-        });
-        out = '<section class="card">' + table(
-          ['Village', 'Cluster', 'Région', 'Statut', 'RT', 'Producteurs', 'Potentiel', 'Acheté', 'GPS'],
-          list.map(function (v) {
-            var s3 = (v.data && v.data.s3) || {};
-            return '<tr><td>' + villageLink(v) + '</td><td>' + esc(v.cluster || '—') + '</td>' +
-              '<td>' + esc(v.region || '—') + '</td><td>' + badge(v.statut) + '</td>' +
-              '<td>' + (d.rtByVillage[v.id] || []).map(function (r) { return esc(r.nom); }).join(', ') + '</td>' +
-              '<td>' + (d.farmersByVillage[v.id] || 0) + '</td>' +
-              '<td>' + (s3.potentielMT != null ? num(s3.potentielMT, 1) + ' MT' : '—') + '</td>' +
-              '<td>' + mt(d.byVillageBuy[v.id] || 0) + '</td>' +
-              '<td>' + (v.gps_lat != null ? badge('GPS') : '—') + '</td></tr>';
-          })) + '</section>';
-      } else if (rtTab === 'rts') {
-        var list2 = c.rts.filter(function (r) {
-          return inCluster(r) && match(r.nom + ' ' + (r.id_rt || '') + ' ' + (r.village_nom || '') + ' ' + (r.telephone || ''));
-        });
-        out = '<section class="card">' + table(
-          ['RT ID', 'Nom', 'Téléphone', 'Village', 'Cluster', 'Activité', 'Statut', 'Producteurs', 'Achats', 'Dernière activité', ''],
-          list2.map(function (r) {
-            var act = (r.data && r.data.activite) || '—';
-            var isProd = /producteur/i.test(String(act)) || (r.data && r.data.estProducteur === 'OUI');
-            var vv = c.vm[r.village_id];
-            return '<tr><td class="mono">' + esc(r.id_rt || '—') + '</td><td>' + rtLink(r) + '</td>' +
-              '<td>' + esc(r.telephone || '—') + '</td><td>' + (vv ? villageLink(vv) : esc(r.village_nom || '—')) + '</td>' +
-              '<td>' + esc(r.cluster || '—') + '</td><td>' + esc(act) + '</td><td>' + badge(r.statut) + '</td>' +
-              '<td>' + (d.farmersByRt[r.id] || 0) + '</td><td>' + mt(d.byRtBuy[r.id] || 0) + '</td>' +
-              '<td>' + date(d.lastRtBuy[r.id]) + '</td>' +
-              '<td>' + (isProd ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.rtToFarmer(\'' + esc(r.id) + '\')">Enrôler comme producteur</button>' : '') + '</td></tr>';
-          })) + '</section>';
-      } else if (rtTab === 'assign') {
-        var rows = c.rts.filter(function (r) { return inCluster(r) && match(r.nom + ' ' + (r.village_nom || '') + ' ' + (r.telephone || '')); })
-          .map(function (r) {
-            var mine = c.farmers.filter(function (f) { return f.rt_id === r.id; });
-            return '<tr><td><b>' + esc(r.nom) + '</b><br><span class="muted">' + esc(r.village_nom || '—') + '</span></td>' +
-              '<td>' + mine.length + '</td><td>' + mine.slice(0, 6).map(function (f) {
-                return '<a href="#farmers/' + encodeURIComponent(f.producteur_id) + '">' + esc(f.farmer_id || f.nom) + '</a>';
-              }).join(' · ') + (mine.length > 6 ? ' · …' : '') + '</td></tr>';
-          });
-        out = '<section class="card">' + table(['RT', 'Producteurs', 'Rattachés'], rows) + '</section>';
-      } else {
-        var an = [];
-        c.villages.filter(function (v) { return inCluster(v) && match(v.village + ' ' + (v.cluster || '')); }).forEach(function (v) {
-          if (!(d.rtByVillage[v.id] || []).length) an.push(['Village sans RT', v.village, '#rt/villages', 'danger']);
-        });
-        c.rts.filter(function (r) { return inCluster(r) && match(r.nom + ' ' + (r.village_nom || '') + ' ' + (r.telephone || '')); }).forEach(function (r) {
-          if (!r.village_id) an.push(['RT sans village', r.nom, '#rt/rts', 'danger']);
-          var last = d.lastRtBuy[r.id];
-          if (!last || daysSince(last) > 14) an.push(['RT sans activité récente', r.nom + ' · ' + (r.village_nom || '—'), '#rt/rts', 'warn']);
-        });
-        c.farmers.filter(function (f) { return inCluster(f) && match((f.farmer_id || '') + ' ' + (f.nom || '') + ' ' + (f.prenoms || '') + ' ' + (f.village_nom || '') + ' ' + (f.telephone || '')); }).forEach(function (f) {
-          if (f.possible_duplicate) an.push(['Doublon producteur possible', (f.farmer_id || '') + ' · ' + f.nom, '#farmers/' + encodeURIComponent(f.producteur_id), 'warn']);
-        });
-        out = '<section class="card">' + table(['Anomalie', 'Objet', ''], an.map(function (a) {
-          return '<tr><td>' + badge(a[0]) + '</td><td>' + esc(a[1]) + '</td>' +
-            '<td><a class="btn secondary" href="' + a[2] + '">Ouvrir</a></td></tr>';
-        })) + '</section>';
-      }
-      body.innerHTML = out;
-    }
-    if (rtTab !== 'recherche') {
-      document.getElementById('rtQ').addEventListener('input', function () { rtFilter.q = this.value; draw(); });
-      document.getElementById('rtCluster').addEventListener('change', function () { rtFilter.cluster = clusterOf(this.value); draw(); });
-    }
-    draw();
-  });
-}
-
-/* Pont RT → Producteur : préremplit le Farmer Registry depuis la fiche RT. */
-function rtToFarmer(rtId) {
-  base().then(function (c) {
-    var r = c.rm[rtId];
-    if (!r) return;
-    /* Même règle que shared/rt-to-producer.js : si la personne existe déjà
-       (même RT source, ou même village + même téléphone + même nom), on OUVRE
-       sa fiche au lieu de recréer une deuxième personne. */
-    var t = normPhone(r.telephone), k = normName(r.nom);
-    var existing = c.farmers.filter(function (f) {
-      var fd = null;
-      return (f.village_id === r.village_id && t && t.length >= 8 && normPhone(f.telephone) === t && normName(f.nom + ' ' + (f.prenoms || '')) === k);
-    })[0];
-    if (existing) {
-      location.hash = '#farmers/' + encodeURIComponent(existing.producteur_id);
-      return;
-    }
-    location.hash = '#farmers';
-    setTimeout(function () {
-      openFarmerForm({ nom: r.nom, telephone: r.telephone, village_id: r.village_id, rt_id: r.id,
-        sourceRtId: r.id, id_rt: r.id_rt, activite: (r.data && r.data.activite) || '' });
-    }, 250);
-  });
 }
 
 /* --------------------------------------------------------------- Achat Bord Champ */
