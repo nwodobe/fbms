@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795504227,
- "web_version": "2026.11.24-0710.9fc6276",
- "git_commit": "9fc62767de9a9236c1cba1139620a8821968ac70",
- "bundle_label": "9fc6276",
- "published_at": "2026-11-24T07:11:40.096Z",
- "created_at": "2026-11-24T07:11:40.096Z",
+ "sequence": 1795513145,
+ "web_version": "2026.11.24-0939.b9d50e8",
+ "git_commit": "b9d50e871851640b8fc9e652d00af620e96afcac",
+ "bundle_label": "b9d50e8",
+ "published_at": "2026-11-24T09:39:26.826Z",
+ "created_at": "2026-11-24T09:39:26.826Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Cartes satellite hors ligne (PR #379) : zones préparées téléchargeables, fond local pour Parcelles et Repères GPS",
+ "release_notes": "Cartes hors ligne : l'aperçu ne recouvre plus le bandeau (PR #381)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,7 +374,7 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "308f2b2827c1a748d1c35920b3d5df344063e6be03e497fd73295aa9baf9a122",
+   "sha256": "04f41289cf80fdc706c3dfac813c8cd887860fe2bda42855421fd38b203f2c31",
    "size": 5325
   },
   "operations/field-buying.js": {
@@ -698,8 +698,8 @@
    "size": 9152
   },
   "shared/cartes-hors-ligne.css": {
-   "sha256": "bd9e7f121ae8e5d98ef464ab7059e2969e12b6211a8160df078a843b8a890a0d",
-   "size": 2817
+   "sha256": "53f276309ccb9a33ff90b58d604c3e1b8216516a7a66d568f2f38a01fa106910",
+   "size": 3079
   },
   "shared/cartes-hors-ligne.js": {
    "sha256": "d17de25d4a720fb16cbf3da48e41b21a6302e36da901ed76ab8f5dc26ecc4855",
