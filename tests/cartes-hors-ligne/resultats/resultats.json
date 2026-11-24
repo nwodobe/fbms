@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-24T06:26:02.471Z",
+  "date": "2026-11-24T07:32:56.509Z",
   "navigateur": "Chromium (Playwright) chromium-1148",
   "systeme": "win32 10.0.26200",
   "tailles": [
@@ -68,6 +68,11 @@
       "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
     },
     {
+      "nom": "D390-empilement la carte garde ses couches dans son propre contexte (elle ne recouvre pas le bandeau au défilement)",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "nom": "D-limite hors de l'emprise : la carte annonce que le fond n'est pas téléchargé en dehors du cadre vert",
       "ok": true,
       "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
@@ -78,9 +83,19 @@
       "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
     },
     {
+      "nom": "D768-empilement la carte garde ses couches dans son propre contexte (elle ne recouvre pas le bandeau au défilement)",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "nom": "D1440 aperçu à 1440×900 : image Sentinel-2 réellement peinte, attribution et résolution affichées",
       "ok": true,
       "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
+    },
+    {
+      "nom": "D1440-empilement la carte garde ses couches dans son propre contexte (elle ne recouvre pas le bandeau au défilement)",
+      "ok": true,
+      "detail": ""
     },
     {
       "nom": "E1 sans réseau après relance du navigateur : catalogue et carte retrouvés sur le disque",

@@ -21,7 +21,9 @@
 .chl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .chl progress { width: 100%; height: 16px; accent-color: #317143; }
 .chl-erreur { color: #942d20; }
-.chl-carte { width: 100%; height: clamp(280px, 58vh, 520px); background: #e3e7e2; border: 1px solid #b6c5b8; border-radius: 10px; }
+/* Contexte d'empilement propre : sans lui, les couches de Leaflet passaient par-dessus le bandeau
+   de l'application au défilement (constaté sur l'itel S688LN le 24/11/2026). Même règle que .pc-carte. */
+.chl-carte { position: relative; z-index: 0; isolation: isolate; width: 100%; height: clamp(280px, 58vh, 520px); background: #e3e7e2; border: 1px solid #b6c5b8; border-radius: 10px; }
 .chl-couverture { max-width: min(280px, 70vw); padding: 7px 9px; background: #ffffffed; color: #254534; font: 12px/1.4 sans-serif; border: 1px solid #c1d0c2; border-radius: 6px; box-shadow: 0 1px 4px #0002; }
 .chl-aide summary { min-height: 44px; padding: 10px 0; font-weight: 700; cursor: pointer; }
 .chl-aide li { margin: 8px 0; line-height: 1.5; }
