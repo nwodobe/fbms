@@ -1,0 +1,137 @@
+{
+  "date": "2026-11-24T06:26:02.471Z",
+  "navigateur": "Chromium (Playwright) chromium-1148",
+  "systeme": "win32 10.0.26200",
+  "tailles": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "resultats": [
+    {
+      "nom": "A1 sans compte : téléchargement refusé, aucune image demandée",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "B390 gestionnaire ouvert à 390×844 : zone, date, résolution, emprise et volume lisibles, sans débordement",
+      "ok": true,
+      "detail": "débordement 0 px"
+    },
+    {
+      "nom": "B768 gestionnaire ouvert à 768×1024 : zone, date, résolution, emprise et volume lisibles, sans débordement",
+      "ok": true,
+      "detail": "débordement 0 px"
+    },
+    {
+      "nom": "B1440 gestionnaire ouvert à 1440×900 : zone, date, résolution, emprise et volume lisibles, sans débordement",
+      "ok": true,
+      "detail": "débordement 0 px"
+    },
+    {
+      "nom": "C1 interruption : état « Interrompu », images vérifiées conservées, carte non déclarée disponible",
+      "ok": true,
+      "detail": "2 / 7 images"
+    },
+    {
+      "nom": "C2 reprise après fermeture du navigateur : avancement retrouvé sur disque, seules les images manquantes sont redemandées",
+      "ok": true,
+      "detail": "2 images retrouvées · 5 image(s) redemandée(s)"
+    },
+    {
+      "nom": "C3 image corrompue pendant le transport : refusée, carte « Incomplet », jamais activée",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "C4 téléchargement complet : « Disponible hors ligne » après contrôle des 7 images, sans afficher la carte",
+      "ok": true,
+      "detail": "1 image(s) demandée(s) à cette reprise"
+    },
+    {
+      "nom": "C5 volume écrit égal au volume annoncé",
+      "ok": true,
+      "detail": "184144 octets, 7 images · stockage persistant accordé : false"
+    },
+    {
+      "nom": "D390 aperçu à 390×844 : image Sentinel-2 réellement peinte, attribution et résolution affichées",
+      "ok": true,
+      "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
+    },
+    {
+      "nom": "D-limite hors de l'emprise : la carte annonce que le fond n'est pas téléchargé en dehors du cadre vert",
+      "ok": true,
+      "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
+    },
+    {
+      "nom": "D768 aperçu à 768×1024 : image Sentinel-2 réellement peinte, attribution et résolution affichées",
+      "ok": true,
+      "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
+    },
+    {
+      "nom": "D1440 aperçu à 1440×900 : image Sentinel-2 réellement peinte, attribution et résolution affichées",
+      "ok": true,
+      "detail": "Fond de carte non téléchargé pour cette zone, en dehors du cadre vert."
+    },
+    {
+      "nom": "E1 sans réseau après relance du navigateur : catalogue et carte retrouvés sur le disque",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "E2 sans réseau : les 7 images des zooms 12, 13 et 14 sont décodées et peintes depuis le stockage local, y compris celles jamais affichées",
+      "ok": true,
+      "detail": "7 attendues · 0 manquante(s) · 0 requête(s) réseau"
+    },
+    {
+      "nom": "E3 sans réseau : parcelle et arbres fictifs affichés à leurs coordonnées sur le fond satellite local ; les objets sans position restent signalés",
+      "ok": true,
+      "detail": "3 repères · fond peint : true"
+    },
+    {
+      "nom": "E4 saisie GPS manuelle sans réseau : retrouvée en attente après fermeture et relance du navigateur",
+      "ok": true,
+      "detail": "file : 1 opération"
+    },
+    {
+      "nom": "F1 espace insuffisant : téléchargement refusé avant toute image, ancienne carte et données terrain intactes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "nom": "F2 mise à jour coupée au milieu : l'ancienne version reste active et utilisable",
+      "ok": true,
+      "detail": "active : 2026-02-20 · 2 versions sur disque"
+    },
+    {
+      "nom": "F3 reprise de la mise à jour : bascule sur la nouvelle version seulement après contrôle complet",
+      "ok": true,
+      "detail": "active : banc-v2"
+    },
+    {
+      "nom": "F4 suppression : toutes les versions de la carte retirées, repères et file en attente identiques avant / après",
+      "ok": true,
+      "detail": "0 image(s) restante(s)"
+    },
+    {
+      "nom": "G1 retour du réseau : le repère saisi hors ligne est reçu une seule fois malgré trois synchronisations",
+      "ok": true,
+      "detail": "1 ligne serveur · 1 appel(s)"
+    },
+    {
+      "nom": "Z aucune erreur de console pendant tous les parcours",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "echecs": 0
+}

@@ -326,7 +326,8 @@
     var couche = new Couche({ tileSize: 256, minZoom: 0, maxZoom: 21, minNativeZoom: m.minZoom, maxNativeZoom: m.maxZoom,
       bounds: [[m.bounds[1], m.bounds[0]], [m.bounds[3], m.bounds[2]]], noWrap: true, keepBuffer: 0,
       updateWhenIdle: true, attribution: esc(m.source.attribution) });
-    var notice = L.control({ position: 'bottomleft' });
+    /* En haut à droite : en bas, l'attribution obligatoire la recouvrait sur un écran de téléphone (constaté à 390 px). */
+    var notice = L.control({ position: 'topright' });
     notice.onAdd = function () { var d = L.DomUtil.create('div', 'chl-couverture'); d.setAttribute('role', 'status'); this._texte = d; return d; };
     function couverture() {
       if (!notice._texte || retirée) return;
