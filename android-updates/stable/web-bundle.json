@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "stable",
- "sequence": 1795470423,
- "web_version": "2026.11.23-2147.58e61e8",
- "git_commit": "58e61e848ff8494a088636c0d71f193160874dc9",
- "bundle_label": "58e61e8",
- "published_at": "2026-11-23T21:47:56.969Z",
- "created_at": "2026-11-23T21:47:56.969Z",
+ "sequence": 1795504227,
+ "web_version": "2026.11.24-0710.9fc6276",
+ "git_commit": "9fc62767de9a9236c1cba1139620a8821968ac70",
+ "bundle_label": "9fc6276",
+ "published_at": "2026-11-24T07:11:40.096Z",
+ "created_at": "2026-11-24T07:11:40.096Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Repères GPS : saisie manuelle et capture des coordonnées d'une parcelle, d'un bloc ou d'un arbre, hors réseau (PR #374)",
+ "release_notes": "Cartes satellite hors ligne (PR #379) : zones préparées téléchargeables, fond local pour Parcelles et Repères GPS",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -374,8 +374,8 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "34ea2d310a051d00463b0666b4df14a16666b4185d009990c745a416c0f463b8",
-   "size": 5026
+   "sha256": "308f2b2827c1a748d1c35920b3d5df344063e6be03e497fd73295aa9baf9a122",
+   "size": 5325
   },
   "operations/field-buying.js": {
    "sha256": "99808c2395f21c0f4c2e027c268b74fb2a20443dcd6e647147803d82f3c32f5a",
@@ -410,8 +410,8 @@
    "size": 12453
   },
   "operations/observatoire.js": {
-   "sha256": "eb6dc0207ff176710506c46c15fa9868efae5c8a04f8bff8872524606ea1f5e3",
-   "size": 137115
+   "sha256": "15e29181ecb8ddd31cb0f29c9535453746acd917046db3d2f2f95342294267fb",
+   "size": 137512
   },
   "operations/operations-v2.css": {
    "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
@@ -426,8 +426,8 @@
    "size": 17464
   },
   "operations/parcelles.js": {
-   "sha256": "d31ecbc6e1d192f8c7df0c124b6c9b46e6343e8b707829e130ea3133724d9b84",
-   "size": 139353
+   "sha256": "4aef64a3f72f8d89e6281ab5e4517914e3cccd9b17cb7718f3f0c59e99c06184",
+   "size": 145488
   },
   "operations/pjs-export.js": {
    "sha256": "3bfba74f7ce5501d585c1253cb158e81e3867087046f16299dc58b0138fbca76",
@@ -454,8 +454,8 @@
    "size": 6778
   },
   "operations/reperes-gps.js": {
-   "sha256": "6c6c83cf6841a476969ad8419748b208e48cd12f8bab713c1168088874cddaf8",
-   "size": 56669
+   "sha256": "32a5387a76fb91fc087db8720420c454e151376077702ce2aaacbef8287238b1",
+   "size": 59676
   },
   "operations/reports-cooperatives.js": {
    "sha256": "9d455306ea00597b037e3aeeb7bdd9aa22d5ad5fe80f9ddc7a633bad2f83c951",
@@ -692,6 +692,18 @@
   "shared/auth-ui-patch.js": {
    "sha256": "ee4516d82e167eff204fc19934d47430929b0016d13cb12d6826daf6a17cf734",
    "size": 4378
+  },
+  "shared/cartes-hors-ligne-coeur.js": {
+   "sha256": "c0352bb303e3b467c17715c6fe445cd66f90c07562ec53171616a846cae516c1",
+   "size": 9152
+  },
+  "shared/cartes-hors-ligne.css": {
+   "sha256": "bd9e7f121ae8e5d98ef464ab7059e2969e12b6211a8160df078a843b8a890a0d",
+   "size": 2817
+  },
+  "shared/cartes-hors-ligne.js": {
+   "sha256": "d17de25d4a720fb16cbf3da48e41b21a6302e36da901ed76ab8f5dc26ecc4855",
+   "size": 34326
   },
   "shared/farmer-enrollment-phase1.js": {
    "sha256": "8db3d65d6dd9fec0221599d13f97953fb58c88d9a578579687e87c4c8f504516",
