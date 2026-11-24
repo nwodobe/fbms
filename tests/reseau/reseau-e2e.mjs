@@ -200,6 +200,9 @@ try {
       return { m: !!m, avantKpi: !!(m && k && m.getBoundingClientRect().top < k.getBoundingClientRect().top), pts: document.querySelectorAll('#fbMap [data-village]').length };
     });
     verifier(carte.m && carte.avantKpi && carte.pts > 10, `carte des villages : affichée en tête, ${carte.pts} éléments de village`);
+    /* Recouvrement carte / en-tête constaté sur l'itel (WebView) : non reproductible dans Chromium
+       de bureau, donc vérifié sur l'appareil et non ici. */
+    verifier(await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.ops-main')).paddingBottom) >= 70), 'marge basse : le dernier bouton peut défiler au-dessus de la pastille de version');
     await page.fill('#fbCarteQ', 'nguessankro'); await page.waitForTimeout(400);
     await page.click('.fb-carte-hit'); await page.waitForTimeout(800);
     verifier(/N'GUESSANKRO FICTIF/.test(await page.evaluate(() => (document.querySelector('.leaflet-popup-content') || {}).textContent || '')), 'carte : « Trouver un village » centre la carte et ouvre sa bulle');

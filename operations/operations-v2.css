@@ -283,3 +283,10 @@ details.ops-camp[open]>summary{background:rgba(255,255,255,.14)}
 .fb-carte-hit{width:100%;text-align:left;min-height:44px}
 @media(max-width:520px){.rs-puce{flex:1 1 auto}.rs-selects{grid-template-columns:1fr}}
 @media(max-width:520px){.ops-actions.rt-onglets .btn{flex:1 1 calc(50% - 8px);min-height:44px;padding:8px 10px}}
+/* Réseau 24/11/2026 (itel S688LN) : les calques Leaflet (z-index 400 à 1000) passaient
+   par-dessus la barre d'en-tête au défilement. La carte devient son propre contexte
+   d'empilement : ses calques restent dessous. Marge basse : la pastille de version
+   dessinée par l'APK (pont natif, coin bas gauche) ne doit plus masquer le dernier
+   bouton d'une page — on peut toujours le faire défiler au-dessus d'elle. */
+.ops-map{position:relative;z-index:0;isolation:isolate}
+.ops-main{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
