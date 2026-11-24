@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-24",
+  "statut": "PARTIEL_AVEC_BLOCAGE",
+  "base_commit": "a52bc440015c48df977b19512a142d66adf36d87",
+  "publication_production": false,
+  "ota_signee": false,
+  "apk_executee": false,
+  "itel_reception_verifiee": false,
+  "tests": {
+    "contrats": {
+      "reussis": 30,
+      "echecs": 0
+    },
+    "stockage_simule_node": {
+      "reussis": 11,
+      "echecs": 0,
+      "support": "fake-indexeddb@6.2.4 ; disque et transport simulés ; dimensions ImageBitmap simulées"
+    },
+    "gps_existant": {
+      "reussis": 14,
+      "echecs": 0
+    },
+    "cartographie_existante": {
+      "reussis": 42,
+      "echecs": 0
+    },
+    "pilote_pixels_reels": {
+      "tuiles": 7,
+      "octets": 184144,
+      "resultat": "reussi",
+      "outil": "GDAL 3.10.3"
+    },
+    "syntaxe": {
+      "fichiers": 140,
+      "erreurs_nouvelles": 0,
+      "erreurs_historiques": 1
+    },
+    "html": {
+      "pages": 40,
+      "ecarts_nouveaux": 0,
+      "ecarts_historiques": 3
+    },
+    "liens": {
+      "pages": 40,
+      "casses_nouveaux": 0,
+      "casses_historiques": 4
+    }
+  },
+  "non_executes": [
+    "navigateur_390x844_768x1024_1440x900",
+    "rendu_Leaflet_ImageBitmap",
+    "apk_officielle_mode_avion_redemarrage",
+    "synchronisation_serveur_et_ancien_client",
+    "OTA_et_persistance_apres_OTA_suivante",
+    "reception_ITEL"
+  ],
+  "blocages": [
+    "Chromium local : socket() failed: Operation not permitted",
+    "Chrome Headless Shell : téléchargement HTTP 403",
+    "Aucun Android ni clé OTA officielle accessible",
+    "Capacités de diffusion et adéquation Pages non confirmées"
+  ],
+  "fichiers": {
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/manifest.json": {
+      "sha256": "48791b18e5caf1aa2f440d27fd718838fcb91d114bb08347baeb217471ec9bec",
+      "octets": 3869
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/12/1990/1960.png": {
+      "sha256": "6a1f3e02349ece4cbfa36a81bc40b1cd1cac2f0192903b5b2a3d32549f46ae3f",
+      "octets": 11342
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/13/3980/3920.png": {
+      "sha256": "baa09f40cfabb64026c137fd3f2b29157b3b998e1de05d6d3d9bcdcfc7ed6234",
+      "octets": 12970
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/13/3981/3920.png": {
+      "sha256": "2aa5a0221d34640635cae28b4341f6e796c4737330efeef7bd54a3543cd92c3c",
+      "octets": 27158
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7961/7840.png": {
+      "sha256": "d852ccce705f20e0b806590ae3e5d17bbf3cd86aab5f3cff93fd2af1683ae355",
+      "octets": 2442
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7961/7841.png": {
+      "sha256": "e5563cb0e64ad71de4661a4ab56981765b0dc3c57f288de7aded1548ccd94868",
+      "octets": 40391
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7962/7840.png": {
+      "sha256": "e0c2026716dc7dcd6e98c84988036946800182fd333195b292370cb825f1b8bb",
+      "octets": 4478
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7962/7841.png": {
+      "sha256": "482951151fa5b0b2e5376cb1e865778e0ed7eb19b00696115c1c2ebede908514",
+      "octets": 85363
+    },
+    "cartes-hors-ligne/catalogue.json": {
+      "sha256": "497554d514f17b80d65ce2afc3a7fb9ab439177ea23b42d5b8c9082b4058605d",
+      "octets": 571
+    },
+    "operations/field-buying.html": {
+      "sha256": "308f2b2827c1a748d1c35920b3d5df344063e6be03e497fd73295aa9baf9a122",
+      "octets": 5325
+    },
+    "operations/observatoire.js": {
+      "sha256": "15e29181ecb8ddd31cb0f29c9535453746acd917046db3d2f2f95342294267fb",
+      "octets": 137512
+    },
+    "operations/parcelles.js": {
+      "sha256": "4aef64a3f72f8d89e6281ab5e4517914e3cccd9b17cb7718f3f0c59e99c06184",
+      "octets": 145488
+    },
+    "operations/reperes-gps.js": {
+      "sha256": "32a5387a76fb91fc087db8720420c454e151376077702ce2aaacbef8287238b1",
+      "octets": 59676
+    },
+    "scripts/cartes-hors-ligne/preparer-paquet-sentinel.py": {
+      "sha256": "ddec1e9cf47bed6e56148c0f03a050e481ce6a6043ec9351bb0b3acb4b3cbce0",
+      "octets": 10491
+    },
+    "shared/cartes-hors-ligne-coeur.js": {
+      "sha256": "c0352bb303e3b467c17715c6fe445cd66f90c07562ec53171616a846cae516c1",
+      "octets": 9152
+    },
+    "shared/cartes-hors-ligne.css": {
+      "sha256": "bd9e7f121ae8e5d98ef464ab7059e2969e12b6211a8160df078a843b8a890a0d",
+      "octets": 2817
+    },
+    "shared/cartes-hors-ligne.js": {
+      "sha256": "c4637092315ffa173e5f121f7c3d872330802dfe9802005c5e854e74de8577d1",
+      "octets": 34198
+    },
+    "tests/cartes-hors-ligne/coeur.test.cjs": {
+      "sha256": "e524d8a3a4ee2921d7136b750cb95c61c345567ef775c7ea4b293dbbc7de1c5b",
+      "octets": 13716
+    },
+    "tests/cartes-hors-ligne/stockage.test.cjs": {
+      "sha256": "ac18f2979220b371ac3cfc528e4efa316f038d4bd349bc8ff9a2e10bd4e401bc",
+      "octets": 22874
+    },
+    "tests/cartes-hors-ligne/valider-paquet.py": {
+      "sha256": "cc7119d145ec90f2afe08fad925d7b902085ebd9c3ddfe84f28a4e02df7d3d78",
+      "octets": 5479
+    }
+  }
+}

@@ -9,12 +9,12 @@
      · « Enregistré sur ce téléphone » ≠ « Reçu par le serveur » (reçu = réponse serveur) ;
      · superficies distinctes : déclarée, cartographique estimée, mesurée GPS, validée ;
        aucune n'en écrase une autre ; aucune n'est présentée comme cadastrale ;
-     · aucune imagerie satellite sans licence confirmée (paramètre serveur) ;
+     · imagerie en ligne sous licence confirmée ; cartes locales sous licence de redistribution vérifiée ;
      · les droits affichés sont indicatifs : le serveur décide (RLS + RPC plot_map_*).
    Parcours intégré (21/11/2026) : accord GPS du producteur → capture de la position → carte avec un carré
      P1-P4 déjà posé autour du point → ajustement au doigt → superficie → enregistrement.
    Routes : #parcelles · /p/<plot> · /parcours/<plot> · /tracer/<plot>/<sat|gps|import> ·
-            /ajouter/<producteur> · /validation · /valider/<contour> · /pilotage · /journal
+            /ajouter/<producteur> · /validation · /valider/<contour> · /pilotage · /journal · /cartes-hors-ligne
    Écritures : uniquement par la file locale (plot_map_sync_batch) ou par les RPC de décision. */
 (function (global) {
 'use strict';
@@ -28,6 +28,16 @@ function root() { return document.getElementById('opsRouteView'); }
 function parts() { return (location.hash || '#parcelles').slice(1).split('/').map(decodeURIComponent); }
 function aller(h) { if (location.hash === '#' + h) rendre(); else location.hash = h; }
 function enLigne() { return navigator.onLine !== false; }
+function imageLocaleDisponible(point) {
+  var M = global.ANAGROCI_CARTES_HORS_LIGNE;
+  return point && M && M.disponible ? M.disponible(point).catch(function () { return false; }) : Promise.resolve(false);
+}
+function cartesHorsLigne() {
+  var M = global.ANAGROCI_CARTES_HORS_LIGNE;
+  if (M && M.render) return M.render(root(), { retour: '#parcelles' });
+  peindre(tete('Cartes hors ligne', '', lien('Retour aux parcelles', 'parcelles', 'secondary')) + avis('info', 'Le gestionnaire de cartes n\'est pas chargé. Rouvrez FBMS après sa mise à jour. Vos données de terrain sont conservées.'));
+  return Promise.resolve();
+}
 function dateFr(d) { if (!d) return '—'; var x = String(d).slice(0, 10).split('-'); return x.length === 3 ? x[2] + '/' + x[1] + '/' + x[0] : d; }
 function heureFr(d) { if (!d) return '—'; try { var t = new Date(d); return ('0' + t.getDate()).slice(-2) + '/' + ('0' + (t.getMonth() + 1)).slice(-2) + ' ' + ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2); } catch (e) { return d; } }
 function ha(m2) { return m2 == null ? '—' : C.hectares(m2) + ' ha'; }
@@ -140,7 +150,7 @@ function accueil() {
       : avis('info', 'Tracé des contours ouvert en pilote pour : <b>' + esc((a.clusters_pilotes || []).join(', ') || 'aucun cluster') + '</b>.');
     var tuiles = [['NON_LOCALISEE', 'Cartographie à compléter', c.NON_LOCALISEE], ['brouillons', 'Brouillons sur ce téléphone', Object.keys(parBr).length], ['A_CORRIGER', 'À corriger', c.A_CORRIGER], ['SOUMIS', 'Soumises au Chef de Zone', c.SOUMIS], ['VALIDE', 'Validées', c.VALIDE]];
     var h = tete('Parcelles & cartographie', 'Localiser les champs, tracer leurs contours, suivre leur validation.',
-      (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : peutPreverifier() ? lien('À pré-vérifier', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
+      lien('Cartes hors ligne', 'parcelles/cartes-hors-ligne', 'secondary') + (peutValider() ? lien('À valider', 'parcelles/validation', 'secondary') : peutPreverifier() ? lien('À pré-vérifier', 'parcelles/validation', 'secondary') : '') + (peutPiloter() ? lien('Carte des parcelles', 'parcelles/pilotage', 'secondary') : '')) +
       (etat.message ? avis('ok', esc(etat.message)) : '') + bandeau + sync +
       (etat.listeHorsLigne ? avis('info', 'Hors ligne : liste enregistrée sur ce téléphone' + (etat.listeLe ? ' le ' + heureFr(etat.listeLe) : '') + '.') : '') +
       '<div class="pc-tuiles">' + tuiles.map(function (t) {
@@ -331,7 +341,8 @@ function libAnomalie(a) {
      « basemaps » restreinte au site FBMS. Esri autorise la collecte et l'édition de données sur World Imagery.
    - « tms » : orthophoto dont ANAGROCI détient les droits, ou sous licence libre (attribution obligatoire).
    - « osm » : plan seulement (jamais présenté comme une image satellite).
-   Aucune tuile n'est préchargée ni conservée pour un usage hors ligne (licences). */
+   Ces fonds en ligne ne sont pas préchargés pour un usage hors ligne. Les paquets ouverts
+   et vérifiés sont gérés séparément par ANAGROCI_CARTES_HORS_LIGNE. */
 var ESRI_STATIQUE = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/';
 var ESRI_IMAGERIE = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer';
 var ESRI_ATTRIBUTION = 'Powered by <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> | Esri, Vantor, Earthstar Geographics, and the GIS User Community';
@@ -357,13 +368,37 @@ function couchesImagerie() {
 /* Ajoute le fond à la carte et surveille son chargement. Si l'image n'arrive pas (coupure réseau, quota, clé
    refusée), le contour reste visible et modifiable sur fond neutre : rien n'est perdu. */
 function fond(map, surEtat) {
-  var c = couchesImagerie();
-  if (!enLigne()) return { nom: 'aucun', satellite: false, couches: c, message: 'Hors ligne : pas d\'image. Le contour reste modifiable sur fond neutre et sera envoyé au retour du réseau.' };
-  var couche = c.satellite || c.plan;
-  if (!couche) return { nom: 'aucun', satellite: false, couches: c, message: 'Aucune image satellite activée (licence à confirmer par le Branch Manager). Utilisez « Mesurer avec GPS » ou l\'import de fichier.' };
-  couche.addTo(map); veillerTuiles(couche, surEtat);
-  return { nom: c.satellite ? c.nom : 'Plan', satellite: !!c.satellite, couches: c, actuelle: c.satellite ? 'satellite' : 'plan',
-    message: c.satellite ? 'Fournisseur : Esri World Imagery' : 'Plan, pas une image satellite : les limites des champs n\'y figurent pas.' };
+  var M = global.ANAGROCI_CARTES_HORS_LIGNE, vue = map.getCenter(), point = [vue.lat, vue.lng];
+  var ferme = false, lectureImpossible = false;
+  map.once('unload', function () { ferme = true; });
+  function present() { return !ferme && document.documentElement.contains(map.getContainer()); }
+  function signaler(etatFond, message) { if (present() && surEtat) surEtat(etatFond, message); }
+  var local = Promise.resolve().then(function () { return M && M.fond ? M.fond(map, { centre: point, surEtat: signaler }) : null; });
+  return local.catch(function () { lectureImpossible = true; return null; }).then(function (f) {
+    if (!present()) return null;
+    if (f) return { nom: f.nom, satellite: true, locale: true, source: f.source || f.nom, date_image: f.date_image || null,
+      resolution_m: f.resolution_m, paquet: f.paquet, couches: { satellite: f.couche, plan: null }, actuelle: 'satellite', message: f.message };
+    var c = couchesImagerie();
+    if (!enLigne()) return { nom: 'aucun', satellite: false, couches: c, message: (lectureImpossible ? 'La lecture des cartes téléchargées a échoué. Vérifiez leur état dans « Cartes hors ligne ». ' : 'Aucune carte téléchargée utilisable ne couvre ce point. ') + 'Le contour reste modifiable sur fond neutre et sera envoyé au retour du réseau.' };
+    var couche = c.satellite || c.plan;
+    if (!couche) return { nom: 'aucun', satellite: false, couches: c, message: 'Aucun fond disponible ici. Téléchargez une zone dans « Cartes hors ligne », ou utilisez « Mesurer avec GPS ».' };
+    couche.addTo(map); veillerTuiles(couche, signaler);
+    return { nom: c.satellite ? c.nom : 'Plan', source: c.nom, satellite: !!c.satellite, couches: c, actuelle: c.satellite ? 'satellite' : 'plan',
+      message: c.satellite ? 'Fournisseur : ' + c.nom : 'Plan, pas une image satellite : les limites des champs n\'y figurent pas.' };
+  });
+}
+function fondConsultation(map, el) {
+  var infos = document.createElement('div'), description = document.createElement('p'), alerte = document.createElement('p');
+  infos.className = 'pc-note'; alerte.setAttribute('aria-live', 'polite'); infos.appendChild(description); infos.appendChild(alerte);
+  el.insertAdjacentElement('afterend', infos);
+  return fond(map, function (etatFond, texte) {
+    if (document.documentElement.contains(infos)) alerte.textContent = etatFond === 'indisponible' || etatFond === 'partiel' ? (texte || 'Image indisponible dans une partie de cette vue ou à ce niveau de zoom.') : '';
+  }).then(function (f) {
+    if (!f || !document.documentElement.contains(infos)) return;
+    description.textContent = f.locale ? 'Carte téléchargée : ' + f.nom + ' · Source : ' + f.source +
+      (f.date_image ? ' · Image du ' + dateFr(f.date_image) : '') + (f.resolution_m ? ' · Résolution native : ' + f.resolution_m + ' m' : '') +
+      '. Agrandir l\'image n\'ajoute pas de détails.' : f.message;
+  });
 }
 function veillerTuiles(couche, surEtat) {
   /* Compteurs remis à zéro à chaque nouvelle vue (« loading ») : une zone ou un niveau de zoom sans image est
@@ -378,14 +413,15 @@ function miniCarte(idEl, x, version) {
   var el = document.getElementById(idEl); if (!el || !global.L) { if (el) el.innerHTML = '<div class="ops-empty">Carte indisponible.</div>'; return; }
   /* La vue doit être fixée AVANT d'ajouter un contour : Leaflet ne sait pas dessiner un polygone
      sur une carte sans centre (erreur _clipPoints constatée au test navigateur du 20/11/2026). */
-  var m = global.L.map(el, { zoomControl: true, attributionControl: true }); fond(m);
+  var m = global.L.map(el, { zoomControl: true, attributionControl: true }); carte = m;
   var contour = version && version.geojson ? global.L.geoJSON(version.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.3 } }) : null;
   var b = contour ? contour.getBounds() : null;
   if (x.latitude != null) { if (b) b.extend(centre(x)); else b = global.L.latLngBounds([centre(x), centre(x)]); }
   if (b && b.isValid()) m.fitBounds(b.pad(0.4), { maxZoom: 18 }); else { m.setView(centre(x), 13); el.insertAdjacentHTML('beforeend', '<div class="pc-carte-voile">Champ non localisé</div>'); }
+  fondConsultation(m, el);
   if (contour) contour.addTo(m);
   if (x.latitude != null) global.L.circleMarker(centre(x), { radius: 7, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1 }).addTo(m).bindTooltip('Point de référence');
-  setTimeout(function () { m.invalidateSize(); }, 150);
+  setTimeout(function () { if (carte === m && document.documentElement.contains(el)) m.invalidateSize(); }, 150);
   /* Arbres suivis de l'Observatoire, quand ils ont une position : ils situent les observations,
      ils ne représentent pas toute la parcelle (aucune extrapolation). */
   if (enLigne()) lire('pheno_panels', 'id', function (r) { return r.eq('plot_id', x.plot_id); }).then(function (pa) {
@@ -474,7 +510,10 @@ function parcours(id) {
     var entete = tete('Cartographier le champ', sous, lien('Fermer', 'parcelles/p/' + id, 'secondary'));
     if (!peutSaisir()) { peindre(entete + avis('erreur', 'La cartographie est réservée au Chef d\'Unité, à son assistant et au Branch Manager.')); return; }
     if (!actif('localisation', x.cluster_code)) { peindre(entete + avis('info', 'La cartographie n\'est pas encore activée pour le cluster ' + esc(x.cluster_code || '—') + '. La parcelle reste enregistrée.')); return; }
-    return etatAccord(x).then(function (acc) {
+    return Promise.all([etatAccord(x), imageLocaleDisponible(!enLigne() && x.latitude != null ? centre(x) : null)]).then(function (accordEtCarte) {
+      if (parts()[1] !== 'parcours' && parts()[1] !== 'localiser') return;
+      if (parts()[2] !== id) return;
+      var acc = accordEtCarte[0], carteLocale = accordEtCarte[1];
       ed = { parcours: { plot_id: id, x: x, accord: acc, choix: null } };
       var etapes = '<ol class="pc-etapes"><li class="' + (acc.etat === 'ACCORDE' ? 'fait' : 'actif') + '">Accord</li><li class="' + (acc.etat !== 'ACCORDE' ? '' : x.latitude != null ? 'fait' : 'actif') + '">Position</li><li class="' + (acc.etat === 'ACCORDE' && x.latitude != null ? 'actif' : '') + '">Carte</li></ol>';
       var h = entete + (etat.message ? avis('ok', esc(etat.message)) : '') + etapes; etat.message = null;
@@ -483,8 +522,8 @@ function parcours(id) {
         if (x.latitude != null) {
           var carteOk = actif('contours', x.cluster_code), nb = br && br.sommets && !br.gabarit ? br.sommets.length : 0;
           h += '<div class="pc-point"><b>Point GPS capturé</b><span class="mono">' + Number(x.latitude).toFixed(6) + ' ; ' + Number(x.longitude).toFixed(6) + '</span><small>Précision ' + (x.gps_accuracy_m != null ? Math.round(x.gps_accuracy_m) + ' m' : 'inconnue') + ' · ' + esc(heureFr(x.gps_captured_at)) + (x._pointLocal ? ' · enregistré sur ce téléphone, en attente du serveur' : '') + '</small></div>' +
-            (carteOk ? (enLigne() ? '' : avis('info', 'Position GPS enregistrée. La carte satellite sera disponible au retour de la connexion.')) : avis('info', 'Le tracé des contours n\'est pas encore activé pour ce cluster.')) +
-            '<div class="pc-actions pc-actions-fin">' + (carteOk && enLigne() ? lien(nb ? 'Reprendre le tracé (' + nb + ' points)' : 'Ouvrir la carte', 'parcelles/tracer/' + id + '/sat', 'pc-cmd-principal') : '') + '</div>' +
+            (carteOk ? (enLigne() ? '' : avis('info', carteLocale ? 'Une carte téléchargée couvre ce point. Elle peut être ouverte sans réseau.' : 'Position GPS enregistrée. Téléchargez une carte de cette zone avec une connexion pour la retrouver hors réseau.')) : avis('info', 'Le tracé des contours n\'est pas encore activé pour ce cluster.')) +
+            '<div class="pc-actions pc-actions-fin">' + (carteOk && (enLigne() || carteLocale) ? lien(nb ? 'Reprendre le tracé (' + nb + ' points)' : 'Ouvrir la carte', 'parcelles/tracer/' + id + '/sat', 'pc-cmd-principal') : '') + lien('Cartes hors ligne', 'parcelles/cartes-hors-ligne', 'secondary') + '</div>' +
             '<div class="pc-actions">' + bouton('Capturer de nouveau ma position', 'capturer', 'secondary') + '</div>';
         } else {
           h += '<div class="pc-actions pc-actions-fin">' + bouton('CAPTURER MA POSITION GPS', 'capturer', 'pc-cmd-principal pc-capture') + '</div>' +
@@ -570,6 +609,8 @@ function capturer(id) {
 }
 function enregistrerPoint(loc) {
   var id = loc.plot_id, x = ed.parcours.x, o = C.operation('LOCALISER', loc, L.appareil());
+  var parcoursDemande = ed.parcours, routeDemandee = location.hash;
+  function ecranCourant() { return location.hash === routeDemandee && ed && ed.parcours === parcoursDemande; }
   return L.file.ajouter(o, 'Point GPS ' + Math.round(loc.precision_m) + ' m').then(function () { return L.cache.ecrire('point:' + id, loc); })
     .then(function () { return synchroniser(true).catch(function () { return null; }); })
     .then(function () { return L.file.pourParcelle(id); })
@@ -577,14 +618,20 @@ function enregistrerPoint(loc) {
       var moi = ops.filter(function (z) { return z.idempotency_key === o.idempotency_key; })[0] || o;
       if (moi.etat === 'REJETE' || moi.etat === 'CONFLIT') {
         return L.cache.ecrire('point:' + id, null).then(function () {
+          if (!ecranCourant()) return;
           peindre(tete('Capture de la position', '', lien('Retour', 'parcelles/parcours/' + id, 'secondary')) + avis('erreur', '<b>Position refusée par le serveur.</b> ' + esc(moi.message || '')) + '<div class="pc-actions">' + lien('Retour', 'parcelles/parcours/' + id, 'pc-cmd-principal') + '</div>');
         });
       }
       etat.liste = null;
       var recu = moi.etat === 'RECU';
+      if (!ecranCourant()) return;   // la position est enregistrée ; une autre fiche peut être ouverte entre-temps
       if (recu && enLigne() && actif('contours', x.cluster_code)) { etat.message = null; return aller('parcelles/tracer/' + id + '/sat'); }
-      etat.message = recu ? 'Point GPS capturé et reçu par le serveur.' : 'Position GPS enregistrée. La carte satellite sera disponible au retour de la connexion.';
-      return parcours(id);
+      return imageLocaleDisponible([loc.latitude, loc.longitude]).then(function (locale) {
+        if (!ecranCourant()) return;
+        if (locale && actif('contours', x.cluster_code)) { etat.message = null; return aller('parcelles/tracer/' + id + '/sat'); }
+        etat.message = recu ? 'Point GPS capturé et reçu par le serveur.' : 'Position GPS enregistrée sur ce téléphone. Elle sera envoyée au retour du réseau.';
+        return parcours(id);
+      });
     });
 }
 
@@ -607,19 +654,21 @@ function metaImage(lat, lng) {
 }
 function peindreMetaImage() {
   var z = document.getElementById('pcFondImage'); if (!z || !ed || !ed.fondSatellite) return;
-  var m = ed.image_meta, t = 'Fournisseur : Esri World Imagery';
+  var m = ed.image_meta, t = (ed.fondLocal ? 'Carte téléchargée : ' : 'Fournisseur : ') + (ed.fondSource || ed.fond || 'Source non précisée');
   if (ed.metaEnCours && !m) t += ' · recherche de la date de l\'image…';
   else if (m && m.date) t += ' · Image du ' + dateFr(m.date) + (m.source ? ' · Source : ' + m.source : '') + (m.resolution_m ? ' · Résolution : ' + String(m.resolution_m).replace('.', ',') + ' m' : '');
   else t += ' · Date de l\'image satellite non disponible' + (m && m.source ? ' · Source : ' + m.source : '');
+  if (ed.fondLocal) t += ' · Agrandir l\'image n\'ajoute pas de détails. Les arbres sont situés par leurs coordonnées GPS.';
   z.innerHTML = '<p class="pc-image-meta">' + esc(t) + '</p>';
 }
 function chargerMetaImage(auCentreDuContour) {
   if (!ed || !ed.fondSatellite) return;
+  if (ed.fondLocal) { peindreMetaImage(); return; }   // date et source viennent du paquet, aucune requête Esri
   var c = auCentreDuContour && ed.sommets.length >= 3 ? C.centroide(ed.sommets) : ed.sommets.length ? C.centroide(ed.sommets) : ed.x.latitude != null ? [Number(ed.x.longitude), Number(ed.x.latitude)] : null;
   if (!c) { peindreMetaImage(); return; }
-  var cible = ed; ed.metaEnCours = true; peindreMetaImage();
+  var cible = ed, sourceDemandee = ed.fondSource; ed.metaEnCours = true; peindreMetaImage();
   metaImage(c[1], c[0]).then(function (m) {
-    if (ed !== cible) return;
+    if (ed !== cible || ed.fondLocal || ed.fondSource !== sourceDemandee) return;
     ed.metaEnCours = false; ed.image_meta = m || null; ed.date_image = m && m.date ? m.date : null;
     if (ed.fond && m && m.source && ed.fond.indexOf(m.source) < 0) ed.fond = ed.fond.split(' · ')[0] + ' · ' + m.source + (m.resolution_m ? ' · ' + m.resolution_m + ' m' : '');
     peindreMetaImage();
@@ -672,7 +721,7 @@ function tracer(id, mode) {
     connexion(); construireCarte(); peindreBarre(); peindrePanneau();
     var zg = document.getElementById('pcFondMsg');
     if (zg && mode === 'sat' && !ed.sommets.length && ed.x.latitude == null) zg.insertAdjacentHTML('afterbegin', avis('alerte', 'Aucune position GPS capturée pour ce champ : aucun carré n\'est proposé. Placez les points au viseur, ou revenez capturer votre position dans la plantation.'));
-    if (mode === 'sat') chargerMetaImage();
+    /* La date est chargée après le choix effectif du fond (paquet local ou fournisseur en ligne). */
     /* Téléphone : l'en-tête de la carte vient en haut de l'écran, la carte prend toute la hauteur libre au-dessus de la barre. */
     ajusterCarte(true);
   });
@@ -687,21 +736,38 @@ function construireCarte() {
   var el = document.getElementById('pcCarte'); if (!el) return;
   if (!global.L || !global.L.version) { el.innerHTML = '<div class="ops-empty">Bibliothèque de carte indisponible ou incomplète : vérifiez le réseau puis rouvrez cette page. Votre brouillon est conservé.</div>'; return; }   // L.version absent : bibliothèque partielle ou doublure
   carte = global.L.map(el, { zoomControl: true, maxZoom: 21, tapTolerance: 12, inertia: false });   // sans inertie : l'image s'arrête où le doigt la lâche (précision du viseur, constaté le 20/11/2026)
-  var f = fond(carte, function (etatFond) {
-    var z = document.getElementById('pcFondImage'); if (!z) return;
-    var za = document.getElementById('pcFondAlerte');
-    if (za) za.innerHTML = etatFond === 'indisponible' ? avis('alerte', '<b>Image satellite indisponible ici</b> (réseau faible, zone ou niveau de zoom non couverts, service ou clé refusés). Dézoomez d\'un cran si besoin. Votre contour est conservé et reste modifiable sur fond neutre ; l\'image reviendra avec le réseau.') : '';
-    peindreMetaImage(); ajusterCarte();
-  });
-  ed.fond = f.nom === 'aucun' ? null : f.nom; ed.fondInfo = f.message; ed.couches = f.couches; ed.fondActuel = f.actuelle || null;
-  ed.fondSatellite = !!f.satellite;
-  var zi = document.getElementById('pcFondAlerte'); if (f.satellite) peindreMetaImage(); else if (zi) zi.innerHTML = avis('alerte', esc(f.message));
+  var cible = ed, m = carte, dernierFondEtat = null, dernierFondMessage = null;
+  ed.fondSatellite = false; ed.fondLocal = false; ed.couches = null; ed.fondActuel = null;
+  ed.fond = null; ed.fondSource = null; ed.date_image = null; ed.image_meta = null;
   var zf = document.getElementById('pcFondMsg');
   /* Vue initiale : contour existant > point du champ > village (avec avertissement) > Gbêkê. */
   if (ed.sommets.length >= 2) carte.fitBounds(global.L.latLngBounds(ed.sommets.map(function (s) { return [s[1], s[0]]; })).pad(0.3), { maxZoom: 19 });
   else if (ed.x.latitude != null) carte.setView(centre(ed.x), 18);
   else if (ed.x.village_latitude != null) carte.setView([Number(ed.x.village_latitude), Number(ed.x.village_longitude)], 16);
   else carte.setView(centre(ed.x), 13);
+  fond(m, function (etatFond, messageFond) {
+    if (ed !== cible || carte !== m) return;
+    dernierFondEtat = etatFond; dernierFondMessage = messageFond;
+    var za = document.getElementById('pcFondAlerte');
+    if (za) za.innerHTML = etatFond === 'indisponible' || etatFond === 'partiel' ? avis('alerte', esc(messageFond || 'Image satellite indisponible dans une partie de cette vue. Vérifiez la zone et le niveau de zoom. Votre contour reste modifiable sur fond neutre.')) : '';
+    peindreMetaImage(); ajusterCarte();
+  }).then(function (f) {
+    if (!f || ed !== cible || carte !== m || document.getElementById('pcCarte') !== el) return;
+    ed.fond = f.nom === 'aucun' ? null : f.locale ? f.source + ' · ' + f.nom + (f.resolution_m ? ' · ' + f.resolution_m + ' m' : '') : f.nom;
+    ed.fondInfo = f.message; ed.couches = f.couches; ed.fondActuel = f.actuelle || null;
+    ed.fondSatellite = !!f.satellite; ed.fondLocal = !!f.locale; ed.fondSource = f.source || f.nom;
+    ed.metaEnCours = false;
+    if (f.locale) {
+      ed.image_meta = { source: f.source || f.nom, date: f.date_image || null, resolution_m: f.resolution_m || null };
+      ed.date_image = f.date_image || null;
+    } else { ed.image_meta = null; ed.date_image = null; }
+    var zi = document.getElementById('pcFondAlerte');
+    if (zi) zi.innerHTML = dernierFondEtat === 'indisponible' || dernierFondEtat === 'partiel'
+      ? avis('alerte', esc(dernierFondMessage || 'Une partie de la vue ne possède pas de fond satellite utilisable.'))
+      : f.satellite ? (f.locale ? avis('info', esc(f.message)) : '') : avis('alerte', esc(f.message));
+    if (f.satellite) chargerMetaImage();
+    peindreBarre(); ajusterCarte();
+  });
   carte._reperes = global.L.layerGroup().addTo(carte);
   if (ed.x.latitude != null) global.L.circleMarker(centre(ed.x), { radius: 6, color: '#fff', weight: 2, fillColor: '#1E6FD9', fillOpacity: 1, interactive: false }).addTo(carte._reperes).bindTooltip('Point GPS enregistré du champ');
   if (ed.x.village_latitude != null) global.L.circleMarker([Number(ed.x.village_latitude), Number(ed.x.village_longitude)], { radius: 6, color: '#fff', weight: 2, fillColor: '#7C3AED', fillOpacity: 1, interactive: false }).addTo(carte._reperes).bindTooltip('Village ' + (ed.x.village_nom || ''));
@@ -817,6 +883,7 @@ function peindreOutils(v, sat) {
     (ed.effacer ? bouton('Confirmer : recommencer', 'effacer-ok', 'danger') + bouton('Garder le tracé', 'effacer-non', 'secondary') : bouton('Recommencer', 'effacer', 'secondary', v.sommets ? '' : ' disabled')) +
     bouton('Je suis dans mon champ', 'ici', 'secondary') + bouton('Recentrer sur le contour', 'centrer-contour', 'secondary', v.sommets >= 1 ? '' : ' disabled') +
     bouton('Aller à des coordonnées', 'coord-ouvrir', 'secondary') + bouton(ed.reperes ? 'Masquer les repères' : 'Afficher les repères', 'reperes', 'secondary') +
+    lien('Cartes hors ligne', 'parcelles/cartes-hors-ligne', 'secondary') +
     (ed.couches && ed.couches.satellite && ed.couches.plan ? bouton(ed.fondActuel === 'plan' ? 'Fond satellite' : 'Fond plan', 'fond', 'secondary') : '') +
     (sat ? bouton(ed.viseur ? 'Viseur : activé' : 'Viseur : désactivé', 'viseur', 'secondary' + (ed.viseur ? ' pc-actif' : ''), ' aria-pressed="' + !!ed.viseur + '"') : '') +
     (sat && ed.viseur ? bouton('Poser un point au viseur', 'viseur-sommet', 'secondary') + bouton(sel ? 'Placer P' + (ed.selection + 1) + ' au viseur' : 'Placer un point au viseur', 'viseur-deplacer', 'secondary', sel ? '' : ' disabled') +
@@ -1004,11 +1071,12 @@ function valider(gid) {
     ed = { validation: g };
     var el = document.getElementById('pcCarteVal');
     if (el && global.L) {
-      var m = global.L.map(el); fond(m);
+      var m = global.L.map(el); carte = m;
       var p = global.L.geoJSON(g.geojson, { style: { color: '#053B23', weight: 2, fillColor: '#8DC556', fillOpacity: 0.35 } });
       m.fitBounds(p.getBounds().pad(0.4), { maxZoom: 18 }); p.addTo(m);   // vue d'abord, contour ensuite
+      fondConsultation(m, el);
       if (ids.length) lire('plot_map_geometries_v', 'id,geojson', function (r) { return r.in('id', ids); }).then(function (v) { v.forEach(function (o) { global.L.geoJSON(o.geojson, { style: { color: '#B45309', weight: 2, dashArray: '5 4', fillColor: '#EE9E00', fillOpacity: 0.25 } }).addTo(m); }); }).catch(function () {});
-      setTimeout(function () { m.invalidateSize(); }, 150);
+      setTimeout(function () { if (carte === m && document.documentElement.contains(el)) m.invalidateSize(); }, 150);
     }
   }).catch(function (e) { peindre(tete('Vérifier un contour', '', lien('Retour', 'parcelles/validation', 'secondary')) + avis('erreur', esc(e.message))); });
 }
@@ -1073,7 +1141,7 @@ function panneauActivation() {
     '<label class="pc-champ"><span>Orthophoto : attribution et licence</span><input id="pcImAttr" type="text" value="' + esc(im.attribution || '') + '" placeholder="Attribution"><input id="pcImLic" type="text" value="' + esc(im.licence || '') + '" placeholder="Licence (ex. droits ANAGROCI, CC BY 4.0)"></label>' +
     '<label class="pc-case"><input type="checkbox" id="pcImLicOk"' + (im.licence_confirmee ? ' checked' : '') + '> Je confirme qu\'ANAGROCI dispose des droits d\'utilisation de cette image, y compris le tracé des limites (conditions du fournisseur acceptées).</label>' +
     '<div class="pc-actions">' + bouton('Enregistrer l\'image satellite', 'imagerie') + '</div>' +
-    '<p class="pc-note">Actuellement : ' + esc(f === 'aucun' ? 'aucune image' : f) + (im.licence_confirmee ? ' (licence confirmée)' : '') + '. Aucune tuile n\'est conservée sur les téléphones. Commencez par un seul cluster.</p></section>';
+    '<p class="pc-note">Actuellement : ' + esc(f === 'aucun' ? 'aucune image' : f) + (im.licence_confirmee ? ' (licence confirmée)' : '') + '. Ces fonds en ligne ne sont pas téléchargés. Les paquets autorisés sont préparés séparément dans « Cartes hors ligne ». Commencez par un seul cluster.</p></section>';
 }
 function telecharger(nom, contenu, type) {
   var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([contenu], { type: type })); a.download = nom;
@@ -1109,6 +1177,7 @@ function journalVue() {
 
 /* ------------------------------------------------------------------ routage et actions */
 function nettoyerCarte() { if (carte) { try { carte.remove(); } catch (e) {} carte = null; } if (gpsVeille != null) { try { navigator.geolocation.clearWatch(gpsVeille); } catch (e) {} gpsVeille = null; } }
+global.addEventListener('hashchange', function () { if (!/^#parcelles(\/|$)/.test(location.hash || '')) nettoyerCarte(); });
 /* Lien direct ou rechargement sur #parcelles : la rubrique peut s'afficher avant la fin de l'authentification.
    On réaffiche dès que le profil est prêt (constaté en production le 20/11/2026 : écran bloqué sur « Chargement de votre profil »). */
 var attenteProfil = null;
@@ -1127,6 +1196,7 @@ function rendre() {
   if (!classe() && !(global.ANAGROCI_AUTH && global.ANAGROCI_AUTH.estBM)) { peindre(tete('Parcelles & cartographie', '') + avis('erreur', 'Cette rubrique est réservée aux équipes AFLP (Chefs d\'Unité, assistants, Chefs de Zone, Branch Manager).')); return Promise.resolve(); }
   var r;
   switch (p[1]) {
+    case 'cartes-hors-ligne': r = cartesHorsLigne(); break;
     case 'p': r = fiche(p[2]); break;
     case 'parcours': case 'localiser': r = parcours(p[2]); break;
     case 'tracer': r = tracer(p[2], p[3] || 'sat'); break;

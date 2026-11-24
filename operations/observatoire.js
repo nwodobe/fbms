@@ -191,10 +191,11 @@ function vueChamps() {
         '<div class="obs-carte-actions">' + action + '<a class="btn secondary" href="#observatoire/champ/' + p.id + '">Fiche du champ</a></div></article>';
     }).join('');
     peindre(entete('Les mêmes arbres marqués, visités chaque semaine.', '',
-      '<button type="button" class="btn secondary" data-act="preparer">Préparer le hors-ligne</button><a class="btn primary" href="#observatoire/installer">Installer un champ</a>') + message() +
+      '<button type="button" class="btn secondary" data-act="preparer">Préparer le hors-ligne</button><a class="btn secondary" href="#parcelles/cartes-hors-ligne">Cartes hors ligne</a><a class="btn primary" href="#observatoire/installer">Installer un champ</a>') + message() +
       (camp ? '' : note('Aucune campagne sélectionnée. Choisissez la campagne en haut de l’écran.', 'warn')) +
       (camp && !camp.ouverte ? note('La campagne sélectionnée n’est pas ouverte : la saisie sera refusée par le serveur.', 'warn') : '') +
       '<p class="obs-info">Dernière préparation hors-ligne : ' + (prep ? esc(heureFr(prep.le)) + ' (' + prep.champs + ' champ(s))' : 'jamais. Faites-la avant de partir sur le terrain.') + '</p>' +
+      '<p class="obs-info">Téléchargez aussi une carte de votre zone dans « Cartes hors ligne ». Les positions des parcelles, blocs et arbres restent dans « Repères GPS » ; elles se superposent au fond disponible.</p>' +
       (cartes ? barreFiltreChamps(fiches) + '<div class="obs-grille" id="obsGrilleChamps">' + cartes + '</div>' : '<div class="ops-empty">Aucun champ installé sur cet appareil. Touchez « Préparer le hors-ligne » pour charger vos champs, ou « Installer un champ ».</div>'));
     etat.fichesChamps = fiches;
     filtrerChamps();
@@ -472,7 +473,7 @@ function vueChamp(id) {
     }
     var vis = r[2].sort(function (a, b) { return a.date_observation < b.date_observation ? 1 : -1; });
     var qui = classe() === 'UH' ? 'votre Chef de Zone' : classe() === 'BM' ? 'l’équipe du cluster' : 'votre Chef d’Unité';
-    peindre(entete(n.producteur + ' — ' + n.parcelle + (n.village ? ' · ' + n.village : ''), '', '<a class="btn secondary" href="#observatoire">Retour</a>' + (p.plot_id && global.ANAGROCI_PARCELLES ? '<a class="btn secondary" href="#parcelles/p/' + esc(p.plot_id) + '">Contour de la parcelle</a>' : '') + (p.plot_id ? '<a class="btn secondary" href="#reperes/champ/' + esc(p.plot_id) + '">Repères GPS (blocs et arbres)</a>' : '') + (statut === 'ACTIF' && peutCollecter() ? '<a class="btn primary" href="#observatoire/visite/' + p.id + '/nouvelle">Visite de la semaine</a>' : '')) + message() +
+    peindre(entete(n.producteur + ' — ' + n.parcelle + (n.village ? ' · ' + n.village : ''), '', '<a class="btn secondary" href="#observatoire">Retour</a>' + (p.plot_id && global.ANAGROCI_PARCELLES ? '<a class="btn secondary" href="#parcelles/p/' + esc(p.plot_id) + '">Contour de la parcelle</a>' : '') + (p.plot_id ? '<a class="btn secondary" href="#reperes/champ/' + esc(p.plot_id) + '">Repères GPS (blocs et arbres)</a>' : '') + '<a class="btn secondary" href="#parcelles/cartes-hors-ligne">Cartes hors ligne</a>' + (statut === 'ACTIF' && peutCollecter() ? '<a class="btn primary" href="#observatoire/visite/' + p.id + '/nouvelle">Visite de la semaine</a>' : '')) + message() +
       (p.local ? note('Installation enregistrée sur ce téléphone. <b>Pas encore reçue par FBMS.</b>', 'warn') : '') + (p.dernier_message ? note('Réponse du serveur : ' + esc(p.dernier_message), 'danger') : '') +
       (statut === 'INCOMPATIBLE' ? note('<b>Ce champ ne peut pas être suivi :</b> ' + esc(p.incompatibilite || '') + '. Il n’est ni complété ni remplacé. Prévenez ' + qui + ' pour choisir un autre champ.', 'danger') : '') +
       (statut === 'TIRAGE_VERROUILLE' && !invFaits ? note((desig ? 'Blocs suivis : <b>' : 'Tirage verrouillé : blocs <b>') + tires.map(function (b) { return 'B' + nb(b.numero); }).join(', ') + '</b>. Comptez maintenant <b>tous</b> les arbres de chaque bloc suivi, dans un ordre fixe (du repère d’entrée, rang par rang). Le nombre saisi ne pourra plus être modifié.', 'info') : '') +

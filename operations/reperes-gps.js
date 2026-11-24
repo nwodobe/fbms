@@ -27,6 +27,11 @@ function parts() { return (location.hash || '#reperes').slice(1).split('/').map(
 function surRubrique() { return /^#reperes(\/|$)/.test(location.hash || ''); }
 function aller(h) { if (location.hash === '#' + h) rendre(); else location.hash = h; }
 function enLigne() { return navigator.onLine !== false; }
+function messageHorsLigne() {
+  return global.ANAGROCI_CARTES_HORS_LIGNE && global.L
+    ? 'Hors réseau : les zones téléchargées peuvent servir de fond. Sans carte de la zone, les positions restent visibles sur un fond neutre et la saisie reste possible.'
+    : 'Carte indisponible. Vous pouvez enregistrer les coordonnées sur ce téléphone.';
+}
 function peindre(h) { var r = root(); if (r) r.innerHTML = h; }
 function nb2(n) { return ('0' + n).slice(-2); }
 function heureFr(d) { if (!d) return '—'; try { var t = new Date(d); if (isNaN(t)) return String(d); return nb2(t.getDate()) + '/' + nb2(t.getMonth() + 1) + '/' + t.getFullYear() + ' ' + nb2(t.getHours()) + ':' + nb2(t.getMinutes()); } catch (e) { return String(d); } }
@@ -219,10 +224,11 @@ function vueAccueil() {
     var preparation = '<section class="card rg-prep"><div class="card-head"><div><h2>Travailler hors réseau</h2></div></div>' +
       '<p class="rg-note">' + (vide ? '<b>Aucun champ n\'est préparé sur ce téléphone.</b> ' : '<b>' + cs.nbParcelles + ' parcelle(s)</b> et <b>' + cs.nbPanels + ' champ(s) de l\'Observatoire</b> sont disponibles sur ce téléphone' + (cs.preparationLe ? ' (parcelles préparées le ' + esc(heureFr(cs.preparationLe)) + ')' : '') + '. ') +
       'Avec une connexion, touchez « Préparer mes champs » : la liste de vos parcelles est copiée sur le téléphone. Pour les blocs et les arbres, ouvrez l\'Observatoire et touchez « Préparer le hors-ligne ». Ensuite, la saisie fonctionne sans réseau et sans carte.</p>' +
-      '<div class="rg-actions">' + bouton('Préparer mes champs', 'preparer', enLigne() ? 'primary' : 'secondary', enLigne() ? '' : ' disabled') + lien('Ouvrir l\'Observatoire', 'observatoire') + '</div>' +
+      '<div class="rg-actions">' + bouton('Préparer mes champs', 'preparer', enLigne() ? 'primary' : 'secondary', enLigne() ? '' : ' disabled') + lien('Ouvrir l\'Observatoire', 'observatoire') + lien('Cartes hors ligne', 'parcelles/cartes-hors-ligne') + '</div>' +
+      '<p class="rg-note">Les cartes satellite se téléchargent séparément des parcelles et des observations. Choisissez une zone disponible dans « Cartes hors ligne » avant le départ.</p>' +
       (enLigne() ? '' : '<p class="rg-note">Hors ligne : la préparation attend le retour du réseau. Les champs déjà préparés restent utilisables.</p>') + '</section>';
     peindre(tete('Repères GPS', 'Capturer ou saisir les coordonnées d\'une parcelle, d\'un bloc ou d\'un arbre suivi') + messageEtat() + r[2] +
-      (enLigne() ? '' : avis('info', 'Carte indisponible. Vous pouvez enregistrer les coordonnées sur ce téléphone.')) +
+      (enLigne() ? '' : avis('info', messageHorsLigne())) +
       (peutSaisir() ? '' : avis('info', 'Votre profil consulte les repères. La saisie est réservée au Chef d\'Unité, à son assistant et au Branch Manager.')) +
       (vide ? '' : '<section class="card"><div class="card-head"><div><h2>1. Choisir le champ</h2></div></div>' +
         '<label class="rg-recherche"><span>Rechercher un producteur, un champ, un village</span><input type="search" id="rgRecherche" value="' + esc(etat.recherche) + '" autocomplete="off"></label>' +
@@ -260,14 +266,14 @@ function vueChamp(plotId, ouvrirCarte) {
         }).join('');
       };
       var blocCarte = '<section class="card" id="rgCarteSection"><div class="card-head"><div><h2>Carte du champ</h2></div></div>' +
-        (aPosition ? '<div class="rg-actions">' + bouton('Voir sur la carte', 'carte', 'primary', ' data-v="' + esc(plotId) + '"') + '</div>' : '<p class="rg-note">Aucune position enregistrée pour ce champ : la carte s\'ouvrira dès qu\'un repère existera.</p>') +
+        (aPosition ? '<div class="rg-actions">' + bouton('Voir sur la carte', 'carte', 'primary', ' data-v="' + esc(plotId) + '"') + lien('Cartes hors ligne', 'parcelles/cartes-hors-ligne') + '</div>' : '<p class="rg-note">Aucune position enregistrée pour ce champ : la carte s\'ouvrira dès qu\'un repère existera.</p>') +
         '<div id="rgCarteMessage" aria-live="polite"></div><div id="rgCarte" class="rg-carte" hidden></div>' +
         '<div class="rg-legende"><span><i class="rg-symbole rg-sym-parcelle"></i> Parcelle</span><span><i class="rg-symbole rg-sym-bloc"></i> Bloc</span><span><i class="rg-symbole rg-sym-arbre"></i> Arbre suivi</span><span><i class="rg-symbole rg-sym-existant"></i> Point déjà capturé (Parcelles / Observatoire)</span></div>' +
         '<p class="rg-note">Un repère est un point. Il ne remplace pas le contour de la parcelle et ne permet pas de calculer une superficie.</p></section>';
       peindre(tete(n.producteur, n.champ + ' · ' + n.village + ' · ' + n.cluster, lien('← Repères GPS', 'reperes')) + messageEtat() + r[1] +
         (consent === false ? avis('alerte', '<b>Accord GPS non enregistré pour ce producteur.</b> Aucune coordonnée ne peut être enregistrée tant qu\'il n\'a pas donné son accord. ' + lien('Recueillir l\'accord', 'parcelles/parcours/' + plotId, 'secondary rg-mini')) : '') +
         (consent == null ? avis('info', 'L\'accord GPS du producteur n\'est pas connu sur ce téléphone. Vous pouvez préparer la saisie : le serveur vérifiera l\'accord à la synchronisation et refusera le repère s\'il manque.') : '') +
-        (enLigne() ? '' : avis('info', 'Carte indisponible. Vous pouvez enregistrer les coordonnées sur ce téléphone.')) +
+        (enLigne() ? '' : avis('info', messageHorsLigne())) +
         '<section class="card"><div class="card-head"><div><h2>Positions de ce champ</h2></div></div>' +
         groupe('PARCELLE', 'Parcelle', '') +
         groupe('BLOC', 'Blocs', 'Aucun bloc préparé sur ce téléphone pour ce champ. Si le champ est suivi par l\'Observatoire, ouvrez l\'Observatoire avec une connexion et touchez « Préparer le hors-ligne ».') +
@@ -278,13 +284,29 @@ function vueChamp(plotId, ouvrirCarte) {
   });
 }
 
-/* Fond de carte : même paramétrage que Parcelles (lu, jamais modifié). Aucune tuile n'est
-   conservée hors ligne : sans réseau, les points sont affichés sur FOND NEUTRE, annoncé comme tel. */
+/* Une carte satellite déjà téléchargée est utilisée en priorité. Les fonds en ligne
+   existants ne sont jamais aspirés : hors de la zone locale, le fond neutre est explicite. */
 function fondCarte(map) {
-  var P = global.ANAGROCI_PARCELLES_LOCAL;
-  var lecture = P && P.cache ? P.cache.lire('parametres').catch(function () { return null; }) : Promise.resolve(null);
-  return lecture.then(function (params) {
-    if (!enLigne()) return { satellite: false, message: 'Hors ligne : fond de carte indisponible. Les points sont affichés sur un fond neutre, sans image satellite.' };
+  var P = global.ANAGROCI_PARCELLES_LOCAL, M = global.ANAGROCI_CARTES_HORS_LIGNE, lectureImpossible = false;
+  function present() { return carte === map && document.documentElement.contains(map.getContainer()); }
+  function etatFond(etat, message) {
+    if (!present()) return;
+    var zone = document.getElementById('rgCarteMessage'); if (!zone) return;
+    var msg = document.getElementById('rgFondEtat');
+    if (!msg) { msg = document.createElement('div'); msg.id = 'rgFondEtat'; zone.appendChild(msg); }
+    msg.innerHTML = etat === 'indisponible' || etat === 'partiel' ? avis('alerte', esc(message || 'Image indisponible dans une partie de cette vue. Les positions restent visibles sur un fond neutre.')) : '';
+  }
+  var vue = map.getCenter();
+  return Promise.resolve().then(function () { return M && M.fond ? M.fond(map, { centre: [vue.lat, vue.lng], surEtat: etatFond }) : null; })
+    .catch(function () { lectureImpossible = true; return null; }).then(function (f) {
+    if (!present()) return { satellite: false, message: '' };
+    if (f) return { satellite: true, message: 'Carte téléchargée : ' + f.nom + ' · Source : ' + (f.source || f.nom) +
+      (f.date_image ? ' · Image du ' + String(f.date_image).slice(0, 10) : ' · Date de l\'image non renseignée') +
+      (f.resolution_m ? ' · Résolution native : ' + f.resolution_m + ' m' : '') + '. Agrandir l\'image n\'ajoute pas de détails. Les arbres sont situés par leurs coordonnées GPS.' };
+    var lecture = P && P.cache ? P.cache.lire('parametres').catch(function () { return null; }) : Promise.resolve(null);
+    return lecture.then(function (params) {
+    if (!present()) return { satellite: false, message: '' };
+    if (!enLigne()) return { satellite: false, message: (lectureImpossible ? 'La lecture des cartes téléchargées a échoué. Vérifiez leur état dans « Cartes hors ligne ». ' : 'Aucune carte téléchargée utilisable ne couvre ce point. ') + 'Les points sont affichés sur un fond neutre, sans image satellite.' };
     var im = (params || {}).imagerie || {}, couche = null, sat = false;
     if (im.fournisseur === 'esri' && im.licence_confirmee && im.cle) {
       couche = global.L.tileLayer('https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=' + encodeURIComponent(im.cle),
@@ -300,6 +322,7 @@ function fondCarte(map) {
     couche.on('tileerror', function () { ko++; if (ko >= 3 && ko > ok && zone && !zone.getAttribute('data-ko')) { zone.setAttribute('data-ko', '1'); zone.insertAdjacentHTML('beforeend', avis('alerte', 'L\'image de fond ne se charge pas (réseau faible ?). Les points restent exacts sur le fond neutre.')); } });
     couche.addTo(map);
     return { satellite: sat, message: sat ? 'Fond : image satellite.' : 'Fond : plan (pas une image satellite).' };
+    });
   });
 }
 function icone(type, texte) {
@@ -329,7 +352,7 @@ function afficherCarte(ch, objs, idx, geo) {
   points.forEach(function (p) { global.L.marker([p.lat, p.lng], { icon: icone(p.type, p.texte), keyboard: false }).addTo(map).bindPopup(esc(p.info) + '<br><span class="mono">' + esc(C.fmt(p.lat)) + ' ; ' + esc(C.fmt(p.lng)) + '</span>'); });
   setTimeout(function () { try { map.invalidateSize(); if (bornes && bornes.isValid()) map.fitBounds(bornes.pad(0.35), { maxZoom: 18 }); } catch (e) {} }, 180);
   fondCarte(map).then(function (f) {
-    if (zone) zone.insertAdjacentHTML('afterbegin', '<p class="rg-note" id="rgFond">' + esc(f.message) + ' ' + points.length + ' point(s) affiché(s)' + (couche ? ', avec le contour ' + (geo.status === 'VALIDE' ? 'validé' : 'en cours') + ' de la parcelle.' : '. Aucun contour enregistré pour cette parcelle.') + '</p>');
+    if (carte === map && document.getElementById('rgCarteMessage') === zone && zone) zone.insertAdjacentHTML('afterbegin', '<p class="rg-note" id="rgFond">' + esc(f.message) + ' ' + points.length + ' point(s) affiché(s)' + (couche ? ', avec le contour ' + (geo.status === 'VALIDE' ? 'validé' : 'en cours') + ' de la parcelle.' : '. Aucun contour enregistré pour cette parcelle.') + '</p>');
   });
   try { el.scrollIntoView({ block: 'nearest' }); } catch (e) {}
 }
@@ -398,7 +421,7 @@ function vueObjet(type, id) {
       (consent == null && peutSaisir() ? avis('info', 'Accord GPS non connu sur ce téléphone : vous pouvez préparer la saisie, le serveur le vérifiera à la synchronisation.') : '') +
       (o.remplace ? avis('info', 'Cet arbre a été remplacé : son repère est consultable, mais plus modifiable.') : '') +
       (o.panelLocal ? avis('info', 'Ce champ de l\'Observatoire n\'est pas encore reçu par le serveur. Le repère sera envoyé juste après lui, automatiquement.') : '') +
-      (enLigne() ? '' : avis('info', 'Carte indisponible. Vous pouvez enregistrer les coordonnées sur ce téléphone.')) +
+      (enLigne() ? '' : avis('info', messageHorsLigne())) +
       (saisieOuverte ? '<section class="card rg-saisie"><div class="card-head"><div><h2>' + (correction ? 'Corriger le repère' : 'Renseigner le repère') + '</h2></div></div>' +
         '<div class="rg-actions rg-actions-choix">' + bouton('Utiliser ma position GPS', 'capturer', mode === 'gps' ? 'primary' : 'secondary') + bouton('Saisir les coordonnées GPS', 'manuel', mode === 'manuel' ? 'primary' : 'secondary') + '</div>' +
         blocCapture + formManuel + (er.general ? avis('erreur', esc(er.general)) : '') + alertes + motif +
@@ -493,13 +516,16 @@ function enregistrer() {
     if (ctx.correction && !String(champsLus.motif || '').trim()) { etat.erreurs = { motif: 'Indiquez le motif de la correction.' }; return rendre(); }
     saisie = { latitude: cap.latitude, longitude: cap.longitude, origine: 'GPS_APPAREIL', precision_m: cap.precision_m, releve_le: cap.releve_le, motif: champsLus.motif, confirmer_hors_zone: !C.dansZone(cap.latitude, cap.longitude) };
   }
-  var origine = saisie.origine;
+  var origine = saisie.origine, routeDemandee = location.hash;
+  function ecranCourant() { return location.hash === routeDemandee && etat._objet === ctx; }
   return L.enregistrer({ type: o.type, id: o.id, plot_id: o.plot_id, panel_id: o.panel_id, bloc_id: o.bloc_id, libelle: o.libelle }, saisie).then(function () {
     /* Confirmé seulement ici : la transaction est sur le disque. */
+    if (!ecranCourant()) return enLigne() ? synchroniser(true) : null;
     etat.capture = null; etat.mode = null; etat.erreurs = null; etat.alertes = null; etat.confirmerHorsZone = false; etat._alertesVues = null;
-    etat.message = ['succes', '<b>Enregistré sur ce téléphone. En attente de synchronisation.</b>' + (enLigne() ? '' : ' Carte indisponible hors réseau : la position est dans la liste du champ.')];
+    etat.message = ['succes', '<b>Enregistré sur ce téléphone. En attente de synchronisation.</b>' + (enLigne() ? '' : ' La position est disponible dans la liste du champ. Une carte téléchargée peut servir de fond hors réseau.')];
     if (enLigne()) {
       return synchroniser(true).then(function (b) {
+        if (!ecranCourant()) return;
         if (b && b.recues) etat.message = ['succes', '<b>Enregistré sur ce téléphone, puis transmis au serveur.</b> Le repère reste « non vérifié » tant que la supervision n\'a pas statué.'];
         else if (b && (b.refusees || b.conflits)) etat.message = ['alerte', '<b>Enregistré sur ce téléphone.</b> Le serveur demande une action : voir ci-dessous.'];
         else if (b && b.erreurReseau) etat.message = ['succes', '<b>Enregistré sur ce téléphone. En attente de synchronisation.</b> Le serveur n\'a pas répondu : l\'envoi sera repris automatiquement.'];
@@ -508,8 +534,15 @@ function enregistrer() {
         return rendre();
       });
     }
+    var M = global.ANAGROCI_CARTES_HORS_LIGNE;
+    if (origine === 'GPS_APPAREIL' && global.L && M && M.disponible) return M.disponible([saisie.latitude, saisie.longitude]).catch(function () { return false; }).then(function (disponible) {
+      if (!ecranCourant()) return;
+      if (disponible) return aller('reperes/champ/' + o.plot_id + '/carte');
+      return rendre();
+    });
     return rendre();
   }).catch(function (e) {
+    if (!ecranCourant()) return;
     etat.message = ['erreur', '<b>Rien n\'a été enregistré.</b> ' + esc(e && e.message || 'Écriture impossible sur ce téléphone.') + ' Vos valeurs sont toujours à l\'écran.'];
     return rendre();
   });
@@ -570,6 +603,7 @@ function render(p) {
 }
 
 document.addEventListener('click', surClic);
+global.addEventListener('hashchange', function () { if (!surRubrique() && carte) { try { carte.remove(); } catch (e) {} carte = null; } });
 document.addEventListener('input', surSaisie);
 global.addEventListener('online', function () { synchroniser(true).then(function () { if (surRubrique() && !document.getElementById('rgForm')) rendre(); }); });
 global.addEventListener('offline', function () { if (surRubrique() && !document.getElementById('rgForm')) rendre(); });
