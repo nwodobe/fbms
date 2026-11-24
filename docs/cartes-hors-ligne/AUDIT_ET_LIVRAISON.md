@@ -2,7 +2,7 @@
 
 Date : 24 novembre 2026. Référence inspectée : `a52bc440015c48df977b19512a142d66adf36d87` du dépôt `nwodobe/fbms`.
 
-**Statut : PARTIEL AVEC BLOCAGE, code candidat préparé pour revue, non publié en production.** Aucune recette Android de la nouvelle fonction n'est déclarée exécutée ici. Aucune nouvelle OTA stable n'a été signée, publiée ou observée sur téléphone. Aucun abonnement, service facturable ou achat n'a été engagé. Les [résultats de validation](VALIDATION.md) et les [empreintes du candidat](PREUVES_TESTS.json) distinguent les contrôles exécutés des portes bloquantes.
+**Statut actualisé le 24 novembre 2026 : PRÊT MAIS NON PUBLIÉ.** Les parcours navigateur et une recette Android pilote (émulateur, canal de test) ont été exécutés depuis : voir la [recette du 24 novembre 2026](RECETTE_20261124.md), qui fait foi pour l'état des preuves. Le § 7 ci-dessous décrit l'état à la rédaction initiale. Aucune recette sur l'APK officielle n'est déclarée exécutée. Aucune nouvelle OTA stable n'a été signée, publiée ou observée sur téléphone. Aucun abonnement, service facturable ou achat n'a été engagé. Les [résultats de validation](VALIDATION.md) et les [empreintes du candidat](PREUVES_TESTS.json) distinguent les contrôles exécutés des portes bloquantes.
 
 ## 1. Objectif et limites du périmètre
 

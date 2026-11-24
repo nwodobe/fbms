@@ -1,0 +1,44 @@
+{
+ "url": "https://appassets.androidplatform.net/operations/field-buying.html#reperes/champ/20000000-0000-4000-8000-000000000002/carte",
+ "valeur": {
+  "file": [
+   {
+    "cle": "40b35949-e605-4e56-8bf7-596bd0fe6dcd",
+    "etat": "ATTENTE",
+    "type": "REPERE_ENREGISTRER"
+   }
+  ],
+  "empreinteFile": "057a805c47e70852",
+  "reperes": 3,
+  "empreinteReperes": "aa27168ec43f6d99",
+  "bases": [
+   "aflp_farmer_registry_db@1",
+   "aflp_plot_map_db@1",
+   "aflp_reperes_gps_db@1",
+   "anagroci_observatoire@1",
+   "anagroci_ops_offline@1",
+   "essai_ota_db@1",
+   "essai_ota_idb@1",
+   "essai_persist_db@1",
+   "fbms_cartes_satellite_v1@1"
+  ],
+  "cartes": [
+   {
+    "id": "bouake-pilote-sentinel2",
+    "version": "2026-02-20",
+    "etat": "DISPONIBLE",
+    "actif": true,
+    "octets": 184144,
+    "nombre": 7
+   },
+   {
+    "id": "recette-image-corrompue",
+    "version": "2026-02-20",
+    "etat": "INCOMPLET",
+    "actif": false,
+    "octets": 98781,
+    "nombre": 6
+   }
+  ]
+ }
+}

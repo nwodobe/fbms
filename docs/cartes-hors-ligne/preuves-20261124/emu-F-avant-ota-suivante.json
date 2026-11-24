@@ -1,0 +1,36 @@
+{
+ "url": "https://appassets.androidplatform.net/operations/field-buying.html#reperes",
+ "valeur": {
+  "file": [
+   {
+    "cle": "40b35949-e605-4e56-8bf7-596bd0fe6dcd",
+    "etat": "RECU",
+    "type": "REPERE_ENREGISTRER"
+   }
+  ],
+  "empreinteFile": "057a805c47e70852",
+  "reperes": 3,
+  "empreinteReperes": "baf049952c155d85",
+  "bases": [
+   "aflp_farmer_registry_db@1",
+   "aflp_plot_map_db@1",
+   "aflp_reperes_gps_db@1",
+   "anagroci_observatoire@1",
+   "anagroci_ops_offline@1",
+   "essai_ota_db@1",
+   "essai_ota_idb@1",
+   "essai_persist_db@1",
+   "fbms_cartes_satellite_v1@1"
+  ],
+  "cartes": [
+   {
+    "id": "bouake-pilote-sentinel2",
+    "version": "2026-02-20",
+    "etat": "DISPONIBLE",
+    "actif": true,
+    "octets": 184144,
+    "nombre": 7
+   }
+  ]
+ }
+}

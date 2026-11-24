@@ -1,6 +1,6 @@
 {
   "date": "2026-11-24",
-  "statut": "PARTIEL_AVEC_BLOCAGE",
+  "statut": "PRET_MAIS_NON_PUBLIE",
   "base_commit": "a52bc440015c48df977b19512a142d66adf36d87",
   "publication_production": false,
   "ota_signee": false,
@@ -36,12 +36,12 @@
       "erreurs_historiques": 1
     },
     "html": {
-      "pages": 40,
+      "pages": 41,
       "ecarts_nouveaux": 0,
       "ecarts_historiques": 3
     },
     "liens": {
-      "pages": 40,
+      "pages": 41,
       "casses_nouveaux": 0,
       "casses_historiques": 4
     },
@@ -52,21 +52,46 @@
     "operations_suite_statique": {
       "resultat": "reussi",
       "attentes_versions_cache": "actualisées exactement, assertions métier conservées"
+    },
+    "navigateur_chromium": {
+      "reussis": 23,
+      "echecs": 0,
+      "tailles": [
+        "390x844",
+        "768x1024",
+        "1440x900"
+      ],
+      "support": "Chromium Playwright 1.49.1, profil persistant relancé ; vrai Leaflet, vrai IndexedDB, vraies images ; identité, serveur des repères et transport simulés",
+      "preuves": "tests/cartes-hors-ligne/resultats/"
+    },
+    "emulateur_android_pilote": {
+      "resultat": "reussi pour les scénarios exécutés",
+      "cible": "AVD Android 15, WebView 124.0.6367.219, ci.anagroci.fieldbuying.majota 1.4.2 débogable, canal test, base de recette",
+      "sequences": [
+        1795469206,
+        1795501640,
+        1795503108
+      ],
+      "preuves": "docs/cartes-hors-ligne/preuves-20261124/",
+      "limite": "ne remplace pas l APK officielle ni un téléphone physique"
     }
   },
   "non_executes": [
-    "navigateur_390x844_768x1024_1440x900",
-    "rendu_Leaflet_ImageBitmap",
-    "apk_officielle_mode_avion_redemarrage",
-    "synchronisation_serveur_et_ancien_client",
-    "OTA_et_persistance_apres_OTA_suivante",
-    "reception_ITEL"
+    "apk_officielle_1.4.3",
+    "telephone_physique_itel_S688LN",
+    "signature_et_publication_stable",
+    "android_interruption_espace_mise_a_jour_coupee",
+    "isolation_entre_comptes_sur_android",
+    "retour_arriere_du_moteur",
+    "fonds_en_ligne_Esri_avec_la_candidate"
   ],
   "blocages": [
-    "Chromium local : socket() failed: Operation not permitted",
-    "Chrome Headless Shell : téléchargement HTTP 403",
-    "Aucun Android ni clé OTA officielle accessible",
-    "Capacités de diffusion et adéquation Pages non confirmées"
+    "Revue humaine requise par la politique du dépôt",
+    "APK officielle : canal stable uniquement et aucun compte de test en production, vérification possible seulement après publication",
+    "Catalogue de production absent tant que la PR n est pas fusionnée (404)",
+    "Conflits de fusion avec la PR 378 sur quatre fichiers",
+    "Trafic et adéquation de l hébergement Pages non mesurés",
+    "Aucun périmètre de mission autorisé fourni"
   ],
   "fichiers": {
     "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/manifest.json": {
@@ -134,8 +159,8 @@
       "octets": 2817
     },
     "shared/cartes-hors-ligne.js": {
-      "sha256": "c4637092315ffa173e5f121f7c3d872330802dfe9802005c5e854e74de8577d1",
-      "octets": 34198
+      "sha256": "d17de25d4a720fb16cbf3da48e41b21a6302e36da901ed76ab8f5dc26ecc4855",
+      "octets": 34326
     },
     "tests/cartes-hors-ligne/coeur.test.cjs": {
       "sha256": "e524d8a3a4ee2921d7136b750cb95c61c345567ef775c7ea4b293dbbc7de1c5b",
@@ -160,11 +185,21 @@
     "tests/cartographie/consentement-gps-parcours.mjs": {
       "sha256": "5c932df4b02c5a9d411a33c37910fffb5c5fc32b1201777b5e598c0403c25045",
       "octets": 4318
+    },
+    "tests/cartes-hors-ligne/banc.html": {
+      "sha256": "bfe10206b857df3330aa2aea26cbda1384c56a827530b65ddeacd13cd7e4a371",
+      "octets": 6093
+    },
+    "tests/cartes-hors-ligne/navigateur.mjs": {
+      "sha256": "d4487cf44e6dde04718fc5c57840f9d9583f700f5ae9461126f4001cd54dfe59",
+      "octets": 25764
     }
   },
   "revue_humaine": {
     "label": "human-review",
     "requise": true,
     "politique_modifiee": false
-  }
+  },
+  "date_actualisation": "2026-11-24",
+  "commit_teste": "058ef88026bc9c9d94062f3ef846f30f154537d5"
 }

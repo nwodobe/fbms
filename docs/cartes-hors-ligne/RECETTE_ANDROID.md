@@ -2,7 +2,7 @@
 
 Date de préparation : 24 novembre 2026.
 
-**Statut : NON EXÉCUTÉE.** Cette checklist est une procédure de recette. Les cases ci-dessous ne sont pas des résultats. Les tests navigateur ou les preuves historiques d'autres fonctionnalités ne permettent pas de les cocher.
+**Statut : NON EXÉCUTÉE sur l'APK officielle.** Une recette **pilote** (émulateur Android 15, application du canal de test) a été exécutée le 24 novembre 2026 : ses résultats sont dans la [recette du 24 novembre 2026](RECETTE_20261124.md) et ne cochent aucune case ci-dessous. Cette checklist est une procédure de recette. Les cases ci-dessous ne sont pas des résultats. Les tests navigateur ou les preuves historiques d'autres fonctionnalités ne permettent pas de les cocher.
 
 ## Identification et règles de preuve
 

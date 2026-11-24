@@ -2,7 +2,7 @@
 
 Date : 24 novembre 2026. Base inspectée : `a52bc440015c48df977b19512a142d66adf36d87`.
 
-**PARTIEL AVEC BLOCAGE.** Le code et le paquet satellite sont préparés en branche. Ils ne sont pas publiés en production et aucune réception OTA n'est revendiquée. Les empreintes des fichiers concernés sont enregistrées dans [PREUVES_TESTS.json](PREUVES_TESTS.json). La référence finale de commit est celle de la PR qui porte ces fichiers ; comparer ses fichiers à ces empreintes avant reprise.
+**Actualisé le 24 novembre 2026 : PRÊT MAIS NON PUBLIÉ.** Les contrôles « non exécutés » ci-dessous l'étaient dans l'environnement d'origine ; le navigateur réel et une recette Android pilote ont été exécutés depuis sur le commit `058ef88` : voir la [recette du 24 novembre 2026](RECETTE_20261124.md). Le code et le paquet satellite sont préparés en branche. Ils ne sont pas publiés en production et aucune réception OTA n'est revendiquée. Les empreintes des fichiers concernés sont enregistrées dans [PREUVES_TESTS.json](PREUVES_TESTS.json). La référence finale de commit est celle de la PR qui porte ces fichiers ; comparer ses fichiers à ces empreintes avant reprise.
 
 ## Contrôles exécutés
 
