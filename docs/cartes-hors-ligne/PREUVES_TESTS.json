@@ -1,0 +1,205 @@
+{
+  "date": "2026-11-24",
+  "statut": "PRET_MAIS_NON_PUBLIE",
+  "base_commit": "a52bc440015c48df977b19512a142d66adf36d87",
+  "publication_production": false,
+  "ota_signee": false,
+  "apk_executee": false,
+  "itel_reception_verifiee": false,
+  "tests": {
+    "contrats": {
+      "reussis": 30,
+      "echecs": 0
+    },
+    "stockage_simule_node": {
+      "reussis": 11,
+      "echecs": 0,
+      "support": "fake-indexeddb@6.2.4 ; disque et transport simulés ; dimensions ImageBitmap simulées"
+    },
+    "gps_existant": {
+      "reussis": 14,
+      "echecs": 0
+    },
+    "cartographie_existante": {
+      "reussis": 42,
+      "echecs": 0
+    },
+    "pilote_pixels_reels": {
+      "tuiles": 7,
+      "octets": 184144,
+      "resultat": "reussi",
+      "outil": "GDAL 3.10.3"
+    },
+    "syntaxe": {
+      "fichiers": 140,
+      "erreurs_nouvelles": 0,
+      "erreurs_historiques": 1
+    },
+    "html": {
+      "pages": 41,
+      "ecarts_nouveaux": 0,
+      "ecarts_historiques": 3
+    },
+    "liens": {
+      "pages": 41,
+      "casses_nouveaux": 0,
+      "casses_historiques": 4
+    },
+    "consentement_gps_statique": {
+      "reussis": 10,
+      "echecs": 0
+    },
+    "operations_suite_statique": {
+      "resultat": "reussi",
+      "attentes_versions_cache": "actualisées exactement, assertions métier conservées"
+    },
+    "navigateur_chromium": {
+      "reussis": 23,
+      "echecs": 0,
+      "tailles": [
+        "390x844",
+        "768x1024",
+        "1440x900"
+      ],
+      "support": "Chromium Playwright 1.49.1, profil persistant relancé ; vrai Leaflet, vrai IndexedDB, vraies images ; identité, serveur des repères et transport simulés",
+      "preuves": "tests/cartes-hors-ligne/resultats/"
+    },
+    "emulateur_android_pilote": {
+      "resultat": "reussi pour les scénarios exécutés",
+      "cible": "AVD Android 15, WebView 124.0.6367.219, ci.anagroci.fieldbuying.majota 1.4.2 débogable, canal test, base de recette",
+      "sequences": [
+        1795469206,
+        1795501640,
+        1795503108
+      ],
+      "preuves": "docs/cartes-hors-ligne/preuves-20261124/",
+      "limite": "ne remplace pas l APK officielle ni un téléphone physique"
+    }
+  },
+  "non_executes": [
+    "apk_officielle_1.4.3",
+    "telephone_physique_itel_S688LN",
+    "signature_et_publication_stable",
+    "android_interruption_espace_mise_a_jour_coupee",
+    "isolation_entre_comptes_sur_android",
+    "retour_arriere_du_moteur",
+    "fonds_en_ligne_Esri_avec_la_candidate"
+  ],
+  "blocages": [
+    "Revue humaine requise par la politique du dépôt",
+    "APK officielle : canal stable uniquement et aucun compte de test en production, vérification possible seulement après publication",
+    "Catalogue de production absent tant que la PR n est pas fusionnée (404)",
+    "Conflits de fusion avec la PR 378 sur quatre fichiers",
+    "Trafic et adéquation de l hébergement Pages non mesurés",
+    "Aucun périmètre de mission autorisé fourni"
+  ],
+  "fichiers": {
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/manifest.json": {
+      "sha256": "48791b18e5caf1aa2f440d27fd718838fcb91d114bb08347baeb217471ec9bec",
+      "octets": 3869
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/12/1990/1960.png": {
+      "sha256": "6a1f3e02349ece4cbfa36a81bc40b1cd1cac2f0192903b5b2a3d32549f46ae3f",
+      "octets": 11342
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/13/3980/3920.png": {
+      "sha256": "baa09f40cfabb64026c137fd3f2b29157b3b998e1de05d6d3d9bcdcfc7ed6234",
+      "octets": 12970
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/13/3981/3920.png": {
+      "sha256": "2aa5a0221d34640635cae28b4341f6e796c4737330efeef7bd54a3543cd92c3c",
+      "octets": 27158
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7961/7840.png": {
+      "sha256": "d852ccce705f20e0b806590ae3e5d17bbf3cd86aab5f3cff93fd2af1683ae355",
+      "octets": 2442
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7961/7841.png": {
+      "sha256": "e5563cb0e64ad71de4661a4ab56981765b0dc3c57f288de7aded1548ccd94868",
+      "octets": 40391
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7962/7840.png": {
+      "sha256": "e0c2026716dc7dcd6e98c84988036946800182fd333195b292370cb825f1b8bb",
+      "octets": 4478
+    },
+    "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/tiles/14/7962/7841.png": {
+      "sha256": "482951151fa5b0b2e5376cb1e865778e0ed7eb19b00696115c1c2ebede908514",
+      "octets": 85363
+    },
+    "cartes-hors-ligne/catalogue.json": {
+      "sha256": "497554d514f17b80d65ce2afc3a7fb9ab439177ea23b42d5b8c9082b4058605d",
+      "octets": 571
+    },
+    "operations/field-buying.html": {
+      "sha256": "308f2b2827c1a748d1c35920b3d5df344063e6be03e497fd73295aa9baf9a122",
+      "octets": 5325
+    },
+    "operations/observatoire.js": {
+      "sha256": "15e29181ecb8ddd31cb0f29c9535453746acd917046db3d2f2f95342294267fb",
+      "octets": 137512
+    },
+    "operations/parcelles.js": {
+      "sha256": "4aef64a3f72f8d89e6281ab5e4517914e3cccd9b17cb7718f3f0c59e99c06184",
+      "octets": 145488
+    },
+    "operations/reperes-gps.js": {
+      "sha256": "32a5387a76fb91fc087db8720420c454e151376077702ce2aaacbef8287238b1",
+      "octets": 59676
+    },
+    "scripts/cartes-hors-ligne/preparer-paquet-sentinel.py": {
+      "sha256": "ddec1e9cf47bed6e56148c0f03a050e481ce6a6043ec9351bb0b3acb4b3cbce0",
+      "octets": 10491
+    },
+    "shared/cartes-hors-ligne-coeur.js": {
+      "sha256": "c0352bb303e3b467c17715c6fe445cd66f90c07562ec53171616a846cae516c1",
+      "octets": 9152
+    },
+    "shared/cartes-hors-ligne.css": {
+      "sha256": "bd9e7f121ae8e5d98ef464ab7059e2969e12b6211a8160df078a843b8a890a0d",
+      "octets": 2817
+    },
+    "shared/cartes-hors-ligne.js": {
+      "sha256": "d17de25d4a720fb16cbf3da48e41b21a6302e36da901ed76ab8f5dc26ecc4855",
+      "octets": 34326
+    },
+    "tests/cartes-hors-ligne/coeur.test.cjs": {
+      "sha256": "e524d8a3a4ee2921d7136b750cb95c61c345567ef775c7ea4b293dbbc7de1c5b",
+      "octets": 13716
+    },
+    "tests/cartes-hors-ligne/stockage.test.cjs": {
+      "sha256": "ac18f2979220b371ac3cfc528e4efa316f038d4bd349bc8ff9a2e10bd4e401bc",
+      "octets": 22874
+    },
+    "tests/cartes-hors-ligne/valider-paquet.py": {
+      "sha256": "cc7119d145ec90f2afe08fad925d7b902085ebd9c3ddfe84f28a4e02df7d3d78",
+      "octets": 5479
+    },
+    "tests/observatoire/selection-12-static.mjs": {
+      "sha256": "b9305a5429509d449bf38d969238bc27dd754b0025e67b779b24c84a21ca8186",
+      "octets": 2719
+    },
+    "tests/observatoire/codes-suivi-a001-a012.mjs": {
+      "sha256": "52e7a1e223cca16dbaa2bf6eff92c8ae8ccb8fbe356304a9508fa64ef2a3c638",
+      "octets": 7214
+    },
+    "tests/cartographie/consentement-gps-parcours.mjs": {
+      "sha256": "5c932df4b02c5a9d411a33c37910fffb5c5fc32b1201777b5e598c0403c25045",
+      "octets": 4318
+    },
+    "tests/cartes-hors-ligne/banc.html": {
+      "sha256": "bfe10206b857df3330aa2aea26cbda1384c56a827530b65ddeacd13cd7e4a371",
+      "octets": 6093
+    },
+    "tests/cartes-hors-ligne/navigateur.mjs": {
+      "sha256": "d4487cf44e6dde04718fc5c57840f9d9583f700f5ae9461126f4001cd54dfe59",
+      "octets": 25764
+    }
+  },
+  "revue_humaine": {
+    "label": "human-review",
+    "requise": true,
+    "politique_modifiee": false
+  },
+  "date_actualisation": "2026-11-24",
+  "commit_teste": "058ef88026bc9c9d94062f3ef846f30f154537d5"
+}

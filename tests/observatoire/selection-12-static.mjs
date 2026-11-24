@@ -43,7 +43,7 @@ assert.match(ui, /data-choix-erreur/);
 assert.match(lire('operations/observatoire.css'), /obs-choix-invalide/);
 const html = lire('operations/field-buying.html');
 assert.match(html, /observatoire-coeur\.js\?v=20261123-reperes-gps-1/);
-assert.match(html, /observatoire\.js\?v=20261123-reperes-gps-1/);
+assert.match(html, /observatoire\.js\?v=20261124-cartes-hors-ligne-1/);
 assert.match(html, /observatoire\.css\?v=20261123-reperes-gps-1/);
 assert.match(lire('sw.js'), /ops-offline-v33-codes-a001/);
 console.log('PASS: Observatoire 12 rangs, selection sans doublons, capacite physique verifiee.');

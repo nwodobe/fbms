@@ -1,0 +1,73 @@
+{
+  "pack": "bouake-pilote-sentinel2",
+  "scene": "S2B_T30NTP_20260220T104813_L2A",
+  "tileCount": 7,
+  "tileBytes": 184144,
+  "checks": {
+    "generatorSyntax": "passed",
+    "catalogueManifestHash": "passed",
+    "completeXYZGrid": "passed",
+    "tileSizes": "passed",
+    "tileHashes": "passed",
+    "RGBA256Dimensions": "passed",
+    "coverageAlphaInsideBounds": "passed",
+    "SCLNoDataCloudShadow": "passed",
+    "visualInspection": "passed"
+  },
+  "COGTransferredBytesFromContentRange": 4849566,
+  "productionPublished": false,
+  "AndroidValidated": false,
+  "schemaVersion": 1,
+  "preparedAt": "2026-11-24T00:12:30.349424+00:00",
+  "bounds": [
+    -5.06,
+    7.67,
+    -5.04,
+    7.69
+  ],
+  "purpose": "Zone urbaine publique de démonstration; aucune parcelle ni donnée de producteur FBMS.",
+  "source": {
+    "name": "Copernicus Sentinel-2 L2A / Earth Search COG",
+    "collection": "sentinel-2-c1-l2a",
+    "itemId": "S2B_T30NTP_20260220T104813_L2A",
+    "url": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T30NTP_20260220T104813_L2A",
+    "acquiredAt": "2026-02-20T10:59:00.073000Z",
+    "resolutionMetres": 10,
+    "licenceUrl": "https://cds.climate.copernicus.eu/licences/ec-sentinel",
+    "attribution": "Contains modified Copernicus Sentinel data 2026. COG: Element 84 / AWS Open Data.",
+    "accessInformationUrl": "https://registry.opendata.aws/sentinel-2-l2a-cogs/",
+    "allowOffline": true,
+    "allowCommercial": true
+  },
+  "quality": {
+    "zoneCloudPercent": 0.0,
+    "zoneCloudShadowPercent": 0.0,
+    "zoneNoDataPercent": 0.0,
+    "zoneUnclassifiedPercent": 0.0,
+    "zoneCastShadowPercent": 0.0,
+    "sclHistogram": {
+      "4": 125,
+      "5": 12307
+    },
+    "sclPixelCount": 12432,
+    "sclResolutionMetres": 20,
+    "sclResampling": "nearest",
+    "reviewStatus": "verified",
+    "note": "La classification est algorithmique. Elle ne garantit pas l'absence de voile atmosphérique ni l'exactitude du repérage au sol.",
+    "sceneCloudPercent": 3.299206,
+    "reviewedAt": "2026-11-24T00:13:26.624717+00:00",
+    "reviewNote": "Inspection visuelle de l’image source découpée : zone urbaine, stade et réseau routier visibles; contrôle SCL et transparence des sept tuiles réussis. Cette vérification ne garantit pas une précision cadastrale ni la résolution des arbres individuels.",
+    "coverageVerified": true,
+    "coverageCheck": "Grille XYZ complète z12–14; alpha non nul (255) pour chaque pixel dont le centre est dans les bornes déclarées; dimensions 256×256; octets et SHA256 contrôlés."
+  },
+  "fullRGBBytes": 301124447,
+  "fullSCLBytes": 3787214,
+  "rejectedCandidate": {
+    "itemId": "S2A_T30NTP_20260220T105912_L2A",
+    "sceneCloudPercent": 0.270526,
+    "zoneNoDataPercent": 67.302124,
+    "result": "rejected-before-RGB-read"
+  },
+  "manifestSha256": "48791b18e5caf1aa2f440d27fd718838fcb91d114bb08347baeb217471ec9bec",
+  "manifestPath": "cartes-hors-ligne/bouake-pilote-sentinel2/2026-02-20/manifest.json"
+}

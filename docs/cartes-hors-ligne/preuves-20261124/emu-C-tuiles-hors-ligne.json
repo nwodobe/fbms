@@ -1,0 +1,18 @@
+{
+ "url": "https://appassets.androidplatform.net/operations/field-buying.html#parcelles/cartes-hors-ligne",
+ "valeur": {
+  "enLigne": false,
+  "attendues": 7,
+  "peintes": 7,
+  "requetesReseauPendantLeTrace": 0,
+  "detail": {
+   "12/1990/1960": "37 px opaques, 38 couleurs",
+   "13/3980/3920": "46 px opaques, 47 couleurs",
+   "13/3981/3920": "99 px opaques, 100 couleurs",
+   "14/7961/7841": "173 px opaques, 174 couleurs",
+   "14/7962/7841": "377 px opaques, 375 couleurs",
+   "14/7961/7840": "7 px opaques, 8 couleurs",
+   "14/7962/7840": "17 px opaques, 18 couleurs"
+  }
+ }
+}

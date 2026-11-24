@@ -89,8 +89,12 @@ assert.match(lire('shared/observatoire-hors-ligne.js'), /brouillonChoix/);
 assert.match(lire('shared/observatoire-hors-ligne.js'), /codes_suivi: !!\(p\.parametres \|\| \{\}\)\.codes_suivi/);
 assert.match(lire('operations/observatoire.css'), /obs-compteur-ok/);
 const html = lire('operations/field-buying.html');
-for (const f of ['observatoire-coeur\\.js', 'observatoire-hors-ligne\\.js', 'observatoire\\.js', 'observatoire\\.css'])
-  assert.match(html, new RegExp(f + '\\?v=20261123-reperes-gps-1'));
+for (const [f, version] of [
+  ['observatoire-coeur\\.js', '20261123-reperes-gps-1'],
+  ['observatoire-hors-ligne\\.js', '20261123-reperes-gps-1'],
+  ['observatoire\\.js', '20261124-cartes-hors-ligne-1'],
+  ['observatoire\\.css', '20261123-reperes-gps-1']
+]) assert.match(html, new RegExp(f + '\\?v=' + version));
 assert.match(lire('sw.js'), /ops-offline-v33-codes-a001/);
 ok('Interface : bouton d’attribution, compteur, échange, brouillon, modification motivée, versions de cache');
 
