@@ -28,7 +28,7 @@ for(const file of ['index.html','operations/field-buying.html','operations/procu
                    'operations/traceability.html','moto/index.html','fieldproof/index.html']){
  const html=read(file);
  assert.ok(html.includes('fbms-unified-nav-v22.css?v=20261118-sync-journal-1'), file+' must reload new menu style');
- assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261123-reperes-gps-1'), file+' must reload new menu controller');
+ assert.ok(html.includes('fbms-unified-nav-v22.js?v=20261124-reseau-1'), file+' must reload new menu controller');
 }
 /* Une seule version du contrôleur de menu sur toutes les pages : une page restée sur l'ancienne version
    servirait un menu périmé (constaté sur la PR n° 360 : index, moto et fieldproof en retard). */
@@ -59,7 +59,7 @@ assert.ok(portal.includes('id="fbms-home-prune-submenu"'),'Home must remove cach
 assert.ok(portal.includes('new MutationObserver(removeLegacyHomeSubmenu)'),'Home must protect against stale render redraw');
 assert.ok(portal.includes('href="moto/index.html"'),'Fleet must remain directly accessible');
 assert.ok(portal.includes('href="fieldproof/index.html"'),'Field Proof must remain directly accessible');
-assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261123-reperes-gps-1'),'Home must load the refreshed navigation JS');
+assert.ok(portal.includes('fbms-unified-nav-v22.js?v=20261124-reseau-1'),'Home must load the refreshed navigation JS');
 
 const workspaces = ['field-buying.html','procurement.html','lba-purchase.html','warehouse.html','stock-transfer.html','factory.html'];
 

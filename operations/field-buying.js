@@ -561,7 +561,17 @@ function lastReconByRt(recons) {
   });
   return m;
 }
+/* Réseau 24/11/2026 : hors ligne, la carte des villages restait sur son squelette (aucun
+   repli ici, aucune erreur interceptée dans renderHubs). Les hubs sont désormais gardés sur
+   l'appareil comme les référentiels ; sans copie locale, la carte s'affiche quand même et
+   place chaque hub au barycentre de ses villages. */
 function hubsData() {
+  var off = global.ANAGROCI_OFFLINE, cid = campId(), vide = { logHubs: [], hubs: [], local: true };
+  function local() {
+    if (!off) return Promise.resolve(vide);
+    return off.getBundle('hubs', { campaign_id: cid }).then(function (x) { return x ? Object.assign({ local: true }, x) : vide; }).catch(function () { return vide; });
+  }
+  if (off && !off.isOnline()) return local();
   return FBStore.get('hubs', function () {
     return Promise.all([
       q('log_hubs', 'cluster,zone,hub_nom,statut_hub,potentiel_mt,distance_km,etat_route,commentaire,updated_at', 50),
@@ -569,7 +579,10 @@ function hubsData() {
     ]).then(function (rs) {
       return { logHubs: rs[0], hubs: rs[1].filter(function (h) { return !h.deleted; }) };
     });
-  });
+  }).then(function (x) {
+    if (off) off.setBundle('hubs', x, { campaign_id: cid }).catch(function () {});
+    return x;
+  }).catch(function () { return local(); });
 }
 function sustainabilityData() {
   return FBStore.get('sust', function () {
@@ -842,10 +855,11 @@ var NOTE20 = [['', '—'], ['0', '0'], ['5', '5'], ['10', '10'], ['15', '15'], [
 function openVillageForm(editId) {
   var host = formHost();
   host.innerHTML = '<p class="muted">Ouverture du formulaire…</p>';
-  Promise.all([base(), loadProfile(), activeFieldRule()]).then(function (rs) {
-    var c = rs[0], rule = rs[2];
-    var prixCampagne = Number(rule.price_per_kg), commissionRt = Number(rule.rt_commission_per_kg), seuilHumidite = Number(rule.max_moisture_pct), seuilKor = Number(rule.min_kor);
-    if(!isFinite(prixCampagne)||prixCampagne<=0||!isFinite(commissionRt)||!isFinite(seuilHumidite)||!isFinite(seuilKor)){throw new Error('Règle Procurement FIELD_BUYING incomplète : prix, commission et seuils qualité sont requis.');}
+  /* Réseau 24/11/2026 : le village ne dépend PAS de la règle de prix d'achat. Ce lien, ajouté
+     par erreur avec le correctif des achats (26396f5), bloquait l'ouverture hors ligne
+     (« Ouverture du formulaire… » sans fin) et sur toute campagne sans règle de prix. */
+  Promise.all([base(), loadProfile()]).then(function (rs) {
+    var c = rs[0];
     if (!guardTerrain(host)) return;
     /* Mode édition : mêmes sections, valeurs préremplies, MÊME ligne mise à jour. */
     var editRow = editId ? c.vm[editId] : null;
@@ -883,7 +897,7 @@ function openVillageForm(editId) {
     host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le village — ' + esc(editRow.village) : 'Nouveau village — fiche de recensement') + '</h2>' +
       '<p>Les 9 sections du recensement terrain. Seuls le nom et le cluster sont requis pour créer le village ' +
       '(minimum opérationnel) ; le reste enrichit le dossier et peut être complété plus tard.</p></div></div>' +
-      '<form id="villageForm">' + completenessBar('villageForm') +
+      '<form id="villageForm">' + avisConnexion('le village') + completenessBar('villageForm') +
 
       section('1. Identification', '<div class="ops-form-grid">' +
         field('Nom du village *', '<input id="vf_nom" data-c required maxlength="120" value="' + pv(editRow && editRow.village) + '">', true) +
@@ -1105,6 +1119,7 @@ function openVillageForm(editId) {
               decision: val('vf_decision') },
         completude: refresh()
       };
+      if (bloquerSiHorsLigne(msg, 'le village')) return;
       btn.disabled = true; msg.className = 'muted';
       msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
       client().then(function (cl) {
@@ -1160,10 +1175,10 @@ function openVillageForm(editId) {
         }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
-        msg.textContent = err && err.message ? err.message : 'Création impossible.';
+        msg.textContent = messageEchecEcriture(err);
       });
     });
-  });
+  }).catch(echecOuverture(host, 'le formulaire village'));
 }
 
 /* Liste dynamique des acheteurs concurrents — reprise de l'ancien s4. */
@@ -1210,7 +1225,7 @@ function openRtForm(prefill, editId) {
     host.innerHTML = '<div class="card-head"><div><h2>' + (editRow ? 'Modifier le RT — ' + esc(editRow.nom) + ' <span class="mono muted">' + esc(editRow.id_rt || '') + '</span>' : 'Nouveau RT — dossier complet') + '</h2>' +
       '<p>Nom, téléphone et village suffisent pour créer le RT (minimum opérationnel) ; ' +
       'le reste construit la fiche exploitable par le Branch Manager.</p></div></div>' +
-      '<form id="rtForm">' + completenessBar('rtForm') +
+      '<form id="rtForm">' + avisConnexion('le RT') + completenessBar('rtForm') +
 
       section('1. Identité', '<div class="ops-form-grid">' +
         field('Nom du RT *', '<input id="rf_nom" data-c required maxlength="120">', true) +
@@ -1324,6 +1339,7 @@ function openRtForm(prefill, editId) {
         createdBy: editRow ? (ED.createdBy || '') : (profile.nom || ''),
         historique: editRow ? ((ED.historique || []).concat([{ date: new Date().toISOString(), par: profile.nom || '', type: 'Modification', note: 'Fiche modifiée' }])) : []
       };
+      if (bloquerSiHorsLigne(msg, 'le RT')) return;
       btn.disabled = true; msg.className = 'muted';
       msg.textContent = editRow ? 'Enregistrement des modifications…' : 'Création en cours…';
       client().then(function (cl) {
@@ -1338,7 +1354,7 @@ function openRtForm(prefill, editId) {
         return cl.from('rt').insert(row);
       }).then(function (r) {
         btn.disabled = false;
-        if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = r.error.message; return; }
+        if (r.error) { msg.className = 'ops-danger-text'; msg.textContent = explainWriteError(r.error.message); return; }
         msg.className = 'ops-ok-text';
         msg.textContent = (editRow ? 'RT modifié : ' : 'RT créé : ') + name + ' (dossier ' + data.completude + ' %).' +
           (!editRow && data.estProducteur === 'OUI' ? ' Il pourra être enrôlé comme producteur depuis sa fiche.' : '');
@@ -1351,10 +1367,10 @@ function openRtForm(prefill, editId) {
         }, 1100);
       }).catch(function (err) {
         btn.disabled = false; msg.className = 'ops-danger-text';
-        msg.textContent = err && err.message ? err.message : 'Création impossible.';
+        msg.textContent = messageEchecEcriture(err);
       });
     });
-  });
+  }).catch(echecOuverture(host, 'le formulaire RT'));
 }
 
 /* ------------------------ PRODUCTEUR — porte d'entrée du Farmer Passport ------ */
@@ -1711,7 +1727,46 @@ function openFarmerForm(prefill, editId) {
         msg.textContent = err && err.message ? explainWriteError(err.message) : 'Création impossible.';
       });
     });
-  });
+  }).catch(echecOuverture(host, 'le formulaire producteur'));
+}
+
+/* Réseau 24/11/2026 — un formulaire ne doit jamais rester figé sur « Ouverture du
+   formulaire… » : toute erreur d'ouverture est affichée avec un bouton Fermer. */
+function echecOuverture(host, quoi) {
+  return function (err) {
+    if (!host) return;
+    host.innerHTML = '<div class="notice danger"><b>Impossible d’ouvrir ' + esc(quoi) + '.</b> ' +
+      esc(err && err.message ? err.message : String(err || 'Erreur inconnue')) + '</div>' +
+      '<div class="ops-actions"><button class="btn secondary" type="button" onclick="ANAGROCI_FB.closeForm()">Fermer</button></div>';
+  };
+}
+function enLigne() {
+  var off = global.ANAGROCI_OFFLINE;
+  if (off && typeof off.isOnline === 'function') return off.isOnline();
+  return typeof navigator === 'undefined' || navigator.onLine !== false;
+}
+/* Villages et RT : création EN LIGNE uniquement (pas de file d'attente locale pour ces
+   objets — seuls l'enrôlement producteur et l'achat sont pris en charge hors ligne). */
+function avisConnexion(objet) {
+  /* Pas d'attribut hidden : .notice a un display d'auteur qui l'emporterait. */
+  if (enLigne()) return '';
+  return '<div class="notice warn fb-avis-connexion"><b>Connexion Internet requise pour enregistrer ' + esc(objet) + '.</b> ' +
+    'Ce téléphone est hors ligne : rien ne sera enregistré tant que le réseau ne revient pas. ' +
+    'Le formulaire reste rempli tant que vous ne le fermez pas ; appuyez sur « Enregistrer » au retour du réseau.</div>';
+}
+function bloquerSiHorsLigne(msg, objet) {
+  if (enLigne()) return false;
+  msg.className = 'ops-danger-text';
+  msg.textContent = 'Hors ligne : ' + objet + ' n’a PAS été enregistré. La création exige une connexion Internet ; ' +
+    'vos saisies restent dans le formulaire, réessayez au retour du réseau.';
+  return true;
+}
+function messageEchecEcriture(err) {
+  var m = err && err.message ? err.message : String(err || '');
+  if (!enLigne() || /fetch|network|load failed|timeout|offline/i.test(m)) {
+    return 'Connexion perdue pendant l’envoi : rien n’a été enregistré. Vos saisies restent dans le formulaire ; réessayez au retour du réseau.';
+  }
+  return m ? explainWriteError(m) : 'Création impossible.';
 }
 
 function formHost() {
@@ -2383,10 +2438,257 @@ function rtClusterResolver(c) {
   };
 }
 
-var rtTab = 'villages';
+/* ===================== Réseau : recherche transversale (24/11/2026) =====================
+   Une seule zone de recherche pour les clusters, villages, RT et producteurs, avec des
+   filtres combinables. Règles :
+   - la recherche porte sur TOUTES les fiches chargées pour le compte (base(), mêmes droits
+     de lecture que les listes et les fiches), jamais sur la seule page affichée ;
+   - majuscules, accents, espaces, apostrophes (' et ’) et traits d'union sont ignorés
+     (« nguessankro » trouve « N'GUESSANKRO ») ; les noms d'origine ne sont jamais modifiés ;
+   - catégories de filtres combinées par ET ; plusieurs clusters ou types combinés par OU ;
+   - les filtres portent sur les identifiants réels (cluster du village, village_id, rt_id) :
+     un RT est rattaché à UN village (rt.village_id), un producteur à un village et, s'il en
+     a un, à un RT (producteurs.rt_id) — jamais au créateur de la fiche ;
+   - hors ligne, la portée « données de cet appareil » est annoncée. */
+var RS_PAGE = 50;
+var RS_TYPES = [['cluster', 'Clusters', 'Cluster'], ['village', 'Villages', 'Village'], ['rt', 'RT', 'RT'], ['producteur', 'Producteurs', 'Producteur']];
+var RS_CLE = 'fbms_reseau_recherche_v1';
+var rsEtat = (function () {
+  var e = { q: '', types: ['cluster', 'village', 'rt', 'producteur'], clusters: [], village: '', rt: '', shown: RS_PAGE };
+  try {
+    var s = JSON.parse(sessionStorage.getItem(RS_CLE) || 'null');
+    if (s && typeof s === 'object') {
+      if (typeof s.q === 'string') e.q = s.q;
+      if (Array.isArray(s.types) && s.types.length) e.types = s.types.filter(function (x) { return /^(cluster|village|rt|producteur)$/.test(x); });
+      if (!e.types.length) e.types = ['cluster', 'village', 'rt', 'producteur'];
+      if (Array.isArray(s.clusters)) e.clusters = s.clusters.map(String);
+      if (typeof s.village === 'string') e.village = s.village;
+      if (typeof s.rt === 'string') e.rt = s.rt;
+      if (s.shown > 0) e.shown = Number(s.shown);
+    }
+  } catch (x) {}
+  return e;
+})();
+var rsSeq = 0;
+function rsSauver() { try { sessionStorage.setItem(RS_CLE, JSON.stringify(rsEtat)); } catch (x) {} }
+/* Correspondance tolérante : sous-chaîne sur le texte normalisé, ou sur le texte collé
+   (sans espaces). Ordre des mots libre (« yao kouame ») seulement sur le NOM de la fiche
+   (motsDe), et mot par mot en début de mot : appliqué au texte concaténé (nom + village),
+   il ferait correspondre « RT … 10 » à « … 01 » par le nom de son village. */
+function rsCorrespond(texte, requete, motsDe) {
+  var q = normName(requete);
+  if (!q) return true;
+  var tx = normName(texte), colle = tx.replace(/ /g, ''), qc = q.replace(/ /g, '');
+  if (tx.indexOf(q) >= 0 || colle.indexOf(qc) >= 0) return true;
+  if (motsDe === false || q.indexOf(' ') < 0) return false;
+  var mots = normName(motsDe == null ? texte : motsDe).split(' ');
+  return q.split(' ').every(function (m) { return mots.some(function (w) { return w.indexOf(m) === 0; }); });
+}
+function rsIndex(c, clusterOf) {
+  var items = [], clusterLabel = {};
+  c.clusters.forEach(function (x) { clusterLabel[clusterOf(x.code)] = x.label || x.code; });
+  function lbl(k) { return clusterLabel[k] || k || 'Sans cluster'; }
+  var zones = {}; (c.zones || []).forEach(function (z) { zones[z.code] = z.label || z.code; });
+  c.clusters.forEach(function (x) {
+    var k = clusterOf(x.code);
+    items.push({ type: 'cluster', id: k, nom: x.label || x.code, code: x.code, cluster: k, village: null, rt: null,
+      texte: (x.label || '') + ' ' + x.code + ' ' + (x.aliases || []).join(' '),
+      contexte: 'Zone ' + (zones[x.zone_code] || x.zone_code || '—'), href: null });
+  });
+  c.villages.forEach(function (v) {
+    var k = clusterOf(v);
+    items.push({ type: 'village', id: v.id, nom: v.village || v.id, code: v.farmer_code_prefix || '', cluster: k, village: v.id, rt: null,
+      texte: (v.village || '') + ' ' + (v.farmer_code_prefix || ''), contexte: 'Cluster ' + lbl(k),
+      statut: v.statut, geo: !!villageCoords(v), href: '#villages/' + encodeURIComponent(v.id) });
+  });
+  c.rts.forEach(function (r) {
+    var k = clusterOf(r), vv = c.vm[r.village_id];
+    items.push({ type: 'rt', id: r.id, nom: r.nom || r.id, code: r.id_rt || '', tel: r.telephone || '', cluster: k, village: r.village_id || null, rt: r.id,
+      texte: (r.nom || '') + ' ' + (r.id_rt || ''),
+      contexte: (vv ? vv.village : (r.village_nom || 'Sans village')) + ' · Cluster ' + lbl(k),
+      statut: r.statut, href: '#rt/' + encodeURIComponent(r.id) });
+  });
+  c.farmers.forEach(function (f) {
+    var vv = c.vm[f.village_id], rr = c.rm[f.rt_id];
+    var k = clusterOf(f.cluster_code || f.cluster_label || (vv && (vv.cluster_code || vv.cluster)) || '');
+    items.push({ type: 'producteur', id: f.producteur_id, nom: (f.nom || '') + (f.prenoms ? ' ' + f.prenoms : ''), code: f.farmer_id || '', tel: f.telephone || '',
+      cluster: k, village: f.village_id || null, rt: f.rt_id || null,
+      texte: (f.nom || '') + ' ' + (f.prenoms || '') + ' ' + (f.farmer_id || ''),
+      contexte: (vv ? vv.village : (f.village_nom || 'Sans village')) + ' · Cluster ' + lbl(k) + ' · ' +
+        (f.rt_id ? 'RT ' + (rr ? rr.nom : (f.rt_nom || f.rt_id)) : 'Sans RT'),
+      href: '#farmers/' + encodeURIComponent(f.producteur_id) });
+  });
+  return { items: items, clusterLabel: lbl };
+}
+function rsFiltrer(items, e) {
+  var tq = normPhone(e.q), avecTel = tq.length >= 4 && tq.length === String(e.q).replace(/[\s.+\-]/g, '').length;
+  return items.filter(function (it) {
+    if (e.types.indexOf(it.type) < 0) return false;
+    if (e.clusters.length && e.clusters.indexOf(it.cluster) < 0) return false;
+    if (e.village) {
+      if (it.type === 'cluster') return false;
+      if (it.village !== e.village) return false;
+    }
+    if (e.rt) {
+      if (e.rt === '__sans__') { if (it.type !== 'producteur' || it.rt) return false; }
+      else if ((it.type !== 'rt' && it.type !== 'producteur') || it.rt !== e.rt) return false;
+    }
+    if (!e.q) return true;
+    if (avecTel && it.tel && normPhone(it.tel).indexOf(tq) >= 0) return true;
+    return rsCorrespond(it.texte, e.q, it.nom);
+  });
+}
+function drawRecherche(body, c, clusterOf) {
+  var e = rsEtat, idx = rsIndex(c, clusterOf), lbl = idx.clusterLabel, avis = [];
+  /* Cohérence parent → enfant : une sélection devenue incompatible est retirée et signalée. */
+  if (e.village) {
+    var vSel = c.vm[e.village];
+    if (!vSel) { e.village = ''; }
+    else if (e.clusters.length && e.clusters.indexOf(clusterOf(vSel)) < 0) {
+      avis.push('Filtre village « ' + (vSel.village || '') + ' » retiré : il n’appartient pas aux clusters choisis.'); e.village = '';
+    }
+  }
+  if (e.rt && e.rt !== '__sans__') {
+    var rSel = c.rm[e.rt];
+    if (!rSel) { e.rt = ''; }
+    else if ((e.clusters.length && e.clusters.indexOf(clusterOf(rSel)) < 0) || (e.village && rSel.village_id !== e.village)) {
+      avis.push('Filtre RT « ' + (rSel.nom || '') + ' » retiré : il n’est pas rattaché au cluster ou au village choisi.'); e.rt = '';
+    }
+  }
+  rsSauver();
+  var villagesOk = c.villages.filter(function (v) { return !e.clusters.length || e.clusters.indexOf(clusterOf(v)) >= 0; });
+  var rtsOk = c.rts.filter(function (r) {
+    return (!e.clusters.length || e.clusters.indexOf(clusterOf(r)) >= 0) && (!e.village || r.village_id === e.village);
+  });
+  var horsLigne = !enLigne();
+  var limite = c.villages.length >= 500 || c.rts.length >= 500;
+  var html = '<section class="card rs-card"><div class="card-head"><div><h2>Rechercher dans le réseau</h2>' +
+    '<p>Cluster, village, RT ou producteur : nom (même partiel), code ou identifiant, téléphone.</p></div>' +
+    '<div class="ops-route-actions"><button class="btn secondary" type="button" id="rsReset">Réinitialiser</button></div></div>' +
+    (horsLigne
+      ? '<div class="notice warn rs-portee"><b>Recherche dans les données disponibles sur cet appareil.</b>&nbsp;Hors ligne : une fiche absente ici peut exister dans FBMS ; relancez la recherche au retour du réseau.</div>'
+      : '<p class="muted rs-portee">Recherche dans les fiches chargées pour votre compte : ' + c.villages.length + ' villages, ' + c.rts.length + ' RT, ' + c.farmers.length + ' producteurs.</p>') +
+    (limite ? '<div class="notice warn"><b>Liste limitée :</b>&nbsp;500 villages ou RT chargés au maximum sur ce téléphone ; affinez par cluster.</div>' : '') +
+    '<div class="rs-q">' + field('Rechercher', '<input id="rsQ" type="search" autocomplete="off" enterkeyhint="search" value="' + esc(e.q) + '" placeholder="Ex. Konankro, RT-012, 0700…">', true) + '</div>' +
+    '<fieldset class="rs-groupe"><legend>Types (un ou plusieurs)</legend><div class="rs-puces">' +
+    RS_TYPES.map(function (t) {
+      var on = e.types.indexOf(t[0]) >= 0;
+      return '<button type="button" class="rs-puce' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-rs-type="' + t[0] + '">' + esc(t[1]) + '</button>';
+    }).join('') + '</div></fieldset>' +
+    '<fieldset class="rs-groupe"><legend>Clusters (un ou plusieurs)</legend><div class="rs-puces">' +
+    c.clusters.map(function (x) {
+      var k = clusterOf(x.code), on = e.clusters.indexOf(k) >= 0;
+      return '<button type="button" class="rs-puce' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-rs-cluster="' + esc(k) + '">' + esc(x.label || x.code) + '</button>';
+    }).join('') + '</div></fieldset>' +
+    '<div class="ops-form-grid rs-selects">' +
+    field('Village', '<select id="rsVillage"><option value="">Tous les villages' + (e.clusters.length ? ' des clusters choisis' : '') + '</option>' +
+      selOptions(villagesOk.map(function (v) { return [v.id, v.village + ' · ' + lbl(clusterOf(v)) + (v.farmer_code_prefix ? ' · ' + v.farmer_code_prefix : '')]; }), e.village) + '</select>') +
+    field('RT', '<select id="rsRt"><option value="">Tous les RT</option><option value="__sans__"' + (e.rt === '__sans__' ? ' selected' : '') + '>Producteurs sans RT</option>' +
+      selOptions(rtsOk.map(function (r) { return [r.id, r.nom + (r.id_rt ? ' · ' + r.id_rt : '') + ' · ' + (c.vm[r.village_id] ? c.vm[r.village_id].village : (r.village_nom || '—'))]; }), e.rt) + '</select>') +
+    '</div>' +
+    (avis.length ? '<div class="notice info" role="status">' + avis.map(esc).join('<br>') + '</div>' : '') +
+    '<div id="rsActifs"></div></section><section class="card"><div id="rsRes" aria-live="polite"></div></section>';
+  body.innerHTML = html;
+
+  function puces() {
+    var a = [];
+    if (e.q) a.push(['q', 'Texte : « ' + e.q + ' »']);
+    if (e.types.length < RS_TYPES.length) a.push(['types', 'Types : ' + RS_TYPES.filter(function (t) { return e.types.indexOf(t[0]) >= 0; }).map(function (t) { return t[1]; }).join(' ou ')]);
+    e.clusters.forEach(function (k) { a.push(['cluster:' + k, 'Cluster : ' + lbl(k)]); });
+    if (e.village && c.vm[e.village]) a.push(['village', 'Village : ' + c.vm[e.village].village]);
+    if (e.rt) a.push(['rt', e.rt === '__sans__' ? 'Producteurs sans RT' : 'RT : ' + (c.rm[e.rt] ? c.rm[e.rt].nom : e.rt)]);
+    document.getElementById('rsActifs').innerHTML = a.length
+      ? '<div class="rs-actifs"><span class="muted">Filtres actifs :</span> ' + a.map(function (x) {
+          return '<button type="button" class="rs-actif" data-rs-retirer="' + esc(x[0]) + '" aria-label="Retirer le filtre ' + esc(x[1]) + '">' + esc(x[1]) + ' <span aria-hidden="true">×</span></button>';
+        }).join('') + '</div>'
+      : '';
+  }
+  function resultats() {
+    var seq = ++rsSeq;
+    var sansCritere = !e.q && !e.clusters.length && !e.village && !e.rt;
+    var list = rsFiltrer(idx.items, e);
+    if (sansCritere) list = list.filter(function (it) { return it.type === 'cluster'; });
+    if (seq !== rsSeq) return;   // une saisie plus récente a déjà été traitée
+    var ordre = { cluster: 0, village: 1, rt: 2, producteur: 3 };
+    list.sort(function (a, b) { return ordre[a.type] - ordre[b.type] || String(a.nom).localeCompare(String(b.nom), 'fr'); });
+    var parType = { cluster: 0, village: 0, rt: 0, producteur: 0 };
+    list.forEach(function (it) { parType[it.type]++; });
+    var shown = Math.min(list.length, e.shown || RS_PAGE);
+    var out = '<div class="rs-entete"><h2>' + (sansCritere ? 'Clusters' : 'Résultats') + ' <span class="muted" id="rsCount">· ' + list.length +
+      (list.length > shown ? ' (' + shown + ' affichés)' : '') + '</span></h2>' +
+      (sansCritere ? '<p class="muted">Saisissez un nom, un code ou un téléphone, ou choisissez un filtre, pour afficher villages, RT et producteurs.</p>'
+        : '<p class="muted">' + RS_TYPES.map(function (t) { return t[1] + ' ' + parType[t[0]]; }).join(' · ') + '</p>') + '</div>';
+    if (!list.length) {
+      out += '<div class="ops-empty">Aucun résultat pour ces critères' + (horsLigne ? ' dans les données de cet appareil' : '') + '. ' +
+        'Vérifiez l’orthographe, retirez un filtre ou appuyez sur « Réinitialiser ».</div>';
+    } else {
+      out += '<ul class="rs-liste">' + list.slice(0, shown).map(function (it) {
+        var t = RS_TYPES.filter(function (x) { return x[0] === it.type; })[0];
+        var titre = it.href ? '<a class="ops-link" href="' + esc(it.href) + '"><b>' + esc(it.nom) + '</b></a>' : '<b>' + esc(it.nom) + '</b>';
+        return '<li class="rs-item rs-' + it.type + '"><div class="rs-ligne"><span class="badge info rs-type">' + esc(t[2]) + '</span> ' + titre +
+          (it.code ? ' <span class="mono muted rs-code">' + esc(it.code) + '</span>' : '') +
+          (it.statut ? ' ' + badge(it.statut) : '') + '</div>' +
+          '<div class="muted rs-ctx">' + esc(it.contexte) + '</div>' +
+          (it.type === 'cluster' ? '<button type="button" class="btn secondary rs-voir" data-rs-cluster-voir="' + esc(it.id) + '">Voir ses villages, RT et producteurs</button>' : '') +
+          (it.type === 'village' && it.geo ? '<button type="button" class="btn secondary rs-voir" data-rs-carte="' + esc(it.id) + '">Voir sur la carte</button>' : '') +
+          '</li>';
+      }).join('') + '</ul>' +
+      (list.length > shown ? '<div class="ops-route-actions rs-plus"><button class="btn secondary" type="button" id="rsPlus">Afficher les ' +
+        Math.min(RS_PAGE, list.length - shown) + ' suivants (' + (list.length - shown) + ' restants)</button></div>' : '');
+    }
+    document.getElementById('rsRes').innerHTML = out;
+    puces();
+  }
+  function relancer() { e.shown = RS_PAGE; rsSauver(); drawRecherche(body, c, clusterOf); }
+  var minuteur = null;
+  var champ = document.getElementById('rsQ');
+  champ.addEventListener('input', function () {
+    var v = this.value; clearTimeout(minuteur);
+    minuteur = setTimeout(function () { e.q = v.trim(); e.shown = RS_PAGE; rsSauver(); resultats(); }, 200);
+  });
+  champ.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); clearTimeout(minuteur); e.q = this.value.trim(); e.shown = RS_PAGE; rsSauver(); resultats(); this.blur(); }
+  });
+  document.getElementById('rsVillage').addEventListener('change', function () { e.village = this.value; relancer(); });
+  document.getElementById('rsRt').addEventListener('change', function () { e.rt = this.value; relancer(); });
+  document.getElementById('rsReset').addEventListener('click', function () {
+    e.q = ''; e.types = RS_TYPES.map(function (t) { return t[0]; }); e.clusters = []; e.village = ''; e.rt = ''; relancer();
+  });
+  /* Le corps est réécrit à chaque relance : l'écouteur est posé sur la carte neuve, pas sur body. */
+  [].slice.call(body.querySelectorAll('.rs-card, #rsRes')).forEach(function (zone) {
+    zone.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-rs-type')) {
+        var ty = b.getAttribute('data-rs-type'), i = e.types.indexOf(ty);
+        if (i >= 0) { if (e.types.length > 1) e.types.splice(i, 1); } else e.types.push(ty);
+        relancer();
+      } else if (b.hasAttribute('data-rs-cluster')) {
+        var k = b.getAttribute('data-rs-cluster'), j = e.clusters.indexOf(k);
+        if (j >= 0) e.clusters.splice(j, 1); else e.clusters.push(k);
+        relancer();
+      } else if (b.hasAttribute('data-rs-carte')) {
+        voirSurCarte(b.getAttribute('data-rs-carte'));
+      } else if (b.hasAttribute('data-rs-cluster-voir')) {
+        e.clusters = [b.getAttribute('data-rs-cluster-voir')]; e.types = ['village', 'rt', 'producteur']; e.q = ''; relancer();
+      } else if (b.hasAttribute('data-rs-retirer')) {
+        var r = b.getAttribute('data-rs-retirer');
+        if (r === 'q') e.q = ''; else if (r === 'types') e.types = RS_TYPES.map(function (t) { return t[0]; });
+        else if (r === 'village') e.village = ''; else if (r === 'rt') e.rt = '';
+        else if (r.indexOf('cluster:') === 0) e.clusters = e.clusters.filter(function (x) { return x !== r.slice(8); });
+        relancer();
+      } else if (b.id === 'rsPlus') {
+        e.shown = (e.shown || RS_PAGE) + RS_PAGE; rsSauver(); resultats();
+      }
+    });
+  });
+  resultats();
+}
+
+var rtTab = 'recherche';
 var rtFilter = { cluster: '', statut: '', q: '' };
 
-var RT_LIST_TABS = ['villages', 'rts', 'assign', 'anomalies'];
+var RT_LIST_TABS = ['recherche', 'villages', 'rts', 'assign', 'anomalies'];
 function renderRt(sub, fichTab) {
   /* #rt/villages … = vues de gestion ; #rt/<id> = fiche RT 360°. */
   if (sub && RT_LIST_TABS.indexOf(sub) < 0) return renderRtFiche(sub, fichTab);
@@ -2397,9 +2699,9 @@ function renderRt(sub, fichTab) {
   return base().then(function (c) {
     var d = derive(c);
     function tabs() {
-      return '<div class="ops-actions" style="margin-bottom:14px">' +
-        [['villages', 'Villages'], ['rts', 'RT'], ['assign', 'Producteurs par RT'], ['anomalies', 'Anomalies']].map(function (t) {
-          return '<a class="btn ' + (rtTab === t[0] ? 'primary' : 'secondary') + '" href="#rt/' + t[0] + '">' + t[1] + '</a>';
+      return '<div class="ops-actions rt-onglets" style="margin-bottom:14px">' +
+        [['recherche', 'Rechercher'], ['villages', 'Villages'], ['rts', 'RT'], ['assign', 'Producteurs par RT'], ['anomalies', 'Anomalies']].map(function (t) {
+          return '<a class="btn ' + (rtTab === t[0] ? 'primary' : 'secondary') + '" href="#rt/' + t[0] + '"' + (rtTab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + '</a>';
         }).join('') + '</div>';
     }
     var clusterOf = rtClusterResolver(c);
@@ -2408,21 +2710,25 @@ function renderRt(sub, fichTab) {
     var clusterOpts = selOptions(c.clusters.map(function (x) { return [clusterOf(x.code), x.label]; }), rtFilter.cluster);
     var html = head('RT & Villages', 'Gestion du référentiel : villages, RT, affectations et anomalies.',
       censusActions()) + createHost() + tabs() +
+      (rtTab === 'recherche' ? '' :
       '<section class="card"><div class="card-head"><div><h2>Filtres</h2></div></div><div class="ops-form-grid">' +
-      field('Recherche', '<input id="rtQ" value="' + esc(rtFilter.q) + '" placeholder="Nom, village, téléphone…">') +
+      field('Recherche', '<input id="rtQ" type="search" value="' + esc(rtFilter.q) + '" placeholder="Nom, code, village, téléphone…">') +
       field('Cluster', '<select id="rtCluster"><option value="">Tous</option>' + clusterOpts + '</select>') +
-      '</div></section><div id="rtBody"></div>';
+      '</div></section>') + '<div id="rtBody"></div>';
     paint(html);
 
+    /* Même tolérance que la recherche transversale (accents, apostrophes, espaces). */
     function match(txt) {
       if (!rtFilter.q) return true;
-      return normName(txt).indexOf(normName(rtFilter.q)) >= 0;
+      if (normPhone(rtFilter.q).length >= 4 && normPhone(txt).indexOf(normPhone(rtFilter.q)) >= 0) return true;
+      return rsCorrespond(txt, rtFilter.q, false);
     }
     function draw() {
       var body = document.getElementById('rtBody'), out = '';
+      if (rtTab === 'recherche') { drawRecherche(body, c, clusterOf); return; }
       if (rtTab === 'villages') {
         var list = c.villages.filter(function (v) {
-          return inCluster(v) && match(v.village + ' ' + (v.cluster || ''));
+          return inCluster(v) && match(v.village + ' ' + (v.cluster || '') + ' ' + (v.farmer_code_prefix || ''));
         });
         out = '<section class="card">' + table(
           ['Village', 'Cluster', 'Région', 'Statut', 'RT', 'Producteurs', 'Potentiel', 'Acheté', 'GPS'],
@@ -2438,7 +2744,7 @@ function renderRt(sub, fichTab) {
           })) + '</section>';
       } else if (rtTab === 'rts') {
         var list2 = c.rts.filter(function (r) {
-          return inCluster(r) && match(r.nom + ' ' + (r.village_nom || '') + ' ' + (r.telephone || ''));
+          return inCluster(r) && match(r.nom + ' ' + (r.id_rt || '') + ' ' + (r.village_nom || '') + ' ' + (r.telephone || ''));
         });
         out = '<section class="card">' + table(
           ['RT ID', 'Nom', 'Téléphone', 'Village', 'Cluster', 'Activité', 'Statut', 'Producteurs', 'Achats', 'Dernière activité', ''],
@@ -2483,8 +2789,10 @@ function renderRt(sub, fichTab) {
       }
       body.innerHTML = out;
     }
-    document.getElementById('rtQ').addEventListener('input', function () { rtFilter.q = this.value; draw(); });
-    document.getElementById('rtCluster').addEventListener('change', function () { rtFilter.cluster = clusterOf(this.value); draw(); });
+    if (rtTab !== 'recherche') {
+      document.getElementById('rtQ').addEventListener('input', function () { rtFilter.q = this.value; draw(); });
+      document.getElementById('rtCluster').addEventListener('change', function () { rtFilter.cluster = clusterOf(this.value); draw(); });
+    }
     draw();
   });
 }
@@ -2846,7 +3154,8 @@ function renderHubs(clusterCode) {
     '<a class="btn secondary" href="#rt/villages">Villages en liste</a>') + skeletonPage(4));
 
   return Promise.all([base(), hubsData(),
-    q('parametres_calcul', 'cle,valeur', 10, function (r) { return r.in('cle', ['usine_lat', 'usine_lng']); })
+    (enLigne() ? q('parametres_calcul', 'cle,valeur', 10, function (r) { return r.in('cle', ['usine_lat', 'usine_lng']); }) : Promise.resolve([]))
+      .catch(function () { return []; })
   ]).then(function (rs) {
     var c = rs[0], hd = rs[1], params = rs[2] || [];
     var d = derive(c);
@@ -2893,18 +3202,25 @@ function renderHubs(clusterCode) {
                distUsine: h.distance_usine_routiere || h.distance_usine_gps || null, hub: h };
     });
 
-    paint(head('Hubs & Cartographie', 'Géographie opérationnelle AFLP : zones, clusters, hubs, villages et usine.',
-      '<a class="btn secondary" href="#rt/villages">Villages en liste</a>') +
+    var nbGeo = c.villages.filter(function (v) { return villageCoords(v); }).length;
+    var carte = '<section class="card fb-carte-villages"><div class="card-head"><div><h2>Carte des villages</h2>' +
+      '<p><span class="ops-dot ok"></span> normal &nbsp; <span class="ops-dot warn"></span> attention &nbsp; ' +
+      '<span class="ops-dot danger"></span> problème (village sans RT) · ' + nbGeo + ' village(s) placé(s) sur ' + c.villages.length + '</p></div></div>' +
+      (enLigne() ? '' : '<div class="notice warn"><b>Hors ligne :</b>&nbsp;villages, RT et hubs affichés depuis les données de cet appareil. ' +
+        'Le fond de carte peut manquer là où il n’a pas encore été affiché ; les points restent placés à leurs coordonnées GPS.</div>') +
+      '<div class="ops-field fb-carte-q"><label for="fbCarteQ">Trouver un village sur la carte</label>' +
+      '<input id="fbCarteQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="Nom du village (partiel)…"></div>' +
+      '<ul id="fbCarteRes" class="rs-liste fb-carte-res"></ul>' +
+      '<div id="fbMap" class="ops-map"></div></section>';
+    paint(head('Carte des villages & hubs', 'Géographie opérationnelle AFLP : villages, clusters, hubs et usine.',
+      '<a class="btn secondary" href="#rt/recherche">Rechercher</a><a class="btn secondary" href="#rt/villages">Villages en liste</a>') +
+      carte +
       kpis([
         ['Zones', String(c.zones.length), c.zones.map(function (z) { return z.label; }).join(' · ')],
         ['Clusters', String(c.clusters.length), 'hubs relais'],
-        ['Villages géolocalisés', String(c.villages.filter(function (v) { return villageCoords(v); }).length), 'sur ' + c.villages.length],
+        ['Villages géolocalisés', String(nbGeo), 'sur ' + c.villages.length],
         ['Destination finale', 'Usine ANAGROCI', 'Yamoussoukro']
       ]) +
-      '<section class="card"><div class="card-head"><div><h2>Carte opérationnelle</h2>' +
-      '<p><span class="ops-dot ok"></span> normal &nbsp; <span class="ops-dot warn"></span> attention &nbsp; ' +
-      '<span class="ops-dot danger"></span> problème (village sans RT)</p></div></div>' +
-      '<div id="fbMap" class="ops-map"></div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Zones et clusters</h2>' +
       '<p>Cliquez sur un cluster pour ouvrir son passeport.</p></div></div>' +
       table(['Zone', 'Cluster', 'Villages', 'RT', 'Potentiel', 'Sécurisé', 'Acheté', 'Distance usine', 'Statut hub'],
@@ -2918,6 +3234,55 @@ function renderHubs(clusterCode) {
         })) + '</section>');
 
     drawMap(c, d, hubPos, usine, hubRow);
+    if (!global.L) {
+      var mapEl = document.getElementById('fbMap');
+      if (mapEl) mapEl.outerHTML = '<div class="notice warn">La bibliothèque de carte n’a pas pu être chargée sur cet appareil. ' +
+        'La liste des villages reste disponible dans « Villages en liste ».</div>';
+    }
+    carteRecherche(c);
+    var focus = FB_MAP_FOCUS; FB_MAP_FOCUS = null;
+    if (focus) fbFocusVillage(focus);
+  }).catch(function (err) {
+    paint(head('Carte des villages & hubs', 'Géographie opérationnelle AFLP : villages, clusters, hubs et usine.',
+      '<a class="btn secondary" href="#rt/villages">Villages en liste</a>') +
+      danger('La carte n’a pas pu être préparée : ' + (err && err.message ? err.message : String(err))));
+  });
+}
+
+/* Liaison recherche ↔ carte : centrer la carte sur un village et ouvrir sa fiche-bulle. */
+var FB_MAP_FOCUS = null, FB_VILLAGE_MARKERS = {};
+function fbFocusVillage(id) {
+  var m = FB_VILLAGE_MARKERS[id];
+  if (!m || !FB_MAP) return false;
+  var el = document.getElementById('fbMap');
+  if (el) el.scrollIntoView({ block: 'center' });
+  FB_MAP.setView(m.getLatLng(), Math.max(FB_MAP.getZoom(), 13));
+  m.openPopup();
+  return true;
+}
+function voirSurCarte(id) {
+  FB_MAP_FOCUS = id;
+  if (location.hash === '#hubs') render(); else location.hash = '#hubs';
+}
+function carteRecherche(c) {
+  var champ = document.getElementById('fbCarteQ'), out = document.getElementById('fbCarteRes');
+  if (!champ || !out) return;
+  var minuteur = null;
+  function montrer() {
+    var qv = champ.value.trim();
+    if (!qv) { out.innerHTML = ''; return; }
+    var hits = c.villages.filter(function (v) { return rsCorrespond((v.village || '') + ' ' + (v.farmer_code_prefix || ''), qv); });
+    out.innerHTML = hits.length ? hits.slice(0, 8).map(function (v) {
+      var place = !!villageCoords(v);
+      return '<li class="rs-item"><button type="button" class="btn secondary fb-carte-hit" data-village="' + esc(v.id) + '"' + (place ? '' : ' disabled') + '>' +
+        esc(v.village) + ' · ' + esc(v.cluster || '—') + (place ? '' : ' — sans coordonnées GPS') + '</button></li>';
+    }).join('') + (hits.length > 8 ? '<li class="muted">' + (hits.length - 8) + ' autre(s) : précisez le nom.</li>' : '')
+      : '<li class="muted">Aucun village ne correspond à « ' + esc(qv) + ' ».</li>';
+  }
+  champ.addEventListener('input', function () { clearTimeout(minuteur); minuteur = setTimeout(montrer, 200); });
+  out.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-village]');
+    if (b) fbFocusVillage(b.getAttribute('data-village'));
   });
 }
 
@@ -2988,6 +3353,7 @@ function drawMap(c, d, hubPos, usine, hubRow) {
   var el = document.getElementById('fbMap');
   if (!el || !global.L) return;
   fbDestroyMap();
+  FB_VILLAGE_MARKERS = {};
   try {
     var map = L.map('fbMap').setView([7.52, -5.08], 9);
     FB_MAP = map;
@@ -3031,6 +3397,7 @@ function drawMap(c, d, hubPos, usine, hubRow) {
       var m = L.circleMarker(pos, {
         radius: 7, weight: 2, color: '#fff', fillOpacity: 0.95, fillColor: villageColor(v, d)
       }).addTo(map);
+      FB_VILLAGE_MARKERS[v.id] = m;
       m.bindPopup('<b>' + esc(v.village) + '</b><br>' +
         'Zone : ' + esc(zoneOfCluster(c, v.cluster)) + ' · Cluster : ' + esc(v.cluster || '—') + '<br>' +
         'RT : ' + (rts.length ? rts.map(function (r) { return esc(r.nom); }).join(', ') : '<b>aucun</b>') + '<br>' +
@@ -5224,6 +5591,8 @@ function renderVillageFiche(vid, tab) {
       (canEditTerrain() && villageInScope(v) ? '<button class="btn primary" type="button" onclick="ANAGROCI_FB.openVillageForm(\'' + esc(v.id) + '\')">Modifier</button>' +
         '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.addVillagePhoto(\'' + esc(v.id) + '\')">📷 Ajouter une photo</button>' : '') +
       '<a class="btn secondary" href="#villages/' + encodeURIComponent(v.id) + '/galerie">Galerie (' + galerie.length + ')</a>' +
+      (villageCoords(v) ? '<button class="btn secondary" type="button" onclick="ANAGROCI_FB.voirSurCarte(\'' + esc(v.id) + '\')">Voir sur la carte</button>' : '') +
+      '<a class="btn secondary" href="#rt/recherche">← Recherche</a>' +
       '<a class="btn secondary" href="#rt/villages">← Villages</a>';
 
     function tabsBar() {
@@ -5509,6 +5878,7 @@ global.ANAGROCI_FB = {
   bagNav: bagNav,
   bagDecorate: bagDecorate,
   openVillageForm: openVillageForm,
+  voirSurCarte: voirSurCarte,
   openRtForm: openRtForm,
   openFarmerForm: openFarmerForm,
   openBuyForm: openBuyForm,

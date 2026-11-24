@@ -17,14 +17,20 @@ var MENU=[
   ['Synchronisation & Journal','Sync & log','field-buying.html#sync']]},
  {id:'E0',fr:'AFLP FLEET',en:'AFLP FLEET',icon:'▤',items:[
   ['Parc motos & carburant','Motorcycles & fuel','../moto/index.html','external']]},
+ /* Réseau 24/11/2026 : « Représentants RT » ouvrait l'onglet Villages et « Villages &
+    clusters » la page Recensement (8 derniers villages seulement). Chaque entrée mène
+    désormais à sa liste ; la recherche transversale ouvre l'espace ; la création de
+    village / RT / producteur a son entrée explicite ; la carte des villages remonte. */
  {id:'E1',fr:'Réseau',en:'Field network',icon:'♧',items:[
+  ['Rechercher (cluster, village, RT, producteur)','Search (cluster, village, RT, farmer)','field-buying.html#rt/recherche'],
+  ['Créer : village, RT, producteur','Create: village, RT, farmer','field-buying.html#census'],
   ['Producteurs','Farmers','field-buying.html#farmers'],
+  ['Représentants RT','RT representatives','field-buying.html#rt/rts'],
+  ['Villages & clusters','Villages & clusters','field-buying.html#rt/villages'],
+  ['Carte des villages','Village map','field-buying.html#hubs'],
   ['Parcelles & cartographie','Plots & mapping','field-buying.html#parcelles'],
   ['Repères GPS (saisie hors réseau)','GPS waypoints (offline entry)','field-buying.html#reperes'],
-  ['Représentants RT','RT representatives','field-buying.html#rt'],
-  ['Villages & clusters','Villages & clusters','field-buying.html#census'],
-  ['Coopératives','Cooperatives','field-buying.html#cooperatives'],
-  ['Carte des villages','Village map','field-buying.html#hubs']]},
+  ['Coopératives','Cooperatives','field-buying.html#cooperatives']]},
  {id:'E2',fr:'Terrain',en:'Field activities',icon:'✿',items:[
   ['Durabilité','Sustainability','field-buying.html#sustainability'],
   ['Photos et vidéos','Photos & videos','../fieldproof/index.html','external'],

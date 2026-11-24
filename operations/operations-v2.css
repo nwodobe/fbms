@@ -259,3 +259,27 @@ details.ops-camp[open]>summary{background:rgba(255,255,255,.14)}
 /* P2 audit itel : voyant de connexion cohérent avec le libellé (vert seulement en ligne). */
 .ops-pill[data-state="off"] .dot { background: #E5533D; }
 .ops-pill[data-state="wait"] .dot { background: #C9B458; }
+
+/* Réseau 24/11/2026 — recherche transversale et carte des villages (usage terrain, 360 px). */
+.rs-q .ops-field input{font-size:16px}
+.rs-groupe{border:0;margin:10px 0 0;padding:0;min-width:0}
+.rs-groupe legend{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rs-puces{display:flex;flex-wrap:wrap;gap:6px}
+.rs-puce{min-height:44px;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--forest);font-weight:800;font-size:12px}
+.rs-puce.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.rs-selects{margin-top:10px}
+.rs-actifs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}
+.rs-actif{min-height:40px;padding:6px 11px;border-radius:999px;border:1px solid #B9D9BF;background:var(--pale,#EAF5EC);color:var(--forest);font-weight:700;font-size:12px;overflow-wrap:anywhere;text-align:left}
+.rs-entete h2{margin:0}
+.rs-liste{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rs-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;overflow-wrap:anywhere}
+.rs-ligne{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rs-ctx{font-size:12px;margin-top:4px}
+.rs-voir{margin-top:8px;min-height:44px}
+.rs-portee{margin:8px 0}
+.fb-carte-q{margin:6px 0 4px}
+.fb-carte-q input{font-size:16px}
+.fb-carte-res{margin-bottom:10px}
+.fb-carte-hit{width:100%;text-align:left;min-height:44px}
+@media(max-width:520px){.rs-puce{flex:1 1 auto}.rs-selects{grid-template-columns:1fr}}
+@media(max-width:520px){.ops-actions.rt-onglets .btn{flex:1 1 calc(50% - 8px);min-height:44px;padding:8px 10px}}
