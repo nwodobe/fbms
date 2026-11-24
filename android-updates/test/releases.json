@@ -813,7 +813,7 @@
    "web_version": "2026.11.24-0651.1ff3103",
    "git_commit": "1ff3103914196036dbae4615399eec2393cad7e0",
    "published_at": "2026-11-24T06:51:55.580Z",
-   "status": "published",
+   "status": "superseded",
    "update_policy": "recommended",
    "min_native_version_code": 3,
    "native": {
@@ -860,6 +860,63 @@
      "at": "2026-11-24T06:51:55.924Z",
      "step": "signature",
      "detail": "manifeste 1795503108 signé et revérifié (218 fichiers)"
+    }
+   ]
+  },
+  {
+   "app_id": "ci.anagroci.fieldbuying",
+   "channel": "test",
+   "sequence": 1795529033,
+   "web_version": "2026.11.24-1403.917e1a5",
+   "git_commit": "917e1a559ab008c50bf57ced64e23ec27d1b029a",
+   "published_at": "2026-11-24T14:15:44.325Z",
+   "status": "published",
+   "update_policy": "recommended",
+   "min_native_version_code": 3,
+   "native": {
+    "latest_version_code": 10,
+    "latest_version_name": "1.4.3",
+    "procedure": "Nouvel APK : demander le fichier signé au Branch Manager (canal interne), vérifier l’empreinte du certificat dans « Version et mises à jour », synchroniser jusqu’à 0 opération en attente, puis installer PAR-DESSUS l’application existante (ne jamais désinstaller)."
+   },
+   "supabase_compat": "20261123100100",
+   "queue_schema": "anagroci_ops_offline@1+aflp_farmer_registry_db@1+aflp_plot_map_db@1",
+   "rollback_of": null,
+   "revoked_sequences": [
+    1795302886,
+    1795304452
+   ],
+   "files": 218,
+   "objects_written": 13,
+   "steps": [
+    {
+     "at": "2026-11-24T14:15:29.249Z",
+     "step": "préconditions",
+     "detail": "arbre propre, compatibilité native vérifiée"
+    },
+    {
+     "at": "2026-11-24T14:15:43.359Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-js.mjs"
+    },
+    {
+     "at": "2026-11-24T14:15:43.745Z",
+     "step": "contrôle",
+     "detail": "OK · node .github/scripts/verifier-liens.mjs"
+    },
+    {
+     "at": "2026-11-24T14:15:43.951Z",
+     "step": "contrôle",
+     "detail": "OK · node tests/offline-field-static.mjs"
+    },
+    {
+     "at": "2026-11-24T14:15:44.315Z",
+     "step": "objets",
+     "detail": "13 nouveau(x) fichier(s) dans le magasin"
+    },
+    {
+     "at": "2026-11-24T14:15:44.652Z",
+     "step": "signature",
+     "detail": "manifeste 1795529033 signé et revérifié (218 fichiers)"
     }
    ]
   }

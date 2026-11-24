@@ -2,15 +2,15 @@
  "format": 2,
  "app_id": "ci.anagroci.fieldbuying",
  "channel": "test",
- "sequence": 1795503108,
- "web_version": "2026.11.24-0651.1ff3103",
- "git_commit": "1ff3103914196036dbae4615399eec2393cad7e0",
- "bundle_label": "1ff3103",
- "published_at": "2026-11-24T06:51:55.580Z",
- "created_at": "2026-11-24T06:51:55.580Z",
+ "sequence": 1795529033,
+ "web_version": "2026.11.24-1403.917e1a5",
+ "git_commit": "917e1a559ab008c50bf57ced64e23ec27d1b029a",
+ "bundle_label": "917e1a5",
+ "published_at": "2026-11-24T14:15:44.325Z",
+ "created_at": "2026-11-24T14:15:44.325Z",
  "status": "published",
  "update_policy": "recommended",
- "release_notes": "Recette cartes hors ligne : OTA suivante (conservation des cartes)",
+ "release_notes": "PILOTE Réseau : recherche, Nouveau village/RT, carte des villages (base de recette)",
  "rollback_of": null,
  "min_native_version_code": 3,
  "native": {
@@ -177,8 +177,8 @@
    "size": 15445
   },
   "fieldproof/index.html": {
-   "sha256": "c27d8f43d798cd0d78a678e9dcf8216fa3e7b57b291e0bac47731f12b1e20b1a",
-   "size": 3867
+   "sha256": "57b294ebc7836a0fe54dbd046e96587cc57f8abf1096e80d9bd262d1520c21cf",
+   "size": 3862
   },
   "fieldproof/portal-fieldproof.css": {
    "sha256": "7bdbbc2483f0f694ce4b393bccc1b00b1d12bc97662b092b103c61cf0965f6c0",
@@ -193,8 +193,8 @@
    "size": 23738
   },
   "index.html": {
-   "sha256": "57d188c44bc49a1da852c5e5db4c3747fe40208946bbcf010e7b15f2edcb8f14",
-   "size": 12417
+   "sha256": "6351b880513debc2cf10909181ef05630c03dd1ba25abc1b2ee4848b5b0a26fa",
+   "size": 12412
   },
   "logistique.html": {
    "sha256": "f6353532588878f27849c0be8766f3adcc381fa161e21bbe2e4c0994959548b2",
@@ -217,8 +217,8 @@
    "size": 601
   },
   "moto/index.html": {
-   "sha256": "611f51f255d66bfe402d244f808a4aa07b69083cb1432db1e42b084ba7ddc0ff",
-   "size": 3933
+   "sha256": "72eeb5f2d021ecc5efe02df469ef4e210b7346824ecb67da3e35f6db41c302e0",
+   "size": 3928
   },
   "moto/moto-app.js": {
    "sha256": "b1b6fa49f46df6f2a2e833a043d6824f0129a3e4bfb5fa5bc26b0b61c4ac58f2",
@@ -297,8 +297,8 @@
    "size": 1742
   },
   "operations/aflp-data.html": {
-   "sha256": "b4535271438f06ba78476662206c861e74984f78241e9f095e60f6dbbb3d6b57",
-   "size": 2180
+   "sha256": "2754958cec08b138870636cf514cdb9283d864e49cfc57c2be5fd63ac307cc5c",
+   "size": 2175
   },
   "operations/aflp-data.js": {
    "sha256": "41865de50c73e74fad8290c7f762c6c14e89e15bf7cd2c50841ec94062a9317b",
@@ -309,8 +309,8 @@
    "size": 8139
   },
   "operations/campaigns.html": {
-   "sha256": "6e0bc5cadb56501453c91a0291088934fb1c6d0b50dcfc5f1af309d6408ca141",
-   "size": 1757
+   "sha256": "8fa951c550f6f46be9e0437493e105e4b809348bb7623783e7f1edd32f65f653",
+   "size": 1752
   },
   "operations/campaigns.js": {
    "sha256": "cacf4d8dabcc8c9d2839f8a894284bfb16557da1e4ebf0cabbc7dc71b162881b",
@@ -349,8 +349,8 @@
    "size": 7584
   },
   "operations/fbms-unified-nav-v22.js": {
-   "sha256": "9a86e99be18a5c631c2ab92a273bb72eadffd5250aff2be31d771a6c090cac9e",
-   "size": 13541
+   "sha256": "2b06f3706b4e58131d53376851c90ee9fdab975b7f55ba4e5ededb4460a6db49",
+   "size": 14133
   },
   "operations/fbms-v23-visual.css": {
    "sha256": "ce5357de08ab1ae591bae32aefedb8b5a3832cae8ba55858029a11683081a5b9",
@@ -377,12 +377,12 @@
    "size": 5906
   },
   "operations/field-buying.html": {
-   "sha256": "308f2b2827c1a748d1c35920b3d5df344063e6be03e497fd73295aa9baf9a122",
-   "size": 5325
+   "sha256": "1e548935d7eda60e4b248e461cf3c418efde5aefa1cccdd121e0bbe2c0425912",
+   "size": 5308
   },
   "operations/field-buying.js": {
-   "sha256": "99808c2395f21c0f4c2e027c268b74fb2a20443dcd6e647147803d82f3c32f5a",
-   "size": 367676
+   "sha256": "f2ac137b4e56375079edbf54c20477d4cc9ade4b152a4b5a78e6a74f3911e603",
+   "size": 392376
   },
   "operations/lba-purchase-ux-fix.js": {
    "sha256": "9b785f1ddf18c13b0d8bc2a207ada41efa56888c54946c0d7230794c7365e173",
@@ -417,8 +417,8 @@
    "size": 137512
   },
   "operations/operations-v2.css": {
-   "sha256": "b997fc7f9097ca00c2cc596d3a9c8706079053e6b9d7f5d0372e074aa8ab4cd2",
-   "size": 24830
+   "sha256": "d6ae2860e19a9498313f3d63de98a1c412f165ef3b01c7dcfa62935d4ee9030d",
+   "size": 26528
   },
   "operations/operations.css": {
    "sha256": "ad2883cd37cc470a2bce5844f70a6ceab380f5d2b824a13ffa71d621fc4cd98a",
@@ -441,8 +441,8 @@
    "size": 5986
   },
   "operations/procurement.html": {
-   "sha256": "90f6e918acde156a15e3e701c1bcd67e5a628a4847ba7a42578815ff245aba1c",
-   "size": 1979
+   "sha256": "eee343392beb6d71c8be45e4ff646a59afa9a417e7ba68db8eee93956f695012",
+   "size": 1974
   },
   "operations/procurement.js": {
    "sha256": "2e9cfe8e54363fb1eb02d8f24ede4c683e6895ad0678eb7b59c124a21d3cfb1c",
@@ -469,8 +469,8 @@
    "size": 5329
   },
   "operations/reports.html": {
-   "sha256": "4ce40310979e76536b0c4423ea729ed270957a248b362350ca182a6445f7fb78",
-   "size": 5720
+   "sha256": "4e5049c490a3833e3e97bad45c7de3141ed943032e01225f819acbe9bae0f3ea",
+   "size": 5715
   },
   "operations/rt-farmer-rights.js": {
    "sha256": "3d5311ddbf35738077eeaf9d9b8c38f3d309985eacc72a68963686628b71dfaf",
@@ -497,8 +497,8 @@
    "size": 12262
   },
   "operations/traceability.html": {
-   "sha256": "53b935609d307185a752bedd6e05fccda7140aa7dc1de544d0e65eae951bdf68",
-   "size": 3394
+   "sha256": "71e5383a12efadf3ead0c8f9569c28eaaf56c4f924b5b8604df593a6be924e44",
+   "size": 3389
   },
   "operations/warehouse-lot-origin.js": {
    "sha256": "19baa86dba65bad176cc61c38d1a706115967543cdcb3a4f2d749c08fe380888",
@@ -701,12 +701,12 @@
    "size": 9152
   },
   "shared/cartes-hors-ligne.css": {
-   "sha256": "bd9e7f121ae8e5d98ef464ab7059e2969e12b6211a8160df078a843b8a890a0d",
-   "size": 2817
+   "sha256": "53f276309ccb9a33ff90b58d604c3e1b8216516a7a66d568f2f38a01fa106910",
+   "size": 3079
   },
   "shared/cartes-hors-ligne.js": {
-   "sha256": "5032c81b5716d8faea61347fe3b7e03fedfcc7c243da6d819bace3d48ba185b7",
-   "size": 34433
+   "sha256": "f1bd1529408ff1e8c3f67b29075f0636bf1387a8a3fadb435530eda52df346a7",
+   "size": 34371
   },
   "shared/farmer-enrollment-phase1.js": {
    "sha256": "8db3d65d6dd9fec0221599d13f97953fb58c88d9a578579687e87c4c8f504516",
