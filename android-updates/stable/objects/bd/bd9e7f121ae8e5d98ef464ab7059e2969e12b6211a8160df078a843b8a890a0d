@@ -1,0 +1,33 @@
+/* Cartes de mission : interface française, commandes utilisables au doigt. */
+.chl { max-width: 1120px; margin: 0 auto; color: #183c2d; }
+.chl *, .chl *::before, .chl *::after { box-sizing: border-box; }
+.chl h1 { font-size: clamp(1.5rem, 4vw, 2rem); margin: 0 0 .4rem; }
+.chl h2 { font-size: 1.1rem; margin: 0 0 .65rem; overflow-wrap: anywhere; }
+.chl p { line-height: 1.55; margin: .4rem 0 .8rem; }
+.chl-note, .chl-aide { background: #f1f6ed; border: 1px solid #c9dac4; border-radius: 12px; padding: 16px; margin: 16px 0; }
+.chl-note p:last-child { margin-bottom: 0; }
+.chl-outils { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 20px 0 12px; }
+.chl-outils label { display: grid; gap: 6px; flex: 1 1 230px; font-weight: 600; }
+.chl input { border: 1px solid #b4c4b8; border-radius: 8px; min-height: 46px; width: 100%; padding: 10px 12px; font: inherit; color: inherit; background: white; }
+.chl button, .chl a.btn { min-height: 46px; min-width: 44px; padding: 10px 14px; border: 1px solid #185b36; border-radius: 8px; background: #185b36; color: white; font: inherit; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+.chl button.secondary, .chl a.secondary { background: white; color: #185b36; }
+.chl button:disabled { opacity: .6; cursor: wait; }
+.chl :focus-visible { outline: 3px solid #e9a934; outline-offset: 3px; }
+.chl-message { padding: 10px 12px; background: #f3f5f4; border-left: 3px solid #5b7667; border-radius: 0 8px 8px 0; overflow-wrap: anywhere; }
+.chl-zones { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; margin: 16px 0; }
+.chl-zone { padding: 18px; border: 1px solid #c9d5cd; border-radius: 12px; background: #fff; box-shadow: 0 2px 6px #0b38270a; }
+.chl-etat { display: inline-block; padding: 4px 10px; border-radius: 6px; color: #624600; background: #fff1c9; font-weight: 700; }
+.chl-etat.chl-pret { color: #174c29; background: #e3f2d9; }
+.chl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.chl progress { width: 100%; height: 16px; accent-color: #317143; }
+.chl-erreur { color: #942d20; }
+.chl-carte { width: 100%; height: clamp(280px, 58vh, 520px); background: #e3e7e2; border: 1px solid #b6c5b8; border-radius: 10px; }
+.chl-couverture { max-width: min(280px, 70vw); padding: 7px 9px; background: #ffffffed; color: #254534; font: 12px/1.4 sans-serif; border: 1px solid #c1d0c2; border-radius: 6px; box-shadow: 0 1px 4px #0002; }
+.chl-aide summary { min-height: 44px; padding: 10px 0; font-weight: 700; cursor: pointer; }
+.chl-aide li { margin: 8px 0; line-height: 1.5; }
+.chl [hidden] { display: none !important; }
+@media (max-width: 480px) {
+  .chl-zone { padding: 14px; }
+  .chl-actions button { flex: 1 1 140px; }
+  .chl-outils > button { width: 100%; }
+}

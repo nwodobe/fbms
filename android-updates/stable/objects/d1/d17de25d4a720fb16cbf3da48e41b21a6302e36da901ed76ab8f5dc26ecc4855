@@ -1,0 +1,457 @@
+/* Cartes satellite explicites pour FBMS / WebView Android déjà distribuée.
+   IndexedDB dédié, sans Service Worker, sans plugin ni changement d'origine.
+   Les images publiques restent séparées des bases et des files métier. */
+(function (global) {
+  'use strict';
+  var C = global.ANAGROCI_CARTES_COEUR;
+  if (!C) return;
+  var BASE = 'https://nwodobe.github.io/fbms/cartes-hors-ligne/';
+  var CATALOGUE = BASE + 'catalogue.json', DB = 'fbms_cartes_satellite_v1';
+  var dbp = null, travail = null, rendus = [], plans = new Set(), emission = null;
+  var ETATS = { EN_COURS: 'En cours', INTERROMPU: 'Interrompu', INCOMPLET: 'Incomplet',
+    DISPONIBLE: 'Disponible hors ligne', A_REPARER: 'À réparer' };
+  var esc = C.echapper;
+  function maintenant() { return new Date().toISOString(); }
+  function autorise() { var a = global.ANAGROCI_AUTH; return !!(a && ((a.profile && (a.profile.user_id || a.profile.id)) || (a.user && a.user.id))); }
+  function ouvrir() {
+    if (dbp) return dbp;
+    dbp = new Promise(function (ok, ko) {
+      if (!global.indexedDB) { ko(new Error('Le stockage local des cartes est indisponible. Les données terrain ne sont pas modifiées.')); return; }
+      var r = global.indexedDB.open(DB, 1);
+      r.onupgradeneeded = function () {
+        var d = r.result;
+        d.createObjectStore('meta', { keyPath: 'cle' });
+        d.createObjectStore('paquets', { keyPath: 'cle' });
+        d.createObjectStore('actifs', { keyPath: 'id' });
+        var t = d.createObjectStore('tuiles', { keyPath: 'cle' }); t.createIndex('paquet', 'paquet');
+      };
+      r.onsuccess = function () { var d = r.result; d.onversionchange = function () { d.close(); dbp = null; }; ok(d); };
+      r.onerror = function () { ko(r.error || new Error('Impossible d’ouvrir les cartes locales.')); };
+      r.onblocked = function () { ko(new Error('Fermez les autres fenêtres FBMS avant de gérer les cartes.')); };
+    }).catch(function (e) { dbp = null; throw e; });
+    return dbp;
+  }
+  function tx(noms, mode, fn) {
+    return ouvrir().then(function (d) {
+      return new Promise(function (ok, ko) {
+        var t;
+        try { t = d.transaction(noms, mode, mode === 'readwrite' ? { durability: 'strict' } : undefined); }
+        catch (e) { if (e.name !== 'TypeError') { ko(e); return; } t = d.transaction(noms, mode); }
+        var magasins = {}, resultat;
+        [].concat(noms).forEach(function (n) { magasins[n] = t.objectStore(n); });
+        try { var r = fn(magasins); if (r && 'onsuccess' in r) r.onsuccess = function () { resultat = r.result; }; }
+        catch (e) { t.abort(); ko(e); return; }
+        t.oncomplete = function () { ok(resultat); };
+        t.onerror = t.onabort = function () { ko(t.error || new Error('Écriture de la carte interrompue.')); };
+      });
+    });
+  }
+  function lire(m, k) { return tx(m, 'readonly', function (s) { return s[m].get(k); }); }
+  function tout(m) { return tx(m, 'readonly', function (s) { return s[m].getAll(); }); }
+  function poser(m, v) { return tx(m, 'readwrite', function (s) { s[m].put(v); }); }
+  function emettre() {
+    if (emission) return;
+    emission = setTimeout(function () { emission = null; rendus = rendus.filter(function (r) { return r.root.isConnected; }); rendus.forEach(function (r) { r.rafraichir(); }); }, 100);
+  }
+  function hacher(octets) {
+    if (!global.crypto || !global.crypto.subtle) return Promise.reject(new Error('Vérification d’intégrité indisponible sur cet appareil.'));
+    return global.crypto.subtle.digest('SHA-256', octets).then(function (h) {
+      return Array.from(new Uint8Array(h)).map(function (n) { return n.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+  async function charger(url, maximum, signal) {
+    var u = new URL(url);
+    if (!u.href.startsWith(BASE) || u.origin !== new URL(BASE).origin || u.search || u.hash) throw new Error('Adresse de carte non autorisée.');
+    var controle = new AbortController(), arreter = function () { controle.abort(); };
+    if (signal) { if (signal.aborted) controle.abort(); else signal.addEventListener('abort', arreter, { once: true }); }
+    var minuterie = setTimeout(arreter, 30000);
+    try {
+      var r = await fetch(u.href, { signal: controle.signal, credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' });
+      if (!r.ok) throw new Error('Téléchargement indisponible (HTTP ' + r.status + '). Réessayez plus tard.');
+      if (Number(r.headers.get('content-length')) > maximum) throw new Error('Fichier trop volumineux : téléchargement arrêté.');
+      if (!r.body || !r.body.getReader) {
+        var b = await r.arrayBuffer(); if (b.byteLength > maximum) throw new Error('Volume du fichier incohérent.'); return b;
+      }
+      var lecteur = r.body.getReader(), fragments = [], total = 0;
+      while (true) {
+        var morceau = await lecteur.read(); if (morceau.done) break;
+        total += morceau.value.byteLength;
+        if (total > maximum) { await lecteur.cancel(); throw new Error('Volume du fichier incohérent.'); }
+        fragments.push(morceau.value);
+      }
+      var sortie = new Uint8Array(total), offset = 0;
+      fragments.forEach(function (f) { sortie.set(f, offset); offset += f.byteLength; }); return sortie.buffer;
+    } finally { clearTimeout(minuterie); if (signal) signal.removeEventListener('abort', arreter); }
+  }
+  async function catalogue(actualiser) {
+    var ancien = await lire('meta', 'catalogue');
+    if (!actualiser && ancien) return Object.assign({}, C.validerCatalogue(ancien.valeur), { cacheLocal: true });
+    try {
+      var b = await charger(CATALOGUE, C.LIMITES.catalogue);
+      var c = C.validerCatalogue(JSON.parse(new TextDecoder().decode(b)));
+      await poser('meta', { cle: 'catalogue', valeur: c, date: maintenant() });
+      return Object.assign({}, c, { cacheLocal: false });
+    } catch (e) {
+      if (ancien) return Object.assign({}, C.validerCatalogue(ancien.valeur), { cacheLocal: true, avertissement: e.message });
+      throw new Error('Catalogue non disponible. Connectez-vous pour préparer une carte. ' + e.message);
+    }
+  }
+  /* Un seul gestionnaire modifie les paquets à la fois, même dans deux fenêtres.
+     Le bail expirant permet la reprise après fermeture forcée, sans effacer les tuiles. */
+  async function verrouiller(fn) {
+    var jeton = global.crypto.randomUUID ? global.crypto.randomUUID() : String(Date.now()) + ':' + Math.random();
+    var acquis = false;
+    await tx('meta', 'readwrite', function (s) {
+      var r = s.meta.get('verrou'); r.onsuccess = function () {
+        if (r.result && r.result.expire > Date.now()) return;
+        acquis = true; s.meta.put({ cle: 'verrou', jeton: jeton, expire: Date.now() + 20000 });
+      };
+    });
+    if (!acquis) throw new Error('Une gestion de carte est déjà en cours. Fermez l’autre fenêtre ou réessayez dans 20 secondes.');
+    var perdu = false;
+    var bail = setInterval(function () {
+      tx('meta', 'readwrite', function (s) {
+        var r = s.meta.get('verrou'); r.onsuccess = function () {
+          if (!r.result || r.result.jeton !== jeton) { perdu = true; if (travail) travail.controle.abort(); return; }
+          s.meta.put({ cle: 'verrou', jeton: jeton, expire: Date.now() + 20000 });
+        };
+      }).catch(function () { perdu = true; if (travail) travail.controle.abort(); });
+    }, 5000);
+    function verifierBail() { if (perdu) throw new Error('Gestion interrompue par une autre fenêtre. Reprenez le téléchargement.'); }
+    /* Chaque écriture du travail revalide le propriétaire dans sa transaction. Un onglet
+       suspendu ne peut ainsi reprendre une écriture après expiration et reprise ailleurs. */
+    verifierBail.ecrire = async function (noms, fn) {
+      verifierBail(); var refuse = false;
+      await tx(['meta'].concat(noms), 'readwrite', function (s) {
+        var r = s.meta.get('verrou'); r.onsuccess = function () {
+          if (!r.result || r.result.jeton !== jeton || r.result.expire <= Date.now()) { refuse = true; return; }
+          s.meta.put({ cle: 'verrou', jeton: jeton, expire: Date.now() + 20000 }); fn(s);
+        };
+      });
+      if (refuse) { perdu = true; verifierBail(); }
+    };
+    try { return await fn(verifierBail); }
+    finally {
+      clearInterval(bail);
+      await tx('meta', 'readwrite', function (s) {
+        var r = s.meta.get('verrou'); r.onsuccess = function () { if (r.result && r.result.jeton === jeton) s.meta.delete('verrou'); };
+      }).catch(function () {});
+    }
+  }
+  function clePaquet(z) { return z.id + '@' + z.version + '@' + z.manifestSha256; }
+  function cleImage(cle, t) { return cle + '/' + C.cleTuile(t); }
+  async function imageValide(p, t) {
+    var v = await lire('tuiles', cleImage(p.cle, t));
+    if (!v || !(v.blob instanceof Blob) || v.blob.size !== t.bytes) return null;
+    return await hacher(await v.blob.arrayBuffer()) === t.sha256 ? v.blob : null;
+  }
+  async function signalerReparation(cle, message) {
+    var change = false;
+    await tx('paquets', 'readwrite', function (s) {
+      var r = s.paquets.get(cle); r.onsuccess = function () {
+        var courant = r.result;
+        /* Une lecture tardive ne recrée jamais un paquet supprimé et n'écrase
+           jamais la progression d'une réparation actuellement en cours. */
+        if (!courant || courant.etat === 'EN_COURS') return;
+        courant.etat = 'A_REPARER'; courant.message = message; s.paquets.put(courant); change = true;
+      };
+    });
+    if (change) emettre();
+  }
+  async function compterImages(cle) {
+    var resultat = { octets: 0, nombre: 0 };
+    await tx('tuiles', 'readonly', function (s) {
+      var r = cle ? s.tuiles.index('paquet').openCursor(IDBKeyRange.only(cle)) : s.tuiles.openCursor();
+      r.onsuccess = function () {
+        var c = r.result; if (!c) return;
+        if (c.value.blob instanceof Blob) { resultat.octets += c.value.blob.size; resultat.nombre++; } c.continue();
+      };
+    });
+    return resultat;
+  }
+  async function verifier(cle) {
+    var p = await lire('paquets', cle);
+    if (!p) return { ok: false, message: 'Carte absente du téléphone.' };
+    try {
+      C.validerManifeste(p.manifeste);
+      for (var t of p.manifeste.tiles) if (!await imageValide(p, t)) throw new Error('Une image manque ou est endommagée. Réparez cette carte avant la mission.');
+      return { ok: true, paquet: p };
+    } catch (e) {
+      await signalerReparation(cle, e.message);
+      return { ok: false, message: e.message };
+    }
+  }
+  async function liste() {
+    var r = await Promise.all([tout('paquets'), tout('actifs'), lire('meta', 'verrou')]);
+    var actifs = {}; r[1].forEach(function (a) { actifs[a.id] = a.cle; });
+    return r[0].map(function (p) {
+      return Object.assign({}, p, { actif: actifs[p.id] === p.cle,
+        etat: p.etat === 'EN_COURS' && !(r[2] && r[2].expire > Date.now()) ? 'INTERROMPU' : p.etat });
+    });
+  }
+  async function espace(volume) {
+    var total = (await compterImages()).octets, estimation = null;
+    try { if (navigator.storage && navigator.storage.estimate) estimation = await navigator.storage.estimate(); } catch (e) {}
+    return C.prevoirEspace(volume, total, estimation);
+  }
+  async function telecharger(id, rappel) {
+    if (!autorise()) throw new Error('Connectez-vous à FBMS avant de télécharger une carte.');
+    if (travail) throw new Error('Un téléchargement est déjà en cours sur ce téléphone.');
+    return verrouiller(async function (verifierBail) {
+      var c = await catalogue(false), z = c.zones.find(function (v) { return v.id === id; });
+      if (!z) throw new Error('Cette zone n’est pas encore préparée dans le catalogue.');
+      if (typeof global.createImageBitmap !== 'function') throw new Error('La lecture locale des images n’est pas prise en charge par cette WebView.');
+      var controle = new AbortController(), p = null;
+      travail = { id: id, controle: controle };
+      try {
+        var url = new URL(z.manifest, BASE).href;
+        var contenu = await charger(url, C.LIMITES.manifeste, controle.signal);
+        if (await hacher(contenu) !== z.manifestSha256) throw new Error('L’intégrité du manifeste est incorrecte. Aucune carte n’a été activée.');
+        var m = C.validerManifeste(JSON.parse(new TextDecoder().decode(contenu)), z), cle = clePaquet(z);
+        p = await lire('paquets', cle);
+        var comptage = await compterImages(cle), deja = comptage.octets;
+        await espace(Math.max(0, m.totalBytes - deja));
+        try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+        p = Object.assign({}, p || {}, { cle: cle, id: id, manifeste: m, base: new URL('.', url).href,
+          etat: 'EN_COURS', octets: deja, nombre: comptage.nombre, message: null, maj: maintenant() });
+        await verifierBail.ecrire(['paquets'], function (s) { s.paquets.put(p); }); emettre();
+        var index = 0, octets = 0, nombre = 0, erreur = null;
+        async function ouvrier() {
+          while (index < m.tiles.length && !erreur) {
+            var t = m.tiles[index++];
+            try {
+              verifierBail(); if (controle.signal.aborted) throw new DOMException('Téléchargement interrompu', 'AbortError');
+              var blob = await imageValide(p, t);
+              if (!blob) {
+                var b = await charger(new URL(t.path, p.base).href, t.bytes, controle.signal);
+                if (b.byteLength !== t.bytes || await hacher(b) !== t.sha256) throw new Error('Image corrompue : téléchargement arrêté. Les images valides sont conservées pour la reprise.');
+                blob = new Blob([b], { type: m.format === 'jpg' ? 'image/jpeg' : 'image/png' });
+                /* Un fichier intègre doit aussi être une image décodable de 256 pixels. */
+                var image = await createImageBitmap(blob);
+                var dimensions = image.width === 256 && image.height === 256; image.close();
+                if (!dimensions) throw new Error('Dimensions d’image incompatibles.');
+              }
+              verifierBail(); if (controle.signal.aborted) throw new DOMException('Téléchargement interrompu', 'AbortError');
+              octets += t.bytes; nombre++;
+              var progression = { octets: octets, nombre: nombre };
+              await verifierBail.ecrire(['tuiles', 'paquets'], function (s) {
+                var precedente = s.tuiles.get(cleImage(cle, t)); precedente.onsuccess = function () {
+                  var avant = precedente.result, tailleAvant = avant && avant.blob instanceof Blob ? avant.blob.size : 0;
+                  s.tuiles.put({ cle: cleImage(cle, t), paquet: cle, blob: blob });
+                  var r = s.paquets.get(cle); r.onsuccess = function () {
+                    var actuel = r.result; if (!actuel) return;
+                    actuel.octets += blob.size - tailleAvant; actuel.nombre += avant ? 0 : 1; actuel.maj = maintenant(); s.paquets.put(actuel);
+                  };
+                };
+              });
+              p.octets = Math.max(p.octets, progression.octets); p.nombre = Math.max(p.nombre, progression.nombre);
+              if (rappel) rappel({ id: id, nombre: nombre, total: m.tileCount, octets: octets, volume: m.totalBytes });
+              emettre();
+            } catch (e) { if (!erreur) erreur = e; controle.abort(); }
+          }
+        }
+        await Promise.all([ouvrier(), ouvrier()]);
+        if (erreur) throw erreur;
+        verifierBail();
+        var controleFinal = await verifier(cle); if (!controleFinal.ok) throw new Error(controleFinal.message);
+        if (controle.signal.aborted) throw new DOMException('Téléchargement interrompu', 'AbortError');
+        p.etat = 'DISPONIBLE'; p.nombre = m.tileCount; p.octets = m.totalBytes; p.verifieLe = maintenant(); p.message = null;
+        /* Bascule atomique seulement après contrôle de toutes les images. */
+        await verifierBail.ecrire(['paquets', 'actifs'], function (s) { s.paquets.put(p); s.actifs.put({ id: id, cle: cle }); });
+        /* Les anciennes versions restent comptées dans le quota. Une autre fenêtre peut
+           encore afficher l'une d'elles ; leur retrait exige la suppression de la carte. */
+        emettre(); return p;
+      } catch (e) {
+        if (p) {
+          p = await lire('paquets', p.cle) || p;
+          p.etat = e.name === 'AbortError' ? 'INTERROMPU' : 'INCOMPLET';
+          p.message = e.name === 'QuotaExceededError' ? 'Espace insuffisant. Seul le téléchargement a été interrompu ; les données terrain sont conservées.' :
+            e.name === 'AbortError' ? 'Téléchargement interrompu. Reprenez-le lorsque l’application est ouverte et connectée.' : e.message;
+          await verifierBail.ecrire(['paquets'], function (s) { s.paquets.put(p); }).catch(function () {});
+        }
+        throw e;
+      } finally { travail = null; emettre(); }
+    });
+  }
+  function interrompre(id) { if (travail && travail.id === id) travail.controle.abort(); }
+  async function supprimer(id) {
+    if (!autorise()) throw new Error('Connectez-vous à FBMS avant de gérer les cartes.');
+    if (travail) throw new Error('Interrompez le téléchargement avant de supprimer une carte.');
+    return verrouiller(async function (garde) {
+      var p = (await liste()).filter(function (x) { return x.id === id; });
+      await garde.ecrire(['actifs', 'paquets', 'tuiles'], function (s) {
+        s.actifs.delete(id);
+        p.forEach(function (x) {
+          var r = s.tuiles.index('paquet').openCursor(IDBKeyRange.only(x.cle));
+          r.onsuccess = function () { var c = r.result; if (c) { c.delete(); c.continue(); } }; s.paquets.delete(x.cle);
+        });
+      });
+      plans.forEach(function (x) { if (x.id === id) { x.detruire(); plans.delete(x); } });
+      emettre();
+    });
+  }
+  async function selection(centre, id) {
+    return (await liste()).filter(function (p) { return (!id || p.id === id) && p.actif && p.etat === 'DISPONIBLE' && C.contient(p.manifeste.bounds, centre); })
+      .sort(function (a, b) { return a.manifeste.source.resolutionMetres - b.manifeste.source.resolutionMetres || b.maj.localeCompare(a.maj); })[0] || null;
+  }
+  async function disponible(centre) { var p = await selection(centre); return !!(p && (await verifier(p.cle)).ok); }
+  async function fond(map, options) {
+    options = options || {};
+    var abandon = false; map.once('unload', function () { abandon = true; });
+    var centre = options.centre || [map.getCenter().lat, map.getCenter().lng], p = await selection(centre, options.id);
+    if (!p || !global.L) return null;
+    var v = await verifier(p.cle);
+    if (!v.ok) { if (options.surEtat) options.surEtat('indisponible', v.message); return null; }
+    if (abandon || !map._container || !map._container.isConnected) return null;
+    var m = p.manifeste, L = global.L, parCle = Object.create(null), retirée = false;
+    m.tiles.forEach(function (t) { parCle[C.cleTuile(t)] = t; });
+    var Couche = L.GridLayer.extend({
+      createTile: function (coord, done) {
+        var canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+        var t = parCle[C.cleTuile(coord)];
+        if (!t) { setTimeout(function () { done(null, canvas); }, 0); return canvas; }
+        /* Canvas + ImageBitmap : pas de Blob URL gardée 60 s par le pont d'export Android. */
+        imageValide(p, t).then(async function (blob) {
+          if (retirée || !canvas.isConnected) { done(null, canvas); return; }
+          if (!blob) throw new Error('Image locale absente ou endommagée. Réparez cette carte.');
+          var im = await createImageBitmap(blob);
+          if (!retirée) canvas.getContext('2d').drawImage(im, 0, 0); im.close(); done(null, canvas);
+        }).catch(function (e) {
+          signalerReparation(p.cle, e.message).catch(function () {}); if (options.surEtat) options.surEtat('indisponible', e.message);
+          done(e, canvas); emettre();
+        });
+        return canvas;
+      }
+    });
+    var couche = new Couche({ tileSize: 256, minZoom: 0, maxZoom: 21, minNativeZoom: m.minZoom, maxNativeZoom: m.maxZoom,
+      bounds: [[m.bounds[1], m.bounds[0]], [m.bounds[3], m.bounds[2]]], noWrap: true, keepBuffer: 0,
+      updateWhenIdle: true, attribution: esc(m.source.attribution) });
+    /* En haut à droite : en bas, l'attribution obligatoire la recouvrait sur un écran de téléphone (constaté à 390 px). */
+    var notice = L.control({ position: 'topright' });
+    notice.onAdd = function () { var d = L.DomUtil.create('div', 'chl-couverture'); d.setAttribute('role', 'status'); this._texte = d; return d; };
+    function couverture() {
+      if (!notice._texte || retirée) return;
+      var b = map.getBounds(), hors = b.getWest() < m.bounds[0] || b.getEast() > m.bounds[2] || b.getSouth() < m.bounds[1] || b.getNorth() > m.bounds[3];
+      notice._texte.textContent = hors ? 'Fond de carte non téléchargé pour cette zone, en dehors du cadre vert.' :
+        'Satellite hors ligne · ' + m.source.resolutionMetres + ' m/pixel' + (map.getZoom() > m.maxZoom ? ' · image agrandie' : '');
+      if (options.surEtat) options.surEtat(hors ? 'partiel' : 'ok', notice._texte.textContent);
+    }
+    var cadre = L.rectangle([[m.bounds[1], m.bounds[0]], [m.bounds[3], m.bounds[2]]], { color: '#337b38', weight: 2, dashArray: '5 4', fill: false, interactive: false });
+    couche.addTo(map); cadre.addTo(map); notice.addTo(map); map.on('moveend zoomend', couverture); couverture();
+    var entree = { id: p.id, detruire: function () {
+      retirée = true; map.off('moveend zoomend', couverture); if (map.hasLayer(couche)) map.removeLayer(couche);
+      if (map.hasLayer(cadre)) map.removeLayer(cadre); notice.remove();
+    } };
+    plans.add(entree);
+    map.once('unload', function () { retirée = true; plans.delete(entree); });
+    return { couche: couche, nom: m.name, source: m.source.name, date_image: m.source.acquiredAt.slice(0, 10),
+      resolution_m: m.source.resolutionMetres, paquet: m,
+      message: 'Satellite téléchargé · ' + m.source.name + ' · ' + m.source.acquiredAt.slice(0, 10) + ' · ' + m.source.resolutionMetres + ' m/pixel. Les arbres proviennent de leurs repères GPS.' };
+  }
+  function volume(n) { return n < 1024 * 1024 ? Math.ceil(n / 1024) + ' Kio' : (n / (1024 * 1024)).toFixed(1) + ' Mio'; }
+  async function render(root, options) {
+    options = options || {};
+    var catalogueCourant = { zones: [] }, paquetCourant = [], vue = null, erreur = '', actif = true, actualisation = 0;
+    var retour = typeof options.retour === 'string' && /^#[a-z0-9/_-]+$/i.test(options.retour) ? options.retour : '#parcelles';
+    root.innerHTML = '<section class="chl"><div class="ops-route-head"><div><h1>Mes cartes hors ligne</h1><p>Téléchargez une zone avant votre mission.</p></div><a class="btn secondary" href="' + esc(retour) + '">Retour</a></div>' +
+      '<div class="chl-note"><b>Cartes satellite préparées</b><p>Cette première version propose des zones préparées au bureau. Le téléchargement enregistre toutes les images de la zone. Les parcelles, blocs et arbres restent gérés dans leurs fiches FBMS.</p></div>' +
+      '<div class="chl-outils"><label>Rechercher une zone<input type="search" id="chlRecherche" placeholder="Nom de la zone ou du village"></label><button type="button" data-chl="actualiser">Actualiser le catalogue</button></div>' +
+      '<p class="chl-message" id="chlMessage" role="status" aria-live="polite">Chargement du catalogue…</p><div id="chlZones" class="chl-zones"></div>' +
+      '<div id="chlApercu" hidden><h2 id="chlTitreCarte">Carte téléchargée</h2><div id="chlCarte" class="chl-carte" aria-label="Aperçu satellite de la zone téléchargée"></div><p>Le cadre vert délimite la zone téléchargée. Zoomer agrandit les pixels ; cela n’ajoute pas de détail.</p></div>' +
+      '<details class="chl-aide"><summary>Préparer la mission et préserver les données</summary><ol><li>Connectez-vous et préparez les fiches autorisées du champ dans FBMS.</li><li>Téléchargez la carte, puis vérifiez « Disponible hors ligne ».</li><li>Ouvrez le champ dans Repères GPS pour voir les positions enregistrées.</li><li>Sur le terrain, saisissez les coordonnées ; synchronisez au retour du réseau.</li></ol><p>Les téléchargements reprennent lorsque FBMS est ouvert. Supprimer une carte ne supprime aucune donnée terrain. Ne désinstallez pas l’application et n’effacez pas ses données Android.</p><p>Le stockage des cartes partage les ressources du téléphone avec les observations. Une marge est conservée ; Android peut néanmoins retirer un stockage non persistant. Vérifiez les cartes avant le départ.</p></details></section>';
+    var zonesEl = root.querySelector('#chlZones'), messageEl = root.querySelector('#chlMessage'), recherche = root.querySelector('#chlRecherche');
+    function present() { return actif && root.isConnected && root.querySelector('#chlZones') === zonesEl; }
+    function message(s) { if (present()) messageEl.textContent = s; }
+    function peindre() {
+      if (!present()) return;
+      var rechercheTexte = recherche.value.trim().toLocaleLowerCase('fr'), zones = catalogueCourant.zones.slice();
+      paquetCourant.forEach(function (p) { if (!zones.some(function (z) { return z.id === p.id; })) zones.push({ id: p.id, name: p.manifeste.name, version: p.manifeste.version,
+        bounds: p.manifeste.bounds, totalBytes: p.manifeste.totalBytes, acquiredAt: p.manifeste.source.acquiredAt, resolutionMetres: p.manifeste.source.resolutionMetres, localeSeulement: true }); });
+      zonesEl.innerHTML = zones.filter(function (z) { return !rechercheTexte || z.name.toLocaleLowerCase('fr').includes(rechercheTexte); }).map(function (z) {
+        var versions = paquetCourant.filter(function (p) { return p.id === z.id; }), ancien = versions.find(function (p) { return p.actif && p.etat === 'DISPONIBLE'; });
+        var nouveau = z.localeSeulement ? versions.find(function (p) { return p.actif; }) || versions[0] : versions.find(function (p) { return p.cle === clePaquet(z); });
+        var enCours = nouveau && nouveau.etat === 'EN_COURS', pret = nouveau && nouveau.actif && nouveau.etat === 'DISPONIBLE';
+        var statut = nouveau ? nouveau.etat === 'DISPONIBLE' && !nouveau.actif ? 'À réactiver' : ETATS[nouveau.etat] || 'Incomplet' : ancien ? 'Mise à jour à télécharger' : 'À télécharger';
+        var boutons = '';
+        if (ancien) boutons += '<button type="button" data-chl="ouvrir" data-id="' + z.id + '">Ouvrir la carte</button><button type="button" class="secondary" data-chl="verifier" data-id="' + z.id + '">Vérifier</button>';
+        if (enCours) boutons += '<button type="button" class="secondary" data-chl="interrompre" data-id="' + z.id + '">Interrompre</button>';
+        else if (!pret && !z.localeSeulement) boutons += '<button type="button" data-chl="telecharger" data-id="' + z.id + '">' + (nouveau ? nouveau.etat === 'A_REPARER' ? 'Réparer' : 'Reprendre' : ancien ? 'Mettre à jour' : 'Télécharger') + '</button>';
+        if (versions.length && !enCours) boutons += '<button type="button" class="secondary" data-chl="supprimer" data-id="' + z.id + '">Supprimer du téléphone</button>';
+        var adapte = options.centre && C.contient(z.bounds, options.centre);
+        return '<article class="chl-zone" data-zone="' + z.id + '"><h2>' + esc(z.name) + '</h2><p class="chl-etat' + (pret ? ' chl-pret' : '') + '">' + statut + '</p>' +
+          (adapte ? '<p>Cette carte couvre le point choisi.</p>' : '') + '<p>Satellite · ' + esc(z.acquiredAt.slice(0, 10)) + ' · ' + z.resolutionMetres + ' m/pixel</p>' +
+          '<p>Zone couverte : latitude ' + z.bounds[1].toFixed(4).replace('.', ',') + ' à ' + z.bounds[3].toFixed(4).replace('.', ',') +
+          ' ; longitude ' + z.bounds[0].toFixed(4).replace('.', ',') + ' à ' + z.bounds[2].toFixed(4).replace('.', ',') + '.</p>' +
+          '<p>Images à télécharger : ' + volume(z.totalBytes) + (versions.length ? ' · Images enregistrées : ' + volume(versions.reduce(function (s, p) { return s + (p.octets || 0); }, 0)) : '') + '</p>' +
+          (ancien ? '<p>Préparée le ' + esc(ancien.manifeste.preparedAt.slice(0, 10)) + ' · vérifiée sur ce téléphone le ' + esc((ancien.verifieLe || '').slice(0, 10)) + '.</p>' : '') +
+          (nouveau && (enCours || nouveau.etat !== 'DISPONIBLE') ? '<progress value="' + (nouveau.nombre || 0) + '" max="' + nouveau.manifeste.tileCount + '" aria-label="Avancement du téléchargement"></progress><p>' + (nouveau.nombre || 0) + ' / ' + nouveau.manifeste.tileCount + ' images</p>' : '') +
+          (ancien && (!pret || enCours) ? '<p>La dernière carte complète reste disponible.</p>' : '') +
+          (versions.length > 1 ? '<p>Les anciennes versions sont conservées et comptées dans l’espace utilisé.</p>' : '') +
+          (nouveau && nouveau.message ? '<p class="chl-erreur">' + esc(nouveau.message) + '</p>' : '') + '<div class="chl-actions">' + boutons + '</div></article>';
+      }).join('') || '<p>Aucune carte préparée ne correspond à cette recherche. Demandez la préparation de cette zone avant la mission.</p>';
+    }
+    var observateur = { root: root, rafraichir: async function () {
+      var n = ++actualisation;
+      try { var l = await liste(); if (n !== actualisation || !present()) return; paquetCourant = l; peindre(); }
+      catch (e) { message(e.message); }
+    } };
+    rendus.push(observateur); recherche.addEventListener('input', peindre);
+    async function actualiser(enLigne) {
+      try { catalogueCourant = await catalogue(enLigne); erreur = catalogueCourant.avertissement || ''; }
+      catch (e) { erreur = e.message; }
+      /* Ne pas afficher une ancienne disponibilité sans contrôler le contenu retrouvé
+         lors de l'ouverture du gestionnaire. Les contrôles restent progressifs en mémoire. */
+      var anciennes = await liste();
+      for (var p of anciennes) if (p.actif && p.etat === 'DISPONIBLE') await verifier(p.cle);
+      await observateur.rafraichir();
+      message(erreur || (catalogueCourant.cacheLocal ? 'Catalogue conservé sur ce téléphone. Les cartes se téléchargent avec une connexion.' : 'Choisissez une zone préparée. Les nouvelles zones sont préparées au bureau.'));
+    }
+    async function gererClic(event) {
+      if (!present()) return;
+      var bouton = event.target.closest('[data-chl]'); if (!bouton || !root.contains(bouton)) return;
+      var action = bouton.dataset.chl, id = bouton.dataset.id;
+      try {
+        if (action === 'actualiser') { await actualiser(true); return; }
+        if (action === 'interrompre') { interrompre(id); message('Interruption demandée. Les images vérifiées sont conservées.'); return; }
+        if (action === 'telecharger') {
+          var z = catalogueCourant.zones.find(function (x) { return x.id === id; });
+          if (!z) throw new Error('Actualisez le catalogue avant de télécharger.');
+          if (z.totalBytes >= 5 * 1024 * 1024 && !global.confirm('Télécharger ' + volume(z.totalBytes) + ' ? Votre connexion mobile peut être utilisée.')) return;
+          var existant = paquetCourant.find(function (p) { return p.cle === clePaquet(z); });
+          var e = await espace(Math.max(0, z.totalBytes - (existant && existant.octets || 0)));
+          if (!present()) return;
+          if (!e.mesure) message('Espace libre non mesurable : les cartes sont limitées à 16 Mio au total.');
+          bouton.disabled = true; await telecharger(id); message('Carte vérifiée et disponible hors ligne. Préparez aussi les fiches du champ.');
+        } else if (action === 'supprimer') {
+          if (!global.confirm('Supprimer cette carte du téléphone ? Les parcelles, arbres et observations sont conservés.')) return;
+          await supprimer(id); if (vue) { vue.remove(); vue = null; } if (present()) root.querySelector('#chlApercu').hidden = true; message('Carte supprimée. Les données terrain sont conservées.');
+        } else if (action === 'verifier') {
+          var p = paquetCourant.find(function (x) { return x.id === id && x.actif; });
+          var r = await verifier(p.cle); message(r.ok ? 'Toutes les images sont présentes et intègres sur ce téléphone.' : r.message);
+        } else if (action === 'ouvrir') {
+          var choisi = paquetCourant.find(function (x) { return x.id === id && x.actif; });
+          if (!global.L) throw new Error('Le moteur de carte est indisponible.');
+          if (vue) vue.remove(); root.querySelector('#chlApercu').hidden = false;
+          var b = choisi.manifeste.bounds; root.querySelector('#chlTitreCarte').textContent = choisi.manifeste.name;
+          vue = global.L.map(root.querySelector('#chlCarte')).fitBounds([[b[1], b[0]], [b[3], b[2]]]);
+          var f = await fond(vue, { id: choisi.id, centre: [(b[1] + b[3]) / 2, (b[0] + b[2]) / 2] });
+          if (!present()) return;
+          if (!f) throw new Error('Carte locale indisponible. Lancez la vérification ou la réparation.');
+          message(f.message); root.querySelector('#chlApercu').scrollIntoView({ block: 'nearest' });
+        }
+      } catch (e) { message(e.name === 'AbortError' ? 'Téléchargement interrompu. Vous pouvez le reprendre.' : e.message); }
+      finally { if (bouton.isConnected) bouton.disabled = false; await observateur.rafraichir(); }
+    }
+    root.addEventListener('click', gererClic);
+    var surveillance = new MutationObserver(function () {
+      if (present()) return;
+      actif = false; if (vue) vue.remove(); root.removeEventListener('click', gererClic);
+      recherche.removeEventListener('input', peindre); surveillance.disconnect(); rendus = rendus.filter(function (r) { return r !== observateur; });
+    });
+    surveillance.observe(document.body, { childList: true, subtree: true });
+    await actualiser(navigator.onLine !== false);
+  }
+  global.ANAGROCI_CARTES_HORS_LIGNE = { catalogue: catalogue, liste: liste, telecharger: telecharger, interrompre: interrompre,
+    supprimer: supprimer, verifier: verifier, disponible: disponible, fond: fond, render: render, espace: espace,
+    CATALOGUE_URL: CATALOGUE, ETATS: ETATS };
+})(window);
