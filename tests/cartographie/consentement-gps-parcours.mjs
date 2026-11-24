@@ -55,7 +55,7 @@ test('a captured point is never auto-verified',()=>{
   assert.doesNotMatch(pc,/gps_verified_area/);
 });
 test('browser cache bust after code changes',()=>{
-  assert.match(html,/field-buying\.js\?v=20261123-reperes-gps-1/);
+  assert.match(html,/field-buying\.js\?v=20261124-reseau-1/);
   assert.match(html,/parcelles\.js\?v=20261124-cartes-hors-ligne-1/);
   assert.match(html,/parcelles-coeur\.js\?v=20261122-citations-1/);
   assert.match(html,/parcelles\.css\?v=20261122-parcours-1/);
